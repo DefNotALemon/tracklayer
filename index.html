@@ -1055,7 +1055,7 @@ function readInput(dt) {
 
 /* ---------------- physics ---------------- */
 const MASS = 280, G = 15.5;
-const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
 function resetSled() {
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
@@ -1267,8 +1267,24 @@ function physStep(dt) {
     P.drag = 5600 * exc * ST.drag;
     const Fs = P.drag + (P.ice ? 140 : lerp(260, 60, P.rock)) + 0.9 * sp * sp;
     if (sp > 0.01) { const dv = Math.min(sp, Fs / MASS * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
-    const grip = lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
-    const vl = vx * lx + vz * lz, nvl = vl * Math.exp(-grip * dt); vx += (nvl - vl) * lx; vz += (nvl - vl) * lz;
+    const grip = lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
+    // ruts: a packed trail is a groove, and the sled settles into it unless you steer out
+    let rut = 0;
+    if (!P.ice) {
+      const sp0 = Math.hypot(vx, vz);
+      if (sp0 > 2.5) {
+        const o = 0.7, bx = P.x + fx * 1.1, bz = P.z + fz * 1.1;
+        const hl = surf(bx + lx * o, bz + lz * o), hr = surf(bx - lx * o, bz - lz * o), hc = surf(bx, bz);
+        const lo = Math.min(hl, hr, hc), hi = Math.max(hl, hr, hc);
+        rut = clamp((hi - lo) / 0.2, 0, 1);                          // is there a groove within a sled width
+        const fall = clamp((hl - hr) / (2 * o), -0.9, 0.9);          // downhill across the track = toward the trail
+        const pull = fall * rut * 16 * (1 - Math.abs(input.steer) * 0.85) * clamp(sp0 / 10, 0, 1);
+        vx -= lx * pull * dt; vz -= lz * pull * dt;
+      }
+    }
+    const gripR = grip * (1 + rut * 0.6);
+    const vl = vx * lx + vz * lz, nvl = vl * Math.exp(-gripR * dt); vx += (nvl - vl) * lx; vz += (nvl - vl) * lz;
+    P.rut = rut;
     // spray
     const spd = Math.hypot(vx, vz);
     sprayAcc += (exc * 60 + 0.4 + (P.ice ? 0 : Math.abs(vl) * 0.8)) * Math.min(spd, 30) * dt * (P.ice ? 0.3 : 1);
@@ -1281,7 +1297,7 @@ function physStep(dt) {
   } else P.drag *= 0.9;
   if (gnd && input.hop) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
   input.hop = false;
-  if (P.airT > 0.05) {
+  if (P.airT > 0.12) {
     // in the air you can still work the sled: throttle lifts the nose, brake drops it,
     // steering rolls you, and the lean button flattens everything out
     P.airPV += (input.thr * 2.6 - input.brk * 2.8) * dt;
@@ -1303,12 +1319,12 @@ function physStep(dt) {
   const hs2 = surf(P.x, P.z), sv = vx * gx + vz * gz;
   const impact = Math.max(0, sv - P.vy);
   if (P.y <= hs2) { P.y = hs2; if (P.vy < sv) P.vy = sv; }
-  else P.airT += dt;
-  const wasAir = P.airT;
+  else { P.airT += dt; P.airPeak = Math.max(P.airPeak, P.y - hs2); }
+  const wasAir = P.airT, peak = P.airPeak;
   P.gnd = P.y <= hs2 + 0.12;
   // a landing counts the moment the skis are back on the snow — deep powder swallows the
   // hard contact, so this can't wait for a clean surface hit
-  if (P.gnd && wasAir > 0.14) {
+  if (P.gnd && wasAir > 0.3 && peak > 0.32) {      // a real jump, not a bump
     const att = Math.abs(P.airP) + Math.abs(P.airR) * 1.25;      // how far off flat you came down
     if (att > 0.55) {
       const bite = Math.min(0.62, 0.22 + att * 0.3);
@@ -1323,8 +1339,8 @@ function physStep(dt) {
       P.shake = Math.max(P.shake, Math.min(1, impact / 12) * (ST.soak ? 0.6 : 1));
       if (P.launched > 0 && impact > 2.5 && started && !GS.dead) toast("Stuck the landing.", "good");
     }
-    P.airPV = P.airRV = 0; P.airP *= 0.25; P.airR *= 0.25; P.launched = 0; P.airT = 0;
-  }
+    P.airPV = P.airRV = 0; P.airP *= 0.25; P.airR *= 0.25; P.launched = 0; P.airT = 0; P.airPeak = 0;
+  } else if (P.gnd) { P.airT = 0; P.airPeak = 0; }
   collide(fx, fz);
   P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt;
 }
@@ -1583,7 +1599,7 @@ function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
   const stt = P.ice ? "ICE" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
-  $("bonus").textContent = P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("bonus").textContent = P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   $("dragFill").style.width = clamp(P.drag / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag) + " N";
   const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
