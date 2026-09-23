@@ -145,7 +145,7 @@
   <div id="jobList"></div>
   <div class="bsec">Sled shop</div>
   <div id="upgList"></div>
-  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, and late urgent jobs pay half.</div>
+  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, any damaged cargo means no free fuel at the cabin, and late urgent jobs pay half.</div>
 </div>
 
 <div class="panel" id="settings" hidden>
@@ -1424,24 +1424,28 @@ function buyUpg(k) {
 }
 function applyUpg() { GS.cap = 18 + (GS.up.tank ? 10 : 0) + (GS.up.cans ? 12 : 0); GS.fuel = Math.min(GS.fuel, GS.cap); }
 function cargoHit(v) {
-  if (!GS.job || !GS.job.fragile || v < (GS.up.susp ? 9 : 6)) return;
-  GS.hits++; toast(`Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}).`, "warn");
+  if (!GS.job || v < (GS.up.susp ? 9 : 6)) return;
+  GS.hits++;
+  if (GS.job.fragile) toast(`Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}). No free fuel for damaged goods.`, "warn");
+  else if (GS.hits === 1) toast("Cargo took a knock. It'll still pay, but they won't top off your tank for damaged goods.", "warn");
 }
 function deliver() {
   const j = GS.job, s = j.dest;
   let p = j.pay; const notes = [];
-  if (j.fragile && GS.hits) { p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
+  const damaged = GS.hits > 0; // any hard hit counts, fragile or not; only fragile cargo loses pay
+  if (damaged) { if (j.fragile) p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
   if (j.due && GS.hour > j.due) { p *= 0.5; notes.push("late"); }
   p = Math.round(p); GS.cash += p; GS.delivered++; GS.job = null;
   toast(`Delivered to ${s.name}: +$${p}${notes.length ? " (" + notes.join(", ") + ")" : ""}`, "good");
   if (s.type !== "depot") {
-    GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
+    if (!damaged) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
+    const fuelNote = damaged ? "They saw the damage and kept their fuel" : "They topped off your tank";
     if (Math.random() < 0.6) {
       const dist = Math.hypot(s.x - depot.x, s.z - depot.z);
       GS.job = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null };
       GS.hits = 0;
-      setTimeout(() => toast(`They topped off your tank and handed you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
-    } else setTimeout(() => toast("They topped off your tank. Head back to the station for more work."), 1400);
+      setTimeout(() => toast(`${fuelNote} and handed you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
+    } else setTimeout(() => toast(`${fuelNote}. Head back to the station for more work.`), 1400);
   } else setTimeout(() => toast("Press E for the job board."), 1400);
   save();
 }
