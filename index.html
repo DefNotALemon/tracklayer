@@ -32,7 +32,8 @@
   #dragFill{height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--frost));transition:width .15s}
   #dragLbl{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;color:var(--slate);text-transform:uppercase;margin-top:-4px}
   #mapWrap{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:8px}
-  #map{display:block;width:180px;height:180px;border-radius:3px}
+  #map{display:block;width:180px;height:180px;border-radius:50%;box-shadow:0 0 0 1px var(--line),0 6px 18px rgba(0,0,0,.35)}
+  #mapWrap{border-radius:14px}
   #mapWrap .cap{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);display:flex;justify-content:space-between;gap:10px;padding:6px 2px 0}
   #help{top:calc(16px + env(safe-area-inset-top,0px));right:16px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--frost)}
   #help b{font-family:var(--display);font-weight:800;letter-spacing:.08em;color:var(--signal);display:inline-block;min-width:4.6em}
@@ -88,7 +89,9 @@
   #settings .setrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   #settings label{font-size:13px;color:var(--slate);min-width:4.5em}
   #settings input[type=range]{flex:1;min-width:140px;accent-color:var(--signal)}
-  #swatches{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+  #swatches,#jacketSw,#trimSw,#pantsSw,#styleBtns{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+  .sbtn.st{font-size:13px;padding:5px 10px}
+  .sbtn.st.on{border-color:var(--signal);color:var(--frost);background:rgba(255,90,31,.16)}
   .sw{width:30px;height:30px;border-radius:5px;border:2px solid transparent;cursor:pointer;padding:0}
   .sw:hover{border-color:rgba(234,242,248,.5)}
   .sw.on{border-color:var(--frost);box-shadow:0 0 0 2px rgba(13,24,34,.9) inset}
@@ -99,6 +102,12 @@
   .xbtn:hover{color:var(--frost)}
   #settings .hint{font-size:13px;color:var(--slate)}
   #settings .hint b{color:var(--frost)}
+  #bigmap{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;background:rgba(9,16,24,.93);backdrop-filter:blur(3px)}
+  #bigmapC{width:min(76vh,calc(100vw - 32px));height:min(76vh,calc(100vw - 32px));border-radius:8px;border:1px solid var(--line)}
+  .bmhead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;width:min(76vh,calc(100vw - 32px));flex-wrap:wrap}
+  .bmlegend{display:flex;gap:14px;font-size:13px;color:var(--slate);flex-wrap:wrap}
+  .bmlegend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+  .bmlegend .depot{background:#7fc8e0}.bmlegend .cab{background:#eaf2f8}.bmlegend .job{background:#ff5a1f;border-radius:50%}.bmlegend .tr{background:#ff5a1f;height:3px;width:16px;vertical-align:3px}
   #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
   @keyframes fadein{from{opacity:0}}
   #blackMsg{max-width:44ch;text-align:center;font-size:18px;line-height:1.5;display:grid;gap:10px}
@@ -145,7 +154,7 @@
   <div id="jobList"></div>
   <div class="bsec">Sled shop</div>
   <div id="upgList"></div>
-  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, any damaged cargo means no free fuel at the cabin, and late urgent jobs pay half.</div>
+  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, and late urgent jobs pay half.</div>
 </div>
 
 <div class="panel" id="settings" hidden>
@@ -153,18 +162,29 @@
   <div class="bsec">Sled colour</div>
   <div class="setrow"><div id="swatches"></div><span id="colorSwatch" class="chip"></span></div>
   <div class="setrow"><label for="hue">Any hue</label><input id="hue" type="range" min="0" max="360" value="18"></div>
+  <div class="bsec">Rider</div>
+  <div class="setrow"><label>Jacket</label><div id="jacketSw"></div></div>
+  <div class="setrow"><label>Trim</label><div id="trimSw"></div></div>
+  <div class="setrow"><label>Snow pants</label><div id="pantsSw"></div></div>
+  <div class="setrow"><label>Style</label><div id="styleBtns"></div><button id="randomKit" class="sbtn">Random kit</button></div>
   <div class="bsec">Sound</div>
   <div class="setrow"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="100" value="35"><button id="muteBtn" class="sbtn">Sound: on</button></div>
   <div class="bsec">Camera</div>
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
-  <div class="bfoot"><b>Esc</b> closes. Colour and volume are remembered next time.</div>
+  <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the full map.</div>
+</div>
+
+<div id="bigmap" hidden>
+  <div class="bmhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">The backcountry</div></div><div class="bmlegend"><span><i class="k depot"></i>Station</span><span><i class="k cab"></i>Cabin</span><span><i class="k job"></i>Your drop</span><span><i class="k tr"></i>Your trail</span></div></div>
+  <canvas id="bigmapC" width="1100" height="1100"></canvas>
+  <div class="bfoot"><b>M</b> or <b>Esc</b> closes. The sled keeps rolling while this is open.</div>
 </div>
 
 <div id="black" hidden><div id="blackMsg"></div></div>
 
 <div class="hud panel" id="mapWrap" hidden>
   <canvas id="map" width="360" height="360"></canvas>
-  <div class="cap"><span>Your trail</span><span id="dist">0.0 km</span></div>
+  <div class="cap"><span>Trail · 0.6 km across</span><span id="dist">0.0 km</span></div>
 </div>
 
 <div class="hud panel" id="help" hidden>
@@ -176,8 +196,8 @@
   <div><b>R</b>Reset sled</div>
   <div><b>E</b>Job board (at station)</div>
   <div><b>F</b>Call a tow ($100)</div>
-  <div><b>V</b>Cycle view</div>
-  <div><b>Esc</b>Settings · <b style="min-width:0">M</b> Mute · <b style="min-width:0">H</b> Hide</div>
+  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
+  <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
 </div>
 
 <div class="hud panel" id="flip" hidden>STUCK? PRESS R</div>
@@ -195,6 +215,7 @@
       <span><kbd>R</kbd>Reset</span>
       <span><kbd>E</kbd>Job board</span>
       <span><kbd>V</kbd>View</span>
+      <span><kbd>M</kbd>Map</span>
       <span><kbd>Esc</kbd>Settings</span>
       <span><kbd>F</kbd>Tow</span>
       <span>Gamepad works too</span>
@@ -671,47 +692,164 @@ function buildProps() {
   lm.castShadow = true; scene.add(lm);
 }
 
-/* ---------------- sled ---------------- */
+/* ---------------- sled + rider ---------------- */
 const sledRoot = new THREE.Group(), sledBody = new THREE.Group(), skiPivots = [], barPivot = new THREE.Group();
-let bodyMat = null, riderHead = [];
+let bodyMat = null, jacketMat = null, accentMat = null, pantsMat = null, riderHead = [], styleParts = {};
 sledRoot.add(sledBody); scene.add(sledRoot);
 sledRoot.rotation.order = "YXZ";
 (function buildSled() {
   const std = (c, r = 0.6, m = 0.05, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, extra || {}));
-  bodyMat = std(0xff5a1f, 0.42, 0.1);
-  const orange = bodyMat, dark = std(0x1a2027, 0.85), black = std(0x0c0f12, 0.95), steel = std(0x9aa6b2, 0.35, 0.6), navy = std(0x1c2c44, 0.8);
-  const glass = std(0x9fc4dc, 0.1, 0.1, { transparent: true, opacity: 0.45 });
-  const box = (w, h, d, mat, x, y, z, rx = 0, parent = sledBody) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; parent.add(m); return m; };
-  box(0.5, 0.24, 2.0, black, 0, 0.13, -0.55);          // track
-  box(0.64, 0.24, 2.1, dark, 0, 0.36, -0.55);           // tunnel
-  box(0.92, 0.46, 1.1, orange, 0, 0.56, 0.72);          // hood
-  box(0.82, 0.28, 0.55, orange, 0, 0.42, 1.38, 0.38);   // nose
-  box(0.5, 0.2, 1.05, dark, 0, 0.6, -0.45);             // seat
-  box(0.66, 0.06, 0.5, orange, 0, 0.5, -1.45);          // rear flap/rack
-  cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
-  box(0.56, 0.4, 0.46, std(0x7a5a3a, 0.9), 0, 0.74, -1.45, 0, cargoMesh); box(0.6, 0.06, 0.08, orange, 0, 0.95, -1.45, 0, cargoMesh);
-  const shield = box(0.82, 0.42, 0.04, glass, 0, 0.96, 0.38, -0.55);   // windshield
-  barPivot.position.set(0, 0.93, 0.18); sledBody.add(barPivot);
-  box(0.72, 0.045, 0.045, steel, 0, 0, 0, 0, barPivot);   // handlebar
-  box(0.08, 0.06, 0.06, black, 0.33, 0, 0, 0, barPivot); box(0.08, 0.06, 0.06, black, -0.33, 0, 0, 0, barPivot);
-  const lamp = box(0.32, 0.1, 0.04, std(0xfff4d6, 0.3, 0, { emissive: 0xfff0c8, emissiveIntensity: 1.6 }), 0, 0.55, 1.29, 0.38);
-  lamp.castShadow = false;
-  for (const s of [-0.52, 0.52]) {
-    const pv = new THREE.Group(); pv.position.set(s, 0, 0.95); sledBody.add(pv); skiPivots.push(pv);
-    box(0.14, 0.04, 1.7, steel, 0, 0.03, 0.1, 0, pv);
-    box(0.14, 0.04, 0.34, steel, 0, 0.12, 1.03, -0.62, pv);
-    box(0.06, 0.42, 0.06, dark, 0, 0.24, 0, 0, pv);
-    box(0.4, 0.05, 0.06, dark, s * 0.6, 0.42, 0.95);
+  bodyMat = std(0xff5a1f, 0.38, 0.15);
+  jacketMat = std(0x1d3f6e, 0.75); accentMat = std(0xeef2f5, 0.7); pantsMat = std(0x232a33, 0.85);
+  const body = bodyMat, dark = std(0x1a2027, 0.8), black = std(0x0c0f12, 0.95), rubber = std(0x14181d, 0.98),
+    steel = std(0x9aa6b2, 0.32, 0.7), chrome = std(0xc8d2dc, 0.2, 0.85), glove = std(0x11161c, 0.85),
+    glass = std(0xbfe0f2, 0.05, 0.05, { transparent: true, opacity: 0.22, depthWrite: false }),
+    lampMat = std(0xfff4d6, 0.25, 0, { emissive: 0xfff0c8, emissiveIntensity: 1.8 }),
+    tailMat = std(0x8c1414, 0.4, 0, { emissive: 0xff2a1a, emissiveIntensity: 0.9 }),
+    skin = std(0xc98a63, 0.85), boot = std(0x15191f, 0.9), helmetMat = std(0xf2f5f8, 0.25, 0.15), visorMat = std(0x0d141c, 0.08, 0.6);
+
+  const put = (m, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody) => {
+    m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; parent.add(m); return m;
+  };
+  const box = (w, h, d, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody) =>
+    put(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), x, y, z, rx, ry, rz, parent);
+  const cyl = (rt, rb, h, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody, seg = 10) =>
+    put(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat), x, y, z, rx, ry, rz, parent);
+  const ball = (r, mat, x, y, z, parent = sledBody, sx = 1, sy = 1, sz = 1) => {
+    const m = put(new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat), x, y, z, 0, 0, 0, parent);
+    m.scale.set(sx, sy, sz); return m;
+  };
+  // a limb: capsule from a to b
+  const limb = (r, ax, ay, az, bx, by, bz, mat, parent) => {
+    const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz);
+    const g = new THREE.Group(); g.position.set(ax, ay, az); (parent || sledBody).add(g);
+    g.lookAt(new THREE.Vector3(bx, by, bz).sub(new THREE.Vector3(ax, ay, az)).add(g.position));
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, len, 10), mat);
+    m.rotation.x = Math.PI / 2; m.position.z = len / 2; m.castShadow = true; g.add(m);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(r * 0.95, 10, 8), mat); cap.position.z = len; cap.castShadow = true; g.add(cap);
+    return g;
+  };
+
+  /* ---- running gear ---- */
+  // track: belt loop with lugs, on a slide rail
+  const tr = new THREE.Group(); sledBody.add(tr);
+  box(0.52, 0.34, 1.9, rubber, 0, 0.19, -0.55, 0, 0, 0, tr);
+  for (let i = 0; i < 16; i++) {           // lugs along the bottom run
+    box(0.56, 0.05, 0.07, rubber, 0, 0.015, -1.45 + i * 0.12, 0, 0, 0, tr);
   }
-  // rider
-  box(0.46, 0.22, 0.6, navy, 0, 0.8, -0.4);             // thighs
-  box(0.5, 0.62, 0.34, navy, 0, 1.13, -0.42, 0.22);     // torso
-  box(0.14, 0.12, 0.55, navy, 0.24, 1.18, -0.05, 0.5);  // arms
-  box(0.14, 0.12, 0.55, navy, -0.24, 1.18, -0.05, 0.5);
-  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), std(0xeef2f5, 0.3, 0.1)); helm.position.set(0, 1.58, -0.3); helm.castShadow = true; sledBody.add(helm);
-  const visor = box(0.3, 0.1, 0.1, std(0x111820, 0.15, 0.4), 0, 1.58, -0.14);  // visor
-  const stripe = box(0.06, 0.08, 0.36, orange, 0, 1.75, -0.3);         // helmet stripe
-  riderHead = [helm, visor, stripe, shield];
+  cyl(0.19, 0.19, 0.5, rubber, 0, 0.19, -1.46, 0, 0, Math.PI / 2, tr, 14);   // rear idler
+  cyl(0.17, 0.17, 0.5, rubber, 0, 0.19, 0.34, 0, 0, Math.PI / 2, tr, 14);    // drive sprocket
+  for (const s of [-0.16, 0.16]) cyl(0.09, 0.09, 0.05, steel, s, 0.1, -0.95, 0, 0, Math.PI / 2, tr, 10);
+  box(0.06, 0.5, 0.06, steel, 0, 0.5, -1.0, 0.5, 0, 0, tr);                  // rear shock
+  cyl(0.05, 0.05, 0.42, chrome, 0, 0.52, -0.55, 0.9, 0, 0, tr, 8);
+
+  // tunnel + running boards + heat exchanger ribs
+  box(0.6, 0.3, 1.9, dark, 0, 0.48, -0.5);
+  cyl(0.16, 0.16, 0.6, dark, 0, 0.56, -1.44, 0, 0, Math.PI / 2, sledBody, 12);   // rounded tail
+  box(0.66, 0.05, 2.0, body, 0, 0.64, -0.55);
+  for (const s of [-1, 1]) {
+    box(0.26, 0.04, 1.35, dark, s * 0.44, 0.35, -0.6, 0, 0, s * 0.18);        // running board
+    for (let i = 0; i < 6; i++) box(0.02, 0.05, 0.16, steel, s * 0.31, 0.44, -1.2 + i * 0.28);
+    box(0.03, 0.24, 1.2, dark, s * 0.31, 0.5, -0.62);                          // side panel
+  }
+  box(0.56, 0.07, 0.32, dark, 0, 0.66, -1.58, 0.18);                           // rear rack
+  box(0.5, 0.04, 0.26, rubber, 0, 0.5, -1.72, 0.5);                            // snow flap
+  box(0.2, 0.06, 0.04, tailMat, 0, 0.7, -1.72, 0.18).castShadow = false;     // tail light
+
+  /* ---- chassis & body panels ---- */
+  // hood: a rounded shell over the engine bay, tapering into the nose
+  box(0.7, 0.3, 0.7, dark, 0, 0.8, 0.36);                                      // engine bay, tucked inside the shell
+  ball(0.52, body, 0, 0.84, 0.5, sledBody, 0.88, 0.55, 1.35);                  // hood shell
+  ball(0.4, body, 0, 0.8, 1.05, sledBody, 0.82, 0.52, 1.05);                   // nose
+  cyl(0.16, 0.3, 0.5, body, 0, 0.78, 1.2, Math.PI / 2 - 0.25, 0, 0, sledBody, 12);  // nose taper
+  box(0.5, 0.14, 0.06, black, 0, 0.78, 1.36, 0.35);                            // grille
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 3; i++) box(0.02, 0.06, 0.2, dark, s * 0.44, 0.78 + i * 0.09, 0.85 + i * 0.03, 0, 0, 0);  // louvres
+    box(0.02, 0.2, 0.5, dark, s * 0.45, 0.8, 0.45);                            // side panel accent
+  }
+  box(0.66, 0.2, 0.18, black, 0, 0.72, 1.24, 0.3);                             // nose cap
+  cyl(0.035, 0.035, 0.72, chrome, 0, 0.52, 1.32, 0, 0, Math.PI / 2, sledBody, 8);   // front bumper
+  for (const s of [-1, 1]) cyl(0.03, 0.03, 0.3, chrome, s * 0.34, 0.6, 1.25, 0.9, 0, 0, sledBody, 8);
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.05), lampMat), 0, 0.86, 1.19, 0.3).castShadow = false;
+  box(0.1, 0.05, 0.04, lampMat, 0.28, 0.8, 1.14, 0.3).castShadow = false;
+  box(0.1, 0.05, 0.04, lampMat, -0.28, 0.8, 1.14, 0.3).castShadow = false;
+
+  // windshield: three angled panes so it reads as curved
+  const shield = new THREE.Group(); sledBody.add(shield);
+  box(0.5, 0.4, 0.03, glass, 0, 1.3, 0.78, -0.5, 0, 0, shield);
+  box(0.2, 0.36, 0.03, glass, 0.31, 1.28, 0.74, -0.5, -0.55, 0, shield);
+  box(0.2, 0.36, 0.03, glass, -0.31, 1.28, 0.74, -0.5, 0.55, 0, shield);
+  box(0.56, 0.05, 0.04, body, 0, 1.47, 0.7, -0.5, 0, 0, shield);
+
+  // seat: bolster + tapered cushion
+  box(0.44, 0.14, 1.0, black, 0, 0.98, -0.42);
+  ball(0.3, dark, 0, 1.0, -0.4, sledBody, 0.72, 0.42, 1.7);                    // rounded cushion
+  ball(0.26, dark, 0, 1.06, -0.92, sledBody, 0.64, 0.5, 0.7);                  // backrest bolster
+  cyl(0.02, 0.02, 0.3, chrome, 0, 1.12, -1.12, 0, 0, Math.PI / 2, sledBody, 8);   // grab handle
+
+  /* ---- front suspension + skis ---- */
+  for (const s of [-1, 1]) {
+    limb(0.035, s * 0.24, 0.62, 0.92, s * 0.48, 0.44, 0.92, dark);              // upper A-arm
+    limb(0.035, s * 0.24, 0.38, 0.86, s * 0.48, 0.26, 0.92, dark);              // lower A-arm
+    limb(0.045, s * 0.26, 0.92, 0.8, s * 0.46, 0.34, 0.92, chrome);              // shock
+    cyl(0.07, 0.07, 0.16, body, s * 0.3, 0.86, 0.83, 0.3, 0, s * 0.35, sledBody, 8);       // spring top
+  }
+  for (const s of [-0.5, 0.5]) {
+    const pv = new THREE.Group(); pv.position.set(s, 0, 0.92); sledBody.add(pv); skiPivots.push(pv);
+    box(0.16, 0.05, 1.25, steel, 0, 0.03, -0.05, 0, 0, 0, pv);                  // ski body
+    box(0.16, 0.05, 0.3, steel, 0, 0.09, 0.66, -0.5, 0, 0, pv);                 // curled tip
+    box(0.16, 0.05, 0.18, steel, 0, 0.2, 0.8, -0.95, 0, 0, pv);
+    box(0.04, 0.05, 1.1, steel, 0, -0.01, -0.05, 0, 0, 0, pv);                  // keel
+    box(0.2, 0.06, 0.24, dark, 0, 0.12, 0.05, 0, 0, 0, pv);                     // saddle
+    cyl(0.03, 0.03, 0.34, steel, 0, 0.26, 0.02, 0, 0, 0, pv, 8);                // spindle
+  }
+
+  /* ---- bars ---- */
+  barPivot.position.set(0, 1.44, 0.34); sledBody.add(barPivot);
+  cyl(0.022, 0.022, 0.78, steel, 0, 0, 0, 0, 0, Math.PI / 2, barPivot, 8);      // cross bar
+  box(0.2, 0.03, 0.03, steel, 0, 0.06, 0, 0, 0, 0, barPivot);                   // cross brace
+  cyl(0.03, 0.03, 0.2, dark, 0, -0.1, 0.0, 0, 0, 0, barPivot, 8);               // riser
+  for (const s of [-1, 1]) {
+    cyl(0.028, 0.028, 0.14, rubber, s * 0.32, 0, 0, 0, 0, Math.PI / 2, barPivot, 10);       // grip
+    box(0.16, 0.14, 0.03, dark, s * 0.34, 0.02, 0.06, -0.3, 0, 0, barPivot);                // handguard
+  }
+  box(0.09, 0.02, 0.05, steel, 0.3, 0.035, 0.03, 0, 0, 0, barPivot);            // throttle lever
+  box(0.09, 0.02, 0.05, steel, -0.3, 0.035, 0.03, 0, 0, 0, barPivot);           // brake lever
+
+  /* ---- cargo ---- */
+  cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
+  box(0.5, 0.36, 0.42, std(0x8a6a42, 0.9), 0, 0.86, -1.58, 0.25, 0, 0, cargoMesh);
+  box(0.54, 0.05, 0.07, body, 0, 1.05, -1.56, 0.25, 0, 0, cargoMesh);
+  box(0.06, 0.05, 0.46, body, 0, 1.04, -1.58, 0.25, 0, 0, cargoMesh);
+
+  /* ---- rider ---- */
+  const rider = new THREE.Group(); sledBody.add(rider);
+  for (const s of [-1, 1]) {
+    box(0.15, 0.1, 0.32, boot, s * 0.3, 0.4, -0.3, 0.1, 0, 0, rider);                       // boot on the board
+    limb(0.085, s * 0.29, 0.5, -0.3, s * 0.27, 0.72, -0.1, pantsMat, rider);                // shin
+    limb(0.105, s * 0.19, 0.94, -0.46, s * 0.27, 0.74, -0.12, pantsMat, rider);             // thigh
+  }
+  ball(0.26, pantsMat, 0, 0.98, -0.5, rider, 0.86, 0.72, 1.0);                              // hips
+  const torso = box(0.42, 0.46, 0.34, jacketMat, 0, 1.3, -0.5, 0.22, 0, 0, rider);          // jacket
+  ball(0.25, jacketMat, 0, 1.42, -0.44, rider, 1.02, 0.92, 0.88);                           // chest volume
+  ball(0.16, jacketMat, 0, 1.56, -0.44, rider, 1.0, 0.7, 0.9);                              // collar
+  styleParts.shoulders = [];
+  for (const s of [-1, 1]) {
+    styleParts.shoulders.push(ball(0.135, accentMat, s * 0.21, 1.44, -0.44, rider, 1, 1, 1.1));
+    limb(0.085, s * 0.22, 1.43, -0.42, s * 0.3, 1.34, 0.06, jacketMat, rider);              // upper arm
+    limb(0.072, s * 0.3, 1.34, 0.02, s * 0.32, 1.43, 0.3, jacketMat, rider);                  // forearm up to the grip
+    box(0.11, 0.11, 0.17, glove, s * 0.32, 1.44, 0.34, 0, 0, 0, rider);                       // glove on the grip
+    styleParts["band" + s] = box(0.1, 0.07, 0.1, accentMat, s * 0.31, 1.38, 0.14, 0, 0, 0, rider);   // sleeve band
+  }
+  styleParts.stripe = box(0.08, 0.4, 0.05, accentMat, 0, 1.32, -0.33, 0.22, 0, 0, rider);   // chest stripe
+  styleParts.back = box(0.28, 0.09, 0.05, accentMat, 0, 1.34, -0.67, 0.22, 0, 0, rider);    // back band
+  box(0.24, 0.28, 0.14, std(0x2a3038, 0.9), 0, 1.36, -0.7, 0.22, 0, 0, rider);              // small pack
+  const neck = cyl(0.07, 0.07, 0.09, glove, 0, 1.6, -0.42, 0, 0, 0, rider, 8);
+  const helm = ball(0.2, helmetMat, 0, 1.72, -0.4, rider, 1, 1.05, 1.08);                   // helmet
+  const chin = box(0.25, 0.13, 0.2, helmetMat, 0, 1.65, -0.28, 0.1, 0, 0, rider);
+  const visor = box(0.29, 0.13, 0.11, visorMat, 0, 1.73, -0.25, 0.05, 0, 0, rider);
+  const hstripe = box(0.07, 0.1, 0.34, accentMat, 0, 1.88, -0.41, 0, 0, 0, rider);
+  riderHead = [helm, chin, visor, hstripe, neck, shield];
 })();
 
 /* ---------------- particles ---------------- */
@@ -801,7 +939,7 @@ addEventListener("keydown", e => {
   if (e.code === "Space") input.hop = true;
   if (e.code === "KeyR") resetSled();
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
-  if (e.code === "KeyM") { muted = !muted; applySettings(); toast(muted ? "Muted" : "Sound on"); }
+  if (e.code === "KeyM") toggleBigMap();
   if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
   gameKey(e);
 });
@@ -1086,47 +1224,112 @@ function updAudio(spd) {
   audio.wind.g.gain.setTargetAtTime(0.05 + Math.min(0.3, spd / 45 * 0.3), t, 0.2);
 }
 
-/* ---------------- minimap ---------------- */
+/* ---------------- minimap: circular, heading-up, shaded relief ---------------- */
 const mapC = $("map"), mctx = mapC.getContext("2d"), MS = mapC.width;
+const MB = 768, MZOOM = 620;                       // relief canvas resolution, and metres across the dial
 const mapBg = document.createElement("canvas"), mapTrail = document.createElement("canvas");
-mapBg.width = mapBg.height = mapTrail.width = mapTrail.height = MS;
+mapBg.width = mapBg.height = mapTrail.width = mapTrail.height = MB;
 const tctx = mapTrail.getContext("2d");
+const M2SRC = MB / WORLD, M2DISP = MS / MZOOM;
 function buildMapBg() {
-  const g = mapBg.getContext("2d"), img = g.createImageData(MS, MS);
-  for (let j = 0; j < MS; j++) for (let i = 0; i < MS; i++) {
-    const x = (i + 0.5) / MS * WORLD - HALF, z = (j + 0.5) / MS * WORLD - HALF;
-    const h = groundAt(x, z), hx = (groundAt(x + 12, z) - groundAt(x - 12, z)) / 24, b = bioAt(x, z), o = (j * MS + i) * 4;
-    let v = 200 + clamp(h / 3.2, 0, 45) - clamp(hx * 90, -40, 40);
-    let r = v * 0.9, gg = v * 0.95, bl = v;
-    if (b === 1) { r = 120; gg = 170; bl = 200; }
-    else if (b === 2) { r = v * 0.55; gg = v * 0.66; bl = v * 0.66; }
-    else if (sampleG(freshG, x, z) < 0.12) { r = gg = bl = v * 0.5; }
+  const g = mapBg.getContext("2d"), img = g.createImageData(MB, MB), st = WORLD / MB;
+  for (let j = 0; j < MB; j++) for (let i = 0; i < MB; i++) {
+    const x = (i + 0.5) * st - HALF, z = (j + 0.5) * st - HALF;
+    const h = groundAt(x, z), b = bioAt(x, z), o = (j * MB + i) * 4;
+    // hillshade from a sun in the north-west, so ridges and gullies read as relief
+    const hx = (groundAt(x + st, z) - groundAt(x - st, z)) / (2 * st), hz = (groundAt(x, z + st) - groundAt(x, z - st)) / (2 * st);
+    const shade = clamp(0.78 + (hx * 0.75 + hz * 0.75) / Math.sqrt(1 + hx * hx + hz * hz), 0.42, 1.3);
+    const alt = clamp(h / 320, 0, 1);                 // valleys cool and dim, ridges bright white
+    let r = lerp(198, 255, alt) * shade, gg = lerp(214, 255, alt) * shade, bl = lerp(236, 255, alt) * shade;
+    if (b === 1) { r = 120 * shade; gg = 176 * shade; bl = 214 * shade; }
+    else if (b === 2) { r *= 0.66; gg *= 0.82; bl *= 0.72; }
+    else if (sampleG(freshG, x, z) < 0.12) { r *= 0.5; gg *= 0.49; bl *= 0.5; }
+    const band = h % 40;                              // 40 m contour lines for depth
+    if (band < st * Math.hypot(hx, hz) * 1.2 && h > 8 && b !== 1) { r *= 0.86; gg *= 0.86; bl *= 0.88; }
     img.data[o] = clamp(r, 0, 255); img.data[o + 1] = clamp(gg, 0, 255); img.data[o + 2] = clamp(bl, 0, 255); img.data[o + 3] = 255;
   }
   g.putImageData(img, 0, 0);
 }
 let lastMark = null;
 function drawMap() {
+  const R = MS / 2, k = M2DISP / M2SRC;
+  mctx.save();
+  mctx.beginPath(); mctx.arc(R, R, R, 0, 6.283); mctx.clip();
+  mctx.fillStyle = "#0d1822"; mctx.fillRect(0, 0, MS, MS);
+  mctx.save();
+  const ang = P.yaw + Math.PI;                                          // heading-up
+  mctx.translate(R, R); mctx.rotate(ang); mctx.scale(k, k);
+  mctx.translate(-(P.x + HALF) * M2SRC, -(P.z + HALF) * M2SRC);
   mctx.drawImage(mapBg, 0, 0); mctx.drawImage(mapTrail, 0, 0);
-  const px = (P.x + HALF) / WORLD * MS, pz = (P.z + HALF) / WORLD * MS;
+  mctx.restore();
+  // what's ahead: a soft cone up the middle
+  const grd = mctx.createLinearGradient(R, R, R, 0);
+  grd.addColorStop(0, "rgba(127,200,224,.22)"); grd.addColorStop(1, "rgba(127,200,224,0)");
+  mctx.fillStyle = grd; mctx.beginPath(); mctx.moveTo(R, R); mctx.arc(R, R, R, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); mctx.closePath(); mctx.fill();
+  // sites, placed in screen space so the labels stay upright
+  const cy = Math.cos(ang), sy = Math.sin(ang);
   for (const s of SITES) {
-    const sx = (s.x + HALF) / WORLD * MS, sz = (s.z + HALF) / WORLD * MS, tg = GS.job && GS.job.dest === s;
+    const dx = (s.x - P.x) * M2DISP, dz = (s.z - P.z) * M2DISP;
+    let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false;
+    const d = Math.hypot(ux, uz);
+    if (d > R - 12) {                                   // off the dial: only the depot and your drop show on the rim
+      if (s !== depot && !(GS.job && GS.job.dest === s)) continue;
+      const f = (R - 12) / d; ux *= f; uz *= f; edge = true;
+    }
+    const sx = R + ux, sz = R + uz, tg = GS.job && GS.job.dest === s;
     mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6, sz - 6, 12, 12);
-    mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; mctx.fillRect(sx - 4, sz - 4, 8, 8);
+    mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8";
+    if (edge) { mctx.globalAlpha = 0.65; mctx.fillRect(sx - 3, sz - 3, 6, 6); mctx.globalAlpha = 1; }
+    else mctx.fillRect(sx - 4, sz - 4, 8, 8);
     if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
-  mctx.save(); mctx.translate(px, pz); mctx.rotate(-P.yaw);
-  mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.moveTo(0, 14); mctx.lineTo(-9, -9); mctx.lineTo(9, -9); mctx.closePath(); mctx.fill();
-  mctx.fillStyle = "#ff5a1f"; mctx.beginPath(); mctx.moveTo(0, 10); mctx.lineTo(-6, -6); mctx.lineTo(6, -6); mctx.closePath(); mctx.fill();
+  // the sled, always at the centre pointing up
+  mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.moveTo(R, R - 15); mctx.lineTo(R - 10, R + 10); mctx.lineTo(R + 10, R + 10); mctx.closePath(); mctx.fill();
+  mctx.fillStyle = "#ff5a1f"; mctx.beginPath(); mctx.moveTo(R, R - 11); mctx.lineTo(R - 7, R + 7); mctx.lineTo(R + 7, R + 7); mctx.closePath(); mctx.fill();
   mctx.restore();
+  // north pip and rim
+  mctx.save();
+  mctx.translate(R, R); mctx.rotate(ang);
+  mctx.fillStyle = "#7fc8e0"; mctx.beginPath(); mctx.moveTo(0, -R + 4); mctx.lineTo(-7, -R + 17); mctx.lineTo(7, -R + 17); mctx.closePath(); mctx.fill();
+  mctx.restore();
+  mctx.strokeStyle = "rgba(234,242,248,.25)"; mctx.lineWidth = 3;
+  mctx.beginPath(); mctx.arc(R, R, R - 1.5, 0, 6.283); mctx.stroke();
+}
+function toggleBigMap(force) {
+  const open = force !== undefined ? force : $("bigmap").hidden;
+  $("bigmap").hidden = !open;
+  if (open) { closeBoard(); toggleSettings(false); drawBigMap(); }
+}
+function drawBigMap() {
+  const c = $("bigmapC"), g = c.getContext("2d"), N = c.width, k = N / MB;
+  g.fillStyle = "#0d1822"; g.fillRect(0, 0, N, N);
+  g.imageSmoothingEnabled = true;
+  g.drawImage(mapBg, 0, 0, N, N); g.drawImage(mapTrail, 0, 0, N, N);
+  const w2 = (x, z) => [(x + HALF) * M2SRC * k, (z + HALF) * M2SRC * k];
+  g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center";
+  for (const s of SITES) {
+    const [sx, sz] = w2(s.x, s.z), tg = GS.job && GS.job.dest === s;
+    g.fillStyle = "#0d1822"; g.fillRect(sx - 8, sz - 8, 16, 16);
+    g.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; g.fillRect(sx - 5, sz - 5, 10, 10);
+    if (tg) { g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 16, 0, 6.283); g.stroke(); }
+    g.fillStyle = "rgba(13,24,34,.75)"; const w = g.measureText(s.name).width + 12;
+    g.fillRect(sx - w / 2, sz + 12, w, 22);
+    g.fillStyle = tg ? "#ff5a1f" : "#eaf2f8"; g.fillText(s.name, sx, sz + 28);
+  }
+  const [px, pz] = w2(P.x, P.z);
+  g.save(); g.translate(px, pz); g.rotate(P.yaw + Math.PI);
+  g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(0, -20); g.lineTo(-13, 13); g.lineTo(13, 13); g.closePath(); g.fill();
+  g.fillStyle = "#ff5a1f"; g.beginPath(); g.moveTo(0, -15); g.lineTo(-9, 9); g.lineTo(9, 9); g.closePath(); g.fill();
+  g.restore();
+  g.fillStyle = "rgba(234,242,248,.6)"; g.textAlign = "left";
+  g.fillText("N", 14, 28); g.fillText(Math.round(WORLD / 1000 * 10) / 10 + " km across", 14, N - 14);
 }
 function markMap() {
-  const px = (P.x + HALF) / WORLD * MS, pz = (P.z + HALF) / WORLD * MS;
-  if (lastMark && Math.hypot(px - lastMark[0], pz - lastMark[1]) < 1) return;
-  if (lastMark && P.gnd) { tctx.strokeStyle = "#ff5a1f"; tctx.lineWidth = 2.4; tctx.lineCap = "round"; tctx.beginPath(); tctx.moveTo(lastMark[0], lastMark[1]); tctx.lineTo(px, pz); tctx.stroke(); }
+  const px = (P.x + HALF) * M2SRC, pz = (P.z + HALF) * M2SRC;
+  if (lastMark && Math.hypot(px - lastMark[0], pz - lastMark[1]) < 0.6) return;
+  if (lastMark && P.gnd) { tctx.strokeStyle = "#ff5a1f"; tctx.lineWidth = 2.2; tctx.lineCap = "round"; tctx.beginPath(); tctx.moveTo(lastMark[0], lastMark[1]); tctx.lineTo(px, pz); tctx.stroke(); }
   lastMark = [px, pz];
 }
-
 /* ---------------- visuals / camera / hud ---------------- */
 const camState = { yaw: SPAWN.yaw, init: false, fpYaw: SPAWN.yaw, fpPitch: 0, fpRoll: 0 };
 const _camEye = new THREE.Vector3(), _camAim = new THREE.Vector3(), _camWant = new THREE.Vector3();
@@ -1168,13 +1371,13 @@ function updVisuals(dt) {
   if (view.fp) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
     sledRoot.updateMatrixWorld();
-    const eye = sledRoot.localToWorld(_camEye.set(0, 1.5, 0.12));
-    if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw; camState.fpPitch = 0; camState.fpRoll = 0; camState.init = true; }
+    const eye = sledRoot.localToWorld(_camEye.set(0, 1.66, -0.14));
+    if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.init = true; }
     else camera.position.lerp(eye, 1 - Math.exp(-26 * dt));
     camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.45);
-    const pT = -P.pitch * 0.3 + clamp(-P.vy * 0.02, -0.25, 0.25) - 0.03;
-    const rT = P.roll * 0.25 + sledBody.rotation.z * 0.5;
-    camState.fpYaw = angLerp(camState.fpYaw, P.yaw, 1 - Math.exp(-14 * dt));
+    const pT = P.pitch * 0.3 + clamp(P.vy * 0.02, -0.25, 0.25) - 0.13;
+    const rT = -P.roll * 0.22 - sledBody.rotation.z * 0.4;
+    camState.fpYaw = angLerp(camState.fpYaw, P.yaw + Math.PI, 1 - Math.exp(-14 * dt));   // a camera looks down its own -Z
     camState.fpPitch += (pT - camState.fpPitch) * (1 - Math.exp(-7 * dt));
     camState.fpRoll += (rT - camState.fpRoll) * (1 - Math.exp(-5 * dt));
     camera.rotation.set(camState.fpPitch, camState.fpYaw, camState.fpRoll);
@@ -1392,7 +1595,7 @@ function fadeTrails(dt) {
   const e = Math.exp(-lerp(1 / 360, 1 / 45, GS.storm) * GS.fadeT); GS.fadeT = 0;
   for (let o = 0; o < trailData.length; o += 4) if (trailData[o]) trailData[o] = (trailData[o] * e) | 0;
   trailDirty = true;
-  tctx.save(); tctx.globalCompositeOperation = "destination-out"; tctx.fillStyle = `rgba(0,0,0,${(1 - e).toFixed(4)})`; tctx.fillRect(0, 0, MS, MS); tctx.restore();
+  tctx.save(); tctx.globalCompositeOperation = "destination-out"; tctx.fillStyle = `rgba(0,0,0,${(1 - e).toFixed(4)})`; tctx.fillRect(0, 0, MB, MB); tctx.restore();
 }
 
 /* jobs */
@@ -1426,26 +1629,26 @@ function applyUpg() { GS.cap = 18 + (GS.up.tank ? 10 : 0) + (GS.up.cans ? 12 : 0
 function cargoHit(v) {
   if (!GS.job || v < (GS.up.susp ? 9 : 6)) return;
   GS.hits++;
-  if (GS.job.fragile) toast(`Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}). No free fuel for damaged goods.`, "warn");
-  else if (GS.hits === 1) toast("Cargo took a knock. It'll still pay, but they won't top off your tank for damaged goods.", "warn");
+  toast(GS.job.fragile
+    ? `Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}).`
+    : "Cargo took a knock. They won't be topping off your tank.", "warn");
 }
 function deliver() {
   const j = GS.job, s = j.dest;
   let p = j.pay; const notes = [];
-  const damaged = GS.hits > 0; // any hard hit counts, fragile or not; only fragile cargo loses pay
-  if (damaged) { if (j.fragile) p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
+  if (GS.hits) { if (j.fragile) p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
   if (j.due && GS.hour > j.due) { p *= 0.5; notes.push("late"); }
   p = Math.round(p); GS.cash += p; GS.delivered++; GS.job = null;
   toast(`Delivered to ${s.name}: +$${p}${notes.length ? " (" + notes.join(", ") + ")" : ""}`, "good");
   if (s.type !== "depot") {
-    if (!damaged) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
-    const fuelNote = damaged ? "They saw the damage and kept their fuel" : "They topped off your tank";
+    const goodwill = GS.hits === 0;                     // damaged goods, no free fuel
+    if (goodwill) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
     if (Math.random() < 0.6) {
       const dist = Math.hypot(s.x - depot.x, s.z - depot.z);
       GS.job = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null };
       GS.hits = 0;
-      setTimeout(() => toast(`${fuelNote} and handed you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
-    } else setTimeout(() => toast(`${fuelNote}. Head back to the station for more work.`), 1400);
+      setTimeout(() => toast(`${goodwill ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
+    } else setTimeout(() => toast(goodwill ? "They topped off your tank. Head back to the station for more work." : "No fuel for you after that. Head back to the station."), 1400);
   } else setTimeout(() => toast("Press E for the job board."), 1400);
   save();
 }
@@ -1494,18 +1697,34 @@ function closeBoard() { GS.boardOpen = false; $("board").hidden = true; }
 function gameKey(e) {
   if (GS.dead) return;
   if (e.code === "KeyE") { if (GS.boardOpen) closeBoard(); else if (GS.near === depot) openBoard(); else toast("The job board is at Hollis Ranger Station.", "warn"); }
-  if (e.code === "Escape") { if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "Escape") { if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
   if (e.code === "KeyF") { if (GS.near === depot) toast("You're already at the station."); else blackout("tow"); }
   if (GS.boardOpen && /^Digit[1-9]$/.test(e.code)) { const k = +e.code.slice(5) - 1; if (k < 3) acceptJob(k); else buyUpg(k - 3); }
 }
 
 /* settings: sled colour, volume */
 const SLED_COLORS = ["#ff5a1f", "#ffd23f", "#4fd06a", "#38b6ff", "#9b6bff", "#ff4d8d", "#f2f6fb", "#20262e", "#b5651d", "#00e0c6"];
-const SET = { color: "#ff5a1f", vol: 0.35, hud: true };
+const JACKET_COLORS = ["#1d3f6e", "#8c1f2f", "#1f6b4a", "#e0e6ec", "#c8541e", "#2b2f36", "#6b4ea8", "#d8c23a"];
+const TRIM_COLORS = ["#eef2f5", "#ff5a1f", "#111820", "#d8e94a", "#7fc8e0", "#c9a227"];
+const PANTS_COLORS = ["#232a33", "#3c4654", "#6b7683", "#1d3f6e", "#4a3b2c", "#111418"];
+const STYLES = [["solid", "Solid"], ["twotone", "Two-tone"], ["racer", "Racing stripe"], ["hivis", "Hi-vis"]];
+const SET = { color: "#ff5a1f", jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", vol: 0.35, hud: true };
 function loadSettings() { try { const d = JSON.parse(localStorage.getItem("tracklayer.set.v1") || "null"); if (d) Object.assign(SET, d); } catch (e) { } }
 function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.stringify(SET)); } catch (e) { } }
 function applySettings() {
   if (bodyMat) bodyMat.color.set(SET.color);
+  if (jacketMat) { jacketMat.color.set(SET.jacket); accentMat.color.set(SET.trim); pantsMat.color.set(SET.pants); }
+  if (styleParts.stripe) {
+    const st = SET.style;
+    styleParts.shoulders.forEach(m => m.visible = st === "twotone" || st === "hivis");
+    styleParts.stripe.visible = st === "racer";
+    styleParts.back.visible = st === "twotone" || st === "hivis";
+    styleParts["band-1"].visible = styleParts["band1"].visible = st === "racer" || st === "hivis";
+  }
+  for (const [k, id] of [["color", "swatches"], ["jacket", "jacketSw"], ["trim", "trimSw"], ["pants", "pantsSw"]]) {
+    const el = $(id); if (el) [...el.children].forEach(b => b.classList.toggle("on", b.dataset.c === SET[k]));
+  }
+  const sb = $("styleBtns"); if (sb) [...sb.children].forEach(b => b.classList.toggle("on", b.dataset.s === SET.style));
   if (audio) audio.master.gain.value = muted ? 0 : SET.vol;
   const sw = $("swatches"); if (sw) [...sw.children].forEach(b => b.classList.toggle("on", b.dataset.c === SET.color));
   const hue = $("hue"); if (hue) hue.value = Math.round(new THREE.Color(SET.color).getHSL({ h: 0, s: 0, l: 0 }).h * 360);
@@ -1513,12 +1732,28 @@ function applySettings() {
   const mb = $("muteBtn"); if (mb) mb.textContent = muted ? "Sound: off" : "Sound: on";
   const cs = $("colorSwatch"); if (cs) cs.style.background = SET.color;
 }
-function buildSettings() {
-  const sw = $("swatches");
-  SLED_COLORS.forEach(c => {
+function swatchRow(id, colors, key) {
+  const box = $(id);
+  colors.forEach(c => {
     const b = document.createElement("button"); b.className = "sw"; b.style.background = c; b.dataset.c = c; b.title = c;
-    b.addEventListener("click", () => { SET.color = c; applySettings(); saveSettings(); });
-    sw.appendChild(b);
+    b.addEventListener("click", () => { SET[key] = c; applySettings(); saveSettings(); });
+    box.appendChild(b);
+  });
+}
+function buildSettings() {
+  swatchRow("swatches", SLED_COLORS, "color");
+  swatchRow("jacketSw", JACKET_COLORS, "jacket");
+  swatchRow("trimSw", TRIM_COLORS, "trim");
+  swatchRow("pantsSw", PANTS_COLORS, "pants");
+  STYLES.forEach(([id, name]) => {
+    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.s = id; b.textContent = name;
+    b.addEventListener("click", () => { SET.style = id; applySettings(); saveSettings(); });
+    $("styleBtns").appendChild(b);
+  });
+  $("randomKit").addEventListener("click", () => {
+    const pick = a => a[(Math.random() * a.length) | 0];
+    SET.jacket = pick(JACKET_COLORS); SET.trim = pick(TRIM_COLORS); SET.pants = pick(PANTS_COLORS); SET.style = pick(STYLES)[0]; SET.color = pick(SLED_COLORS);
+    applySettings(); saveSettings();
   });
   $("hue").addEventListener("input", e => { SET.color = "#" + new THREE.Color().setHSL(e.target.value / 360, 0.85, 0.55).getHexString(); applySettings(); saveSettings(); });
   $("vol").addEventListener("input", e => { SET.vol = e.target.value / 100; muted = SET.vol === 0; applySettings(); saveSettings(); });
@@ -1601,7 +1836,7 @@ function frame(t) {
   if (started) { updAudio(spd); markMap(); }
   if (snowDirty) { snowTex.needsUpdate = true; snowDirty = false; }
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
-  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); drawMap(); } }
+  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
   renderer.render(scene, camera);
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
