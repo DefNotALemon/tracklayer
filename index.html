@@ -1,0 +1,1618 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;background:#0d1822;color-scheme:dark}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Tracklayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#0d1822; --ink-a:rgba(13,24,34,.72); --frost:#eaf2f8; --slate:#8fa3b3;
+    --signal:#ff5a1f; --ice:#7fc8e0; --line:rgba(234,242,248,.14);
+    --display:"Big Shoulders Display","Barlow Semi Condensed","Arial Narrow",sans-serif;
+    --body:"Barlow Semi Condensed","Helvetica Neue",Arial,sans-serif;
+  }
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--frost);font-family:var(--body)}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .hud{position:fixed;pointer-events:none;z-index:2}
+  .panel{background:var(--ink-a);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:6px}
+  #zone{top:calc(16px + env(safe-area-inset-top,0px));left:16px;padding:10px 14px;display:grid;gap:2px}
+  #zone .brand{font-family:var(--display);font-weight:900;letter-spacing:.14em;font-size:13px;color:var(--signal)}
+  #zone .name{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.06em;line-height:1}
+  #zone .elev{font-size:13px;color:var(--slate);font-variant-numeric:tabular-nums}
+  #speedo{left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:12px 16px 14px;min-width:190px;display:grid;gap:8px}
+  #speedo .row{display:flex;align-items:baseline;gap:8px}
+  #spd{font-family:var(--display);font-weight:900;font-size:68px;line-height:.85;font-variant-numeric:tabular-nums;min-width:2.2ch}
+  #speedo .unit{font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.12em;color:var(--slate)}
+  #state{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.14em;padding:4px 10px 3px;border-radius:3px;background:var(--frost);color:var(--ink);transition:background .2s,color .2s}
+  .pill[data-s="PACKED"]{background:var(--signal);color:#fff}
+  .pill[data-s="ICE"]{background:var(--ice);color:var(--ink)}
+  #bonus{font-size:14px;font-weight:600;color:var(--signal);letter-spacing:.04em;min-height:1.2em}
+  #drag{height:4px;border-radius:2px;background:rgba(234,242,248,.12);overflow:hidden}
+  #dragFill{height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--frost));transition:width .15s}
+  #dragLbl{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;color:var(--slate);text-transform:uppercase;margin-top:-4px}
+  #mapWrap{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:8px}
+  #map{display:block;width:180px;height:180px;border-radius:3px}
+  #mapWrap .cap{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);display:flex;justify-content:space-between;gap:10px;padding:6px 2px 0}
+  #help{top:calc(16px + env(safe-area-inset-top,0px));right:16px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--frost)}
+  #help b{font-family:var(--display);font-weight:800;letter-spacing:.08em;color:var(--signal);display:inline-block;min-width:4.6em}
+  #flip{left:50%;top:38%;transform:translateX(-50%);padding:10px 18px;font-family:var(--display);font-weight:800;letter-spacing:.12em;font-size:20px}
+  #overlay{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-end;padding:0 16px calc(48px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(180deg,rgba(13,24,34,0) 20%,rgba(13,24,34,.55) 55%,rgba(13,24,34,.92) 100%)}
+  #overlay .inner{max-width:760px;margin-inline:auto;width:100%;display:grid;gap:18px}
+  #overlay h1{font-family:var(--display);font-weight:900;font-size:clamp(64px,13vw,150px);line-height:.82;margin:0;letter-spacing:.02em;text-wrap:balance}
+  #overlay h1 span{color:var(--signal)}
+  #overlay p{margin:0;font-size:19px;line-height:1.45;max-width:58ch;color:var(--frost)}
+  .keys{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;color:var(--slate)}
+  .keys kbd{font-family:var(--display);font-weight:800;letter-spacing:.06em;color:var(--frost);border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:1px 7px;margin-right:6px;background:rgba(234,242,248,.06)}
+  #start{justify-self:start;font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:.16em;padding:14px 28px 12px;border:0;border-radius:4px;background:var(--signal);color:#fff;cursor:pointer}
+  #start:hover{background:#ff7038}
+  #start:focus-visible{outline:3px solid var(--frost);outline-offset:3px}
+  #start:disabled{opacity:.6;cursor:wait}
+  #load{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  .gauge{display:grid;grid-template-columns:4.6em 1fr 3.4em;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  .gauge .gv{text-align:right;color:var(--frost);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .gauge .bar{height:6px;border-radius:3px;background:rgba(234,242,248,.12);overflow:hidden}
+  #fuelFill{height:100%;background:var(--signal);transition:width .2s}
+  #warmFill{height:100%;background:#ffc26b;transition:width .2s}
+  #fuelFill.low,#warmFill.low{background:#ff3b3b;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.45}}
+  #job{top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:10px 16px;max-width:min(520px,calc(100% - 32px))}
+  #arrow{flex:none;color:var(--signal);transition:color .3s}
+  #jobTitle{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.04em;line-height:1.1}
+  #jobSub{font-size:13px;color:var(--slate);font-variant-numeric:tabular-nums}
+  #toasts{position:fixed;z-index:3;top:calc(88px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
+  .toast{background:var(--ink-a);border:1px solid var(--line);border-left:3px solid var(--ice);border-radius:4px;padding:7px 12px;font-size:15px;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
+  .toast.good{border-left-color:#6fd08c}.toast.warn{border-left-color:#ffc26b}.toast.bad{border-left-color:#ff3b3b}
+  .toast.out{opacity:0;transform:translateY(-6px)}
+  #frost{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(220,236,250,0) 42%,rgba(220,236,250,.55) 75%,rgba(235,245,255,.95) 100%)}
+  #board{position:fixed;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px 18px 14px;display:grid;gap:8px;background:rgba(13,24,34,.9)}
+  .bhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+  .bhead .brand{font-family:var(--display);font-weight:900;letter-spacing:.14em;font-size:13px;color:var(--signal)}
+  .btitle{font-family:var(--display);font-weight:900;font-size:34px;line-height:1}
+  .bcash{font-family:var(--display);font-weight:800;font-size:28px;color:#6fd08c;font-variant-numeric:tabular-nums}
+  .bsec{margin-top:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
+  #board .row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;width:100%;text-align:left;font:inherit;color:var(--frost);background:rgba(234,242,248,.05);border:1px solid var(--line);border-radius:4px;padding:9px 12px;cursor:pointer}
+  #board .row:hover,#board .row:focus-visible{border-color:var(--signal);outline:none}
+  #board .row.owned{opacity:.5;cursor:default}
+  #board .row kbd.no{opacity:.35}
+  #board .row kbd{font-family:var(--display);font-weight:800;border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:1px 7px}
+  #board .row .main{display:grid;gap:2px}
+  #board .row b{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.03em}
+  #board .row em{font-style:normal;font-size:13px;color:var(--slate)}
+  #board .row .pay{font-family:var(--display);font-weight:800;font-size:20px;color:#6fd08c;font-variant-numeric:tabular-nums}
+  #board .empty{font-size:14px;color:var(--slate);padding:6px 0}
+  .bfoot{font-size:12px;color:var(--slate);margin-top:4px}
+  .bfoot b{color:var(--frost)}
+  #settings{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.93)}
+  #settings .setrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  #settings label{font-size:13px;color:var(--slate);min-width:4.5em}
+  #settings input[type=range]{flex:1;min-width:140px;accent-color:var(--signal)}
+  #swatches{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+  .sw{width:30px;height:30px;border-radius:5px;border:2px solid transparent;cursor:pointer;padding:0}
+  .sw:hover{border-color:rgba(234,242,248,.5)}
+  .sw.on{border-color:var(--frost);box-shadow:0 0 0 2px rgba(13,24,34,.9) inset}
+  .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--line)}
+  .sbtn{font:inherit;font-size:14px;color:var(--frost);background:rgba(234,242,248,.06);border:1px solid var(--line);border-radius:4px;padding:6px 12px;cursor:pointer}
+  .sbtn:hover{border-color:var(--signal)}
+  .xbtn{font-size:20px;line-height:1;color:var(--slate);background:none;border:0;cursor:pointer;padding:4px 8px}
+  .xbtn:hover{color:var(--frost)}
+  #settings .hint{font-size:13px;color:var(--slate)}
+  #settings .hint b{color:var(--frost)}
+  #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
+  @keyframes fadein{from{opacity:0}}
+  #blackMsg{max-width:44ch;text-align:center;font-size:18px;line-height:1.5;display:grid;gap:10px}
+  #blackMsg b{font-family:var(--display);font-weight:900;font-size:44px;letter-spacing:.06em;color:var(--frost)}
+  #blackMsg span{color:#ff8a6b}
+  @media (max-width:640px){
+    #job{top:calc(118px + env(safe-area-inset-top,0px))}
+    #toasts{top:calc(186px + env(safe-area-inset-top,0px))}
+    #help{display:none}
+    #map{width:120px;height:120px}
+    #spd{font-size:52px}
+    #speedo{min-width:150px}
+  }
+</style>
+
+<canvas id="gl"></canvas>
+
+<div class="hud panel" id="zone" hidden>
+  <div class="brand">TRACKLAYER</div>
+  <div class="name" id="zoneName">BACKCOUNTRY</div>
+  <div class="elev" id="elev">Elev 0 m</div>
+  <div class="elev" id="clock">07:24 · Clear · $0</div>
+</div>
+
+<div class="hud panel" id="speedo" hidden>
+  <div class="row"><div id="spd">0</div><div class="unit">MPH</div></div>
+  <div id="state"><span class="pill" id="pill" data-s="POWDER">POWDER</span><span id="bonus"></span></div>
+  <div id="drag"><div id="dragFill"></div></div>
+  <div id="dragLbl"><span>Snow drag</span><span id="dragN">0 N</span></div>
+  <div class="gauge"><span class="gl">Fuel</span><div class="bar"><div id="fuelFill"></div></div><span class="gv" id="fuelV">18 L</span></div>
+  <div class="gauge"><span class="gl">Warmth</span><div class="bar"><div id="warmFill"></div></div><span class="gv" id="warmV">100%</span></div>
+</div>
+
+<div class="hud panel" id="job" hidden>
+  <svg id="arrow" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2 L20 21 L12 16 L4 21 Z" fill="currentColor"/></svg>
+  <div><div id="jobTitle">No cargo</div><div id="jobSub">Head back to the station</div></div>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<div id="frost"></div>
+
+<div class="panel" id="board" hidden>
+  <div class="bhead"><div><div class="brand">HOLLIS RANGER STATION</div><div class="btitle">Job board</div></div><div class="bcash" id="boardCash">$0</div></div>
+  <div class="bsec">Deliveries</div>
+  <div id="jobList"></div>
+  <div class="bsec">Sled shop</div>
+  <div id="upgList"></div>
+  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, and late urgent jobs pay half.</div>
+</div>
+
+<div class="panel" id="settings" hidden>
+  <div class="bhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">Settings</div></div><button id="closeSet" class="xbtn" aria-label="Close settings">✕</button></div>
+  <div class="bsec">Sled colour</div>
+  <div class="setrow"><div id="swatches"></div><span id="colorSwatch" class="chip"></span></div>
+  <div class="setrow"><label for="hue">Any hue</label><input id="hue" type="range" min="0" max="360" value="18"></div>
+  <div class="bsec">Sound</div>
+  <div class="setrow"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="100" value="35"><button id="muteBtn" class="sbtn">Sound: on</button></div>
+  <div class="bsec">Camera</div>
+  <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
+  <div class="bfoot"><b>Esc</b> closes. Colour and volume are remembered next time.</div>
+</div>
+
+<div id="black" hidden><div id="blackMsg"></div></div>
+
+<div class="hud panel" id="mapWrap" hidden>
+  <canvas id="map" width="360" height="360"></canvas>
+  <div class="cap"><span>Your trail</span><span id="dist">0.0 km</span></div>
+</div>
+
+<div class="hud panel" id="help" hidden>
+  <div><b>W / S</b>Throttle / brake</div>
+  <div><b>A / D</b>Steer</div>
+  <div><b>Shift</b>Lean into turn</div>
+  <div><b>Space</b>Hop</div>
+  <div><b>Ctrl</b>Wheelie</div>
+  <div><b>R</b>Reset sled</div>
+  <div><b>E</b>Job board (at station)</div>
+  <div><b>F</b>Call a tow ($100)</div>
+  <div><b>V</b>Cycle view</div>
+  <div><b>Esc</b>Settings · <b style="min-width:0">M</b> Mute · <b style="min-width:0">H</b> Hide</div>
+</div>
+
+<div class="hud panel" id="flip" hidden>STUCK? PRESS R</div>
+
+<div id="overlay">
+  <div class="inner">
+    <h1>TRACK<span>LAYER</span></h1>
+    <p>You run supplies out of Hollis Ranger Station to the cabins, huts and the summit relay. Fresh powder drags at your sled and burns fuel. Every trail you cut stays packed, fast and cheap, until new snow buries it. Nights and storms are cold. Keep your tank and your body warm enough to make it back.</p>
+    <div class="keys">
+      <span><kbd>W</kbd><kbd>S</kbd>Throttle, brake</span>
+      <span><kbd>A</kbd><kbd>D</kbd>Steer</span>
+      <span><kbd>Shift</kbd>Lean</span>
+      <span><kbd>Space</kbd>Hop</span>
+      <span><kbd>Ctrl</kbd>Wheelie</span>
+      <span><kbd>R</kbd>Reset</span>
+      <span><kbd>E</kbd>Job board</span>
+      <span><kbd>V</kbd>View</span>
+      <span><kbd>Esc</kbd>Settings</span>
+      <span><kbd>F</kbd>Tow</span>
+      <span>Gamepad works too</span>
+    </div>
+    <button id="start" disabled>SURVEYING TERRAIN…</button>
+    <div id="load">Building the world</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const sstep = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/* ---------------- noise ---------------- */
+function hash(ix, iy) {
+  let h = Math.imul(ix | 0, 374761393) ^ Math.imul(iy | 0, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vn(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, o) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { s += a * vn(x * f + i * 17.3, y * f - i * 9.1); n += a; a *= 0.5; f *= 2.03; } return s / n; }
+function ridged(x, y, o) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { let r = 1 - Math.abs(vn(x * f + i * 5.7, y * f + i * 3.3) * 2 - 1); r *= r; s += a * r; n += a; a *= 0.5; f *= 2.1; } return s / n; }
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------- world constants ---------------- */
+const WORLD = 4096, HALF = 2048, GRES = 2, GN = WORLD / GRES + 1;   // coarse terrain grid (2 m)
+const CELL = 0.25, FN = WORLD / CELL;   // 16384 fine cells per side                               // fine snow grid (25 cm)
+const ground = new Float32Array(GN * GN), freshG = new Float32Array(GN * GN), bio = new Uint8Array(GN * GN); // bio: 0 open, 1 ice, 2 forest
+const LAKES = [
+  { x: 300, z: 860, r: 330 }, { x: -820, z: 300, r: 250 }, { x: 900, z: -80, r: 215 },
+  { x: -340, z: 1320, r: 265 }, { x: -1080, z: -600, r: 150 }, { x: 1220, z: 1040, r: 190 },
+  { x: 1500, z: 1560, r: 240 }, { x: -1560, z: 1180, r: 205 }, { x: 260, z: 1720, r: 180 },
+  { x: -1420, z: -260, r: 130 }, { x: 1680, z: 420, r: 150 }
+];
+const SPAWN = { x: -30, z: 200, yaw: Math.PI * 0.92 };
+
+function baseH(x, z) {
+  let h = 18 + (fbm(x / 520 + 11, z / 520 - 7, 4) - 0.5) * 52 + (fbm(x / 120, z / 120, 3) - 0.5) * 14 + (fbm(x / 40, z / 40, 2) - 0.5) * 4;
+  const m = sstep(240, -1080, z);
+  if (m > 0) { const r = ridged(x / 700 + 3.1, z / 700 - 1.7, 5); h += m * (35 + Math.pow(r, 1.7) * 300); }
+  const e = sstep(1560, 2010, Math.max(Math.abs(x), Math.abs(z)));
+  if (e > 0) h += e * (70 + ridged(x / 320, z / 320, 3) * 190);
+  return h;
+}
+function sampleG(arr, x, z) {
+  let gx = (x + HALF) / GRES, gz = (z + HALF) / GRES;
+  gx = clamp(gx, 0, GN - 1.001); gz = clamp(gz, 0, GN - 1.001);
+  const ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz, i = iz * GN + ix;
+  const a = arr[i], b = arr[i + 1], c = arr[i + GN], d = arr[i + GN + 1];
+  return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
+}
+const groundAt = (x, z) => sampleG(ground, x, z);
+function bioAt(x, z) { const i = clamp(Math.round((x + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + HALF) / GRES), 0, GN - 1); return bio[j * GN + i]; }
+
+function genWorld() {
+  for (const L of LAKES) {
+    let lv = baseH(L.x, L.z);
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; lv = Math.min(lv, baseH(L.x + Math.cos(a) * L.r * 1.1, L.z + Math.sin(a) * L.r * 1.1)); }
+    L.lv = lv - 2;
+  }
+  for (let j = 0; j < GN; j++) {
+    const z = j * GRES - HALF;
+    for (let i = 0; i < GN; i++) {
+      const x = i * GRES - HALF;
+      let h = baseH(x, z), ice = 0;
+      for (const L of LAKES) {
+        const dx = x - L.x, dz = z - L.z, dd = Math.sqrt(dx * dx + dz * dz);
+        if (dd > L.r * 1.7) continue;
+        const t = dd / (L.r * (0.76 + 0.48 * fbm(x / 170 + L.x, z / 170, 3)));
+        const mk = 1 - sstep(0.92, 1.3, t);
+        h += (L.lv - h) * mk;
+        if (t < 0.97) ice = 1;
+      }
+      ground[j * GN + i] = h; bio[j * GN + i] = ice;
+    }
+  }
+  for (let j = 0; j < GN; j++) {
+    const z = j * GRES - HALF;
+    for (let i = 0; i < GN; i++) {
+      const x = i * GRES - HALF, k = j * GN + i;
+      const i0 = Math.max(0, i - 1), i1 = Math.min(GN - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(GN - 1, j + 1);
+      const gx = (ground[j * GN + i1] - ground[j * GN + i0]) / ((i1 - i0) * GRES);
+      const gz = (ground[j1 * GN + i] - ground[j0 * GN + i]) / ((j1 - j0) * GRES);
+      const s = Math.sqrt(gx * gx + gz * gz), h = ground[k];
+      let d;
+      if (bio[k] === 1) d = 0.05;
+      else {
+        d = 0.5 + 0.38 * sstep(50, 170, h);
+        d *= 1 - sstep(0.62, 1.0, s);
+        const fd = fbm(x / 300 + 40, z / 300 - 3, 3);
+        if (fd > 0.5 && h < 175 && s < 0.5) { bio[k] = 2; d *= 0.86; }
+      }
+      freshG[k] = d;
+    }
+  }
+}
+
+/* ---------------- deformable snow (sparse chunks of 32x32 cells) ---------------- */
+const CH = 32, CPR = FN / CH;
+const chunks = new Array(CPR * CPR);
+const activeChunks = []; let refillIdx = 0, gameClock = 0;
+function freshCell(ix, iz) {
+  const x = ix * CELL - HALF, z = iz * CELL - HALF;
+  let d = sampleG(freshG, x, z);
+  if (d > 0.1) d += (vn(x / 7 + 3, z / 7) - 0.5) * 0.34 * Math.min(1, d * 2) + (vn(x / 1.9, z / 1.9 + 5) - 0.5) * 0.07;
+  else d += vn(x / 2.3, z / 2.3) * 0.025;
+  return d < 0 ? 0 : d;
+}
+function getChunk(cx, cz) {
+  const key = cz * CPR + cx;
+  let c = chunks[key];
+  if (!c) {
+    c = { d: new Float32Array(CH * CH), f: new Float32Array(CH * CH) };
+    for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) { const v = freshCell(cx * CH + i, cz * CH + j); c.f[j * CH + i] = v; c.d[j * CH + i] = v; }
+    chunks[key] = c; c.key = key; c.cx = cx; c.cz = cz; c.t = gameClock; activeChunks.push(c);
+  }
+  return c;
+}
+function depthAt(ix, iz) {
+  ix = clamp(ix, 0, FN - 1); iz = clamp(iz, 0, FN - 1);
+  const c = chunks[(iz >> 5) * CPR + (ix >> 5)];
+  return c ? c.d[(iz & 31) * CH + (ix & 31)] : freshCell(ix, iz);
+}
+function freshAt(ix, iz) {
+  ix = clamp(ix, 0, FN - 1); iz = clamp(iz, 0, FN - 1);
+  const c = chunks[(iz >> 5) * CPR + (ix >> 5)];
+  return c ? c.f[(iz & 31) * CH + (ix & 31)] : freshCell(ix, iz);
+}
+function surf(x, z) {
+  const fx = (x + HALF) / CELL, fz = (z + HALF) / CELL;
+  const ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz;
+  const a = depthAt(ix, iz), b = depthAt(ix + 1, iz), c = depthAt(ix, iz + 1), d = depthAt(ix + 1, iz + 1);
+  return groundAt(x, z) + a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
+}
+const smoothSurf = (x, z) => groundAt(x, z) + sampleG(freshG, x, z) * 0.4;
+
+/* ---------------- three.js setup ---------------- */
+const canvas = $("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const FOG = new THREE.Color(0xc4d3e2);
+scene.fog = new THREE.FogExp2(FOG, 0.0017);
+scene.background = FOG;
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 12000);
+
+const sunDir = new THREE.Vector3(-0.55, 0.3, 0.78).normalize();
+const hemi = new THREE.HemisphereLight(0xbcd4ec, 0xe9eef5, 0.62); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffd6ae, 1.75);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 500 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+scene.add(sun, sun.target);
+
+// sky dome
+const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uSun: { value: sunDir }, uDay: { value: 1 }, uStorm: { value: 0 }, uFog: { value: new THREE.Color(0xc4d3e2) } },
+  vertexShader: "varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+  fragmentShader: `varying vec3 vD; uniform vec3 uSun; uniform float uDay; uniform float uStorm; uniform vec3 uFog;
+    void main(){ float h = clamp(vD.y,0.0,1.0);
+      vec3 hor = vec3(0.86,0.85,0.86), mid = vec3(0.60,0.72,0.86), top = vec3(0.30,0.46,0.70);
+      vec3 c = mix(hor, mid, smoothstep(0.0,0.18,h)); c = mix(c, top, smoothstep(0.18,0.8,h));
+      vec3 n = mix(vec3(0.09,0.12,0.19), vec3(0.015,0.025,0.06), smoothstep(0.0,0.6,h));
+      float s = max(dot(normalize(vD), uSun), 0.0);
+      c += vec3(1.0,0.72,0.45)*(pow(s,6.0)*0.3 + pow(s,90.0)*0.6)*(1.0 + (1.0-smoothstep(0.0,0.3,uSun.y))) + vec3(1.0,0.95,0.85)*smoothstep(0.9993,0.9997,s);
+      c = mix(n, c, uDay);
+      if (vD.y < 0.0) c = uFog;
+      c = mix(c, uFog, clamp(uStorm*0.9 + (1.0 - smoothstep(0.0,0.08,h))*0.6, 0.0, 1.0));
+      gl_FragColor = vec4(c,1.0); }`
+}));
+sky.renderOrder = -1; scene.add(sky);
+
+/* ---------------- snow patch (fine deformable mesh around the sled) ---------------- */
+const S = 401, PHALF = 200;
+let pox = -99999, poz = -99999;
+let pdata = new Float32Array(S * S * 4), pdata2 = new Float32Array(S * S * 4);
+const snowTex = new THREE.DataTexture(pdata, S, S, THREE.RGBAFormat, THREE.FloatType);
+snowTex.minFilter = snowTex.magFilter = THREE.NearestFilter; snowTex.generateMipmaps = false;
+let snowDirty = false;
+
+function buildGridIndex(n) {
+  const idx = new Uint32Array((n - 1) * (n - 1) * 6); let p = 0;
+  for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+    const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
+    if ((i + j) & 1) { idx[p++] = a; idx[p++] = c; idx[p++] = d; idx[p++] = a; idx[p++] = d; idx[p++] = b; }
+    else { idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = d; }
+  }
+  return idx;
+}
+const patchGeo = new THREE.BufferGeometry();
+{
+  const pos = new Float32Array(S * S * 3), uv = new Float32Array(S * S * 2);
+  for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+    const k = j * S + i;
+    pos[k * 3] = i * CELL; pos[k * 3 + 1] = (i === 0 || j === 0 || i === S - 1 || j === S - 1) ? 1 : 0; pos[k * 3 + 2] = j * CELL;
+    uv[k * 2] = (i + 0.5) / S; uv[k * 2 + 1] = (j + 0.5) / S;
+  }
+  patchGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  patchGeo.setAttribute("aUv", new THREE.BufferAttribute(uv, 2));
+  patchGeo.setIndex(new THREE.BufferAttribute(buildGridIndex(S), 1));
+}
+const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
+patchMat.onBeforeCompile = sh => {
+  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S };
+  sh.vertexShader = "uniform sampler2D uSnow; uniform float uTexel; attribute vec2 aUv; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+    sh.vertexShader
+      .replace("#include <beginnormal_vertex>", `
+        vec2 tX = vec2(uTexel, 0.0), tY = vec2(0.0, uTexel);
+        vec4 sC = texture2D(uSnow, aUv);
+        vec4 sE = texture2D(uSnow, aUv + tX), sW = texture2D(uSnow, aUv - tX), sN = texture2D(uSnow, aUv + tY), sS = texture2D(uSnow, aUv - tY);
+        vec4 sNE = texture2D(uSnow, aUv + tX + tY), sNW = texture2D(uSnow, aUv - tX + tY), sSE = texture2D(uSnow, aUv + tX - tY), sSW = texture2D(uSnow, aUv - tX - tY);
+        float e2 = texture2D(uSnow, aUv + 2.0*tX).r, w2 = texture2D(uSnow, aUv - 2.0*tX).r, n2 = texture2D(uSnow, aUv + 2.0*tY).r, s2 = texture2D(uSnow, aUv - 2.0*tY).r;
+        // gaussian-smoothed height & packing so the 25 cm grid never reads as steps
+        vec2 blur = (sC.rg * 4.0 + (sE.rg + sW.rg + sN.rg + sS.rg) * 2.0 + sNE.rg + sNW.rg + sSE.rg + sSW.rg) / 16.0;
+        float gx = 0.5 * ((sNE.r + 2.0*sE.r + sSE.r) - (sNW.r + 2.0*sW.r + sSW.r)) / ${(8 * CELL).toFixed(2)} + 0.5 * (e2 - w2) / ${(4 * CELL).toFixed(2)};
+        float gz = 0.5 * ((sNE.r + 2.0*sN.r + sNW.r) - (sSE.r + 2.0*sS.r + sSW.r)) / ${(8 * CELL).toFixed(2)} + 0.5 * (n2 - s2) / ${(4 * CELL).toFixed(2)};
+        vec3 objectNormal = normalize(vec3(-gx, 1.0, -gz));
+        float hB = blur.x;
+        vPack = blur.y; vFresh = sC.b; vIce = sC.a; vSlopeY = objectNormal.y;`)
+      .replace("#include <begin_vertex>", `vec3 transformed = vec3(position.x, hB - position.y*1.4, position.z); vWP = (modelMatrix*vec4(transformed,1.0)).xyz;`);
+  sh.fragmentShader = "varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+    sh.fragmentShader.replace("#include <color_fragment>", `
+      vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
+      vec3 col = mix(powder, packedC, vPack);
+      col = mix(col, iceC, vIce*(0.3 + 0.7*vPack));
+      float rock = (1.0 - smoothstep(0.03,0.14,vFresh)) * (1.0 - vIce) * (1.0 - smoothstep(0.55,0.78,vSlopeY));
+      col = mix(col, rockC, rock);
+      vec2 cellp = floor(vWP.xz*9.0);
+      float rnd = fract(sin(dot(cellp, vec2(12.9898,78.233)))*43758.5453);
+      float tw = fract(rnd*37.0 + dot(normalize(vWP - cameraPosition), vec3(4.0,6.0,5.0)));
+      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * 0.9;
+      diffuseColor.rgb *= col;`);
+};
+const patchMesh = new THREE.Mesh(patchGeo, patchMat);
+patchMesh.frustumCulled = false; patchMesh.receiveShadow = true;
+scene.add(patchMesh);
+
+function packOf(d, f) { return f > 0.01 ? clamp((f - d) / (f * 0.7), 0, 1) : 0; }
+function fillCell(arr, i, j, ix, iz) {
+  const x = ix * CELL - HALF, z = iz * CELL - HALF;
+  const c = chunks[(iz >> 5) * CPR + (ix >> 5)];
+  let d, f;
+  if (c) { const k = (iz & 31) * CH + (ix & 31); d = c.d[k]; f = c.f[k]; } else { d = f = freshCell(ix, iz); }
+  const o = (j * S + i) * 4;
+  arr[o] = groundAt(x, z) + d; arr[o + 1] = packOf(d, f); arr[o + 2] = f; arr[o + 3] = bioAt(x, z) === 1 ? 1 : 0;
+}
+const farU = { uPatch: { value: new THREE.Vector4(-1e6, -1e6, -1e6, -1e6) }, uTrail: { value: null } };
+function recenter(px, pz, force) {
+  let cx = Math.round(((px + HALF) / CELL - PHALF) / 16) * 16, cz = Math.round(((pz + HALF) / CELL - PHALF) / 16) * 16;
+  cx = clamp(cx, 0, FN - S); cz = clamp(cz, 0, FN - S);
+  if (!force && cx === pox && cz === poz) return;
+  const src = pdata, dst = pdata2, dx = cx - pox, dz = cz - poz;
+  for (let j = 0; j < S; j++) {
+    const sj = j + dz, rowOK = !force && sj >= 0 && sj < S;
+    let i0 = 0, i1 = -1;
+    if (rowOK) { i0 = Math.max(0, -dx); i1 = Math.min(S - 1, S - 1 - dx); }
+    if (rowOK && i1 >= i0) dst.set(src.subarray((sj * S + i0 + dx) * 4, (sj * S + i1 + dx + 1) * 4), (j * S + i0) * 4);
+    for (let i = 0; i < S; i++) { if (rowOK && i >= i0 && i <= i1) continue; fillCell(dst, i, j, cx + i, cz + j); }
+  }
+  pdata = dst; pdata2 = src; pox = cx; poz = cz;
+  snowTex.image.data = pdata; snowTex.needsUpdate = true;
+  const wx = cx * CELL - HALF, wz = cz * CELL - HALF;
+  patchMesh.position.set(wx, 0, wz);
+  farU.uPatch.value.set(wx, wz, wx + (S - 1) * CELL, wz + (S - 1) * CELL);
+}
+function writeCell(ix, iz, oldD, newD, f) {
+  const i = ix - pox, j = iz - poz;
+  if (i < 0 || j < 0 || i >= S || j >= S) return;
+  const o = (j * S + i) * 4;
+  pdata[o] += newD - oldD; pdata[o + 1] = packOf(newD, f);
+  snowDirty = true;
+}
+
+/* ---------------- trail map (far terrain tint + minimap) ---------------- */
+const TR = 1024, trailData = new Uint8Array(TR * TR * 4);
+const trailTex = new THREE.DataTexture(trailData, TR, TR, THREE.RGBAFormat);
+trailTex.magFilter = THREE.LinearFilter; trailTex.minFilter = THREE.LinearFilter;
+farU.uTrail.value = trailTex;
+let trailDirty = false, trailClock = 0;
+function markTrail(x, z) {
+  const tx = clamp(((x + HALF) / (WORLD / TR)) | 0, 0, TR - 1), tz = clamp(((z + HALF) / (WORLD / TR)) | 0, 0, TR - 1), o = (tz * TR + tx) * 4;
+  if (trailData[o] < 255) { trailData[o] = 255; trailDirty = true; }
+}
+
+/* ---------------- boot ---------------- */
+let far, capMesh, treeMesh, cargoMesh = null, started = false, ready = false;
+const obGrid = new Map(); const OBC = 16;
+function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * 512 + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
+
+function mergeGeos(list) {
+  let n = 0; for (const g of list) n += g.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+  for (const g of list) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); col.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute("position", new THREE.BufferAttribute(pos, 3)); m.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); m.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  return m;
+}
+function paint(geo, fn) {
+  const g = geo.index ? geo.toNonIndexed() : geo, p = g.attributes.position, nm = g.attributes.normal, c = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) { const rgb = fn(p.getX(i), p.getY(i), p.getZ(i), nm.getY(i)); c[i * 3] = rgb[0]; c[i * 3 + 1] = rgb[1]; c[i * 3 + 2] = rgb[2]; }
+  g.setAttribute("color", new THREE.BufferAttribute(c, 3)); return g;
+}
+
+function buildFar() {
+  const step = 4, n = (GN - 1) / step + 1;   // 8 m far-terrain grid
+  const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const gi = i * step, gj = j * step, k = gj * GN + gi, v = j * n + i;
+    const d = freshG[k], b = bio[k];
+    pos[v * 3] = gi * GRES - HALF; pos[v * 3 + 1] = ground[k] + d; pos[v * 3 + 2] = gj * GRES - HALF;
+    let r = 0.93, g = 0.955, bl = 1.0;
+    if (b === 1) { r = 0.62; g = 0.76; bl = 0.86; }
+    else if (d < 0.12) { const t = 1 - d / 0.12; r = lerp(r, 0.27, t); g = lerp(g, 0.26, t); bl = lerp(bl, 0.28, t); }
+    else if (b === 2) { r = 0.84; g = 0.87; bl = 0.92; }
+    col[v * 3] = r; col[v * 3 + 1] = g; col[v * 3 + 2] = bl;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(buildGridIndex(n), 1));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, farU);
+    sh.vertexShader = "uniform vec4 uPatch; varying vec2 vWxz;\n" + sh.vertexShader.replace("#include <begin_vertex>", `
+      vec3 transformed = vec3(position); vWxz = position.xz;
+      if (position.x > uPatch.x && position.x < uPatch.z && position.z > uPatch.y && position.z < uPatch.w) {
+        bool deep = position.x > uPatch.x + 5.0 && position.x < uPatch.z - 5.0 && position.z > uPatch.y + 5.0 && position.z < uPatch.w - 5.0;
+        transformed.y -= deep ? 30.0 : 1.3; }`);
+    sh.fragmentShader = "uniform sampler2D uTrail; varying vec2 vWxz;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+      float tr = texture2D(uTrail, (vWxz + 2048.0) / 4096.0).r;
+      diffuseColor.rgb *= mix(vec3(1.0), vec3(0.76,0.82,0.9), tr);`);
+  };
+  far = new THREE.Mesh(geo, mat); far.receiveShadow = false;
+  scene.add(far);
+}
+
+const windU = { uTime: { value: 0 }, uWind: { value: new THREE.Vector2(1, 0) } };
+function breezeMat(snowy) {
+  const m = snowy ? new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2b3a52 }) : new THREE.MeshLambertMaterial({ vertexColors: true });
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, windU);
+    if (snowy) {
+      sh.vertexShader = "varying vec3 vSW;\n" + sh.vertexShader.replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n vSW = (instanceMatrix * vec4(transformed,1.0)).xyz;");
+      sh.fragmentShader = "varying vec3 vSW;\n" + sh.fragmentShader.replace("#include <dithering_fragment>", `#include <dithering_fragment>
+        vec3 cq = floor(vSW * 11.0);
+        float rn = fract(sin(dot(cq, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+        float tw = fract(rn * 31.0 + dot(normalize(vSW - cameraPosition), vec3(5.0, 7.0, 3.0)));
+        gl_FragColor.rgb += step(0.975, rn) * step(0.7, tw) * 0.7;`);
+    }
+    sh.vertexShader = "uniform float uTime; uniform vec2 uWind;\n" + sh.vertexShader.replace("#include <project_vertex>", `
+      vec4 mvPosition = instanceMatrix * vec4(transformed, 1.0);
+      vec2 ip = vec2(instanceMatrix[3].x, instanceMatrix[3].z);
+      float hgt = max(position.y - 0.8, 0.0);
+      float gust = 0.7 + 0.6 * sin(uTime * 0.45 + ip.x * 0.004 + ip.y * 0.003) * sin(uTime * 0.27 + ip.y * 0.006);
+      float sway = sin(uTime * 1.6 + ip.x * 0.21 + ip.y * 0.17) * 0.55 + sin(uTime * 3.7 + ip.x * 0.5 - ip.y * 0.3) * 0.3 + sin(uTime * 7.3 + position.y * 1.7 + ip.x) * 0.12;
+      float bend = hgt * hgt * 0.0105 * gust;
+      mvPosition.xz += uWind * bend * (1.0 + sway);
+      mvPosition.y -= bend * 0.08 * length(uWind);
+      mvPosition = modelViewMatrix * mvPosition;
+      gl_Position = projectionMatrix * mvPosition;`);
+  };
+  return m;
+}
+function buildProps() {
+  const rnd = mulberry32(90210);
+  const green = [0.10, 0.20, 0.15], snowC = [0.92, 0.95, 1.0];
+  const caps = [], parts = [paint(new THREE.CylinderGeometry(0.16, 0.24, 2.2, 6).translate(0, 1.1, 0), () => [0.25, 0.17, 0.12])];
+  [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]].forEach(([r, h, y]) => {
+    parts.push(paint(new THREE.ConeGeometry(r, h, 7).translate(0, y, 0), (x, py, z, ny) => {
+      const t = clamp((py - (y - h / 2)) / h, 0, 1), s = ny < -0.5 ? 0 : 0.12 + t * 0.12;
+      return [lerp(green[0], snowC[0], s), lerp(green[1], snowC[1], s), lerp(green[2], snowC[2], s)];
+    }));
+    const ch = h * 0.86, cr = r * 0.86 * 1.13, cy = y + h / 2 + 0.1 - ch / 2, bot = cy - ch / 2;
+    const cg = new THREE.ConeGeometry(cr, ch, 16, 6, true).translate(0, cy, 0), cp = cg.attributes.position;
+    for (let v = 0; v < cp.count; v++) {
+      const vx = cp.getX(v), vy = cp.getY(v), vz = cp.getZ(v), t = clamp((vy - bot) / ch, 0, 1);
+      if (t > 0.99) { cp.setY(v, vy + 0.12); continue; }
+      const hsh = hash(Math.round(vx * 97) + 7 * Math.round(y * 10), Math.round(vz * 97) + Math.round(vy * 53));
+      const ang = Math.atan2(vz, vx), lump = Math.sin(ang * 5 + y * 3) * 0.5 + Math.sin(ang * 9 - y * 2) * 0.3;
+      let rs = 1 + 0.11 * Math.sin(Math.PI * Math.sqrt(t)) + lump * 0.05 * (1 - t) + (hsh - 0.5) * 0.06, dy = (hsh - 0.5) * 0.04;
+      if (t < 0.01) { rs += 0.06 + lump * 0.03; dy = (0.5 + lump * 0.5) * 0.22 * ch; }   // soft scalloped overhang
+      cp.setXYZ(v, vx * rs, vy + dy, vz * rs);
+    }
+    cg.computeVertexNormals();                       // smooth, pillowy shading (not faceted)
+    const capPart = paint(cg, (x, py, z, ny) => {
+      const t = clamp((py - bot) / ch, 0, 1), u = Math.pow(t, 0.35);
+      return [lerp(0.8, 1.0, u), lerp(0.87, 1.0, u), 1.0];
+    });
+    caps.push(capPart);
+  });
+  const treeGeo = mergeGeos(parts), capGeo = mergeGeos(caps);
+  const trees = [];
+  for (let n = 0; n < 260000 && trees.length < 17000; n++) {
+    const x = (rnd() * 2 - 1) * 2000, z = (rnd() * 2 - 1) * 2000;
+    const b = bioAt(x, z); if (b === 1) continue;
+    const h = groundAt(x, z); if (h > 185) continue;
+    const s = Math.hypot(groundAt(x + 2, z) - groundAt(x - 2, z), groundAt(x, z + 2) - groundAt(x, z - 2)) / 4;
+    if (s > 0.55) continue;
+    const lake = LAKES.some(L => Math.hypot(x - L.x, z - L.z) < L.r * 1.02 && bioAt(x, z) !== 0);
+    if (lake) continue;
+    if (b === 2) { const fd = fbm(x / 300 + 40, z / 300 - 3, 3); if (rnd() > (fd - 0.5) * 7) continue; }
+    else if (rnd() > 0.035) continue;
+    if (nearSite(x, z, 24)) continue;
+    trees.push([x, z, 0.75 + rnd() * 0.75]);
+  }
+  const tm = treeMesh = new THREE.InstancedMesh(treeGeo, breezeMat(), trees.length);
+  capMesh = new THREE.InstancedMesh(capGeo, breezeMat(true), trees.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
+  trees.forEach(([x, z, s], i) => {
+    const yaw = rnd() * 6.28, sy = s * (0.9 + rnd() * 0.3); q.setFromAxisAngle(up, yaw); sc.set(s, sy, s); p.set(x, groundAt(x, z) - 0.25, z);
+    m4.compose(p, q, sc); tm.setMatrixAt(i, m4); capMesh.setMatrixAt(i, m4);
+    const v = 0.85 + rnd() * 0.25; c.setRGB(v, v * (0.95 + rnd() * 0.1), v); tm.setColorAt(i, c);
+    addOb({ x, z, r: 0.42 * s, top: 1e9, tree: i, s, sy, yaw, y: p.y, snowy: true, wob: null });
+  });
+  tm.castShadow = true; scene.add(tm);
+  capMesh.castShadow = true; scene.add(capMesh);
+
+  // rocks
+  const rockGeo = paint(new THREE.IcosahedronGeometry(1, 0), (x, y, z, ny) => ny > 0.45 ? [0.9, 0.93, 0.98] : [0.32, 0.31, 0.33]);
+  rockGeo.computeVertexNormals();
+  const rocks = [];
+  for (let n = 0; n < 90000 && rocks.length < 1600; n++) {
+    const x = (rnd() * 2 - 1) * 2000, z = (rnd() * 2 - 1) * 2000;
+    if (bioAt(x, z) === 1) continue;
+    const h = groundAt(x, z), want = h > 70 ? 0.25 : 0.03;
+    if (rnd() > want || nearSite(x, z, 24)) continue;
+    rocks.push([x, z, 0.6 + Math.pow(rnd(), 2) * 2.4]);
+  }
+  const rm = new THREE.InstancedMesh(rockGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }), rocks.length);
+  rocks.forEach(([x, z, s], i) => {
+    const fr = sampleG(freshG, x, z), y = groundAt(x, z) + fr * 0.3;
+    q.setFromEuler(new THREE.Euler(rnd() * 3, rnd() * 3, rnd() * 3)); sc.set(s * (0.8 + rnd() * 0.5), s * 0.7, s * (0.8 + rnd() * 0.5)); p.set(x, y, z);
+    m4.compose(p, q, sc); rm.setMatrixAt(i, m4);
+    addOb({ x, z, r: 0.85 * s, top: y + 0.62 * s });
+  });
+  rm.castShadow = true; rm.receiveShadow = true; scene.add(rm);
+
+  // fallen logs
+  const logGeo = paint(new THREE.CylinderGeometry(0.34, 0.38, 1, 8).rotateZ(Math.PI / 2), (x, y, z, ny) => ny > 0.55 ? [0.9, 0.93, 0.98] : [0.28, 0.2, 0.15]);
+  const logs = [];
+  for (let n = 0; n < 120000 && logs.length < 420; n++) {
+    const x = (rnd() * 2 - 1) * 1990, z = (rnd() * 2 - 1) * 1990;
+    if (bioAt(x, z) !== 2 || nearSite(x, z, 30)) continue;
+    logs.push([x, z, 4 + rnd() * 5, rnd() * Math.PI]);
+  }
+  const lm = new THREE.InstancedMesh(logGeo, new THREE.MeshLambertMaterial({ vertexColors: true }), logs.length);
+  logs.forEach(([x, z, len, a], i) => {
+    const y = groundAt(x, z) + sampleG(freshG, x, z) * 0.55;
+    q.setFromAxisAngle(up, a); sc.set(len, 1, 1); p.set(x, y, z); m4.compose(p, q, sc); lm.setMatrixAt(i, m4);
+    const dx = Math.cos(a), dz = -Math.sin(a);
+    for (let t = -0.5; t <= 0.5; t += 1 / Math.ceil(len / 0.8)) addOb({ x: x + dx * t * len, z: z + dz * t * len, r: 0.42, top: y + 0.36 });
+  });
+  lm.castShadow = true; scene.add(lm);
+}
+
+/* ---------------- sled ---------------- */
+const sledRoot = new THREE.Group(), sledBody = new THREE.Group(), skiPivots = [], barPivot = new THREE.Group();
+let bodyMat = null;
+sledRoot.add(sledBody); scene.add(sledRoot);
+sledRoot.rotation.order = "YXZ";
+(function buildSled() {
+  const std = (c, r = 0.6, m = 0.05, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, extra || {}));
+  bodyMat = std(0xff5a1f, 0.42, 0.1);
+  const orange = bodyMat, dark = std(0x1a2027, 0.85), black = std(0x0c0f12, 0.95), steel = std(0x9aa6b2, 0.35, 0.6), navy = std(0x1c2c44, 0.8);
+  const glass = std(0x9fc4dc, 0.1, 0.1, { transparent: true, opacity: 0.45 });
+  const box = (w, h, d, mat, x, y, z, rx = 0, parent = sledBody) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; parent.add(m); return m; };
+  box(0.5, 0.24, 2.0, black, 0, 0.13, -0.55);          // track
+  box(0.64, 0.24, 2.1, dark, 0, 0.36, -0.55);           // tunnel
+  box(0.92, 0.46, 1.1, orange, 0, 0.56, 0.72);          // hood
+  box(0.82, 0.28, 0.55, orange, 0, 0.42, 1.38, 0.38);   // nose
+  box(0.5, 0.2, 1.05, dark, 0, 0.6, -0.45);             // seat
+  box(0.66, 0.06, 0.5, orange, 0, 0.5, -1.45);          // rear flap/rack
+  cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
+  box(0.56, 0.4, 0.46, std(0x7a5a3a, 0.9), 0, 0.74, -1.45, 0, cargoMesh); box(0.6, 0.06, 0.08, orange, 0, 0.95, -1.45, 0, cargoMesh);
+  box(0.82, 0.42, 0.04, glass, 0, 0.96, 0.38, -0.55);   // windshield
+  barPivot.position.set(0, 0.93, 0.18); sledBody.add(barPivot);
+  box(0.72, 0.045, 0.045, steel, 0, 0, 0, 0, barPivot);   // handlebar
+  box(0.08, 0.06, 0.06, black, 0.33, 0, 0, 0, barPivot); box(0.08, 0.06, 0.06, black, -0.33, 0, 0, 0, barPivot);
+  const lamp = box(0.32, 0.1, 0.04, std(0xfff4d6, 0.3, 0, { emissive: 0xfff0c8, emissiveIntensity: 1.6 }), 0, 0.55, 1.29, 0.38);
+  lamp.castShadow = false;
+  for (const s of [-0.52, 0.52]) {
+    const pv = new THREE.Group(); pv.position.set(s, 0, 0.95); sledBody.add(pv); skiPivots.push(pv);
+    box(0.14, 0.04, 1.7, steel, 0, 0.03, 0.1, 0, pv);
+    box(0.14, 0.04, 0.34, steel, 0, 0.12, 1.03, -0.62, pv);
+    box(0.06, 0.42, 0.06, dark, 0, 0.24, 0, 0, pv);
+    box(0.4, 0.05, 0.06, dark, s * 0.6, 0.42, 0.95);
+  }
+  // rider
+  box(0.46, 0.22, 0.6, navy, 0, 0.8, -0.4);             // thighs
+  box(0.5, 0.62, 0.34, navy, 0, 1.13, -0.42, 0.22);     // torso
+  box(0.14, 0.12, 0.55, navy, 0.24, 1.18, -0.05, 0.5);  // arms
+  box(0.14, 0.12, 0.55, navy, -0.24, 1.18, -0.05, 0.5);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), std(0xeef2f5, 0.3, 0.1)); helm.position.set(0, 1.58, -0.3); helm.castShadow = true; sledBody.add(helm);
+  box(0.3, 0.1, 0.1, std(0x111820, 0.15, 0.4), 0, 1.58, -0.14);  // visor
+  box(0.06, 0.08, 0.36, orange, 0, 1.75, -0.3);         // helmet stripe
+})();
+
+/* ---------------- particles ---------------- */
+function softDot() {
+  const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.45, "rgba(255,255,255,.7)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t;
+}
+const dotTex = softDot();
+const SPN = 4200, spPos = new Float32Array(SPN * 3), spVel = new Float32Array(SPN * 3), spLife = new Float32Array(SPN);
+for (let i = 0; i < SPN; i++) spPos[i * 3 + 1] = -9999;
+const spGeo = new THREE.BufferGeometry(); spGeo.setAttribute("position", new THREE.BufferAttribute(spPos, 3));
+const spray = new THREE.Points(spGeo, new THREE.PointsMaterial({ size: 0.42, map: dotTex, transparent: true, opacity: 0.85, depthWrite: false, color: 0xf4f8ff }));
+spray.frustumCulled = false; scene.add(spray);
+let spHead = 0;
+function emit(x, y, z, vx, vy, vz, spread, life) {
+  const i = spHead; spHead = (spHead + 1) % SPN;
+  spPos[i * 3] = x; spPos[i * 3 + 1] = y; spPos[i * 3 + 2] = z;
+  spVel[i * 3] = vx + (Math.random() - 0.5) * spread; spVel[i * 3 + 1] = vy + Math.random() * spread * 0.6; spVel[i * 3 + 2] = vz + (Math.random() - 0.5) * spread;
+  spLife[i] = life ? life * (0.7 + Math.random() * 0.6) : 0.7 + Math.random() * 0.8;
+}
+function updSpray(dt) {
+  for (let i = 0; i < SPN; i++) {
+    if (spLife[i] <= 0) continue;
+    spLife[i] -= dt;
+    if (spLife[i] <= 0) { spPos[i * 3 + 1] = -9999; continue; }
+    const k = Math.exp(-2.2 * dt);
+    spVel[i * 3] *= k; spVel[i * 3 + 2] *= k; spVel[i * 3 + 1] = spVel[i * 3 + 1] * k - 9 * dt;
+    spPos[i * 3] += spVel[i * 3] * dt; spPos[i * 3 + 1] += spVel[i * 3 + 1] * dt; spPos[i * 3 + 2] += spVel[i * 3 + 2] * dt;
+  }
+  spGeo.attributes.position.needsUpdate = true;
+}
+const FLN = 12000, flPos = new Float32Array(FLN * 3);
+for (let i = 0; i < FLN; i++) { flPos[i * 3] = (Math.random() - 0.5) * 90; flPos[i * 3 + 1] = Math.random() * 40; flPos[i * 3 + 2] = (Math.random() - 0.5) * 90; }
+const SKN = 600, skPos = new Float32Array(SKN * 3), skVel = new Float32Array(SKN * 3), skLife = new Float32Array(SKN);
+for (let i = 0; i < SKN; i++) skPos[i * 3 + 1] = -9999;
+const skGeo = new THREE.BufferGeometry(); skGeo.setAttribute("position", new THREE.BufferAttribute(skPos, 3));
+const sparks = new THREE.Points(skGeo, new THREE.PointsMaterial({ size: 0.16, map: dotTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffa040, fog: false }));
+sparks.frustumCulled = false; scene.add(sparks);
+let skHead = 0, sparkAcc = 0;
+function spark(x, y, z, vx, vy, vz) {
+  const i = skHead; skHead = (skHead + 1) % SKN;
+  skPos[i * 3] = x; skPos[i * 3 + 1] = y; skPos[i * 3 + 2] = z; skVel[i * 3] = vx; skVel[i * 3 + 1] = vy; skVel[i * 3 + 2] = vz;
+  skLife[i] = 0.25 + Math.random() * 0.35;
+}
+function updSparks(dt) {
+  for (let i = 0; i < SKN; i++) {
+    if (skLife[i] <= 0) continue;
+    skLife[i] -= dt;
+    if (skLife[i] <= 0) { skPos[i * 3 + 1] = -9999; continue; }
+    skVel[i * 3 + 1] -= 12 * dt;
+    skPos[i * 3] += skVel[i * 3] * dt; skPos[i * 3 + 1] += skVel[i * 3 + 1] * dt; skPos[i * 3 + 2] += skVel[i * 3 + 2] * dt;
+  }
+  skGeo.attributes.position.needsUpdate = true;
+}
+const flGeo = new THREE.BufferGeometry(); flGeo.setAttribute("position", new THREE.BufferAttribute(flPos, 3));
+const flakes = new THREE.Points(flGeo, new THREE.PointsMaterial({ size: 0.13, map: dotTex, transparent: true, opacity: 0.9, depthWrite: false, color: 0xffffff }));
+flakes.frustumCulled = false; scene.add(flakes);
+let windT = 0;
+function updFlakes(dt) {
+  windT += dt;
+  const stw = 1 + 1.6 * GS.storm, wx = (Math.sin(windT * 0.21) * 2.6 + 2.2) * stw, wz = Math.cos(windT * 0.17) * 2.0 * stw;
+  const nFl = Math.round(5200 + 6800 * GS.storm); flGeo.setDrawRange(0, nFl);
+  windU.uTime.value = windT; windU.uWind.value.set(wx * 0.42 / Math.sqrt(stw), wz * 0.42 / Math.sqrt(stw));
+  // flakes rush past the camera, growing exponentially with speed
+  const sp = Math.hypot(P.vx, P.vz), rush = Math.min(70, (Math.exp(sp / 12) - 1) * 2.4), rx = sp > 0.1 ? -P.vx / sp * rush : 0, rz = sp > 0.1 ? -P.vz / sp * rush : 0;
+  flakes.material.size = 0.13 + Math.min(0.1, rush * 0.002);
+  const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+  for (let i = 0; i < nFl; i++) {
+    let x = flPos[i * 3] + (wx + rx + Math.sin(i + windT) * 0.5) * dt, y = flPos[i * 3 + 1] - (1.2 + (i % 7) * 0.12) * dt, z = flPos[i * 3 + 2] + (wz + rz) * dt;
+    x = cx + ((x - cx + 45) % 90 + 90) % 90 - 45; z = cz + ((z - cz + 45) % 90 + 90) % 90 - 45; y = cy + ((y - cy + 15) % 40 + 40) % 40 - 15;
+    flPos[i * 3] = x; flPos[i * 3 + 1] = y; flPos[i * 3 + 2] = z;
+  }
+  flGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------------- input ---------------- */
+const keys = new Set();
+const input = { thr: 0, brk: 0, steer: 0, lean: 0, hop: false, wheelie: 0 };
+let camMode = 0, muted = false;
+const VIEWS = [{ n: "Chase", d: 7.8, h: 3.2, f: 60 }, { n: "Close chase", d: 4.6, h: 2.0, f: 62 }, { n: "First person", fp: true, f: 72 }, { n: "Drone", d: 16, h: 9, f: 52 }];
+addEventListener("keydown", e => {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code) || (started && e.ctrlKey && !e.metaKey)) e.preventDefault();
+  if (e.repeat) return;
+  keys.add(e.code);
+  if (!started) return;
+  if (e.code === "Space") input.hop = true;
+  if (e.code === "KeyR") resetSled();
+  if (e.code === "KeyV" || e.code === "KeyC") cycleView();
+  if (e.code === "KeyM") { muted = !muted; applySettings(); toast(muted ? "Muted" : "Sound on"); }
+  if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
+  gameKey(e);
+});
+addEventListener("keyup", e => keys.delete(e.code));
+addEventListener("blur", () => keys.clear());
+let padHop = false, padReset = false, padView = false;
+function cycleView() { camMode = (camMode + 1) % VIEWS.length; camState.init = false; toast(VIEWS[camMode].n + " view"); }
+function readInput(dt) {
+  let thr = (keys.has("KeyW") || keys.has("ArrowUp")) ? 1 : 0, brk = (keys.has("KeyS") || keys.has("ArrowDown")) ? 1 : 0;
+  let st = ((keys.has("KeyD") || keys.has("ArrowRight")) ? 1 : 0) - ((keys.has("KeyA") || keys.has("ArrowLeft")) ? 1 : 0);
+  let lean = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 1 : 0, analog = null, wh = (keys.has("ControlLeft") || keys.has("ControlRight")) ? 1 : 0;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of pads) {
+    if (!gp) continue;
+    const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) analog = ax;
+    thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
+    if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
+    if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
+    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started) input.hop = true; padHop = h;
+    const r = gp.buttons[3] && gp.buttons[3].pressed; if (r && !padReset && started) resetSled(); padReset = r;
+    const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
+    break;
+  }
+  input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
+  input.thr = thr; input.brk = brk; input.lean = lean;
+  if (analog !== null) input.steer = analog;
+  else input.steer += (st - input.steer) * (1 - Math.exp(-(st === 0 ? 9 : 5) * dt));
+}
+
+/* ---------------- physics ---------------- */
+const MASS = 280, G = 15.5;
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
+function resetSled() {
+  const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
+  P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
+  P.y = surf(P.x, P.z) + 0.4; P.stuckT = 0;
+}
+function plough(fx, fz, lx, lz) {
+  let et = 0, es = 0, fm = 0;
+  for (const o of [-0.18, 0, 0.18]) {
+    const x = P.x + fx * 0.42 + lx * o, z = P.z + fz * 0.42 + lz * o, ix = Math.round((x + HALF) / CELL), iz = Math.round((z + HALF) / CELL);
+    const d = depthAt(ix, iz), f = freshAt(ix, iz); et += Math.max(0, d - f * 0.22); fm += f;
+  }
+  for (const s of [-0.52, 0.52]) {
+    const x = P.x + fx * 1.95 + lx * s, z = P.z + fz * 1.95 + lz * s, ix = Math.round((x + HALF) / CELL), iz = Math.round((z + HALF) / CELL);
+    es += Math.max(0, depthAt(ix, iz) - freshAt(ix, iz) * 0.5);
+  }
+  et /= 3; es /= 2; fm /= 3;
+  P.pack = fm > 0.02 ? clamp(1 - et / (fm * 0.78), 0, 1) : 1;
+  return 0.54 * et + 0.4 * es * (1 - P.wh);
+}
+const bell = (x, c, w) => { const t = (x - c) / w; return Math.exp(-t * t); };
+function stamp(fx, fz, lx, lz, carve) {
+  const R = 2.3, x0 = Math.floor((P.x - R + HALF) / CELL), x1 = Math.ceil((P.x + R + HALF) / CELL), z0 = Math.floor((P.z - R + HALF) / CELL), z1 = Math.ceil((P.z + R + HALF) / CELL);
+  const skis = P.wh > 0.45 ? 0 : 1, bh = 0.05 + 0.07 * carve;
+  for (let iz = Math.max(0, z0); iz <= Math.min(FN - 1, z1); iz++) {
+    const wz = iz * CELL - HALF - P.z;
+    for (let ix = Math.max(0, x0); ix <= Math.min(FN - 1, x1); ix++) {
+      const wx = ix * CELL - HALF - P.x, pl = wx * fx + wz * fz;
+      if (pl < -1.8 || pl > 2.05) continue;
+      const pa = Math.abs(wx * lx + wz * lz);
+      if (pa > 1.0) continue;
+      const wT = (1 - sstep(0.12, 0.36, pa)) * sstep(-1.7, -1.4, pl) * (1 - sstep(0.22, 0.45, pl));
+      const wS = skis * (1 - sstep(0.02, 0.2, Math.abs(pa - 0.52))) * sstep(0.15, 0.4, pl) * (1 - sstep(1.75, 1.98, pl));
+      const wB = Math.max(bell(pa, 0.78, 0.1) * sstep(-1.6, -1.2, pl) * (1 - sstep(1.6, 1.95, pl)) * (skis ? 1 : 0.2),
+                          bell(pa, 0.4, 0.07) * sstep(-1.6, -1.2, pl) * (1 - sstep(0.1, 0.35, pl)) * (skis ? 0.5 : 1));
+      if (wT < 0.002 && wS < 0.002 && wB < 0.02) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+      let d = d0;
+      if (wT > 0.002 || wS > 0.002) { const tg = Math.min(lerp(f, f * 0.22, wT), lerp(f, f * 0.5, wS)); if (tg < d) d = tg; }
+      else if (d >= f * 0.85) { const b = f + bh * wB; if (d < b) d += (b - d) * 0.25; }
+      if (d !== d0) { c.d[k] = d; writeCell(ix, iz, d0, d, f); }
+    }
+  }
+}
+function crater(x, z, amt) {
+  const R = 1.8, RR = R + 0.5;
+  for (let iz = Math.floor((z - RR + HALF) / CELL); iz <= Math.ceil((z + RR + HALF) / CELL); iz++)
+    for (let ix = Math.floor((x - RR + HALF) / CELL); ix <= Math.ceil((x + RR + HALF) / CELL); ix++) {
+      if (ix < 0 || iz < 0 || ix >= FN || iz >= FN) continue;
+      const r = Math.hypot(ix * CELL - HALF - x, iz * CELL - HALF - z); if (r > RR) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+      const d = r < R ? Math.max(f * 0.12, d0 - amt * (0.4 + 0.6 * (1 - r / R))) : d0 + amt * 0.3 * (1 - (r - R) / 0.5);
+      c.d[k] = d; writeCell(ix, iz, d0, d, f);
+    }
+}
+const ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0), pending = [], wobbling = [];
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _qt = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _ax = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+function wobble(o, amp, px, pz) {
+  amp = Math.min(0.32, amp);
+  if (o.wob) { const cur = o.wob.amp * Math.exp(-2.4 * o.wob.t); if (o.wob.t < 0.45 || cur > amp * 0.8) return; }
+  const d = Math.hypot(px, pz) || 1;
+  o.wob = { t: 0, amp, ax: pz / d, az: -px / d };
+  if (!wobbling.includes(o)) wobbling.push(o);
+}
+function setTree(o, tilt) {
+  _q.setFromAxisAngle(_up, o.yaw); _ax.set(o.wob.ax, 0, o.wob.az); _qt.setFromAxisAngle(_ax, tilt).multiply(_q);
+  _p.set(o.x, o.y, o.z); _s.set(o.s, o.sy, o.s); _m.compose(_p, _qt, _s);
+  treeMesh.setMatrixAt(o.tree, _m); if (o.snowy) capMesh.setMatrixAt(o.tree, _m);
+}
+function updWobble(dt) {
+  if (!wobbling.length) return;
+  for (let i = wobbling.length - 1; i >= 0; i--) {
+    const o = wobbling[i], w = o.wob; w.t += dt;
+    const env = Math.exp(-2.4 * w.t), tilt = w.amp * env * Math.sin(w.t * 8.5 / Math.sqrt(o.s));
+    if (env < 0.01) { setTree(o, 0); o.wob = null; wobbling.splice(i, 1); } else setTree(o, tilt);
+  }
+  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
+}
+function pile(x, z, R, amt) {
+  for (let iz = Math.floor((z - R + HALF) / CELL); iz <= Math.ceil((z + R + HALF) / CELL); iz++)
+    for (let ix = Math.floor((x - R + HALF) / CELL); ix <= Math.ceil((x + R + HALF) / CELL); ix++) {
+      if (ix < 0 || iz < 0 || ix >= FN || iz >= FN) continue;
+      const r = Math.hypot(ix * CELL - HALF - x, iz * CELL - HALF - z); if (r > R) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), d0 = c.d[k];
+      const t = r / R, bump = amt * (r < 0.5 ? 0.4 : 1) * (1 - t * t) * (0.7 + Math.random() * 0.6);
+      c.d[k] = d0 + bump; writeCell(ix, iz, d0, d0 + bump, c.f[k]);
+    }
+}
+function dropSnow(o, hard) {
+  o.snowy = false;
+  capMesh.setMatrixAt(o.tree, ZERO_M); capMesh.instanceMatrix.needsUpdate = true;
+  const n = Math.round(160 + o.s * 180);
+  for (let k = 0; k < n; k++) {
+    const t = Math.random(), hh = o.y + (2.4 + t * 4.8) * o.s, rad = (1.8 - t * 1.25) * o.s * Math.sqrt(Math.random()), a = Math.random() * 6.283;
+    const out = 0.4 + Math.random() * (hard ? 1.6 : 0.8);
+    emit(o.x + Math.cos(a) * rad, hh, o.z + Math.sin(a) * rad, Math.cos(a) * out + P.vx * 0.08, Math.random() * 0.6, Math.sin(a) * out + P.vz * 0.08, 0.6, 2.2);
+  }
+  pending.push({ t: 0.9, x: o.x, z: o.z, s: o.s });
+  whump(hard ? 0.9 : 0.55);
+  const dd = Math.hypot(P.x - o.x, P.z - o.z);
+  if (dd < 2.6 * o.s) { P.shake = Math.max(P.shake, 0.25); P.dumped = 1.2; }
+}
+function updPending(dt) {
+  for (let i = pending.length - 1; i >= 0; i--) {
+    const e = pending[i]; e.t -= dt;
+    if (e.t <= 0) {
+      pile(e.x, e.z, 2.3 * e.s, 0.18);
+      for (let k = 0; k < 40; k++) { const a = Math.random() * 6.283, r = (0.6 + Math.random() * 1.8) * e.s; emit(e.x + Math.cos(a) * r, groundAt(e.x, e.z) + 0.6, e.z + Math.sin(a) * r, Math.cos(a) * 1.5, 0.8 + Math.random(), Math.sin(a) * 1.5, 0.8, 0.9); }
+      pending.splice(i, 1);
+    }
+  }
+}
+function collide(fx, fz) {
+  const spdNow = Math.hypot(P.vx, P.vz);
+  for (const [off, r] of [[1.15, 0.62], [-0.7, 0.7]]) {
+    const cx = P.x + fx * off, cz = P.z + fz * off;
+    const gx = Math.floor((cx + HALF) / OBC), gz = Math.floor((cz + HALF) / OBC);
+    for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+      const a = obGrid.get(j * 512 + i); if (!a) continue;
+      for (const o of a) {
+        if (P.y > o.top - 0.12) continue;
+        const dx = cx - o.x, dz = cz - o.z, d2 = dx * dx + dz * dz, rr = r + o.r;
+        if (o.tree !== undefined && spdNow > 4.5) { const br = r + 1.15 * o.s; if (d2 < br * br) { wobble(o, 0.05 + spdNow * 0.004, -dx, -dz); if (o.snowy) dropSnow(o, false); } }
+        if (d2 >= rr * rr || d2 < 1e-6) continue;
+        if (o.tree !== undefined) { wobble(o, 0.06 + Math.hypot(P.vx, P.vz) * 0.014, -dx, -dz); if (o.snowy) dropSnow(o, true); }
+        const d = Math.sqrt(d2), nx = dx / d, nz = dz / d, pen = rr - d;
+        P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02);
+        const vn = P.vx * nx + P.vz * nz;
+        if (vn < 0) {
+          const hitV = -vn, tx = -nz, tz = nx;
+          let vt = P.vx * tx + P.vz * tz;
+          if (o.tree !== undefined) {
+            // glance off: drop the into-trunk speed, keep rolling past beside it
+            if (Math.abs(vt) < 1.2 && hitV > 1.5) vt = (vt !== 0 ? Math.sign(vt) : (Math.sign(fx * tz - fz * tx) || 1)) * Math.min(3.5, hitV * 0.3);
+            P.vx = tx * vt * 0.82; P.vz = tz * vt * 0.82;
+            if (Math.hypot(P.vx, P.vz) > 1) P.yaw = angLerp(P.yaw, Math.atan2(P.vx, P.vz), 0.3);
+            if (hitV > 4) { cargoHit(hitV); P.shake = Math.min(0.45, hitV / 26); thud(Math.min(0.8, hitV / 24)); }
+          } else {
+            P.vx -= 1.45 * vn * nx; P.vz -= 1.45 * vn * nz;
+            if (hitV > 4) { cargoHit(hitV); P.shake = Math.min(1, hitV / 14); thud(Math.min(1, hitV / 20)); }
+          }
+        }
+      }
+    }
+  }
+  const lim = HALF - 24; P.x = clamp(P.x, -lim, lim); P.z = clamp(P.z, -lim, lim);
+}
+let sprayAcc = 0;
+function physStep(dt) {
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
+  const hs = surf(P.x, P.z), gnd = P.y <= hs + 0.12;
+  const e = 0.8, gx = (smoothSurf(P.x + e, P.z) - smoothSurf(P.x - e, P.z)) / (2 * e), gz = (smoothSurf(P.x, P.z + e) - smoothSurf(P.x, P.z - e)) / (2 * e);
+  let vx = P.vx, vz = P.vz;
+  const vf = vx * fx + vz * fz;
+  const exc = plough(fx, fz, lx, lz);
+  const fr = freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL));
+  P.ice = bioAt(P.x, P.z) === 1 && fr < 0.12;
+  // only very steep bare rock matters: the sled loses its footing and slides down the mountain
+  P.rock = P.ice ? 0 : (1 - sstep(0.05, 0.16, fr)) * sstep(0.7, 0.95, Math.hypot(gx, gz));
+  P.exc = exc;
+  // steering
+  const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
+  // wheelie: skis come up off the snow, track does all the work
+  const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
+  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc) * (GS.up.engine ? 1.18 : 1)) * dt);
+  const whOn = input.wheelie && GS.fuel > 0 && (gnd ? Math.abs(vf) > 2.5 : P.wh > 0.3);
+  P.wh = clamp(P.wh + (whOn ? 2.4 : -3.2) * dt, 0, 1);
+  if (P.wh > 0.7 && gnd) { P.whRun += Math.abs(vf) * dt; if (P.whRun > P.whBest) P.whBest = P.whRun; }
+  else if (P.wh < 0.2) P.whRun = 0;
+  const tgt = -input.steer * (1.7 + input.lean * 0.75) * lerp(1, 0.32, P.wh) * spf * (vf < -0.3 ? -1 : 1) * (gnd ? 1 : 0.25);
+  P.yr += (tgt - P.yr) * (1 - Math.exp(-7 * dt));
+  const dyaw = P.yr * dt; P.yaw += dyaw;
+  if (gnd) {
+    const share = (P.ice ? 0.35 : 0.9) * (1 - 0.7 * P.rock), a = dyaw * share, ca = Math.cos(a), sa = Math.sin(a);
+    const nvx = vx * ca + vz * sa, nvz = vz * ca - vx * sa; vx = nvx; vz = nvz;
+    const g2 = gx * gx + gz * gz; vx -= G * gx / (1 + g2) * dt; vz -= G * gz / (1 + g2) * dt;
+    let F = 0;
+    if (thrE > 0) F += Math.min(3600 * (GS.up.engine ? 1.2 : 1), 47000 * (GS.up.engine ? 1.25 : 1) / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
+    if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
+    vx += F / MASS * fx * dt; vz += F / MASS * fz * dt;
+    const sp = Math.hypot(vx, vz);
+    P.drag = 5600 * exc * (GS.up.paddle ? 0.75 : 1);
+    const Fs = P.drag + (P.ice ? 140 : lerp(260, 60, P.rock)) + 0.9 * sp * sp;
+    if (sp > 0.01) { const dv = Math.min(sp, Fs / MASS * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
+    const grip = lerp(P.ice ? 1.2 : lerp(5.5, 9, P.pack) + (GS.up.paddle ? 1.6 : 0), 0.8, P.rock) * lerp(1, 0.75, P.wh);
+    const vl = vx * lx + vz * lz, nvl = vl * Math.exp(-grip * dt); vx += (nvl - vl) * lx; vz += (nvl - vl) * lz;
+    // spray
+    const spd = Math.hypot(vx, vz);
+    sprayAcc += (exc * 60 + 0.4 + (P.ice ? 0 : Math.abs(vl) * 0.8)) * Math.min(spd, 30) * dt * (P.ice ? 0.3 : 1);
+    while (sprayAcc > 1) {
+      sprayAcc -= 1;
+      const side = (Math.random() - 0.5) * 0.5;
+      emit(P.x - fx * 1.6 + lx * side, P.y + 0.15, P.z - fz * 1.6 + lz * side, -fx * spd * 0.25 + vx * 0.3, 1.5 + spd * 0.12 + exc * 6, -fz * spd * 0.25 + vz * 0.3, 1.6 + exc * 4);
+      if (exc > 0.05 && Math.random() < 0.5) { const s = Math.random() < 0.5 ? -0.6 : 0.6; emit(P.x + fx * 1.9 + lx * s, P.y + 0.1, P.z + fz * 1.9 + lz * s, vx * 0.6 + lx * s * 3, 1.2 + exc * 5, vz * 0.6 + lz * s * 3, 1.4); }
+    }
+  } else P.drag *= 0.9;
+  if (gnd && input.hop) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
+  input.hop = false;
+  P.vy -= G * dt;
+  P.x += vx * dt; P.z += vz * dt; P.y += P.vy * dt;
+  P.vx = vx; P.vz = vz;
+  if (gnd) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
+  const hs2 = surf(P.x, P.z), sv = vx * gx + vz * gz;
+  if (P.y <= hs2) {
+    const impact = sv - P.vy; P.y = hs2;
+    if (P.vy < sv) { if (!P.gnd && impact > 4.5) { cargoHit(impact); crater(P.x, P.z, Math.min(0.45, impact * 0.045)); P.shake = Math.min(1, impact / 12) * (GS.up.susp ? 0.6 : 1); thud(Math.min(1, impact / 14)); } P.vy = sv; }
+  }
+  P.gnd = P.y <= hs2 + 0.12;
+  collide(fx, fz);
+  P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt;
+}
+
+/* ---------------- audio ---------------- */
+let audio = null;
+function initAudio() {
+  try {
+    const AC = new (window.AudioContext || window.webkitAudioContext)();
+    const master = AC.createGain(); master.gain.value = muted ? 0 : SET.vol; master.connect(AC.destination);
+    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = "sawtooth"; o2.type = "square";
+    const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500; lp.Q.value = 2;
+    const eg = AC.createGain(); eg.gain.value = 0;
+    const o2g = AC.createGain(); o2g.gain.value = 0.5;
+    o1.connect(lp); o2.connect(o2g); o2g.connect(lp); lp.connect(eg); eg.connect(master); o1.start(); o2.start();
+    const buf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+    const mk = (type, f, q) => { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; const g = AC.createGain(); g.gain.value = 0; s.connect(b); b.connect(g); g.connect(master); s.start(); return { g, b }; };
+    const hiss = mk("bandpass", 1100, 0.7), wind = mk("lowpass", 380, 0.4);
+    audio = { AC, master, o1, o2, lp, eg, hiss, wind, buf };
+  } catch (e) { audio = null; }
+}
+function thud(v) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = buf; f.type = "lowpass"; f.frequency.value = 220; g.gain.setValueAtTime(0.9 * v, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.35);
+  s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime + 0.4);
+}
+function whump(v) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
+  s.buffer = buf; f.type = "lowpass"; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(160, t + 0.9);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 1.2);
+}
+function updAudio(spd) {
+  if (!audio) return;
+  const t = audio.AC.currentTime, r = P.rpm, f = 36 + r * 115;
+  audio.o1.frequency.setTargetAtTime(f, t, 0.05); audio.o2.frequency.setTargetAtTime(f * 0.5, t, 0.05);
+  audio.lp.frequency.setTargetAtTime(300 + r * 1900, t, 0.06);
+  audio.eg.gain.setTargetAtTime(GS.fuel > 0 && !GS.dead ? 0.07 + r * 0.11 : 0, t, 0.15);
+  audio.hiss.g.gain.setTargetAtTime(P.gnd ? Math.min(0.5, spd / 30 * (0.08 + P.exc * 1.6)) : 0, t, 0.08);
+  audio.hiss.b.frequency.setTargetAtTime(P.ice ? 2600 : 1000, t, 0.2);
+  audio.wind.g.gain.setTargetAtTime(0.05 + Math.min(0.3, spd / 45 * 0.3), t, 0.2);
+}
+
+/* ---------------- minimap ---------------- */
+const mapC = $("map"), mctx = mapC.getContext("2d"), MS = mapC.width;
+const mapBg = document.createElement("canvas"), mapTrail = document.createElement("canvas");
+mapBg.width = mapBg.height = mapTrail.width = mapTrail.height = MS;
+const tctx = mapTrail.getContext("2d");
+function buildMapBg() {
+  const g = mapBg.getContext("2d"), img = g.createImageData(MS, MS);
+  for (let j = 0; j < MS; j++) for (let i = 0; i < MS; i++) {
+    const x = (i + 0.5) / MS * WORLD - HALF, z = (j + 0.5) / MS * WORLD - HALF;
+    const h = groundAt(x, z), hx = (groundAt(x + 12, z) - groundAt(x - 12, z)) / 24, b = bioAt(x, z), o = (j * MS + i) * 4;
+    let v = 200 + clamp(h / 3.2, 0, 45) - clamp(hx * 90, -40, 40);
+    let r = v * 0.9, gg = v * 0.95, bl = v;
+    if (b === 1) { r = 120; gg = 170; bl = 200; }
+    else if (b === 2) { r = v * 0.55; gg = v * 0.66; bl = v * 0.66; }
+    else if (sampleG(freshG, x, z) < 0.12) { r = gg = bl = v * 0.5; }
+    img.data[o] = clamp(r, 0, 255); img.data[o + 1] = clamp(gg, 0, 255); img.data[o + 2] = clamp(bl, 0, 255); img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+let lastMark = null;
+function drawMap() {
+  mctx.drawImage(mapBg, 0, 0); mctx.drawImage(mapTrail, 0, 0);
+  const px = (P.x + HALF) / WORLD * MS, pz = (P.z + HALF) / WORLD * MS;
+  for (const s of SITES) {
+    const sx = (s.x + HALF) / WORLD * MS, sz = (s.z + HALF) / WORLD * MS, tg = GS.job && GS.job.dest === s;
+    mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6, sz - 6, 12, 12);
+    mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; mctx.fillRect(sx - 4, sz - 4, 8, 8);
+    if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
+  }
+  mctx.save(); mctx.translate(px, pz); mctx.rotate(-P.yaw);
+  mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.moveTo(0, 14); mctx.lineTo(-9, -9); mctx.lineTo(9, -9); mctx.closePath(); mctx.fill();
+  mctx.fillStyle = "#ff5a1f"; mctx.beginPath(); mctx.moveTo(0, 10); mctx.lineTo(-6, -6); mctx.lineTo(6, -6); mctx.closePath(); mctx.fill();
+  mctx.restore();
+}
+function markMap() {
+  const px = (P.x + HALF) / WORLD * MS, pz = (P.z + HALF) / WORLD * MS;
+  if (lastMark && Math.hypot(px - lastMark[0], pz - lastMark[1]) < 1) return;
+  if (lastMark && P.gnd) { tctx.strokeStyle = "#ff5a1f"; tctx.lineWidth = 2.4; tctx.lineCap = "round"; tctx.beginPath(); tctx.moveTo(lastMark[0], lastMark[1]); tctx.lineTo(px, pz); tctx.stroke(); }
+  lastMark = [px, pz];
+}
+
+/* ---------------- visuals / camera / hud ---------------- */
+const camState = { yaw: SPAWN.yaw, init: false };
+const _camEye = new THREE.Vector3(), _camAim = new THREE.Vector3(), _camWant = new THREE.Vector3();
+let hudT = 0, safeT = 0;
+function angLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; }
+function updVisuals(dt) {
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
+  const spd = Math.hypot(P.vx, P.vz);
+  let pT, rT;
+  if (P.gnd) {
+    const hF = surf(P.x + fx * 1.3, P.z + fz * 1.3), hR = surf(P.x - fx * 1.2, P.z - fz * 1.2);
+    const hL = surf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = surf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
+    pT = Math.atan2(hF - hR, 2.5) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
+    rT = Math.atan2(hL - hRt, 1.2);
+  } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.6; rT = P.roll * 0.98; }
+  const whT = P.wh * (0.52 + Math.sin(performance.now() * 0.0061) * 0.05 + Math.sin(performance.now() * 0.017) * 0.02);
+  P.whVis += (whT - P.whVis) * (1 - Math.exp(-(whT > P.whVis ? 6 : 9) * dt));
+  pT += P.whVis;
+  const k = 1 - Math.exp(-(P.gnd ? 12 : 3) * dt);
+  P.pitch += (pT - P.pitch) * k; P.roll += (rT - P.roll) * k;
+  const lean = input.steer * (0.1 + input.lean * 0.1) * clamp(spd / 15, 0, 1);
+  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis)), P.z);
+  sledRoot.rotation.set(-P.pitch, P.yaw, P.roll);
+  sledBody.rotation.z += (lean - sledBody.rotation.z) * (1 - Math.exp(-8 * dt));
+  const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
+  for (const pv of skiPivots) pv.rotation.y += (skiT - pv.rotation.y) * kS;
+  barPivot.rotation.y += (skiT * 0.7 - barPivot.rotation.y) * kS;
+  sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
+  // engine rpm
+  const rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
+  P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
+  // camera
+  const view = VIEWS[camMode];
+  const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
+  camState.yaw = angLerp(camState.yaw, angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-3.5 * dt));
+  const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
+  let look;
+  if (view.fp) {
+    const eye = sledRoot.localToWorld(_camEye.set(0, 1.52, 0.42));
+    look = sledRoot.localToWorld(_camAim.set(0, 1.25, 16));
+    if (!camState.init) { camera.position.copy(eye); camState.init = true; }
+    else camera.position.lerp(eye, 1 - Math.exp(-22 * dt));
+    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.5);
+  } else {
+    const want = _camWant.set(P.x - cfx * view.d, P.y + view.h, P.z - cfz * view.d);
+    want.y = Math.max(want.y, surf(want.x, want.z) + 1.3);
+    if (!camState.init) { camera.position.copy(want); camState.init = true; }
+    else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
+    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 1.0);
+    look = _camAim.set(P.x + cfx * 4, P.y + 1.1, P.z + cfz * 4);
+  }
+  P.shake *= Math.exp(-4 * dt);
+  const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
+  camera.position.x += (Math.random() - 0.5) * sh; camera.position.y += (Math.random() - 0.5) * sh;
+  camera.lookAt(look);
+  const fov = view.f + Math.min(16, spd * 0.4);
+  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-3 * dt)); camera.updateProjectionMatrix(); }
+  sky.position.copy(camera.position);
+  sun.position.set(P.x + sunDir.x * 200, P.y + sunDir.y * 200, P.z + sunDir.z * 200); sun.target.position.set(P.x, P.y, P.z);
+  // recenter the fine snow patch
+  const pcx = (pox + PHALF) * CELL - HALF, pcz = (poz + PHALF) * CELL - HALF;
+  if (Math.abs(P.x - pcx) > 10 || Math.abs(P.z - pcz) > 10) recenter(P.x, P.z, false);
+  // stuck/flip hint + safe spot
+  if (started) {
+    const tipped = Math.abs(P.roll) > 0.9 || Math.abs(P.pitch) > 1.0;
+    P.stuckT = (tipped || (input.thr > 0 && spd < 0.6)) ? P.stuckT + dt : 0;
+    $("flip").hidden = P.stuckT < 2.5;
+    safeT += dt;
+    if (safeT > 2 && P.gnd && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
+  }
+  return spd;
+}
+function updHud(spd) {
+  $("spd").textContent = Math.round(spd * 2.237);
+  const stt = P.ice ? "ICE" : (P.pack > 0.62 ? "PACKED" : "POWDER");
+  const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
+  $("bonus").textContent = P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("dragFill").style.width = clamp(P.drag / 2600 * 100, 0, 100) + "%";
+  $("dragN").textContent = Math.round(P.drag) + " N";
+  const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
+  $("zoneName").textContent = b === 1 ? "FROZEN LAKE" : (h > 120 ? "HIGH COUNTRY" : (b === 2 ? "BOREAL FOREST" : "OPEN BACKCOUNTRY"));
+  $("elev").textContent = "Elev " + Math.round(h * 3 + 180) + " m";
+  $("dist").textContent = (P.dist / 1000).toFixed(1) + " km";
+}
+
+/* ---------------- courier survival layer ---------------- */
+const GAMEHOUR = 30;                       // real seconds per in-game hour (a full day is 12 minutes)
+const GS = {
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 7.4, job: null, jobs: [], up: {}, delivered: 0, hits: 0,
+  storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, dead: false, near: null,
+  outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
+};
+const SITES = [
+  { id: "depot", name: "Hollis Ranger Station", seed: [-40, 420], type: "depot" },
+  { id: "loon", name: "Loon Shore Cabin", seed: [760, 1080], type: "cabin" },
+  { id: "deadfall", name: "Deadfall Cabin", seed: [-1300, 900], type: "cabin" },
+  { id: "frost", name: "Frost Hollow Hut", seed: [1340, 260], type: "cabin" },
+  { id: "ridge", name: "Ridgeback Hut", seed: [-560, -760], type: "cabin" },
+  { id: "spruce", name: "Spruce Creek Camp", seed: [420, 1720], type: "cabin" },
+  { id: "granite", name: "Granite Bend Cabin", seed: [-1680, -180], type: "cabin" },
+  { id: "relay", name: "Summit Relay", seed: null, type: "relay" }
+];
+let depot = SITES[0];
+const CARGO = [
+  ["Propane tanks", 1, false], ["Groceries", 0.9, false], ["Chainsaw parts", 1, false], ["Radio batteries", 1.05, false],
+  ["First-aid kit", 1.25, true], ["Two dozen eggs", 0.85, true], ["Stove glass", 1.2, true], ["Mail sack", 0.8, false],
+  ["Snowshoes", 0.9, false], ["Generator coil", 1.15, true]
+];
+const BACKHAUL = ["Outgoing mail", "Empty propane tanks", "Trail report", "Broken radio", "Pelts for trade"];
+const UPG = [
+  { id: "tank", name: "Long-range tank", desc: "Fuel 18 L → 28 L", cost: 170 },
+  { id: "cans", name: "Strapped jerry cans", desc: "+12 L more (needs the tank)", cost: 240, needs: "tank" },
+  { id: "suit", name: "Expedition suit", desc: "Cold drains 35% slower", cost: 150 },
+  { id: "grips", name: "Heated grips & visor", desc: "Another 20% off the cold", cost: 120 },
+  { id: "engine", name: "Big-bore engine", desc: "+25% power, a little thirstier", cost: 320 },
+  { id: "paddle", name: "Deep-snow paddle track", desc: "25% less drag in powder, more bite", cost: 280 },
+  { id: "susp", name: "Long-travel suspension", desc: "Soaks up landings, cargo survives hits", cost: 210 },
+  { id: "lights", name: "LED light bar", desc: "Far brighter, wider night riding", cost: 90 },
+  { id: "box", name: "Insulated cargo box", desc: "Fragile damage costs half as much", cost: 160 }
+];
+
+function slopeAt(x, z, e) { return Math.hypot(groundAt(x + e, z) - groundAt(x - e, z), groundAt(x, z + e) - groundAt(x, z - e)) / (2 * e); }
+function flatSpot(sx, sz, R) {
+  let best = [sx, sz], bs = 1e9;
+  for (let k = 0; k < 500; k++) {
+    const a = k * 2.399, r = Math.sqrt(k / 500) * R, x = sx + Math.cos(a) * r, z = sz + Math.sin(a) * r;
+    if (Math.abs(x) > 1960 || Math.abs(z) > 1960) continue;
+    if (bioAt(x, z) === 1 || bioAt(x - 11, z) === 1) continue;
+    const sc = slopeAt(x, z, 6) + slopeAt(x - 11, z, 6) + r * 0.0015;
+    if (sc < bs) { bs = sc; best = [x, z]; }
+  }
+  return best;
+}
+function computeSites() {
+  for (const s of SITES) {
+    if (s.type === "relay") {
+      let best = null, bh = -1e9;
+      for (let z = -1500; z <= -880; z += 16) for (let x = -1300; x <= 1300; x += 16) {
+        const h = groundAt(x, z); if (h < bh || slopeAt(x, z, 6) > 0.3 || slopeAt(x - 11, z, 6) > 0.35) continue;
+        bh = h; best = [x, z];
+      }
+      s.x = best[0]; s.z = best[1];
+    } else { const p = flatSpot(s.seed[0], s.seed[1], 80); s.x = p[0]; s.z = p[1]; }
+    s.y = groundAt(s.x, s.z);
+  }
+  depot = SITES[0];
+  SPAWN.x = depot.x; SPAWN.z = depot.z + 6; SPAWN.yaw = Math.PI;
+}
+function nearSite(x, z, r) { return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < r || Math.hypot(x - s.x + 11, z - s.z) < r)); }
+
+const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 1000, 16, 1, true);
+function buildSites() {
+  const L = c => new THREE.MeshLambertMaterial({ color: c });
+  const wood = L(0x5b3d29), woodD = L(0x3a271b), snowM = L(0xf3f7fc), stone = L(0x6b6c70), doorM = L(0x2a1b12), pumpM = L(0xc23a22), metal = L(0x8d99a6);
+  const glow = new THREE.MeshBasicMaterial({ color: 0xffc26b });
+  const add = (g, geo, mat, x, y, z, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.z = rz; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  for (const s of SITES) {
+    const g = new THREE.Group(), bx = s.x - 11, bz = s.z;
+    g.position.set(bx, groundAt(bx, bz) - 0.3, bz);
+    if (s.type === "relay") {
+      add(g, new THREE.BoxGeometry(3, 2.4, 3), metal, 0, 1.2, 0);
+      add(g, new THREE.BoxGeometry(3.3, 0.35, 3.3), snowM, 0, 2.55, 0);
+      for (const [dx, dz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) add(g, new THREE.BoxGeometry(0.12, 24, 0.12), metal, 4 + dx, 12, dz);
+      for (let yy = 3; yy < 24; yy += 3) add(g, new THREE.BoxGeometry(1.1, 0.08, 1.1), metal, 4, yy, 0);
+      s.blink = add(g, new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3020 }), 4, 24.3, 0);
+      addOb({ x: bx, z: bz, r: 2.2, top: 1e9 }); addOb({ x: bx + 4, z: bz, r: 0.9, top: 1e9 });
+    } else {
+      const big = s.type === "depot", D = big ? 8 : 5.5, W = big ? 10 : 6.5, Hh = big ? 3.4 : 2.7, a = 0.58, hs = D / 2 + 0.5, Ls = hs / Math.cos(a);
+      add(g, new THREE.BoxGeometry(D, Hh, W), wood, 0, Hh / 2, 0);
+      for (let yy = 0.35; yy < Hh; yy += 0.45) add(g, new THREE.BoxGeometry(D + 0.08, 0.06, W + 0.08), woodD, 0, yy, 0);
+      const tri = new THREE.Shape(); tri.moveTo(-D / 2, 0); tri.lineTo(D / 2, 0); tri.lineTo(0, (D / 2) * Math.tan(a)); tri.closePath();
+      const gable = new THREE.ExtrudeGeometry(tri, { depth: W, bevelEnabled: false }); gable.translate(0, 0, -W / 2);
+      add(g, gable, wood, 0, Hh, 0);
+      for (const sd of [-1, 1]) {
+        add(g, new THREE.BoxGeometry(Ls, 0.22, W + 1.0), woodD, sd * hs / 2, Hh + (hs / 2) * Math.tan(a) + 0.05, 0, -sd * a);
+        add(g, new THREE.BoxGeometry(Ls + 0.1, 0.34, W + 1.1), snowM, sd * hs / 2 + sd * 0.1 * Math.sin(a), Hh + (hs / 2) * Math.tan(a) + 0.3, 0, -sd * a);
+      }
+      add(g, new THREE.BoxGeometry(0.8, 2.4, 0.8), stone, -D / 4, Hh + 1.4, W / 3);
+      add(g, new THREE.BoxGeometry(0.9, 0.2, 0.9), snowM, -D / 4, Hh + 2.65, W / 3);
+      s.chimney = [bx - D / 4, g.position.y + Hh + 2.8, bz + W / 3];
+      add(g, new THREE.BoxGeometry(0.1, 2.0, 1.1), doorM, D / 2 + 0.03, 1.0, 0);
+      for (const zz of [-W / 3.2, W / 3.2]) add(g, new THREE.BoxGeometry(0.08, 0.8, 1.1), glow, D / 2 + 0.04, 1.6, zz);
+      add(g, new THREE.BoxGeometry(D * 0.7, 0.8, 0.08), glow, 0, 1.6, -W / 2 - 0.04);
+      if (big) {
+        add(g, new THREE.BoxGeometry(0.7, 1.7, 0.6), pumpM, D / 2 + 5.5, 0.85, W / 2 - 1);
+        add(g, new THREE.BoxGeometry(0.8, 0.12, 0.7), snowM, D / 2 + 5.5, 1.76, W / 2 - 1);
+        add(g, new THREE.BoxGeometry(0.15, 2.6, 0.15), woodD, D / 2 + 2.5, 1.3, -W / 2 - 1.5);
+        add(g, new THREE.BoxGeometry(0.12, 1.0, 2.6), L(0x2f5a3a), D / 2 + 2.5, 2.4, -W / 2 - 1.5);
+        addOb({ x: bx + D / 2 + 5.5, z: bz + W / 2 - 1, r: 0.6, top: 1e9 });
+      }
+      for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9 });
+    }
+    scene.add(g);
+    const bc = s.type === "depot" ? 0x7fc8e0 : 0xff5a1f;
+    s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: bc, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    s.beacon.position.set(s.x, s.y + 480, s.z); s.beacon.visible = false; scene.add(s.beacon);
+  }
+}
+
+/* night sky + headlight */
+const starGeo = new THREE.BufferGeometry(); {
+  const n = 1600, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const u = Math.random() * 6.283, v = Math.acos(Math.random() * 0.95); a[i * 3] = Math.sin(v) * Math.cos(u) * 7000; a[i * 3 + 1] = Math.cos(v) * 7000; a[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 7000; }
+  starGeo.setAttribute("position", new THREE.BufferAttribute(a, 3));
+}
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 1.8, sizeAttenuation: false, color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+stars.frustumCulled = false; scene.add(stars);
+const headlight = new THREE.SpotLight(0xfff0d0, 0.4, 80, 0.55, 0.55, 1.1);
+headlight.position.set(0, 0.6, 1.3); headlight.target.position.set(0, -1.2, 14);
+sledBody.add(headlight, headlight.target);
+
+const C_DAYFOG = new THREE.Color(0xc4d3e2), C_NIGHTFOG = new THREE.Color(0x111b2a), C_STORMDAY = new THREE.Color(0xaab5c1), C_STORMNIGHT = new THREE.Color(0x1b2331);
+const C_DAYSKY = new THREE.Color(0xbcd4ec), C_NIGHTSKY = new THREE.Color(0x33476e), _c1 = new THREE.Color(), _c2 = new THREE.Color();
+function dayFactor() { const el = Math.sin(((GS.hour % 24) - 6) / 12 * Math.PI); return sstep(-0.1, 0.15, el); }
+function updSky() {
+  const h = GS.hour % 24, el = Math.sin((h - 6) / 12 * Math.PI), day = sstep(-0.1, 0.15, el), st = GS.storm;
+  const az = (h - 6) / 12 * Math.PI, ce = Math.sqrt(Math.max(0, 1 - el * el));
+  sunDir.set(-Math.cos(az) * ce, Math.max(el, 0.04), 0.7 * ce + 0.2).normalize();
+  sun.intensity = 1.75 * sstep(0.0, 0.18, el) * (1 - 0.75 * st);
+  sun.color.setHSL(0.08, 0.95, lerp(0.62, 0.88, sstep(0.05, 0.5, el)));
+  hemi.intensity = lerp(0.2, 0.62, day);
+  hemi.color.copy(C_NIGHTSKY).lerp(C_DAYSKY, day);
+  _c1.copy(C_NIGHTFOG).lerp(C_DAYFOG, day); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, day); _c1.lerp(_c2, st);
+  scene.fog.color.copy(_c1);
+  scene.fog.density = lerp(0.0017, 0.012, st) + (1 - day) * 0.001;
+  sky.material.uniforms.uDay.value = day; sky.material.uniforms.uStorm.value = st; sky.material.uniforms.uFog.value.copy(_c1);
+  renderer.toneMappingExposure = lerp(0.9, 1.05, day);
+  stars.material.opacity = (1 - day) * (1 - st) * 0.9; stars.position.copy(camera.position);
+  headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, day) * (GS.up.lights ? 1.8 : 1) : 0;
+  headlight.distance = GS.up.lights ? 150 : 80; headlight.angle = GS.up.lights ? 0.75 : 0.55;
+}
+
+/* snowfall fills old tracks back in */
+function refill() {
+  const rate = lerp(1 / 360, 1 / 45, GS.storm);
+  const n = Math.min(activeChunks.length, 30);
+  for (let m = 0; m < n; m++) {
+    if (refillIdx >= activeChunks.length) refillIdx = 0;
+    const c = activeChunks[refillIdx], dtc = gameClock - c.t; c.t = gameClock;
+    const a = 1 - Math.exp(-rate * dtc); let done = true;
+    for (let k = 0; k < CH * CH; k++) {
+      const d0 = c.d[k], f = c.f[k], df = f - d0;
+      if (df < 0.003 && df > -0.003) continue;
+      const d = d0 + df * a; c.d[k] = d;
+      if (Math.abs(f - d) >= 0.003) done = false;
+      writeCell(c.cx * CH + (k & 31), c.cz * CH + (k >> 5), d0, d, f);
+    }
+    const far = Math.abs((c.cx + 0.5) * CH * CELL - HALF - P.x) > 12 || Math.abs((c.cz + 0.5) * CH * CELL - HALF - P.z) > 12;
+    if (done && far) { chunks[c.key] = undefined; activeChunks[refillIdx] = activeChunks[activeChunks.length - 1]; activeChunks.pop(); }
+    else refillIdx++;
+  }
+}
+function fadeTrails(dt) {
+  GS.fadeT += dt; if (GS.fadeT < 1) return;
+  const e = Math.exp(-lerp(1 / 360, 1 / 45, GS.storm) * GS.fadeT); GS.fadeT = 0;
+  for (let o = 0; o < trailData.length; o += 4) if (trailData[o]) trailData[o] = (trailData[o] * e) | 0;
+  trailDirty = true;
+  tctx.save(); tctx.globalCompositeOperation = "destination-out"; tctx.fillStyle = `rgba(0,0,0,${(1 - e).toFixed(4)})`; tctx.fillRect(0, 0, MS, MS); tctx.restore();
+}
+
+/* jobs */
+const fmtTime = h => { const hh = Math.floor(h % 24), mm = Math.floor((h % 1) * 60); return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"); };
+const fmtMi = m => (m / 1609).toFixed(m < 1609 ? 2 : 1) + " mi";
+function makeJobs(from) {
+  const pool = SITES.filter(s => s.type !== "depot").sort(() => Math.random() - 0.5);  // seven destinations, three posted
+  GS.jobs = [];
+  for (let k = 0; k < 3; k++) {
+    const d = pool[k], cg = CARGO[(Math.random() * CARGO.length) | 0];
+    const dist = Math.hypot(d.x - from.x, d.z - from.z), climb = Math.max(0, d.y - from.y), urgent = Math.random() < 0.4;
+    const pay = Math.round((35 + dist * 0.12 + climb * 0.5) * cg[1] * (urgent ? 1.5 : 1) / 5) * 5;
+    const est = (dist / 9 + 45) * (1 + climb / 150);
+    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
+  }
+}
+function acceptJob(k) {
+  const j = GS.jobs[k]; if (!j) return;
+  GS.job = j; GS.hits = 0; GS.jobs = []; closeBoard();
+  toast(`Loaded: ${j.cargo}. Follow the orange beacon to ${j.dest.name}.`);
+  save();
+}
+function buyUpg(k) {
+  const u = UPG[k]; if (!u || GS.up[u.id]) return;
+  if (u.needs && !GS.up[u.needs]) { toast(`${u.name} needs the ${UPG.find(x => x.id === u.needs).name.toLowerCase()} first.`, "warn"); return; }
+  if (GS.cash < u.cost) { toast(`${u.name} costs $${u.cost}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= u.cost; GS.up[u.id] = true; applyUpg(); if (u.id === "tank" || u.id === "cans") GS.fuel = GS.cap;
+  toast(`Installed: ${u.name}.`); renderBoard(); save();
+}
+function applyUpg() { GS.cap = 18 + (GS.up.tank ? 10 : 0) + (GS.up.cans ? 12 : 0); GS.fuel = Math.min(GS.fuel, GS.cap); }
+function cargoHit(v) {
+  if (!GS.job || !GS.job.fragile || v < (GS.up.susp ? 9 : 6)) return;
+  GS.hits++; toast(`Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}).`, "warn");
+}
+function deliver() {
+  const j = GS.job, s = j.dest;
+  let p = j.pay; const notes = [];
+  if (j.fragile && GS.hits) { p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
+  if (j.due && GS.hour > j.due) { p *= 0.5; notes.push("late"); }
+  p = Math.round(p); GS.cash += p; GS.delivered++; GS.job = null;
+  toast(`Delivered to ${s.name}: +$${p}${notes.length ? " (" + notes.join(", ") + ")" : ""}`, "good");
+  if (s.type !== "depot") {
+    GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
+    if (Math.random() < 0.6) {
+      const dist = Math.hypot(s.x - depot.x, s.z - depot.z);
+      GS.job = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null };
+      GS.hits = 0;
+      setTimeout(() => toast(`They topped off your tank and handed you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
+    } else setTimeout(() => toast("They topped off your tank. Head back to the station for more work."), 1400);
+  } else setTimeout(() => toast("Press E for the job board."), 1400);
+  save();
+}
+function blackout(kind) {
+  if (GS.dead) return;
+  GS.dead = true; closeBoard();
+  const fee = kind === "tow" ? 100 : 60, lost = GS.job ? ` The ${GS.job.cargo.toLowerCase()} didn't make it.` : "";
+  GS.cash = Math.max(0, GS.cash - fee); GS.job = null; GS.jobs = [];
+  $("blackMsg").innerHTML = (kind === "tow" ? "<b>TOWED IN</b>A ranger hauled you and your sled back to the station." : "<b>YOU BLACKED OUT</b>A ranger found you half-buried in drift and dragged you back to the station.") + `<span>−$${fee}.${lost}</span>`;
+  $("black").hidden = false;
+  setTimeout(() => {
+    P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
+    recenter(P.x, P.z, false); camState.init = false; camState.yaw = P.yaw;
+    GS.warmth = 70; GS.fuel = Math.max(GS.fuel, GS.cap * 0.5); GS.outWarned = GS.coldWarned = GS.lowWarned = false;
+  }, 1200);
+  setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
+}
+function save() { try { localStorage.setItem("tracklayer.save.v1", JSON.stringify({ cash: GS.cash, up: GS.up, delivered: GS.delivered })); } catch (e) { } }
+function load() { try { const d = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (d) { GS.cash = d.cash || 0; GS.up = d.up || {}; GS.delivered = d.delivered || 0; } } catch (e) { } applyUpg(); GS.fuel = GS.cap; }
+
+/* ui */
+function toast(msg, kind) {
+  const el = document.createElement("div"); el.className = "toast" + (kind ? " " + kind : ""); el.textContent = msg;
+  const box = $("toasts"); box.appendChild(el); while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 400); }, 4200);
+}
+function renderBoard() {
+  const jl = $("jobList"); jl.innerHTML = "";
+  if (!GS.jobs.length) jl.innerHTML = `<div class="empty">${GS.job ? "You're already carrying " + GS.job.cargo.toLowerCase() + "." : "No work posted."}</div>`;
+  GS.jobs.forEach((j, k) => {
+    const b = document.createElement("button"); b.className = "row"; b.id = "jobBtn" + k;
+    const dist = Math.hypot(j.dest.x - depot.x, j.dest.z - depot.z);
+    b.innerHTML = `<kbd>${k + 1}</kbd><span class="main"><b>${j.cargo}</b><em>${j.dest.name} · ${fmtMi(dist)} · climb ${Math.round(Math.max(0, j.dest.y - depot.y) * 3)} m${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) : ""}</em></span><span class="pay">$${j.pay}</span>`;
+    b.addEventListener("click", () => acceptJob(k)); jl.appendChild(b);
+  });
+  const ul = $("upgList"); ul.innerHTML = "";
+  UPG.forEach((u, k) => {
+    const b = document.createElement("button"); b.className = "row" + (GS.up[u.id] ? " owned" : ""); b.id = "upgBtn" + k;
+    b.innerHTML = `${k < 6 ? "<kbd>" + (k + 4) + "</kbd>" : "<kbd class='no'>·</kbd>"}<span class="main"><b>${u.name}</b><em>${u.desc}</em></span><span class="pay">${GS.up[u.id] ? "Owned" : "$" + u.cost}</span>`;
+    b.addEventListener("click", () => buyUpg(k)); ul.appendChild(b);
+  });
+  $("boardCash").textContent = "$" + GS.cash;
+}
+function openBoard() { if (!GS.jobs.length && !GS.job) makeJobs(depot); GS.boardOpen = true; renderBoard(); $("board").hidden = false; }
+function closeBoard() { GS.boardOpen = false; $("board").hidden = true; }
+function gameKey(e) {
+  if (GS.dead) return;
+  if (e.code === "KeyE") { if (GS.boardOpen) closeBoard(); else if (GS.near === depot) openBoard(); else toast("The job board is at Hollis Ranger Station.", "warn"); }
+  if (e.code === "Escape") { if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "KeyF") { if (GS.near === depot) toast("You're already at the station."); else blackout("tow"); }
+  if (GS.boardOpen && /^Digit[1-9]$/.test(e.code)) { const k = +e.code.slice(5) - 1; if (k < 3) acceptJob(k); else buyUpg(k - 3); }
+}
+
+/* settings: sled colour, volume */
+const SLED_COLORS = ["#ff5a1f", "#ffd23f", "#4fd06a", "#38b6ff", "#9b6bff", "#ff4d8d", "#f2f6fb", "#20262e", "#b5651d", "#00e0c6"];
+const SET = { color: "#ff5a1f", vol: 0.35, hud: true };
+function loadSettings() { try { const d = JSON.parse(localStorage.getItem("tracklayer.set.v1") || "null"); if (d) Object.assign(SET, d); } catch (e) { } }
+function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.stringify(SET)); } catch (e) { } }
+function applySettings() {
+  if (bodyMat) bodyMat.color.set(SET.color);
+  if (audio) audio.master.gain.value = muted ? 0 : SET.vol;
+  const sw = $("swatches"); if (sw) [...sw.children].forEach(b => b.classList.toggle("on", b.dataset.c === SET.color));
+  const hue = $("hue"); if (hue) hue.value = Math.round(new THREE.Color(SET.color).getHSL({ h: 0, s: 0, l: 0 }).h * 360);
+  const vol = $("vol"); if (vol) vol.value = Math.round(SET.vol * 100);
+  const mb = $("muteBtn"); if (mb) mb.textContent = muted ? "Sound: off" : "Sound: on";
+  const cs = $("colorSwatch"); if (cs) cs.style.background = SET.color;
+}
+function buildSettings() {
+  const sw = $("swatches");
+  SLED_COLORS.forEach(c => {
+    const b = document.createElement("button"); b.className = "sw"; b.style.background = c; b.dataset.c = c; b.title = c;
+    b.addEventListener("click", () => { SET.color = c; applySettings(); saveSettings(); });
+    sw.appendChild(b);
+  });
+  $("hue").addEventListener("input", e => { SET.color = "#" + new THREE.Color().setHSL(e.target.value / 360, 0.85, 0.55).getHexString(); applySettings(); saveSettings(); });
+  $("vol").addEventListener("input", e => { SET.vol = e.target.value / 100; muted = SET.vol === 0; applySettings(); saveSettings(); });
+  $("muteBtn").addEventListener("click", () => { muted = !muted; applySettings(); saveSettings(); });
+  $("viewBtn").addEventListener("click", () => { cycleView(); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; });
+  $("closeSet").addEventListener("click", () => toggleSettings(false));
+  applySettings();
+}
+function toggleSettings(force) {
+  const open = force !== undefined ? force : $("settings").hidden;
+  $("settings").hidden = !open;
+  if (open) { $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
+}
+
+/* per-frame game tick */
+function updGame(dt, spd) {
+  if (GS.dead) return;
+  GS.hour += dt / GAMEHOUR; gameClock += dt;
+  GS.stormT -= dt;
+  if (GS.stormPhase === "calm" && GS.stormT < 45 && !GS.warned) { GS.warned = true; toast("Storm moving in. It'll get cold and hard to see.", "warn"); }
+  if (GS.stormT <= 0) {
+    if (GS.stormPhase === "calm") { GS.stormPhase = "storm"; GS.stormT = 90 + Math.random() * 90; }
+    else { GS.stormPhase = "calm"; GS.stormT = 200 + Math.random() * 200; GS.warned = false; toast("The storm is breaking up."); }
+  }
+  GS.storm += ((GS.stormPhase === "storm" ? 1 : 0) - GS.storm) * (1 - Math.exp(-dt / 20));
+  let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
+  if (near !== GS.near && near) toast(near === depot ? (GS.job && GS.job.dest !== depot ? `Hollis Station. Your delivery is for ${GS.job.dest.name}.` : "Hollis Ranger Station. Warm up, refuel, press E for work.") : `${near.name}. Warm stove inside.`);
+  GS.near = near;
+  const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 90) / 120, 0, 1);
+  const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * (GS.up.suit ? 0.65 : 1) * (GS.up.grips ? 0.8 : 1);
+  if (near) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; } else GS.warmth -= cold * dt;
+  if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get to a cabin or the station.", "bad"); }
+  if (GS.warmth <= 0) { blackout("cold"); return; }
+  if (near === depot) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
+  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
+  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast("Out of fuel. Press F to call a tow ($100).", "bad"); }
+  if (GS.job && near === GS.job.dest && spd < 4) deliver();
+  for (const s of SITES) s.beacon.visible = GS.job ? s === GS.job.dest : (s === depot && near !== depot);
+  const relay = SITES[SITES.length - 1]; if (relay.blink) relay.blink.visible = (gameClock % 1.6) < 0.5;
+  if (cargoMesh) cargoMesh.visible = !!GS.job;
+  GS.smokeT += dt;
+  if (GS.smokeT > 0.15) {
+    GS.smokeT = 0;
+    for (const s of SITES) if (s.chimney && Math.hypot(P.x - s.x, P.z - s.z) < 220) { const [x, y, z] = s.chimney; emit(x, y, z, windU.uWind.value.x * 0.8, 0.9, windU.uWind.value.y * 0.8, 0.35, 3.2); }
+  }
+  refill(); fadeTrails(dt);
+  $("frost").style.opacity = (clamp((40 - GS.warmth) / 40, 0, 1) * 0.95).toFixed(3);
+}
+function updGameHud() {
+  const tgt = GS.job ? GS.job.dest : depot, dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
+  const rel = Math.atan2(dx, dz) - camState.yaw;
+  $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
+  $("arrow").style.color = GS.job && GS.job.dest !== depot ? "var(--signal)" : "var(--ice)";
+  if (GS.job) {
+    $("jobTitle").textContent = `${GS.job.cargo} → ${GS.job.dest.name}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${GS.job.pay}${GS.job.fragile ? " · fragile" : ""}${GS.job.due ? " · due " + fmtTime(GS.job.due) + (GS.hour > GS.job.due ? " (late)" : "") : ""}`;
+  } else if (GS.near === depot) { $("jobTitle").textContent = "Hollis Ranger Station"; $("jobSub").textContent = "Press E for the job board"; }
+  else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the station · ${fmtMi(dist)}`; }
+  const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
+  $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · $${GS.cash}`;
+  $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
+  $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
+  $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
+  $("warmFill").classList.toggle("low", GS.warmth < 30);
+}
+
+/* ---------------- loop ---------------- */
+const H = 1 / 120;
+let last = performance.now(), acc = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  if (!ready) return;
+  readInput(dt);
+  if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
+  const spd = updVisuals(dt);
+  if (started) updGame(dt, spd);
+  updSky();
+  updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); P.dumped = Math.max(0, P.dumped - dt);
+  if (started) { updAudio(spd); markMap(); }
+  if (snowDirty) { snowTex.needsUpdate = true; snowDirty = false; }
+  trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
+  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); drawMap(); } }
+  renderer.render(scene, camera);
+}
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+function boot() {
+  genWorld(); computeSites(); load();
+  P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
+  buildFar(); buildProps(); buildSites(); buildMapBg();
+  P.y = surf(P.x, P.z);
+  recenter(P.x, P.z, true);
+  ready = true;
+  loadSettings(); buildSettings();
+  const btn = $("start"); btn.disabled = false; btn.textContent = "START RIDING"; $("load").textContent = GS.delivered ? `Welcome back. ${GS.delivered} deliveries, $${GS.cash} in the bank.` : "Headphones on. Throttle is W.";
+  btn.focus();
+  btn.addEventListener("click", () => {
+    started = true; $("overlay").hidden = true;
+    for (const id of ["zone", "speedo", "mapWrap", "help", "job"]) $(id).hidden = false;
+    makeJobs(depot); setTimeout(() => toast("Welcome to Hollis Ranger Station. Press E for the job board."), 600);
+    if (innerWidth <= 640) $("help").hidden = true;
+    initAudio(); if (audio && audio.AC.state === "suspended") audio.AC.resume();
+    canvas.focus();
+  });
+}
+requestAnimationFrame(frame);
+setTimeout(boot, 60);
+})();
+</script>
+</body></html>
