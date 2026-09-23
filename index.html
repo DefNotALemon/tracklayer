@@ -796,9 +796,9 @@ sledRoot.rotation.order = "YXZ";
   /* ---- chassis & body panels ---- */
   // hood: a rounded shell over the engine bay, tapering into the nose
   box(0.7, 0.3, 0.7, dark, 0, 0.8, 0.36);                                      // engine bay, tucked inside the shell
-  ball(0.52, body, 0, 0.84, 0.5, sledBody, 0.88, 0.55, 1.35);                  // hood shell
-  ball(0.4, body, 0, 0.8, 1.05, sledBody, 0.82, 0.52, 1.05);                   // nose
-  cyl(0.16, 0.3, 0.5, body, 0, 0.78, 1.2, Math.PI / 2 - 0.25, 0, 0, sledBody, 12);  // nose taper
+  V.hood = ball(0.52, body, 0, 0.84, 0.5, sledBody, 0.88, 0.55, 1.35);         // hood shell
+  V.nose = ball(0.4, body, 0, 0.8, 1.05, sledBody, 0.82, 0.52, 1.05);          // nose
+  V.noseTip = cyl(0.16, 0.3, 0.5, body, 0, 0.78, 1.2, Math.PI / 2 - 0.25, 0, 0, sledBody, 12);
   box(0.5, 0.14, 0.06, black, 0, 0.78, 1.36, 0.35);                            // grille
   for (const s of [-1, 1]) {
     for (let i = 0; i < 3; i++) box(0.02, 0.06, 0.2, dark, s * 0.44, 0.78 + i * 0.09, 0.85 + i * 0.03, 0, 0, 0);  // louvres
@@ -819,9 +819,9 @@ sledRoot.rotation.order = "YXZ";
   box(0.56, 0.05, 0.04, body, 0, 1.47, 0.7, -0.5, 0, 0, shield);
 
   // seat: bolster + tapered cushion
-  box(0.44, 0.14, 1.0, black, 0, 0.98, -0.42);
-  ball(0.3, dark, 0, 1.0, -0.4, sledBody, 0.72, 0.42, 1.7);                    // rounded cushion
-  ball(0.26, dark, 0, 1.06, -0.92, sledBody, 0.64, 0.5, 0.7);                  // backrest bolster
+  V.seatBase = box(0.44, 0.14, 1.0, black, 0, 0.98, -0.42);
+  V.seatPad = ball(0.3, dark, 0, 1.0, -0.4, sledBody, 0.72, 0.42, 1.7);        // rounded cushion
+  V.seatBolster = ball(0.26, dark, 0, 1.06, -0.92, sledBody, 0.64, 0.5, 0.7);  // backrest bolster
   cyl(0.02, 0.02, 0.3, chrome, 0, 1.12, -1.12, 0, 0, Math.PI / 2, sledBody, 8);   // grab handle
 
   /* ---- front suspension + skis ---- */
@@ -933,6 +933,62 @@ sledRoot.rotation.order = "YXZ";
     V.boots.push(box(0.18, 0.16, 0.38, std(0x2a3038, 0.85), s * 0.3, 0.44, -0.3, 0.1, 0, 0, rider));   // taller arctic boot
     V.mitts.push(box(0.15, 0.15, 0.22, glove, s * 0.32, 1.44, 0.34, 0, 0, 0, rider));                  // gauntlet mitt
   }
+  /* ---- era bodywork ---- */
+  const eraPart = (name, fn) => { const g = new THREE.Group(); sledBody.add(g); fn(g); g.visible = false; V[name] = g; };
+  eraPart("bogies", g => {                                    // 1970s bogie wheels under an un-sprung belt
+    for (let i = 0; i < 4; i++) for (const sx of [-1, 1])
+      cyl(0.13, 0.13, 0.08, dark, sx * 0.17, 0.14, -1.25 + i * 0.42, 0, 0, Math.PI / 2, g, 10);
+    box(0.5, 0.05, 1.9, dark, 0, 0.3, -0.5, 0, 0, 0, g);
+  });
+  eraPart("chromeHoop", g => {                                // chrome hoop bumper and a round lamp pod
+    cyl(0.03, 0.03, 0.9, chrome, 0, 0.72, 1.42, 0, 0, Math.PI / 2, g, 8);
+    for (const sx of [-1, 1]) cyl(0.028, 0.028, 0.5, chrome, sx * 0.44, 0.6, 1.26, 1.0, 0, 0, g, 8);
+    cyl(0.03, 0.03, 0.4, chrome, 0, 0.42, 1.3, Math.PI / 2, 0, 0, g, 8);
+  });
+  eraPart("roundLight", g => {
+    cyl(0.16, 0.16, 0.1, chrome, 0, 0.92, 1.12, Math.PI / 2 - 0.2, 0, 0, g, 12);
+    cyl(0.13, 0.13, 0.04, lampMat, 0, 0.93, 1.17, Math.PI / 2 - 0.2, 0, 0, g, 12).castShadow = false;
+  });
+  eraPart("dualLight", g => {
+    for (const sx of [-1, 1]) {
+      box(0.26, 0.12, 0.05, dark, sx * 0.19, 0.92, 1.1, 0.3, 0, 0, g);
+      box(0.22, 0.09, 0.04, lampMat, sx * 0.19, 0.92, 1.13, 0.3, 0, 0, g).castShadow = false;
+    }
+  });
+  eraPart("utilRack", g => {                                  // work rack over a wide tunnel
+    box(0.86, 0.06, 1.0, dark, 0, 0.78, -1.3, 0, 0, 0, g);
+    for (const sx of [-1, 1]) box(0.05, 0.22, 1.0, dark, sx * 0.42, 0.68, -1.3, 0, 0, 0, g);
+    for (let i = 0; i < 4; i++) box(0.8, 0.04, 0.05, dark, 0, 0.82, -1.7 + i * 0.28, 0, 0, 0, g);
+  });
+  eraPart("mirrors", g => {
+    for (const sx of [-1, 1]) {
+      cyl(0.02, 0.02, 0.26, steel, sx * 0.4, 1.5, 0.5, 0.3, 0, sx * 0.4, g, 6);
+      box(0.16, 0.12, 0.03, dark, sx * 0.48, 1.62, 0.52, 0.2, 0, 0, g);
+    }
+  });
+  eraPart("twoUp", g => {                                     // touring bench with a backrest and grab rails
+    box(0.46, 0.2, 1.5, black, 0, 1.0, -0.72, 0, 0, 0, g);
+    ball(0.3, dark, 0, 1.06, -0.75, g, 0.74, 0.4, 2.3);
+    box(0.44, 0.44, 0.12, dark, 0, 1.3, -1.35, -0.18, 0, 0, g);
+    for (const sx of [-1, 1]) cyl(0.02, 0.02, 0.5, chrome, sx * 0.26, 1.12, -1.2, Math.PI / 2, 0, 0, g, 6);
+  });
+  eraPart("benchSeat", g => {                                 // flat vinyl bench, no bolsters
+    box(0.5, 0.22, 1.4, black, 0, 1.0, -0.6, 0, 0, 0, g);
+    box(0.52, 0.06, 1.42, dark, 0, 1.12, -0.6, 0, 0, 0, g);
+  });
+  eraPart("turboCan", g => {                                  // turbo plumbing down the right flank
+    cyl(0.1, 0.12, 0.7, chrome, 0.3, 0.66, -0.7, Math.PI / 2 - 0.08, 0, 0, g, 12);
+    cyl(0.07, 0.07, 0.5, dark, 0.3, 0.86, 0.3, Math.PI / 2 - 0.35, 0, 0, g, 10);
+    ball(0.14, steel, 0.3, 0.92, 0.62, g, 1, 1, 1);
+  });
+  eraPart("spoiler", g => {
+    box(0.66, 0.05, 0.22, dark, 0, 1.18, -1.4, -0.25, 0, 0, g);
+    for (const sx of [-1, 1]) box(0.05, 0.16, 0.2, dark, sx * 0.3, 1.1, -1.4, 0, 0, 0, g);
+  });
+  eraPart("stripe", g => {                                    // race graphics down the hood and tunnel
+    box(0.86, 0.02, 0.5, accentMat, 0, 1.06, 0.5, 0.06, 0, 0, g);
+    for (const sx of [-1, 1]) box(0.02, 0.1, 0.9, accentMat, sx * 0.44, 0.78, 0.4, 0, 0, 0, g);
+  });
   V.rider = rider;
 })();
 
@@ -2004,29 +2060,67 @@ function toggleSettings(force) {
 // through modern light turbo mountain machines. Each one takes the parts below.
 const SLEDS = [
   {
-    id: "frontier", name: "Frontier 340", year: "1972", cost: 0, need: 0,
-    blurb: "Fan-cooled, bogie wheels, a seat like a bench. It starts. Most of the time.",
-    power: 0.72, fuel: 16, drag: 1.25, grip: -0.6, hue: "#c8452b", tunnel: 0.9, trackLen: 1.0
+    id: "frontier", name: "Frontier 340", year: "1970", cost: 0, need: 0,
+    era: "Bogie-wheel era — think Ski-Doo Olympique or Arctic Cat Panther",
+    blurb: "Fan-cooled single, bogie wheels, a bench seat and a chrome hoop bumper. It starts. Most of the time.",
+    power: 0.72, fuel: 16, drag: 1.25, grip: -0.6, hue: "#c8452b", trackLen: 1.0,
+    shape: { hood: [0.82, 0.46, 1.15], hoodY: 0.78, nose: "round", tunnel: 0.95, seat: "bench", bars: 0, trackW: 0.86, extras: ["bogies", "chrome", "roundlight"] }
   },
   {
-    id: "ranger", name: "Ranger 500", year: "1989", cost: 900, need: 6,
-    blurb: "The workhorse. Slide rail suspension, a real track, enough torque to pull a sled load.",
-    power: 0.92, fuel: 20, drag: 1.08, grip: 0, hue: "#2f6fb0", tunnel: 1.0, trackLen: 1.05
+    id: "woodsman", name: "Woodsman 440 W/T", year: "1979", cost: 600, need: 4,
+    era: "Wide-track workhorse — the Ski-Doo Alpine and Skandic idea",
+    blurb: "Twin-cylinder plodder on a wide track, built to haul wood and drag sleds. Slow, unkillable.",
+    power: 0.84, fuel: 22, drag: 1.0, grip: 0.4, hue: "#e2a32c", trackLen: 1.12,
+    shape: { hood: [0.95, 0.52, 1.0], hoodY: 0.84, nose: "flat", tunnel: 1.12, seat: "bench", bars: 0.1, trackW: 1.3, extras: ["rack", "tallshield", "chrome"] }
   },
   {
-    id: "summit", name: "Summit 600", year: "2004", cost: 2400, need: 16,
+    id: "ranger", name: "Ranger 500", year: "1989", cost: 900, need: 8,
+    era: "Independent front suspension trail sled — the Polaris Indy generation",
+    blurb: "Wedge hood, twin lamps, slide rail suspension. The first one that actually goes where you point it.",
+    power: 0.96, fuel: 20, drag: 1.02, grip: 0.3, hue: "#2f6fb0", trackLen: 1.05,
+    shape: { hood: [0.88, 0.42, 1.2], hoodY: 0.82, nose: "wedge", tunnel: 1.0, seat: "saddle", bars: 0.04, trackW: 1.0, extras: ["duallight"] }
+  },
+  {
+    id: "sprint", name: "Sprint 580 SX", year: "1994", cost: 1700, need: 13,
+    era: "Trail-racer years — Yamaha SRX, Ski-Doo MXZ, Cat ZR",
+    blurb: "Low, loud and geared for the lake run. Terrible in deep snow, glorious on a groomed trail.",
+    power: 1.06, fuel: 18, drag: 1.12, grip: 1.1, hue: "#8f1f3a", trackLen: 0.98,
+    shape: { hood: [0.8, 0.34, 1.3], hoodY: 0.76, nose: "wedge", tunnel: 0.92, seat: "saddle", bars: 0, trackW: 0.94, extras: ["lowshield", "stripe", "duallight"] }
+  },
+  {
+    id: "summit", name: "Summit 600", year: "2004", cost: 2400, need: 18,
+    era: "Mountain sleds go long — Ski-Doo Summit, Polaris RMK",
     blurb: "Liquid twin, long track, proper mountain geometry. Floats where the Ranger digs.",
-    power: 1.12, fuel: 24, drag: 0.88, grip: 0.8, hue: "#e8b230", tunnel: 1.05, trackLen: 1.18
+    power: 1.12, fuel: 24, drag: 0.88, grip: 0.8, hue: "#e8b230", trackLen: 1.18,
+    shape: { hood: [0.82, 0.46, 1.15], hoodY: 0.86, nose: "round", tunnel: 1.05, seat: "saddle", bars: 0.12, trackW: 1.05, extras: ["lowshield"] }
   },
   {
-    id: "apex", name: "Apex 800", year: "2015", cost: 5200, need: 30,
-    blurb: "Light chassis, fuel injection, rider-forward stance. Climbs like it's annoyed.",
-    power: 1.32, fuel: 26, drag: 0.78, grip: 1.3, hue: "#d8482f", tunnel: 1.0, trackLen: 1.22
+    id: "trekker", name: "Trekker 550 Tour", year: "2009", cost: 3400, need: 24,
+    era: "Two-up touring — Grand Touring and Yamaha Venture territory",
+    blurb: "Heated grips, a passenger seat nobody uses, and a windshield like a garage door. Warm and heavy.",
+    power: 1.08, fuel: 30, drag: 1.0, grip: 0.6, hue: "#2d6b52", trackLen: 1.1,
+    shape: { hood: [0.92, 0.5, 1.1], hoodY: 0.86, nose: "round", tunnel: 1.15, seat: "twoup", bars: 0.06, trackW: 1.05, extras: ["tallshield", "mirrors", "rack", "duallight"] }
   },
   {
-    id: "matriarch", name: "Matriarch 850T", year: "2026", cost: 9800, need: 48,
+    id: "apex", name: "Apex 800", year: "2015", cost: 5200, need: 32,
+    era: "Rider-forward chassis — the REV and ProCross school",
+    blurb: "Light chassis, fuel injection, you stand over the skis instead of behind them. Climbs like it's annoyed.",
+    power: 1.32, fuel: 26, drag: 0.78, grip: 1.3, hue: "#d8482f", trackLen: 1.22,
+    shape: { hood: [0.74, 0.56, 0.95], hoodY: 0.95, nose: "wedge", tunnel: 0.92, seat: "saddle", bars: 0.2, trackW: 1.05, extras: ["lowshield", "spoiler"] }
+  },
+  {
+    id: "matriarch", name: "Matriarch 850T", year: "2026", cost: 9800, need: 46,
+    era: "Factory turbo mountain — Summit Turbo R, Patriot Boost",
     blurb: "Turbo, carbon tunnel, electric everything. The whole map gets smaller.",
-    power: 1.6, fuel: 30, drag: 0.66, grip: 1.8, hue: "#1c2b3a", tunnel: 0.95, trackLen: 1.25
+    power: 1.6, fuel: 30, drag: 0.66, grip: 1.8, hue: "#1c2b3a", trackLen: 1.25,
+    shape: { hood: [0.72, 0.58, 1.0], hoodY: 0.98, nose: "wedge", tunnel: 0.9, seat: "saddle", bars: 0.24, trackW: 1.12, extras: ["turbo", "lightbar", "spoiler"] }
+  },
+  {
+    id: "aurora", name: "Aurora E", year: "2029", cost: 14500, need: 60,
+    era: "Battery sleds — where Taiga and the electric prototypes are heading",
+    blurb: "Silent, instant torque, and a battery gauge instead of a tank. You hear the snow instead of the engine.",
+    power: 1.45, fuel: 34, drag: 0.72, grip: 1.6, hue: "#5ad2c8", trackLen: 1.2,
+    shape: { hood: [0.78, 0.5, 1.05], hoodY: 0.92, nose: "round", tunnel: 0.95, seat: "saddle", bars: 0.16, trackW: 1.08, extras: ["lightbar", "smooth", "spoiler"] }
   }
 ];
 
@@ -2245,7 +2339,7 @@ function renderGarage() {
     SLEDS.forEach(s => {
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
       const spec = `${s.year} · ${Math.round(s.power * 100)}% power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
-      row(s.name, `${spec}\n${s.blurb}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
+      row(s.name, `${spec}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
         on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year);
     });
     const note = document.createElement("div"); note.className = "bfoot";
@@ -2379,22 +2473,44 @@ function buildTown() {
 function applyLoadout() {
   if (!V.track) return;
   const sd = sledDef(), pr = GS.own.parts, gr = GS.own.gear;
+  const sh = sd.shape || {};
+  if (V.hood) {
+    V.hood.scale.set(sh.hood ? sh.hood[0] : 0.88, sh.hood ? sh.hood[1] : 0.55, sh.hood ? sh.hood[2] : 1.35);
+    V.hood.position.y = sh.hoodY || 0.84;
+    V.nose.position.y = (sh.hoodY || 0.84) - 0.04;
+    V.nose.visible = sh.nose !== "flat";
+    V.noseTip.visible = sh.nose === "wedge";
+    V.noseTip.position.y = (sh.hoodY || 0.84) - 0.06;
+  }
+  if (V.track) V.track.scale.x = (sh.trackW || 1) * (pr.track === "paddle" ? 1.22 : pr.track === "trail" ? 0.98 : 1);
+  if (V.deck) { }
+  barPivot.position.y = (pr.bars === "stock" ? 1.44 : 1.56) + (sh.bars || 0);
+  const ex = sh.extras || [];
+  const era = { bogies: "bogies", chrome: "chromeHoop", roundlight: "roundLight", duallight: "dualLight", rack: "utilRack", mirrors: "mirrors", turbo: "turboCan", spoiler: "spoiler", stripe: "stripe", lightbar: null, tallshield: null, lowshield: null, smooth: null };
+  for (const key of Object.values(era)) if (key && V[key]) V[key].visible = false;
+  for (const e of ex) { const key = era[e]; if (key && V[key]) V[key].visible = true; }
+  if (V.twoUp) V.twoUp.visible = sh.seat === "twoup";
+  if (V.benchSeat) V.benchSeat.visible = sh.seat === "bench";
+  const plainSeat = sh.seat !== "twoup" && sh.seat !== "bench";
+  if (V.seatBase) { V.seatBase.visible = plainSeat; V.seatPad.visible = plainSeat; V.seatBolster.visible = plainSeat; }
+  if (V.lightBar) V.lightBar.visible = pr.lights === "bar" || ex.includes("lightbar");
   V.track.scale.z = sd.trackLen;
   const wide = pr.track === "paddle";
   V.track.scale.x = wide ? 1.22 : pr.track === "trail" ? 0.98 : 1;
   V.studs.forEach(m => m.visible = pr.track === "stud");
   V.wideSki.forEach(m => m.visible = pr.skis === "powder");
   V.carbide.forEach(m => m.visible = pr.skis === "carbide");
+  const shieldKind = pr.shield !== "low" ? pr.shield : ex.includes("tallshield") ? "tall" : ex.includes("lowshield") ? "low" : "mid";
   V.shield.visible = true;
-  V.shield.scale.set(1, pr.shield === "tall" ? 1.45 : pr.shield === "mid" ? 1.1 : 0.72, 1);
-  V.shield.position.y = pr.shield === "tall" ? 0.06 : 0;
+  const shScale = shieldKind === "tall" ? 1.5 : shieldKind === "mid" ? 1.12 : 0.66;
+  V.shield.scale.set(1, shScale, 1);
+  V.shield.position.y = 1.06 * (1 - shScale);        // grow upward from the hood line, don't float off it
   V.guards.forEach(m => m.visible = pr.bars === "guards");
   V.riser.visible = pr.bars !== "stock";
   barPivot.position.y = pr.bars === "stock" ? 1.44 : 1.56;
   V.tankL.visible = pr.tankL === "fitted";
   V.tankR.visible = pr.tankR === "fitted";
-  V.lightBar.visible = pr.lights === "bar";
-  V.raceCan.visible = pr.can !== "stock";
+  V.raceCan.visible = pr.can !== "stock" && !ex.includes("turbo");
   V.rackBox.visible = pr.rack === "box";
   for (const k of ["helmet", "beanie", "mask", "heated"]) (V.head[k] || []).forEach(m => m.visible = false);
   (V.head[gr.head] || V.head.helmet).forEach(m => m.visible = true);
