@@ -81,6 +81,8 @@
   #board .row .main{display:grid;gap:2px}
   #board .row b{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.03em}
   #board .row em{font-style:normal;font-size:13px;color:var(--slate)}
+  .groom{font-weight:600}
+  .groom.g3{color:#6fd08c}.groom.g2{color:#ffc26b}.groom.g1{color:#e8a06b}.groom.g0{color:var(--frost)}
   #board .row .pay{font-family:var(--display);font-weight:800;font-size:20px;color:#6fd08c;font-variant-numeric:tabular-nums}
   #board .empty{font-size:14px;color:var(--slate);padding:6px 0}
   .bfoot{font-size:12px;color:var(--slate);margin-top:4px}
@@ -1466,6 +1468,13 @@ function drawBigMap() {
     g.fillStyle = "rgba(13,24,34,.75)"; const w = g.measureText(s.name).width + 12;
     g.fillRect(sx - w / 2, sz + 12, w, 22);
     g.fillStyle = tg ? "#ff5a1f" : "#eaf2f8"; g.fillText(s.name, sx, sz + 28);
+    if (s !== depot && groom[s.id] !== undefined) {
+      const lab = groomLabel(groom[s.id]);
+      g.font = "500 14px 'Barlow Semi Condensed', sans-serif";
+      g.fillStyle = groom[s.id] > 0.8 ? "#6fd08c" : groom[s.id] > 0.45 ? "#ffc26b" : "#9fb0bf";
+      g.fillText(lab, sx, sz + 46);
+      g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+    }
   }
   const [px, pz] = w2(P.x, P.z);
   g.save(); g.translate(px, pz); g.rotate(P.yaw + Math.PI);
@@ -1766,6 +1775,27 @@ function fadeTrails(dt) {
   tctx.save(); tctx.globalCompositeOperation = "destination-out"; tctx.fillStyle = `rgba(0,0,0,${(1 - e).toFixed(4)})`; tctx.fillRect(0, 0, MB, MB); tctx.restore();
 }
 
+/* how much of a route is already packed down — yours or the other riders' */
+const groom = {};             // site id -> 0..1, refreshed every couple of seconds
+let groomT = 0;
+function routeGroom(a, b) {
+  const n = 36, px = WORLD / TR;
+  let hit = 0;
+  for (let i = 1; i < n; i++) {
+    const t = i / n, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t);
+    const tx = clamp(((x + HALF) / px) | 0, 0, TR - 1), tz = clamp(((z + HALF) / px) | 0, 0, TR - 1);
+    let v = 0;
+    for (let j = -2; j <= 2 && v < 70; j++) for (let k = -2; k <= 2 && v < 70; k++) {
+      const sx = clamp(tx + k, 0, TR - 1), sz = clamp(tz + j, 0, TR - 1);
+      v = Math.max(v, trailData[(sz * TR + sx) * 4]);
+    }
+    if (v > 70) hit++;
+  }
+  return hit / (n - 1);
+}
+function updGroom() { for (const s of SITES) if (s.type !== "shop") groom[s.id] = routeGroom(depot, s); }
+const groomLabel = g => g > 0.8 ? "groomed" : g > 0.45 ? "half groomed" : g > 0.15 ? "mostly unbroken" : "unbroken";
+
 /* jobs */
 const fmtTime = h => { const hh = Math.floor(h % 24), mm = Math.floor((h % 1) * 60); return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"); };
 const fmtMi = m => (m / 1609).toFixed(m < 1609 ? 2 : 1) + " mi";
@@ -1866,8 +1896,8 @@ function renderBoard() {
   if (!GS.jobs.length) jl.innerHTML = `<div class="empty">${GS.load.length ? "Rack loaded: " + GS.load.map(j => j.cargo.toLowerCase()).join(", ") + "." : "No work posted."}</div>`;
   GS.jobs.forEach((j, k) => {
     const b = document.createElement("button"); b.className = "row"; b.id = "jobBtn" + k;
-    const dist = Math.hypot(j.dest.x - depot.x, j.dest.z - depot.z);
-    b.innerHTML = `<kbd>${k + 1}</kbd><span class="main"><b>${j.cargo}</b><em>${j.dest.name} · ${fmtMi(dist)} · climb ${Math.round(Math.max(0, j.dest.y - depot.y) * 3)} m${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) : ""}</em></span><span class="pay">$${j.pay}</span>`;
+    const dist = Math.hypot(j.dest.x - depot.x, j.dest.z - depot.z), g = groom[j.dest.id] || 0;
+    b.innerHTML = `<kbd>${k + 1}</kbd><span class="main"><b>${j.cargo}</b><em>${j.dest.name} · ${fmtMi(dist)} · climb ${Math.round(Math.max(0, j.dest.y - depot.y) * 3)} m · <span class="groom g${g > 0.8 ? 3 : g > 0.45 ? 2 : g > 0.15 ? 1 : 0}">${groomLabel(g)}</span>${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) : ""}</em></span><span class="pay">$${j.pay}</span>`;
     b.addEventListener("click", () => acceptJob(k)); jl.appendChild(b);
   });
   const ul = $("upgList"); ul.innerHTML = "";
@@ -1877,7 +1907,7 @@ function renderBoard() {
   ul.appendChild(g);
   $("boardCash").textContent = "$" + GS.cash;
 }
-function openBoard() { if (!GS.jobs.length) makeJobs(depot); GS.boardOpen = true; renderBoard(); $("board").hidden = false; }
+function openBoard() { updGroom(); if (!GS.jobs.length) makeJobs(depot); GS.boardOpen = true; renderBoard(); $("board").hidden = false; }
 function closeBoard() { GS.boardOpen = false; $("board").hidden = true; }
 function gameKey(e) {
   if (GS.dead) return;
@@ -2473,6 +2503,7 @@ function updGame(dt, spd) {
     for (const s of SITES) if (s.chimney && Math.hypot(P.x - s.x, P.z - s.z) < 220) { const [x, y, z] = s.chimney; emit(x, y, z, windU.uWind.value.x * 0.8, 0.9, windU.uWind.value.y * 0.8, 0.35, 3.2); }
   }
   updNpcs(dt);
+  groomT += dt; if (groomT > 2.5) { groomT = 0; updGroom(); }
   refill(); fadeTrails(dt);
   $("frost").style.opacity = (clamp((40 - GS.warmth) / 40, 0, 1) * 0.95).toFixed(3);
 }
@@ -2489,7 +2520,8 @@ function updGameHud() {
   if (GS.load.length) {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
-    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) + (GS.hour > j.due ? " (late)" : "") : ""}`;
+    const g = groom[tgt.id];
+    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) + (GS.hour > j.due ? " (late)" : "") : ""}`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Hollis Ranger Station"; $("jobSub").textContent = "Press E for the job board"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the station · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
