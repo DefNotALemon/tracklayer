@@ -357,6 +357,7 @@ const FOG = new THREE.Color(0xc4d3e2);
 scene.fog = new THREE.FogExp2(FOG, 0.0017);
 scene.background = FOG;
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 12000);
+camera.rotation.order = "YXZ";
 
 const sunDir = new THREE.Vector3(-0.55, 0.3, 0.78).normalize();
 const hemi = new THREE.HemisphereLight(0xbcd4ec, 0xe9eef5, 0.62); scene.add(hemi);
@@ -672,7 +673,7 @@ function buildProps() {
 
 /* ---------------- sled ---------------- */
 const sledRoot = new THREE.Group(), sledBody = new THREE.Group(), skiPivots = [], barPivot = new THREE.Group();
-let bodyMat = null;
+let bodyMat = null, riderHead = [];
 sledRoot.add(sledBody); scene.add(sledRoot);
 sledRoot.rotation.order = "YXZ";
 (function buildSled() {
@@ -689,7 +690,7 @@ sledRoot.rotation.order = "YXZ";
   box(0.66, 0.06, 0.5, orange, 0, 0.5, -1.45);          // rear flap/rack
   cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
   box(0.56, 0.4, 0.46, std(0x7a5a3a, 0.9), 0, 0.74, -1.45, 0, cargoMesh); box(0.6, 0.06, 0.08, orange, 0, 0.95, -1.45, 0, cargoMesh);
-  box(0.82, 0.42, 0.04, glass, 0, 0.96, 0.38, -0.55);   // windshield
+  const shield = box(0.82, 0.42, 0.04, glass, 0, 0.96, 0.38, -0.55);   // windshield
   barPivot.position.set(0, 0.93, 0.18); sledBody.add(barPivot);
   box(0.72, 0.045, 0.045, steel, 0, 0, 0, 0, barPivot);   // handlebar
   box(0.08, 0.06, 0.06, black, 0.33, 0, 0, 0, barPivot); box(0.08, 0.06, 0.06, black, -0.33, 0, 0, 0, barPivot);
@@ -708,8 +709,9 @@ sledRoot.rotation.order = "YXZ";
   box(0.14, 0.12, 0.55, navy, 0.24, 1.18, -0.05, 0.5);  // arms
   box(0.14, 0.12, 0.55, navy, -0.24, 1.18, -0.05, 0.5);
   const helm = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), std(0xeef2f5, 0.3, 0.1)); helm.position.set(0, 1.58, -0.3); helm.castShadow = true; sledBody.add(helm);
-  box(0.3, 0.1, 0.1, std(0x111820, 0.15, 0.4), 0, 1.58, -0.14);  // visor
-  box(0.06, 0.08, 0.36, orange, 0, 1.75, -0.3);         // helmet stripe
+  const visor = box(0.3, 0.1, 0.1, std(0x111820, 0.15, 0.4), 0, 1.58, -0.14);  // visor
+  const stripe = box(0.06, 0.08, 0.36, orange, 0, 1.75, -0.3);         // helmet stripe
+  riderHead = [helm, visor, stripe, shield];
 })();
 
 /* ---------------- particles ---------------- */
@@ -790,7 +792,7 @@ function updFlakes(dt) {
 const keys = new Set();
 const input = { thr: 0, brk: 0, steer: 0, lean: 0, hop: false, wheelie: 0 };
 let camMode = 0, muted = false;
-const VIEWS = [{ n: "Chase", d: 7.8, h: 3.2, f: 60 }, { n: "Close chase", d: 4.6, h: 2.0, f: 62 }, { n: "First person", fp: true, f: 72 }, { n: "Drone", d: 16, h: 9, f: 52 }];
+const VIEWS = [{ n: "Chase", d: 7.8, h: 3.2, f: 60 }, { n: "Close chase", d: 4.6, h: 2.0, f: 62 }, { n: "First person", fp: true, f: 78 }, { n: "Drone", d: 16, h: 9, f: 52 }];
 addEventListener("keydown", e => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code) || (started && e.ctrlKey && !e.metaKey)) e.preventDefault();
   if (e.repeat) return;
@@ -1126,7 +1128,7 @@ function markMap() {
 }
 
 /* ---------------- visuals / camera / hud ---------------- */
-const camState = { yaw: SPAWN.yaw, init: false };
+const camState = { yaw: SPAWN.yaw, init: false, fpYaw: SPAWN.yaw, fpPitch: 0, fpRoll: 0 };
 const _camEye = new THREE.Vector3(), _camAim = new THREE.Vector3(), _camWant = new THREE.Vector3();
 let hudT = 0, safeT = 0;
 function angLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; }
@@ -1152,6 +1154,7 @@ function updVisuals(dt) {
   const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
   for (const pv of skiPivots) pv.rotation.y += (skiT - pv.rotation.y) * kS;
   barPivot.rotation.y += (skiT * 0.7 - barPivot.rotation.y) * kS;
+  for (const m of riderHead) m.visible = !VIEWS[camMode].fp;
   sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
   // engine rpm
   const rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
@@ -1161,13 +1164,20 @@ function updVisuals(dt) {
   const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
   camState.yaw = angLerp(camState.yaw, angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-3.5 * dt));
   const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
-  let look;
+  let look = null;
   if (view.fp) {
-    const eye = sledRoot.localToWorld(_camEye.set(0, 1.52, 0.42));
-    look = sledRoot.localToWorld(_camAim.set(0, 1.25, 16));
-    if (!camState.init) { camera.position.copy(eye); camState.init = true; }
-    else camera.position.lerp(eye, 1 - Math.exp(-22 * dt));
-    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.5);
+    // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
+    sledRoot.updateMatrixWorld();
+    const eye = sledRoot.localToWorld(_camEye.set(0, 1.5, 0.12));
+    if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw; camState.fpPitch = 0; camState.fpRoll = 0; camState.init = true; }
+    else camera.position.lerp(eye, 1 - Math.exp(-26 * dt));
+    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.45);
+    const pT = -P.pitch * 0.3 + clamp(-P.vy * 0.02, -0.25, 0.25) - 0.03;
+    const rT = P.roll * 0.25 + sledBody.rotation.z * 0.5;
+    camState.fpYaw = angLerp(camState.fpYaw, P.yaw, 1 - Math.exp(-14 * dt));
+    camState.fpPitch += (pT - camState.fpPitch) * (1 - Math.exp(-7 * dt));
+    camState.fpRoll += (rT - camState.fpRoll) * (1 - Math.exp(-5 * dt));
+    camera.rotation.set(camState.fpPitch, camState.fpYaw, camState.fpRoll);
   } else {
     const want = _camWant.set(P.x - cfx * view.d, P.y + view.h, P.z - cfz * view.d);
     want.y = Math.max(want.y, surf(want.x, want.z) + 1.3);
@@ -1179,7 +1189,7 @@ function updVisuals(dt) {
   P.shake *= Math.exp(-4 * dt);
   const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
   camera.position.x += (Math.random() - 0.5) * sh; camera.position.y += (Math.random() - 0.5) * sh;
-  camera.lookAt(look);
+  if (look) camera.lookAt(look);
   const fov = view.f + Math.min(16, spd * 0.4);
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-3 * dt)); camera.updateProjectionMatrix(); }
   sky.position.copy(camera.position);
