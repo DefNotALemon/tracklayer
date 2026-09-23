@@ -85,6 +85,17 @@
   #board .empty{font-size:14px;color:var(--slate);padding:6px 0}
   .bfoot{font-size:12px;color:var(--slate);margin-top:4px}
   .bfoot b{color:var(--frost)}
+  #garage{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.94)}
+  #garageBody{display:grid;gap:6px}
+  #garageBody .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;width:100%;text-align:left;font:inherit;color:var(--frost);background:rgba(234,242,248,.05);border:1px solid var(--line);border-radius:4px;padding:9px 12px;cursor:pointer}
+  #garageBody .row:hover{border-color:var(--signal)}
+  #garageBody .row.fitted{border-color:var(--signal);background:rgba(255,90,31,.12)}
+  #garageBody .row.owned{opacity:.45;cursor:default}
+  #garageBody .row .main{display:grid;gap:2px;min-width:0}
+  #garageBody .row b{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:.03em}
+  #garageBody .row em{font-style:normal;font-size:13px;color:var(--slate);white-space:pre-line}
+  #garageBody .row .pay{font-family:var(--display);font-weight:800;font-size:17px;color:#6fd08c;font-variant-numeric:tabular-nums}
+  #garageBody .tag{font-size:11px;letter-spacing:.1em;color:var(--slate)}
   #settings{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.93)}
   #settings .setrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   #settings label{font-size:13px;color:var(--slate);min-width:4.5em}
@@ -130,6 +141,7 @@
   <div class="name" id="zoneName">BACKCOUNTRY</div>
   <div class="elev" id="elev">Elev 0 m</div>
   <div class="elev" id="clock">07:24 · Clear · $0</div>
+  <div class="elev" id="rig">Frontier 340</div>
 </div>
 
 <div class="hud panel" id="speedo" hidden>
@@ -150,11 +162,11 @@
 
 <div class="panel" id="board" hidden>
   <div class="bhead"><div><div class="brand">HOLLIS RANGER STATION</div><div class="btitle">Job board</div></div><div class="bcash" id="boardCash">$0</div></div>
-  <div class="bsec">Deliveries</div>
+  <div class="bsec" style="display:flex;justify-content:space-between"><span>Deliveries</span><span id="boardSlots">Rack 0/1</span></div>
   <div id="jobList"></div>
-  <div class="bsec">Sled shop</div>
+  <div class="bsec">Garage</div>
   <div id="upgList"></div>
-  <div class="bfoot">Jobs take <b>1</b>–<b>3</b>, the first six upgrades take <b>4</b>–<b>9</b>, or click any row. <b>E</b> closes. Fragile cargo loses pay on hard hits, and late urgent jobs pay half.</div>
+  <div class="bfoot">Jobs take <b>1</b>–<b>3</b> or a click. <b>E</b> closes. Fragile cargo loses pay on hard hits, and late urgent jobs pay half.</div>
 </div>
 
 <div class="panel" id="settings" hidden>
@@ -180,6 +192,13 @@
   <div class="bfoot"><b>M</b> or <b>Esc</b> closes. The sled keeps rolling while this is open.</div>
 </div>
 
+<div class="panel" id="garage" hidden>
+  <div class="bhead"><div><div class="brand">HOLLIS SLED &amp; SERVICE</div><div class="btitle">Garage</div></div><div style="display:flex;gap:12px;align-items:center"><div class="bcash" id="garageCash">$0</div><button id="closeGarage" class="xbtn" aria-label="Close garage">✕</button></div></div>
+  <div class="setrow" id="garageTabs"></div>
+  <div id="garageBody"></div>
+  <div class="bfoot">Buy it once and it's yours: parts and kit carry across every sled you own. <b>E</b> or <b>Esc</b> closes.</div>
+</div>
+
 <div id="black" hidden><div id="blackMsg"></div></div>
 
 <div class="hud panel" id="mapWrap" hidden>
@@ -194,7 +213,7 @@
   <div><b>Space</b>Hop</div>
   <div><b>Ctrl</b>Wheelie</div>
   <div><b>R</b>Reset sled</div>
-  <div><b>E</b>Job board (at station)</div>
+  <div><b>E</b>Job board / garage</div>
   <div><b>F</b>Call a tow ($100)</div>
   <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
@@ -213,7 +232,7 @@
       <span><kbd>Space</kbd>Hop</span>
       <span><kbd>Ctrl</kbd>Wheelie</span>
       <span><kbd>R</kbd>Reset</span>
-      <span><kbd>E</kbd>Job board</span>
+      <span><kbd>E</kbd>Board &amp; garage</span>
       <span><kbd>V</kbd>View</span>
       <span><kbd>M</kbd>Map</span>
       <span><kbd>Esc</kbd>Settings</span>
@@ -695,6 +714,7 @@ function buildProps() {
 /* ---------------- sled + rider ---------------- */
 const sledRoot = new THREE.Group(), sledBody = new THREE.Group(), skiPivots = [], barPivot = new THREE.Group();
 let bodyMat = null, jacketMat = null, accentMat = null, pantsMat = null, riderHead = [], styleParts = {};
+const V = {};   // swappable parts and rider kit, toggled by the garage
 sledRoot.add(sledBody); scene.add(sledRoot);
 sledRoot.rotation.order = "YXZ";
 (function buildSled() {
@@ -732,13 +752,25 @@ sledRoot.rotation.order = "YXZ";
 
   /* ---- running gear ---- */
   // track: belt loop with lugs, on a slide rail
-  const tr = new THREE.Group(); sledBody.add(tr);
-  box(0.52, 0.34, 1.9, rubber, 0, 0.19, -0.55, 0, 0, 0, tr);
+  const tr = new THREE.Group(); sledBody.add(tr); V.track = tr;
+  // the belt carries a lug texture that scrolls with distance travelled
+  const tc = document.createElement("canvas"); tc.width = 32; tc.height = 64;
+  const tg2 = tc.getContext("2d");
+  tg2.fillStyle = "#14181d"; tg2.fillRect(0, 0, 32, 64);
+  for (let i = 0; i < 8; i++) { tg2.fillStyle = i % 2 ? "#22282f" : "#0c1014"; tg2.fillRect(0, i * 8, 32, 5); }
+  tg2.fillStyle = "#2c333b"; tg2.fillRect(2, 0, 3, 64); tg2.fillRect(27, 0, 3, 64);
+  const trackTex = new THREE.CanvasTexture(tc);
+  trackTex.wrapS = trackTex.wrapT = THREE.RepeatWrapping; trackTex.repeat.set(1, 6);
+  const beltMat = new THREE.MeshStandardMaterial({ map: trackTex, roughness: 0.95 });
+  V.beltTex = trackTex;
+  box(0.52, 0.34, 1.9, beltMat, 0, 0.19, -0.55, 0, 0, 0, tr);
+  V.studs = [];
   for (let i = 0; i < 16; i++) {           // lugs along the bottom run
     box(0.56, 0.05, 0.07, rubber, 0, 0.015, -1.45 + i * 0.12, 0, 0, 0, tr);
+    if (i % 2 === 0) { const st = box(0.44, 0.04, 0.03, chrome, 0, -0.015, -1.45 + i * 0.12, 0, 0, 0, tr); st.visible = false; V.studs.push(st); }
   }
-  cyl(0.19, 0.19, 0.5, rubber, 0, 0.19, -1.46, 0, 0, Math.PI / 2, tr, 14);   // rear idler
-  cyl(0.17, 0.17, 0.5, rubber, 0, 0.19, 0.34, 0, 0, Math.PI / 2, tr, 14);    // drive sprocket
+  V.wheelA = cyl(0.19, 0.19, 0.5, rubber, 0, 0.19, -1.46, 0, 0, Math.PI / 2, tr, 14);   // rear idler
+  V.wheelB = cyl(0.17, 0.17, 0.5, rubber, 0, 0.19, 0.34, 0, 0, Math.PI / 2, tr, 14);    // drive sprocket
   for (const s of [-0.16, 0.16]) cyl(0.09, 0.09, 0.05, steel, s, 0.1, -0.95, 0, 0, Math.PI / 2, tr, 10);
   box(0.06, 0.5, 0.06, steel, 0, 0.5, -1.0, 0.5, 0, 0, tr);                  // rear shock
   cyl(0.05, 0.05, 0.42, chrome, 0, 0.52, -0.55, 0.9, 0, 0, tr, 8);
@@ -775,7 +807,7 @@ sledRoot.rotation.order = "YXZ";
   box(0.1, 0.05, 0.04, lampMat, -0.28, 0.8, 1.14, 0.3).castShadow = false;
 
   // windshield: three angled panes so it reads as curved
-  const shield = new THREE.Group(); sledBody.add(shield);
+  const shield = new THREE.Group(); sledBody.add(shield); V.shield = shield;
   box(0.5, 0.4, 0.03, glass, 0, 1.3, 0.78, -0.5, 0, 0, shield);
   box(0.2, 0.36, 0.03, glass, 0.31, 1.28, 0.74, -0.5, -0.55, 0, shield);
   box(0.2, 0.36, 0.03, glass, -0.31, 1.28, 0.74, -0.5, 0.55, 0, shield);
@@ -797,6 +829,8 @@ sledRoot.rotation.order = "YXZ";
   for (const s of [-0.5, 0.5]) {
     const pv = new THREE.Group(); pv.position.set(s, 0, 0.92); sledBody.add(pv); skiPivots.push(pv);
     box(0.16, 0.05, 1.25, steel, 0, 0.03, -0.05, 0, 0, 0, pv);                  // ski body
+    (V.wideSki = V.wideSki || []).push(box(0.3, 0.05, 1.35, steel, 0, 0.02, -0.05, 0, 0, 0, pv));   // powder ski shell
+    (V.carbide = V.carbide || []).push(box(0.05, 0.04, 1.0, chrome, 0, -0.03, -0.05, 0, 0, 0, pv)); // carbide runner
     box(0.16, 0.05, 0.3, steel, 0, 0.09, 0.66, -0.5, 0, 0, pv);                 // curled tip
     box(0.16, 0.05, 0.18, steel, 0, 0.2, 0.8, -0.95, 0, 0, pv);
     box(0.04, 0.05, 1.1, steel, 0, -0.01, -0.05, 0, 0, 0, pv);                  // keel
@@ -811,16 +845,21 @@ sledRoot.rotation.order = "YXZ";
   cyl(0.03, 0.03, 0.2, dark, 0, -0.1, 0.0, 0, 0, 0, barPivot, 8);               // riser
   for (const s of [-1, 1]) {
     cyl(0.028, 0.028, 0.14, rubber, s * 0.32, 0, 0, 0, 0, Math.PI / 2, barPivot, 10);       // grip
-    box(0.16, 0.14, 0.03, dark, s * 0.34, 0.02, 0.06, -0.3, 0, 0, barPivot);                // handguard
+    (V.guards = V.guards || []).push(box(0.16, 0.14, 0.03, dark, s * 0.34, 0.02, 0.06, -0.3, 0, 0, barPivot));   // handguard
   }
   box(0.09, 0.02, 0.05, steel, 0.3, 0.035, 0.03, 0, 0, 0, barPivot);            // throttle lever
   box(0.09, 0.02, 0.05, steel, -0.3, 0.035, 0.03, 0, 0, 0, barPivot);           // brake lever
 
   /* ---- cargo ---- */
   cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
-  box(0.5, 0.36, 0.42, std(0x8a6a42, 0.9), 0, 0.86, -1.58, 0.25, 0, 0, cargoMesh);
-  box(0.54, 0.05, 0.07, body, 0, 1.05, -1.56, 0.25, 0, 0, cargoMesh);
-  box(0.06, 0.05, 0.46, body, 0, 1.04, -1.58, 0.25, 0, 0, cargoMesh);
+  for (let i = 0; i < 3; i++) {           // up to three parcels on the deck
+    box(0.46, 0.32, 0.38, std(i === 1 ? 0x7a6a52 : 0x8a6a42, 0.9), 0, 0.84, -1.5 - i * 0.44, 0.22, 0, 0, cargoMesh);
+    box(0.5, 0.05, 0.06, body, 0, 1.0, -1.48 - i * 0.44, 0.22, 0, 0, cargoMesh);
+  }
+  V.deck = new THREE.Group(); sledBody.add(V.deck);
+  box(0.62, 0.08, 1.0, dark, 0, 0.66, -1.95, 0.08, 0, 0, V.deck);       // stretched deck
+  box(0.06, 0.24, 1.0, dark, 0.3, 0.78, -1.95, 0.08, 0, 0, V.deck);
+  box(0.06, 0.24, 1.0, dark, -0.3, 0.78, -1.95, 0.08, 0, 0, V.deck);
 
   /* ---- rider ---- */
   const rider = new THREE.Group(); sledBody.add(rider);
@@ -850,6 +889,46 @@ sledRoot.rotation.order = "YXZ";
   const visor = box(0.29, 0.13, 0.11, visorMat, 0, 1.73, -0.25, 0.05, 0, 0, rider);
   const hstripe = box(0.07, 0.1, 0.34, accentMat, 0, 1.88, -0.41, 0, 0, 0, rider);
   riderHead = [helm, chin, visor, hstripe, neck, shield];
+
+  /* ---- bolt-ons the garage can fit ---- */
+  V.tankL = new THREE.Group(); V.tankR = new THREE.Group(); sledBody.add(V.tankL, V.tankR);
+  for (const [grp, sx] of [[V.tankL, -1], [V.tankR, 1]]) {
+    box(0.16, 0.26, 0.8, body, sx * 0.38, 0.62, -0.5, 0, 0, sx * 0.12, grp);      // saddle tank shell
+    box(0.17, 0.05, 0.82, dark, sx * 0.38, 0.75, -0.5, 0, 0, sx * 0.12, grp);     // strap
+    cyl(0.05, 0.05, 0.06, chrome, sx * 0.4, 0.76, -0.2, 0, 0, 0, grp, 8);         // filler cap
+  }
+  V.lightBar = new THREE.Group(); sledBody.add(V.lightBar);
+  box(0.66, 0.08, 0.1, dark, 0, 1.13, 0.98, 0.2, 0, 0, V.lightBar);
+  box(0.6, 0.05, 0.04, lampMat, 0, 1.11, 1.03, 0.2, 0, 0, V.lightBar).castShadow = false;
+  V.raceCan = new THREE.Group(); sledBody.add(V.raceCan);
+  cyl(0.09, 0.11, 0.6, chrome, 0.24, 0.6, -0.9, Math.PI / 2 - 0.1, 0, 0, V.raceCan, 12);
+  cyl(0.06, 0.06, 0.12, dark, 0.24, 0.6, -1.22, Math.PI / 2 - 0.1, 0, 0, V.raceCan, 10);
+  V.rackBox = new THREE.Group(); sledBody.add(V.rackBox);
+  box(0.56, 0.3, 0.5, std(0x2e3742, 0.8), 0, 0.86, -1.56, 0.18, 0, 0, V.rackBox);
+  box(0.58, 0.05, 0.52, body, 0, 1.02, -1.55, 0.18, 0, 0, V.rackBox);
+  V.riser = new THREE.Group(); barPivot.add(V.riser);
+  cyl(0.03, 0.03, 0.22, dark, 0, -0.12, 0, 0, 0, 0, V.riser, 8);
+  for (const s of [-1, 1]) box(0.04, 0.16, 0.04, dark, s * 0.2, 0.08, -0.04, -0.4, 0, 0, V.riser);   // hooks
+
+  /* ---- rider kit variants ---- */
+  V.head = {};
+  V.head.helmet = [helm, chin, visor, hstripe];
+  const beanie = ball(0.19, accentMat, 0, 1.72, -0.4, rider, 1, 0.8, 1.0);
+  const bobble = ball(0.06, accentMat, 0, 1.86, -0.4, rider);
+  const face = ball(0.17, skin, 0, 1.68, -0.38, rider, 0.9, 1.0, 0.95);
+  const mask = ball(0.18, std(0x1a1f26, 0.9), 0, 1.68, -0.38, rider, 0.95, 1.0, 1.0);
+  const goggles = box(0.3, 0.1, 0.12, visorMat, 0, 1.73, -0.25, 0.05, 0, 0, rider);
+  const gogStrap = box(0.34, 0.06, 0.3, accentMat, 0, 1.74, -0.4, 0, 0, 0, rider);
+  V.head.beanie = [beanie, bobble, face, goggles, gogStrap];
+  V.head.mask = [beanie, bobble, mask, goggles, gogStrap];
+  V.head.heated = [helm, chin, visor, hstripe];
+  V.visor = visor; V.goggles = goggles;
+  V.boots = []; V.mitts = [];
+  for (const s of [-1, 1]) {
+    V.boots.push(box(0.18, 0.16, 0.38, std(0x2a3038, 0.85), s * 0.3, 0.44, -0.3, 0.1, 0, 0, rider));   // taller arctic boot
+    V.mitts.push(box(0.15, 0.15, 0.22, glove, s * 0.32, 1.44, 0.34, 0, 0, 0, rider));                  // gauntlet mitt
+  }
+  V.rider = rider;
 })();
 
 /* ---------------- particles ---------------- */
@@ -1135,7 +1214,7 @@ function physStep(dt) {
   const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
   // wheelie: skis come up off the snow, track does all the work
   const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
-  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc) * (GS.up.engine ? 1.18 : 1)) * dt);
+  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc) * ST.burn) * dt);
   const whOn = input.wheelie && GS.fuel > 0 && (gnd ? Math.abs(vf) > 2.5 : P.wh > 0.3);
   P.wh = clamp(P.wh + (whOn ? 2.4 : -3.2) * dt, 0, 1);
   if (P.wh > 0.7 && gnd) { P.whRun += Math.abs(vf) * dt; if (P.whRun > P.whBest) P.whBest = P.whRun; }
@@ -1148,14 +1227,14 @@ function physStep(dt) {
     const nvx = vx * ca + vz * sa, nvz = vz * ca - vx * sa; vx = nvx; vz = nvz;
     const g2 = gx * gx + gz * gz; vx -= G * gx / (1 + g2) * dt; vz -= G * gz / (1 + g2) * dt;
     let F = 0;
-    if (thrE > 0) F += Math.min(3600 * (GS.up.engine ? 1.2 : 1), 47000 * (GS.up.engine ? 1.25 : 1) / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
+    if (thrE > 0) F += Math.min(3600 * ST.power, 47000 * ST.power / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / MASS * fx * dt; vz += F / MASS * fz * dt;
     const sp = Math.hypot(vx, vz);
-    P.drag = 5600 * exc * (GS.up.paddle ? 0.75 : 1);
+    P.drag = 5600 * exc * ST.drag;
     const Fs = P.drag + (P.ice ? 140 : lerp(260, 60, P.rock)) + 0.9 * sp * sp;
     if (sp > 0.01) { const dv = Math.min(sp, Fs / MASS * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
-    const grip = lerp(P.ice ? 1.2 : lerp(5.5, 9, P.pack) + (GS.up.paddle ? 1.6 : 0), 0.8, P.rock) * lerp(1, 0.75, P.wh);
+    const grip = lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
     const vl = vx * lx + vz * lz, nvl = vl * Math.exp(-grip * dt); vx += (nvl - vl) * lx; vz += (nvl - vl) * lz;
     // spray
     const spd = Math.hypot(vx, vz);
@@ -1176,7 +1255,7 @@ function physStep(dt) {
   const hs2 = surf(P.x, P.z), sv = vx * gx + vz * gz;
   if (P.y <= hs2) {
     const impact = sv - P.vy; P.y = hs2;
-    if (P.vy < sv) { if (!P.gnd && impact > 4.5) { cargoHit(impact); crater(P.x, P.z, Math.min(0.45, impact * 0.045)); P.shake = Math.min(1, impact / 12) * (GS.up.susp ? 0.6 : 1); thud(Math.min(1, impact / 14)); } P.vy = sv; }
+    if (P.vy < sv) { if (!P.gnd && impact > 4.5) { cargoHit(impact); crater(P.x, P.z, Math.min(0.45, impact * 0.045)); P.shake = Math.min(1, impact / 12) * (ST.soak ? 0.6 : 1); thud(Math.min(1, impact / 14)); } P.vy = sv; }
   }
   P.gnd = P.y <= hs2 + 0.12;
   collide(fx, fz);
@@ -1273,10 +1352,10 @@ function drawMap() {
     let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false;
     const d = Math.hypot(ux, uz);
     if (d > R - 12) {                                   // off the dial: only the depot and your drop show on the rim
-      if (s !== depot && !(GS.job && GS.job.dest === s)) continue;
+      if (s !== depot && !GS.load.some(j => j.dest === s)) continue;
       const f = (R - 12) / d; ux *= f; uz *= f; edge = true;
     }
-    const sx = R + ux, sz = R + uz, tg = GS.job && GS.job.dest === s;
+    const sx = R + ux, sz = R + uz, tg = GS.load.some(j => j.dest === s);
     mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6, sz - 6, 12, 12);
     mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8";
     if (edge) { mctx.globalAlpha = 0.65; mctx.fillRect(sx - 3, sz - 3, 6, 6); mctx.globalAlpha = 1; }
@@ -1308,7 +1387,7 @@ function drawBigMap() {
   const w2 = (x, z) => [(x + HALF) * M2SRC * k, (z + HALF) * M2SRC * k];
   g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center";
   for (const s of SITES) {
-    const [sx, sz] = w2(s.x, s.z), tg = GS.job && GS.job.dest === s;
+    const [sx, sz] = w2(s.x, s.z), tg = GS.load.some(j => j.dest === s);
     g.fillStyle = "#0d1822"; g.fillRect(sx - 8, sz - 8, 16, 16);
     g.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; g.fillRect(sx - 5, sz - 5, 10, 10);
     if (tg) { g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 16, 0, 6.283); g.stroke(); }
@@ -1357,6 +1436,11 @@ function updVisuals(dt) {
   const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
   for (const pv of skiPivots) pv.rotation.y += (skiT - pv.rotation.y) * kS;
   barPivot.rotation.y += (skiT * 0.7 - barPivot.rotation.y) * kS;
+  if (V.beltTex) {
+    const roll = (P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)) * dt / 0.42;
+    V.beltTex.offset.y -= roll;
+    if (V.wheelA) { V.wheelA.rotation.x -= roll * 3.2; V.wheelB.rotation.x -= roll * 3.6; }
+  }
   for (const m of riderHead) m.visible = !VIEWS[camMode].fp;
   sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
   // engine rpm
@@ -1426,12 +1510,13 @@ function updHud(spd) {
 /* ---------------- courier survival layer ---------------- */
 const GAMEHOUR = 30;                       // real seconds per in-game hour (a full day is 12 minutes)
 const GS = {
-  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 7.4, job: null, jobs: [], up: {}, delivered: 0, hits: 0,
-  storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, dead: false, near: null,
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 7.4, load: [], jobs: [], delivered: 0,
+  storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
 const SITES = [
   { id: "depot", name: "Hollis Ranger Station", seed: [-40, 420], type: "depot" },
+  { id: "garage", name: "Hollis Sled & Service", seed: null, type: "shop" },
   { id: "loon", name: "Loon Shore Cabin", seed: [760, 1080], type: "cabin" },
   { id: "deadfall", name: "Deadfall Cabin", seed: [-1300, 900], type: "cabin" },
   { id: "frost", name: "Frost Hollow Hut", seed: [1340, 260], type: "cabin" },
@@ -1440,14 +1525,14 @@ const SITES = [
   { id: "granite", name: "Granite Bend Cabin", seed: [-1680, -180], type: "cabin" },
   { id: "relay", name: "Summit Relay", seed: null, type: "relay" }
 ];
-let depot = SITES[0];
+let depot = SITES[0], garageSite = SITES[1];
 const CARGO = [
   ["Propane tanks", 1, false], ["Groceries", 0.9, false], ["Chainsaw parts", 1, false], ["Radio batteries", 1.05, false],
   ["First-aid kit", 1.25, true], ["Two dozen eggs", 0.85, true], ["Stove glass", 1.2, true], ["Mail sack", 0.8, false],
   ["Snowshoes", 0.9, false], ["Generator coil", 1.15, true]
 ];
 const BACKHAUL = ["Outgoing mail", "Empty propane tanks", "Trail report", "Broken radio", "Pelts for trade"];
-const UPG = [
+const UPG_OLD = [
   { id: "tank", name: "Long-range tank", desc: "Fuel 18 L → 28 L", cost: 170 },
   { id: "cans", name: "Strapped jerry cans", desc: "+12 L more (needs the tank)", cost: 240, needs: "tank" },
   { id: "suit", name: "Expedition suit", desc: "Cold drains 35% slower", cost: 150 },
@@ -1473,6 +1558,7 @@ function flatSpot(sx, sz, R) {
 }
 function computeSites() {
   for (const s of SITES) {
+    if (s.type === "shop") continue;
     if (s.type === "relay") {
       let best = null, bh = -1e9;
       for (let z = -1500; z <= -880; z += 16) for (let x = -1300; x <= 1300; x += 16) {
@@ -1483,10 +1569,15 @@ function computeSites() {
     } else { const p = flatSpot(s.seed[0], s.seed[1], 80); s.x = p[0]; s.z = p[1]; }
     s.y = groundAt(s.x, s.z);
   }
-  depot = SITES[0];
+  depot = SITES[0]; garageSite = SITES[1];
+  const gp = flatSpot(depot.x + 34, depot.z + 4, 18);
+  garageSite.x = gp[0]; garageSite.z = gp[1]; garageSite.y = groundAt(gp[0], gp[1]);
   SPAWN.x = depot.x; SPAWN.z = depot.z + 6; SPAWN.yaw = Math.PI;
 }
-function nearSite(x, z, r) { return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < r || Math.hypot(x - s.x + 11, z - s.z) < r)); }
+function nearSite(x, z, r) {
+  if (depot.x !== undefined && Math.hypot(x - depot.x, z - depot.z) < 78) return true;   // the town keeps its own clearing
+  return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < r || Math.hypot(x - s.x + 11, z - s.z) < r));
+}
 
 const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 1000, 16, 1, true);
 function buildSites() {
@@ -1495,6 +1586,7 @@ function buildSites() {
   const glow = new THREE.MeshBasicMaterial({ color: 0xffc26b });
   const add = (g, geo, mat, x, y, z, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.z = rz; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   for (const s of SITES) {
+    if (s.type === "shop") { s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ visible: false })); s.beacon.visible = false; continue; }
     const g = new THREE.Group(), bx = s.x - 11, bz = s.z;
     g.position.set(bx, groundAt(bx, bz) - 0.3, bz);
     if (s.type === "relay") {
@@ -1566,8 +1658,8 @@ function updSky() {
   sky.material.uniforms.uDay.value = day; sky.material.uniforms.uStorm.value = st; sky.material.uniforms.uFog.value.copy(_c1);
   renderer.toneMappingExposure = lerp(0.9, 1.05, day);
   stars.material.opacity = (1 - day) * (1 - st) * 0.9; stars.position.copy(camera.position);
-  headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, day) * (GS.up.lights ? 1.8 : 1) : 0;
-  headlight.distance = GS.up.lights ? 150 : 80; headlight.angle = GS.up.lights ? 0.75 : 0.55;
+  headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, day) * ST.light : 0;
+  headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
 }
 
 /* snowfall fills old tracks back in */
@@ -1602,7 +1694,7 @@ function fadeTrails(dt) {
 const fmtTime = h => { const hh = Math.floor(h % 24), mm = Math.floor((h % 1) * 60); return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"); };
 const fmtMi = m => (m / 1609).toFixed(m < 1609 ? 2 : 1) + " mi";
 function makeJobs(from) {
-  const pool = SITES.filter(s => s.type !== "depot").sort(() => Math.random() - 0.5);  // seven destinations, three posted
+  const pool = SITES.filter(s => s.type !== "depot" && s.type !== "shop").sort(() => Math.random() - 0.5);  // seven destinations, three posted
   GS.jobs = [];
   for (let k = 0; k < 3; k++) {
     const d = pool[k], cg = CARGO[(Math.random() * CARGO.length) | 0];
@@ -1614,49 +1706,51 @@ function makeJobs(from) {
 }
 function acceptJob(k) {
   const j = GS.jobs[k]; if (!j) return;
-  GS.job = j; GS.hits = 0; GS.jobs = []; closeBoard();
-  toast(`Loaded: ${j.cargo}. Follow the orange beacon to ${j.dest.name}.`);
-  save();
+  if (GS.load.length >= ST.slots) { toast(ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`, "warn"); return; }
+  j.hits = 0; GS.load.push(j); GS.jobs.splice(k, 1);
+  toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${GS.load.length}/${ST.slots} on the rack.`);
+  if (GS.load.length >= ST.slots) closeBoard(); else renderBoard();
+  applyLoadout(); save();
 }
-function buyUpg(k) {
-  const u = UPG[k]; if (!u || GS.up[u.id]) return;
-  if (u.needs && !GS.up[u.needs]) { toast(`${u.name} needs the ${UPG.find(x => x.id === u.needs).name.toLowerCase()} first.`, "warn"); return; }
-  if (GS.cash < u.cost) { toast(`${u.name} costs $${u.cost}. You have $${GS.cash}.`, "warn"); return; }
-  GS.cash -= u.cost; GS.up[u.id] = true; applyUpg(); if (u.id === "tank" || u.id === "cans") GS.fuel = GS.cap;
-  toast(`Installed: ${u.name}.`); renderBoard(); save();
-}
-function applyUpg() { GS.cap = 18 + (GS.up.tank ? 10 : 0) + (GS.up.cans ? 12 : 0); GS.fuel = Math.min(GS.fuel, GS.cap); }
+
+function applyUpg() { restat(); }
 function cargoHit(v) {
-  if (!GS.job || v < (GS.up.susp ? 9 : 6)) return;
-  GS.hits++;
-  toast(GS.job.fragile
-    ? `Cargo rattled. Pay −${GS.up.box ? "7.5" : "15"}% (${GS.hits} hit${GS.hits > 1 ? "s" : ""}).`
+  if (!GS.load.length || v < 6 + ST.soak) return;
+  GS.load.forEach(j => j.hits++);
+  const frag = GS.load.some(j => j.fragile);
+  toast(frag
+    ? `Cargo rattled. Fragile pay −${ST.care ? "7.5" : "15"}% a hit.`
     : "Cargo took a knock. They won't be topping off your tank.", "warn");
 }
-function deliver() {
-  const j = GS.job, s = j.dest;
-  let p = j.pay; const notes = [];
-  if (GS.hits) { if (j.fragile) p *= Math.max(0.3, 1 - (GS.up.box ? 0.075 : 0.15) * GS.hits); notes.push("damaged"); }
-  if (j.due && GS.hour > j.due) { p *= 0.5; notes.push("late"); }
-  p = Math.round(p); GS.cash += p; GS.delivered++; GS.job = null;
-  toast(`Delivered to ${s.name}: +$${p}${notes.length ? " (" + notes.join(", ") + ")" : ""}`, "good");
-  if (s.type !== "depot") {
-    const goodwill = GS.hits === 0;                     // damaged goods, no free fuel
-    if (goodwill) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
-    if (Math.random() < 0.6) {
-      const dist = Math.hypot(s.x - depot.x, s.z - depot.z);
-      GS.job = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null };
-      GS.hits = 0;
-      setTimeout(() => toast(`${goodwill ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${GS.job ? GS.job.cargo.toLowerCase() : "a parcel"} for the station.`), 1400);
-    } else setTimeout(() => toast(goodwill ? "They topped off your tank. Head back to the station for more work." : "No fuel for you after that. Head back to the station."), 1400);
-  } else setTimeout(() => toast("Press E for the job board."), 1400);
-  save();
+function deliver(site) {
+  const here = GS.load.filter(j => j.dest === site);
+  if (!here.length) return;
+  GS.load = GS.load.filter(j => j.dest !== site);
+  let total = 0, notes = [], clean = true;
+  for (const j of here) {
+    let p = j.pay;
+    if (j.hits) { if (j.fragile) p *= Math.max(0.3, 1 - (ST.care ? 0.075 : 0.15) * j.hits); if (!notes.includes("damaged")) notes.push("damaged"); clean = false; }
+    if (j.due && GS.hour > j.due) { p *= 0.5; if (!notes.includes("late")) notes.push("late"); }
+    total += Math.round(p); GS.delivered++;
+  }
+  GS.cash += total;
+  toast(`Delivered ${here.length > 1 ? here.length + " parcels" : here[0].cargo.toLowerCase()} to ${site.name}: +$${total}${notes.length ? " (" + notes.join(", ") + ")" : ""}`, "good");
+  if (site.type !== "depot") {
+    if (clean) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
+    if (GS.load.length < ST.slots && Math.random() < 0.6) {
+      const dist = Math.hypot(site.x - depot.x, site.z - depot.z);
+      const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null, hits: 0 };
+      GS.load.push(back);
+      setTimeout(() => toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the station.`), 1400);
+    } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
+  } else if (!GS.load.length) setTimeout(() => toast("Press E for the job board."), 1400);
+  applyLoadout(); save();
 }
 function blackout(kind) {
   if (GS.dead) return;
   GS.dead = true; closeBoard();
-  const fee = kind === "tow" ? 100 : 60, lost = GS.job ? ` The ${GS.job.cargo.toLowerCase()} didn't make it.` : "";
-  GS.cash = Math.max(0, GS.cash - fee); GS.job = null; GS.jobs = [];
+  const fee = kind === "tow" ? 100 : 60, lost = GS.load.length ? ` The ${GS.load.length > 1 ? GS.load.length + " parcels didn't" : GS.load[0].cargo.toLowerCase() + " didn't"} make it.` : "";
+  GS.cash = Math.max(0, GS.cash - fee); GS.load = []; GS.jobs = [];
   $("blackMsg").innerHTML = (kind === "tow" ? "<b>TOWED IN</b>A ranger hauled you and your sled back to the station." : "<b>YOU BLACKED OUT</b>A ranger found you half-buried in drift and dragged you back to the station.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
@@ -1666,8 +1760,16 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v1", JSON.stringify({ cash: GS.cash, up: GS.up, delivered: GS.delivered })); } catch (e) { } }
-function load() { try { const d = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (d) { GS.cash = d.cash || 0; GS.up = d.up || {}; GS.delivered = d.delivered || 0; } } catch (e) { } applyUpg(); GS.fuel = GS.cap; }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, own: GS.own })); } catch (e) { } }
+function load() {
+  GS.own = OWN0();
+  try {
+    const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; if (d.own) Object.assign(GS.own, d.own); }
+    else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
+  } catch (e) { }
+  restat(); GS.fuel = GS.cap;
+}
 
 /* ui */
 function toast(msg, kind) {
@@ -1677,7 +1779,8 @@ function toast(msg, kind) {
 }
 function renderBoard() {
   const jl = $("jobList"); jl.innerHTML = "";
-  if (!GS.jobs.length) jl.innerHTML = `<div class="empty">${GS.job ? "You're already carrying " + GS.job.cargo.toLowerCase() + "." : "No work posted."}</div>`;
+  $("boardSlots").textContent = `Rack ${GS.load.length}/${ST.slots}`;
+  if (!GS.jobs.length) jl.innerHTML = `<div class="empty">${GS.load.length ? "Rack loaded: " + GS.load.map(j => j.cargo.toLowerCase()).join(", ") + "." : "No work posted."}</div>`;
   GS.jobs.forEach((j, k) => {
     const b = document.createElement("button"); b.className = "row"; b.id = "jobBtn" + k;
     const dist = Math.hypot(j.dest.x - depot.x, j.dest.z - depot.z);
@@ -1685,21 +1788,20 @@ function renderBoard() {
     b.addEventListener("click", () => acceptJob(k)); jl.appendChild(b);
   });
   const ul = $("upgList"); ul.innerHTML = "";
-  UPG.forEach((u, k) => {
-    const b = document.createElement("button"); b.className = "row" + (GS.up[u.id] ? " owned" : ""); b.id = "upgBtn" + k;
-    b.innerHTML = `${k < 6 ? "<kbd>" + (k + 4) + "</kbd>" : "<kbd class='no'>·</kbd>"}<span class="main"><b>${u.name}</b><em>${u.desc}</em></span><span class="pay">${GS.up[u.id] ? "Owned" : "$" + u.cost}</span>`;
-    b.addEventListener("click", () => buyUpg(k)); ul.appendChild(b);
-  });
+  const g = document.createElement("button"); g.className = "row";
+  g.innerHTML = `<kbd>G</kbd><span class="main"><b>Hollis Sled &amp; Service</b><em>Sleds, aftermarket parts and rider kit — across the street, big roll door. Ride over and press E.</em></span><span class="pay">${sledDef().name}</span>`;
+  g.addEventListener("click", () => { closeBoard(); toast("The garage is the shed across the street. Ride over and press E."); });
+  ul.appendChild(g);
   $("boardCash").textContent = "$" + GS.cash;
 }
-function openBoard() { if (!GS.jobs.length && !GS.job) makeJobs(depot); GS.boardOpen = true; renderBoard(); $("board").hidden = false; }
+function openBoard() { if (!GS.jobs.length) makeJobs(depot); GS.boardOpen = true; renderBoard(); $("board").hidden = false; }
 function closeBoard() { GS.boardOpen = false; $("board").hidden = true; }
 function gameKey(e) {
   if (GS.dead) return;
-  if (e.code === "KeyE") { if (GS.boardOpen) closeBoard(); else if (GS.near === depot) openBoard(); else toast("The job board is at Hollis Ranger Station.", "warn"); }
-  if (e.code === "Escape") { if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "KeyE") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else if (GS.near === depot) openBoard(); else toast("The job board is at the station, the garage is across the street.", "warn"); }
+  if (e.code === "Escape") { if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
   if (e.code === "KeyF") { if (GS.near === depot) toast("You're already at the station."); else blackout("tow"); }
-  if (GS.boardOpen && /^Digit[1-9]$/.test(e.code)) { const k = +e.code.slice(5) - 1; if (k < 3) acceptJob(k); else buyUpg(k - 3); }
+  if (GS.boardOpen && /^Digit[1-3]$/.test(e.code)) acceptJob(+e.code.slice(5) - 1);
 }
 
 /* settings: sled colour, volume */
@@ -1768,6 +1870,415 @@ function toggleSettings(force) {
   if (open) { $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
 }
 
+/* ---------------- sleds, parts, gear ---------------- */
+// Five generations of sled, the way they actually aged: heavy thirsty fan-cooled singles
+// through modern light turbo mountain machines. Each one takes the parts below.
+const SLEDS = [
+  {
+    id: "frontier", name: "Frontier 340", year: "1972", cost: 0, need: 0,
+    blurb: "Fan-cooled, bogie wheels, a seat like a bench. It starts. Most of the time.",
+    power: 0.72, fuel: 16, drag: 1.25, grip: -0.6, hue: "#c8452b", tunnel: 0.9, trackLen: 1.0
+  },
+  {
+    id: "ranger", name: "Ranger 500", year: "1989", cost: 900, need: 6,
+    blurb: "The workhorse. Slide rail suspension, a real track, enough torque to pull a sled load.",
+    power: 0.92, fuel: 20, drag: 1.08, grip: 0, hue: "#2f6fb0", tunnel: 1.0, trackLen: 1.05
+  },
+  {
+    id: "summit", name: "Summit 600", year: "2004", cost: 2400, need: 16,
+    blurb: "Liquid twin, long track, proper mountain geometry. Floats where the Ranger digs.",
+    power: 1.12, fuel: 24, drag: 0.88, grip: 0.8, hue: "#e8b230", tunnel: 1.05, trackLen: 1.18
+  },
+  {
+    id: "apex", name: "Apex 800", year: "2015", cost: 5200, need: 30,
+    blurb: "Light chassis, fuel injection, rider-forward stance. Climbs like it's annoyed.",
+    power: 1.32, fuel: 26, drag: 0.78, grip: 1.3, hue: "#d8482f", tunnel: 1.0, trackLen: 1.22
+  },
+  {
+    id: "matriarch", name: "Matriarch 850T", year: "2026", cost: 9800, need: 48,
+    blurb: "Turbo, carbon tunnel, electric everything. The whole map gets smaller.",
+    power: 1.6, fuel: 30, drag: 0.66, grip: 1.8, hue: "#1c2b3a", tunnel: 0.95, trackLen: 1.25
+  }
+];
+
+// Aftermarket catalogue. Everything fits every sled — that's the point.
+// tier: the sled generation you need before the shop will order it in.
+const PARTS = {
+  track: {
+    label: "Track", must: true, options: [
+      { id: "stock", name: "Stock 1.25\" trail track", cost: 0, tier: 0, stats: {}, note: "What it came with." },
+      { id: "trail", name: "1.35\" hard-pack trail track", cost: 320, tier: 1, stats: { grip: 0.9, drag: 0.04 }, note: "Bites packed trail, hates powder." },
+      { id: "paddle", name: "2.6\" backcountry paddle", cost: 780, tier: 2, stats: { drag: -0.22, grip: 0.6, power: -0.03 }, note: "Floats in deep snow, drags on ice." },
+      { id: "stud", name: "Studded ice track", cost: 620, tier: 1, stats: { grip: 2.2, drag: 0.1 }, note: "Carbide studs. Lake runs become a straight line." }
+    ]
+  },
+  skis: {
+    label: "Skis", must: true, options: [
+      { id: "stock", name: "Stock steel skis", cost: 0, tier: 0, stats: {} },
+      { id: "carbide", name: "Dual-carbide trail skis", cost: 260, tier: 1, stats: { grip: 0.7 }, note: "Runners that hold a line." },
+      { id: "powder", name: "Wide powder skis", cost: 540, tier: 2, stats: { drag: -0.12, grip: -0.2 }, note: "Keeps the nose up in the deep." }
+    ]
+  },
+  clutch: {
+    label: "Engine & clutch", must: true, options: [
+      { id: "stock", name: "Stock clutching", cost: 0, tier: 0, stats: {} },
+      { id: "helix", name: "Helix & spring kit", cost: 340, tier: 1, stats: { power: 0.1 }, note: "Backshifts instead of sulking." },
+      { id: "bigbore", name: "Big-bore top end", cost: 980, tier: 2, stats: { power: 0.22, burn: 0.15 }, note: "More everything, including thirst." },
+      { id: "turbo", name: "Bolt-on turbo", cost: 2600, tier: 3, stats: { power: 0.45, burn: 0.3 }, note: "Altitude stops mattering." }
+    ]
+  },
+  can: {
+    label: "Exhaust", options: [
+      { id: "stock", name: "Stock silencer", cost: 0, tier: 0, stats: {} },
+      { id: "trail", name: "Trail can", cost: 180, tier: 1, stats: { power: 0.05 }, note: "A little more bark." },
+      { id: "race", name: "Race can", cost: 460, tier: 2, stats: { power: 0.12, burn: 0.05 }, note: "Everyone in the valley knows you're out." }
+    ]
+  },
+  susp: {
+    label: "Suspension", options: [
+      { id: "stock", name: "Stock shocks", cost: 0, tier: 0, stats: {} },
+      { id: "coil", name: "Rebuilt coilovers", cost: 300, tier: 1, stats: { soak: 1.5 }, note: "Landings stop hurting the cargo." },
+      { id: "long", name: "Long-travel kit", cost: 720, tier: 2, stats: { soak: 3, grip: 0.3 }, note: "Moguls become suggestions." }
+    ]
+  },
+  bars: {
+    label: "Bars & risers", options: [
+      { id: "stock", name: "Stock bars", cost: 0, tier: 0, stats: {} },
+      { id: "riser", name: "6\" riser & hook bars", cost: 190, tier: 1, stats: { grip: 0.2, soak: 0.5 }, note: "Stand-up riding without the backache." },
+      { id: "guards", name: "Riser, hooks & handguards", cost: 330, tier: 1, stats: { grip: 0.2, soak: 0.5, cold: 1 }, note: "Wind off your hands." }
+    ]
+  },
+  shield: {
+    label: "Windshield", options: [
+      { id: "low", name: "Low race shield", cost: 0, tier: 0, stats: { cold: -0.5 }, note: "Looks fast. Is cold." },
+      { id: "mid", name: "Mid trail shield", cost: 120, tier: 0, stats: { cold: 1 } },
+      { id: "tall", name: "Tall touring shield", cost: 280, tier: 1, stats: { cold: 2.2, drag: 0.03 }, note: "A wall of quiet air." }
+    ]
+  },
+  tankL: {
+    label: "Left saddle tank", options: [
+      { id: "none", name: "No left tank", cost: 0, tier: 0, stats: {} },
+      { id: "fitted", name: "Left saddle tank", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L strapped to the left tunnel." }
+    ]
+  },
+  tankR: {
+    label: "Right saddle tank", options: [
+      { id: "none", name: "No right tank", cost: 0, tier: 0, stats: {} },
+      { id: "fitted", name: "Right saddle tank", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L strapped to the right tunnel." }
+    ]
+  },
+  rack: {
+    label: "Rack, deck & load space", must: true, options: [
+      { id: "stock", name: "Bare rack", cost: 0, tier: 0, stats: {}, note: "One parcel, strapped down." },
+      { id: "box", name: "Insulated cargo box", cost: 260, tier: 1, stats: { care: 1 }, note: "One parcel, and it survives what you do to it." },
+      { id: "stretch", name: "Stretch tunnel & long track", cost: 640, tier: 2, stats: { slots: 1, drag: 0.03, grip: 0.3 }, note: "Tunnel extension over a longer track: two parcels a run." },
+      { id: "freight", name: "Freight deck & 174\" track", cost: 1500, tier: 3, stats: { slots: 2, drag: 0.06, grip: 0.5, care: 1, power: -0.04 }, note: "Three parcels. Handles like a loaded trailer, floats like a barge." }
+    ]
+  },
+  lights: {
+    label: "Lighting", options: [
+      { id: "stock", name: "Stock headlight", cost: 0, tier: 0, stats: {} },
+      { id: "bar", name: "LED light bar", cost: 150, tier: 1, stats: { light: 1.9 }, note: "Night rides stop being guesswork." }
+    ]
+  }
+};
+const PART_ORDER = ["track", "skis", "clutch", "can", "susp", "bars", "shield", "tankL", "tankR", "rack", "lights"];
+
+// Rider kit. `warm` is insulation — the high country and storms ask for more of it.
+const GEAR = {
+  head: {
+    label: "Head", options: [
+      { id: "beanie", name: "Wool beanie & goggles", cost: 0, warm: 1, note: "Fine for a mild afternoon down low." },
+      { id: "mask", name: "Balaclava & goggles", cost: 90, warm: 2.5, note: "Nothing exposed." },
+      { id: "helmet", name: "Full-face helmet", cost: 220, warm: 3.5, note: "Warm, and it keeps branches out of your teeth." },
+      { id: "heated", name: "Heated-shield helmet", cost: 520, warm: 5, note: "Battery visor. No fog, no ice." }
+    ]
+  },
+  jacket: {
+    label: "Jacket", options: [
+      { id: "shell", name: "Work shell", cost: 0, warm: 1.5 },
+      { id: "insul", name: "Insulated trail jacket", cost: 180, warm: 3 },
+      { id: "mono", name: "Expedition monosuit", cost: 460, warm: 4.5, note: "One piece, no drafts at the waist." }
+    ]
+  },
+  pants: {
+    label: "Snow pants", options: [
+      { id: "bib", name: "Work bibs", cost: 0, warm: 1 },
+      { id: "insul", name: "Insulated bibs", cost: 140, warm: 2.5 },
+      { id: "shell", name: "Mountain shell bibs", cost: 320, warm: 3.5, note: "Vents for climbing, armour on the knees." }
+    ]
+  },
+  boots: {
+    label: "Boots", options: [
+      { id: "pac", name: "Rubber pac boots", cost: 0, warm: 1 },
+      { id: "tech", name: "Technical snow boots", cost: 130, warm: 2.2 },
+      { id: "arctic", name: "Arctic-rated boots", cost: 290, warm: 3.2, note: "Rated well below anything you'll ride in." }
+    ]
+  },
+  gloves: {
+    label: "Gloves", options: [
+      { id: "leather", name: "Leather choppers", cost: 0, warm: 1 },
+      { id: "gaunt", name: "Gauntlet mitts", cost: 110, warm: 2.4 },
+      { id: "heated", name: "Heated gloves", cost: 280, warm: 3.6 }
+    ]
+  }
+};
+const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
+
+const OWN0 = () => ({
+  sled: "frontier",
+  sleds: ["frontier"],
+  parts: { track: "stock", skis: "stock", clutch: "stock", can: "stock", susp: "stock", bars: "stock", shield: "low", tankL: "none", tankR: "none", rack: "stock", lights: "stock" },
+  partsOwned: {},
+  gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
+  gearOwned: {}
+});
+const sledDef = () => SLEDS.find(s => s.id === GS.own.sled) || SLEDS[0];
+const sledTier = () => SLEDS.indexOf(sledDef());
+const partDef = (cat, id) => PARTS[cat].options.find(o => o.id === id) || PARTS[cat].options[0];
+const gearDef = (slot, id) => GEAR[slot].options.find(o => o.id === id) || GEAR[slot].options[0];
+const ownKey = (cat, id) => cat + ":" + id;
+
+// everything the physics and the cold ask about, in one place
+function stats() {
+  const sd = sledDef();
+  const st = { power: sd.power, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: 1, cold: 0, soak: 0, care: 0, light: 1, slots: 1 };
+  for (const cat of PART_ORDER) {
+    const o = partDef(cat, GS.own.parts[cat]).stats || {};
+    st.power += o.power || 0; st.fuel += o.fuel || 0; st.drag += o.drag || 0; st.grip += o.grip || 0;
+    st.burn += o.burn || 0; st.cold += o.cold || 0; st.soak += o.soak || 0; st.care += o.care || 0; st.slots += o.slots || 0;
+    st.light = Math.max(st.light, o.light || 1);
+  }
+  let warm = 0;
+  for (const slot of GEAR_ORDER) warm += gearDef(slot, GS.own.gear[slot]).warm;
+  st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
+  st.coldMul = clamp(1.55 - st.warm * 0.11, 0.3, 1.6);
+  st.drag = Math.max(0.35, st.drag);
+  return st;
+}
+let ST = null;
+function restat() { ST = stats(); GS.cap = ST.fuel; GS.fuel = Math.min(GS.fuel, GS.cap); applyLoadout(); }
+
+/* ---------------- the garage ---------------- */
+let garageTab = "sleds";
+function canBuySled(s) { return GS.delivered >= s.need; }
+function buySled(id) {
+  const s = SLEDS.find(x => x.id === id); if (!s) return;
+  if (GS.own.sleds.includes(id)) { GS.own.sled = id; restat(); toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
+  if (!canBuySled(s)) { toast(`${s.name} is for proven couriers — ${s.need} deliveries.`, "warn"); return; }
+  if (GS.cash < s.cost) { toast(`${s.name} is $${s.cost}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= s.cost; GS.own.sleds.push(id); GS.own.sled = id; restat();
+  SET.color = s.hue; applySettings(); saveSettings();
+  toast(`Bought the ${s.name}. Your parts move over with it.`, "good"); renderGarage(); save();
+}
+function fitPart(cat, id) {
+  const o = partDef(cat, id), tierOK = sledTier() >= o.tier;
+  if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
+  if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
+  if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= o.cost; GS.own.partsOwned[ownKey(cat, id)] = true; GS.own.parts[cat] = id; restat();
+  toast(`Fitted: ${o.name}.`, "good"); renderGarage(); save();
+}
+function wearGear(slot, id) {
+  const o = gearDef(slot, id);
+  if (GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0) { GS.own.gear[slot] = id; restat(); renderGarage(); save(); return; }
+  if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; GS.own.gear[slot] = id; restat();
+  toast(`Wearing: ${o.name}.`, "good"); renderGarage(); save();
+}
+const statLine = o => {
+  const s = o.stats || {}, bits = [];
+  if (s.power) bits.push((s.power > 0 ? "+" : "") + Math.round(s.power * 100) + "% power");
+  if (s.fuel) bits.push("+" + s.fuel + " L");
+  if (s.drag) bits.push((s.drag < 0 ? "−" : "+") + Math.round(Math.abs(s.drag) * 100) + "% powder drag");
+  if (s.grip) bits.push((s.grip > 0 ? "+" : "−") + "grip");
+  if (s.burn) bits.push("+" + Math.round(s.burn * 100) + "% burn");
+  if (s.cold) bits.push((s.cold > 0 ? "+" : "−") + Math.abs(s.cold) + " warmth");
+  if (s.soak) bits.push("softer landings");
+  if (s.care) bits.push("protects cargo");
+  if (s.slots) bits.push("+" + s.slots + " parcel" + (s.slots > 1 ? "s" : ""));
+  if (s.light) bits.push("brighter");
+  if (o.warm) bits.push(o.warm + " warmth");
+  return bits.join(" · ");
+};
+function renderGarage() {
+  const body = $("garageBody"); body.innerHTML = "";
+  $("garageCash").textContent = "$" + GS.cash;
+  [...$("garageTabs").children].forEach(b => b.classList.toggle("on", b.dataset.t === garageTab));
+  const row = (title, sub, price, state, onClick, tag) => {
+    const b = document.createElement("button"); b.className = "row" + (state === "on" ? " fitted" : state === "locked" ? " owned" : "");
+    b.innerHTML = `<span class="main"><b>${title}</b><em>${sub || ""}</em></span><span class="pay">${price}</span>`;
+    if (tag) b.querySelector("b").insertAdjacentHTML("afterend", ` <span class="tag">${tag}</span>`);
+    if (state !== "locked") b.addEventListener("click", onClick);
+    body.appendChild(b); return b;
+  };
+  if (garageTab === "sleds") {
+    SLEDS.forEach(s => {
+      const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
+      const spec = `${s.year} · ${Math.round(s.power * 100)}% power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
+      row(s.name, `${spec}\n${s.blurb}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
+        on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year);
+    });
+    const note = document.createElement("div"); note.className = "bfoot";
+    note.innerHTML = "Every part you own moves to whatever you ride. Deliveries unlock the newer generations.";
+    body.appendChild(note);
+  } else if (garageTab === "parts") {
+    PART_ORDER.forEach(cat => {
+      const h = document.createElement("div"); h.className = "bsec"; h.textContent = PARTS[cat].label; body.appendChild(h);
+      PARTS[cat].options.forEach(o => {
+        const owned = GS.own.partsOwned[ownKey(cat, o.id)] || o.cost === 0, on = GS.own.parts[cat] === o.id, locked = !owned && sledTier() < o.tier;
+        row(o.name, [statLine(o), o.note].filter(Boolean).join(" · "),
+          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : "$" + o.cost,
+          on ? "on" : locked ? "locked" : "", () => fitPart(cat, o.id));
+      });
+    });
+  } else {
+    const warnEl = document.createElement("div"); warnEl.className = "bfoot";
+    warnEl.innerHTML = `Insulation <b>${ST.warm.toFixed(1)}</b> — ${ST.warm < 6 ? "fine in the valley, thin up high" : ST.warm < 9 ? "good for the high country" : "storm-proof"}. Cold drains ${Math.round(ST.coldMul * 100)}% as fast as bare.`;
+    body.appendChild(warnEl);
+    GEAR_ORDER.forEach(slot => {
+      const h = document.createElement("div"); h.className = "bsec"; h.textContent = GEAR[slot].label; body.appendChild(h);
+      GEAR[slot].options.forEach(o => {
+        const owned = GS.own.gearOwned[ownKey(slot, o.id)] || o.cost === 0, on = GS.own.gear[slot] === o.id;
+        row(o.name, [statLine(o), o.note].filter(Boolean).join(" · "), on ? "Worn" : owned ? "Owned" : "$" + o.cost, on ? "on" : "", () => wearGear(slot, o.id));
+      });
+    });
+  }
+}
+function openGarage() { GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
+function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; }
+function buildGarageTabs() {
+  [["sleds", "Sleds"], ["parts", "Parts"], ["gear", "Rider kit"]].forEach(([t, n]) => {
+    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
+    b.addEventListener("click", () => { garageTab = t; renderGarage(); });
+    $("garageTabs").appendChild(b);
+  });
+  $("closeGarage").addEventListener("click", closeGarage);
+}
+
+/* ---------------- Hollis town ---------------- */
+function buildTown() {
+  const L = c => new THREE.MeshLambertMaterial({ color: c });
+  const wood = L(0x5b3d29), woodD = L(0x3a271b), snowM = L(0xf3f7fc), stone = L(0x6b6c70), metal = L(0x8d99a6),
+    doorM = L(0x2a1b12), red = L(0xa8392a), green = L(0x2f5a3a), glowM = new THREE.MeshBasicMaterial({ color: 0xffc26b });
+  const put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  const bx = (g, w, h, d, mat, x, y, z, ry = 0) => put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
+
+  // one building: walls, gabled roof with snow, lit windows
+  function house(x, z, w, d, h, ry, mat, lit) {
+    const g = new THREE.Group();
+    g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
+    bx(g, w, h, d, mat, 0, h / 2, 0);
+    const a = 0.55, hs = w / 2 + 0.4, Ls = hs / Math.cos(a);
+    const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, (w / 2) * Math.tan(a)); tri.closePath();
+    const gable = new THREE.ExtrudeGeometry(tri, { depth: d, bevelEnabled: false }); gable.translate(0, 0, -d / 2);
+    put(g, gable, mat, 0, h, 0);
+    for (const s of [-1, 1]) {
+      bx(g, Ls, 0.2, d + 0.7, woodD, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.05, 0).rotation.z = -s * a;
+      bx(g, Ls + 0.1, 0.3, d + 0.8, snowM, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.28, 0).rotation.z = -s * a;
+    }
+    bx(g, 0.7, 1.8, 0.7, stone, -w / 4, h + 1.1, d / 4);
+    bx(g, 0.8, 0.18, 0.8, snowM, -w / 4, h + 2.05, d / 4);
+    if (lit !== false) {
+      for (const sx of [-w / 4, w / 4]) bx(g, 0.7, 0.6, 0.08, glowM, sx, 1.5, d / 2 + 0.04);
+      bx(g, 0.9, 1.9, 0.1, doorM, 0, 0.95, d / 2 + 0.04);
+    }
+    for (let u = -w / 2 + 1.1; u <= w / 2 - 1; u += 1.9) for (let v = -d / 2 + 1.1; v <= d / 2 - 1; v += 1.9) {
+      const wx = x + u * Math.cos(ry) + v * Math.sin(ry), wz = z - u * Math.sin(ry) + v * Math.cos(ry);
+      addOb({ x: wx, z: wz, r: 1.35, top: 1e9 });
+    }
+    return g;
+  }
+  function lamp(x, z) {
+    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); scene.add(g);
+    put(g, new THREE.CylinderGeometry(0.07, 0.09, 4, 8), metal, 0, 2, 0);
+    put(g, new THREE.SphereGeometry(0.22, 10, 8), glowM, 0, 4.1, 0).castShadow = false;
+    put(g, new THREE.ConeGeometry(0.34, 0.3, 10), metal, 0, 4.35, 0);
+    addOb({ x, z, r: 0.3, top: 1e9 });
+    return g;
+  }
+
+  const d0 = depot, ang = 0;
+  // the garage: a long service shed with a roll door and a sign out front
+  const gx = garageSite.x - 12, gz = garageSite.z;
+  const gg = new THREE.Group(); gg.position.set(gx, groundAt(gx, gz) - 0.25, gz); scene.add(gg);
+  bx(gg, 11, 4.2, 8, L(0x4a5058), 0, 2.1, 0);
+  bx(gg, 11.6, 0.5, 8.6, snowM, 0, 4.35, 0);
+  bx(gg, 11.6, 0.3, 1.2, metal, 0, 4.0, 0);
+  bx(gg, 0.2, 3.2, 4.4, L(0x25313c), 5.5, 1.6, 0.4);            // roll door
+  for (let i = 0; i < 6; i++) bx(gg, 0.24, 0.12, 4.4, metal, 5.55, 0.5 + i * 0.55, 0.4);
+  bx(gg, 0.12, 1.1, 2.4, glowM, 5.48, 2.6, -2.6);               // lit service window
+  bx(gg, 0.12, 1.1, 2.4, glowM, -5.48, 2.6, 0.6);
+  bx(gg, 0.3, 2.6, 0.3, woodD, 7.4, 1.3, -3.2);                 // sign post
+  bx(gg, 0.16, 1.5, 3.4, L(0xd8d2c4), 7.4, 3.2, -3.2);
+  bx(gg, 0.06, 0.34, 2.6, red, 7.3, 3.4, -3.2);
+  bx(gg, 0.06, 0.2, 2.2, L(0x1c2b3a), 7.3, 2.9, -3.2);
+  for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9 });
+  // a couple of parts crates and a spare track leaning on the wall
+  bx(gg, 1.0, 0.8, 1.0, wood, -4.2, 0.4, 4.6); bx(gg, 0.9, 0.7, 0.9, wood, -2.8, 0.35, 4.8);
+  put(gg, new THREE.TorusGeometry(0.85, 0.16, 8, 18), L(0x14181d), 3.4, 1.0, 4.6).rotation.set(0.25, 0.4, 0);
+
+  // houses and shops along a short street either side of the station
+  const lots = [
+    [46, 26, 9, 7, 3.0, 0.2, wood], [46, -12, 8, 6, 2.8, -0.15, L(0x6d4a33)],
+    [18, 40, 8, 7, 2.9, 1.5, wood], [-16, 44, 9, 6, 3.0, 1.6, L(0x5a4b3c)],
+    [-40, 20, 10, 7, 3.2, -1.5, red], [-38, -16, 8, 6, 2.8, -1.4, wood],
+    [10, -42, 9, 7, 3.0, 3.0, L(0x4a5d54)], [-20, -40, 8, 6, 2.9, 2.9, wood]
+  ];
+  for (const [ox, oz, w, d, h, r, mat] of lots) house(d0.x + ox, d0.z + oz, w, d, h, r, mat);
+  // general store with a porch and a sign
+  const st = house(d0.x + 24, d0.z - 34, 10, 8, 3.4, 0.1, L(0x7a5a3a));
+  bx(st, 10, 0.3, 2.4, woodD, 0, 3.5, 4.6); bx(st, 0.2, 1.1, 5, L(0xe8e2d4), 0, 4.3, 0.2);
+  bx(st, 0.1, 0.3, 3.6, green, -0.12, 4.3, 0.2);
+  for (const lx of [-40, -14, 14, 40]) { lamp(d0.x + lx, d0.z + 14); lamp(d0.x + lx, d0.z - 20); }
+  // firewood, fuel drums, a plough pile of snow
+  for (let i = 0; i < 5; i++) {
+    const wx = d0.x + 30 + i * 0.5, wz = d0.z + 6 + i * 0.4;
+    const g = new THREE.Group(); g.position.set(wx, groundAt(wx, wz), wz); scene.add(g);
+    for (let k = 0; k < 4; k++) put(g, new THREE.CylinderGeometry(0.16, 0.16, 1.6, 7), woodD, 0, 0.16 + k * 0.3, 0).rotation.z = Math.PI / 2;
+    addOb({ x: wx, z: wz, r: 0.9, top: 1e9 });
+  }
+  for (const [dx, dz] of [[-8, -26], [-7.2, -26.6], [-8.4, -27]]) {
+    const wx = d0.x + dx, wz = d0.z + dz;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.1, 12), L(0xb8432c));
+    m.position.set(wx, groundAt(wx, wz) + 0.5, wz); m.castShadow = true; scene.add(m);
+    addOb({ x: wx, z: wz, r: 0.5, top: 1e9 });
+  }
+}
+
+/* what you own, on the sled and on the rider */
+function applyLoadout() {
+  if (!V.track) return;
+  const sd = sledDef(), pr = GS.own.parts, gr = GS.own.gear;
+  V.track.scale.z = sd.trackLen;
+  const wide = pr.track === "paddle";
+  V.track.scale.x = wide ? 1.22 : pr.track === "trail" ? 0.98 : 1;
+  V.studs.forEach(m => m.visible = pr.track === "stud");
+  V.wideSki.forEach(m => m.visible = pr.skis === "powder");
+  V.carbide.forEach(m => m.visible = pr.skis === "carbide");
+  V.shield.visible = true;
+  V.shield.scale.set(1, pr.shield === "tall" ? 1.45 : pr.shield === "mid" ? 1.1 : 0.72, 1);
+  V.shield.position.y = pr.shield === "tall" ? 0.06 : 0;
+  V.guards.forEach(m => m.visible = pr.bars === "guards");
+  V.riser.visible = pr.bars !== "stock";
+  barPivot.position.y = pr.bars === "stock" ? 1.44 : 1.56;
+  V.tankL.visible = pr.tankL === "fitted";
+  V.tankR.visible = pr.tankR === "fitted";
+  V.lightBar.visible = pr.lights === "bar";
+  V.raceCan.visible = pr.can !== "stock";
+  V.rackBox.visible = pr.rack === "box";
+  for (const k of ["helmet", "beanie", "mask", "heated"]) (V.head[k] || []).forEach(m => m.visible = false);
+  (V.head[gr.head] || V.head.helmet).forEach(m => m.visible = true);
+  if (gr.head === "heated" && V.visor) V.visor.material = V.visorHeated || (V.visorHeated = new THREE.MeshStandardMaterial({ color: 0x1b3b4a, roughness: 0.05, metalness: 0.6, emissive: 0x0d2b38, emissiveIntensity: 0.6 }));
+  V.boots.forEach(m => m.visible = gr.boots !== "pac");
+  V.mitts.forEach(m => m.visible = gr.gloves !== "leather");
+  const deck = pr.rack === "stretch" || pr.rack === "freight";
+  V.track.scale.z = sd.trackLen * (pr.rack === "freight" ? 1.24 : deck ? 1.12 : 1);
+  if (V.deck) V.deck.visible = deck;
+  if (cargoMesh) { cargoMesh.visible = GS.load.length > 0 && pr.rack !== "box"; cargoMesh.children.forEach((m, i) => m.visible = i < Math.max(1, GS.load.length) * 2); }
+  if (V.rackBox) V.rackBox.visible = pr.rack === "box" && GS.load.length > 0;
+}
+
 /* per-frame game tick */
 function updGame(dt, spd) {
   if (GS.dead) return;
@@ -1780,20 +2291,21 @@ function updGame(dt, spd) {
   }
   GS.storm += ((GS.stormPhase === "storm" ? 1 : 0) - GS.storm) * (1 - Math.exp(-dt / 20));
   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
-  if (near !== GS.near && near) toast(near === depot ? (GS.job && GS.job.dest !== depot ? `Hollis Station. Your delivery is for ${GS.job.dest.name}.` : "Hollis Ranger Station. Warm up, refuel, press E for work.") : `${near.name}. Warm stove inside.`);
+  if (near !== GS.near && near) toast(near === garageSite ? "Hollis Sled & Service. Press E for sleds, parts and kit." : near === depot ? "Hollis Ranger Station. Warm up, refuel, press E for work." : `${near.name}. Warm stove inside.`);
   GS.near = near;
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 90) / 120, 0, 1);
-  const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * (GS.up.suit ? 0.65 : 1) * (GS.up.grips ? 0.8 : 1);
+  const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
+  if (elev > 0.5 && ST.warm < 7 && !GS.kitWarned) { GS.kitWarned = true; toast("You're under-dressed for this altitude. The garage sells warmer kit.", "warn"); }
   if (near) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; } else GS.warmth -= cold * dt;
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get to a cabin or the station.", "bad"); }
   if (GS.warmth <= 0) { blackout("cold"); return; }
-  if (near === depot) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
+  if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast("Out of fuel. Press F to call a tow ($100).", "bad"); }
-  if (GS.job && near === GS.job.dest && spd < 4) deliver();
-  for (const s of SITES) s.beacon.visible = GS.job ? s === GS.job.dest : (s === depot && near !== depot);
+  if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
+  for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : (s === depot && near !== depot);
   const relay = SITES[SITES.length - 1]; if (relay.blink) relay.blink.visible = (gameClock % 1.6) < 0.5;
-  if (cargoMesh) cargoMesh.visible = !!GS.job;
+
   GS.smokeT += dt;
   if (GS.smokeT > 0.15) {
     GS.smokeT = 0;
@@ -1803,17 +2315,24 @@ function updGame(dt, spd) {
   $("frost").style.opacity = (clamp((40 - GS.warmth) / 40, 0, 1) * 0.95).toFixed(3);
 }
 function updGameHud() {
-  const tgt = GS.job ? GS.job.dest : depot, dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
+  let tgt = depot;
+  if (GS.load.length) {
+    let best = 1e9;
+    for (const j of GS.load) { const d = Math.hypot(j.dest.x - P.x, j.dest.z - P.z); if (d < best) { best = d; tgt = j.dest; } }
+  }
+  const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
-  $("arrow").style.color = GS.job && GS.job.dest !== depot ? "var(--signal)" : "var(--ice)";
-  if (GS.job) {
-    $("jobTitle").textContent = `${GS.job.cargo} → ${GS.job.dest.name}`;
-    $("jobSub").textContent = `${fmtMi(dist)} · $${GS.job.pay}${GS.job.fragile ? " · fragile" : ""}${GS.job.due ? " · due " + fmtTime(GS.job.due) + (GS.hour > GS.job.due ? " (late)" : "") : ""}`;
+  $("arrow").style.color = tgt !== depot ? "var(--signal)" : "var(--ice)";
+  if (GS.load.length) {
+    const j = GS.load.find(x => x.dest === tgt);
+    $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) + (GS.hour > j.due ? " (late)" : "") : ""}`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Hollis Ranger Station"; $("jobSub").textContent = "Press E for the job board"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the station · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
   $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · $${GS.cash}`;
+  $("rig").textContent = `${sledDef().name} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
   $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
@@ -1842,13 +2361,13 @@ function frame(t) {
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 function boot() {
-  genWorld(); computeSites(); load();
+  genWorld(); computeSites();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildMapBg();
+  buildFar(); buildProps(); buildSites(); buildTown(); load(); buildMapBg();
   P.y = surf(P.x, P.z);
   recenter(P.x, P.z, true);
   ready = true;
-  loadSettings(); buildSettings();
+  loadSettings(); buildSettings(); buildGarageTabs();
   const btn = $("start"); btn.disabled = false; btn.textContent = "START RIDING"; $("load").textContent = GS.delivered ? `Welcome back. ${GS.delivered} deliveries, $${GS.cash} in the bank.` : "Headphones on. Throttle is W.";
   btn.focus();
   btn.addEventListener("click", () => {
