@@ -1456,8 +1456,12 @@ function updVisuals(dt) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
     sledRoot.updateMatrixWorld();
     const eye = sledRoot.localToWorld(_camEye.set(0, 1.66, -0.14));
-    if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.init = true; }
-    else camera.position.lerp(eye, 1 - Math.exp(-26 * dt));
+    if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.fpBob = 0; camState.fpEyeY = eye.y; camState.init = true; }
+    // the head sits exactly where the rider's head is — no smoothing along the ground, or
+    // speed drags the camera back into the seat. Only vertical jolts are cushioned.
+    const dEy = eye.y - camState.fpEyeY; camState.fpEyeY = eye.y;
+    camState.fpBob = clamp(camState.fpBob * Math.exp(-11 * dt) - dEy * 0.4, -0.22, 0.22);
+    camera.position.copy(eye); camera.position.y += camState.fpBob;
     camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.45);
     const pT = P.pitch * 0.3 + clamp(P.vy * 0.02, -0.25, 0.25) - 0.13;
     const rT = -P.roll * 0.22 - sledBody.rotation.z * 0.4;
