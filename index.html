@@ -1493,7 +1493,7 @@ function drawBigMap() {
     }
   }
   const [px, pz] = w2(P.x, P.z);
-  g.save(); g.translate(px, pz); g.rotate(P.yaw + Math.PI);
+  g.save(); g.translate(px, pz); g.rotate(Math.PI - P.yaw);   // north-up map: the arrow itself turns
   g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(0, -20); g.lineTo(-13, 13); g.lineTo(13, 13); g.closePath(); g.fill();
   g.fillStyle = "#ff5a1f"; g.beginPath(); g.moveTo(0, -15); g.lineTo(-9, 9); g.lineTo(9, 9); g.closePath(); g.fill();
   g.restore();
