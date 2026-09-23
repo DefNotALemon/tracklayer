@@ -212,6 +212,7 @@
   <div><b>Shift</b>Lean into turn</div>
   <div><b>Space</b>Hop</div>
   <div><b>Ctrl</b>Wheelie</div>
+  <div><b>Air</b>W/S pitch · A/D roll · Shift levels</div>
   <div><b>R</b>Reset sled</div>
   <div><b>E</b>Job board / garage</div>
   <div><b>F</b>Call a tow ($100)</div>
@@ -231,6 +232,7 @@
       <span><kbd>Shift</kbd>Lean</span>
       <span><kbd>Space</kbd>Hop</span>
       <span><kbd>Ctrl</kbd>Wheelie</span>
+      <span>In the air: pitch, roll, <kbd>Shift</kbd> to level</span>
       <span><kbd>R</kbd>Reset</span>
       <span><kbd>E</kbd>Board &amp; garage</span>
       <span><kbd>V</kbd>View</span>
@@ -534,9 +536,10 @@ const trailTex = new THREE.DataTexture(trailData, TR, TR, THREE.RGBAFormat);
 trailTex.magFilter = THREE.LinearFilter; trailTex.minFilter = THREE.LinearFilter;
 farU.uTrail.value = trailTex;
 let trailDirty = false, trailClock = 0;
-function markTrail(x, z) {
+function markTrail(x, z, faint) {
   const tx = clamp(((x + HALF) / (WORLD / TR)) | 0, 0, TR - 1), tz = clamp(((z + HALF) / (WORLD / TR)) | 0, 0, TR - 1), o = (tz * TR + tx) * 4;
-  if (trailData[o] < 255) { trailData[o] = 255; trailDirty = true; }
+  const v = faint ? 170 : 255;
+  if (trailData[o] < v) { trailData[o] = v; trailDirty = true; }
 }
 
 /* ---------------- boot ---------------- */
@@ -706,7 +709,7 @@ function buildProps() {
     const y = groundAt(x, z) + sampleG(freshG, x, z) * 0.55;
     q.setFromAxisAngle(up, a); sc.set(len, 1, 1); p.set(x, y, z); m4.compose(p, q, sc); lm.setMatrixAt(i, m4);
     const dx = Math.cos(a), dz = -Math.sin(a);
-    for (let t = -0.5; t <= 0.5; t += 1 / Math.ceil(len / 0.8)) addOb({ x: x + dx * t * len, z: z + dz * t * len, r: 0.42, top: y + 0.36 });
+    for (let t = -0.5; t <= 0.5; t += 1 / Math.ceil(len / 0.8)) addOb({ x: x + dx * t * len, z: z + dz * t * len, r: 0.42, top: y + 0.36, log: true });
   });
   lm.castShadow = true; scene.add(lm);
 }
@@ -1050,7 +1053,7 @@ function readInput(dt) {
 
 /* ---------------- physics ---------------- */
 const MASS = 280, G = 15.5;
-const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
 function resetSled() {
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
@@ -1091,6 +1094,23 @@ function stamp(fx, fz, lx, lz, carve) {
       if (wT > 0.002 || wS > 0.002) { const tg = Math.min(lerp(f, f * 0.22, wT), lerp(f, f * 0.5, wS)); if (tg < d) d = tg; }
       else if (d >= f * 0.85) { const b = f + bh * wB; if (d < b) d += (b - d) * 0.25; }
       if (d !== d0) { c.d[k] = d; writeCell(ix, iz, d0, d, f); }
+    }
+  }
+}
+// the same soft-profile packing the player's track does, for anything else on the snow
+function stampAt(x, z, fx, fz) {
+  const lx = fz, lz = -fx, R = 1.6;
+  for (let iz = Math.max(0, Math.floor((z - R + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((z + R + HALF) / CELL)); iz++) {
+    const wz = iz * CELL - HALF - z;
+    for (let ix = Math.max(0, Math.floor((x - R + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((x + R + HALF) / CELL)); ix++) {
+      const wx = ix * CELL - HALF - x, pl = wx * fx + wz * fz;
+      if (pl < -1.1 || pl > 0.8) continue;
+      const pa = Math.abs(wx * lx + wz * lz);
+      const w = (1 - sstep(0.16, 0.42, pa)) * sstep(-1.05, -0.8, pl) * (1 - sstep(0.55, 0.78, pl));
+      if (w < 0.01) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+      const tg = lerp(f, f * 0.26, w);
+      if (tg < d0) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
     }
   }
 }
@@ -1175,6 +1195,15 @@ function collide(fx, fz) {
         if (o.tree !== undefined && spdNow > 4.5) { const br = r + 1.15 * o.s; if (d2 < br * br) { wobble(o, 0.05 + spdNow * 0.004, -dx, -dz); if (o.snowy) dropSnow(o, false); } }
         if (d2 >= rr * rr || d2 < 1e-6) continue;
         if (o.tree !== undefined) { wobble(o, 0.06 + Math.hypot(P.vx, P.vz) * 0.014, -dx, -dz); if (o.snowy) dropSnow(o, true); }
+        // a fallen log is a ramp, not a wall: hit it with speed and it launches you
+        if (o.log && spdNow > 4.5 && P.gnd) {
+          P.vy = Math.max(P.vy, 2.2 + spdNow * 0.3);
+          P.y += 0.2; P.vx *= 0.94; P.vz *= 0.94;
+          P.airP = 0.22; P.airPV = 1.1;                    // the nose comes up off the log
+          P.shake = Math.max(P.shake, 0.25); thud(0.45);
+          P.launched = 1.2;
+          continue;
+        }
         const d = Math.sqrt(d2), nx = dx / d, nz = dz / d, pen = rr - d;
         P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02);
         const vn = P.vx * nx + P.vz * nz;
@@ -1227,7 +1256,9 @@ function physStep(dt) {
     const nvx = vx * ca + vz * sa, nvz = vz * ca - vx * sa; vx = nvx; vz = nvz;
     const g2 = gx * gx + gz * gz; vx -= G * gx / (1 + g2) * dt; vz -= G * gz / (1 + g2) * dt;
     let F = 0;
-    if (thrE > 0) F += Math.min(3600 * ST.power, 47000 * ST.power / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
+    const grade = clamp(gx * fx + gz * fz, 0, 0.7);              // uphill component under the skis
+    const climb = Math.min(2.4, 1 + grade * 5.0);                              // low gear: grunt on a climb, same top speed on the flat
+    if (thrE > 0) F += Math.min(3600 * ST.power * climb, 47000 * ST.power * climb / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / MASS * fx * dt; vz += F / MASS * fz * dt;
     const sp = Math.hypot(vx, vz);
@@ -1248,16 +1279,50 @@ function physStep(dt) {
   } else P.drag *= 0.9;
   if (gnd && input.hop) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
   input.hop = false;
+  if (P.airT > 0.05) {
+    // in the air you can still work the sled: throttle lifts the nose, brake drops it,
+    // steering rolls you, and the lean button flattens everything out
+    P.airPV += (input.thr * 2.6 - input.brk * 2.8) * dt;
+    P.airRV += -input.steer * 3.0 * dt;
+    const damp = Math.exp(-(0.8 + input.lean * 5) * dt);
+    P.airPV *= damp; P.airRV *= damp;
+    if (input.lean) { P.airP *= Math.exp(-4 * dt); P.airR *= Math.exp(-4 * dt); }
+    P.airP = clamp(P.airP + P.airPV * dt, -1.2, 1.2);
+    P.airR = clamp(P.airR + P.airRV * dt, -1.3, 1.3);
+    P.launched = Math.max(0, P.launched - dt);
+  } else {
+    const k = 1 - Math.exp(-9 * dt);
+    P.airP -= P.airP * k; P.airR -= P.airR * k; P.airPV *= 1 - k; P.airRV *= 1 - k;
+  }
   P.vy -= G * dt;
   P.x += vx * dt; P.z += vz * dt; P.y += P.vy * dt;
   P.vx = vx; P.vz = vz;
   if (gnd) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
   const hs2 = surf(P.x, P.z), sv = vx * gx + vz * gz;
-  if (P.y <= hs2) {
-    const impact = sv - P.vy; P.y = hs2;
-    if (P.vy < sv) { if (!P.gnd && impact > 4.5) { cargoHit(impact); crater(P.x, P.z, Math.min(0.45, impact * 0.045)); P.shake = Math.min(1, impact / 12) * (ST.soak ? 0.6 : 1); thud(Math.min(1, impact / 14)); } P.vy = sv; }
-  }
+  const impact = Math.max(0, sv - P.vy);
+  if (P.y <= hs2) { P.y = hs2; if (P.vy < sv) P.vy = sv; }
+  else P.airT += dt;
+  const wasAir = P.airT;
   P.gnd = P.y <= hs2 + 0.12;
+  // a landing counts the moment the skis are back on the snow — deep powder swallows the
+  // hard contact, so this can't wait for a clean surface hit
+  if (P.gnd && wasAir > 0.14) {
+    const att = Math.abs(P.airP) + Math.abs(P.airR) * 1.25;      // how far off flat you came down
+    if (att > 0.55) {
+      const bite = Math.min(0.62, 0.22 + att * 0.3);
+      vx *= 1 - bite; vz *= 1 - bite; P.vx = vx; P.vz = vz;
+      P.yr += (Math.random() - 0.5) * att;
+      P.shake = Math.max(P.shake, Math.min(1, 0.4 + att * 0.4));
+      cargoHit(impact + att * 7);
+      thud(Math.min(1, 0.45 + att * 0.4));
+      if (started && !GS.dead) toast(att > 1 ? "Ugly landing. That hurt the load." : "Landed crooked.", "warn");
+    } else {
+      if (impact > 4.5) { cargoHit(impact); crater(P.x, P.z, Math.min(0.45, impact * 0.045)); thud(Math.min(1, impact / 14)); }
+      P.shake = Math.max(P.shake, Math.min(1, impact / 12) * (ST.soak ? 0.6 : 1));
+      if (P.launched > 0 && impact > 2.5 && started && !GS.dead) toast("Stuck the landing.", "good");
+    }
+    P.airPV = P.airRV = 0; P.airP *= 0.25; P.airR *= 0.25; P.launched = 0; P.airT = 0;
+  }
   collide(fx, fz);
   P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt;
 }
@@ -1362,6 +1427,13 @@ function drawMap() {
     else mctx.fillRect(sx - 4, sz - 4, 8, 8);
     if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
+  for (const n of NPCS) {                        // other riders, if they're within the dial
+    const dx = (n.x - P.x) * M2DISP, dz = (n.z - P.z) * M2DISP;
+    const ux = dx * cy - dz * sy, uz = dx * sy + dz * cy;
+    if (Math.hypot(ux, uz) > R - 8) continue;
+    mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.arc(R + ux, R + uz, 5, 0, 6.283); mctx.fill();
+    mctx.fillStyle = n.colour; mctx.beginPath(); mctx.arc(R + ux, R + uz, 3.2, 0, 6.283); mctx.fill();
+  }
   // the sled, always at the centre pointing up
   mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.moveTo(R, R - 15); mctx.lineTo(R - 10, R + 10); mctx.lineTo(R + 10, R + 10); mctx.closePath(); mctx.fill();
   mctx.fillStyle = "#ff5a1f"; mctx.beginPath(); mctx.moveTo(R, R - 11); mctx.lineTo(R - 7, R + 7); mctx.lineTo(R + 7, R + 7); mctx.closePath(); mctx.fill();
@@ -1423,7 +1495,7 @@ function updVisuals(dt) {
     const hL = surf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = surf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
     pT = Math.atan2(hF - hR, 2.5) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
     rT = Math.atan2(hL - hRt, 1.2);
-  } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.6; rT = P.roll * 0.98; }
+  } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.35 + P.airP; rT = P.airR; }
   const whT = P.wh * (0.52 + Math.sin(performance.now() * 0.0061) * 0.05 + Math.sin(performance.now() * 0.017) * 0.02);
   P.whVis += (whT - P.whVis) * (1 - Math.exp(-(whT > P.whVis ? 6 : 9) * dt));
   pT += P.whVis;
@@ -1753,9 +1825,16 @@ function deliver(site) {
 function blackout(kind) {
   if (GS.dead) return;
   GS.dead = true; closeBoard();
-  const fee = kind === "tow" ? 100 : 60, lost = GS.load.length ? ` The ${GS.load.length > 1 ? GS.load.length + " parcels didn't" : GS.load[0].cargo.toLowerCase() + " didn't"} make it.` : "";
-  GS.cash = Math.max(0, GS.cash - fee); GS.load = []; GS.jobs = [];
-  $("blackMsg").innerHTML = (kind === "tow" ? "<b>TOWED IN</b>A ranger hauled you and your sled back to the station." : "<b>YOU BLACKED OUT</b>A ranger found you half-buried in drift and dragged you back to the station.") + `<span>−$${fee}.${lost}</span>`;
+  const tow = kind === "tow", fee = tow ? 100 : 60;
+  const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " parcels" : GS.load[0].cargo.toLowerCase()) : "";
+  // a tow brings the freight home with you; passing out in the drift does not
+  const lost = tow
+    ? (cargo ? ` Your ${cargo} rode back on the trailer — the clock keeps running.` : "")
+    : (cargo ? ` The ${cargo} didn't make it.` : "");
+  GS.cash = Math.max(0, GS.cash - fee);
+  if (!tow) GS.load = [];
+  GS.jobs = [];
+  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>A ranger hauled you, your sled and your load back to the station." : "<b>YOU BLACKED OUT</b>A ranger found you half-buried in drift and dragged you back to the station.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
@@ -2283,6 +2362,84 @@ function applyLoadout() {
   if (V.rackBox) V.rackBox.visible = pr.rack === "box" && GS.load.length > 0;
 }
 
+/* ---------------- other riders out on the trail ---------------- */
+const NPCS = [];
+function buildNpcs() {
+  const std = (c, r = 0.6, m = 0.05) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+  const kits = [{ body: 0x2f6fb0, suit: 0x1f2a36 }, { body: 0xd8c23a, suit: 0x3a2f28 }];
+  const names = ["Trail groomer", "Weekender"];
+  for (let i = 0; i < 2; i++) {
+    const g = new THREE.Group(), body = std(kits[i].body, 0.45, 0.15), dark = std(0x1a2027, 0.85),
+      steel = std(0x9aa6b2, 0.35, 0.6), suit = std(kits[i].suit, 0.8), helm = std(0xe8eef4, 0.3);
+    const add = (geo, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; g.add(m); return m; };
+    add(new THREE.BoxGeometry(0.52, 0.3, 1.9), dark, 0, 0.2, -0.5);            // track & tunnel
+    add(new THREE.BoxGeometry(0.62, 0.26, 1.7), body, 0, 0.5, -0.45);
+    add(new THREE.SphereGeometry(0.5, 12, 8), body, 0, 0.8, 0.5).scale.set(0.86, 0.5, 1.3);   // hood
+    add(new THREE.BoxGeometry(0.44, 0.16, 0.9), dark, 0, 0.95, -0.45);         // seat
+    add(new THREE.BoxGeometry(0.5, 0.36, 0.03), std(0xbfe0f2, 0.05), 0, 1.22, 0.72, -0.5);   // shield
+    for (const s of [-0.5, 0.5]) {
+      add(new THREE.BoxGeometry(0.16, 0.05, 1.3), steel, s, 0.03, 0.9);
+      add(new THREE.BoxGeometry(0.16, 0.05, 0.3), steel, s, 0.1, 1.6, -0.5);
+    }
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), steel, 0, 1.4, 0.34).rotation.z = Math.PI / 2;
+    add(new THREE.BoxGeometry(0.42, 0.5, 0.34), suit, 0, 1.3, -0.5, 0.2);      // rider
+    add(new THREE.SphereGeometry(0.19, 10, 8), helm, 0, 1.7, -0.42);
+    add(new THREE.BoxGeometry(0.2, 0.06, 0.04), std(0xff2a1a, 0.4), 0, 0.68, -1.5);   // tail light
+    scene.add(g);
+    NPCS.push({ g, name: names[i], x: 0, z: 0, y: 0, yaw: 0, spd: 8, tgt: null, avoid: 0, avoidT: 0, mark: null, colour: i ? "#d8c23a" : "#7fc8e0" });
+  }
+}
+function npcPickTarget(n) {
+  const pool = SITES.filter(s => s.type !== "shop" && Math.hypot(s.x - n.x, s.z - n.z) > 220);
+  n.tgt = pool.length ? pool[(Math.random() * pool.length) | 0] : SITES[1];
+}
+function updNpcs(dt) {
+  if (!NPCS.length) return;
+  for (const n of NPCS) {
+    if (!n.tgt || Math.hypot(n.x - n.tgt.x, n.z - n.tgt.z) < 30) npcPickTarget(n);
+    let want = Math.atan2(n.tgt.x - n.x, n.tgt.z - n.z);
+    const fx0 = Math.sin(n.yaw), fz0 = Math.cos(n.yaw);
+    // look ahead: trees, rocks, buildings, cliffs and the map edge all push the bars over
+    n.avoidT -= dt;
+    if (n.avoidT <= 0) {
+      n.avoid = 0;
+      const ax = n.x + fx0 * 9, az = n.z + fz0 * 9;
+      const gx = Math.floor((ax + HALF) / OBC), gz = Math.floor((az + HALF) / OBC);
+      let blocked = 0;
+      for (let j = gz - 1; j <= gz + 1 && !blocked; j++) for (let i = gx - 1; i <= gx + 1 && !blocked; i++) {
+        const arr = obGrid.get(j * 512 + i); if (!arr) continue;
+        for (const o of arr) if (Math.hypot(ax - o.x, az - o.z) < o.r + 2.4) { blocked = 1; break; }
+      }
+      const slope = Math.hypot(groundAt(ax + 4, az) - groundAt(ax - 4, az), groundAt(ax, az + 4) - groundAt(ax, az - 4)) / 8;
+      if (Math.abs(n.x) > 1850 || Math.abs(n.z) > 1850) { npcPickTarget(n); n.avoid = Math.PI * 0.6; n.avoidT = 2.5; }
+      else if (blocked || slope > 0.55 || sampleG(freshG, ax, az) < 0.1) { n.avoid = (Math.random() < 0.5 ? -1 : 1) * 0.9; n.avoidT = 0.9 + Math.random() * 0.8; }
+    }
+    want += n.avoid;
+    n.yaw = angLerp(n.yaw, want, 1 - Math.exp(-2.2 * dt));
+    const fx = Math.sin(n.yaw), fz = Math.cos(n.yaw);
+    const grade = (groundAt(n.x + fx * 6, n.z + fz * 6) - groundAt(n.x, n.z)) / 6;
+    const pack = 1 - clamp((depthAt(Math.round((n.x + HALF) / CELL), Math.round((n.z + HALF) / CELL)) / Math.max(0.05, freshAt(Math.round((n.x + HALF) / CELL), Math.round((n.z + HALF) / CELL)))), 0, 1);
+    const target = clamp(15 + pack * 6 - Math.max(0, grade) * 22, 4, 22);
+    n.spd += (target - n.spd) * (1 - Math.exp(-1.2 * dt));
+    n.x = clamp(n.x + fx * n.spd * dt, -1900, 1900);
+    n.z = clamp(n.z + fz * n.spd * dt, -1900, 1900);
+    stampAt(n.x, n.z, fx, fz);
+    markTrail(n.x, n.z, true);
+    if (!n.mark || Math.hypot(n.x - n.mark[0], n.z - n.mark[1]) > 4) {
+      const px = (n.x + HALF) * M2SRC, pz = (n.z + HALF) * M2SRC;
+      if (n.mark) { tctx.strokeStyle = n.colour; tctx.globalAlpha = 0.6; tctx.lineWidth = 1.8; tctx.beginPath(); tctx.moveTo((n.mark[0] + HALF) * M2SRC, (n.mark[1] + HALF) * M2SRC); tctx.lineTo(px, pz); tctx.stroke(); tctx.globalAlpha = 1; }
+      n.mark = [n.x, n.z];
+    }
+    n.y = surf(n.x, n.z);
+    const hF = surf(n.x + fx * 1.2, n.z + fz * 1.2), hR = surf(n.x - fx * 1.2, n.z - fz * 1.2);
+    n.g.position.set(n.x, n.y, n.z);
+    n.g.rotation.set(-Math.atan2(hF - hR, 2.4), n.yaw, 0, "YXZ");
+    const far = Math.hypot(n.x - camera.position.x, n.z - camera.position.z);
+    n.g.visible = far < 420;
+    if (far < 90 && Math.random() < dt * 12) emit(n.x - fx * 1.5, n.y + 0.2, n.z - fz * 1.5, -fx * n.spd * 0.2, 1.6, -fz * n.spd * 0.2, 1.4);
+  }
+}
+
 /* per-frame game tick */
 function updGame(dt, spd) {
   if (GS.dead) return;
@@ -2315,6 +2472,7 @@ function updGame(dt, spd) {
     GS.smokeT = 0;
     for (const s of SITES) if (s.chimney && Math.hypot(P.x - s.x, P.z - s.z) < 220) { const [x, y, z] = s.chimney; emit(x, y, z, windU.uWind.value.x * 0.8, 0.9, windU.uWind.value.y * 0.8, 0.35, 3.2); }
   }
+  updNpcs(dt);
   refill(); fadeTrails(dt);
   $("frost").style.opacity = (clamp((40 - GS.warmth) / 40, 0, 1) * 0.95).toFixed(3);
 }
@@ -2368,6 +2526,11 @@ function boot() {
   genWorld(); computeSites();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildTown(); load(); buildMapBg();
+  buildNpcs();
+  NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
+    const s0 = SITES[2 + i * 2] || SITES[1];
+    n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);
+  });
   P.y = surf(P.x, P.z);
   recenter(P.x, P.z, true);
   ready = true;
