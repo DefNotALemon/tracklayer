@@ -3203,7 +3203,7 @@ function godPad(gp, dt) {
 $("godClose").addEventListener("click", () => toggleGod(false));
 addEventListener("keydown", e => {
   if (!started || e.repeat) return;
-  if (e.code === "Backquote") { toggleGod(); return; }
+  if (e.code === "KeyY" || e.code === "Backquote") { toggleGod(); return; }
   if (!godOpen) return;
   if (e.code === "PageUp" || e.code === "BracketLeft") godMove(-1);
   if (e.code === "PageDown" || e.code === "BracketRight") godMove(1);
