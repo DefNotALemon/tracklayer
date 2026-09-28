@@ -335,6 +335,50 @@
     #spd{font-size:52px}
     #speedo{min-width:150px}
   }
+  /* phones (touch + small screen): shrink the HUD and the touch pads so more of the snow shows */
+  @media (max-width:640px),(max-height:500px){
+    body.touch .tb{width:52px;height:52px;font-size:11px}
+    body.touch #tGas{width:76px;height:76px;font-size:13px}
+    body.touch #tBrk{right:100px;width:58px;height:58px}
+    body.touch #tHop,body.touch #tLean,body.touch #tWh{bottom:calc(102px + env(safe-area-inset-bottom,0px))}
+    body.touch #tLean{right:76px}
+    body.touch #tWh{right:136px;font-size:9px}
+    body.touch #tSteer{width:min(180px,calc(42vw - 24px));height:58px;border-radius:29px;padding:0 12px;font-size:14px}
+    body.touch #tSteer i{top:6px;width:44px;height:44px;margin-left:-22px}
+    body.touch #tTop{gap:6px}
+    body.touch #tTop .tb{width:38px;height:38px;border-radius:8px;font-size:10px}
+    body.touch #tE{top:calc(64px + env(safe-area-inset-top,0px));height:36px;padding:0 16px;font-size:12px}
+    body.touch #zone{padding:6px 10px}
+    body.touch #zone .brand{font-size:10px}
+    body.touch #zone .name{font-size:15px}
+    body.touch #zone .elev{font-size:10px}
+    body.touch #job{padding:6px 10px;gap:8px;max-width:min(420px,calc(100% - 32px))}
+    body.touch #arrow{width:22px;height:22px}
+    body.touch #jobTitle{font-size:14px}
+    body.touch #jobSub{font-size:11px}
+    body.touch #toasts{top:calc(70px + env(safe-area-inset-top,0px))}
+    body.touch .toast{font-size:12px;padding:5px 9px}
+    body.touch #mapWrap{top:calc(62px + env(safe-area-inset-top,0px));padding:6px}
+    body.touch #map{width:78px;height:78px}
+    body.touch #speedo{padding:5px 10px 6px;gap:3px}
+    body.touch #spd{font-size:26px}
+    body.touch #speedo .unit{font-size:11px}
+    body.touch .pill{font-size:10px;padding:3px 7px 2px}
+    body.touch #bonus{font-size:11px}
+    body.touch .gauge{font-size:9px;gap:6px}
+    body.touch .gauge .bar{height:4px}
+  }
+  @media (max-height:500px) and (orientation:landscape){
+    body.touch #speedo{left:calc(28px + min(180px,calc(42vw - 24px)))}
+    body.touch #job{max-width:min(420px,calc(100% - 400px))}
+  }
+  @media (max-width:640px) and (orientation:portrait){
+    body.touch #speedo{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
+    body.touch #tTop{top:calc(164px + env(safe-area-inset-top,0px))}
+    body.touch #job{top:calc(212px + env(safe-area-inset-top,0px))}
+    body.touch #tE{top:calc(262px + env(safe-area-inset-top,0px))}
+    body.touch #toasts{top:calc(306px + env(safe-area-inset-top,0px))}
+  }
 </style>
 
 <canvas id="gl"></canvas>
@@ -408,7 +452,7 @@
   <div class="bsec">Camera</div>
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
   <div class="bsec">Controls</div>
-  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call a tow ($100)</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
+  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call a tow ($100)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
   <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the full map.</div>
 </div>
 

@@ -1297,6 +1297,16 @@ addEventListener("keydown", e => {
 });
 addEventListener("keyup", e => keys.delete(e.code));
 addEventListener("blur", () => keys.clear());
+// Android exposes some phone hardware (fingerprint readers, the touch panel itself) as "gamepads"
+// with a non-standard mapping, and touching the screen can press their buttons, which read as Y
+// and opened the god menu from the steer pad. On touch devices only real, standard-mapped pads count,
+// and none of them while a thumb is on the steer pad or just after a finger lands.
+let lastTouchT = -1e9;
+addEventListener("pointerdown", e => { if (e.pointerType === "touch") lastTouchT = performance.now(); }, true);
+function phantomPad(gp) {
+  if (!TC.on) return false;
+  return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
+}
 let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false;
 
 /* ---------------- touch controls ---------------- */
@@ -1339,7 +1349,7 @@ function updTouch() {
   }
   const sp = $("tSteer"), th = sp.querySelector("i"); let spId = null;
   const spSet = e => {
-    const r = sp.getBoundingClientRect(), half = r.width / 2 - 36;
+    const r = sp.getBoundingClientRect(), half = r.width / 2 - th.offsetWidth / 2 - 8;   // thumb size changes with the phone layout
     let v = clamp((e.clientX - (r.left + r.width / 2)) / half, -1, 1);
     th.style.transform = `translateX(${(v * half).toFixed(1)}px)`;
     TC.steer = Math.abs(v) < 0.06 ? 0 : Math.sign(v) * Math.pow(Math.abs(v), 1.35);   // gentle in the middle, full lock at the ends
@@ -1359,7 +1369,7 @@ function readInput(dt) {
   if (TC.on) { thr = Math.max(thr, TC.thr); brk = Math.max(brk, TC.brk); if (TC.lean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const gp of pads) {
-    if (!gp) continue;
+    if (!gp || phantomPad(gp)) continue;
     const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) analog = ax;
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
@@ -3585,6 +3595,7 @@ function buildSettings() {
   if (!TL[SET.touch]) SET.touch = "auto";
   tb.textContent = TL[SET.touch];
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
+  $("godBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); toggleGod(true); });
   $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyF" }); });
   $("closeBoard").addEventListener("click", closeBoard);
   $("closeMap").addEventListener("click", () => toggleBigMap(false));
