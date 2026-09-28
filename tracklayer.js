@@ -824,15 +824,19 @@ function buildMachine(sd) {
   const zr = zBack + 0.16, seatW = s.seat === "bench" ? tw - 0.02 : s.seat === "twoup" ? tw - 0.04 : s.seat === "sport" ? 0.4 : 0.44;
   const seat = extrudeZ(SEAT_PROFILES[s.seat](zr), seatW, M.vinyl, { bevel: 0.05, segs: 5 }, m); ud.seat = seat;
   if (s.seat === "twoup") for (const sx of [-1, 1]) tube([[sx * (seatW / 2 + 0.02), 0.82, -0.9], [sx * (seatW / 2 + 0.06), 0.88, -1.0], [sx * (seatW / 2 + 0.06), 0.88, zr + 0.4], [sx * (seatW / 2 + 0.02), 0.82, zr + 0.5]], 0.016, M.chrome, m, 6);   // grab rails
-  if (s.seat === "bench") for (let i = 0; i < 3; i++) box(seatW + 0.01, 0.01, 0.02, sledTrimMat, 0, 0.795, -0.35 - i * 0.35, 0, 0, 0, m);   // piping
+  if (s.seat === "bench") for (let i = 0; i < 3; i++) box(seatW + 0.01, 0.01, 0.02, sledTrimMat, 0, 0.795, -0.86 - i * 0.2, 0, 0, 0, m);   // piping, behind where the rider sits
   tube([[-0.14, 0.76, zr + 0.04], [-0.14, 0.8, zr - 0.06], [0.14, 0.8, zr - 0.06], [0.14, 0.76, zr + 0.04]], 0.014, M.chrome, m, 6);   // grab strap
   // hips rest on top of the cushion: profile top + the seat's bevel + the hip ball's half height
-  ud.hip = { y: (s.seat === "sport" ? 0.71 : 0.74) + 0.05 + 0.06, z: s.seat === "sport" ? -0.24 : s.seat === "twoup" ? -0.4 : s.seat === "bench" ? -0.36 : -0.32 };
+  ud.hip = { y: (s.seat === "sport" ? 0.71 : 0.74) + 0.05 + 0.06, z: s.seat === "sport" ? -0.52 : s.seat === "twoup" ? -0.64 : s.seat === "bench" ? -0.62 : -0.58 };   // well back on the seat, so the legs stretch out to the boards instead of folding into a squat
   // what the rider has to stay out of: the hood envelope (profile + bevel) and the seat cushion
   { const sp = SEAT_PROFILES[s.seat](zr).filter(p => p[1] > 0.65);   // the cushion's top line
     ud.seatTopAt = z => hoodTopAt(sp, z) + 0.05;                      // + the seat's bevel
     let top = 0; for (let z = ud.hip.z - 0.2; z <= ud.hip.z + 0.2; z += 0.02) top = Math.max(top, ud.seatTopAt(z));   // under the whole seat of the pants
     ud.seatTop = top; ud.seatW = seatW; ud.hoodPts = hp; ud.hoodW = w; ud.hoodZ0 = H.z0 - HB - 0.04; }   // hoodZ0 includes the bulkhead plate behind the hood
+  // footwells: a toe hold under each side panel, a dark recess flush with the panel and the bulkhead that
+  // swallows the front of the boot, so the feet can go forward instead of folding the knees up to the chest.
+  // Shown only when poseRider puts the boots there.
+  ud.footwell = [-1, 1].map(sx => { const b = box(0.2, 0.245, 0.25, M.black, sx * (w / 2 + 0.056 - 0.1), 0.5075, ud.hoodZ0 - 0.006 + 0.125, 0, 0, 0, m); b.castShadow = false; b.visible = false; return b; });
 
   /* front end: suspension, spindles, skis */
   const skis = [];
@@ -1150,8 +1154,7 @@ function sinkInto(ud, p, r) {
 // the seated pose: hips on this machine's seat, feet on its boards, torso pitched until the grips are in reach
 function poseRider() {
   const mc = V.machineOf ? V.machineOf(PV.sled || GS.own.sled) : null; if (!mc) return;
-  const ud = mc.userData, hip = ud.hip, footX = ud.boardX;
-  const footZ = Math.min(hip.z + 0.42, ud.hoodZ0 - 0.15);            // boots on the boards, toes just behind the hood (it's a solid shell, no footwell)
+  const ud = mc.userData, hip = ud.hip;
   rider.position.set(0, 0, 0);
   ub.position.set(0, ud.seatTop + 0.2 * 0.7 * RIDER_SCALE + 0.012, hip.z);   // hips sit on the cushion (and its piping), not in it
   // choose the torso pitch: lean forward until both grips are comfortably inside arm's reach
@@ -1165,28 +1168,44 @@ function poseRider() {
   }
   RIDER.pitch = pitch;
   V.head.g.rotation.x = -pitch;                       // eyes on the trail, not the hood
-  for (const [i, sx] of [-1, 1].entries()) {
-    // legs, in rider space: hip joint → knee → ankle above the boot
-    _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005, hip.z + 0.06); _pB.set(sx * (footX + 0.025), 0.55, footZ - 0.03);   // ankle over the outer half of the boot, clear of the deck edge
-    // swing the knee round the hip→ankle axis, from pointing forward to splayed out over the side
-    // panels, and keep the angle where thigh and shin sink least into the hood or seat
-    const ax = _pT.copy(_pB).sub(_pA).normalize(), fw = new THREE.Vector3(sx * 0.2, 0.15, 1).addScaledVector(ax, -new THREE.Vector3(sx * 0.2, 0.15, 1).dot(ax)).normalize();
-    const out = new THREE.Vector3().crossVectors(ax, fw); if (out.x * sx < 0) out.negate();
-    let best = null, bestCost = 1e9; const q = new THREE.Vector3();
-    for (let a = 0; a <= 1.6001; a += 0.1) {
-      _pP.copy(fw).multiplyScalar(Math.cos(a)).addScaledVector(out, Math.sin(a));
-      ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP, _pJ);
-      let cost = a * 0.004;
-      for (const t of [0.35, 0.7, 1]) cost += sinkInto(ud, q.copy(_pA).lerp(_pJ, t), RIDER.legR);
-      for (const t of [0.3, 0.6, 0.85]) cost += sinkInto(ud, q.copy(_pJ).lerp(_pB, t), RIDER.legR * 0.85);
-      if (cost < bestCost - 1e-6) { bestCost = cost; best = _pP.clone(); }
+  // legs, in rider space: hip joint → knee → ankle above the boot. Search where the boot goes (back on the
+  // board behind the hood, or forward with the toe in the footwell; inboard or out toward the board's edge)
+  // and which way the knee points, for the leg that doesn't sink into the hood or seat and sits the way a
+  // rider does: thighs forward rather than frogged out sideways, knees not hiked up to the chest.
+  const q = new THREE.Vector3(), ax = new THREE.Vector3(), fw = new THREE.Vector3(), out = new THREE.Vector3(), F = new THREE.Vector3();
+  const panel = ud.hoodW / 2 + 0.05, inHood = z => z + 0.18 > ud.hoodZ0 + 0.01;   // does the toe reach under the hood?
+  let best = null;
+  _pA.set(RIDER.hipX, ud.seatTop + RIDER.legR + 0.005, hip.z + 0.06);
+  for (let fz = ud.hoodZ0 - 0.24; fz <= ud.hoodZ0 - 0.0299; fz += 0.03) {
+    const well = inHood(fz), xMax = well ? Math.min(ud.boardX + 0.04, panel - 0.088) : ud.boardX + 0.01;   // inside the board's lip
+    for (let fx = ud.boardX; fx <= xMax + 1e-4; fx += 0.02) {
+      _pB.set(fx + 0.025, 0.53, fz - 0.03);                     // ankle over the outer half of the boot
+      ax.copy(_pB).sub(_pA).normalize(); F.set(0.2, 0.15, 1);
+      fw.copy(F).addScaledVector(ax, -F.dot(ax)).normalize(); out.crossVectors(ax, fw); if (out.x < 0) out.negate();
+      for (let a = 0; a <= 1.6001; a += 0.08) {
+        _pP.copy(fw).multiplyScalar(Math.cos(a)).addScaledVector(out, Math.sin(a));
+        ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP, _pJ);
+        let sink = 0;
+        for (const t of [0.35, 0.7, 1]) sink += sinkInto(ud, q.copy(_pA).lerp(_pJ, t), RIDER.legR);
+        for (const t of [0.3, 0.6, 0.85]) sink += sinkInto(ud, q.copy(_pJ).lerp(_pB, t), RIDER.legR * 0.85);
+        const splay = Math.atan2(_pJ.x - _pA.x, Math.max(1e-3, _pJ.z - _pA.z)),   // 0 = thigh straight ahead
+          rise = Math.max(0, _pJ.y - _pA.y - 0.04);                               // knees about level with the hips: sat, not squatting
+        const cost = sink * 6 + Math.max(0, splay - 0.35) * 0.12 + rise * 0.4 + (ud.hoodZ0 - 0.03 - fz) * 0.03 + (well ? 0.004 : 0);   // feet forward, legs out
+        if (!best || cost < best.cost) best = { cost, fx, fz, well, pole: _pP.clone() };
+      }
     }
-    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, best, _pJ);
+  }
+  ud.footwell.forEach(m => m.visible = best.well);
+  for (const [i, sx] of [-1, 1].entries()) {
+    const footX = best.fx, footZ = best.fz;
+    _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005, hip.z + 0.06); _pB.set(sx * (footX + 0.025), 0.53, footZ - 0.03);
+    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP.copy(best.pole).multiply(q.set(sx, 1, 1)), _pJ);
     V.legs[i * 2].userData.set(_pA, _pJ); V.legs[i * 2 + 1].userData.set(_pJ, _pB);
     V.kneePads[i].position.copy(_pJ).add(_pT.set(0, 0.02, 0.07)); aimZ(V.kneePads[i], _pJ, _pT.set(_pB.x, _pB.y - 0.4, _pB.z + 0.5));
     V.reflect[i].position.copy(_pJ).lerp(_pB, 0.55); aimZ(V.reflect[i], V.reflect[i].position, _pB);
     V.footPlain[i].position.set(sx * footX, 0.45, footZ); V.boots[i].position.set(sx * footX, 0.5, footZ - 0.01); V.bootCuff[i].position.set(sx * footX, 0.62, footZ - 0.04);
   }
+  RIDER.legFit = best;
   poseArms();
 }
 // every frame: arms reach the grips wherever the bars have turned, torso rolls into the turn
@@ -3618,7 +3637,7 @@ const SLEDS = [
     blurb: "Fan-cooled single, bogie wheels, a bench seat and a chrome hoop bumper. It starts. Most of the time.",
     power: 0.72, fuel: 16, drag: 1.25, grip: -0.6, trackLen: 1.0,
     livery: { body: "#f0bd2a", panel: "#1c1c1c", trim: "#c8102e", seat: "#1a1a1a", name: "Olympic yellow over black, red pinstripe" },
-    shape: { style: "round", w: 0.78, hoodL: 1.22, zPeak: 0.42, round: 0.62, yTop: 0.86, yPeak: 0.94, yNose: 0.7, yBelly: 0.36, pan: 0.56, tunnelW: 0.56, tunnelL: 1.85, tailRound: true, chrome: true, seat: "bench", barY: 1.28, barZ: 0.3, lamp: "round", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", shieldFrame: true, bogies: true, exhaust: -1, trackW: 0.86, extras: [] }
+    shape: { style: "round", w: 0.78, hoodL: 1.22, zPeak: 0.42, round: 0.62, yTop: 0.86, yPeak: 0.94, yNose: 0.7, yBelly: 0.36, pan: 0.56, tunnelW: 0.56, tunnelL: 1.85, tailRound: true, chrome: true, seat: "bench", barY: 1.1, barZ: 0.3, lamp: "round", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", shieldFrame: true, bogies: true, exhaust: -1, trackW: 0.86, extras: [] }
   },
   {
     id: "woodsman", name: "Woodsman 440 W/T", year: "1979", cost: 600, need: 4,
@@ -3626,7 +3645,7 @@ const SLEDS = [
     blurb: "Twin-cylinder plodder on a wide track, built to haul wood and drag sleds. Slow, unkillable.",
     power: 0.84, fuel: 22, drag: 1.0, grip: 0.4, trackLen: 1.12,
     livery: { body: "#2f5d3a", panel: "#d9cfa8", trim: "#e0a72d", seat: "#4a3626", name: "Forest green over cream, mustard stripe" },
-    shape: { style: "flat", w: 0.92, hoodL: 1.08, zPeak: 0.3, round: 0.5, yTop: 0.9, yPeak: 0.93, yNose: 0.8, yBelly: 0.36, pan: 0.6, tunnelW: 0.72, tunnelL: 2.1, tailRound: true, chrome: true, seat: "bench", barY: 1.32, barZ: 0.3, lamp: "rect", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", rack: true, fins: true, exhaust: 1, trackW: 1.3, extras: ["tallshield"] }
+    shape: { style: "flat", w: 0.92, hoodL: 1.08, zPeak: 0.3, round: 0.5, yTop: 0.9, yPeak: 0.93, yNose: 0.8, yBelly: 0.36, pan: 0.6, tunnelW: 0.72, tunnelL: 2.1, tailRound: true, chrome: true, seat: "bench", barY: 1.14, barZ: 0.3, lamp: "rect", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", rack: true, fins: true, exhaust: 1, trackW: 1.3, extras: ["tallshield"] }
   },
   {
     id: "ranger", name: "Ranger 500", year: "1989", cost: 900, need: 8,
@@ -3634,7 +3653,7 @@ const SLEDS = [
     blurb: "Wedge hood, twin lamps, slide rail suspension. The first one that actually goes where you point it.",
     power: 0.96, fuel: 20, drag: 1.02, grip: 0.3, trackLen: 1.05,
     livery: { body: "#1a3c8c", panel: "#e8ecef", trim: "#e8342a", seat: "#1a2027", name: "Indy blue over white, red flash" },
-    shape: { style: "wedge", w: 0.84, hoodL: 1.3, zPeak: 0.04, round: 0.2, yTop: 0.96, yPeak: 0.96, yNose: 0.6, yBelly: 0.34, pan: 0.55, tunnelW: 0.56, tunnelL: 1.95, seat: "saddle", barY: 1.34, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "steel", susp: "aarm", gauges: "round", fins: true, exhaust: 1, trackW: 1.0, extras: [] }
+    shape: { style: "wedge", w: 0.84, hoodL: 1.3, zPeak: 0.04, round: 0.2, yTop: 0.96, yPeak: 0.96, yNose: 0.6, yBelly: 0.34, pan: 0.55, tunnelW: 0.56, tunnelL: 1.95, seat: "saddle", barY: 1.18, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "steel", susp: "aarm", gauges: "round", fins: true, exhaust: 1, trackW: 1.0, extras: [] }
   },
   {
     id: "sprint", name: "Sprint 580 SX", year: "1994", cost: 1700, need: 13,
@@ -3642,7 +3661,7 @@ const SLEDS = [
     blurb: "Low, loud and geared for the lake run. Terrible in deep snow, glorious on a groomed trail.",
     power: 1.06, fuel: 18, drag: 1.12, grip: 1.1, trackLen: 0.98,
     livery: { body: "#7a1e9c", panel: "#12151a", trim: "#3ef0c8", seat: "#12151a", name: "Nineties purple over black, teal splash" },
-    shape: { style: "wedge", w: 0.82, hoodL: 1.4, zPeak: 0.06, round: 0.15, yTop: 0.9, yPeak: 0.9, yNose: 0.56, yBelly: 0.32, pan: 0.5, tunnelW: 0.54, tunnelL: 1.9, seat: "sport", barY: 1.28, barZ: 0.32, lamp: "slit", bumper: "none", skis: "plastic", susp: "aarm", raceStripe: true, fins: true, exhaust: 1, trackW: 0.94, extras: ["lowshield"] }
+    shape: { style: "wedge", w: 0.82, hoodL: 1.4, zPeak: 0.06, round: 0.15, yTop: 0.9, yPeak: 0.9, yNose: 0.56, yBelly: 0.32, pan: 0.5, tunnelW: 0.54, tunnelL: 1.9, seat: "sport", barY: 1.12, barZ: 0.32, lamp: "slit", bumper: "none", skis: "plastic", susp: "aarm", raceStripe: true, fins: true, exhaust: 1, trackW: 0.94, extras: ["lowshield"] }
   },
   {
     id: "summit", name: "Summit 600", year: "2004", cost: 2400, need: 18,
@@ -3650,7 +3669,7 @@ const SLEDS = [
     blurb: "Liquid twin, long track, proper mountain geometry. Floats where the Ranger digs.",
     power: 1.12, fuel: 24, drag: 0.88, grip: 0.8, trackLen: 1.18,
     livery: { body: "#ff6a1a", panel: "#1e232b", trim: "#f4f6f8", seat: "#1e232b", name: "Mountain orange over charcoal, white stripe" },
-    shape: { style: "round", w: 0.8, hoodL: 1.2, zPeak: 0.28, round: 0.55, yTop: 0.96, yPeak: 1.02, yNose: 0.68, yBelly: 0.38, pan: 0.6, tunnelW: 0.56, tunnelL: 2.05, seat: "saddle", barY: 1.36, barZ: 0.32, lamp: "slit", bumper: "none", skis: "powder", susp: "aarm", fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
+    shape: { style: "round", w: 0.8, hoodL: 1.2, zPeak: 0.28, round: 0.55, yTop: 0.96, yPeak: 1.02, yNose: 0.68, yBelly: 0.38, pan: 0.6, tunnelW: 0.56, tunnelL: 2.05, seat: "saddle", barY: 1.16, barZ: 0.32, lamp: "slit", bumper: "none", skis: "powder", susp: "aarm", fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
   },
   {
     id: "trekker", name: "Trekker 550 Tour", year: "2009", cost: 3400, need: 24,
@@ -3658,7 +3677,7 @@ const SLEDS = [
     blurb: "Heated grips, a passenger seat nobody uses, and a windshield like a garage door. Warm and heavy.",
     power: 1.08, fuel: 30, drag: 1.0, grip: 0.6, trackLen: 1.1,
     livery: { body: "#6b1f2a", panel: "#b5b8bd", trim: "#c9a227", seat: "#3b2a22", name: "Burgundy over silver, gold pinstripe" },
-    shape: { style: "round", w: 0.94, hoodL: 1.25, zPeak: 0.36, round: 0.6, yTop: 1.0, yPeak: 1.05, yNose: 0.76, yBelly: 0.38, pan: 0.62, tunnelW: 0.62, tunnelL: 2.25, seat: "twoup", barY: 1.38, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "plastic", susp: "aarm", rack: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["tallshield", "mirrors"] }
+    shape: { style: "round", w: 0.94, hoodL: 1.25, zPeak: 0.36, round: 0.6, yTop: 1.0, yPeak: 1.05, yNose: 0.76, yBelly: 0.38, pan: 0.62, tunnelW: 0.62, tunnelL: 2.25, seat: "twoup", barY: 1.2, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "plastic", susp: "aarm", rack: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["tallshield", "mirrors"] }
   },
   {
     id: "apex", name: "Apex 800", year: "2015", cost: 5200, need: 32,
@@ -3666,7 +3685,7 @@ const SLEDS = [
     blurb: "Light chassis, fuel injection, you stand over the skis instead of behind them. Climbs like it's annoyed.",
     power: 1.32, fuel: 26, drag: 0.78, grip: 1.3, trackLen: 1.22,
     livery: { body: "#eef1f4", panel: "#d81e2c", trim: "#111418", seat: "#111418", name: "Race white over red, black graphics" },
-    shape: { style: "riderfwd", w: 0.78, hoodL: 1.02, zPeak: 0.14, round: 0.3, yTop: 1.08, yPeak: 1.1, yNose: 0.62, yBelly: 0.36, pan: 0.66, tunnelW: 0.54, tunnelL: 2.0, seat: "sport", barY: 1.42, barZ: 0.38, lamp: "led", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
+    shape: { style: "riderfwd", w: 0.78, hoodL: 1.02, zPeak: 0.14, round: 0.3, yTop: 1.08, yPeak: 1.1, yNose: 0.62, yBelly: 0.36, pan: 0.66, tunnelW: 0.54, tunnelL: 2.0, seat: "sport", barY: 1.24, barZ: 0.38, lamp: "led", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
   },
   {
     id: "matriarch", name: "Matriarch 850T", year: "2026", cost: 9800, need: 46,
@@ -3674,7 +3693,7 @@ const SLEDS = [
     blurb: "Turbo, carbon tunnel, electric everything. The whole map gets smaller.",
     power: 1.6, fuel: 30, drag: 0.66, grip: 1.8, trackLen: 1.25,
     livery: { body: "#0d1117", panel: "#2a3140", trim: "#ff7a00", seat: "#0d1117", name: "Matte black over gunmetal, hi-vis orange" },
-    shape: { style: "riderfwd", w: 0.78, hoodL: 1.06, zPeak: 0.1, round: 0.28, yTop: 1.12, yPeak: 1.13, yNose: 0.6, yBelly: 0.36, pan: 0.7, tunnelW: 0.54, tunnelL: 2.1, seat: "sport", barY: 1.46, barZ: 0.4, lamp: "led", bumper: "skid", skis: "powder", susp: "aarm", spoiler: true, fins: true, trackW: 1.12, extras: ["turbo", "lightbar"] }
+    shape: { style: "riderfwd", w: 0.78, hoodL: 1.06, zPeak: 0.1, round: 0.28, yTop: 1.12, yPeak: 1.13, yNose: 0.6, yBelly: 0.36, pan: 0.7, tunnelW: 0.54, tunnelL: 2.1, seat: "sport", barY: 1.27, barZ: 0.4, lamp: "led", bumper: "skid", skis: "powder", susp: "aarm", spoiler: true, fins: true, trackW: 1.12, extras: ["turbo", "lightbar"] }
   },
   {
     id: "aurora", name: "Aurora E", year: "2029", cost: 14500, need: 60,
@@ -3682,7 +3701,7 @@ const SLEDS = [
     blurb: "Silent, instant torque, and a battery gauge instead of a tank. You hear the snow instead of the engine.",
     power: 1.45, fuel: 34, drag: 0.72, grip: 1.6, trackLen: 1.2,
     livery: { body: "#c6e6ea", panel: "#1d3557", trim: "#7cf2a0", seat: "#1d3557", name: "Glacier ice over navy, mint accent" },
-    shape: { style: "smooth", w: 0.8, hoodL: 1.18, zPeak: 0.32, round: 0.5, yTop: 1.0, yPeak: 1.02, yNose: 0.7, yBelly: 0.4, pan: 0.64, tunnelW: 0.56, tunnelL: 2.0, seat: "sport", barY: 1.42, barZ: 0.36, lamp: "strip", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, charge: true, trackW: 1.08, extras: ["lightbar"] }
+    shape: { style: "smooth", w: 0.8, hoodL: 1.18, zPeak: 0.32, round: 0.5, yTop: 1.0, yPeak: 1.02, yNose: 0.7, yBelly: 0.4, pan: 0.64, tunnelW: 0.56, tunnelL: 2.0, seat: "sport", barY: 1.2, barZ: 0.36, lamp: "strip", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, charge: true, trackW: 1.08, extras: ["lightbar"] }
   }
 ];
 
