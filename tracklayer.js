@@ -1054,7 +1054,11 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
     V.kneePads.push(box(0.17, 0.2, 0.09, M.pad, 0, 0, 0, -0.4, 0, 0, rider));
     V.reflect.push(box(0.195, 0.04, 0.195, reflect, 0, 0, 0, 0, 0, 0, rider));                             // shin band, positioned in pose
   }
-  V.hips = ball(0.2, pantsMat, 0, 0, 0, ub, 1.0, 0.7, 1.0);
+  // seat: a pelvis core plus two cheeks behind it (rear is -z); cheek bottoms stay at the old ball's
+  // underside (y -0.14) so the rider still rests on ud.seatTop
+  V.hips = new THREE.Group(); ub.add(V.hips);
+  V.hipParts = [ball(0.17, pantsMat, 0, 0.0, 0.03, V.hips, 1.0, 0.65, 1.0)];
+  for (const sx of [-1, 1]) V.hipParts.push(ball(0.125, pantsMat, sx * 0.085, -0.035, -0.07, V.hips, 0.95, 0.84, 1.0));
   V.torso = box(0.36, 0.38, 0.25, jacketMat, 0, 0.22, 0.0, 0, 0, 0, ub);
   V.chest = ball(0.22, jacketMat, 0, 0.36, 0.03, ub, 1.0, 0.75, 0.85);
   ball(0.14, jacketMat, 0, 0.47, 0.0, ub, 1.0, 0.6, 0.9);                                                   // collar
@@ -4451,7 +4455,7 @@ function applyLoadout() {
   const mono = gr.jacket === "mono", thick = gr.pants === "insul" ? 1.2 : gr.pants === "shell" ? 1.08 : 1;
   const legMat = mono ? jacketMat : pantsMat;
   V.legs.forEach(g => { g.userData.mesh.scale.x = g.userData.mesh.scale.y = thick; g.userData.mesh.material = g.userData.cap.material = g.userData.joint.material = legMat; });
-  V.hips.material = legMat; V.hips.scale.set(0.9 * thick, 0.7 * thick, 1.0);
+  V.hipParts.forEach(m => m.material = legMat); V.hips.scale.set(thick, thick, 1.0);
   const puff = gr.jacket === "insul" ? 1.1 : mono ? 1.06 : 1;
   V.chest.scale.set(1.0 * puff, 0.8 * puff, 0.85 * puff); V.torso.scale.set(puff, 1, puff);
   V.arms.forEach(g => { g.userData.mesh.scale.x = g.userData.mesh.scale.y = puff; });
