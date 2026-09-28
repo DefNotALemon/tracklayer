@@ -2,8 +2,12 @@
 
 A snowmobile courier-survival game that runs in the browser. No build step: `index.html` holds the page and styles, `tracklayer.js` holds the game code.
 
-You run supplies out of Hollis Ranger Station to six backcountry cabins and a summit
-relay, across four kilometres of mountains, boreal forest and frozen lakes.
+It is set on the Nordkinn peninsula in Finnmark, Norway's far north. You run freight off
+the coastal steamer at Kjøllefjord quay and out across eight kilometres of bare plateau,
+frozen lakes and birch valleys to the villages along the coast — Dyfjord, Mehamn, Gamvik,
+Skjånes, Lebesby, Ifjord — the reindeer herders' cabins up on the fell, the wind farm on
+Gartefjellet and the lighthouse at Slettnes. The fjords never freeze; ride off the quay
+and a fishing boat pulls you out, minus the load.
 
 ## The idea
 
@@ -16,14 +20,27 @@ under a minute during a storm. Which routes you keep open is the strategy.
 
 ## Playing
 
-- **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
-- **E** job board (at the station) · **F** call a tow · **R** reset the sled
-- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** mute · **H** hide help
-- Gamepad supported.
+The title menu sits over the live world: your sled parked at the quay in the low morning sun.
+Continue (or Ride, first time), New game, Garage, Settings, How to play and Credits; the
+arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
-Fuel and warmth both run down. Cabins and the station refill them. Run out of warmth
-and a ranger drags you home, minus the cargo and a fee. Money buys sleds, parts and
-rider kit at Hollis Sled & Service. Progress saves in your browser.
+- **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
+- **E** job board (at the quay) or garage (across the road) · **F** call a tow · **R** reset the sled
+- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **H** hide help
+- Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
+  **B** job board, garage, or back · **Menu** settings · **View** reset · **R3** camera · **Y** god menu
+- Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
+
+The job board is a survey chart of the Nordkinn drawn from the terrain itself. Pick a parcel
+or contract and it plots the line a courier would ride from the quay — round the fjords, easy
+on the climbs, along trail you've already packed — with the distance by trail and the climb.
+**↑ / ↓** (or the stick) to choose, **Enter** (or **A**) to take it, **1**–**8** for a quick pick.
+On a touch screen, tap a line to plot it and tap it again to take it.
+
+Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
+and the Red Cross sled drags you home, minus the cargo and a fee. The winter sun is up for
+a few hours around midday and never gets high; the rest is twilight, stars and the aurora.
+Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress saves in your browser.
 
 ## The hitch and bigger work
 
@@ -41,13 +58,13 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 
 | Rank | Deliveries | Opens |
 |---|---|---|
-| Trail crew | 3 | Grooming contracts: groom the line to a cabin, paid by how much you cover |
+| Trail crew | 3 | Grooming contracts: groom the line to a village, paid by how much you cover |
 | Freight hauler | 5 | Heavy freight: stoves, freezers, generators, propane, solar kits, battery banks |
-| Priority courier | 12 | Emergency runs to cabins in trouble: about double pay, a tight clock, a 25% bond |
-| Expedition hauler | 20 | Summit Relay loads on the flatbed: batteries, turbine, tower generator |
+| Priority courier | 12 | Emergency runs to villages in trouble: about double pay, a tight clock, a 25% bond |
+| Expedition hauler | 20 | Slettnes lighthouse loads on the flatbed: batteries, turbine, standby generator |
 
 Big loads pay by condition. Hits, snags and rollovers wear it down, and below 30% the
-cabin refuses it. The bond is paid up front and refunded on delivery. You lose it if the
+village refuses it. The bond is paid up front and refunded on delivery. You lose it if the
 load is refused, if a priority run is late, or if you black out.
 
 ## Running it
