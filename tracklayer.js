@@ -1419,7 +1419,7 @@ function readInput(dt) {
 }
 
 /* ---------------- physics ---------------- */
-const MASS = 280; let G = 31;
+const MASS = 280; let G = 32.4;
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
 function resetSled() {
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -4997,7 +4997,7 @@ function godTick(dt) {
 const godAny = () => GOD.fuel || GOD.warm || GOD.turbo || GOD.lowg || GOD.freeze;
 function godApply(id) {
   if (id === "turbo") restat();
-  if (id === "lowg") G = GOD.lowg ? 5.2 : 31;
+  if (id === "lowg") G = GOD.lowg ? 5.2 : 32.4;
 }
 function renderGod() {
   const box = $("godList"); box.innerHTML = "";
