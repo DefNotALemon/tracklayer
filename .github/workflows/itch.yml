@@ -1,0 +1,53 @@
+# Uploads the game to https://defnotalemon.itch.io/tracklayer on every push to main.
+# Needs a repo secret named BUTLER_API_KEY (itch.io -> Settings -> API keys).
+name: Push to itch.io
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - tracklayer.js
+      - .github/workflows/itch.yml
+  workflow_dispatch:
+
+concurrency:
+  group: itch
+  cancel-in-progress: true
+
+jobs:
+  itch:
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_TARGET: defnotalemon/tracklayer:html5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for API key
+        id: key
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "::warning::BUTLER_API_KEY secret is not set - skipping itch upload."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stage build
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          mkdir build
+          cp index.html tracklayer.js build/
+
+      - name: Install butler
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler-bin
+          chmod +x butler-bin/butler
+          ./butler-bin/butler -V
+
+      - name: Push to itch
+        if: steps.key.outputs.ok == 'true'
+        run: ./butler-bin/butler push build "$ITCH_TARGET" --userversion "$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
