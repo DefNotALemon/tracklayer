@@ -208,6 +208,13 @@ function surf(x, z) {
   return groundAt(x, z) + a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
 }
 const smoothSurf = (x, z) => groundAt(x, z) + sampleG(freshG, x, z) * 0.4;
+// Open water. Carry enough speed and a sled planes across the fjord like a skipped stone: the track
+// throws water back hard enough to hold the whole machine up. Drop under planing speed and it
+// settles in, the drag climbs, it settles further. Pin it and you can claw back up; let off and it's gone.
+const VPLANE = 12.5;                                                   // m/s, about 28 mph, to stay up
+const waterLine = () => SEA - 0.12 - P.sink * 0.5;               // the sled sits lower as it bogs
+const rideSurf = (x, z) => { const s = surf(x, z); return bioAt(x, z) === 3 ? Math.max(s, waterLine()) : s; };
+const smoothRide = (x, z) => { const s = smoothSurf(x, z); return bioAt(x, z) === 3 ? Math.max(s, waterLine()) : s; };
 
 /* ---------------- three.js setup ---------------- */
 const canvas = $("gl");
@@ -821,6 +828,11 @@ function buildMachine(sd) {
   tube([[-0.14, 0.76, zr + 0.04], [-0.14, 0.8, zr - 0.06], [0.14, 0.8, zr - 0.06], [0.14, 0.76, zr + 0.04]], 0.014, M.chrome, m, 6);   // grab strap
   // hips rest on top of the cushion: profile top + the seat's bevel + the hip ball's half height
   ud.hip = { y: (s.seat === "sport" ? 0.71 : 0.74) + 0.05 + 0.06, z: s.seat === "sport" ? -0.24 : s.seat === "twoup" ? -0.4 : s.seat === "bench" ? -0.36 : -0.32 };
+  // what the rider has to stay out of: the hood envelope (profile + bevel) and the seat cushion
+  { const sp = SEAT_PROFILES[s.seat](zr).filter(p => p[1] > 0.65);   // the cushion's top line
+    ud.seatTopAt = z => hoodTopAt(sp, z) + 0.05;                      // + the seat's bevel
+    let top = 0; for (let z = ud.hip.z - 0.2; z <= ud.hip.z + 0.2; z += 0.02) top = Math.max(top, ud.seatTopAt(z));   // under the whole seat of the pants
+    ud.seatTop = top; ud.seatW = seatW; ud.hoodPts = hp; ud.hoodW = w; ud.hoodZ0 = H.z0 - HB - 0.04; }   // hoodZ0 includes the bulkhead plate behind the hood
 
   /* front end: suspension, spindles, skis */
   const skis = [];
@@ -1020,21 +1032,23 @@ box(0.58, 0.05, 0.52, sledTrimMat, 0, 0.92, -1.55, 0.18, 0, 0, V.rackBox);
 // Everything above the hips lives in `ub`, which pitches forward to reach the bars and
 // rolls into corners. Legs and arms are two-bone IK chains re-solved when the machine or
 // kit changes (legs) and every frame (arms, since the bars turn).
+// the rider is built at a ~1.75 m adult's proportions; RIDER_SCALE sizes everything above the hips
+const RIDER_SCALE = 1.14;
 const rider = new THREE.Group(); sledBody.add(rider); V.rider = rider;
-const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(0.94);
+const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER_SCALE);
 {
   const fur = std(0x8a7358, 1.0), reflect = std(0xdde6ee, 0.3, 0.4, { emissive: 0x3a4652, emissiveIntensity: 0.4 }),
     heatMat = std(0xff7a2a, 0.4, 0, { emissive: 0xff5a10, emissiveIntensity: 1.4 }), packMat = std(0x2a3038, 0.9);
   V.footX = 0.27;
   V.boots = []; V.bootCuff = []; V.footPlain = []; V.legs = []; V.kneePads = []; V.reflect = [];
   for (const sx of [-1, 1]) {
-    V.footPlain.push(box(0.13, 0.11, 0.3, M.boot, sx * V.footX, 0.445, 0, 0, 0, 0, rider));                 // pac boot on the board
-    V.boots.push(box(0.15, 0.2, 0.32, std(0x2a3038, 0.85), sx * V.footX, 0.49, -0.01, 0, 0, 0, rider));    // taller arctic boot
-    V.bootCuff.push(ball(0.11, fur, sx * V.footX, 0.6, -0.04, rider, 1, 0.5, 1.1));
-    V.legs.push(limbDyn(0.095, 0.08, pantsMat, rider));                                                   // thigh
-    V.legs.push(limbDyn(0.08, 0.065, pantsMat, rider));                                                   // shin
-    V.kneePads.push(box(0.15, 0.18, 0.08, M.pad, 0, 0, 0, -0.4, 0, 0, rider));
-    V.reflect.push(box(0.17, 0.035, 0.17, reflect, 0, 0, 0, 0, 0, 0, rider));                             // shin band, positioned in pose
+    V.footPlain.push(box(0.15, 0.12, 0.34, M.boot, sx * V.footX, 0.445, 0, 0, 0, 0, rider));                 // pac boot on the board
+    V.boots.push(box(0.17, 0.22, 0.36, std(0x2a3038, 0.85), sx * V.footX, 0.49, -0.01, 0, 0, 0, rider));    // taller arctic boot
+    V.bootCuff.push(ball(0.125, fur, sx * V.footX, 0.6, -0.04, rider, 1, 0.5, 1.1));
+    V.legs.push(limbDyn(0.11, 0.092, pantsMat, rider));                                                   // thigh
+    V.legs.push(limbDyn(0.092, 0.075, pantsMat, rider));                                                   // shin
+    V.kneePads.push(box(0.17, 0.2, 0.09, M.pad, 0, 0, 0, -0.4, 0, 0, rider));
+    V.reflect.push(box(0.195, 0.04, 0.195, reflect, 0, 0, 0, 0, 0, 0, rider));                             // shin band, positioned in pose
   }
   V.hips = ball(0.2, pantsMat, 0, 0, 0, ub, 1.0, 0.7, 1.0);
   V.torso = box(0.36, 0.38, 0.25, jacketMat, 0, 0.22, 0.0, 0, 0, 0, ub);
@@ -1082,18 +1096,28 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(0.94)
   const _XAX = new THREE.Vector3(1, 0, 0);
   for (const [i, sx] of [-1, 1].entries()) {
     const gp = V.grip[i], hand = new THREE.Group(); hand.position.copy(gp); barPivot.add(hand);
-    hand.quaternion.setFromUnitVectors(_XAX, new THREE.Vector3(sx * 0.13, 0.04, -0.04).normalize());   // the grip's own direction
-    hand.rotation.z += 0; hand.rotateX(-0.35);                                                            // knuckles rolled forward over the bar
-    const g = new THREE.Group(); hand.add(g); V.gloves.push(g);
-    box(0.11, 0.075, 0.09, M.glove, 0, 0.012, -0.01, 0, 0, 0, g);                                         // fist round the grip
-    box(0.045, 0.03, 0.045, M.glove, -sx * 0.02, 0.03, 0.045, 0, 0, 0, g);                                // thumb over the top
-    box(0.085, 0.06, 0.06, M.glove, sx * 0.03, 0.028, -0.055, 0, 0, 0, g);                                // cuff to the wrist
-    const mt = new THREE.Group(); hand.add(mt); V.mitts.push(mt);
-    box(0.13, 0.095, 0.11, M.glove, 0, 0.016, -0.01, 0, 0, 0, mt);
-    box(0.05, 0.04, 0.05, M.glove, -sx * 0.022, 0.04, 0.05, 0, 0, 0, mt);
-    box(0.1, 0.075, 0.07, M.glove, sx * 0.03, 0.032, -0.065, 0, 0, 0, mt);
-    V.heatBand.push(box(0.12, 0.03, 0.04, heatMat, sx * 0.03, 0.045, -0.095, 0, 0, 0, hand));
-    V.wrist.push(hand.localToWorld(new THREE.Vector3(sx * 0.035, 0.035, -0.09)));                          // where the forearm ends (barPivot space, the bars are at identity here)
+    // hand space: +x along the grip toward the machine's right, +y up, +z forward (a proper basis, so the
+    // left hand isn't flipped upside down the way a 180°-ish setFromUnitVectors would do it)
+    const hx = new THREE.Vector3(0.13, sx * 0.04, -sx * 0.04).normalize(), hz = new THREE.Vector3(0, 0, 1).cross(hx).cross(hx).negate().normalize(), hy = hz.clone().cross(hx);
+    hand.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(hx, hy, hz));
+    // a closed fist: fingers curl over the top and round the front of the grip, palm behind it,
+    // thumb hooked over the inboard end, back of the hand rising to the wrist behind the bar
+    const fist = (k, g) => {
+      const wrap = new THREE.CylinderGeometry(0.05 * k, 0.05 * k, 0.1 * k, 14, 1, false, 4.4, Math.PI * 2 - 1.4);   // open behind/below where the palm meets the grip
+      wrap.rotateZ(Math.PI / 2); put(new THREE.Mesh(wrap, M.glove), 0, 0.002, 0.004, 0, 0, 0, g);
+      for (const fx of [-0.036, -0.012, 0.012, 0.036]) ball(0.02 * k, M.glove, fx * k, 0.035 * k, 0.036 * k, g, 1.05, 0.9, 1);   // knuckles
+      ball(0.05 * k, M.glove, 0, 0.012 * k, -0.03 * k, g, 1.0, 0.95, 0.8);                                           // palm heel behind the grip
+      const th = limbDyn(0.017 * k, 0.015 * k, M.glove, g);                                                           // thumb over the inboard end
+      th.userData.set(new THREE.Vector3(-sx * 0.045 * k, 0.03 * k, -0.035 * k), new THREE.Vector3(-sx * 0.05 * k, 0.048 * k, 0.03 * k));
+      box(0.085 * k, 0.05 * k, 0.07 * k, M.glove, 0, 0.034 * k, -0.06 * k, 0.5, 0, 0, g);                              // back of the hand
+      const cuff = new THREE.CylinderGeometry(0.052 * k, 0.047 * k, 0.07 * k, 12); cuff.rotateX(Math.PI / 2 - 0.35);
+      put(new THREE.Mesh(cuff, M.glove), 0, 0.042 * k, -0.1 * k, 0, 0, 0, g);                                         // gauntlet over the sleeve end
+    };
+    const g = new THREE.Group(); hand.add(g); V.gloves.push(g); fist(1, g);
+    const mt = new THREE.Group(); hand.add(mt); V.mitts.push(mt); fist(1.2, mt);
+    V.heatBand.push(box(0.11, 0.025, 0.03, heatMat, 0, 0.078, -0.1, 0.35, 0, 0, hand));
+    hand.updateMatrix();                                                                                   // the wrist in barPivot space (hand.matrixWorld isn't built yet)
+    V.wrist.push(new THREE.Vector3(0, 0.05, -0.13).applyMatrix4(hand.matrix));                              // where the forearm meets the glove cuff
   }
 }
 // two-bone IK: joint position for a chain root→joint→tip with lengths l1, l2, bent toward `pole`
@@ -1106,13 +1130,30 @@ function ik2(root, tip, l1, l2, pole, out) {
   return out.copy(root).addScaledVector(_ikd, a).addScaledVector(_ikp, h);
 }
 const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _pJ = new THREE.Vector3(), _pP = new THREE.Vector3(), _pT = new THREE.Vector3();
-const RIDER = { thigh: 0.4, shin: 0.38, upper: 0.3, fore: 0.29, hipX: 0.12, pitch: 0.4 };
+const RIDER = { thigh: 0.44, shin: 0.43, upper: 0.3, fore: 0.29, hipX: 0.14, pitch: 0.4, legR: 0.105 };   // arm lengths are in ub space (× RIDER_SCALE)
+// how far a ball of radius r at p sinks into the machine's hood or seat (0 = clear)
+// top of a [z, y] outline at z (the highest crossing); off either end, the nearest end's height
+function hoodTopAt(pts, z) {
+  let y = -1, near = pts[0];
+  for (let i = 1; i < pts.length; i++) { const [za, ya] = pts[i - 1], [zb, yb] = pts[i]; if (za !== zb && (z - za) * (z - zb) <= 0) y = Math.max(y, ya + (yb - ya) * (z - za) / (zb - za)); }
+  if (y > -1) return y;
+  for (const p of pts) if (Math.abs(p[0] - z) < Math.abs(near[0] - z)) near = p;
+  return near[1];
+}
+function sinkInto(ud, p, r) {
+  let d = 0;
+  const hy = hoodTopAt(ud.hoodPts, Math.max(p.z, ud.hoodPts[0][0]));
+  if (hy > 0) d = Math.max(d, Math.min(ud.hoodW / 2 + 0.05 + r - Math.abs(p.x), hy + 0.05 + r - p.y, p.z - (ud.hoodZ0 - r)));
+  d = Math.max(d, Math.min(ud.seatW / 2 + 0.05 + r - Math.abs(p.x), ud.seatTopAt(clamp(p.z, ud.zBack, 0.05)) + r - p.y, 0.1 + r - p.z, p.z - ud.zBack + r));
+  return d;
+}   // arm lengths are in ub space (× RIDER_SCALE)
 // the seated pose: hips on this machine's seat, feet on its boards, torso pitched until the grips are in reach
 function poseRider() {
   const mc = V.machineOf ? V.machineOf(PV.sled || GS.own.sled) : null; if (!mc) return;
-  const hip = mc.userData.hip, footZ = hip.z + 0.42, footX = mc.userData.boardX;
+  const ud = mc.userData, hip = ud.hip, footX = ud.boardX;
+  const footZ = Math.min(hip.z + 0.42, ud.hoodZ0 - 0.15);            // boots on the boards, toes just behind the hood (it's a solid shell, no footwell)
   rider.position.set(0, 0, 0);
-  ub.position.set(0, hip.y, hip.z);
+  ub.position.set(0, ud.seatTop + 0.2 * 0.7 * RIDER_SCALE + 0.012, hip.z);   // hips sit on the cushion (and its piping), not in it
   // choose the torso pitch: lean forward until both grips are comfortably inside arm's reach
   barPivot.updateWorldMatrix(true, false);
   let pitch = 0.25, reach = RIDER.upper + RIDER.fore;
@@ -1126,13 +1167,25 @@ function poseRider() {
   V.head.g.rotation.x = -pitch;                       // eyes on the trail, not the hood
   for (const [i, sx] of [-1, 1].entries()) {
     // legs, in rider space: hip joint → knee → ankle above the boot
-    _pA.set(sx * RIDER.hipX, hip.y - 0.03, hip.z + 0.06); _pB.set(sx * footX, 0.52, footZ - 0.03);
-    _pP.set(sx * 0.35, 0.1, 1.0);
-    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP, _pJ);
+    _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005, hip.z + 0.06); _pB.set(sx * (footX + 0.025), 0.55, footZ - 0.03);   // ankle over the outer half of the boot, clear of the deck edge
+    // swing the knee round the hip→ankle axis, from pointing forward to splayed out over the side
+    // panels, and keep the angle where thigh and shin sink least into the hood or seat
+    const ax = _pT.copy(_pB).sub(_pA).normalize(), fw = new THREE.Vector3(sx * 0.2, 0.15, 1).addScaledVector(ax, -new THREE.Vector3(sx * 0.2, 0.15, 1).dot(ax)).normalize();
+    const out = new THREE.Vector3().crossVectors(ax, fw); if (out.x * sx < 0) out.negate();
+    let best = null, bestCost = 1e9; const q = new THREE.Vector3();
+    for (let a = 0; a <= 1.6001; a += 0.1) {
+      _pP.copy(fw).multiplyScalar(Math.cos(a)).addScaledVector(out, Math.sin(a));
+      ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP, _pJ);
+      let cost = a * 0.004;
+      for (const t of [0.35, 0.7, 1]) cost += sinkInto(ud, q.copy(_pA).lerp(_pJ, t), RIDER.legR);
+      for (const t of [0.3, 0.6, 0.85]) cost += sinkInto(ud, q.copy(_pJ).lerp(_pB, t), RIDER.legR * 0.85);
+      if (cost < bestCost - 1e-6) { bestCost = cost; best = _pP.clone(); }
+    }
+    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, best, _pJ);
     V.legs[i * 2].userData.set(_pA, _pJ); V.legs[i * 2 + 1].userData.set(_pJ, _pB);
     V.kneePads[i].position.copy(_pJ).add(_pT.set(0, 0.02, 0.07)); aimZ(V.kneePads[i], _pJ, _pT.set(_pB.x, _pB.y - 0.4, _pB.z + 0.5));
     V.reflect[i].position.copy(_pJ).lerp(_pB, 0.55); aimZ(V.reflect[i], V.reflect[i].position, _pB);
-    V.footPlain[i].position.set(sx * footX, 0.445, footZ); V.boots[i].position.set(sx * footX, 0.49, footZ - 0.01); V.bootCuff[i].position.set(sx * footX, 0.6, footZ - 0.04);
+    V.footPlain[i].position.set(sx * footX, 0.45, footZ); V.boots[i].position.set(sx * footX, 0.5, footZ - 0.01); V.bootCuff[i].position.set(sx * footX, 0.62, footZ - 0.04);
   }
   poseArms();
 }
@@ -1334,11 +1387,11 @@ function readInput(dt) {
 
 /* ---------------- physics ---------------- */
 const MASS = 280; let G = 15.5;
-const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15 };
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
 function resetSled() {
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
-  P.y = surf(P.x, P.z) + 0.4; P.stuckT = 0; towSnap();
+  P.sink = 0; P.wet = false; P.y = rideSurf(P.x, P.z) + 0.4; P.stuckT = 0; towSnap();
 }
 function plough(fx, fz, lx, lz) {
   let et = 0, es = 0, fm = 0;
@@ -1427,6 +1480,7 @@ function towSnap() {
 function bigLoads() { return GS.load.filter(j => j.big); }
 function bigHit(pct, why) {
   const big = bigLoads(); if (!big.length || !started || GS.dead) return;
+  pct *= 1 - ST.armor;                                  // straps, foam and bumpers
   for (const j of big) j.cond = Math.max(0, j.cond - pct * (j.fragile ? 1.4 : 1));
   if (gameClock - (GS.bigToastT || -9) > 1.8) {
     GS.bigToastT = gameClock;
@@ -1514,8 +1568,8 @@ function towStep(dt) {
   TOW.x = tx; TOW.z = tz; TOW.yaw = yaw;
   TOW.spd += (Math.hypot(vx, vz) - TOW.spd) * (1 - Math.exp(-10 * dt));
   const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = H.w / 2;
-  TOW.y = surf(tx, tz);
-  const hL = surf(tx + lx * hw, tz + lz * hw), hR = surf(tx - lx * hw, tz - lz * hw);
+  TOW.y = rideSurf(tx, tz);
+  const hL = rideSurf(tx + lx * hw, tz + lz * hw), hR = rideSurf(tx - lx * hw, tz - lz * hw);
   TOW.roll = Math.atan2(hL - hR, H.w);
   // load: what's aboard, and what the snow asks of it
   const cargoKg = bigLoads().reduce((a, j) => a + j.kg, 0);
@@ -1527,7 +1581,8 @@ function towStep(dt) {
   }
   const moving = TOW.spd > 0.4 ? 1 : 0;
   // it bites harder the faster you drag it, so you can always crawl a load out of a standstill
-  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0);
+  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0)
+    + (isSea(tx, tz) ? moving * (300 + TOW.mass * 0.9 + 1.2 * TOW.spd * TOW.spd) : 0);   // a trailer on water is a sea anchor
   // rolling it: side slope plus how hard you're whipping it round a corner
   const lat = TOW.spd * TOW.yr / G;
   TOW.score = Math.abs(TOW.roll + lat * 0.9) ;
@@ -1648,13 +1703,13 @@ function towVisual(dt) {
     const b = hitchBack(GS.own.parts.rack) + H.len; x = P.x - Math.sin(P.yaw) * b; z = P.z - Math.cos(P.yaw) * b; yaw = P.yaw;
   }
   const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, half = kind === "flatbed" ? 1.4 : kind === "trailer" ? 1.0 : 0.45, hw = H.w / 2;
-  const pT = Math.atan2(surf(x + fx * half, z + fz * half) - surf(x - fx * half, z - fz * half), half * 2);
-  let rT = Math.atan2(surf(x + lx * hw, z + lz * hw) - surf(x - lx * hw, z - lz * hw), H.w);
+  const pT = Math.atan2(rideSurf(x + fx * half, z + fz * half) - rideSurf(x - fx * half, z - fz * half), half * 2);
+  let rT = Math.atan2(rideSurf(x + lx * hw, z + lz * hw) - rideSurf(x - lx * hw, z - lz * hw), H.w);
   const k = 1 - Math.exp(-12 * dt);
   TOW.pitchV += (pT - TOW.pitchV) * k; TOW.rollV += (rT - TOW.rollV) * k;
   let tipR = 0, tipY = 0;
   if (TOW.tipT > 0 && kind === TOW.kind) { const t = 2.4 - TOW.tipT, e = t < 0.25 ? t / 0.25 : TOW.tipT < 0.5 ? TOW.tipT / 0.5 : 1; tipR = TOW.tipDir * 1.45 * e; tipY = 0.35 * e; }
-  g.position.set(x, surf(x, z) - 0.02 + tipY, z);
+  g.position.set(x, rideSurf(x, z) - 0.02 + tipY, z);
   g.rotation.set(-TOW.pitchV, yaw, TOW.rollV + tipR, "YXZ");
   // stretch the tongue to the ball on the sled
   const tg = g.userData.tongue, arm = g.userData.arm;
@@ -1775,22 +1830,30 @@ function collide(fx, fz) {
 let sprayAcc = 0;
 function physStep(dt) {
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
-  const hs = surf(P.x, P.z), gnd = P.y <= hs + 0.12;
-  const e = 0.8, gx = (smoothSurf(P.x + e, P.z) - smoothSurf(P.x - e, P.z)) / (2 * e), gz = (smoothSurf(P.x, P.z + e) - smoothSurf(P.x, P.z - e)) / (2 * e);
+  const sea = isSea(P.x, P.z); if (!sea) P.sink = 0;
+  const hs = rideSurf(P.x, P.z), gnd = P.y <= hs + 0.12;
+  const wet = sea && gnd && waterLine() >= surf(P.x, P.z) - 0.02;         // riding on the water, not the seabed
+  const e = 0.8, gx = (smoothRide(P.x + e, P.z) - smoothRide(P.x - e, P.z)) / (2 * e), gz = (smoothRide(P.x, P.z + e) - smoothRide(P.x, P.z - e)) / (2 * e);
   let vx = P.vx, vz = P.vz;
   const vf = vx * fx + vz * fz;
   const exc = plough(fx, fz, lx, lz);
   const fr = freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL));
   P.ice = bioAt(P.x, P.z) === 1 && fr < 0.12;
   // only very steep bare rock matters: the sled loses its footing and slides down the mountain
-  P.rock = P.ice ? 0 : (1 - sstep(0.05, 0.16, fr)) * sstep(0.7, 0.95, Math.hypot(gx, gz));
+  P.rock = P.ice || wet ? 0 : (1 - sstep(0.05, 0.16, fr)) * sstep(0.7, 0.95, Math.hypot(gx, gz));
+  if (wet && !P.wet) {                                                  // hitting the water: a sheet of spray off the nose
+    const s0 = Math.hypot(vx, vz);
+    for (let k = 0; k < 24 + s0 * 2; k++) emit(P.x + fx * 1.4 + lx * (Math.random() - 0.5) * 2, SEA + 0.1, P.z + fz * 1.4 + lz * (Math.random() - 0.5) * 2, vx * 0.5 + lx * (Math.random() - 0.5) * 8, 2 + Math.random() * s0 * 0.25, vz * 0.5 + lz * (Math.random() - 0.5) * 8, 1.5, 1.1);
+    if (started && !GS.dead && (P.wetT <= 0 || s0 < VPLANE)) toast(s0 >= VPLANE ? "Skipping water. Keep it pinned." : "Too slow for open water!", s0 >= VPLANE ? "good" : "bad");
+  }
+  P.wet = wet; if (wet) P.wetT = 6; else P.wetT = Math.max(0, P.wetT - dt);
   P.exc = exc;
   // steering
   const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
   // wheelie: skis come up off the snow, track does all the work
   const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
   const M = MASS + TOW.mass;                                         // a loaded trailer is weight the engine has to haul
-  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
+  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + (wet ? 0.05 : 0) + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
   const whOn = input.wheelie && GS.fuel > 0 && (gnd ? Math.abs(vf) > 2.5 : P.wh > 0.3);
   P.wh = clamp(P.wh + (whOn ? 2.4 : -3.2) * dt, 0, 1);
   if (P.wh > 0.7 && gnd) { P.whRun += Math.abs(vf) * dt; if (P.whRun > P.whBest) P.whBest = P.whRun; }
@@ -1800,11 +1863,11 @@ function physStep(dt) {
   else P.yr *= Math.exp(-1.5 * dt);                                   // no steering in the air, spin just bleeds off
   const dyaw = P.yr * dt; P.yaw += dyaw;
   if (gnd) {
-    const share = (P.ice ? 0.35 : 0.9) * (1 - 0.7 * P.rock), a = dyaw * share, ca = Math.cos(a), sa = Math.sin(a);
+    const share = (wet ? 0.5 : P.ice ? 0.35 : 0.9) * (1 - 0.7 * P.rock), a = dyaw * share, ca = Math.cos(a), sa = Math.sin(a);
     const nvx = vx * ca + vz * sa, nvz = vz * ca - vx * sa; vx = nvx; vz = nvz;
     const g2 = gx * gx + gz * gz; vx -= G * gx / (1 + g2) * dt; vz -= G * gz / (1 + g2) * dt;
     P.drag = 5600 * exc * ST.drag;
-    const rolling = P.ice ? 140 : lerp(260, 60, P.rock);
+    const rolling = wet ? 420 : P.ice ? 140 : lerp(260, 60, P.rock);
     // Climbing. Power is power: a hill never makes a sled faster than the flat would. What a
     // climb gets is the clutch backshifting under load: the track pulls whatever the hill and the
     // snow ask for plus a little to spare (more on stronger sleds), so any sled can pull away
@@ -1814,18 +1877,19 @@ function physStep(dt) {
     const up = Math.max(0, gx * fx + gz * fz), steep = sstep(0.1, 0.85, up);     // uphill grade under the skis
     const hill = M * G * up / (1 + g2);                                         // what the climb takes
     const grunt = Math.max(3600 * ST.power * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * ST.power * M);
-    const pw = 47000 * ST.power * (1 - steep * lerp(0.24, 0.42, P.pack));
+    const pw = 47000 * ST.power * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
-    const Fs = P.drag + TOW.drag + rolling + 0.9 * sp * sp;
+    // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
+    const Fs = P.drag + TOW.drag + rolling + 0.9 * sp * sp + (wet ? (2.2 + 9 * P.sink) * sp * sp + 3000 * P.sink : 0);
     if (sp > 0.01) { const dv = Math.min(sp, Fs / M * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
-    const grip = lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
+    const grip = wet ? 1.6 + ST.grip * 0.2 : lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
     // ruts: a packed trail is a groove, and the sled settles into it unless you steer out
     let rut = 0;
-    if (!P.ice) {
+    if (!P.ice && !wet) {
       const sp0 = Math.hypot(vx, vz);
       if (sp0 > 2.5) {
         const o = 0.7, bx = P.x + fx * 1.1, bz = P.z + fz * 1.1;
@@ -1844,6 +1908,18 @@ function physStep(dt) {
     P.rut = rut;
     // spray
     const spd = Math.hypot(vx, vz);
+    if (wet) {
+      // planing or settling: under planing speed the water stops holding you up
+      if (spd < VPLANE) P.sink += ((1 - spd / VPLANE) * 1.2 + 0.1) * dt;
+      else P.sink = Math.max(0, P.sink - 0.9 * dt);
+      // the rooster tail
+      sprayAcc += (1.5 + Math.abs(vl) * 0.5) * Math.min(spd, 30) * dt;
+      while (sprayAcc > 1) {
+        sprayAcc -= 1;
+        const side = (Math.random() - 0.5) * 0.6;
+        emit(P.x - fx * 1.7 + lx * side, SEA + 0.05, P.z - fz * 1.7 + lz * side, -fx * spd * 0.35 + vx * 0.2, 2.5 + spd * 0.22, -fz * spd * 0.35 + vz * 0.2, 1.2, 1.3);
+      }
+    } else
     sprayAcc += (exc * 60 + 0.4 + (P.ice ? 0 : Math.abs(vl) * 0.8)) * Math.min(spd, 30) * dt * (P.ice ? 0.3 : 1);
     while (sprayAcc > 1) {
       sprayAcc -= 1;
@@ -1869,8 +1945,8 @@ function physStep(dt) {
   P.vy -= G * dt;
   P.x += vx * dt; P.z += vz * dt; P.y += P.vy * dt;
   P.vx = vx; P.vz = vz;
-  if (gnd) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
-  const hs2 = surf(P.x, P.z);
+  if (gnd && !wet) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
+  const hs2 = rideSurf(P.x, P.z);
   let sv = vx * gx + vz * gz;
   const impact = Math.max(0, sv - P.vy);
   // coming down onto a rising face: the snow takes the speed you drove into it. It used to hand you the
@@ -1901,7 +1977,14 @@ function physStep(dt) {
       thud(Math.min(1, 0.4 + att * 0.3));
       if (started && !GS.dead) toast(att > 1 ? "Ugly landing. That hurt the load." : "Landed crooked.", "warn");
     } else {
-      if (impact > 7) { cargoHit(impact * 0.7); crater(P.x, P.z, Math.min(0.45, impact * 0.04)); thud(Math.min(1, impact / 16)); }
+      if (isSea(P.x, P.z) && P.y <= waterLine() + 0.05) {
+        // belly-flopping onto water: it's hard as concrete at speed, and it scrubs the speed off
+        const bite = Math.min(0.35, impact * 0.025); vx *= 1 - bite; vz *= 1 - bite; P.vx = vx; P.vz = vz;
+        const s0 = Math.hypot(vx, vz);
+        for (let k = 0; k < 30 + impact * 6; k++) emit(P.x + (Math.random() - 0.5) * 2, SEA + 0.1, P.z + (Math.random() - 0.5) * 3, vx * 0.3 + (Math.random() - 0.5) * 9, 2 + Math.random() * (3 + impact * 0.4), vz * 0.3 + (Math.random() - 0.5) * 9, 1.5, 1.2);
+        if (impact > 7) { cargoHit(impact * 0.7); thud(Math.min(1, impact / 16)); }
+        if (s0 < VPLANE && started && !GS.dead) toast("Landed short. You're sinking!", "bad");
+      } else if (impact > 7) { cargoHit(impact * 0.7); crater(P.x, P.z, Math.min(0.45, impact * 0.04)); thud(Math.min(1, impact / 16)); }
       P.shake = Math.max(P.shake, Math.min(0.8, impact / 16) * (ST.soak ? 0.6 : 1));
       if (P.launched > 0 && impact > 2.5 && started && !GS.dead) toast("Stuck the landing.", "good");
     }
@@ -1958,7 +2041,8 @@ function updAudio(spd) {
   audio.lp.Q.setTargetAtTime(2.5 + r * 5, t, 0.08);
   audio.eg.gain.setTargetAtTime(GS.fuel > 0 && !GS.dead ? 0.09 + r * 0.16 : 0, t, 0.15);
   audio.hiss.g.gain.setTargetAtTime(P.gnd ? Math.min(0.5, spd / 30 * (0.08 + P.exc * 1.6)) : 0, t, 0.08);
-  audio.hiss.b.frequency.setTargetAtTime(P.ice ? 2600 : 1000, t, 0.2);
+  audio.hiss.b.frequency.setTargetAtTime(P.wet ? 1700 : P.ice ? 2600 : 1000, t, 0.2);
+  if (P.wet) audio.hiss.g.gain.setTargetAtTime(Math.min(0.55, 0.12 + spd / 60), t, 0.08);
   audio.wind.g.gain.setTargetAtTime(0.05 + Math.min(0.3, spd / 45 * 0.3), t, 0.2);
 }
 
@@ -2096,9 +2180,9 @@ function updVisuals(dt) {
   const spd = Math.hypot(P.vx, P.vz);
   let pT, rT;
   if (P.gnd) {
-    const hF = surf(P.x + fx * 1.3, P.z + fz * 1.3), hR = surf(P.x - fx * 1.2, P.z - fz * 1.2);
-    const hL = surf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = surf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
-    pT = Math.atan2(hF - hR, 2.5) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
+    const hF = rideSurf(P.x + fx * 1.3, P.z + fz * 1.3), hR = rideSurf(P.x - fx * 1.2, P.z - fz * 1.2);
+    const hL = rideSurf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = rideSurf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
+    pT = Math.atan2(hF - hR, 2.5) + (P.wet ? 0.07 + P.sink * 0.5 : 0) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
     rT = Math.atan2(hL - hRt, 1.2);
   } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.35 + P.airP; rT = P.airR; }
   const whT = P.wh * (0.52 + Math.sin(performance.now() * 0.0061) * 0.05 + Math.sin(performance.now() * 0.017) * 0.02);
@@ -2141,7 +2225,7 @@ function updVisuals(dt) {
     const dEy = eye.y - camState.fpEyeY; camState.fpEyeY = eye.y;
     camState.fpBob = clamp(camState.fpBob * Math.exp(-11 * dt) - dEy * 0.4, -0.22, 0.22);
     camera.position.copy(eye); camera.position.y += camState.fpBob;
-    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 0.45);
+    camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 0.45);
     const pT = P.pitch * 0.3 + clamp(P.vy * 0.02, -0.25, 0.25) - 0.13;
     const rT = -P.roll * 0.22 - sledBody.rotation.z * 0.4;
     camState.fpYaw = angLerp(camState.fpYaw, P.yaw + Math.PI, 1 - Math.exp(-14 * dt));   // a camera looks down its own -Z
@@ -2153,10 +2237,10 @@ function updVisuals(dt) {
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
     const want = _camWant.set(P.x - cfx * (view.d + td), P.y + view.h + td * 0.4, P.z - cfz * (view.d + td));
-    want.y = Math.max(want.y, surf(want.x, want.z) + 1.3);
+    want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
-    camera.position.y = Math.max(camera.position.y, surf(camera.position.x, camera.position.z) + 1.0);
+    camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
     look = _camAim.set(P.x + cfx * 4, P.y + 1.1, P.z + cfz * 4);
   }
   P.shake *= Math.exp(-4 * dt);
@@ -2171,7 +2255,7 @@ function updVisuals(dt) {
     SR.rig = (SR.rig || 0) + (rigL - (SR.rig || 0)) * (1 - Math.exp(-4 * dt));
     const ox = P.x - Math.sin(P.yaw) * SR.rig * 0.5, oz = P.z - Math.cos(P.yaw) * SR.rig * 0.5;
     const r = 4.9 + SR.rig * 0.75, cx = ox + Math.sin(SR.a) * r, cz = oz + Math.cos(SR.a) * r;
-    camera.position.set(cx, Math.max(P.y + 1.75 + SR.rig * 0.25, surf(cx, cz) + 1.0), cz);
+    camera.position.set(cx, Math.max(P.y + 1.75 + SR.rig * 0.25, rideSurf(cx, cz) + 1.0), cz);
     let fx2 = ox - cx, fz2 = oz - cz; const fl = Math.hypot(fx2, fz2) || 1; fx2 /= fl; fz2 /= fl;
     const push = innerWidth >= 900 ? 1.7 + SR.rig * 0.25 : 0;           // panel sits on the right, so frame the sled left of centre
     camera.lookAt(ox - fz2 * push, P.y + 0.85, oz + fx2 * push);
@@ -2191,19 +2275,19 @@ function updVisuals(dt) {
     P.stuckT = (tipped || (input.thr > 0 && spd < 0.6)) ? P.stuckT + dt : 0;
     $("flip").hidden = P.stuckT < 2.5;
     safeT += dt;
-    if (safeT > 2 && P.gnd && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
+    if (safeT > 2 && P.gnd && !P.wet && !isSea(P.x, P.z) && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
   }
   return spd;
 }
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
-  const stt = P.ice ? "ICE" : (P.pack > 0.62 ? "PACKED" : "POWDER");
+  const stt = P.wet ? "WATER" : P.ice ? "ICE" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
-  $("bonus").textContent = P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
   const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
-  $("zoneName").textContent = b === 1 ? "FROZEN LAKE" : (h > 120 ? "HIGH COUNTRY" : (b === 2 ? "BOREAL FOREST" : "OPEN BACKCOUNTRY"));
+  $("zoneName").textContent = b === 3 ? "OPEN WATER" : b === 1 ? "FROZEN LAKE" : (h > 120 ? "HIGH COUNTRY" : (b === 2 ? "BOREAL FOREST" : "OPEN BACKCOUNTRY"));
   $("elev").textContent = "Elev " + Math.round(h * 3 + 180) + " m";
   $("dist").textContent = (P.dist / 1000).toFixed(1) + " km";
 }
@@ -2687,7 +2771,7 @@ function bumpDelivered() {
 
 function applyUpg() { restat(); }
 function cargoHit(v) {
-  if (!GS.load.length || v < 6 + ST.soak) return;
+  if (!GS.load.length || v < 6 + ST.soak + ST.armor * 4) return;
   const small = smallLoads();
   small.forEach(j => j.hits++);
   if (bigLoads().length) bigHit(clamp((v - 6 - ST.soak) * 2.2, 3, 22), "Load bounced on the trailer.");
@@ -2698,6 +2782,18 @@ function cargoHit(v) {
     : "Cargo took a knock. They won't be topping off your tank.", "warn");
 }
 function deliver(site) {
+  const crates = GS.load.filter(j => j.crate && j.dest === site);
+  if (crates.length) {
+    GS.load = GS.load.filter(j => !crates.includes(j));
+    const sd = sledDef();
+    for (const j of crates) {
+      const p = j.crate, d = engDef(p.inst.eid);
+      GS.own.pickups.splice(GS.own.pickups.indexOf(p), 1);
+      if (isElectric(sd)) { GS.own.shelf.push(p.inst); toast(`The ${d.name} goes on the shelf. Nowhere to put it in a battery sled.`); }
+      else { fitEngine(p.inst, sd); toast(`The shop drops the ${d.name} into the ${sd.name}: ${Math.round(p.inst.pwr * 100)}% power.`, "good"); }
+    }
+    applyLoadout(); save();
+  }
   const here = GS.load.filter(j => j.dest === site);
   if (!here.length) return;
   GS.load = GS.load.filter(j => j.dest !== site);
@@ -2724,8 +2820,11 @@ function deliver(site) {
     if (smallLoads().length < ST.slots && Math.random() < 0.6) {
       const dist = Math.hypot(site.x - depot.x, site.z - depot.z);
       const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null, hits: 0 };
-      GS.load.push(back);
-      setTimeout(() => toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat.`), 1400);
+      setTimeout(() => {
+        if (GS.dead || smallLoads().length >= ST.slots) return;   // the boxes came off; the backhaul goes on once they've handed it over
+        GS.load.push(back); applyLoadout(); save();
+        toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat.`);
+      }, 1400);
     } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
   } else if (!GS.load.length) setTimeout(() => toast("Press E for the job board."), 1400);
   applyLoadout(); save();
@@ -2733,17 +2832,17 @@ function deliver(site) {
 function blackout(kind) {
   if (GS.dead) return;
   GS.dead = true; closeBoard();
-  const tow = kind === "tow", wet = kind === "sea", fee = tow ? 100 : wet ? 140 : 60;
+  const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
   const bonds = GS.load.reduce((a, j) => a + (j.bond || 0), 0);
-  // a tow brings the freight home with you; passing out in the drift does not
-  const lost = tow
-    ? (cargo ? ` Your ${cargo} rode back on the tow — the clock keeps running.` : "")
-    : (cargo ? ` The ${cargo} didn't make it.${bonds ? ` The shippers keep your $${bonds} in bonds.` : ""}` : "");
+  // a tow, a blackout or the fjord: whatever you were carrying is gone, and so are the bonds on it
+  const lost = cargo ? (tow ? ` The tow crew only takes you and the sled — your ${cargo} stayed out there.` : ` The ${cargo} didn't make it.`) + (bonds ? ` The shippers keep your $${bonds} in bonds.` : "") : "";
   GS.cash = Math.max(0, GS.cash - fee);
-  if (!tow) GS.load = [];
+  for (const j of GS.load) if (j.crate) j.crate.aboard = false;   // a paid-for engine isn't lost: it goes back to the seller's shed
+  GS.load = [];
   GS.jobs = []; GS.contracts = null;
-  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you, your sled and your load back to the quay." : wet ? "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
+  applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
+  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
@@ -2760,7 +2859,20 @@ function load() {
     if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
+  migrateEngines();
   restat(); GS.fuel = GS.cap;
+}
+// saves from before engine swaps: the big-bore kit is refunded, the bolt-on turbo becomes the turbo kit
+function migrateEngines() {
+  const o = GS.own, po = o.partsOwned;
+  o.engines = o.engines || {}; o.shelf = o.shelf || []; o.pickups = o.pickups || [];
+  for (const p of o.pickups) p.aboard = false;                    // the rack isn't saved; crates wait at the seller's again
+  if (!o.parts.boost) o.parts.boost = "none";
+  if (po["clutch:turbo"]) { delete po["clutch:turbo"]; po["boost:turbo"] = true; if (o.parts.clutch === "turbo") o.parts.boost = "turbo"; }
+  if (po["clutch:stage3"]) { delete po["clutch:stage3"]; po["boost:stage3"] = true; if (o.parts.clutch === "stage3") o.parts.boost = "stage3"; }
+  if (po["clutch:bigbore"]) { delete po["clutch:bigbore"]; GS.cash += 980; }
+  if (!["stock", "helix", "efi"].includes(o.parts.clutch)) o.parts.clutch = po["clutch:efi"] ? "efi" : po["clutch:helix"] ? "helix" : "stock";
+  if (boostWhy(sledDef(), o.parts.boost)) o.parts.boost = "none";
 }
 
 /* ui */
@@ -3571,62 +3683,98 @@ const PARTS = {
       { id: "stock", name: "Stock 1.25\" trail track", cost: 0, tier: 0, stats: {}, note: "What it came with." },
       { id: "trail", name: "1.35\" hard-pack trail track", cost: 320, tier: 1, stats: { grip: 0.9, drag: 0.04 }, note: "Bites packed trail, hates powder." },
       { id: "paddle", name: "2.6\" backcountry paddle", cost: 780, tier: 2, stats: { drag: -0.22, grip: 0.6, power: -0.03 }, note: "Floats in deep snow, drags on ice." },
-      { id: "stud", name: "Studded ice track", cost: 620, tier: 1, stats: { grip: 2.2, drag: 0.1 }, note: "Carbide studs. Lake runs become a straight line." }
+      { id: "stud", name: "Studded ice track", cost: 620, tier: 1, stats: { grip: 2.2, drag: 0.1 }, note: "Carbide studs. Lake runs become a straight line." },
+      { id: "hybrid", name: "1.75\" studded hybrid track", cost: 1150, tier: 3, look: "stud", stats: { grip: 1.7, drag: -0.08 }, note: "Studs on a mid-height lug. Holds on lake ice and still gets through the drifts." },
+      { id: "mountain", name: "3.0\" mountain paddle", cost: 1600, tier: 4, look: "paddle", stats: { drag: -0.34, grip: 0.5, power: -0.05 }, note: "Tall lugs for the steep, deep stuff. Eats a little power, climbs anything with snow on it." }
     ]
   },
   skis: {
     label: "Skis", must: true, options: [
       { id: "stock", name: "Stock steel skis", cost: 0, tier: 0, stats: {} },
       { id: "carbide", name: "Dual-carbide trail skis", cost: 260, tier: 1, stats: { grip: 0.7 }, note: "Runners that hold a line." },
-      { id: "powder", name: "Wide powder skis", cost: 540, tier: 2, stats: { drag: -0.12, grip: -0.2 }, note: "Keeps the nose up in the deep." }
+      { id: "powder", name: "Wide powder skis", cost: 540, tier: 2, stats: { drag: -0.12, grip: -0.2 }, note: "Keeps the nose up in the deep." },
+      { id: "ice", name: "Ice-racing skis", cost: 420, tier: 2, look: "carbide", stats: { grip: 1.3, drag: 0.06 }, note: "Sharp carbides, stiff keel. On lake ice it goes exactly where you point it; in powder it digs." },
+      { id: "mountain", name: "Mountain skis & keel runners", cost: 760, tier: 3, look: "powder", stats: { drag: -0.14, grip: 0.4 }, note: "Narrow waist, deep keel: floats in the deep and still holds a side-hill." }
     ]
   },
   clutch: {
-    label: "Engine & clutch", must: true, options: [
+    label: "Clutch & fuelling", must: true, options: [
       { id: "stock", name: "Stock clutching", cost: 0, tier: 0, stats: {} },
       { id: "helix", name: "Helix & spring kit", cost: 340, tier: 1, stats: { power: 0.1 }, note: "Backshifts instead of sulking." },
-      { id: "bigbore", name: "Big-bore top end", cost: 980, tier: 2, stats: { power: 0.22, burn: 0.15 }, note: "More everything, including thirst." },
-      { id: "turbo", name: "Bolt-on turbo", cost: 2600, tier: 3, stats: { power: 0.45, burn: 0.3 }, note: "Altitude stops mattering." }
+      { id: "efi", name: "EFI conversion & mapped ECU", cost: 1350, tier: 3, stats: { power: 0.08, burn: -0.2 }, note: "Fuel injection. A little sharper, a lot further on a tank." }
+    ]
+  },
+  // bolted to whatever engine is in the sled; `boost` is a share of that engine's own power
+  boost: {
+    label: "Forced induction", options: [
+      { id: "none", name: "Naturally aspirated", cost: 0, tier: 0, stats: {}, note: "Breathes whatever the fell gives it." },
+      { id: "super", name: "Belt-driven supercharger", cost: 1400, tier: 1, na: true, stats: { boost: 0.16, burn: 0.1 }, note: "Instant shove off the bottom, no lag, a bit of whine." },
+      { id: "turbo", name: "Bolt-on turbo kit", cost: 2400, tier: 2, na: true, stats: { boost: 0.28, burn: 0.18 }, note: "Wastegate, blow-off valve, a pipe that glows at night. Altitude stops mattering." },
+      { id: "stage3", name: "Stage 3 turbo & intercooler", cost: 4200, tier: 4, na: true, look: "turbo", stats: { boost: 0.42, burn: 0.3 }, note: "Big snail, bigger boost. The fuel gauge moves while you watch it." },
+      { id: "tune", name: "Boost controller & tune", cost: 900, tier: 1, fac: true, stats: { boost: 0.12, burn: 0.06 }, note: "Turns up a factory turbo. Only fits a turbo engine." }
     ]
   },
   can: {
     label: "Exhaust", options: [
       { id: "stock", name: "Stock silencer", cost: 0, tier: 0, stats: {} },
       { id: "trail", name: "Trail can", cost: 180, tier: 1, stats: { power: 0.05 }, note: "A little more bark." },
-      { id: "race", name: "Race can", cost: 460, tier: 2, stats: { power: 0.12, burn: 0.05 }, note: "Everyone in the valley knows you're out." }
+      { id: "race", name: "Race can", cost: 460, tier: 2, stats: { power: 0.12, burn: 0.05 }, note: "Everyone in the valley knows you're out." },
+      { id: "quiet", name: "Quiet-core silencer", cost: 260, tier: 1, look: "trail", stats: { power: 0.02, burn: -0.05 }, note: "Hush can for riding through the villages. Runs a touch leaner, a touch kinder on the tank." },
+      { id: "pipe", name: "Tuned single pipe", cost: 880, tier: 3, look: "race", stats: { power: 0.18, burn: 0.07 }, note: "A proper expansion chamber. Pulls hard from mid-range up." }
     ]
   },
   susp: {
     label: "Suspension", options: [
       { id: "stock", name: "Stock shocks", cost: 0, tier: 0, stats: {} },
       { id: "coil", name: "Rebuilt coilovers", cost: 300, tier: 1, stats: { soak: 1.5 }, note: "Landings stop hurting the cargo." },
-      { id: "long", name: "Long-travel kit", cost: 720, tier: 2, stats: { soak: 3, grip: 0.3 }, note: "Moguls become suggestions." }
+      { id: "long", name: "Long-travel kit", cost: 720, tier: 2, stats: { soak: 3, grip: 0.3 }, note: "Moguls become suggestions." },
+      { id: "air", name: "Remote-reservoir air shocks", cost: 1250, tier: 3, look: "long", stats: { soak: 4.5, grip: 0.45 }, note: "Adjustable on the fly. Big hits land like small ones." }
     ]
   },
   bars: {
     label: "Bars & risers", options: [
       { id: "stock", name: "Stock bars", cost: 0, tier: 0, stats: {} },
       { id: "riser", name: "6\" riser & hook bars", cost: 190, tier: 1, stats: { grip: 0.2, soak: 0.5 }, note: "Stand-up riding without the backache." },
-      { id: "guards", name: "Riser, hooks & handguards", cost: 330, tier: 1, stats: { grip: 0.2, soak: 0.5, cold: 1 }, note: "Wind off your hands." }
+      { id: "guards", name: "Riser, hooks & handguards", cost: 330, tier: 1, stats: { grip: 0.2, soak: 0.5, cold: 1 }, note: "Wind off your hands." },
+      { id: "tall", name: "10\" mountain riser & strap", cost: 420, tier: 3, look: "guards", stats: { grip: 0.35, soak: 0.8, cold: 1 }, note: "Tall bars for riding stood up on a side-hill, with guards and a strap to haul the nose round." }
+    ]
+  },
+  grips: {
+    label: "Heated grips & seat", options: [
+      { id: "stock", name: "Plain grips", cost: 0, tier: 0, stats: {}, note: "Rubber. Cold rubber." },
+      { id: "grips", name: "Heated grips & thumb warmer", cost: 140, tier: 0, stats: { cold: 1.2 }, note: "Hot bars under your mitts." },
+      { id: "full", name: "Heated grips, thumb & seat", cost: 380, tier: 2, stats: { cold: 2.4, burn: 0.02 }, note: "The stator works for a living. You'll last longer on the fell." }
     ]
   },
   shield: {
     label: "Windshield", options: [
       { id: "low", name: "Low race shield", cost: 0, tier: 0, stats: { cold: -0.5 }, note: "Looks fast. Is cold." },
       { id: "mid", name: "Mid trail shield", cost: 120, tier: 0, stats: { cold: 1 } },
-      { id: "tall", name: "Tall touring shield", cost: 280, tier: 1, stats: { cold: 2.2, drag: 0.03 }, note: "A wall of quiet air." }
+      { id: "tall", name: "Tall touring shield", cost: 280, tier: 1, stats: { cold: 2.2, drag: 0.03 }, note: "A wall of quiet air." },
+      { id: "heated", name: "Heated shield & knee deflectors", cost: 520, tier: 2, look: "tall", stats: { cold: 3.2, drag: 0.04 }, note: "A wire-heated screen that never ices over, and side deflectors for your knees." }
+    ]
+  },
+  tank: {
+    label: "Fuel tank", options: [
+      { id: "stock", name: "Stock tank", cost: 0, tier: 0, stats: {}, note: "What the factory thought was enough. On the Aurora E, every tank here is a battery module instead." },
+      { id: "ext", name: "Extended filler & baffles", cost: 220, tier: 0, stats: { fuel: 4 }, note: "Taller neck and a baffle kit: fill it right to the top and none of it sloshes out of reach." },
+      { id: "long", name: "Long-range tank", cost: 540, tier: 1, stats: { fuel: 9, power: -0.01 }, note: "A bigger roto-moulded tank under the hood. Village to village without looking at the gauge." },
+      { id: "cell", name: "Under-seat aux fuel cell", cost: 1050, tier: 2, stats: { fuel: 15, power: -0.02, drag: 0.01 }, note: "A second cell under the seat, plumbed to a crossover valve. Sits the sled a touch lower." },
+      { id: "expd", name: "Expedition tank system", cost: 2100, tier: 4, stats: { fuel: 24, power: -0.04, drag: 0.03 }, note: "Main tank, seat cell and a tunnel bladder on one pump. Out to Slettnes and back on a fill, heavy as sin." }
     ]
   },
   tankL: {
     label: "Left jerry can", options: [
       { id: "none", name: "No left can", cost: 0, tier: 0, stats: {} },
-      { id: "fitted", name: "Left jerry can", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L jerry can strapped to the left running board." }
+      { id: "fitted", name: "Left jerry can", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L jerry can strapped to the left running board." },
+      { id: "big", name: "Left 12 L fuel pack", cost: 420, tier: 2, look: "fitted", stats: { fuel: 12 }, note: "Moulded 12 L pack on the left running board. Heavier, but that's a lot of fell." }
     ]
   },
   tankR: {
     label: "Right jerry can", options: [
       { id: "none", name: "No right can", cost: 0, tier: 0, stats: {} },
-      { id: "fitted", name: "Right jerry can", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L jerry can strapped to the right running board." }
+      { id: "fitted", name: "Right jerry can", cost: 240, tier: 1, stats: { fuel: 7 }, note: "+7 L jerry can strapped to the right running board." },
+      { id: "big", name: "Right 12 L fuel pack", cost: 420, tier: 2, look: "fitted", stats: { fuel: 12 }, note: "Moulded 12 L pack on the right running board. Heavier, but that's a lot of fell." }
     ]
   },
   rack: {
@@ -3640,7 +3788,30 @@ const PARTS = {
   lights: {
     label: "Lighting", options: [
       { id: "stock", name: "Stock headlight", cost: 0, tier: 0, stats: {} },
-      { id: "bar", name: "LED light bar", cost: 150, tier: 1, stats: { light: 1.9 }, note: "Night rides stop being guesswork." }
+      { id: "pods", name: "Twin spot pods", cost: 80, tier: 0, look: "bar", stats: { light: 1.4 }, note: "Cheap and cheerful. Reaches past the headlight." },
+      { id: "bar", name: "LED light bar", cost: 150, tier: 1, stats: { light: 1.9 }, note: "Night rides stop being guesswork." },
+      { id: "hid", name: "Light bar & ditch floods", cost: 420, tier: 3, look: "bar", stats: { light: 2.5 }, note: "Turns the polar night into a car park." }
+    ]
+  },
+  guard: {
+    label: "Load protection", options: [
+      { id: "none", name: "Bungee cords", cost: 0, tier: 0, stats: {}, note: "They mostly hold." },
+      { id: "straps", name: "Ratchet straps & foam blocks", cost: 180, tier: 0, stats: { armor: 0.25 }, note: "Loads shift less, and hit softer when they do." },
+      { id: "cage", name: "Load bars, foam & rock-guard bumpers", cost: 640, tier: 2, stats: { armor: 0.5 }, note: "Cargo rides in a padded cage, and the trailer shrugs off rock and birch." }
+    ]
+  },
+  survival: {
+    label: "Survival kit", options: [
+      { id: "none", name: "A chocolate bar", cost: 0, tier: 0, stats: {}, note: "Morale, not warmth." },
+      { id: "thermos", name: "Thermos & bivvy bag", cost: 150, tier: 0, stats: { camp: 2, campCap: 55 }, note: "Stop and pour a cup: you warm up slowly wherever you are, up to about half." },
+      { id: "stove", name: "Pack stove & reindeer-hide sit pad", cost: 420, tier: 1, stats: { camp: 4.5, campCap: 80 }, note: "Brew up out on the fell. Stop anywhere to thaw out, up to 80%." }
+    ]
+  },
+  recovery: {
+    label: "Recovery kit", options: [
+      { id: "none", name: "Nothing", cost: 0, tier: 0, stats: {}, note: "Hope." },
+      { id: "kit", name: "Shovel, strap & snowshoes", cost: 120, tier: 0, stats: { rescue: 0.3 }, note: "You've half dug yourself out by the time the crew shows up." },
+      { id: "sat", name: "Satellite messenger & winch", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. The Red Cross crew comes straight to you." }
     ]
   },
   hitch: {
@@ -3652,7 +3823,7 @@ const PARTS = {
     ]
   }
 };
-const PART_ORDER = ["track", "skis", "clutch", "can", "susp", "bars", "shield", "tankL", "tankR", "rack", "lights", "hitch"];
+const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "hitch"];
 
 // Rider kit. `warm` is insulation — the high country and storms ask for more of it.
 const GEAR = {
@@ -3698,12 +3869,154 @@ const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
 const OWN0 = () => ({
   sled: "frontier",
   sleds: ["frontier"],
-  parts: { track: "stock", skis: "stock", clutch: "stock", can: "stock", susp: "stock", bars: "stock", shield: "low", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none" },
+  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none" },
   partsOwned: {},
   gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
-  gearOwned: {}
+  gearOwned: {},
+  engines: {},          // sled id -> swapped-in engine (missing = the one it came with)
+  shelf: [],            // engines you own that aren't in a sled
+  pickups: []           // engines paid for and waiting at the seller's
 });
 const sledDef = () => SLEDS.find(s => s.id === GS.own.sled) || SLEDS[0];
+
+/* ---------------- engines: what's for sale up and down the coast ---------------- */
+// Engines get swapped, not upgraded. Every morning the classifieds turn over: a few used motors
+// sitting in sheds and boathouses round the Nordkinn, and only ever ones that beat what's in your
+// sled. Have it brought round on the freight sled for a fee, or ride out and strap the crate on
+// yourself. `power` is the same scale as a sled's own; used ones lose a little to their hours.
+const ENGINES = [
+  { id: "fan340", name: "340 fan-cooled single", power: 0.72, burn: 1.05, price: 250 },
+  { id: "fan440", name: "440 fan-cooled twin", power: 0.84, burn: 1.05, price: 380 },
+  { id: "lc500", name: "500 liquid-cooled twin", power: 0.96, burn: 1.0, price: 720 },
+  { id: "lc580", name: "580 liquid twin, triple pipes", power: 1.06, burn: 1.12, price: 1050 },
+  { id: "fan550", name: "550 fan twin, touring tune", power: 1.08, burn: 0.9, price: 1150 },
+  { id: "lc600", name: "600 liquid twin", power: 1.12, burn: 1.0, price: 1400 },
+  { id: "ho600", name: "600 H.O. semi-direct injection", power: 1.18, burn: 0.84, price: 2100 },
+  { id: "tri700", name: "700 triple", power: 1.22, burn: 1.2, price: 1900 },
+  { id: "fs1049", name: "1049 four-stroke triple", power: 1.28, burn: 0.78, price: 3000 },
+  { id: "efi800", name: "800 twin, fuel injected", power: 1.32, burn: 1.04, price: 3300 },
+  { id: "di850", name: "850 direct-injection twin", power: 1.42, burn: 0.98, price: 4400 },
+  { id: "race900", name: "900 race twin, ported", power: 1.5, burn: 1.3, price: 5000 },
+  { id: "t998", name: "998 four-stroke turbo triple", power: 1.55, burn: 0.95, price: 6200, turbo: true },
+  { id: "t850", name: "850 turbo twin", power: 1.6, burn: 1.18, price: 6900, turbo: true }
+];
+const STOCK_ENGINE = { frontier: "fan340", woodsman: "fan440", ranger: "lc500", sprint: "lc580", summit: "lc600", trekker: "fan550", apex: "efi800", matriarch: "t850", aurora: null };
+const engDef = id => ENGINES.find(e => e.id === id);
+const isElectric = sd => STOCK_ENGINE[sd.id] === null;
+// what is actually bolted into a sled right now
+function engineOf(sd) {
+  const inst = GS.own && GS.own.engines && GS.own.engines[sd.id], e = inst && engDef(inst.eid);
+  if (e) return { inst, def: e, name: e.name, pwr: inst.pwr, burn: e.burn, turbo: !!e.turbo, stock: false };
+  const s0 = engDef(STOCK_ENGINE[sd.id]);
+  return { inst: null, def: s0, name: s0 ? s0.name : "Battery pack", pwr: sd.power, burn: 1, turbo: !!(s0 && s0.turbo), stock: true, electric: !s0 };
+}
+// can this forced-induction option run on that engine?
+function boostWhy(sd, id) {
+  const o = partDef("boost", id), eng = engineOf(sd);
+  if (id === "none") return "";
+  if (eng.electric) return "Nothing to boost on a battery sled.";
+  if (o.na && eng.turbo) return `The ${eng.name} already has a factory turbo.`;
+  if (o.fac && !eng.turbo) return "Needs an engine with a factory turbo.";
+  return "";
+}
+const SELLERS = ["Arne", "Sigrid", "Nils-Ole", "Berit", "Mathis", "Kari", "Johan Henrik", "Ellen Marie", "Trond", "Solveig", "Isak", "Randi", "Per Anders", "Marit"];
+const WHY = [
+  "Pulled it out of a sled that went through the lake ice. Dried out, runs sweet.",
+  "Rebuilt last spring, bored and honed. Never been past half throttle, he swears.",
+  "Came off a sled that got rolled on Gartefjellet. The motor was the only thing that wasn't bent.",
+  "Spare from the herders' workshop. Too much motor for the old sleds they run.",
+  "Estate sale. It's been in the boathouse under a tarp for years.",
+  "Selling up and buying a boat.",
+  "Had it shipped up from Alta, then the sled it was for broke first.",
+  "Her son bought it for racing. She says it goes.",
+  "Ran the post route on it for two winters. Oil changed every month.",
+  "Traded for a season of stockfish. Doesn't need it."
+];
+const marketDay = () => Math.floor((GS.hour - 6) / 24);           // the listings turn over at 06:00
+const freightFee = s => round5(40 + Math.hypot(s.x - garageSite.x, s.z - garageSite.z) * 0.04);
+function makeMarket() {
+  const sd = sledDef(), cur = engineOf(sd).pwr;
+  GS.market = { day: marketDay(), base: cur, list: [] };
+  if (isElectric(sd)) return;
+  const spots = SITES.filter(s => s.type === "cabin" && s.x !== undefined);
+  // mostly the next step or two up, now and then a leap; nothing silly for a first-week courier
+  const pool = ENGINES.filter(e => e.power * 0.95 > cur + 0.03 && e.power <= cur + 0.6)
+    .map(e => ({ e, k: (e.power - cur) + Math.random() * 0.35 })).sort((a, b) => a.k - b.k).map(x => x.e);
+  const n = Math.min(pool.length, 3 + (Math.random() < 0.45 ? 1 : 0));
+  for (let k = 0; k < n; k++) {
+    const e = pool[k], wear = Math.random(), site = pick(spots);   // wear 0 = barely run, 1 = tired
+    GS.market.list.push({
+      eid: e.id, site: site.id, seller: pick(SELLERS), why: pick(WHY),
+      hrs: Math.round(lerp(30, 950, wear) / 10) * 10,
+      pwr: +(e.power * (1 - 0.05 * wear)).toFixed(3),
+      price: round5(e.price * lerp(1.05, 0.72, wear) * (0.9 + Math.random() * 0.2))
+    });
+  }
+}
+function marketNow() {
+  const cur = engineOf(sledDef()).pwr, better = () => GS.market.list.filter(l => l.pwr > cur + 0.02);
+  // new day, a better engine than the listings were picked for, or nothing left worth showing: ask around again
+  if (!GS.market || GS.market.day !== marketDay() || cur > GS.market.base + 0.01 || !better().length) makeMarket();
+  return better();
+}
+function checkBoost() {
+  const id = GS.own.parts.boost || "none", why = boostWhy(sledDef(), id);
+  if (!why) return;
+  GS.own.parts.boost = "none";
+  toast(`${partDef("boost", id).name} is off for now. ${why}`, "warn");
+}
+// the engine coming out goes on the shelf; the one it came with just waits in the shop
+function fitEngine(inst, sd) {
+  const old = GS.own.engines[sd.id]; if (old) GS.own.shelf.push(old);
+  if (inst) GS.own.engines[sd.id] = inst; else delete GS.own.engines[sd.id];
+  checkBoost(); restat();
+}
+function buyEngine(l, collect) {
+  const sd = sledDef();
+  if (isElectric(sd)) { toast("The Aurora runs on a battery. No engine goes in there.", "warn"); return; }
+  const site = SITES.find(s => s.id === l.site), def = engDef(l.eid), fee = collect ? 0 : freightFee(site), cost = l.price + fee;
+  if (GS.cash < cost) { toast(`That's $${cost}${fee ? ` with $${fee} freight` : ""}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= cost; GS.market.list.splice(GS.market.list.indexOf(l), 1);
+  const inst = { eid: l.eid, pwr: l.pwr, hrs: l.hrs, from: site.name, seller: l.seller };
+  if (collect) {
+    GS.own.pickups.push({ inst, site: site.id, aboard: false });
+    toast(`Paid ${l.seller} $${l.price}. The crate's waiting in ${site.name}: stop at the door and it goes on the rack.`, "good");
+  } else {
+    fitEngine(inst, sd);
+    toast(`The ${def.name} came round from ${site.name} on the freight sled. Fitted: ${Math.round(inst.pwr * 100)}% power.`, "good");
+  }
+  renderGarage(); save();
+}
+function shelfSwap(i) {
+  const sd = sledDef(); if (isElectric(sd)) { toast("No engine goes in a battery sled.", "warn"); return; }
+  const inst = GS.own.shelf.splice(i, 1)[0]; if (!inst) return;
+  fitEngine(inst, sd); toast(`Swapped the ${engDef(inst.eid).name} into the ${sd.name}.`, "good"); renderGarage(); save();
+}
+function refitStock() {
+  const sd = sledDef(); fitEngine(null, sd);
+  toast(`Put the ${sd.name}'s own engine back in.`); renderGarage(); save();
+}
+const shelfValue = inst => round5(engDef(inst.eid).price * 0.45);
+function shelfSell(i) {
+  const inst = GS.own.shelf.splice(i, 1)[0]; if (!inst) return;
+  const v = shelfValue(inst); GS.cash += v;
+  toast(`Sold the ${engDef(inst.eid).name} to the shop for $${v}.`, "good"); renderGarage(); save();
+}
+// ride up to the seller's door slowly and the crate goes on the rack
+function collectEngine(site) {
+  const p = GS.own.pickups.find(q => !q.aboard && q.site === site.id); if (!p) return;
+  const name = engDef(p.inst.eid).name;
+  if (smallLoads().length >= ST.slots) {
+    if (gameClock - (p.nagT || -99) > 10) { p.nagT = gameClock; toast(`The ${name} crate needs a spot on the rack. Drop a parcel off first.`, "warn"); }
+    return;
+  }
+  p.aboard = true;
+  GS.load.push({ dest: garageSite, cargo: name + " (crate)", crate: p, fragile: false, pay: 0, due: null, hits: 0 });
+  toast(`${p.inst.seller} helps you strap the ${name} on the rack. Take it to Nordkinn Skuter & Service.`, "good");
+  applyLoadout(); save();
+}
+function pendingPickup() { return GS.own.pickups.find(q => !q.aboard); }
+const burnTxt = b => b < 0.97 ? `${Math.round((1 - b) * 100)}% thriftier` : b > 1.03 ? `${Math.round((b - 1) * 100)}% thirstier` : "average thirst";
 const sledTier = () => SLEDS.indexOf(sledDef());
 buildMachines();
 const partDef = (cat, id) => PARTS[cat].options.find(o => o.id === id) || PARTS[cat].options[0];
@@ -3713,11 +4026,15 @@ const ownKey = (cat, id) => cat + ":" + id;
 // everything the physics and the cold ask about, in one place
 function stats() {
   const sd = sledDef();
-  const st = { power: sd.power, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: 1, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0 };
+  const eng = engineOf(sd);
+  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0 };
   for (const cat of PART_ORDER) {
+    if (cat === "boost" && boostWhy(sd, GS.own.parts.boost || "none")) continue;
     const o = partDef(cat, GS.own.parts[cat]).stats || {};
+    st.boost += o.boost || 0;
     st.power += o.power || 0; st.fuel += o.fuel || 0; st.drag += o.drag || 0; st.grip += o.grip || 0;
     st.burn += o.burn || 0; st.cold += o.cold || 0; st.soak += o.soak || 0; st.care += o.care || 0; st.slots += o.slots || 0; st.bays += o.bays || 0; st.groom += o.groom || 0;
+    st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0);
     st.light = Math.max(st.light, o.light || 1);
   }
   let warm = 0;
@@ -3725,6 +4042,8 @@ function stats() {
   st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
   st.coldMul = clamp(1.55 - st.warm * 0.11, 0.3, 1.6);
   st.drag = Math.max(0.35, st.drag);
+  st.power += eng.pwr * st.boost;
+  st.burn = Math.max(0.5, st.burn); st.armor = Math.min(0.8, st.armor); st.rescue = Math.min(0.8, st.rescue);
   return st;
 }
 let ST = null;
@@ -3735,15 +4054,17 @@ let garageTab = "sleds";
 function canBuySled(s) { return GS.delivered >= s.need; }
 function buySled(id) {
   const s = SLEDS.find(x => x.id === id); if (!s) return;
-  if (GS.own.sleds.includes(id)) { GS.own.sled = id; restat(); toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
+  if (GS.own.sleds.includes(id)) { GS.own.sled = id; checkBoost(); restat(); toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
   if (!canBuySled(s)) { toast(`${s.name} is for proven couriers — ${s.need} deliveries.`, "warn"); return; }
   if (GS.cash < s.cost) { toast(`${s.name} is $${s.cost}. You have $${GS.cash}.`, "warn"); return; }
-  GS.cash -= s.cost; GS.own.sleds.push(id); GS.own.sled = id; restat();
+  GS.cash -= s.cost; GS.own.sleds.push(id); GS.own.sled = id; checkBoost(); restat();
   applySettings();
   toast(`Bought the ${s.name}. Your parts move over with it.`, "good"); renderGarage(); save();
 }
 function fitPart(cat, id) {
   const o = partDef(cat, id), tierOK = sledTier() >= o.tier;
+  const bw = cat === "boost" ? boostWhy(sledDef(), id) : "";
+  if (bw) { toast(bw, "warn"); return; }
   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
   if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
   if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
@@ -3760,10 +4081,11 @@ function wearGear(slot, id) {
 const statLine = o => {
   const s = o.stats || {}, bits = [];
   if (s.power) bits.push((s.power > 0 ? "+" : "") + Math.round(s.power * 100) + "% power");
+  if (s.boost) bits.push("+" + Math.round(s.boost * 100) + "% engine power");
   if (s.fuel) bits.push("+" + s.fuel + " L");
   if (s.drag) bits.push((s.drag < 0 ? "−" : "+") + Math.round(Math.abs(s.drag) * 100) + "% powder drag");
   if (s.grip) bits.push((s.grip > 0 ? "+" : "−") + "grip");
-  if (s.burn) bits.push("+" + Math.round(s.burn * 100) + "% burn");
+  if (s.burn) bits.push((s.burn > 0 ? "+" : "−") + Math.round(Math.abs(s.burn) * 100) + "% burn");
   if (s.cold) bits.push((s.cold > 0 ? "+" : "−") + Math.abs(s.cold) + " warmth");
   if (s.soak) bits.push("softer landings");
   if (s.care) bits.push("protects cargo");
@@ -3771,6 +4093,9 @@ const statLine = o => {
   if (s.bays) bits.push(s.bays + " big load" + (s.bays > 1 ? "s" : ""));
   if (s.groom) bits.push("grooms trail");
   if (s.light) bits.push("brighter");
+  if (s.armor) bits.push("−" + Math.round(s.armor * 100) + "% cargo damage");
+  if (s.camp) bits.push("warms you when stopped");
+  if (s.rescue) bits.push("−" + Math.round(s.rescue * 100) + "% rescue fees");
   if (o.warm) bits.push(o.warm + " warmth");
   return bits.join(" · ");
 };
@@ -3795,15 +4120,17 @@ function renderGarage() {
   if (garageTab === "sleds") {
     SLEDS.forEach(s => {
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
-      const spec = `${s.year} · ${Math.round(s.power * 100)}% power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
+      const spec = `${s.year} · ${Math.round(engineOf(s).pwr * 100)}% power${engineOf(s).stock ? "" : " (swapped)"} · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
       tryOn(row(s.name, `${spec}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
         on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
     });
     const note = document.createElement("div"); note.className = "bfoot";
     note.innerHTML = "Every part you own moves to whatever you ride. Deliveries unlock the newer generations.";
     body.appendChild(note);
+  } else if (garageTab === "engines") {
+    renderEngines(body, row, tryOn);
   } else if (garageTab === "parts") {
-    PART_ORDER.forEach(cat => {
+    PART_ORDER.filter(c => c !== "boost").forEach(cat => {
       const h = document.createElement("div"); h.className = "bsec"; h.textContent = PARTS[cat].label; body.appendChild(h);
       PARTS[cat].options.forEach(o => {
         const owned = GS.own.partsOwned[ownKey(cat, o.id)] || o.cost === 0, on = GS.own.parts[cat] === o.id, locked = !owned && sledTier() < o.tier;
@@ -3825,10 +4152,70 @@ function renderGarage() {
     });
   }
 }
+// a row with its own buttons (buy two ways, swap or sell)
+function actRow(body, title, sub, acts, tag) {
+  const d = document.createElement("div"); d.className = "row ask";
+  d.innerHTML = `<span class="main"><b>${title}</b><em>${sub || ""}</em></span><span class="acts"></span>`;
+  if (tag) d.querySelector("b").insertAdjacentHTML("afterend", ` <span class="tag">${tag}</span>`);
+  for (const a of acts) {
+    const b = document.createElement("button"); b.textContent = a.label; if (a.title) b.title = a.title;
+    if (a.dis) b.disabled = true; else b.addEventListener("click", a.fn);
+    d.querySelector(".acts").appendChild(b);
+  }
+  body.appendChild(d); return d;
+}
+function renderEngines(body, row, tryOn) {
+  const sd = sledDef(), eng = engineOf(sd), sec = t => { const h = document.createElement("div"); h.className = "bsec"; h.textContent = t; body.appendChild(h); };
+  const foot = html => { const n = document.createElement("div"); n.className = "bfoot"; n.innerHTML = html; body.appendChild(n); };
+  const pct = v => Math.round(v * 100) + "%";
+  sec(`In the ${sd.name}`);
+  if (eng.electric) {
+    row(eng.name, "Electric drive. No engine swaps and nothing to boost.", "Fitted", "on", () => { });
+  } else {
+    row(eng.name, `${pct(eng.pwr)} power · ${burnTxt(eng.burn)}${eng.turbo ? " · factory turbo" : ""}${ST.boost ? ` · ${pct(ST.power)} with everything bolted on` : ""}\n${eng.inst ? `${eng.inst.hrs} h on it · bought off ${eng.inst.seller} in ${eng.inst.from}` : "The motor it left the factory with."}`, "Fitted", "on", () => { });
+    if (!eng.stock) row(`Stock ${engDef(STOCK_ENGINE[sd.id]).name}`, `${pct(sd.power)} power · the ${sd.name}'s own motor, crated in the shop`, "Refit", "", refitStock);
+  }
+  // paid for and still out there
+  for (const p of GS.own.pickups) {
+    const site = SITES.find(s => s.id === p.site), d = engDef(p.inst.eid);
+    row(d.name, `${pct(p.inst.pwr)} power · paid for · ${p.aboard ? "on your rack, bring it here" : `waiting at ${p.inst.seller}'s in ${site.name}, ${fmtMi(Math.hypot(site.x - garageSite.x, site.z - garageSite.z))} out`}`, p.aboard ? "Aboard" : "Collect", "locked", null, "PAID");
+  }
+  if (GS.own.shelf.length) {
+    sec("On the shelf");
+    GS.own.shelf.forEach((inst, i) => {
+      const d = engDef(inst.eid);
+      actRow(body, d.name, `${pct(inst.pwr)} power · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""} · ${inst.hrs} h`,
+        [{ label: "Swap in", fn: () => shelfSwap(i), dis: eng.electric }, { label: `Sell $${shelfValue(inst)}`, fn: () => shelfSell(i) }]);
+    });
+  }
+  sec("For sale round the Nordkinn");
+  const list = eng.electric ? [] : marketNow();
+  if (eng.electric) foot("Nobody up here sells battery packs. The shop sends to Tromsø for those.");
+  else if (!list.length) foot(`Nothing for sale on the peninsula today that beats the ${eng.name}. New listings every morning at 06:00.`);
+  else {
+    list.forEach(l => {
+      const d = engDef(l.eid), site = SITES.find(s => s.id === l.site), fee = freightFee(site);
+      const dist = fmtMi(Math.hypot(site.x - garageSite.x, site.z - garageSite.z));
+      actRow(body, d.name, `${pct(l.pwr)} power (+${Math.round((l.pwr / eng.pwr - 1) * 100)}%) · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""} · ${l.hrs} h\n${l.seller}, ${site.name} · ${dist} out\n“${l.why}”`,
+        [{ label: `Ship $${l.price + fee}`, title: `$${l.price} + $${fee} on the freight sled, fitted today`, fn: () => buyEngine(l, false) },
+         { label: `Collect $${l.price}`, title: `Ride to ${site.name} and bring the crate back yourself`, fn: () => buyEngine(l, true) }],
+        d.turbo ? "TURBO" : "");
+    });
+    foot(`Ship it and the freight sled brings it round today, or pay the seller and collect the crate yourself (it takes a spot on the rack). Listings turn over at 06:00.`);
+  }
+  sec(PARTS.boost.label);
+  PARTS.boost.options.forEach(o => {
+    const owned = GS.own.partsOwned[ownKey("boost", o.id)] || o.cost === 0, on = (GS.own.parts.boost || "none") === o.id;
+    const why = boostWhy(sd, o.id), locked = (!owned && sledTier() < o.tier) || !!why;
+    tryOn(row(o.name, [statLine(o), why || o.note].filter(Boolean).join(" · "),
+      on ? "Fitted" : why ? "Won't fit" : owned ? "Owned" : sledTier() < o.tier ? `Gen ${o.tier + 1}+` : "$" + o.cost,
+      on ? "on" : locked ? "locked" : "", () => fitPart("boost", o.id)), { cat: "boost", id: o.id });
+  });
+}
 function openGarage() { GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
 function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
-  [["sleds", "Sleds"], ["parts", "Parts"], ["gear", "Rider kit"]].forEach(([t, n]) => {
+  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"]].forEach(([t, n]) => {
     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
     b.addEventListener("click", () => { garageTab = t; renderGarage(); });
     $("garageTabs").appendChild(b);
@@ -3962,7 +4349,9 @@ function buildTown() {
 function applyLoadout() {
   if (!V.track || !V.machines) return;
   const sd = (PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef();
-  const pr = PV.cat ? Object.assign({}, GS.own.parts, { [PV.cat]: PV.id }) : GS.own.parts;
+  const pr0 = PV.cat ? Object.assign({}, GS.own.parts, { [PV.cat]: PV.id }) : GS.own.parts;
+  const pr = {};                                        // newer parts wear the nearest existing model (`look`)
+  for (const c in pr0) { const o = PARTS[c] ? partDef(c, pr0[c]) : null; pr[c] = o ? o.look || o.id : pr0[c]; }
   const gr = PV.slot ? Object.assign({}, GS.own.gear, { [PV.slot]: PV.id }) : GS.own.gear;
   const sh = sd.shape || {}, ex = sh.extras || [];
   applyLivery(sd);
@@ -3997,8 +4386,13 @@ function applyLoadout() {
   V.pane.material = shieldKind === "low" ? M.tint : M.glass;
   /* bolt-ons */
   V.tankL.visible = pr.tankL === "fitted"; V.tankR.visible = pr.tankR === "fitted";
+  for (const [g, k] of [[V.tankL, "tankL"], [V.tankR, "tankR"]]) {   // the 12 L pack: taller and longer, still sat on the board
+    const big = pr0[k] === "big"; g.scale.set(big ? 1.1 : 1, big ? 1.3 : 1, big ? 1.2 : 1); g.position.y = big ? -0.56 * 0.3 : 0; g.position.z = big ? 0.68 * 0.2 : 0;
+  }
   V.tankL.position.x = ud.boardX - 0.38; V.tankR.position.x = -(ud.boardX - 0.38);
-  const turbo = ex.includes("turbo") || pr.clutch === "turbo";
+  const eng = engineOf(sd), bst = boostWhy(sd, pr.boost || "none") ? "none" : (pr.boost || "none");
+  const kitTurbo = bst === "turbo" || (eng.turbo && !eng.stock);
+  const turbo = ex.includes("turbo") || kitTurbo;
   V.raceCan.visible = pr.can === "race" && !turbo;
   V.trailCan.visible = pr.can === "trail" && !turbo;
   V.turboCan.visible = turbo;
@@ -4006,9 +4400,11 @@ function applyLoadout() {
   V.longKit.visible = V.longKitRear.visible = pr.susp === "long";
   V.clutchKit.visible = pr.clutch !== "stock";
   for (const g of [V.hoodScoop, V.turboScoop]) g.position.set(0, ud.scoop[0], ud.scoop[1]);
-  V.hoodScoop.visible = pr.clutch === "bigbore"; V.turboScoop.visible = pr.clutch === "turbo";
+  V.turboScoop.visible = kitTurbo;
+  V.hoodScoop.visible = !kitTurbo && (bst === "super" || (!eng.stock && !eng.turbo));   // a swapped motor wants more air
   V.lightBar.visible = pr.lights === "bar" || ex.includes("lightbar");
   V.lightBar.position.set(0, ud.lightBar[0], ud.lightBar[1]);
+  V.lightBar.scale.x = pr0.lights === "pods" && !ex.includes("lightbar") ? 0.45 : 1;
   V.deck.visible = deck;
   const nSmall = GS.load.filter(j => !j.big).length;
   if (cargoMesh) { cargoMesh.visible = nSmall > 0 && pr.rack !== "box"; cargoMesh.children.forEach((m, i) => m.visible = i < Math.max(1, nSmall) * 2); }
@@ -4136,7 +4532,13 @@ function updGame(dt, spd) {
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
   const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
   if (elev > 0.5 && ST.warm < 7 && !GS.kitWarned) { GS.kitWarned = true; toast("You're under-dressed for the open fell. The garage sells warmer kit.", "warn"); }
-  if (near) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; } else GS.warmth -= cold * dt;
+  // a thermos or a stove: stop anywhere and you thaw out slowly, up to what the kit can manage
+  const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
+  if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
+  GS.camping = camping;
+  if (near) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+  else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
+  else GS.warmth -= cold * dt;
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout("cold"); return; }
   if (isSea(P.x, P.z) && P.y < SEA - 0.4) { blackout("sea"); return; }
@@ -4144,9 +4546,12 @@ function updGame(dt, spd) {
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast("Out of fuel. Press F to call the Red Cross sled ($100).", "bad"); }
   if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
+  if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
+  if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
-  const busy = GS.load.length || GS.groomJob;
-  for (const s of SITES) if (s.beacon) s.beacon.visible = busy ? (GS.load.some(j => j.dest === s) || (GS.groomJob && GS.groomJob.dest === s)) : (s === depot && near !== depot);
+  // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
+  const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
+  for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : (s === depot && near !== depot);
   const relay = SITES[SITES.length - 1]; if (relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt);
 
@@ -4174,6 +4579,8 @@ function updGameHud() {
     let best = 1e9;
     for (const j of GS.load) { const d = Math.hypot(j.dest.x - P.x, j.dest.z - P.z); if (d < best) { best = d; tgt = j.dest; } }
   } else if (GS.groomJob) tgt = groomTarget();
+  const pend = !GS.load.length && !GS.groomJob && pendingPickup();
+  if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
@@ -4187,6 +4594,9 @@ function updGameHud() {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
     $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${GS.own.parts.hitch !== "groomer" ? " · no groomer hitched!" : ""}`;
+  } else if (pend) {
+    $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
+    $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = TC.on ? "Tap JOB BOARD for work" : "Press E for the job board"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";

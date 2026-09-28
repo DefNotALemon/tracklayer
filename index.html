@@ -27,6 +27,7 @@
   .pill{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.14em;padding:4px 10px 3px;border-radius:3px;background:var(--frost);color:var(--ink);transition:background .2s,color .2s}
   .pill[data-s="PACKED"]{background:var(--signal);color:#fff}
   .pill[data-s="ICE"]{background:var(--ice);color:var(--ink)}
+  .pill[data-s="WATER"]{background:#2e6f9e;color:#fff}
   #bonus{font-size:14px;font-weight:600;color:var(--signal);letter-spacing:.04em;min-height:1.2em}
   #drag{height:4px;border-radius:2px;background:rgba(234,242,248,.12);overflow:hidden}
   #dragFill{height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--frost));transition:width .15s}
@@ -238,6 +239,13 @@
   #garageBody .row b{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:.03em}
   #garageBody .row em{font-style:normal;font-size:13px;color:var(--slate);white-space:pre-line}
   #garageBody .row .pay{font-family:var(--display);font-weight:800;font-size:17px;color:#6fd08c;font-variant-numeric:tabular-nums}
+  #garageBody .row.ask{cursor:default;box-sizing:border-box}
+  #garageBody .row.ask:hover{border-color:var(--line)}
+  #garageBody .acts{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+  #garageBody .acts button{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.03em;color:#6fd08c;background:rgba(234,242,248,.06);border:1px solid var(--line);border-radius:3px;padding:6px 10px;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #garageBody .acts button:hover,#garageBody .acts button:focus-visible{border-color:var(--signal);outline:none}
+  #garageBody .acts button:disabled{opacity:.4;cursor:default}
+  @media (max-width:520px){#garageBody .row.ask{grid-template-columns:1fr}#garageBody .acts{flex-direction:row}#garageBody .acts button{flex:1}}
   #garageBody .tag{font-size:11px;letter-spacing:.1em;color:var(--slate)}
   #settings{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.93)}
   #settings .setrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -484,5 +492,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=6"></script>
+<script src="tracklayer.js?v=11"></script>
 </body></html>
