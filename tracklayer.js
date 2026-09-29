@@ -2901,6 +2901,14 @@ function migrateEngines() {
   o.engines = o.engines || {}; o.shelf = o.shelf || []; o.pickups = o.pickups || [];
   for (const p of o.pickups) p.aboard = false;                    // the rack isn't saved; crates wait at the seller's again
   if (!o.parts.boost) o.parts.boost = "none";
+  // 2026-09-29 power rescale: the bottom sled went from 72% to 100%, the top from 160% to 250%
+  if (!o.pwr2) {
+    const up = v => +(1 + (v - 0.72) * 1.5 / 0.88).toFixed(3);
+    for (const k in o.engines) if (o.engines[k]) o.engines[k].pwr = up(o.engines[k].pwr);
+    for (const inst of o.shelf) inst.pwr = up(inst.pwr);
+    for (const p of o.pickups) p.inst.pwr = up(p.inst.pwr);
+    o.pwr2 = 1;
+  }
   if (po["clutch:turbo"]) { delete po["clutch:turbo"]; po["boost:turbo"] = true; if (o.parts.clutch === "turbo") o.parts.boost = "turbo"; }
   if (po["clutch:stage3"]) { delete po["clutch:stage3"]; po["boost:stage3"] = true; if (o.parts.clutch === "stage3") o.parts.boost = "stage3"; }
   if (po["clutch:bigbore"]) { delete po["clutch:bigbore"]; GS.cash += 980; }
@@ -3639,7 +3647,7 @@ const SLEDS = [
     id: "frontier", name: "Frontier 340", year: "1970", cost: 0, need: 0,
     era: "Bogie-wheel era — think Ski-Doo Olympique or Arctic Cat Panther",
     blurb: "Fan-cooled single, bogie wheels, a bench seat and a chrome hoop bumper. It starts. Most of the time.",
-    power: 0.72, fuel: 16, drag: 1.25, grip: -0.6, trackLen: 1.0,
+    power: 1, fuel: 16, drag: 1.25, grip: -0.6, trackLen: 1.0,
     livery: { body: "#f0bd2a", panel: "#1c1c1c", trim: "#c8102e", seat: "#1a1a1a", name: "Olympic yellow over black, red pinstripe" },
     shape: { style: "round", w: 0.78, hoodL: 1.22, zPeak: 0.42, round: 0.62, yTop: 0.86, yPeak: 0.94, yNose: 0.7, yBelly: 0.36, pan: 0.56, tunnelW: 0.56, tunnelL: 1.85, tailRound: true, chrome: true, seat: "bench", barY: 1.1, barZ: 0.3, lamp: "round", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", shieldFrame: true, bogies: true, exhaust: -1, trackW: 0.86, extras: [] }
   },
@@ -3647,7 +3655,7 @@ const SLEDS = [
     id: "woodsman", name: "Woodsman 440 W/T", year: "1979", cost: 600, need: 4,
     era: "Wide-track workhorse — the Ski-Doo Alpine and Skandic idea",
     blurb: "Twin-cylinder plodder on a wide track, built to haul wood and drag sleds. Slow, unkillable.",
-    power: 0.84, fuel: 22, drag: 1.0, grip: 0.4, trackLen: 1.12,
+    power: 1.2, fuel: 22, drag: 1.0, grip: 0.4, trackLen: 1.12,
     livery: { body: "#2f5d3a", panel: "#d9cfa8", trim: "#e0a72d", seat: "#4a3626", name: "Forest green over cream, mustard stripe" },
     shape: { style: "flat", w: 0.92, hoodL: 1.08, zPeak: 0.3, round: 0.5, yTop: 0.9, yPeak: 0.93, yNose: 0.8, yBelly: 0.36, pan: 0.6, tunnelW: 0.72, tunnelL: 2.1, tailRound: true, chrome: true, seat: "bench", barY: 1.14, barZ: 0.3, lamp: "rect", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", rack: true, fins: true, exhaust: 1, trackW: 1.3, extras: ["tallshield"] }
   },
@@ -3655,7 +3663,7 @@ const SLEDS = [
     id: "ranger", name: "Ranger 500", year: "1989", cost: 900, need: 8,
     era: "Independent front suspension trail sled — the Polaris Indy generation",
     blurb: "Wedge hood, twin lamps, slide rail suspension. The first one that actually goes where you point it.",
-    power: 0.96, fuel: 20, drag: 1.02, grip: 0.3, trackLen: 1.05,
+    power: 1.41, fuel: 20, drag: 1.02, grip: 0.3, trackLen: 1.05,
     livery: { body: "#1a3c8c", panel: "#e8ecef", trim: "#e8342a", seat: "#1a2027", name: "Indy blue over white, red flash" },
     shape: { style: "wedge", w: 0.84, hoodL: 1.3, zPeak: 0.04, round: 0.2, yTop: 0.96, yPeak: 0.96, yNose: 0.6, yBelly: 0.34, pan: 0.55, tunnelW: 0.56, tunnelL: 1.95, seat: "saddle", barY: 1.18, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "steel", susp: "aarm", gauges: "round", fins: true, exhaust: 1, trackW: 1.0, extras: [] }
   },
@@ -3663,7 +3671,7 @@ const SLEDS = [
     id: "sprint", name: "Sprint 580 SX", year: "1994", cost: 1700, need: 13,
     era: "Trail-racer years — Yamaha SRX, Ski-Doo MXZ, Cat ZR",
     blurb: "Low, loud and geared for the lake run. Terrible in deep snow, glorious on a groomed trail.",
-    power: 1.06, fuel: 18, drag: 1.12, grip: 1.1, trackLen: 0.98,
+    power: 1.58, fuel: 18, drag: 1.12, grip: 1.1, trackLen: 0.98,
     livery: { body: "#7a1e9c", panel: "#12151a", trim: "#3ef0c8", seat: "#12151a", name: "Nineties purple over black, teal splash" },
     shape: { style: "wedge", w: 0.82, hoodL: 1.4, zPeak: 0.06, round: 0.15, yTop: 0.9, yPeak: 0.9, yNose: 0.56, yBelly: 0.32, pan: 0.5, tunnelW: 0.54, tunnelL: 1.9, seat: "sport", barY: 1.12, barZ: 0.32, lamp: "slit", bumper: "none", skis: "plastic", susp: "aarm", raceStripe: true, fins: true, exhaust: 1, trackW: 0.94, extras: ["lowshield"] }
   },
@@ -3671,7 +3679,7 @@ const SLEDS = [
     id: "summit", name: "Summit 600", year: "2004", cost: 2400, need: 18,
     era: "Mountain sleds go long — Ski-Doo Summit, Polaris RMK",
     blurb: "Liquid twin, long track, proper mountain geometry. Floats where the Ranger digs.",
-    power: 1.12, fuel: 24, drag: 0.88, grip: 0.8, trackLen: 1.18,
+    power: 1.68, fuel: 24, drag: 0.88, grip: 0.8, trackLen: 1.18,
     livery: { body: "#ff6a1a", panel: "#1e232b", trim: "#f4f6f8", seat: "#1e232b", name: "Mountain orange over charcoal, white stripe" },
     shape: { style: "round", w: 0.8, hoodL: 1.2, zPeak: 0.28, round: 0.55, yTop: 0.96, yPeak: 1.02, yNose: 0.68, yBelly: 0.38, pan: 0.6, tunnelW: 0.56, tunnelL: 2.05, seat: "saddle", barY: 1.16, barZ: 0.32, lamp: "slit", bumper: "none", skis: "powder", susp: "aarm", fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
   },
@@ -3679,7 +3687,7 @@ const SLEDS = [
     id: "trekker", name: "Trekker 550 Tour", year: "2009", cost: 3400, need: 24,
     era: "Two-up touring — Grand Touring and Yamaha Venture territory",
     blurb: "Heated grips, a passenger seat nobody uses, and a windshield like a garage door. Warm and heavy.",
-    power: 1.08, fuel: 30, drag: 1.0, grip: 0.6, trackLen: 1.1,
+    power: 1.61, fuel: 30, drag: 1.0, grip: 0.6, trackLen: 1.1,
     livery: { body: "#6b1f2a", panel: "#b5b8bd", trim: "#c9a227", seat: "#3b2a22", name: "Burgundy over silver, gold pinstripe" },
     shape: { style: "round", w: 0.94, hoodL: 1.25, zPeak: 0.36, round: 0.6, yTop: 1.0, yPeak: 1.05, yNose: 0.76, yBelly: 0.38, pan: 0.62, tunnelW: 0.62, tunnelL: 2.25, seat: "twoup", barY: 1.2, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "plastic", susp: "aarm", rack: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["tallshield", "mirrors"] }
   },
@@ -3687,7 +3695,7 @@ const SLEDS = [
     id: "apex", name: "Apex 800", year: "2015", cost: 5200, need: 32,
     era: "Rider-forward chassis — the REV and ProCross school",
     blurb: "Light chassis, fuel injection, you stand over the skis instead of behind them. Climbs like it's annoyed.",
-    power: 1.32, fuel: 26, drag: 0.78, grip: 1.3, trackLen: 1.22,
+    power: 2.02, fuel: 26, drag: 0.78, grip: 1.3, trackLen: 1.22,
     livery: { body: "#eef1f4", panel: "#d81e2c", trim: "#111418", seat: "#111418", name: "Race white over red, black graphics" },
     shape: { style: "riderfwd", w: 0.78, hoodL: 1.02, zPeak: 0.14, round: 0.3, yTop: 1.08, yPeak: 1.1, yNose: 0.62, yBelly: 0.36, pan: 0.66, tunnelW: 0.54, tunnelL: 2.0, seat: "sport", barY: 1.24, barZ: 0.38, lamp: "led", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["lowshield"] }
   },
@@ -3695,7 +3703,7 @@ const SLEDS = [
     id: "matriarch", name: "Matriarch 850T", year: "2026", cost: 9800, need: 46,
     era: "Factory turbo mountain — Summit Turbo R, Patriot Boost",
     blurb: "Turbo, carbon tunnel, electric everything. The whole map gets smaller.",
-    power: 1.6, fuel: 30, drag: 0.66, grip: 1.8, trackLen: 1.25,
+    power: 2.5, fuel: 30, drag: 0.66, grip: 1.8, trackLen: 1.25,
     livery: { body: "#0d1117", panel: "#2a3140", trim: "#ff7a00", seat: "#0d1117", name: "Matte black over gunmetal, hi-vis orange" },
     shape: { style: "riderfwd", w: 0.78, hoodL: 1.06, zPeak: 0.1, round: 0.28, yTop: 1.12, yPeak: 1.13, yNose: 0.6, yBelly: 0.36, pan: 0.7, tunnelW: 0.54, tunnelL: 2.1, seat: "sport", barY: 1.27, barZ: 0.4, lamp: "led", bumper: "skid", skis: "powder", susp: "aarm", spoiler: true, fins: true, trackW: 1.12, extras: ["turbo", "lightbar"] }
   },
@@ -3703,7 +3711,7 @@ const SLEDS = [
     id: "aurora", name: "Aurora E", year: "2029", cost: 14500, need: 60,
     era: "Battery sleds — where Taiga and the electric prototypes are heading",
     blurb: "Silent, instant torque, and a battery gauge instead of a tank. You hear the snow instead of the engine.",
-    power: 1.45, fuel: 34, drag: 0.72, grip: 1.6, trackLen: 1.2,
+    power: 2.24, fuel: 34, drag: 0.72, grip: 1.6, trackLen: 1.2,
     livery: { body: "#c6e6ea", panel: "#1d3557", trim: "#7cf2a0", seat: "#1d3557", name: "Glacier ice over navy, mint accent" },
     shape: { style: "smooth", w: 0.8, hoodL: 1.18, zPeak: 0.32, round: 0.5, yTop: 1.0, yPeak: 1.02, yNose: 0.7, yBelly: 0.4, pan: 0.64, tunnelW: 0.56, tunnelL: 2.0, seat: "sport", barY: 1.2, barZ: 0.36, lamp: "strip", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, charge: true, trackW: 1.08, extras: ["lightbar"] }
   }
@@ -3919,20 +3927,20 @@ const sledDef = () => SLEDS.find(s => s.id === GS.own.sled) || SLEDS[0];
 // sled. Have it brought round on the freight sled for a fee, or ride out and strap the crate on
 // yourself. `power` is the same scale as a sled's own; used ones lose a little to their hours.
 const ENGINES = [
-  { id: "fan340", name: "340 fan-cooled single", power: 0.72, burn: 1.05, price: 250 },
-  { id: "fan440", name: "440 fan-cooled twin", power: 0.84, burn: 1.05, price: 380 },
-  { id: "lc500", name: "500 liquid-cooled twin", power: 0.96, burn: 1.0, price: 720 },
-  { id: "lc580", name: "580 liquid twin, triple pipes", power: 1.06, burn: 1.12, price: 1050 },
-  { id: "fan550", name: "550 fan twin, touring tune", power: 1.08, burn: 0.9, price: 1150 },
-  { id: "lc600", name: "600 liquid twin", power: 1.12, burn: 1.0, price: 1400 },
-  { id: "ho600", name: "600 H.O. semi-direct injection", power: 1.18, burn: 0.84, price: 2100 },
-  { id: "tri700", name: "700 triple", power: 1.22, burn: 1.2, price: 1900 },
-  { id: "fs1049", name: "1049 four-stroke triple", power: 1.28, burn: 0.78, price: 3000 },
-  { id: "efi800", name: "800 twin, fuel injected", power: 1.32, burn: 1.04, price: 3300 },
-  { id: "di850", name: "850 direct-injection twin", power: 1.42, burn: 0.98, price: 4400 },
-  { id: "race900", name: "900 race twin, ported", power: 1.5, burn: 1.3, price: 5000 },
-  { id: "t998", name: "998 four-stroke turbo triple", power: 1.55, burn: 0.95, price: 6200, turbo: true },
-  { id: "t850", name: "850 turbo twin", power: 1.6, burn: 1.18, price: 6900, turbo: true }
+  { id: "fan340", name: "340 fan-cooled single", power: 1, burn: 1.05, price: 250 },
+  { id: "fan440", name: "440 fan-cooled twin", power: 1.2, burn: 1.05, price: 380 },
+  { id: "lc500", name: "500 liquid-cooled twin", power: 1.41, burn: 1.0, price: 720 },
+  { id: "lc580", name: "580 liquid twin, triple pipes", power: 1.58, burn: 1.12, price: 1050 },
+  { id: "fan550", name: "550 fan twin, touring tune", power: 1.61, burn: 0.9, price: 1150 },
+  { id: "lc600", name: "600 liquid twin", power: 1.68, burn: 1.0, price: 1400 },
+  { id: "ho600", name: "600 H.O. semi-direct injection", power: 1.78, burn: 0.84, price: 2100 },
+  { id: "tri700", name: "700 triple", power: 1.85, burn: 1.2, price: 1900 },
+  { id: "fs1049", name: "1049 four-stroke triple", power: 1.95, burn: 0.78, price: 3000 },
+  { id: "efi800", name: "800 twin, fuel injected", power: 2.02, burn: 1.04, price: 3300 },
+  { id: "di850", name: "850 direct-injection twin", power: 2.19, burn: 0.98, price: 4400 },
+  { id: "race900", name: "900 race twin, ported", power: 2.33, burn: 1.3, price: 5000 },
+  { id: "t998", name: "998 four-stroke turbo triple", power: 2.41, burn: 0.95, price: 6200, turbo: true },
+  { id: "t850", name: "850 turbo twin", power: 2.5, burn: 1.18, price: 6900, turbo: true }
 ];
 const STOCK_ENGINE = { frontier: "fan340", woodsman: "fan440", ranger: "lc500", sprint: "lc580", summit: "lc600", trekker: "fan550", apex: "efi800", matriarch: "t850", aurora: null };
 const engDef = id => ENGINES.find(e => e.id === id);
@@ -3974,8 +3982,8 @@ function makeMarket() {
   if (isElectric(sd)) return;
   const spots = SITES.filter(s => s.type === "cabin" && s.x !== undefined);
   // mostly the next step or two up, now and then a leap; nothing silly for a first-week courier
-  const pool = ENGINES.filter(e => e.power * 0.95 > cur + 0.03 && e.power <= cur + 0.6)
-    .map(e => ({ e, k: (e.power - cur) + Math.random() * 0.35 })).sort((a, b) => a.k - b.k).map(x => x.e);
+  const pool = ENGINES.filter(e => e.power * 0.95 > cur + 0.05 && e.power <= cur + 1.0)
+    .map(e => ({ e, k: (e.power - cur) + Math.random() * 0.6 })).sort((a, b) => a.k - b.k).map(x => x.e);
   const n = Math.min(pool.length, 3 + (Math.random() < 0.45 ? 1 : 0));
   for (let k = 0; k < n; k++) {
     const e = pool[k], wear = Math.random(), site = pick(spots);   // wear 0 = barely run, 1 = tired
