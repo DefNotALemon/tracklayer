@@ -2173,10 +2173,11 @@ function drawMap() {
       const f = (R - 12) / d; ux *= f; uz *= f; edge = true;
     }
     const sx = R + ux, sz = R + uz, tg = GS.load.some(j => j.dest === s) || (GS.groomJob && GS.groomJob.dest === s);
-    mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6, sz - 6, 12, 12);
+    const hm = s.type === "home" ? 2 : 0;
+    mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6 + hm, sz - 6 + hm, 12 - 2 * hm, 12 - 2 * hm);
     mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8";
     if (edge) { mctx.globalAlpha = 0.65; mctx.fillRect(sx - 3, sz - 3, 6, 6); mctx.globalAlpha = 1; }
-    else mctx.fillRect(sx - 4, sz - 4, 8, 8);
+    else mctx.fillRect(sx - 4 + hm, sz - 4 + hm, 8 - 2 * hm, 8 - 2 * hm);
     if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
   for (const n of NPCS) {                        // other riders, if they're within the dial
@@ -2214,6 +2215,16 @@ function drawBigMap() {
   for (const s of SITES) {
     if (s.type === "shop") continue;                          // the garage is across the road from the quay; one label will do
     const [sx, sz] = w2(s.x, s.z), tg = GS.load.some(j => j.dest === s) || (GS.groomJob && GS.groomJob.dest === s);
+    if (s.type === "home") {                                  // the homes round town: a small square, and a name once you're headed there
+      g.fillStyle = "#0d1822"; g.fillRect(sx - 5, sz - 5, 10, 10); g.fillStyle = "#eaf2f8"; g.fillRect(sx - 3, sz - 3, 6, 6);
+      if (tg) {
+        g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 13, 0, 6.283); g.stroke();
+        g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(s.name).width + 10;
+        g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(sx - w / 2, sz + 10, w, 20); g.fillStyle = "#ff5a1f"; g.fillText(s.name, sx, sz + 25);
+        g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+      }
+      continue;
+    }
     g.fillStyle = "#0d1822"; g.fillRect(sx - 8, sz - 8, 16, 16);
     g.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; g.fillRect(sx - 5, sz - 5, 10, 10);
     if (tg) { g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 16, 0, 6.283); g.stroke(); }
@@ -2386,6 +2397,16 @@ const SITES = [
   { id: "windfarm", name: "Gartefjellet wind farm", seed: [-500, -900], type: "cabin", kind: "farm", clear: 60 },
   { id: "sandfjord", name: "Sandfjorddalen herder cabin", seed: [1100, -1500], type: "cabin", kind: "cabin", clear: 40 },
   { id: "risfjord", name: "Risfjord herder cabin", seed: [2500, 1400], type: "cabin", kind: "cabin", clear: 40 },
+  // homes within a kilometre of the quay: the first-week runs. Two on the shore road, the rest up the
+  // hillsides and out along the fjord, so even a short run has a climb or a bit of open fell in it.
+  { id: "strandbu", name: "Strandbu", seed: [-987, -318], type: "home", kind: "home", paint: "red", clear: 26 },
+  { id: "naust", name: "Naustbakken", seed: [-1121, -120], type: "home", kind: "home", paint: "white", clear: 26 },
+  { id: "solbakken", name: "Solbakken", seed: [-1703, 4], type: "home", kind: "home", paint: "yellow", clear: 26 },
+  { id: "myrvang", name: "Myrvang", seed: [-1273, -1145], type: "home", kind: "home", paint: "blue", clear: 26 },
+  { id: "fjellstua", name: "Fjellstua", seed: [-753, -913], type: "home", kind: "home", paint: "wood", clear: 26 },
+  { id: "utsikten", name: "Utsikten", seed: [-1168, 363], type: "home", kind: "home", paint: "red", clear: 26 },
+  { id: "brattli", name: "Brattli", seed: [-1494, 391], type: "home", kind: "home", paint: "white", clear: 26 },
+  { id: "neset", name: "Neset", seed: [-2211, -257], type: "home", kind: "home", paint: "yellow", clear: 26 },
   { id: "relay", name: "Slettnes lighthouse", seed: [2750, -3560], type: "relay", clear: 60 }
 ];
 let depot = SITES[0], garageSite = SITES[1];
@@ -2423,7 +2444,7 @@ function flatSpot(sx, sz, R) {
 function computeSites() {
   for (const s of SITES) {
     if (s.type === "shop") continue;
-    const p = flatSpot(s.seed[0], s.seed[1], s.type === "relay" ? 60 : 90); s.x = p[0]; s.z = p[1];
+    const p = flatSpot(s.seed[0], s.seed[1], s.type === "relay" ? 60 : s.type === "home" ? 30 : 90); s.x = p[0]; s.z = p[1];
     s.y = groundAt(s.x, s.z);
   }
   depot = SITES[0]; garageSite = SITES[1];
@@ -2556,7 +2577,7 @@ function buildSites() {
       KIT.lamp(bx + 6, bz - 6);
     } else {
       const big = s.type === "depot", D = big ? 9 : s.kind === "village" ? 7 : 5.5, W = big ? 12 : s.kind === "village" ? 8 : 6.5, Hh = big ? 3.6 : 2.7, a = 0.58, hs = D / 2 + 0.5, Ls = hs / Math.cos(a);
-      const wall = big ? red : s.kind === "village" ? L(0x7a5a3a) : wood;
+      const wall = big ? red : s.kind === "village" ? L(0x7a5a3a) : s.kind === "home" ? (KIT[s.paint] || wood) : wood;
       add(g, new THREE.BoxGeometry(D, Hh, W), wall, 0, Hh / 2, 0);
       for (let yy = 0.35; yy < Hh; yy += 0.45) add(g, new THREE.BoxGeometry(D + 0.08, 0.06, W + 0.08), woodD, 0, yy, 0);
       const tri = new THREE.Shape(); tri.moveTo(-D / 2, 0); tri.lineTo(D / 2, 0); tri.lineTo(0, (D / 2) * Math.tan(a)); tri.closePath();
@@ -2582,6 +2603,14 @@ function buildSites() {
       }
       for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9 });
       if (s.kind === "village") KIT.village(s, 1000 + s.id.length * 77 + s.seed[0]);
+      if (s.kind === "home") {
+        // a stacked woodpile along the gable end and a mailbox post out by the track
+        for (let k = 0; k < 3; k++) add(g, new THREE.BoxGeometry(0.9, 0.9, 3.2), woodD, -D / 2 - 0.7, 0.45 + k * 0.02, 0, 0);
+        add(g, new THREE.BoxGeometry(1.0, 0.18, 3.4), snowM, -D / 2 - 0.7, 0.98, 0);
+        addOb({ x: bx - D / 2 - 0.7, z: bz, r: 1.0, top: 1e9 });
+        add(g, new THREE.BoxGeometry(0.12, 1.2, 0.12), woodD, D / 2 + 3.5, 0.6, W / 2 + 1.5);
+        add(g, new THREE.BoxGeometry(0.35, 0.3, 0.5), red, D / 2 + 3.5, 1.3, W / 2 + 1.5);
+      }
       if (s.kind === "farm") {
         // five turbines strung along the high ground, the service hut at their feet
         const rnd = mulberry32(4242);
@@ -2794,14 +2823,29 @@ const EXPEDITION = [
 function jobGeom(d, from) { const dist = Math.hypot(d.x - from.x, d.z - from.z), climb = Math.max(0, d.y - from.y); return { dist, climb, est: (dist / 9 + 45) * (1 + climb / 150) }; }
 const pick = a => a[(Math.random() * a.length) | 0];
 const round5 = v => Math.round(v / 5) * 5;
+// Round-town parcels: the homes within a kilometre of the quay. A new courier's board is all of these;
+// the long runs out to the villages and the fell come in as you deliver, and there's always one short
+// one posted after that.
+const HOME_CARGO = [
+  ["Post and the Finnmarken", 0.8, false], ["Pharmacy order", 1.3, true], ["Fresh bread from the bakery", 0.9, false],
+  ["A sack of dog food", 0.9, false], ["Lamp oil", 0.95, false], ["Replacement stovepipe", 1.0, false],
+  ["Ice-fishing auger", 1.0, false], ["New winter boots", 0.9, false], ["Birthday cake", 1.25, true],
+  ["Pane of window glass", 1.3, true], ["Knitting yarn order", 0.85, false], ["Two dozen eggs", 0.85, true],
+  ["Snow shovel & roof rake", 0.9, false], ["Radio batteries", 1.05, false]
+];
+const localCount = lvl => lvl < 3 ? 3 : lvl < 6 ? 2 : 1;
 function makeJobs(from) {
-  const pool = SITES.filter(s => s.type !== "depot" && s.type !== "shop").sort(() => Math.random() - 0.5);  // seven destinations, three posted
+  const shuf = a => a.sort(() => Math.random() - 0.5);
+  const homes = shuf(SITES.filter(s => s.type === "home" && Math.hypot(s.x - from.x, s.z - from.z) < 1000));
+  const far = shuf(SITES.filter(s => s.type !== "depot" && s.type !== "shop" && s.type !== "home"));
+  const nL = Math.min(homes.length, localCount(GS.delivered));
+  const hc = shuf(HOME_CARGO.slice()), fc = shuf(CARGO.slice());   // no two of the same thing on one board
   GS.jobs = [];
   for (let k = 0; k < 3; k++) {
-    const d = pool[k], cg = CARGO[(Math.random() * CARGO.length) | 0];
-    const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < 0.4;
-    const pay = Math.round((35 + dist * 0.12 + climb * 0.5) * cg[1] * (urgent ? 1.5 : 1) / 5) * 5;
-    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
+    const local = k < nL, d = local ? homes[k] : far[k - nL], cg = local ? hc[k] : fc[k];
+    const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < (local ? 0.3 : 0.4);
+    const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * (urgent ? 1.5 : 1) / 5) * 5;
+    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
   }
   makeContracts(from);
 }
@@ -3220,6 +3264,7 @@ function ctSymbols(g, u, compact) {
       g.stroke(); g.fillStyle = CT_INK; g.beginPath(); g.arc(0, 0, u(2.3), 0, 6.2832); g.fill(); g.restore();
     }
     else if (s.kind === "cabin") ctSquare(g, x, y, u(4.6), u(2.2));
+    else if (s.kind === "home") ctSquare(g, x, y, u(3.2), u(1.6));
     else if (s.kind === "village") { const big = CT_LBL[s.id] && CT_LBL[s.id].key; ctDot(g, x, y, u(big ? 2.9 : 2.5), big ? CT_INK : "#5e4d3c", u(2.3)); }
   }
   for (const s of SITES) {
@@ -3354,7 +3399,7 @@ function renderBoard() {
   if (!GS.jobs.length) note(sm.length ? "Rack loaded: " + sm.map(j => j.cargo.toLowerCase() + " for " + shortName(j.dest)).join(", ") + "." : "No parcels posted.");
   GS.jobs.forEach((j, k) => box.appendChild(boardRow({
     kind: "job", k, key: k + 1, obj: j, dest: j.dest, title: j.cargo,
-    chips: (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
+    chips: (j.local ? `<span class="bchip">NEAR TOWN</span>` : "") + (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
     pay: fmtCash(j.pay), meta: `to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km · ${gTag(j.dest)}`
   })));
   sec("Contracts", HITCH_ON[GS.own.parts.hitch] + (ST.bays ? ` · ${baysUsed()}/${ST.bays}` : ""));
@@ -4663,7 +4708,7 @@ function updGame(dt, spd) {
   }
   GS.storm += ((GS.stormPhase === "storm" ? 1 : 0) - GS.storm) * (1 - Math.exp(-dt / 20));
   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
-  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press E"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up, refuel, ${TC.on ? "tap JOB BOARD" : "press E"} for work.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : `${near.name}. Warm stove inside.`);
+  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press E"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up, refuel, ${TC.on ? "tap JOB BOARD" : "press E"} for work.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
   const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
@@ -4688,7 +4733,7 @@ function updGame(dt, spd) {
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : (s === depot && near !== depot);
-  const relay = SITES[SITES.length - 1]; if (relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
+  const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt);
 
   GS.smokeT += dt;
