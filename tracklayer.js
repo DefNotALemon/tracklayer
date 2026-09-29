@@ -1816,8 +1816,32 @@ function updPending(dt) {
     }
   }
 }
+// a sled with 100% power or more doesn't glance off a mountain birch, it runs it down: the trunk
+// snaps at the base, the snow load comes off, and the tree lies flat in the snow where it fell.
+// (0.9, so a stock 100% Frontier still counts after a big tank or paddle nibbles a few % off it)
+const FLATTEN_POWER = 0.9, FLATTEN_SPEED = 2.5, felled = [];
+function crack(v) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
+  s.buffer = buf; f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 0.8;
+  g.gain.setValueAtTime(1.1 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 0.2);
+}
+function flattenTree(o) {
+  const sp = Math.hypot(P.vx, P.vz) || 1, px = P.vx / sp, pz = P.vz / sp;
+  if (o.snowy) dropSnow(o, true);
+  const wi = wobbling.indexOf(o); if (wi >= 0) wobbling.splice(wi, 1);
+  o.wob = { t: 0, amp: 0, ax: pz, az: -px };                            // tips over the way the sled was going
+  o.y -= 0.18 * o.s; setTree(o, 1.5 + Math.random() * 0.06);
+  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
+  o.top = -Infinity; o.down = true; felled.push(o);                     // no longer an obstacle for anyone
+  for (let k = 0; k < 30; k++) emit(o.x, o.y + 0.4 + Math.random() * 0.6, o.z, P.vx * 0.3, 1 + Math.random() * 1.5, P.vz * 0.3, 2.2, 0.8);
+  P.vx *= 0.93; P.vz *= 0.93;
+  P.shake = Math.max(P.shake, 0.18); crack(0.7); thud(0.3);
+}
 function collide(fx, fz) {
   const spdNow = Math.hypot(P.vx, P.vz);
+  const mower = ST.power >= FLATTEN_POWER && P.vx * fx + P.vz * fz > FLATTEN_SPEED;
   for (const [off, r] of [[1.15, 0.62], [-0.7, 0.7]]) {
     const cx = P.x + fx * off, cz = P.z + fz * off;
     const gx = Math.floor((cx + HALF) / OBC), gz = Math.floor((cz + HALF) / OBC);
@@ -1828,6 +1852,7 @@ function collide(fx, fz) {
         const dx = cx - o.x, dz = cz - o.z, d2 = dx * dx + dz * dz, rr = r + o.r;
         if (o.tree !== undefined && spdNow > 4.5) { const br = r + 1.15 * o.s; if (d2 < br * br) { wobble(o, 0.05 + spdNow * 0.004, -dx, -dz); if (o.snowy) dropSnow(o, false); } }
         if (d2 >= rr * rr || d2 < 1e-6) continue;
+        if (o.tree !== undefined && mower) { flattenTree(o); continue; }
         if (o.tree !== undefined) { wobble(o, 0.06 + Math.hypot(P.vx, P.vz) * 0.014, -dx, -dz); if (o.snowy) dropSnow(o, true); }
         // a fallen log is a ramp, not a wall: hit it with speed and it launches you
         if (o.log && spdNow > 4.5 && P.gnd) {
@@ -1857,6 +1882,10 @@ function collide(fx, fz) {
         }
       }
     }
+  }
+  while (felled.length) {                                               // pull downed birches out of the obstacle grid
+    const o = felled.pop(), a = obGrid.get(Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC));
+    const k = a ? a.indexOf(o) : -1; if (k >= 0) a.splice(k, 1);
   }
   const lim = HALF - 24; P.x = clamp(P.x, -lim, lim); P.z = clamp(P.z, -lim, lim);
 }
