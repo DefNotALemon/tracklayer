@@ -243,30 +243,40 @@ Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, n
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
 
-// sky dome
+// sky dome. Every colour here is fed per frame by updSky() from the sun's real elevation, so the sky
+// walks through low winter sun, sunset, blue hour and night instead of flipping between two looks.
 const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { uSun: { value: sunDir }, uDay: { value: 1 }, uStorm: { value: 0 }, uFog: { value: new THREE.Color(0xc4d3e2) }, uTime: { value: 0 } },
+  uniforms: { uSun: { value: new THREE.Vector3(0, 0.2, 1) }, uMoon: { value: new THREE.Vector3(0, -1, 0) }, uMoonI: { value: 0 },
+    uZen: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uHorA: { value: new THREE.Color() },
+    uGlow: { value: new THREE.Color() }, uStorm: { value: 0 }, uFog: { value: new THREE.Color(0xc4d3e2) }, uTime: { value: 0 }, uAurora: { value: 0 } },
   vertexShader: "varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
-  fragmentShader: `varying vec3 vD; uniform vec3 uSun; uniform float uDay; uniform float uStorm; uniform vec3 uFog; uniform float uTime;
-    void main(){ float h = clamp(vD.y,0.0,1.0);
-      vec3 hor = vec3(0.86,0.85,0.86), mid = vec3(0.60,0.72,0.86), top = vec3(0.30,0.46,0.70);
-      vec3 c = mix(hor, mid, smoothstep(0.0,0.18,h)); c = mix(c, top, smoothstep(0.18,0.8,h));
-      vec3 n = mix(vec3(0.09,0.12,0.19), vec3(0.015,0.025,0.06), smoothstep(0.0,0.6,h));
-      float s = max(dot(normalize(vD), uSun), 0.0);
-      c += vec3(1.0,0.72,0.45)*(pow(s,6.0)*0.3 + pow(s,90.0)*0.6)*(1.0 + (1.0-smoothstep(0.0,0.3,uSun.y))) + vec3(1.0,0.95,0.85)*smoothstep(0.9993,0.9997,s);
-      c = mix(n, c, uDay);
+  fragmentShader: `varying vec3 vD; uniform vec3 uSun; uniform vec3 uMoon; uniform float uMoonI; uniform vec3 uZen; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uHorA;
+    uniform vec3 uGlow; uniform float uStorm; uniform vec3 uFog; uniform float uTime; uniform float uAurora;
+    void main(){ vec3 d = normalize(vD); float h = clamp(d.y,0.0,1.0);
+      // the horizon is warm on the sun's side and pink-to-slate on the other (the belt of Venus at dusk)
+      float toward = dot(normalize(d.xz + vec2(1e-5)), normalize(uSun.xz + vec2(1e-5))) * 0.5 + 0.5;
+      vec3 hor = mix(uHorA, uHor, smoothstep(0.15, 1.0, toward));
+      vec3 c = mix(hor, uMid, smoothstep(0.0,0.22,h)); c = mix(c, uZen, smoothstep(0.22,0.85,h));
+      // glow round the sun, held down on the horizon for a while after it sets
+      vec3 sg = normalize(vec3(uSun.x, max(uSun.y, -0.01), uSun.z));
+      float s = max(dot(d, sg), 0.0);
+      c += uGlow * (pow(s, 5.0)*0.35 + pow(s, 60.0)*0.55) * (1.0 - 0.6*smoothstep(0.0, 0.5, h));
+      c += vec3(1.0,0.93,0.8) * smoothstep(0.9993,0.9997,max(dot(d, uSun),0.0)) * smoothstep(-0.02, 0.01, uSun.y);
+      // the moon: disc, tight halo, faint wide glow
+      float m = max(dot(d, uMoon), 0.0);
+      c += vec3(0.86,0.9,1.0) * uMoonI * (smoothstep(0.99955,0.99965,m)*1.3 + pow(m, 500.0)*0.25 + pow(m, 25.0)*0.05) * smoothstep(-0.02,0.02,uMoon.y);
       // aurora: green curtains hanging across the northern half of the sky, drifting
-      float az = atan(vD.x, -vD.z);
+      float az = atan(d.x, -d.z);
       float band = sin(az * 2.3 + uTime * 0.05) * 0.5 + sin(az * 5.1 - uTime * 0.09) * 0.25 + sin(az * 11.0 + uTime * 0.17) * 0.12;
       float ah = 0.42 + band * 0.18;
       float curtain = exp(-pow((h - ah) * 5.5, 2.0)) * (0.55 + 0.45 * sin(az * 23.0 + uTime * 0.6 + sin(az * 7.0) * 3.0));
       float rays = 0.6 + 0.4 * sin(az * 61.0 - uTime * 0.9 + h * 30.0);
-      float au = curtain * rays * smoothstep(0.08, 0.3, h) * (1.0 - smoothstep(0.55, 0.95, h)) * smoothstep(-0.9, 0.4, -vD.z);
+      float au = curtain * rays * smoothstep(0.08, 0.3, h) * (1.0 - smoothstep(0.55, 0.95, h)) * smoothstep(-0.9, 0.4, -d.z);
       vec3 auC = mix(vec3(0.12, 0.85, 0.42), vec3(0.55, 0.25, 0.8), smoothstep(ah, ah + 0.14, h));
-      c += auC * au * (1.0 - uDay) * (1.0 - uDay) * (1.0 - uStorm) * 0.6;
-      if (vD.y < 0.0) c = uFog;
-      c = mix(c, uFog, clamp(uStorm*0.9 + (1.0 - smoothstep(0.0,0.08,h))*0.6, 0.0, 1.0));
+      c += auC * au * uAurora * (1.0 - uStorm) * 0.7;
+      if (d.y < 0.0) c = uFog;
+      c = mix(c, uFog, clamp(uStorm*0.9 + (1.0 - smoothstep(0.0,0.06,h))*0.45, 0.0, 1.0));
       gl_FragColor = vec4(c,1.0); }`
 }));
 sky.renderOrder = -1; scene.add(sky);
@@ -2604,38 +2614,93 @@ function buildSites() {
 
 /* night sky + headlight */
 const starGeo = new THREE.BufferGeometry(); {
-  const n = 1600, a = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { const u = Math.random() * 6.283, v = Math.acos(Math.random() * 0.95); a[i * 3] = Math.sin(v) * Math.cos(u) * 7000; a[i * 3 + 1] = Math.cos(v) * 7000; a[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 7000; }
-  starGeo.setAttribute("position", new THREE.BufferAttribute(a, 3));
+  // the whole celestial sphere, since it now turns round the pole; stars fade out at the horizon in the shader
+  const n = 2600, a = new Float32Array(n * 3), m = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const u = Math.random() * 6.283, y = Math.random() * 2 - 1, r = Math.sqrt(1 - y * y); a[i * 3] = r * Math.cos(u) * 7000; a[i * 3 + 1] = y * 7000; a[i * 3 + 2] = r * Math.sin(u) * 7000; m[i] = Math.pow(Math.random(), 3); }
+  starGeo.setAttribute("position", new THREE.BufferAttribute(a, 3)); starGeo.setAttribute("mag", new THREE.BufferAttribute(m, 1));
 }
-const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 1.8, sizeAttenuation: false, color: 0xffffff, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+const stars = new THREE.Points(starGeo, new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+  uniforms: { uOp: { value: 0 }, uTime: { value: 0 } },
+  vertexShader: `attribute float mag; uniform float uTime; varying float vA;
+    void main(){ vec3 w = normalize(mat3(modelMatrix) * position);
+      float tw = 0.75 + 0.25 * sin(uTime * (2.0 + mag * 5.0) + position.x * 0.013);
+      vA = (0.35 + 0.65 * mag) * tw * smoothstep(0.02, 0.14, w.y);
+      gl_PointSize = 1.3 + mag * 1.7; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float uOp; varying float vA; void main(){ vec2 q = gl_PointCoord - 0.5; float f = 1.0 - smoothstep(0.2, 0.5, length(q));
+    gl_FragColor = vec4(vec3(0.92, 0.95, 1.0) * f * vA * uOp, 1.0); }`
+}));
 stars.frustumCulled = false; scene.add(stars);
 const headlight = new THREE.SpotLight(0xfff0d0, 0.4, 80, 0.55, 0.55, 1.1);
 headlight.position.set(0, 0.6, 1.3); headlight.target.position.set(0, -1.2, 14);
 sledBody.add(headlight, headlight.target);
 
-const C_DAYFOG = new THREE.Color(0xc4d3e2), C_NIGHTFOG = new THREE.Color(0x111b2a), C_STORMDAY = new THREE.Color(0xaab5c1), C_STORMNIGHT = new THREE.Color(0x1b2331);
-const C_DAYSKY = new THREE.Color(0xbcd4ec), C_NIGHTSKY = new THREE.Color(0x33476e), _c1 = new THREE.Color(), _c2 = new THREE.Color();
-// the winter sun up here: above the horizon from about nine to half past three, never high, and a long
-// blue twilight either side. The rest is night, stars and the aurora.
-function sunEl(h) { const ph = (h - 8.6) / 7.2; return ph >= 0 && ph <= 1 ? 0.17 * Math.sin(ph * Math.PI) : -0.08 - 0.3 * Math.sin(Math.PI * Math.min(1, (ph < 0 ? -ph : ph - 1) / (16.8 / 7.2))); }
-function dayFactor() { return sstep(-0.1, 0.15, sunEl(GS.hour % 24)); }
+const C_STORMDAY = new THREE.Color(0xaab5c1), C_STORMNIGHT = new THREE.Color(0x1b2331), _c1 = new THREE.Color(), _c2 = new THREE.Color();
+// Real sky geometry for Kjøllefjord (71°N) in late winter: the sun rises in the south-east around
+// eight, crawls to about 10° at noon, sets south-west around four, then takes hours sliding through
+// sunset, civil, nautical and astronomical twilight. The moon runs its own track and phase (a
+// lunar month is ~29 game days), so some nights are bright blue moonlight and some are black.
+const R2D = 180 / Math.PI, LAT = 71 / R2D, SDEC = -9 / R2D, MDEC = 16 / R2D;
+const _sunV = new THREE.Vector3(), _moonV = new THREE.Vector3(), POLE = new THREE.Vector3(0, Math.sin(LAT), -Math.cos(LAT));
+function skyDir(ha, dec, out) {                       // hour angle + declination -> world dir (x east, y up, -z north)
+  const cd = Math.cos(dec), cl = Math.cos(LAT), sl = Math.sin(LAT);
+  return out.set(-cd * Math.sin(ha), sl * Math.sin(dec) + cl * cd * Math.cos(ha), -(cl * Math.sin(dec) - sl * cd * Math.cos(ha)));
+}
+function sunEl(h) { return Math.asin(clamp(skyDir((h - 12) / 12 * Math.PI, SDEC, _sunV).y, -1, 1)) * R2D; }   // degrees
+function dayFactor() { return sstep(-7, 3, sunEl(GS.hour % 24)); }
+// sun elevation (deg): zenith, mid-sky, horizon toward the sun, horizon away, fog, hemi sky, hemi strength, sun glow
+const SKYK = [
+  [-30, [.010, .016, .045], [.025, .038, .085], [.055, .075, .13], [.05, .07, .12], [.062, .098, .155], [.20, .27, .45], .16, [0, 0, 0]],
+  [-18, [.012, .020, .055], [.030, .045, .10], [.07, .09, .15], [.06, .08, .14], [.066, .105, .165], [.20, .27, .45], .17, [.02, .02, .04]],
+  [-12, [.025, .045, .12], [.06, .09, .20], [.16, .16, .27], [.09, .12, .22], [.10, .14, .23], [.22, .30, .52], .20, [.14, .08, .12]],
+  [-6, [.06, .10, .26], [.16, .22, .42], [.55, .36, .38], [.22, .24, .40], [.20, .24, .36], [.30, .38, .62], .28, [.5, .22, .14]],
+  [-2, [.13, .20, .42], [.38, .38, .56], [.95, .52, .34], [.58, .44, .60], [.42, .40, .50], [.52, .52, .70], .38, [.9, .42, .2]],
+  [1, [.20, .30, .54], [.52, .54, .68], [1.0, .66, .42], [.74, .64, .74], [.62, .58, .64], [.70, .68, .78], .48, [1.1, .55, .28]],
+  [5, [.27, .41, .66], [.58, .66, .80], [.95, .82, .70], [.82, .80, .84], [.74, .77, .82], [.72, .80, .90], .56, [.9, .62, .38]],
+  [12, [.30, .46, .70], [.60, .72, .86], [.86, .85, .86], [.86, .85, .86], [.77, .83, .89], [.74, .83, .93], .62, [.6, .43, .27]]
+];
+const SUNK = [[-2, [1, .42, .22]], [1, [1, .55, .32]], [4, [1, .72, .5]], [10, [1, .86, .72]]];
+function keyAt(K, e, i, out) {
+  let j = 0; while (j < K.length - 2 && e > K[j + 1][0]) j++;
+  const t = clamp((e - K[j][0]) / (K[j + 1][0] - K[j][0]), 0, 1), A = K[j][i], B = K[j + 1][i];
+  if (typeof A === "number") return lerp(A, B, t);
+  return out.setRGB(lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t));
+}
+const C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.35, 0.85, 0.55);
 function updSky() {
-  const h = GS.hour % 24, el = sunEl(h), day = sstep(-0.1, 0.15, el), st = GS.storm;
-  const az = (h - 6) / 12 * Math.PI, ce = Math.sqrt(Math.max(0, 1 - el * el));
-  sunDir.set(-Math.cos(az) * ce, Math.max(el, 0.04), 0.7 * ce + 0.2).normalize();
-  sky.material.uniforms.uTime.value = gameClock;
-  sun.intensity = 1.75 * sstep(0.0, 0.18, el) * (1 - 0.75 * st);
-  sun.color.setHSL(0.08, 0.95, lerp(0.62, 0.88, sstep(0.05, 0.5, el)));
-  hemi.intensity = lerp(0.2, 0.62, day);
-  hemi.color.copy(C_NIGHTSKY).lerp(C_DAYSKY, day);
-  _c1.copy(C_NIGHTFOG).lerp(C_DAYFOG, day); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, day); _c1.lerp(_c2, st);
-  scene.fog.color.copy(_c1);
-  scene.fog.density = lerp(0.0017, 0.012, st) + (1 - day) * 0.001;
-  sky.material.uniforms.uDay.value = day; sky.material.uniforms.uStorm.value = st; sky.material.uniforms.uFog.value.copy(_c1);
-  renderer.toneMappingExposure = lerp(0.9, 1.05, day);
-  stars.material.opacity = (1 - day) * (1 - st) * 0.9; stars.position.copy(camera.position);
-  headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, day) * ST.light : 0;
+  const H = GS.hour, h = H % 24, st = GS.storm, u = sky.material.uniforms;
+  // sun
+  skyDir((h - 12) / 12 * Math.PI, SDEC, _sunV); const e = Math.asin(clamp(_sunV.y, -1, 1)) * R2D;
+  // moon: runs ~50 min later every day, so its phase and rise time drift through the month
+  const lag = (H / 24 * 12.19 + 25) % 360 / R2D, illum = 0.5 * (1 + Math.cos(lag));
+  skyDir((h - 12) / 12 * Math.PI + Math.PI - lag, MDEC, _moonV); const me = Math.asin(clamp(_moonV.y, -1, 1)) * R2D;
+  const dayness = sstep(-10, 4, e), night = sstep(-4, -13, e);
+  // aurora activity wanders: quiet some nights, a full storm on others
+  const act = clamp(0.2 + 0.8 * (0.5 + 0.5 * Math.sin(H * 0.41 + 0.7) * Math.sin(H * 0.173 + 2.1)), 0, 1);
+  const aur = sstep(-6, -15, e) * act * (1 - 0.45 * illum * sstep(0, 15, me));
+  u.uTime.value = gameClock; u.uStorm.value = st; u.uAurora.value = aur;
+  u.uSun.value.copy(_sunV); u.uMoon.value.copy(_moonV); u.uMoonI.value = (0.25 + 0.75 * illum) * sstep(0, -8, e) * (1 - st);
+  keyAt(SKYK, e, 1, u.uZen.value); keyAt(SKYK, e, 2, u.uMid.value); keyAt(SKYK, e, 3, u.uHor.value); keyAt(SKYK, e, 4, u.uHorA.value);
+  keyAt(SKYK, e, 8, u.uGlow.value).multiplyScalar(1 - 0.85 * st);
+  // fog tracks the horizon, greyed out by storms
+  keyAt(SKYK, e, 5, _c1); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, dayness); _c1.lerp(_c2, st);
+  scene.fog.color.copy(_c1); u.uFog.value.copy(_c1);
+  scene.fog.density = lerp(0.0017, 0.012, st) + (1 - dayness) * 0.001;
+  // key light: the sun while it's up, handing over to the moon once it's well below (both are dark at
+  // the crossover, so the shadow direction never snaps)
+  const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1, 7, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
+  if (sunI >= moonI) { sun.intensity = sunI; keyAt(SUNK, e, 1, sun.color); sunDir.copy(_sunV); }
+  else { sun.intensity = moonI; sun.color.copy(C_MOON); sunDir.copy(_moonV); }
+  if (sunDir.y < 0.05) { sunDir.y = 0.05; } sunDir.normalize();
+  // sky fill: tinted by the sky, a little extra off moonlit snow, a green cast under a strong aurora
+  hemi.intensity = keyAt(SKYK, e, 7) + 0.1 * illum * moonUp * night * (1 - st);
+  keyAt(SKYK, e, 6, hemi.color).lerp(C_AUR, 0.2 * aur);
+  hemi.groundColor.setRGB(lerp(0.34, 0.91, dayness), lerp(0.40, 0.93, dayness), lerp(0.55, 0.96, dayness));
+  renderer.toneMappingExposure = lerp(0.95, 1.05, dayness);
+  stars.material.uniforms.uOp.value = night * (1 - st) * (0.95 - 0.35 * illum * moonUp); stars.position.copy(camera.position);
+  stars.quaternion.setFromAxisAngle(POLE, -h / 24 * Math.PI * 2); stars.material.uniforms.uTime.value = gameClock;   // the sky wheels round the pole star
+  const df = sstep(-7, 3, e);
+  headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, df) * ST.light : 0;
   headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
 }
 
