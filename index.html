@@ -2,12 +2,12 @@
 <title>Tracklayer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap">
 <style>
   :root{
     --ink:#0d1822; --ink-a:rgba(13,24,34,.72); --frost:#eaf2f8; --slate:#8fa3b3;
     --signal:#ff5a1f; --ice:#7fc8e0; --line:rgba(234,242,248,.14);
-    --display:"Big Shoulders Display","Barlow Semi Condensed","Arial Narrow",sans-serif;
+    --display:"Barlow Semi Condensed","Arial Narrow",sans-serif;
     --body:"Barlow Semi Condensed","Helvetica Neue",Arial,sans-serif;
   }
   [hidden]{display:none!important}
@@ -177,18 +177,18 @@
   .bx{width:44px;height:44px;flex:none;margin:-10px -12px 0 -6px;font-size:18px;color:var(--bink3);background:none;border:0;cursor:pointer}
   .bx:hover{color:var(--bink)}
   .bx:focus-visible{outline:2px solid var(--bink)}
-  .brank{margin-top:8px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:19px;line-height:1.2;color:var(--bink2);text-wrap:balance}
+  .brank{margin-top:8px;font-family:var(--body);font-style:italic;font-weight:500;font-size:19px;line-height:1.2;color:var(--bink2);text-wrap:balance}
   .brule{flex:none;height:2px;margin:10px 0 2px;border-top:1px solid var(--bink);border-bottom:1px solid var(--bink)}
   .bsx{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:10px 0 3px;font-weight:600;font-size:11px;letter-spacing:.2em;color:var(--bink3);text-transform:uppercase}
-  .bsx span:last-child{letter-spacing:.02em;text-transform:none;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:15px;font-weight:500;text-align:right}
-  .bnote{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:16px;line-height:1.25;color:var(--bink3);padding:2px 8px 5px 38px}
+  .bsx span:last-child{letter-spacing:.02em;text-transform:none;font-family:var(--body);font-style:italic;font-size:15px;font-weight:500;text-align:right}
+  .bnote{font-family:var(--body);font-style:italic;font-weight:500;font-size:16px;line-height:1.25;color:var(--bink3);padding:2px 8px 5px 38px}
   .brow{display:grid;grid-template-columns:24px minmax(0,1fr) auto;column-gap:10px;row-gap:1px;align-items:center;width:100%;min-height:46px;box-sizing:border-box;padding:5px 8px 5px 4px;margin:0;border:0;border-top:1px solid transparent;border-bottom:1px solid transparent;background:none;text-align:left;font:inherit;color:var(--bink3);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s}
   .brow.on{background:rgba(226,83,31,.1);border-color:rgba(226,83,31,.38);color:var(--bink)}
   .brow:focus,.brow:focus-visible{outline:none}   /* the band marks the focused line */
   .brow .bk{grid-row:1/3;align-self:center;justify-self:center;min-width:14px;padding:0 3px;font-weight:700;font-size:12px;line-height:16px;text-align:center;color:var(--bink);border:1px solid rgba(31,26,20,.5);border-bottom-width:2px;border-radius:2px}
   .brow .bc{grid-column:2;font-weight:600;font-size:17px;letter-spacing:.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brow.on .bc{color:var(--bink)}
-  .brow .bm{grid-column:2;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:16px;line-height:1.2;color:var(--bink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .brow .bm{grid-column:2;font-family:var(--body);font-style:italic;font-weight:500;font-size:16px;line-height:1.2;color:var(--bink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .brow .bp{grid-column:3;grid-row:1/3;font-family:var(--display);font-weight:800;font-size:21px;color:var(--bpay);font-variant-numeric:tabular-nums}
   .brow .bp small{font-family:var(--body);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--bink3)}
   .bchip{display:inline-block;margin-left:7px;padding:0 5px;font-weight:700;font-size:9.5px;line-height:14px;letter-spacing:.14em;vertical-align:2px;border:1px solid currentColor;border-radius:2px;color:#7b6a58}
@@ -200,7 +200,7 @@
   .gs3{color:#2f7a4a}.gs2{color:#8a6412}.gs1{color:#a0522d}
   .bdet{flex:none;min-height:104px;padding:8px 2px 2px}
   .bdet .dl{font-weight:600;font-size:11px;line-height:1.35;letter-spacing:.16em;color:var(--bink3);text-transform:uppercase}
-  .bdet p{margin:5px 0 0;font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:17px;line-height:1.28;color:var(--bink2)}
+  .bdet p{margin:5px 0 0;font-family:var(--body);font-weight:500;font-size:17px;line-height:1.28;color:var(--bink2)}
   .bdet p .why{font-style:italic}
   .bdet p.warn{color:#a3361b;font-style:italic}
   .bact{display:flex;align-items:center;gap:12px;margin-top:10px}
@@ -217,7 +217,7 @@
   .bcall{position:absolute;left:0;top:0;padding:3px 7px 4px;background:#f4efe3;border:1px solid #2a2119;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .35s;z-index:2}
   .bcall.on{opacity:1}
   .bcall b{display:block;font-weight:600;font-size:12px;line-height:15px;letter-spacing:.08em;font-variant-numeric:tabular-nums;color:var(--bink)}
-  .bcall i{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:500;font-size:14px;line-height:15px;color:#3d3024}
+  .bcall i{display:block;font-family:var(--body);font-style:italic;font-weight:500;font-size:14px;line-height:15px;color:#3d3024}
   @media (max-height:520px){
     .bhdw{padding-top:12px}.beye{display:none}
     .bti{font-size:30px;margin-top:0}.bmoney{font-size:22px;margin-top:2px}.brank{font-size:15px;margin-top:3px}
@@ -390,71 +390,112 @@
     body.touch #tE{top:calc(262px + env(safe-area-inset-top,0px))}
     body.touch #toasts{top:calc(306px + env(safe-area-inset-top,0px))}
   }
-  /* ==== ONE THEME: night-ink glass from First Light + the survey chart's double rules, serif notes and chips ====
+  /* ==== ONE THEME (smooth): night-ink glass, one typeface (Barlow Semi Condensed), soft corners, eased motion ====
      Everything that opens over the ride (title panels, job board, garage, settings, god menu, map, blackout)
-     shares one surface, one header, one row band, one button family and one type pairing. */
-  :root{--panel:rgba(13,24,34,.93);--panel-solid:#101c27;--frost2:#c9d6e0;--pay:#6fd08c;--warm:#ffc26b;--bad:#ff8a6b;
-    --serif:"Cormorant Garamond",Georgia,serif;--rule:rgba(234,242,248,.32);--band:rgba(255,90,31,.12);--bandline:rgba(255,90,31,.45)}
-  /* surface: glass panel, hairline border, inner keyline like the chart's neatline */
-  #settings,#garage,#god,.tpanel,#bSheet{background:var(--panel);border:1px solid var(--line);border-radius:4px;outline:1px solid rgba(234,242,248,.07);outline-offset:-5px;box-shadow:0 24px 60px rgba(0,0,0,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-  .panel{border-radius:4px}
-  #mapWrap{border-radius:14px}
-  /* header: eyebrow, big display title, double rule underneath */
-  .bhead,.tpanel .ph,.bmhead{padding-bottom:12px;margin-bottom:4px;border-bottom:3px double var(--rule)}
-  .brand,.tpanel .pe{font-family:var(--display);font-weight:900;font-size:13px;letter-spacing:.16em;color:var(--signal)}
+     shares one surface, one header, one row band, one button family and one font. */
+  :root{--panel:rgba(13,24,34,.9);--panel-solid:#101c27;--frost2:#c9d6e0;--pay:#6fd08c;--warm:#ffc26b;--bad:#ff8a6b;
+    --serif:var(--body);--rule:rgba(234,242,248,.14);--band:rgba(255,90,31,.14);--bandline:rgba(255,90,31,.5);
+    --r-lg:16px;--r-md:10px;--r-sm:7px;--ease:cubic-bezier(.2,.8,.2,1);--soft:0 30px 80px -20px rgba(0,0,0,.6),0 8px 24px -8px rgba(0,0,0,.35)}
+  html,body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+  #boardRows,#garage,#settings,#god,.tpanel,#bigmap{scroll-behavior:smooth;overscroll-behavior:contain}
+  /* surface: soft glass, rounded, no hard frames */
+  #settings,#garage,#god,.tpanel,#bSheet{background:var(--panel);border:1px solid rgba(234,242,248,.1);border-radius:var(--r-lg);box-shadow:var(--soft),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15)}
+  #settings,#garage,#god{padding:22px}
+  .panel{border-radius:var(--r-md);border-color:rgba(234,242,248,.1);box-shadow:0 10px 30px -12px rgba(0,0,0,.45)}
+  #mapWrap{border-radius:18px}
+  /* panels ease in (the individual `scale` property stacks on each panel's own centring transform) */
+  #settings:not([hidden]),#garage:not([hidden]),#god:not([hidden]),#bSheet,.tpanel{animation:uiIn .34s var(--ease) both}
+  #bigmap:not([hidden]),#board:not([hidden]){animation:uiFade .28s ease both}
+  @keyframes uiIn{from{opacity:0;scale:.965;translate:0 8px}}
+  @keyframes uiFade{from{opacity:0}}
+  /* header: eyebrow, title, one soft hairline */
+  .bhead,.tpanel .ph,.bmhead{padding-bottom:14px;margin-bottom:6px;border-bottom:1px solid var(--rule)}
+  .brand,.tpanel .pe{font-family:var(--body);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--signal)}
   #god .brand{color:var(--signal)}
-  #god{border-color:var(--line)}
-  .btitle,.tpanel .pt{font-family:var(--display);font-weight:900;font-size:36px;line-height:1;color:var(--frost)}
-  .brule{border-color:var(--rule)!important}
-  /* section heads: tracked caps with a hairline running out to the edge */
-  .bsec{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate)}
-  .bsec::after{content:"";flex:1;height:1px;background:var(--line)}
+  #god{border-color:rgba(234,242,248,.1)}
+  .btitle,.tpanel .pt{font-family:var(--display);font-weight:800;font-size:32px;line-height:1.05;letter-spacing:.005em;color:var(--frost)}
+  .brule{height:1px!important;border:0!important;background:var(--rule)}
+  /* section heads: small caps with a fading hairline */
+  .bsec{display:flex;align-items:center;gap:10px;margin-top:14px;font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  .bsec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--rule),transparent)}
   #settings label{min-width:92px}
-  #settings label,.tpanel .pl{font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
-  /* notes and sub-lines: the chart's italic serif */
-  #garageBody .row em,#godList .row em{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;line-height:1.22;color:var(--frost2)}
-  .bfoot,#settings .hint,.tpanel p.pnote,.bmlegend{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;line-height:1.3;color:var(--slate)}
-  .bfoot b,#settings .hint b{font-family:var(--display);font-style:normal;font-weight:800;letter-spacing:.06em;color:var(--frost)}
-  #jobSub{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;color:var(--frost2)}
-  .ti .ts{font-family:var(--serif);font-style:italic;font-size:calc(19px*var(--ts))}
-  #blackMsg{font-family:var(--serif);font-style:italic;font-weight:500;font-size:22px;color:var(--frost2)}
-  #blackMsg b{font-style:normal}
-  /* list rows: flat until chosen, then the signal band (same as the job board) */
-  #garageBody .row,#godList .row{background:rgba(234,242,248,.035);border:1px solid transparent;border-radius:3px;transition:background-color .2s,border-color .2s}
-  #garageBody .row:hover,#godList .row:hover,#garageBody .row:focus-visible,#godList .row:focus-visible{border-color:var(--bandline);outline:none}
+  #settings label,.tpanel .pl{font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+  /* notes and sub-lines: same face, lighter weight */
+  #garageBody .row em,#godList .row em{font-family:var(--body);font-style:normal;font-weight:400;font-size:14px;line-height:1.35;color:var(--frost2)}
+  .bfoot,#settings .hint,.tpanel p.pnote,.bmlegend{font-family:var(--body);font-style:normal;font-weight:400;font-size:14px;line-height:1.45;color:var(--slate)}
+  .bfoot b,#settings .hint b{font-family:var(--body);font-style:normal;font-weight:700;letter-spacing:.04em;color:var(--frost)}
+  #jobSub{font-family:var(--body);font-style:normal;font-weight:400;font-size:13px;color:var(--frost2)}
+  .ti .ts{font-family:var(--body);font-style:normal;font-weight:500;font-size:calc(16px*var(--ts))}
+  #blackMsg{font-family:var(--body);font-style:normal;font-weight:400;font-size:19px;line-height:1.5;color:var(--frost2)}
+  #blackMsg b{font-weight:800}
+  /* job-board copy that used the serif, now the one face */
+  .brank{font-style:normal;font-weight:400;font-size:15px;line-height:1.35;color:var(--frost2)}
+  .bsx span:last-child{font-style:normal;font-weight:400;font-size:12px;letter-spacing:.02em}
+  .bnote,.brow .bm{font-style:normal;font-weight:400;font-size:13px}
+  .bdet p{font-size:15px;line-height:1.4}
+  .bdet p .why,.bdet p.warn{font-style:normal}
+  .bcall i{font-style:normal;font-weight:500;font-size:12px}
+  .beye,.bsx,.bdet .dl,.bfoot2{letter-spacing:.1em}
+  .bti{font-weight:800;font-size:40px;line-height:.95}
+  /* big display type everywhere uses the same face at its heaviest */
+  .tlogo{font-weight:800;letter-spacing:-.01em;line-height:.84}
+  .ti .tl{font-weight:700;letter-spacing:.03em}
+  #spd,#blackMsg b,#zone .name,#jobTitle{font-weight:800}
+  .pill,#zone .brand,.teye,.ttag,.tkeys,.tload{letter-spacing:.1em}
+  /* list rows: soft cards that ease into the signal band */
+  #garageBody .row,#godList .row{background:rgba(234,242,248,.04);border:1px solid transparent;border-radius:var(--r-md);transition:background-color .25s var(--ease),border-color .25s var(--ease),transform .25s var(--ease)}
+  #garageBody .row:hover,#godList .row:hover,#garageBody .row:focus-visible,#godList .row:focus-visible{background:rgba(234,242,248,.07);border-color:rgba(255,90,31,.32);outline:none}
+  #garageBody button.row:not(.owned):active,#godList .row:active{transform:scale(.99)}
   #garageBody .row.fitted,#godList .row.sel,.brow.on{background:var(--band);border-color:var(--bandline)}
-  #garageBody .row.ask:hover{border-color:transparent}
+  #garageBody .row.ask:hover{border-color:transparent;background:rgba(234,242,248,.04)}
+  .brow{border-radius:var(--r-sm);border:1px solid transparent;transition:background-color .25s var(--ease),border-color .25s var(--ease)}
+  #godList .row .val{border-radius:999px;padding:2px 10px;transition:background-color .2s,color .2s,border-color .2s}
   #godList .row.on .val{color:#fff;background:var(--signal);border-color:var(--signal)}
   /* money is always the same green */
   .bcash,#garageBody .row .pay,#garageBody .acts button,.bmoney,.brow .bp{color:var(--pay)}
-  /* one button family: display caps, frost outline; the primary action is signal-filled */
-  .sbtn,.pbtn,.bgo,#garageBody .acts button{font-family:var(--display);font-weight:800;letter-spacing:.08em;background:rgba(234,242,248,.06);border:1px solid rgba(234,242,248,.2);border-radius:3px;cursor:pointer;transition:border-color .15s,background-color .15s}
+  /* one button family: soft pills of the same face; the primary action is signal-filled */
+  .sbtn,.pbtn,.bgo,#garageBody .acts button{font-family:var(--body);font-weight:700;letter-spacing:.04em;background:rgba(234,242,248,.07);border:1px solid rgba(234,242,248,.14);border-radius:var(--r-md);cursor:pointer;transition:border-color .2s var(--ease),background-color .2s var(--ease),transform .15s var(--ease),filter .2s}
   .sbtn,.pbtn,.bgo{color:var(--frost)}
-  .sbtn{font-size:15px}
-  .sbtn:hover,.pbtn:hover,.bgo:hover,#garageBody .acts button:hover{border-color:var(--frost);background:rgba(234,242,248,.1)}
-  .sbtn.st.on{border-color:var(--signal);background:var(--band);color:var(--frost)}
-  .pbtn.go,.bgo:not(.blocked){color:#fff;background:#db4d1a;border-color:transparent}
-  .pbtn.go:hover,.bgo:not(.blocked):hover{filter:brightness(1.12);background:#db4d1a}
-  .bgo.blocked{color:var(--slate);background:transparent;border-color:var(--line)}
-  .sbtn:focus-visible,.bgo:focus-visible,#garageBody .acts button:focus-visible{outline:2px solid var(--frost);outline-offset:3px}
-  .xbtn,.tx,.bx{color:var(--slate)}
-  .xbtn:hover,.tx:hover,.bx:hover{color:var(--frost)}
-  /* chips and keycaps */
-  .bchip,#garageBody .tag{display:inline-block;justify-self:start;padding:0 5px;font-family:var(--body);font-weight:700;font-size:9.5px;line-height:14px;letter-spacing:.14em;border:1px solid currentColor;border-radius:2px;color:#a9b8c5;vertical-align:2px}
+  .sbtn{font-size:14px;padding:7px 14px}
+  .sbtn:hover,.pbtn:hover,.bgo:hover,#garageBody .acts button:hover{border-color:rgba(234,242,248,.4);background:rgba(234,242,248,.12)}
+  .sbtn:active,.pbtn:active,.bgo:active,#garageBody .acts button:active{transform:scale(.97)}
+  .sbtn.st.on{border-color:var(--bandline);background:var(--band);color:var(--frost)}
+  .pbtn.go,.bgo:not(.blocked){color:#fff;background:linear-gradient(180deg,#ef6128,#d8491a);border-color:transparent;box-shadow:0 6px 18px -6px rgba(255,90,31,.6)}
+  .pbtn.go:hover,.bgo:not(.blocked):hover{filter:brightness(1.1);background:linear-gradient(180deg,#ef6128,#d8491a)}
+  .bgo{border-radius:var(--r-md)}
+  .bgo.blocked{color:var(--slate);background:transparent;border-color:var(--rule)}
+  .sbtn:focus-visible,.bgo:focus-visible,.pbtn:focus-visible,#garageBody .acts button:focus-visible{outline:2px solid rgba(234,242,248,.7);outline-offset:2px}
+  .xbtn,.tx,.bx{color:var(--slate);border-radius:999px;transition:color .2s,background-color .2s}
+  .xbtn:hover,.tx:hover,.bx:hover{color:var(--frost);background:rgba(234,242,248,.08)}
+  /* inputs */
+  #settings input[type=range]{accent-color:var(--signal)}
+  .sw{border-radius:50%;transition:transform .2s var(--ease),border-color .2s}
+  .sw:hover{transform:scale(1.08)}
+  .chip{border-radius:50%}
+  /* chips and keycaps: pills */
+  .bchip,#garageBody .tag{display:inline-block;justify-self:start;padding:0 7px;font-family:var(--body);font-weight:700;font-size:10px;line-height:16px;letter-spacing:.08em;border:1px solid currentColor;border-radius:999px;color:#a9b8c5;vertical-align:2px}
   .bchip.heavy{color:#e8b25a}.bchip.priority,.bchip.due{color:#ff7a5a}.bchip.expedition{color:#b9a2f5}.bchip.grooming{color:var(--ice)}.bchip.fragile{color:#f2a27a}
-  .brow .bk,.bact kbd,.bfoot2 kbd,.tkeys kbd{color:var(--frost);border:1px solid rgba(234,242,248,.3);border-bottom-width:2px;border-radius:3px}
-  /* the job board, re-inked: dark sheet, the survey chart kept as a paper map inset */
-  #board{background:rgba(5,9,13,.5)}
+  .brow .bk,.bact kbd,.bfoot2 kbd,.tkeys kbd{font-family:var(--body);color:var(--frost);background:rgba(234,242,248,.06);border:1px solid rgba(234,242,248,.2);border-bottom-width:2px;border-radius:6px}
+  /* the job board: dark sheet, the survey chart as a rounded paper inset */
+  #board{background:rgba(5,9,13,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
   #bSheet{--bink:var(--frost);--bink2:var(--frost2);--bink3:var(--slate);--bacc:var(--signal);--bpay:var(--pay);background-color:var(--panel);background-image:none!important;color:var(--frost)}
-  #boardRows{scrollbar-color:rgba(234,242,248,.25) transparent}
+  #boardRows{scrollbar-color:rgba(234,242,248,.2) transparent}
   #bSheet.stack .bmapw{background:var(--panel-solid)}
-  .bmapi{box-shadow:0 0 0 1px rgba(234,242,248,.22),0 0 0 5px rgba(13,24,34,.9),0 0 0 6px rgba(234,242,248,.1),0 12px 32px rgba(0,0,0,.45)}
-  .bcall{--bink:#1f1a14}
+  .bmapi{border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(234,242,248,.14),0 14px 36px -10px rgba(0,0,0,.55)}
+  .bcall{--bink:#1f1a14;border-radius:6px;border-color:rgba(42,33,25,.5)}
   .bdet p.warn{color:var(--bad)}
   .gs3{color:var(--pay)}.gs2{color:var(--warm)}.gs1{color:var(--bad)}
-  .toast{border-radius:3px}
-  @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(22px*var(--ts))}.tpanel .pt{font-size:28px}}
-  @media (max-height:520px){.btitle{font-size:28px}}
+  /* HUD bits */
+  .toast{border-radius:10px;box-shadow:0 10px 26px -12px rgba(0,0,0,.5)}
+  .pill{border-radius:999px}
+  .gauge .bar,#drag{border-radius:999px}
+  #fuelFill,#warmFill,#dragFill{border-radius:999px;transition:width .35s var(--ease),background-color .3s}
+  #bigmapC{border-radius:16px;box-shadow:var(--soft)}
+  .tb{transition:background-color .15s,transform .12s var(--ease)}
+  .tb.on{transform:scale(.94)}
+  @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(19px*var(--ts))}.tpanel .pt{font-size:26px}}
+  @media (max-height:520px){.btitle{font-size:26px}.bti{font-size:28px}}
+  @media (prefers-reduced-motion:reduce){#settings,#garage,#god,#bSheet,.tpanel,#bigmap,#board{animation:none!important}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -625,5 +666,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=23"></script>
+<script src="tracklayer.js?v=24"></script>
 </body></html>

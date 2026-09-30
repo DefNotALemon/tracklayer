@@ -3306,7 +3306,7 @@ function toast(msg, kind) {
 // already packed. Pick a line on the left and the chart plots it on the right.
 const CT = { N: 513, RN: 257, ready: false, lv: null, water: null, coast: null, lakes: null, rh: null, rm: null, tf: null, dist: null, par: null, hp: null, pos: null, routes: {}, base: null, baseKey: "", tint: null, fonts: 0 };
 const CT_REF = 700, CT_KM = CT_REF * 1000 / WORLD, CT_INK = "#1f1a14", CT_PAPER = "#ede6d3", CT_ACC = "#e2531f";
-const CT_SANS = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif", CT_SERIF = "'Cormorant Garamond', Georgia, serif", CT_SEA_INK = "#2e4b63";
+const CT_SANS = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif", CT_SERIF = "'Barlow Semi Condensed', 'Arial Narrow', sans-serif", CT_SEA_INK = "#2e4b63";
 const CT_LEVELS = [], CT_WATER = [-27, -20, -14, -9, -5, 0];
 for (let h = 25; h <= 450; h += 25) CT_LEVELS.push(h);
 const ctX = v => (v + HALF) * CT_REF / WORLD;                     // world metres -> chart units (0..700)
