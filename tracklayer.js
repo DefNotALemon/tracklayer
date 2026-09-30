@@ -218,14 +218,26 @@ const smoothRide = (x, z) => { const s = smoothSurf(x, z); return bioAt(x, z) ==
 
 /* ---------------- three.js setup ---------------- */
 const canvas = $("gl");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+// Graphics profile. Phones and tablets get "low" unless Settings says otherwise: no MSAA, a smaller
+// hard-edged shadow map drawn every other frame, shorter tree and terrain draw distance behind a
+// touch more fog, and a render scale that drops on its own when the frame rate does.
+const GFX = (() => {
+  let pick = "auto"; try { pick = (JSON.parse(localStorage.getItem("tracklayer.set.v1") || "{}").gfx) || "auto"; } catch (e) { }
+  const touchy = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || navigator.maxTouchPoints > 1;
+  const q = /[?&]gfx=low\b/.test(location.search) ? "low" : /[?&]gfx=high\b/.test(location.search) ? "high" : pick === "auto" ? (touchy ? "low" : "high") : pick;
+  const low = q === "low", dpr = window.devicePixelRatio || 1;
+  return { pick, low, prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: low ? 0.55 : 0.75, pr: Math.min(dpr, low ? 1 : 1.5),
+    treeR: low ? 750 : 1700, farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
+})();
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX.low, powerPreference: "high-performance" });
+renderer.setPixelRatio(GFX.pr);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = GFX.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 const FOG = new THREE.Color(0xc4d3e2);
@@ -238,7 +250,7 @@ const sunDir = new THREE.Vector3(-0.55, 0.3, 0.78).normalize();
 const hemi = new THREE.HemisphereLight(0xbcd4ec, 0xe9eef5, 0.62); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffd6ae, 1.75);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(GFX.low ? 1024 : 2048, GFX.low ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 500 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
@@ -287,7 +299,19 @@ let pox = -99999, poz = -99999;
 let pdata = new Float32Array(S * S * 4), pdata2 = new Float32Array(S * S * 4);
 const snowTex = new THREE.DataTexture(pdata, S, S, THREE.RGBAFormat, THREE.FloatType);
 snowTex.minFilter = snowTex.magFilter = THREE.NearestFilter; snowTex.generateMipmaps = false;
-let snowDirty = false;
+let snowDirty = false, snowJ0 = 1e9, snowJ1 = -1, snowFull = true;
+// Only the rows the sled actually dug get re-sent to the GPU (texSubImage2D), instead of the
+// whole 2.5 MB float texture every frame. Recentering the patch still sends the lot.
+function flushSnow() {
+  if (!snowDirty) return;
+  snowDirty = false;
+  const j0 = snowJ0, j1 = snowJ1; snowJ0 = 1e9; snowJ1 = -1;
+  const tp = renderer.properties.get(snowTex), gl = renderer.getContext();
+  if (snowFull || !renderer.capabilities.isWebGL2 || !tp.__webglTexture || tp.__version !== snowTex.version || j1 < j0) { snowTex.needsUpdate = true; snowFull = false; return; }
+  renderer.state.bindTexture(gl.TEXTURE_2D, tp.__webglTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, j0, S, j1 - j0 + 1, gl.RGBA, gl.FLOAT, pdata.subarray(j0 * S * 4, (j1 + 1) * S * 4));
+}
 
 function buildGridIndex(n) {
   const idx = new Uint32Array((n - 1) * (n - 1) * 6); let p = 0;
@@ -357,7 +381,8 @@ function fillCell(arr, i, j, ix, iz) {
 }
 const farU = { uPatch: { value: new THREE.Vector4(-1e6, -1e6, -1e6, -1e6) }, uTrail: { value: null } };
 function recenter(px, pz, force) {
-  let cx = Math.round(((px + HALF) / CELL - PHALF) / 16) * 16, cz = Math.round(((pz + HALF) / CELL - PHALF) / 16) * 16;
+  const rs = GFX.recStep;
+  let cx = Math.round(((px + HALF) / CELL - PHALF) / rs) * rs, cz = Math.round(((pz + HALF) / CELL - PHALF) / rs) * rs;
   cx = clamp(cx, 0, FN - S); cz = clamp(cz, 0, FN - S);
   if (!force && cx === pox && cz === poz) return;
   const src = pdata, dst = pdata2, dx = cx - pox, dz = cz - poz;
@@ -369,7 +394,7 @@ function recenter(px, pz, force) {
     for (let i = 0; i < S; i++) { if (rowOK && i >= i0 && i <= i1) continue; fillCell(dst, i, j, cx + i, cz + j); }
   }
   pdata = dst; pdata2 = src; pox = cx; poz = cz;
-  snowTex.image.data = pdata; snowTex.needsUpdate = true;
+  snowTex.image.data = pdata; snowTex.needsUpdate = true; snowFull = true; snowDirty = false; snowJ0 = 1e9; snowJ1 = -1;
   const wx = cx * CELL - HALF, wz = cz * CELL - HALF;
   patchMesh.position.set(wx, 0, wz);
   farU.uPatch.value.set(wx, wz, wx + (S - 1) * CELL, wz + (S - 1) * CELL);
@@ -379,7 +404,7 @@ function writeCell(ix, iz, oldD, newD, f) {
   if (i < 0 || j < 0 || i >= S || j >= S) return;
   const o = (j * S + i) * 4;
   pdata[o] += newD - oldD; pdata[o + 1] = packOf(newD, f);
-  snowDirty = true;
+  snowDirty = true; if (j < snowJ0) snowJ0 = j; if (j > snowJ1) snowJ1 = j;
 }
 
 /* ---------------- trail map (far terrain tint + minimap) ---------------- */
@@ -1440,6 +1465,7 @@ function updTouch() {
   $("touch").classList.toggle("modal", modal);
   const lbl = GS.near === garageSite ? "GARAGE" : GS.near === depot ? "JOB BOARD" : null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
+  const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
   const wd = winchDef(), foot = FOOT.on;
   const q = $("tQ"); q.hidden = !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
   const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
@@ -1461,6 +1487,7 @@ function updTouch() {
       else if (k === "map") toggleBigMap();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "e") gameKey({ code: "KeyE" });
+      else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
       else if (k === "x") gameKey({ code: "KeyX" });
       else if (k === "help") gameKey({ code: "KeyF" });
@@ -1512,6 +1539,7 @@ function readInput(dt) {
     if (started && GS.boardOpen && !godOpen) boardPad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
+    const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
   if (!started || GS.boardOpen) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
@@ -1605,10 +1633,20 @@ function crater(x, z, amt) {
 // trailer rolls if you corner it too hard.
 const HITCH = {
   groomer: { len: 2.0, r: 1.2, mass: 95, w: 2.4, tip: 99 },
+  tiller: { len: 2.5, r: 1.3, mass: 240, w: 2.6, wide: 5.8, tip: 99 },
   trailer: { len: 2.75, r: 0.8, mass: 70, w: 1.05, tip: 0.8 },
   flatbed: { len: 3.2, r: 0.95, mass: 125, w: 1.35, tip: 0.95 }
 };
-const TOW = { kind: null, x: 0, z: 0, y: 0, yaw: 0, spd: 0, yr: 0, roll: 0, mass: 0, drag: 0, tipT: 0, tipDir: 1, hitT: 0, score: 0, maxScore: 0, vis: {}, vkind: null, pitchV: 0, rollV: 0 };
+const isGroomer = k => k === "groomer" || k === "tiller";
+const TOW = { wing: 0, wingOn: false, kind: null, x: 0, z: 0, y: 0, yaw: 0, spd: 0, yr: 0, roll: 0, mass: 0, drag: 0, tipT: 0, tipDir: 1, hitT: 0, score: 0, maxScore: 0, vis: {}, vkind: null, pitchV: 0, rollV: 0 };
+// the tiller's hydraulic wings: G / pad LB / the WINGS pad button slides them out to each side
+const towWidth = H => H.wide ? H.w + (H.wide - H.w) * TOW.wing : H.w;
+function toggleWings() {
+  if (!started || GS.dead) return;
+  if (GS.own.parts.hitch !== "tiller") { if (isGroomer(GS.own.parts.hitch)) toast("The drag has no wings. The wing tiller at the garage folds out to almost six metres.", "warn"); return; }
+  TOW.wingOn = !TOW.wingOn; if (typeof whump === "function") whump(0.25);
+  toast(TOW.wingOn ? "Wings out: grooming 5.8 m of trail. Mind the trees." : "Wings folded: back to 2.6 m.");
+}
 function hitchBack(rack) { return 2.1 + (rack === "freight" ? 0.3 : rack === "stretch" ? 0.15 : 0); }
 function hitchPt() { const b = hitchBack(GS.own.parts.rack); return [P.x - Math.sin(P.yaw) * b, P.z - Math.cos(P.yaw) * b]; }
 function towSnap() {
@@ -1646,18 +1684,21 @@ function groomStamp(x, z, fx, fz, w) {
     }
   }
   markTrail(x, z); markTrail(x + lx * hw * 0.7, z + lz * hw * 0.7); markTrail(x - lx * hw * 0.7, z - lz * hw * 0.7);
+  if (w > 3.5) { markTrail(x + lx * hw * 0.35, z + lz * hw * 0.35); markTrail(x - lx * hw * 0.35, z - lz * hw * 0.35); }
 }
 function towStep(dt) {
   const kind = GS.own.parts.hitch, H = HITCH[kind];
   if (!H) { TOW.kind = null; TOW.mass = 0; TOW.drag = 0; return; }
   if (TOW.kind !== kind) { TOW.kind = kind; towSnap(); }
+  if (!H.wide) TOW.wingOn = false;
+  TOW.wing += clamp((TOW.wingOn ? 1 : 0) - TOW.wing, -dt / 1.6, dt / 1.6);   // hydraulics take a moment
   const [hx, hz] = hitchPt();
   let tx = TOW.x, tz = TOW.z;
   // side-hill: nothing brakes a trailer sideways, so it creeps downhill while it moves
   if (TOW.spd > 0.5) {
     const e = 1, gx = (smoothSurf(tx + e, tz) - smoothSurf(tx - e, tz)) / (2 * e), gz = (smoothSurf(tx, tz + e) - smoothSurf(tx, tz - e)) / (2 * e);
     const gm = Math.hypot(gx, gz), steep = Math.max(0, gm - 0.22) / (gm || 1);   // only a real side-hill
-    const creep = (kind === "groomer" ? 0.8 : 2.2) * steep * Math.min(1, TOW.spd / 6);
+    const creep = (isGroomer(kind) ? (kind === "tiller" ? 0.5 : 0.8) : 2.2) * steep * Math.min(1, TOW.spd / 6);
     tx -= gx * creep * dt; tz -= gz * creep * dt;
   }
   let dx = hx - tx, dz = hz - tz, d = Math.hypot(dx, dz) || 1;
@@ -1668,11 +1709,16 @@ function towStep(dt) {
   const gxi = Math.floor((tx + HALF) / OBC), gzi = Math.floor((tz + HALF) / OBC);
   let snag = false;
   TOW.ghostT = Math.max(0, (TOW.ghostT || 0) - dt);
-  if (TOW.ghostT <= 0) for (let j = gzi - 1; j <= gzi + 1; j++) for (let i = gxi - 1; i <= gxi + 1; i++) {
+  // the body, plus each wing tip once the wings are out
+  const probes = [[0, H.r]];
+  if (H.wide && TOW.wing > 0.05) { const reach = towWidth(H) / 2 - 0.55; probes.push([reach, 0.6], [-reach, 0.6], [reach * 0.6, 0.6], [-reach * 0.6, 0.6]); }
+  const ly0 = Math.cos(TOW.yaw), lz0 = -Math.sin(TOW.yaw);
+  if (TOW.ghostT <= 0) for (const [po, pr] of probes) for (let j = gzi - 2; j <= gzi + 2; j++) for (let i = gxi - 2; i <= gxi + 2; i++) {
     const a = obGrid.get(j * OBW + i); if (!a) continue;
     for (const o of a) {
       if (TOW.y > o.top - 0.1) continue;
-      const ox = tx - o.x, oz = tz - o.z, o2 = ox * ox + oz * oz, rr = H.r + o.r;
+      const px = tx + ly0 * po, pz = tz + lz0 * po;
+      const ox = px - o.x, oz = pz - o.z, o2 = ox * ox + oz * oz, rr = pr + o.r;
       if (o2 >= rr * rr || o2 < 1e-6) continue;
       const od = Math.sqrt(o2), nx = ox / od, nz = oz / od;
       tx += nx * (rr - od); tz += nz * (rr - od); snag = true;
@@ -1681,7 +1727,7 @@ function towStep(dt) {
       if (vin > 3 && TOW.hitT <= 0) {
         TOW.hitT = 0.6; thud(Math.min(0.9, vin / 18)); P.shake = Math.max(P.shake, Math.min(0.5, vin / 24));
         P.vx *= 0.72; P.vz *= 0.72;
-        bigHit(clamp((vin - 3) * 3.2, 3, 26), o.tree !== undefined ? (kind === "groomer" ? "Groomer clipped a tree." : "Trailer clipped a tree.") : (kind === "groomer" ? "Groomer hit rock." : "Trailer slammed into rock."));
+        bigHit(clamp((vin - 3) * 3.2, 3, 26), o.tree !== undefined ? (isGroomer(kind) ? (TOW.wing > 0.3 ? "Groomer wing clipped a tree." : "Groomer clipped a tree.") : "Trailer clipped a tree.") : (isGroomer(kind) ? "Groomer hit rock." : "Trailer slammed into rock."));
       }
     }
   }
@@ -1707,10 +1753,10 @@ function towStep(dt) {
   TOW.yr += (dy / dt - TOW.yr) * (1 - Math.exp(-5 * dt));
   TOW.x = tx; TOW.z = tz; TOW.yaw = yaw;
   TOW.spd += (Math.hypot(vx, vz) - TOW.spd) * (1 - Math.exp(-10 * dt));
-  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = H.w / 2;
+  const W = towWidth(H), fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = W / 2;
   TOW.y = rideSurf(tx, tz);
   const hL = rideSurf(tx + lx * hw, tz + lz * hw), hR = rideSurf(tx - lx * hw, tz - lz * hw);
-  TOW.roll = Math.atan2(hL - hR, H.w);
+  TOW.roll = Math.atan2(hL - hR, W);
   // load: what's aboard, and what the snow asks of it
   const cargoKg = bigLoads().reduce((a, j) => a + j.kg, 0);
   TOW.mass = H.mass + cargoKg;
@@ -1721,7 +1767,7 @@ function towStep(dt) {
   }
   const moving = TOW.spd > 0.4 ? 1 : 0;
   // it bites harder the faster you drag it, so you can always crawl a load out of a standstill
-  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0)
+  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "tiller" ? (380 + 1700 * loose) * (0.8 + 0.2 * W / H.w) : kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0)
     + (isSea(tx, tz) ? moving * (300 + TOW.mass * 0.9 + 1.2 * TOW.spd * TOW.spd) : 0);   // a trailer on water is a sea anchor
   // rolling it: side slope plus how hard you're whipping it round a corner
   const lat = TOW.spd * TOW.yr / G;
@@ -1738,9 +1784,9 @@ function towStep(dt) {
   }
   // it leaves its own mark on the snow
   if (moving && TOW.tipT <= 0) {
-    if (kind === "groomer") {
-      groomStamp(tx, tz, fx, fz, H.w);
-      if (GS.groomJob) groomProgress(tx, tz);
+    if (isGroomer(kind)) {
+      groomStamp(tx, tz, fx, fz, W);
+      if (GS.groomJob) groomProgress(tx, tz, W);
     } else {
       const o = hw * 0.8;
       stampAt(tx + lx * o, tz + lz * o, fx, fz); stampAt(tx - lx * o, tz - lz * o, fx, fz);
@@ -1780,6 +1826,43 @@ function buildTow() {
     for (const s of [-1, 1]) box(g, 0.1, 0.06, 0.03, amber, s * 1.1, 0.42, -0.1);
     tongue(g, 0.55, 0.36, 1.2);
     V2.groomer = g; }
+
+  // wing tiller: a tractor-style implement. Red hood over a spinning tiller drum, finisher mat
+  // behind, and two hydraulic wings hinged at the hood's edges that fold down and out.
+  { const g = new THREE.Group(); g.visible = false; scene.add(g);
+    const redT = std(0xb8261c, 0.45, 0.25), matB = std(0x202328, 0.9), drums = [];
+    const hood = (par, w, x) => {
+      box(par, w, 0.08, 0.95, redT, x, 0.62, 0);                           // hood top
+      box(par, w, 0.5, 0.06, redT, x, 0.4, 0.46, 0.25);                     // front skirt
+      box(par, w, 0.3, 0.06, redT, x, 0.5, -0.46);                          // back
+      const d = cyl(par, 0.27, w - 0.08, steel, x, 0.3, 0, 0, 0, Math.PI / 2, 10); drums.push(d);
+      for (let i = 0; i < 6; i++) { const t = cyl(d, 0.29, 0.03, dark, 0, -w / 2 + 0.2 + i * (w - 0.4) / 5, 0, 0, 0, 0, 10); t.castShadow = false; }
+      box(par, w, 0.03, 0.9, matB, x, 0.04, -0.95, 0.12);                   // finisher mat
+      const n = Math.round(w / 0.14); for (let i = 0; i < n; i++) box(par, 0.05, 0.06, 0.14, black, x - w / 2 + 0.07 + i * (w - 0.14) / (n - 1), 0.01, -1.42);
+    };
+    hood(g, 2.6, 0);
+    for (const s of [-1, 1]) { box(g, 0.1, 0.62, 1.1, redT, s * 1.27, 0.34, 0); box(g, 0.14, 0.14, 0.14, steel, s * 1.3, 0.6, 0.3); }
+    box(g, 1.2, 0.12, 0.12, steel, 0, 0.72, 0.35);                          // lift frame
+    for (const s of [-1, 1]) box(g, 0.1, 0.35, 0.1, steel, s * 0.55, 0.62, 0.45, 0.4);
+    box(g, 0.5, 0.35, 0.4, black, 0, 0.85, 0.1);                            // hydraulic pack
+    cyl(g, 0.09, 0.3, std(0x2b3440, 0.5, 0.4), 0.15, 1.08, 0.1);
+    box(g, 0.5, 0.1, 0.03, std(0xeef2f5, 0.5), -0.8, 0.62, 0.5, 0.25); box(g, 0.5, 0.1, 0.03, std(0xeef2f5, 0.5), 0.8, 0.62, 0.5, 0.25);
+    const beacons = [], bMat = amber.clone();                               // its own, so the flashing stays on this rig
+    for (const s of [-1, 1]) beacons.push(box(g, 0.12, 0.12, 0.12, bMat, s * 0.35, 1.08, 0.1));
+    const wings = [];
+    for (const s of [-1, 1]) {
+      const pv = new THREE.Group(); pv.position.set(s * 1.32, 0.64, 0); g.add(pv);
+      const w = new THREE.Group(); w.position.set(0, -0.64, 0); pv.add(w);
+      hood(w, 1.6, s * 0.82);
+      box(w, 0.08, 0.6, 1.0, redT, s * 1.62, 0.32, 0);                      // end plate
+      box(w, 0.1, 0.06, 0.03, amber, s * 1.64, 0.5, 0.3);
+      box(w, 0.04, 0.04, 1.4, std(0xffd23a, 0.5), s * 1.66, 0.64, -0.1);    // width marker rod
+      const ram = cyl(g, 0.05, 0.7, std(0xc9d1d9, 0.25, 0.8), s * 0.95, 0.95, -0.1, 0, 0, 0, 8); ram.userData.s = s;
+      wings.push({ pv, s, ram });
+    }
+    tongue(g, 0.55, 0.62, 1.6);
+    g.userData.wings = wings; g.userData.drums = drums; g.userData.beacons = beacons;
+    V2.tiller = g; }
 
   // freight sled trailer: poly tub on runners
   { const g = new THREE.Group(); g.visible = false; scene.add(g);
@@ -1842,15 +1925,27 @@ function towVisual(dt) {
   if (kind !== TOW.kind) {                                   // a garage preview: hang it straight off the back
     const b = hitchBack(GS.own.parts.rack) + H.len; x = P.x - Math.sin(P.yaw) * b; z = P.z - Math.cos(P.yaw) * b; yaw = P.yaw;
   }
-  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, half = kind === "flatbed" ? 1.4 : kind === "trailer" ? 1.0 : 0.45, hw = H.w / 2;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, half = kind === "flatbed" ? 1.4 : kind === "trailer" ? 1.0 : kind === "tiller" ? 0.7 : 0.45, TW = towWidth(H), hw = TW / 2;
   const pT = Math.atan2(rideSurf(x + fx * half, z + fz * half) - rideSurf(x - fx * half, z - fz * half), half * 2);
-  let rT = Math.atan2(rideSurf(x + lx * hw, z + lz * hw) - rideSurf(x - lx * hw, z - lz * hw), H.w);
+  let rT = Math.atan2(rideSurf(x + lx * hw, z + lz * hw) - rideSurf(x - lx * hw, z - lz * hw), TW);
   const k = 1 - Math.exp(-12 * dt);
   TOW.pitchV += (pT - TOW.pitchV) * k; TOW.rollV += (rT - TOW.rollV) * k;
   let tipR = 0, tipY = 0;
   if (TOW.tipT > 0 && kind === TOW.kind) { const t = 2.4 - TOW.tipT, e = t < 0.25 ? t / 0.25 : TOW.tipT < 0.5 ? TOW.tipT / 0.5 : 1; tipR = TOW.tipDir * 1.45 * e; tipY = 0.35 * e; }
   g.position.set(x, rideSurf(x, z) - 0.02 + tipY, z);
   g.rotation.set(-TOW.pitchV, yaw, TOW.rollV + tipR, "YXZ");
+  // the tiller's wings fold down and out, the drums spin with ground speed, the beacons flash
+  if (g.userData.wings) {
+    const w = kind === TOW.kind ? TOW.wing : 0, e = w * w * (3 - 2 * w);
+    for (const W of g.userData.wings) {
+      W.pv.rotation.z = W.s * (Math.PI / 2 + 0.12) * (1 - e);
+      W.ram.rotation.z = W.s * (0.2 + 1.0 * e); W.ram.position.x = W.s * (0.95 + 0.25 * e); W.ram.position.y = 0.95 - 0.2 * e;
+    }
+    const spin = (kind === TOW.kind ? TOW.spd : 0) / 0.27 * dt;
+    for (const d of g.userData.drums) d.rotation.x -= spin;
+    const on = TOW.wingOn || (w > 0.02 && w < 0.98), lit = on && Math.sin(performance.now() / 110) > 0;
+    g.userData.beacons[0].material.emissiveIntensity = lit ? 2.6 : on ? 0.4 : 0.9;
+  }
   // stretch the tongue to the ball on the sled
   const tg = g.userData.tongue, arm = g.userData.arm;
   sledRoot.updateMatrixWorld(); g.updateMatrixWorld();
@@ -3022,7 +3117,7 @@ function acceptJob(k) {
   toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} on the rack.`);
   renderBoard(); applyLoadout(); save();
 }
-const HITCH_NAME = { groomer: "a groomer drag", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
+const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
   if (c.rescue) {
@@ -3032,7 +3127,7 @@ function acceptContract(k) {
   }
   const hitch = GS.own.parts.hitch;
   if (c.groom) {
-    if (hitch !== "groomer") { toast("That's grooming work. Nordkinn Skuter & Service sells a groomer drag for the hitch.", "warn"); return; }
+    if (!isGroomer(hitch)) { toast("That's grooming work. Nordkinn Skuter & Service sells a groomer drag for the hitch.", "warn"); return; }
     if (GS.groomJob) { toast("Finish the line you're grooming first.", "warn"); return; }
     c.pts = groomLine(depot, c.dest); GS.groomJob = c; GS.contracts.splice(k, 1);
     toast(`Groom the line to ${c.dest.name}. The dots on the map are the stretches still to do.`);
@@ -3057,8 +3152,12 @@ function groomLine(a, b) {
   }
   return pts;
 }
-function groomProgress(x, z) {
-  for (const p of GS.groomJob.pts) if (!p.done && Math.abs(p.x - x) < 11 && Math.abs(p.z - z) < 11 && Math.hypot(p.x - x, p.z - z) < 11) p.done = true;
+function groomProgress(x, z, w = 2.4) {
+  const R = 11 + Math.max(0, w - 2.4) * 0.5, wide = w > 4.5;
+  for (const p of GS.groomJob.pts) if (Math.abs(p.x - x) < R && Math.abs(p.z - z) < R && Math.hypot(p.x - x, p.z - z) < R) {
+    if (!p.done) p.done = true;
+    if (wide) p.wide = true;
+  }
 }
 const groomFrac = g => g.pts.length ? g.pts.filter(p => p.done).length / g.pts.length : 1;
 function finishGroom(site) {
@@ -3067,6 +3166,8 @@ function finishGroom(site) {
   if (fr < 0.7) { if (gameClock - (g.nagT || -99) > 12) { g.nagT = gameClock; toast(`Only ${Math.round(fr * 100)}% of the line is groomed. The orange dots on the map are the gaps.`, "warn"); } return; }
   let p = g.pay * (fr >= 0.9 ? 1 : fr / 0.9), notes = [];
   if (fr >= 0.97) { p *= 1.15; notes.push("clean line bonus"); }
+  const wf = g.pts.length ? g.pts.filter(q => q.wide).length / g.pts.length : 0;
+  if (wf >= 0.6) { p *= 1 + 0.35 * wf; notes.push("wide trail bonus"); }
   if (g.due && GS.hour > g.due) { p *= 0.5; notes.push("late"); }
   p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered();
   toast(`Trail groomed to ${site.name}: +$${p} (${Math.round(fr * 100)}% of the line${notes.length ? ", " + notes.join(", ") : ""}).`, "good");
@@ -3492,7 +3593,7 @@ function boardPaper() {
 const BD = { rows: [], sel: -1, selObj: null, ptr: "mouse", downT: -1e9, cur: null, prev: null, triA: -Math.PI / 2, nav: 0, navT: 0, padA: true, css: 0, land: true };
 const shortName = s => s.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "");
 const fmtCash = v => "$" + Math.round(v).toLocaleString("en-US");
-const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
+const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
 const gsCls = g => "gs" + (g > 0.8 ? 3 : g > 0.45 ? 2 : g > 0.15 ? 1 : 0);
 const groomSay = g => g > 0.8 ? "Packed trail most of the way." : g > 0.45 ? "About half of it is packed trail." : g > 0.15 ? "Mostly unbroken snow." : "Unbroken snow the whole way.";
 const routeKm = d => { const r = CT.routes[d.id]; return r ? r.L / 1000 : Math.hypot(d.x - depot.x, d.z - depot.z) / 1000; };
@@ -3547,7 +3648,7 @@ function renderBoard() {
   let n = 4;
   (GS.contracts || []).forEach((c, k) => {
     if (c.locked) { box.appendChild(boardRow({ kind: "locked", title: c.locked, pay: "Locked", meta: c.sub })); return; }
-    const hitch = GS.own.parts.hitch, fits = c.rescue ? ST.winch >= c.needTier : c.groom ? hitch === "groomer" : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
+    const hitch = GS.own.parts.hitch, fits = c.rescue ? ST.winch >= c.needTier : c.groom ? isGroomer(hitch) : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
     const tag = c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
     box.appendChild(boardRow({
       kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo, cls: fits ? "" : "nofit",
@@ -3586,8 +3687,8 @@ function boardDetail(r) {
       act = `TAKE THE CALL · ${fmtCash(c.pay)}`;
     } else if (c.groom) {
       head = `Groom the line to ${shortName(d)} · ${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km · climb ${climbOf(d)} m`;
-      lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line. Due ${fmtTime(c.due)}.`);
-      if (hitch !== "groomer") { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
+      lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line, and more again if the wing tiller lays it wide. Due ${fmtTime(c.due)}.`);
+      if (!isGroomer(hitch)) { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
       else if (GS.groomJob) { warn = "Finish the line you're grooming first."; blocked = true; }
       act = `TAKE THE LINE · ${fmtCash(c.pay)}`;
     } else {
@@ -3806,6 +3907,7 @@ function gameKey(e) {
   if (e.code === "KeyE" && FOOT.on && !GS.boardOpen && !GS.garageOpen) { footAction(); return; }
   if (e.code === "KeyE") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else if (GS.near === depot) openBoard(); else toast("The job board is at the quay, the garage is across the road.", "warn"); }
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyF") callForHelp();
 }
 
@@ -4156,6 +4258,7 @@ const PARTS = {
     label: "Hitch — tow-behind", options: [
       { id: "none", name: "Empty hitch", cost: 0, tier: 0, stats: {}, note: "Nothing dragging behind you." },
       { id: "groomer", name: "Tow-behind groomer drag", cost: 700, tier: 1, stats: { burn: 0.1, groom: 1 }, note: "Steel pan and a corduroy comb. Leaves a trail two metres wide, flat and set hard, that the snow takes three times as long to bury. Takes grooming contracts." },
+      { id: "tiller", name: "Wing tiller groomer", cost: 1850, tier: 2, stats: { burn: 0.16, groom: 1 }, note: "A heavy tractor-style tiller: spinning drum, finisher mat and hydraulic wings. Press G (pad LB) and the wings slide out to lay a trail almost six metres wide. Wide lines pay a bonus on grooming contracts. Heavy to drag, and the wings catch trees." },
       { id: "trailer", name: "Freight sled trailer", cost: 900, tier: 1, stats: { burn: 0.06, bays: 1 }, note: "Poly tub on steel runners with ratchet straps. One big load: stoves, freezers, generators, solar kits. Tips if you corner it hard." },
       { id: "flatbed", name: "Heavy flatbed trailer", cost: 2400, tier: 2, stats: { burn: 0.1, bays: 2 }, note: "Twin-ski steel flatbed with stake sides. Two big loads, or one expedition load for Slettnes. Sits lower, harder to roll." }
     ]
@@ -4946,7 +5049,7 @@ function updGameHud() {
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
-    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${GS.own.parts.hitch !== "groomer" ? " · no groomer hitched!" : ""}`;
+    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}`;
   } else if (pend) {
     $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
@@ -4954,7 +5057,7 @@ function updGameHud() {
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
   $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
-  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
+  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
   $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
@@ -6146,7 +6249,7 @@ function frame(t) {
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
-  if (snowDirty) { snowTex.needsUpdate = true; snowDirty = false; }
+  flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
   renderer.render(scene, camera);
