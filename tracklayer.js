@@ -395,7 +395,7 @@ function markTrail(x, z, faint) {
 }
 
 /* ---------------- boot ---------------- */
-let far, capMesh, treeMesh, cargoMesh = null, started = false, ready = false;
+let far, capMesh, treeMesh, pineCells = [], cargoMesh = null, started = false, ready = false;
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
 
@@ -498,6 +498,86 @@ function breezeMat(snowy) {
   };
   return m;
 }
+/* Scots pine: the snow-pillowed tiered conifer. Dense groves down in the low, sheltered forest
+   pockets (the Stabbursdalen idea), a scatter of them through the birch, and a few lone pines out
+   on the sheltered southern slopes. Split into 512 m cells so the GPU can skip the ones off-screen. */
+const PINE_CELL = 512;
+function pineGeos() {
+  const green = [0.10, 0.20, 0.15], snowC = [0.92, 0.95, 1.0];
+  const caps = [], parts = [paint(new THREE.CylinderGeometry(0.16, 0.24, 2.2, 6).translate(0, 1.1, 0), () => [0.33, 0.2, 0.13])];
+  [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]].forEach(([r, h, y]) => {
+    parts.push(paint(new THREE.ConeGeometry(r, h, 7).translate(0, y, 0), (x, py, z, ny) => {
+      const t = clamp((py - (y - h / 2)) / h, 0, 1), s = ny < -0.5 ? 0 : 0.12 + t * 0.12;
+      return [lerp(green[0], snowC[0], s), lerp(green[1], snowC[1], s), lerp(green[2], snowC[2], s)];
+    }));
+    const ch = h * 0.86, cr = r * 0.86 * 1.13, cy = y + h / 2 + 0.1 - ch / 2, bot = cy - ch / 2;
+    const cg = new THREE.ConeGeometry(cr, ch, 11, 4, true).translate(0, cy, 0), cp = cg.attributes.position;
+    for (let v = 0; v < cp.count; v++) {
+      const vx = cp.getX(v), vy = cp.getY(v), vz = cp.getZ(v), t = clamp((vy - bot) / ch, 0, 1);
+      if (t > 0.99) { cp.setY(v, vy + 0.12); continue; }
+      const hsh = hash(Math.round(vx * 97) + 7 * Math.round(y * 10), Math.round(vz * 97) + Math.round(vy * 53));
+      const ang = Math.atan2(vz, vx), lump = Math.sin(ang * 5 + y * 3) * 0.5 + Math.sin(ang * 9 - y * 2) * 0.3;
+      let rs = 1 + 0.11 * Math.sin(Math.PI * Math.sqrt(t)) + lump * 0.05 * (1 - t) + (hsh - 0.5) * 0.06, dy = (hsh - 0.5) * 0.04;
+      if (t < 0.01) { rs += 0.06 + lump * 0.03; dy = (0.5 + lump * 0.5) * 0.22 * ch; }   // soft scalloped overhang
+      cp.setXYZ(v, vx * rs, vy + dy, vz * rs);
+    }
+    cg.computeVertexNormals();
+    caps.push(paint(cg, (x, py, z, ny) => { const u = Math.pow(clamp((py - bot) / ch, 0, 1), 0.35); return [lerp(0.8, 1.0, u), lerp(0.87, 1.0, u), 1.0]; }));
+  });
+  return [mergeGeos(parts), mergeGeos(caps)];
+}
+function buildPines(birch) {
+  const rnd = mulberry32(51770);
+  const taken = new Set(); for (const [x, z] of birch) taken.add(Math.floor(x / 3) * 8192 + Math.floor(z / 3));
+  const busy = (x, z) => { const i = Math.floor(x / 3), j = Math.floor(z / 3); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (taken.has((i + a) * 8192 + j + b)) return true; return false; };
+  const pines = [];
+  for (let n = 0; n < 1200000 && pines.length < 22000; n++) {        // the forest is all in the south, so only sample there
+    const x = (rnd() * 2 - 1) * (HALF - 120), z = -800 + rnd() * (HALF - 120 + 800);
+    const b = bioAt(x, z); if (b === 1 || b === 3) continue;
+    const h = groundAt(x, z); if (h > 165 || h < 3) continue;
+    const s = Math.hypot(groundAt(x + 2, z) - groundAt(x - 2, z), groundAt(x, z + 2) - groundAt(x, z - 2)) / 4;
+    if (s > 0.5) continue;
+    if (LAKES.some(L => L.ok && Math.hypot(x - L.x, z - L.z) < L.r * 1.02 && bioAt(x, z) !== 0)) continue;
+    const pocket = fbm(x / 170 - 17, z / 170 + 9, 3);
+    if (b === 2) {
+      // groves where the pocket noise is high and the ground is low, a steady scatter everywhere else in the forest
+      const grove = (pocket - 0.38) * 7 * (h < 130 ? 1 : 0.4);
+      if (rnd() > Math.max(0.16, grove)) continue;
+    } else if (z < 300 || h > 140 || rnd() > (pocket > 0.52 ? 0.03 : 0.006)) continue;
+    if (nearSite(x, z, 24) || busy(x, z)) continue;
+    taken.add(Math.floor(x / 3) * 8192 + Math.floor(z / 3));
+    pines.push([x, z, 0.7 + rnd() * 0.65]);
+  }
+  const [trunkGeo, capGeo] = pineGeos(), cells = new Map(), NC = Math.ceil(WORLD / PINE_CELL);
+  for (const t of pines) { const k = Math.floor((t[1] + HALF) / PINE_CELL) * NC + Math.floor((t[0] + HALF) / PINE_CELL); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(t); }
+  const share = (g, cx, cz, r) => { const c = new THREE.BufferGeometry(); for (const k in g.attributes) c.setAttribute(k, g.attributes[k]); c.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, 0, cz), r); c.boundingBox = null; return c; };
+  const trunkMat = breezeMat(), capMat = breezeMat(true);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
+  for (const list of cells.values()) {
+    let cx = 0, cz = 0, cy = 0; for (const [x, z] of list) { cx += x; cz += z; cy += groundAt(x, z); } cx /= list.length; cz /= list.length; cy /= list.length;
+    let r = 0, lo = 1e9, hi = -1e9; for (const [x, z] of list) { r = Math.max(r, Math.hypot(x - cx, z - cz)); const g = groundAt(x, z); lo = Math.min(lo, g); hi = Math.max(hi, g); }
+    r = Math.hypot(r + 4, (hi - lo) / 2 + 12);
+    const tg = share(trunkGeo, cx, 0, r), cg = share(capGeo, cx, 0, r); tg.boundingSphere.center.set(cx, (lo + hi) / 2 + 5, cz); cg.boundingSphere.center.copy(tg.boundingSphere.center);
+    const tm = new THREE.InstancedMesh(tg, trunkMat, list.length), cap = new THREE.InstancedMesh(cg, capMat, list.length), ci = pineCells.length;
+    pineCells.push({ tm, cap, x: cx, z: cz });
+    list.forEach(([x, z, s], i) => {
+      const yaw = rnd() * 6.28, sy = s * (0.9 + rnd() * 0.3); q.setFromAxisAngle(up, yaw); sc.set(s, sy, s); p.set(x, groundAt(x, z) - 0.25, z);
+      m4.compose(p, q, sc); tm.setMatrixAt(i, m4); cap.setMatrixAt(i, m4);
+      const v = 0.8 + rnd() * 0.35; c.setRGB(v, v * (0.95 + rnd() * 0.12), v * (0.9 + rnd() * 0.1)); tm.setColorAt(i, c);
+      addOb({ x, z, r: 0.42 * s, top: 1e9, tree: i, pine: true, cell: ci, s, sy, yaw, y: p.y, snowy: true, wob: null });
+    });
+    tm.castShadow = cap.castShadow = true; scene.add(tm, cap);
+  }
+  window.PINE_COUNT = pines.length;
+}
+// pines past the fog are hidden outright, not just culled by the frustum
+let _pineT = 0;
+function pineCull(dt) {
+  if ((_pineT -= dt) > 0 || !pineCells.length) return; _pineT = 0.5;
+  const R = 1900, cx = camera.position.x, cz = camera.position.z;
+  for (const c of pineCells) { const on = Math.hypot(c.x - cx, c.z - cz) < R + 400; c.tm.visible = c.cap.visible = on; }
+}
+const trunkOf = o => o.pine ? pineCells[o.cell].tm : treeMesh, capOf = o => o.pine ? pineCells[o.cell].cap : capMesh;
 function buildProps() {
   const rnd = mulberry32(90210);
   // mountain birch: a pale crooked trunk, a handful of bare limbs, and snow lying along the tops of them
@@ -542,6 +622,7 @@ function buildProps() {
   });
   tm.castShadow = true; scene.add(tm);
   capMesh.castShadow = true; scene.add(capMesh);
+  buildPines(trees);
 
   // rocks: boulder fields up on the fell, shingle and skerries along the tideline
   const rockGeo = paint(new THREE.IcosahedronGeometry(1, 0), (x, y, z, ny) => ny > 0.45 ? [0.9, 0.93, 0.98] : [0.32, 0.31, 0.33]);
@@ -1781,7 +1862,8 @@ function wobble(o, amp, px, pz) {
 function setTree(o, tilt) {
   _q.setFromAxisAngle(_up, o.yaw); _ax.set(o.wob.ax, 0, o.wob.az); _qt.setFromAxisAngle(_ax, tilt).multiply(_q);
   _p.set(o.x, o.y, o.z); _s.set(o.s, o.sy, o.s); _m.compose(_p, _qt, _s);
-  treeMesh.setMatrixAt(o.tree, _m); if (o.snowy) capMesh.setMatrixAt(o.tree, _m);
+  const tm = trunkOf(o); tm.setMatrixAt(o.tree, _m); tm.instanceMatrix.needsUpdate = true;
+  if (o.snowy) { const cm = capOf(o); cm.setMatrixAt(o.tree, _m); cm.instanceMatrix.needsUpdate = true; }
 }
 function updWobble(dt) {
   if (!wobbling.length) return;
@@ -1804,7 +1886,7 @@ function pile(x, z, R, amt) {
 }
 function dropSnow(o, hard) {
   o.snowy = false;
-  capMesh.setMatrixAt(o.tree, ZERO_M); capMesh.instanceMatrix.needsUpdate = true;
+  const cm = capOf(o); cm.setMatrixAt(o.tree, ZERO_M); cm.instanceMatrix.needsUpdate = true;
   const n = Math.round(160 + o.s * 180);
   for (let k = 0; k < n; k++) {
     const t = Math.random(), hh = o.y + (1.8 + t * 3.6) * o.s, rad = (1.9 - t * 1.2) * o.s * Math.sqrt(Math.random()), a = Math.random() * 6.283;
@@ -1862,7 +1944,7 @@ function collide(fx, fz) {
         const dx = cx - o.x, dz = cz - o.z, d2 = dx * dx + dz * dz, rr = r + o.r;
         if (o.tree !== undefined && spdNow > 4.5) { const br = r + 1.15 * o.s; if (d2 < br * br) { wobble(o, 0.05 + spdNow * 0.004, -dx, -dz); if (o.snowy) dropSnow(o, false); } }
         if (d2 >= rr * rr || d2 < 1e-6) continue;
-        if (o.tree !== undefined && mower) { flattenTree(o); continue; }
+        if (o.tree !== undefined && mower && !o.pine) { flattenTree(o); continue; }
         if (o.tree !== undefined) { wobble(o, 0.06 + Math.hypot(P.vx, P.vz) * 0.014, -dx, -dz); if (o.snowy) dropSnow(o, true); }
         // a fallen log is a ramp, not a wall: hit it with speed and it launches you
         if (o.log && spdNow > 4.5 && P.gnd) {
@@ -5085,7 +5167,7 @@ function frame(t) {
   const spd = updVisuals(dt);
   if (started) updGame(dt, spd);
   updSky(); seaU.uTime.value += dt;
-  updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); P.dumped = Math.max(0, P.dumped - dt);
+  updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
   if (snowDirty) { snowTex.needsUpdate = true; snowDirty = false; }
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
