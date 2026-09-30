@@ -3106,7 +3106,7 @@ function makeContracts(from) {
   // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
   if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
   else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
-  GS.contracts = C;
+  GS.contracts = C; GS.contractsWinch = ST ? ST.winch : 0;
 }
 const smallLoads = () => GS.load.filter(j => !j.big);
 const baysUsed = () => bigLoads().reduce((a, j) => a + j.bays, 0);
@@ -3747,7 +3747,7 @@ function boardPad(gp, dt) {
   const a = b(0); if (a && !BD.padA) boardTake(BD.sel); BD.padA = a;
 }
 function openBoard() {
-  updGroom(); if (!GS.jobs.length) makeJobs(depot); else if (!GS.contracts || !GS.contracts.some(c => !c.locked)) makeContracts(depot);
+  updGroom(); if (!GS.jobs.length) makeJobs(depot); else if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);   // a winch bought since the board was posted (or a quiet day) gets the call-outs a fresh look
   GS.boardOpen = true; $("board").hidden = false; BD.padA = true; BD.cur = BD.prev = null; BD.selObj = null; BD.sel = -1;
   boardLayout(); ctRoutes(); renderBoard(); ctPaintBase();
   const r = BD.rows[BD.sel]; if (r && !TC.on) r.el.focus({ preventScroll: true });
@@ -4578,7 +4578,7 @@ function renderGarage() {
       PARTS[cat].options.forEach(o => {
         const owned = GS.own.partsOwned[ownKey(cat, o.id)] || o.cost === 0, on = GS.own.parts[cat] === o.id, locked = !owned && sledTier() < o.tier;
         tryOn(row(o.name, [statLine(o), o.note].filter(Boolean).join(" · "),
-          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : "$" + o.cost,
+          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : o.needRescues && (GS.rescues || 0) < o.needRescues ? `${o.needRescues} recoveries` : "$" + o.cost,
           on ? "on" : locked ? "locked" : "", () => fitPart(cat, o.id)), { cat, id: o.id });
       });
     });
