@@ -218,26 +218,14 @@ const smoothRide = (x, z) => { const s = smoothSurf(x, z); return bioAt(x, z) ==
 
 /* ---------------- three.js setup ---------------- */
 const canvas = $("gl");
-// Graphics profile. Phones and tablets get "low" unless Settings says otherwise: no MSAA, a smaller
-// hard-edged shadow map drawn every other frame, shorter tree and terrain draw distance behind a
-// touch more fog, and a render scale that drops on its own when the frame rate does.
-const GFX = (() => {
-  let pick = "auto"; try { pick = (JSON.parse(localStorage.getItem("tracklayer.set.v1") || "{}").gfx) || "auto"; } catch (e) { }
-  const touchy = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || navigator.maxTouchPoints > 1;
-  const q = /[?&]gfx=low\b/.test(location.search) ? "low" : /[?&]gfx=high\b/.test(location.search) ? "high" : pick === "auto" ? (touchy ? "low" : "high") : pick;
-  const low = q === "low", dpr = window.devicePixelRatio || 1;
-  return { pick, low, prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: low ? 0.55 : 0.75, pr: Math.min(dpr, low ? 1 : 1.5),
-    treeR: low ? 750 : 1700, farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
-})();
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX.low, powerPreference: "high-performance" });
-renderer.setPixelRatio(GFX.pr);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = GFX.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const FOG = new THREE.Color(0xc4d3e2);
@@ -250,7 +238,7 @@ const sunDir = new THREE.Vector3(-0.55, 0.3, 0.78).normalize();
 const hemi = new THREE.HemisphereLight(0xbcd4ec, 0xe9eef5, 0.62); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffd6ae, 1.75);
 sun.castShadow = true;
-sun.shadow.mapSize.set(GFX.low ? 1024 : 2048, GFX.low ? 1024 : 2048);
+sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 500 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
@@ -299,19 +287,7 @@ let pox = -99999, poz = -99999;
 let pdata = new Float32Array(S * S * 4), pdata2 = new Float32Array(S * S * 4);
 const snowTex = new THREE.DataTexture(pdata, S, S, THREE.RGBAFormat, THREE.FloatType);
 snowTex.minFilter = snowTex.magFilter = THREE.NearestFilter; snowTex.generateMipmaps = false;
-let snowDirty = false, snowJ0 = 1e9, snowJ1 = -1, snowFull = true;
-// Only the rows the sled actually dug get re-sent to the GPU (texSubImage2D), instead of the
-// whole 2.5 MB float texture every frame. Recentering the patch still sends the lot.
-function flushSnow() {
-  if (!snowDirty) return;
-  snowDirty = false;
-  const j0 = snowJ0, j1 = snowJ1; snowJ0 = 1e9; snowJ1 = -1;
-  const tp = renderer.properties.get(snowTex), gl = renderer.getContext();
-  if (snowFull || !renderer.capabilities.isWebGL2 || !tp.__webglTexture || tp.__version !== snowTex.version || j1 < j0) { snowTex.needsUpdate = true; snowFull = false; return; }
-  renderer.state.bindTexture(gl.TEXTURE_2D, tp.__webglTexture);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, j0, S, j1 - j0 + 1, gl.RGBA, gl.FLOAT, pdata.subarray(j0 * S * 4, (j1 + 1) * S * 4));
-}
+let snowDirty = false;
 
 function buildGridIndex(n) {
   const idx = new Uint32Array((n - 1) * (n - 1) * 6); let p = 0;
@@ -381,8 +357,7 @@ function fillCell(arr, i, j, ix, iz) {
 }
 const farU = { uPatch: { value: new THREE.Vector4(-1e6, -1e6, -1e6, -1e6) }, uTrail: { value: null } };
 function recenter(px, pz, force) {
-  const rs = GFX.recStep;
-  let cx = Math.round(((px + HALF) / CELL - PHALF) / rs) * rs, cz = Math.round(((pz + HALF) / CELL - PHALF) / rs) * rs;
+  let cx = Math.round(((px + HALF) / CELL - PHALF) / 16) * 16, cz = Math.round(((pz + HALF) / CELL - PHALF) / 16) * 16;
   cx = clamp(cx, 0, FN - S); cz = clamp(cz, 0, FN - S);
   if (!force && cx === pox && cz === poz) return;
   const src = pdata, dst = pdata2, dx = cx - pox, dz = cz - poz;
@@ -394,7 +369,7 @@ function recenter(px, pz, force) {
     for (let i = 0; i < S; i++) { if (rowOK && i >= i0 && i <= i1) continue; fillCell(dst, i, j, cx + i, cz + j); }
   }
   pdata = dst; pdata2 = src; pox = cx; poz = cz;
-  snowTex.image.data = pdata; snowTex.needsUpdate = true; snowFull = true; snowDirty = false; snowJ0 = 1e9; snowJ1 = -1;
+  snowTex.image.data = pdata; snowTex.needsUpdate = true;
   const wx = cx * CELL - HALF, wz = cz * CELL - HALF;
   patchMesh.position.set(wx, 0, wz);
   farU.uPatch.value.set(wx, wz, wx + (S - 1) * CELL, wz + (S - 1) * CELL);
@@ -404,7 +379,7 @@ function writeCell(ix, iz, oldD, newD, f) {
   if (i < 0 || j < 0 || i >= S || j >= S) return;
   const o = (j * S + i) * 4;
   pdata[o] += newD - oldD; pdata[o + 1] = packOf(newD, f);
-  snowDirty = true; if (j < snowJ0) snowJ0 = j; if (j > snowJ1) snowJ1 = j;
+  snowDirty = true;
 }
 
 /* ---------------- trail map (far terrain tint + minimap) ---------------- */
@@ -1427,7 +1402,7 @@ addEventListener("keydown", e => {
   if (e.repeat) return;
   keys.add(e.code);
   if (!started) return;
-  if (e.code === "Space") input.hop = true;
+  if (e.code === "Space" && !FOOT.on) input.hop = true;
   if (e.code === "KeyR") resetSled();
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
   if (e.code === "KeyM") toggleBigMap();
@@ -1446,18 +1421,18 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false;
+let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false;
 
 /* ---------------- touch controls ---------------- */
 // Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
 // contextual button at the top for the board and garage. Pointer events with capture, so
 // a thumb can slide off a button without dropping it and two thumbs work at once.
-const TC = { thr: 0, brk: 0, lean: 0, wh: 0, steer: 0, active: false, on: false };
+const TC = { thr: 0, brk: 0, lean: 0, wh: 0, reel: 0, steer: 0, active: false, on: false };
 const coarse = (matchMedia && matchMedia("(pointer: coarse)").matches) || navigator.maxTouchPoints > 1;
 function touchWanted() { return SET.touch === "on" || (SET.touch !== "off" && (coarse || /[?&]touch\b/.test(location.search))); }
 function setTouchUI() {
   TC.on = touchWanted(); document.body.classList.toggle("touch", TC.on); $("touch").hidden = !(TC.on && started);
-  if (!TC.on) { TC.thr = TC.brk = TC.lean = TC.wh = TC.steer = 0; TC.active = false; }
+  if (!TC.on) { TC.thr = TC.brk = TC.lean = TC.wh = TC.reel = TC.steer = 0; TC.active = false; }
 }
 function updTouch() {
   if (!TC.on) return;
@@ -1465,10 +1440,14 @@ function updTouch() {
   $("touch").classList.toggle("modal", modal);
   const lbl = GS.near === garageSite ? "GARAGE" : GS.near === depot ? "JOB BOARD" : null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
-  const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
+  const wd = winchDef(), foot = FOOT.on;
+  const q = $("tQ"); q.hidden = !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
+  const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
+  $("tF").hidden = !(HELP.on && HELP.kind === "sea" && !HELP.called) && !(GS.fuel <= 0 && !HELP.on);
+  $("tReel").hidden = !(wd && WN.state === "hooked");
 }
 {
-  const HOLD = { gas: "thr", brake: "brk", lean: "lean", wh: "wh" };
+  const HOLD = { gas: "thr", brake: "brk", lean: "lean", wh: "wh", reel: "reel" };
   for (const b of document.querySelectorAll("#touch .tb")) {
     const k = b.dataset.k;
     const up = () => { b.classList.remove("on"); if (HOLD[k]) TC[HOLD[k]] = 0; };
@@ -1476,13 +1455,15 @@ function updTouch() {
       e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { } b.classList.add("on");
       if (HOLD[k]) { TC[HOLD[k]] = 1; return; }
       if (!started) return;
-      if (k === "hop") { if (!GS.dead) input.hop = true; }
+      if (k === "hop") { if (!GS.dead && !FOOT.on) input.hop = true; }
       else if (k === "reset") resetSled();
       else if (k === "view") cycleView();
       else if (k === "map") toggleBigMap();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "e") gameKey({ code: "KeyE" });
-      else if (k === "wings") toggleWings();
+      else if (k === "q") gameKey({ code: "KeyQ" });
+      else if (k === "x") gameKey({ code: "KeyX" });
+      else if (k === "help") gameKey({ code: "KeyF" });
     });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
     b.addEventListener("touchend", e => e.preventDefault(), { passive: false });   // no synthetic click: a panel that just opened under the thumb must not get it
@@ -1509,13 +1490,17 @@ function readInput(dt) {
   let lean = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 1 : 0, analog = null, wh = (keys.has("ControlLeft") || keys.has("ControlRight")) ? 1 : 0;
   if (TC.on) { thr = Math.max(thr, TC.thr); brk = Math.max(brk, TC.brk); if (TC.lean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  WN.held = keys.has("Space") || !!TC.reel; WN.padReel = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
     const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) analog = ax;
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
     if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
-    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !GS.boardOpen) input.hop = true; padHop = h;
+    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !GS.boardOpen && !FOOT.on) input.hop = true; padHop = h;
+    if (h && FOOT.on) WN.padReel = true;
+    const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.boardOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
+    const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen && !GS.boardOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B does what E does (job board, garage) or backs out of whatever's open; Menu is Esc
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
     if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyE" });
@@ -1527,10 +1512,11 @@ function readInput(dt) {
     if (started && GS.boardOpen && !godOpen) boardPad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
-    const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
   if (!started || GS.boardOpen) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
+  FOOT.fwd = 0; FOOT.turn = 0;
+  if (FOOT.on) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
   input.thr = thr; input.brk = brk; input.lean = lean;
   if (analog !== null) input.steer = analog;
@@ -1541,6 +1527,8 @@ function readInput(dt) {
 const MASS = 280; let G = 32.4;
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
 function resetSled() {
+  if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
+  if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; wnStow(false); }
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
   P.sink = 0; P.wet = false; P.y = rideSurf(P.x, P.z) + 0.4; P.stuckT = 0; towSnap();
@@ -1617,20 +1605,10 @@ function crater(x, z, amt) {
 // trailer rolls if you corner it too hard.
 const HITCH = {
   groomer: { len: 2.0, r: 1.2, mass: 95, w: 2.4, tip: 99 },
-  tiller: { len: 2.5, r: 1.3, mass: 240, w: 2.6, wide: 5.8, tip: 99 },
   trailer: { len: 2.75, r: 0.8, mass: 70, w: 1.05, tip: 0.8 },
   flatbed: { len: 3.2, r: 0.95, mass: 125, w: 1.35, tip: 0.95 }
 };
-const isGroomer = k => k === "groomer" || k === "tiller";
-const TOW = { wing: 0, wingOn: false, kind: null, x: 0, z: 0, y: 0, yaw: 0, spd: 0, yr: 0, roll: 0, mass: 0, drag: 0, tipT: 0, tipDir: 1, hitT: 0, score: 0, maxScore: 0, vis: {}, vkind: null, pitchV: 0, rollV: 0 };
-// the tiller's hydraulic wings: G / pad LB / the WINGS pad button slides them out to each side
-const towWidth = H => H.wide ? H.w + (H.wide - H.w) * TOW.wing : H.w;
-function toggleWings() {
-  if (!started || GS.dead) return;
-  if (GS.own.parts.hitch !== "tiller") { if (isGroomer(GS.own.parts.hitch)) toast("The drag has no wings. The wing tiller at the garage folds out to almost six metres.", "warn"); return; }
-  TOW.wingOn = !TOW.wingOn; if (typeof whump === "function") whump(0.25);
-  toast(TOW.wingOn ? "Wings out: grooming 5.8 m of trail. Mind the trees." : "Wings folded: back to 2.6 m.");
-}
+const TOW = { kind: null, x: 0, z: 0, y: 0, yaw: 0, spd: 0, yr: 0, roll: 0, mass: 0, drag: 0, tipT: 0, tipDir: 1, hitT: 0, score: 0, maxScore: 0, vis: {}, vkind: null, pitchV: 0, rollV: 0 };
 function hitchBack(rack) { return 2.1 + (rack === "freight" ? 0.3 : rack === "stretch" ? 0.15 : 0); }
 function hitchPt() { const b = hitchBack(GS.own.parts.rack); return [P.x - Math.sin(P.yaw) * b, P.z - Math.cos(P.yaw) * b]; }
 function towSnap() {
@@ -1668,21 +1646,18 @@ function groomStamp(x, z, fx, fz, w) {
     }
   }
   markTrail(x, z); markTrail(x + lx * hw * 0.7, z + lz * hw * 0.7); markTrail(x - lx * hw * 0.7, z - lz * hw * 0.7);
-  if (w > 3.5) { markTrail(x + lx * hw * 0.35, z + lz * hw * 0.35); markTrail(x - lx * hw * 0.35, z - lz * hw * 0.35); }
 }
 function towStep(dt) {
   const kind = GS.own.parts.hitch, H = HITCH[kind];
   if (!H) { TOW.kind = null; TOW.mass = 0; TOW.drag = 0; return; }
   if (TOW.kind !== kind) { TOW.kind = kind; towSnap(); }
-  if (!H.wide) TOW.wingOn = false;
-  TOW.wing += clamp((TOW.wingOn ? 1 : 0) - TOW.wing, -dt / 1.6, dt / 1.6);   // hydraulics take a moment
   const [hx, hz] = hitchPt();
   let tx = TOW.x, tz = TOW.z;
   // side-hill: nothing brakes a trailer sideways, so it creeps downhill while it moves
   if (TOW.spd > 0.5) {
     const e = 1, gx = (smoothSurf(tx + e, tz) - smoothSurf(tx - e, tz)) / (2 * e), gz = (smoothSurf(tx, tz + e) - smoothSurf(tx, tz - e)) / (2 * e);
     const gm = Math.hypot(gx, gz), steep = Math.max(0, gm - 0.22) / (gm || 1);   // only a real side-hill
-    const creep = (isGroomer(kind) ? (kind === "tiller" ? 0.5 : 0.8) : 2.2) * steep * Math.min(1, TOW.spd / 6);
+    const creep = (kind === "groomer" ? 0.8 : 2.2) * steep * Math.min(1, TOW.spd / 6);
     tx -= gx * creep * dt; tz -= gz * creep * dt;
   }
   let dx = hx - tx, dz = hz - tz, d = Math.hypot(dx, dz) || 1;
@@ -1693,16 +1668,11 @@ function towStep(dt) {
   const gxi = Math.floor((tx + HALF) / OBC), gzi = Math.floor((tz + HALF) / OBC);
   let snag = false;
   TOW.ghostT = Math.max(0, (TOW.ghostT || 0) - dt);
-  // the body, plus each wing tip once the wings are out
-  const probes = [[0, H.r]];
-  if (H.wide && TOW.wing > 0.05) { const reach = towWidth(H) / 2 - 0.55; probes.push([reach, 0.6], [-reach, 0.6], [reach * 0.6, 0.6], [-reach * 0.6, 0.6]); }
-  const ly0 = Math.cos(TOW.yaw), lz0 = -Math.sin(TOW.yaw);
-  if (TOW.ghostT <= 0) for (const [po, pr] of probes) for (let j = gzi - 2; j <= gzi + 2; j++) for (let i = gxi - 2; i <= gxi + 2; i++) {
+  if (TOW.ghostT <= 0) for (let j = gzi - 1; j <= gzi + 1; j++) for (let i = gxi - 1; i <= gxi + 1; i++) {
     const a = obGrid.get(j * OBW + i); if (!a) continue;
     for (const o of a) {
       if (TOW.y > o.top - 0.1) continue;
-      const px = tx + ly0 * po, pz = tz + lz0 * po;
-      const ox = px - o.x, oz = pz - o.z, o2 = ox * ox + oz * oz, rr = pr + o.r;
+      const ox = tx - o.x, oz = tz - o.z, o2 = ox * ox + oz * oz, rr = H.r + o.r;
       if (o2 >= rr * rr || o2 < 1e-6) continue;
       const od = Math.sqrt(o2), nx = ox / od, nz = oz / od;
       tx += nx * (rr - od); tz += nz * (rr - od); snag = true;
@@ -1711,7 +1681,7 @@ function towStep(dt) {
       if (vin > 3 && TOW.hitT <= 0) {
         TOW.hitT = 0.6; thud(Math.min(0.9, vin / 18)); P.shake = Math.max(P.shake, Math.min(0.5, vin / 24));
         P.vx *= 0.72; P.vz *= 0.72;
-        bigHit(clamp((vin - 3) * 3.2, 3, 26), o.tree !== undefined ? (isGroomer(kind) ? (TOW.wing > 0.3 ? "Groomer wing clipped a tree." : "Groomer clipped a tree.") : "Trailer clipped a tree.") : (isGroomer(kind) ? "Groomer hit rock." : "Trailer slammed into rock."));
+        bigHit(clamp((vin - 3) * 3.2, 3, 26), o.tree !== undefined ? (kind === "groomer" ? "Groomer clipped a tree." : "Trailer clipped a tree.") : (kind === "groomer" ? "Groomer hit rock." : "Trailer slammed into rock."));
       }
     }
   }
@@ -1737,10 +1707,10 @@ function towStep(dt) {
   TOW.yr += (dy / dt - TOW.yr) * (1 - Math.exp(-5 * dt));
   TOW.x = tx; TOW.z = tz; TOW.yaw = yaw;
   TOW.spd += (Math.hypot(vx, vz) - TOW.spd) * (1 - Math.exp(-10 * dt));
-  const W = towWidth(H), fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = W / 2;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = H.w / 2;
   TOW.y = rideSurf(tx, tz);
   const hL = rideSurf(tx + lx * hw, tz + lz * hw), hR = rideSurf(tx - lx * hw, tz - lz * hw);
-  TOW.roll = Math.atan2(hL - hR, W);
+  TOW.roll = Math.atan2(hL - hR, H.w);
   // load: what's aboard, and what the snow asks of it
   const cargoKg = bigLoads().reduce((a, j) => a + j.kg, 0);
   TOW.mass = H.mass + cargoKg;
@@ -1751,7 +1721,7 @@ function towStep(dt) {
   }
   const moving = TOW.spd > 0.4 ? 1 : 0;
   // it bites harder the faster you drag it, so you can always crawl a load out of a standstill
-  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "tiller" ? (380 + 1700 * loose) * (0.8 + 0.2 * W / H.w) : kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0)
+  TOW.drag = moving * clamp(TOW.spd / 5, 0.25, 1) * (kind === "groomer" ? 260 + 1500 * loose : loose * (180 + TOW.mass * 1.6)) + (TOW.tipT > 0 ? 2600 : 0)
     + (isSea(tx, tz) ? moving * (300 + TOW.mass * 0.9 + 1.2 * TOW.spd * TOW.spd) : 0);   // a trailer on water is a sea anchor
   // rolling it: side slope plus how hard you're whipping it round a corner
   const lat = TOW.spd * TOW.yr / G;
@@ -1768,9 +1738,9 @@ function towStep(dt) {
   }
   // it leaves its own mark on the snow
   if (moving && TOW.tipT <= 0) {
-    if (isGroomer(kind)) {
-      groomStamp(tx, tz, fx, fz, W);
-      if (GS.groomJob) groomProgress(tx, tz, W);
+    if (kind === "groomer") {
+      groomStamp(tx, tz, fx, fz, H.w);
+      if (GS.groomJob) groomProgress(tx, tz);
     } else {
       const o = hw * 0.8;
       stampAt(tx + lx * o, tz + lz * o, fx, fz); stampAt(tx - lx * o, tz - lz * o, fx, fz);
@@ -1810,43 +1780,6 @@ function buildTow() {
     for (const s of [-1, 1]) box(g, 0.1, 0.06, 0.03, amber, s * 1.1, 0.42, -0.1);
     tongue(g, 0.55, 0.36, 1.2);
     V2.groomer = g; }
-
-  // wing tiller: a tractor-style implement. Red hood over a spinning tiller drum, finisher mat
-  // behind, and two hydraulic wings hinged at the hood's edges that fold down and out.
-  { const g = new THREE.Group(); g.visible = false; scene.add(g);
-    const redT = std(0xb8261c, 0.45, 0.25), matB = std(0x202328, 0.9), drums = [];
-    const hood = (par, w, x) => {
-      box(par, w, 0.08, 0.95, redT, x, 0.62, 0);                           // hood top
-      box(par, w, 0.5, 0.06, redT, x, 0.4, 0.46, 0.25);                     // front skirt
-      box(par, w, 0.3, 0.06, redT, x, 0.5, -0.46);                          // back
-      const d = cyl(par, 0.27, w - 0.08, steel, x, 0.3, 0, 0, 0, Math.PI / 2, 10); drums.push(d);
-      for (let i = 0; i < 6; i++) { const t = cyl(d, 0.29, 0.03, dark, 0, -w / 2 + 0.2 + i * (w - 0.4) / 5, 0, 0, 0, 0, 10); t.castShadow = false; }
-      box(par, w, 0.03, 0.9, matB, x, 0.04, -0.95, 0.12);                   // finisher mat
-      const n = Math.round(w / 0.14); for (let i = 0; i < n; i++) box(par, 0.05, 0.06, 0.14, black, x - w / 2 + 0.07 + i * (w - 0.14) / (n - 1), 0.01, -1.42);
-    };
-    hood(g, 2.6, 0);
-    for (const s of [-1, 1]) { box(g, 0.1, 0.62, 1.1, redT, s * 1.27, 0.34, 0); box(g, 0.14, 0.14, 0.14, steel, s * 1.3, 0.6, 0.3); }
-    box(g, 1.2, 0.12, 0.12, steel, 0, 0.72, 0.35);                          // lift frame
-    for (const s of [-1, 1]) box(g, 0.1, 0.35, 0.1, steel, s * 0.55, 0.62, 0.45, 0.4);
-    box(g, 0.5, 0.35, 0.4, black, 0, 0.85, 0.1);                            // hydraulic pack
-    cyl(g, 0.09, 0.3, std(0x2b3440, 0.5, 0.4), 0.15, 1.08, 0.1);
-    box(g, 0.5, 0.1, 0.03, std(0xeef2f5, 0.5), -0.8, 0.62, 0.5, 0.25); box(g, 0.5, 0.1, 0.03, std(0xeef2f5, 0.5), 0.8, 0.62, 0.5, 0.25);
-    const beacons = [], bMat = amber.clone();                               // its own, so the flashing stays on this rig
-    for (const s of [-1, 1]) beacons.push(box(g, 0.12, 0.12, 0.12, bMat, s * 0.35, 1.08, 0.1));
-    const wings = [];
-    for (const s of [-1, 1]) {
-      const pv = new THREE.Group(); pv.position.set(s * 1.32, 0.64, 0); g.add(pv);
-      const w = new THREE.Group(); w.position.set(0, -0.64, 0); pv.add(w);
-      hood(w, 1.6, s * 0.82);
-      box(w, 0.08, 0.6, 1.0, redT, s * 1.62, 0.32, 0);                      // end plate
-      box(w, 0.1, 0.06, 0.03, amber, s * 1.64, 0.5, 0.3);
-      box(w, 0.04, 0.04, 1.4, std(0xffd23a, 0.5), s * 1.66, 0.64, -0.1);    // width marker rod
-      const ram = cyl(g, 0.05, 0.7, std(0xc9d1d9, 0.25, 0.8), s * 0.95, 0.95, -0.1, 0, 0, 0, 8); ram.userData.s = s;
-      wings.push({ pv, s, ram });
-    }
-    tongue(g, 0.55, 0.62, 1.6);
-    g.userData.wings = wings; g.userData.drums = drums; g.userData.beacons = beacons;
-    V2.tiller = g; }
 
   // freight sled trailer: poly tub on runners
   { const g = new THREE.Group(); g.visible = false; scene.add(g);
@@ -1909,27 +1842,15 @@ function towVisual(dt) {
   if (kind !== TOW.kind) {                                   // a garage preview: hang it straight off the back
     const b = hitchBack(GS.own.parts.rack) + H.len; x = P.x - Math.sin(P.yaw) * b; z = P.z - Math.cos(P.yaw) * b; yaw = P.yaw;
   }
-  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, half = kind === "flatbed" ? 1.4 : kind === "trailer" ? 1.0 : kind === "tiller" ? 0.7 : 0.45, TW = towWidth(H), hw = TW / 2;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, half = kind === "flatbed" ? 1.4 : kind === "trailer" ? 1.0 : 0.45, hw = H.w / 2;
   const pT = Math.atan2(rideSurf(x + fx * half, z + fz * half) - rideSurf(x - fx * half, z - fz * half), half * 2);
-  let rT = Math.atan2(rideSurf(x + lx * hw, z + lz * hw) - rideSurf(x - lx * hw, z - lz * hw), TW);
+  let rT = Math.atan2(rideSurf(x + lx * hw, z + lz * hw) - rideSurf(x - lx * hw, z - lz * hw), H.w);
   const k = 1 - Math.exp(-12 * dt);
   TOW.pitchV += (pT - TOW.pitchV) * k; TOW.rollV += (rT - TOW.rollV) * k;
   let tipR = 0, tipY = 0;
   if (TOW.tipT > 0 && kind === TOW.kind) { const t = 2.4 - TOW.tipT, e = t < 0.25 ? t / 0.25 : TOW.tipT < 0.5 ? TOW.tipT / 0.5 : 1; tipR = TOW.tipDir * 1.45 * e; tipY = 0.35 * e; }
   g.position.set(x, rideSurf(x, z) - 0.02 + tipY, z);
   g.rotation.set(-TOW.pitchV, yaw, TOW.rollV + tipR, "YXZ");
-  // the tiller's wings fold down and out, the drums spin with ground speed, the beacons flash
-  if (g.userData.wings) {
-    const w = kind === TOW.kind ? TOW.wing : 0, e = w * w * (3 - 2 * w);
-    for (const W of g.userData.wings) {
-      W.pv.rotation.z = W.s * (Math.PI / 2 + 0.12) * (1 - e);
-      W.ram.rotation.z = W.s * (0.2 + 1.0 * e); W.ram.position.x = W.s * (0.95 + 0.25 * e); W.ram.position.y = 0.95 - 0.2 * e;
-    }
-    const spin = (kind === TOW.kind ? TOW.spd : 0) / 0.27 * dt;
-    for (const d of g.userData.drums) d.rotation.x -= spin;
-    const on = TOW.wingOn || (w > 0.02 && w < 0.98), lit = on && Math.sin(performance.now() / 110) > 0;
-    g.userData.beacons[0].material.emissiveIntensity = lit ? 2.6 : on ? 0.4 : 0.9;
-  }
   // stretch the tongue to the ball on the sled
   const tg = g.userData.tongue, arm = g.userData.arm;
   sledRoot.updateMatrixWorld(); g.updateMatrixWorld();
@@ -2078,6 +1999,7 @@ function collide(fx, fz) {
 }
 let sprayAcc = 0;
 function physStep(dt) {
+  if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), SEA - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const sea = isSea(P.x, P.z); if (!sea) P.sink = 0;
   const hs = rideSurf(P.x, P.z), gnd = P.y <= hs + 0.12;
@@ -2101,6 +2023,7 @@ function physStep(dt) {
   const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
   // wheelie: skis come up off the snow, track does all the work
   const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
+  bogStep(dt, Math.hypot(vx, vz), thrE, fr);
   const M = MASS + TOW.mass;                                         // a loaded trailer is weight the engine has to haul
   if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + (wet ? 0.05 : 0) + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
   const whOn = input.wheelie && GS.fuel > 0 && (gnd ? Math.abs(vf) > 2.5 : P.wh > 0.3);
@@ -2177,7 +2100,16 @@ function physStep(dt) {
       if (exc > 0.05 && Math.random() < 0.5) { const s = Math.random() < 0.5 ? -0.6 : 0.6; emit(P.x + fx * 1.9 + lx * s, P.y + 0.1, P.z + fz * 1.9 + lz * s, vx * 0.6 + lx * s * 3, 1.2 + exc * 5, vz * 0.6 + lz * s * 3, 1.4); }
     }
   } else P.drag *= 0.9;
-  if (gnd && input.hop) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
+  if (WN.pullV) { vx = WN.pullV.x; vz = WN.pullV.z; }                         // the winch has the sled
+  else if (FOOT.on) { vx = vz = 0; }                                             // parked with the brake on
+  else if (BOG.on) {                                                             // in a hole: whatever you do with the throttle, it digs deeper
+    const k = Math.exp(-12 * dt); vx *= k; vz *= k;
+    if (thrE > 0.2) {
+      BOG.depth = Math.min(1, BOG.depth + 0.02 * thrE * dt); BOG.r0 = M * GR * (0.5 + 1.1 * BOG.depth); BOG.resist = BOG.r0 * clamp(1 - 0.75 * BOG.moved / BOG.r, 0.2, 1);
+      if (Math.random() < 0.3) emit(P.x - fx * 1.6, P.y + 0.3, P.z - fz * 1.6, -fx * 3 + (Math.random() - 0.5) * 4, 3 + Math.random() * 3, -fz * 3 + (Math.random() - 0.5) * 4, 1.5, 1);
+    }
+  }
+  if (gnd && input.hop && !FOOT.on && !BOG.on) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
   input.hop = false;
   if (P.airT > 0.12) {
     // no stick control in the air: the sled carries whatever kick the lip gave it,
@@ -2265,7 +2197,9 @@ function initAudio() {
     const buf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
     const mk = (type, f, q) => { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; const g = AC.createGain(); g.gain.value = 0; s.connect(b); b.connect(g); g.connect(master); s.start(); return { g, b }; };
     const hiss = mk("bandpass", 1100, 0.7), wind = mk("lowpass", 380, 0.4);
-    audio = { AC, master, o1, o2, o2g, lp, eg, hiss, wind, buf };
+    const ow = AC.createOscillator(), wg = AC.createGain(), wf = AC.createBiquadFilter(); ow.type = "sawtooth"; ow.frequency.value = 95; wf.type = "lowpass"; wf.frequency.value = 600; wg.gain.value = 0;
+    ow.connect(wf); wf.connect(wg); wg.connect(master); ow.start();
+    audio = { AC, master, o1, o2, o2g, lp, eg, hiss, wind, buf, ow, wg };
   } catch (e) { audio = null; }
 }
 function thud(v) {
@@ -2357,6 +2291,15 @@ function drawMap() {
     else mctx.fillRect(sx - 4 + hm, sz - 4 + hm, 8 - 2 * hm, 8 - 2 * hm);
     if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
+  if (GS.rescueJob) for (const v of RJ.vs) {     // the people you're going to get out
+    if (v.freed) continue;
+    const dx = (v.x - P.x) * M2DISP, dz = (v.z - P.z) * M2DISP; let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false; const d = Math.hypot(ux, uz);
+    if (d > R - 12) { const f = (R - 12) / d; ux *= f; uz *= f; edge = true; }
+    const sx = R + ux, sz = R + uz;
+    mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.arc(sx, sz, 7.5, 0, 6.283); mctx.fill();
+    mctx.fillStyle = "#ff3a1a"; mctx.beginPath(); mctx.arc(sx, sz, edge ? 3.6 : 5.2, 0, 6.283); mctx.fill();
+    mctx.strokeStyle = "#ff3a1a"; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.008) * 2.4, 0, 6.283); mctx.stroke();
+  }
   for (const n of NPCS) {                        // other riders, if they're within the dial
     const dx = (n.x - P.x) * M2DISP, dz = (n.z - P.z) * M2DISP;
     const ux = dx * cy - dz * sy, uz = dx * sy + dz * cy;
@@ -2416,6 +2359,15 @@ function drawBigMap() {
       g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
     }
   }
+  if (GS.rescueJob) for (const v of RJ.vs) {
+    if (v.freed) continue;
+    const [vx, vz] = w2(v.x, v.z);
+    g.fillStyle = "#0d1822"; g.beginPath(); g.arc(vx, vz, 10, 0, 6.283); g.fill(); g.fillStyle = "#ff3a1a"; g.beginPath(); g.arc(vx, vz, 6.5, 0, 6.283); g.fill();
+    g.strokeStyle = "#ff3a1a"; g.lineWidth = 3; g.beginPath(); g.arc(vx, vz, 16 + Math.sin(performance.now() * 0.008) * 3, 0, 6.283); g.stroke();
+    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const nm = v.name + " · stuck", w = g.measureText(nm).width + 10;
+    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 14, w, 20); g.fillStyle = "#ff6a4a"; g.fillText(nm, vx, vz + 29);
+    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+  }
   const [px, pz] = w2(P.x, P.z);
   g.save(); g.translate(px, pz); g.rotate(Math.PI - P.yaw);   // north-up map: the arrow itself turns
   g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(0, -20); g.lineTo(-13, 13); g.lineTo(13, 13); g.closePath(); g.fill();
@@ -2447,11 +2399,11 @@ function updVisuals(dt) {
   } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.35 + P.airP; rT = P.airR; }
   const whT = P.wh * (0.52 + Math.sin(performance.now() * 0.0061) * 0.05 + Math.sin(performance.now() * 0.017) * 0.02);
   P.whVis += (whT - P.whVis) * (1 - Math.exp(-(whT > P.whVis ? 6 : 9) * dt));
-  pT += P.whVis;
+  pT += P.whVis + BOG.sink * 0.3;
   const k = 1 - Math.exp(-(P.gnd ? 12 : 3) * dt);
   P.pitch += (pT - P.pitch) * k; P.roll += (rT - P.roll) * k;
   const lean = input.steer * (0.1 + input.lean * 0.1) * clamp(spd / 15, 0, 1);
-  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis)), P.z);
+  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis)) - BOG.sink, P.z);
   sledRoot.rotation.set(-P.pitch, P.yaw, P.roll);
   sledBody.rotation.z += (lean - sledBody.rotation.z) * (1 - Math.exp(-8 * dt));
   const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
@@ -2470,9 +2422,10 @@ function updVisuals(dt) {
   const rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
   // camera
-  const view = VIEWS[camMode];
+  const view = FOOT.on && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
   const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
-  camState.yaw = angLerp(camState.yaw, angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-3.5 * dt));
+  const FXp = FOOT.on ? FOOT.x : P.x, FYp = FOOT.on ? FOOT.y : P.y, FZp = FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, or the rider on foot
+  camState.yaw = angLerp(camState.yaw, FOOT.on ? FOOT.yaw : angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-(FOOT.on ? 2.2 : 3.5) * dt));
   const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
   let look = null;
   if (view.fp) {
@@ -2496,12 +2449,12 @@ function updVisuals(dt) {
     // towing: back the chase cam off so the rig behind you is in the shot
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
-    const want = _camWant.set(P.x - cfx * (view.d + td), P.y + view.h + td * 0.4, P.z - cfz * (view.d + td));
+    const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4, FZp - cfz * (view.d + td));
     want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
-    look = _camAim.set(P.x + cfx * 4, P.y + 1.1, P.z + cfz * 4);
+    look = _camAim.set(FXp + cfx * 4, FYp + 1.1, FZp + cfz * 4);
   }
   P.shake *= Math.exp(-4 * dt);
   const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
@@ -2525,15 +2478,15 @@ function updVisuals(dt) {
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-3 * dt)); camera.updateProjectionMatrix(); }
   if (!started || TCAM.launch) titleCam(dt);
   sky.position.copy(camera.position);
-  sun.position.set(P.x + sunDir.x * 200, P.y + sunDir.y * 200, P.z + sunDir.z * 200); sun.target.position.set(P.x, P.y, P.z);
+  sun.position.set(FXp + sunDir.x * 200, FYp + sunDir.y * 200, FZp + sunDir.z * 200); sun.target.position.set(FXp, FYp, FZp);
   // recenter the fine snow patch
   const pcx = (pox + PHALF) * CELL - HALF, pcz = (poz + PHALF) * CELL - HALF;
-  if (Math.abs(P.x - pcx) > 10 || Math.abs(P.z - pcz) > 10) recenter(P.x, P.z, false);
+  if (Math.abs(FXp - pcx) > 10 || Math.abs(FZp - pcz) > 10) recenter(FXp, FZp, false);
   // stuck/flip hint + safe spot
   if (started) {
     const tipped = Math.abs(P.roll) > 0.9 || Math.abs(P.pitch) > 1.0;
     P.stuckT = (tipped || (input.thr > 0 && spd < 0.6)) ? P.stuckT + dt : 0;
-    $("flip").hidden = P.stuckT < 2.5;
+    $("flip").hidden = P.stuckT < 2.5 || BOG.on || FOOT.on || HELP.on;
     safeT += dt;
     if (safeT > 2 && P.gnd && !P.wet && !isSea(P.x, P.z) && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
   }
@@ -2555,7 +2508,7 @@ function updHud(spd) {
 /* ---------------- courier survival layer ---------------- */
 const GAMEHOUR = 30;                       // real seconds per in-game hour (a full day is 12 minutes)
 const GS = {
-  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], delivered: 0,
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], delivered: 0, rescues: 0, rescueJob: null,
   storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
@@ -3055,6 +3008,9 @@ function makeContracts(from) {
     const pay = round5((400 + dist * 0.5 + climb * 2.5) * (e.fragile ? 1.25 : 1.1));
     C.push({ big: true, bays: 2, expedition: true, dest: relay, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why, pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.6 / GAMEHOUR, need: "flatbed" });
   } else if (lvl >= 12) C.push({ locked: "Slettnes expeditions", sub: `Flatbed loads out to the lighthouse — ${RANKS[4].at} deliveries` });
+  // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
+  if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
+  else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
   GS.contracts = C;
 }
 const smallLoads = () => GS.load.filter(j => !j.big);
@@ -3066,12 +3022,17 @@ function acceptJob(k) {
   toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} on the rack.`);
   renderBoard(); applyLoadout(); save();
 }
-const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
+const HITCH_NAME = { groomer: "a groomer drag", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
+  if (c.rescue) {
+    if (GS.rescueJob) { toast("Finish the call you're on first.", "warn"); return; }
+    if (ST.winch < c.needTier) { toast(`That call needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.`, "warn"); return; }
+    GS.contracts.splice(k, 1); closeBoard(); rescueStart(c); save(); return;
+  }
   const hitch = GS.own.parts.hitch;
   if (c.groom) {
-    if (!isGroomer(hitch)) { toast("That's grooming work. Nordkinn Skuter & Service sells a groomer drag for the hitch.", "warn"); return; }
+    if (hitch !== "groomer") { toast("That's grooming work. Nordkinn Skuter & Service sells a groomer drag for the hitch.", "warn"); return; }
     if (GS.groomJob) { toast("Finish the line you're grooming first.", "warn"); return; }
     c.pts = groomLine(depot, c.dest); GS.groomJob = c; GS.contracts.splice(k, 1);
     toast(`Groom the line to ${c.dest.name}. The dots on the map are the stretches still to do.`);
@@ -3096,12 +3057,8 @@ function groomLine(a, b) {
   }
   return pts;
 }
-function groomProgress(x, z, w = 2.4) {
-  const R = 11 + Math.max(0, w - 2.4) * 0.5, wide = w > 4.5;
-  for (const p of GS.groomJob.pts) if (Math.abs(p.x - x) < R && Math.abs(p.z - z) < R && Math.hypot(p.x - x, p.z - z) < R) {
-    if (!p.done) p.done = true;
-    if (wide) p.wide = true;
-  }
+function groomProgress(x, z) {
+  for (const p of GS.groomJob.pts) if (!p.done && Math.abs(p.x - x) < 11 && Math.abs(p.z - z) < 11 && Math.hypot(p.x - x, p.z - z) < 11) p.done = true;
 }
 const groomFrac = g => g.pts.length ? g.pts.filter(p => p.done).length / g.pts.length : 1;
 function finishGroom(site) {
@@ -3110,8 +3067,6 @@ function finishGroom(site) {
   if (fr < 0.7) { if (gameClock - (g.nagT || -99) > 12) { g.nagT = gameClock; toast(`Only ${Math.round(fr * 100)}% of the line is groomed. The orange dots on the map are the gaps.`, "warn"); } return; }
   let p = g.pay * (fr >= 0.9 ? 1 : fr / 0.9), notes = [];
   if (fr >= 0.97) { p *= 1.15; notes.push("clean line bonus"); }
-  const wf = g.pts.length ? g.pts.filter(q => q.wide).length / g.pts.length : 0;
-  if (wf >= 0.6) { p *= 1 + 0.35 * wf; notes.push("wide trail bonus"); }
   if (g.due && GS.hour > g.due) { p *= 0.5; notes.push("late"); }
   p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered();
   toast(`Trail groomed to ${site.name}: +$${p} (${Math.round(fr * 100)}% of the line${notes.length ? ", " + notes.join(", ") : ""}).`, "good");
@@ -3185,7 +3140,7 @@ function deliver(site) {
 }
 function blackout(kind) {
   if (GS.dead) return;
-  GS.dead = true; closeBoard();
+  GS.dead = true; closeBoard(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
   const bonds = GS.load.reduce((a, j) => a + (j.bond || 0), 0);
@@ -3205,12 +3160,12 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, own: GS.own })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own })); } catch (e) { } }
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -3341,6 +3296,7 @@ function ctRoutes() {
     }
   }
   for (const s of SITES) if (s.type !== "depot" && s.type !== "shop" && s.x !== undefined) CT.routes[s.id] = ctPath(s);
+  for (const c of GS.contracts || []) if (c.rescue) CT.routes[c.dest.id] = ctPath(c.dest);
 }
 function ctPath(site) {
   const n = CT.RN, st = WORLD / (n - 1), end = ctNode(site.x, site.z);
@@ -3536,7 +3492,7 @@ function boardPaper() {
 const BD = { rows: [], sel: -1, selObj: null, ptr: "mouse", downT: -1e9, cur: null, prev: null, triA: -Math.PI / 2, nav: 0, navT: 0, padA: true, css: 0, land: true };
 const shortName = s => s.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "");
 const fmtCash = v => "$" + Math.round(v).toLocaleString("en-US");
-const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
+const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
 const gsCls = g => "gs" + (g > 0.8 ? 3 : g > 0.45 ? 2 : g > 0.15 ? 1 : 0);
 const groomSay = g => g > 0.8 ? "Packed trail most of the way." : g > 0.45 ? "About half of it is packed trail." : g > 0.15 ? "Mostly unbroken snow." : "Unbroken snow the whole way.";
 const routeKm = d => { const r = CT.routes[d.id]; return r ? r.L / 1000 : Math.hypot(d.x - depot.x, d.z - depot.z) / 1000; };
@@ -3591,13 +3547,13 @@ function renderBoard() {
   let n = 4;
   (GS.contracts || []).forEach((c, k) => {
     if (c.locked) { box.appendChild(boardRow({ kind: "locked", title: c.locked, pay: "Locked", meta: c.sub })); return; }
-    const hitch = GS.own.parts.hitch, fits = c.groom ? isGroomer(hitch) : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
-    const tag = c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
+    const hitch = GS.own.parts.hitch, fits = c.rescue ? ST.winch >= c.needTier : c.groom ? hitch === "groomer" : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
+    const tag = c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
     box.appendChild(boardRow({
       kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo, cls: fits ? "" : "nofit",
-      chips: `<span class="bchip ${tag}">${tag.toUpperCase()}</span>` + (c.due ? `<span class="bchip due">DUE ${fmtTime(c.due)}</span>` : ""),
+      chips: `<span class="bchip ${tag}">${tag.toUpperCase()}</span>` + (c.rescue ? c.comps.map(x => `<span class="bchip ${x === "short" || x === "hurt" ? "due" : ""}">${({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x]}</span>`).join("") : "") + (c.due ? `<span class="bchip due">${c.rescue ? "CLOCK" : "DUE"} ${fmtTime(c.due)}</span>` : ""),
       pay: fmtCash(c.pay),
-      meta: c.groom ? `${(Math.hypot(c.dest.x - depot.x, c.dest.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(c.dest)} · ${gTag(c.dest)}` : `to ${shortName(c.dest)} · ${routeKm(c.dest).toFixed(1)} km · ${c.kg} kg${c.fragile ? " · fragile" : ""}`
+      meta: c.rescue ? `${routeKm(c.dest).toFixed(1)} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}` : c.groom ? `${(Math.hypot(c.dest.x - depot.x, c.dest.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(c.dest)} · ${gTag(c.dest)}` : `to ${shortName(c.dest)} · ${routeKm(c.dest).toFixed(1)} km · ${c.kg} kg${c.fragile ? " · fragile" : ""}`
     }));
   });
   sec("Garage", "across the road");
@@ -3621,10 +3577,17 @@ function boardDetail(r) {
     act = `LOAD IT · ${fmtCash(j.pay)}`;
   } else if (r.kind === "con") {
     const c = r.obj, hitch = GS.own.parts.hitch;
-    if (c.groom) {
+    if (c.rescue) {
+      head = `${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
+      lines.push(`<span class="why">${esc(c.why)}</span>`);
+      lines.push(`Clock: ${fmtTime(c.due)}. Park on the rim, get off, walk the line out and hook on, strap your sled back to a tree and reel them out. Pays for getting them clear, more for being fast and gentle. About ${c.reach} m of line to do it in one pull.`);
+      if (ST.winch < c.needTier) { warn = `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.`; blocked = true; }
+      else if (GS.rescueJob) { warn = "Finish the call you're on first."; blocked = true; }
+      act = `TAKE THE CALL · ${fmtCash(c.pay)}`;
+    } else if (c.groom) {
       head = `Groom the line to ${shortName(d)} · ${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km · climb ${climbOf(d)} m`;
-      lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line, and more again if the wing tiller lays it wide. Due ${fmtTime(c.due)}.`);
-      if (!isGroomer(hitch)) { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
+      lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line. Due ${fmtTime(c.due)}.`);
+      if (hitch !== "groomer") { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
       else if (GS.groomJob) { warn = "Finish the line you're grooming first."; blocked = true; }
       act = `TAKE THE LINE · ${fmtCash(c.pay)}`;
     } else {
@@ -3838,10 +3801,12 @@ function ctCallout(cur) {
 
 function gameKey(e) {
   if (GS.dead) return;
+  if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
+  if (e.code === "KeyX") { footAssess(); return; }
+  if (e.code === "KeyE" && FOOT.on && !GS.boardOpen && !GS.garageOpen) { footAction(); return; }
   if (e.code === "KeyE") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else if (GS.near === depot) openBoard(); else toast("The job board is at the quay, the garage is across the road.", "warn"); }
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
-  if (e.code === "KeyG") toggleWings();
-  if (e.code === "KeyF") { if (GS.near === depot) toast("You're already at the quay."); else blackout("tow"); }
+  if (e.code === "KeyF") callForHelp();
 }
 
 /* settings: paint, rider kit, volume */
@@ -4176,20 +4141,27 @@ const PARTS = {
     label: "Recovery kit", options: [
       { id: "none", name: "Nothing", cost: 0, tier: 0, stats: {}, note: "Hope." },
       { id: "kit", name: "Shovel, strap & snowshoes", cost: 120, tier: 0, stats: { rescue: 0.3 }, note: "You've half dug yourself out by the time the crew shows up." },
-      { id: "sat", name: "Satellite messenger & winch", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. The Red Cross crew comes straight to you." }
+      { id: "sat", name: "Satellite messenger", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. F calls a rescue sled, and they come straight to you, faster and cheaper." }
+    ]
+  },
+  winch: {
+    label: "Winch", options: [
+      { id: "none", name: "No winch", cost: 0, tier: 0, stats: {}, note: "Shovel and swearing." },
+      { id: "hand", name: "Hand winch & 12 m of rope", cost: 260, tier: 0, stats: { winch: 1 }, note: "A come-along on the bumper. Wade out to a tree, hook on, crank. Slow and short, but it gets you out of a bog." },
+      { id: "elec", name: "Electric winch, 26 m cable", cost: 950, tier: 1, stats: { winch: 2, burn: 0.02 }, note: "Fairlead and a drum on the front. Pulls a stuck sled or a stuck rider. Opens rescue jobs." },
+      { id: "heavy", name: "Heavy-duty winch, 42 m + snatch block", cost: 2600, tier: 2, stats: { winch: 3, burn: 0.04 }, needRescues: 6, note: "Double the line for twice the pull. Reaches into crevasses. Needs a proven recovery record: 6 rescues." }
     ]
   },
   hitch: {
     label: "Hitch — tow-behind", options: [
       { id: "none", name: "Empty hitch", cost: 0, tier: 0, stats: {}, note: "Nothing dragging behind you." },
       { id: "groomer", name: "Tow-behind groomer drag", cost: 700, tier: 1, stats: { burn: 0.1, groom: 1 }, note: "Steel pan and a corduroy comb. Leaves a trail two metres wide, flat and set hard, that the snow takes three times as long to bury. Takes grooming contracts." },
-      { id: "tiller", name: "Wing tiller groomer", cost: 1850, tier: 2, stats: { burn: 0.16, groom: 1 }, note: "A heavy tractor-style tiller: spinning drum, finisher mat and hydraulic wings. Press G (pad LB) and the wings slide out to lay a trail almost six metres wide. Wide lines pay a bonus on grooming contracts. Heavy to drag, and the wings catch trees." },
       { id: "trailer", name: "Freight sled trailer", cost: 900, tier: 1, stats: { burn: 0.06, bays: 1 }, note: "Poly tub on steel runners with ratchet straps. One big load: stoves, freezers, generators, solar kits. Tips if you corner it hard." },
       { id: "flatbed", name: "Heavy flatbed trailer", cost: 2400, tier: 2, stats: { burn: 0.1, bays: 2 }, note: "Twin-ski steel flatbed with stake sides. Two big loads, or one expedition load for Slettnes. Sits lower, harder to roll." }
     ]
   }
 };
-const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "hitch"];
+const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "hitch"];
 
 // Rider kit. `warm` is insulation — the high country and storms ask for more of it.
 const GEAR = {
@@ -4235,7 +4207,7 @@ const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
 const OWN0 = () => ({
   sled: "frontier",
   sleds: ["frontier"],
-  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none" },
+  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none" },
   partsOwned: {},
   gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
   gearOwned: {},
@@ -4393,14 +4365,14 @@ const ownKey = (cat, id) => cat + ":" + id;
 function stats() {
   const sd = sledDef();
   const eng = engineOf(sd);
-  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0 };
+  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0 };
   for (const cat of PART_ORDER) {
     if (cat === "boost" && boostWhy(sd, GS.own.parts.boost || "none")) continue;
     const o = partDef(cat, GS.own.parts[cat]).stats || {};
     st.boost += o.boost || 0;
     st.power += o.power || 0; st.fuel += o.fuel || 0; st.drag += o.drag || 0; st.grip += o.grip || 0;
     st.burn += o.burn || 0; st.cold += o.cold || 0; st.soak += o.soak || 0; st.care += o.care || 0; st.slots += o.slots || 0; st.bays += o.bays || 0; st.groom += o.groom || 0;
-    st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0);
+    st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0); st.winch = Math.max(st.winch, o.winch || 0);
     st.light = Math.max(st.light, o.light || 1);
   }
   let warm = 0;
@@ -4433,6 +4405,7 @@ function fitPart(cat, id) {
   if (bw) { toast(bw, "warn"); return; }
   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
   if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
+  if (o.needRescues && (GS.rescues || 0) < o.needRescues) { toast(`${o.name}: the dealer wants to see ${o.needRescues} rescues first. You have ${GS.rescues || 0}.`, "warn"); return; }
   if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= o.cost; GS.own.partsOwned[ownKey(cat, id)] = true; GS.own.parts[cat] = id; restat();
   toast(`Fitted: ${o.name}.`, "good"); renderGarage(); save();
@@ -4462,6 +4435,7 @@ const statLine = o => {
   if (s.armor) bits.push("−" + Math.round(s.armor * 100) + "% cargo damage");
   if (s.camp) bits.push("warms you when stopped");
   if (s.rescue) bits.push("−" + Math.round(s.rescue * 100) + "% rescue fees");
+  if (s.winch) bits.push(["", "12 m line", "26 m line", "42 m line, double-line"][s.winch] + ", " + [0, 7, 13, 22][s.winch] + " kN pull".replace("kN", "kN"));
   if (o.warm) bits.push(o.warm + " warmth");
   return bits.join(" · ");
 };
@@ -4803,28 +4777,35 @@ function applyLoadout() {
 
 /* ---------------- other riders out on the trail ---------------- */
 const NPCS = [];
-function buildNpcs() {
+// a sled with a rider on it, for the other riders, the rescue crews and whoever's stuck
+function npcSledMesh(bodyHex, suitHex, noRider) {
   const std = (c, r = 0.6, m = 0.05) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+  const g = new THREE.Group(), body = std(bodyHex, 0.45, 0.15), dark = std(0x1a2027, 0.85),
+    steel = std(0x9aa6b2, 0.35, 0.6), suit = std(suitHex, 0.8), helm = std(0xe8eef4, 0.3);
+  const add = (geo, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; g.add(m); return m; };
+  add(new THREE.BoxGeometry(0.52, 0.3, 1.9), dark, 0, 0.2, -0.5);            // track & tunnel
+  add(new THREE.BoxGeometry(0.62, 0.26, 1.7), body, 0, 0.5, -0.45);
+  add(new THREE.SphereGeometry(0.5, 12, 8), body, 0, 0.8, 0.5).scale.set(0.86, 0.5, 1.3);   // hood
+  add(new THREE.BoxGeometry(0.44, 0.16, 0.9), dark, 0, 0.95, -0.45);         // seat
+  add(new THREE.BoxGeometry(0.5, 0.36, 0.03), std(0xbfe0f2, 0.05), 0, 1.22, 0.72, -0.5);   // shield
+  for (const s of [-0.5, 0.5]) {
+    add(new THREE.BoxGeometry(0.16, 0.05, 1.3), steel, s, 0.03, 0.9);
+    add(new THREE.BoxGeometry(0.16, 0.05, 0.3), steel, s, 0.1, 1.6, -0.5);
+  }
+  add(new THREE.CylinderGeometry(0.035, 0.05, 0.62, 8), dark, 0, 1.1, 0.36).rotation.x = -0.12;   // steering column
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), steel, 0, 1.4, 0.34).rotation.z = Math.PI / 2;
+  if (!noRider) {
+    add(new THREE.BoxGeometry(0.42, 0.5, 0.34), suit, 0, 1.3, -0.5, 0.2);      // rider
+    add(new THREE.SphereGeometry(0.19, 10, 8), helm, 0, 1.7, -0.42);
+  }
+  add(new THREE.BoxGeometry(0.2, 0.06, 0.04), std(0xff2a1a, 0.4), 0, 0.68, -1.5);   // tail light
+  return g;
+}
+function buildNpcs() {
   const kits = [{ body: 0x2f6fb0, suit: 0x1f2a36 }, { body: 0xd8c23a, suit: 0x3a2f28 }];
   const names = ["Trail groomer", "Weekender"];
   for (let i = 0; i < 2; i++) {
-    const g = new THREE.Group(), body = std(kits[i].body, 0.45, 0.15), dark = std(0x1a2027, 0.85),
-      steel = std(0x9aa6b2, 0.35, 0.6), suit = std(kits[i].suit, 0.8), helm = std(0xe8eef4, 0.3);
-    const add = (geo, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; g.add(m); return m; };
-    add(new THREE.BoxGeometry(0.52, 0.3, 1.9), dark, 0, 0.2, -0.5);            // track & tunnel
-    add(new THREE.BoxGeometry(0.62, 0.26, 1.7), body, 0, 0.5, -0.45);
-    add(new THREE.SphereGeometry(0.5, 12, 8), body, 0, 0.8, 0.5).scale.set(0.86, 0.5, 1.3);   // hood
-    add(new THREE.BoxGeometry(0.44, 0.16, 0.9), dark, 0, 0.95, -0.45);         // seat
-    add(new THREE.BoxGeometry(0.5, 0.36, 0.03), std(0xbfe0f2, 0.05), 0, 1.22, 0.72, -0.5);   // shield
-    for (const s of [-0.5, 0.5]) {
-      add(new THREE.BoxGeometry(0.16, 0.05, 1.3), steel, s, 0.03, 0.9);
-      add(new THREE.BoxGeometry(0.16, 0.05, 0.3), steel, s, 0.1, 1.6, -0.5);
-    }
-    add(new THREE.CylinderGeometry(0.035, 0.05, 0.62, 8), dark, 0, 1.1, 0.36).rotation.x = -0.12;   // steering column
-    add(new THREE.CylinderGeometry(0.02, 0.02, 0.7, 6), steel, 0, 1.4, 0.34).rotation.z = Math.PI / 2;
-    add(new THREE.BoxGeometry(0.42, 0.5, 0.34), suit, 0, 1.3, -0.5, 0.2);      // rider
-    add(new THREE.SphereGeometry(0.19, 10, 8), helm, 0, 1.7, -0.42);
-    add(new THREE.BoxGeometry(0.2, 0.06, 0.04), std(0xff2a1a, 0.4), 0, 0.68, -1.5);   // tail light
+    const g = npcSledMesh(kits[i].body, kits[i].suit);
     scene.add(g);
     NPCS.push({ g, name: names[i], x: 0, z: 0, y: 0, yaw: 0, spd: 8, tgt: null, avoid: 0, avoidT: 0, mark: null, colour: i ? "#d8c23a" : "#7fc8e0" });
   }
@@ -4902,15 +4883,15 @@ function updGame(dt, spd) {
   const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
   if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
   GS.camping = camping;
-  if (near) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+  if (near && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
-  else GS.warmth -= cold * dt;
+  else if (!near) GS.warmth -= cold * dt;
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
-  if (GS.warmth <= 0) { blackout("cold"); return; }
-  if (isSea(P.x, P.z) && P.y < SEA - 0.4) { blackout("sea"); return; }
+  if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
+  if (isSea(P.x, P.z) && P.y < SEA - 0.4 && !HELP.on) startDrown();
   if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
-  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast("Out of fuel. Press F to call the Red Cross sled ($100).", "bad"); }
+  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
   if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
@@ -4941,17 +4922,23 @@ function groomTarget() {
 }
 function updGameHud() {
   let tgt = depot;
-  if (GS.load.length) {
+  const rjv = GS.rescueJob ? rjNearest(P.x, P.z) : null;
+  if (rjv) tgt = rjv.v;
+  else if (GS.load.length) {
     let best = 1e9;
     for (const j of GS.load) { const d = Math.hypot(j.dest.x - P.x, j.dest.z - P.z); if (d < best) { best = d; tgt = j.dest; } }
   } else if (GS.groomJob) tgt = groomTarget();
-  const pend = !GS.load.length && !GS.groomJob && pendingPickup();
+  const pend = !rjv && !GS.load.length && !GS.groomJob && pendingPickup();
   if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
   $("arrow").style.color = !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
-  if (GS.load.length) {
+  if (rjv) {
+    const c = GS.rescueJob, left = c.due - GS.hour, n = RJ.vs.filter(v => !v.freed).length;
+    $("jobTitle").textContent = `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`;
+    $("jobSub").textContent = `${fmtMi(rjv.d)} · $${c.pay} · ${left > 0 ? `clock runs out ${fmtTime(c.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}`;
+  } else if (GS.load.length) {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
     const g = groom[tgt.id];
@@ -4959,7 +4946,7 @@ function updGameHud() {
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
-    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}`;
+    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${GS.own.parts.hitch !== "groomer" ? " · no groomer hitched!" : ""}`;
   } else if (pend) {
     $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
@@ -4967,7 +4954,7 @@ function updGameHud() {
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
   $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
-  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
+  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
   $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
@@ -5046,7 +5033,7 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Job board, garage"], ["F", "Call a tow"], ["R", "Reset the sled"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Job board, garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
 const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Job board, garage"], ["Menu", "Settings"], ["View", "Reset the sled"], ["R3", "Camera"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
@@ -5085,7 +5072,7 @@ function titleBack() {
   TT.mode = "menu"; titleSelect(TT.sel, true);
 }
 function newGame() {
-  GS.cash = 0; GS.delivered = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null;
+  GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; rescueAbort();
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
 }
@@ -5257,6 +5244,891 @@ addEventListener("resize", () => { if (TT.on) { titleLayout(); if (TT.mode === "
   titleLayout();
 }
 
+/* ---------------- winch, bogging and recovery ---------------- */
+// Stop with the track still spinning in deep powder and the sled digs itself in. Once it's bogged no
+// amount of throttle gets it out. What does: a shovel (slow), a winch strapped round a tree (quick, and only
+// as good as the tree), or R. Get off (Q), wade out, hook the line round something solid (E), hold Space to reel.
+// The same winch pulls other people out of ditches, ice and worse: see "recovery calls" further down.
+// F is no longer a free tow: it calls a rescue sled, and only for the two things you can't fix yourself, the
+// fjord and an empty tank.
+const GR = 9.81;
+const WINCH = [null,
+  { id: "hand", name: "hand winch", len: 12, pull: 7000, speed: 0.5, fuel: 0 },
+  { id: "elec", name: "electric winch", len: 26, pull: 13000, speed: 0.9, fuel: 0.012 },
+  { id: "heavy", name: "expedition winch", len: 42, pull: 22000, speed: 1.15, fuel: 0.018, block: true }
+];
+const winchDef = () => (ST && WINCH[ST.winch]) || null;
+const lbf = n => Math.round(n / 4.448 / 10) * 10;
+// what a strap round it will take, in newtons: a pine or a boulder is a proper anchor, a birch is a gamble
+const anchorCap = o => o.tree === undefined ? 42000 : o.pine ? 30000 * Math.min(1.3, o.s) : 9500 * o.s * o.s;
+const anchorName = o => o.tree === undefined ? "boulder" : o.pine ? "pine" : "birch";
+const anchorTag = o => { const c = anchorCap(o); return c > 24000 ? "solid" : c > 11000 ? "decent" : c > 6500 ? "so-so" : "weak"; };
+function anchorsNear(x, z, R) {
+  const out = [], g0 = Math.floor((x - R + HALF) / OBC), g1 = Math.floor((x + R + HALF) / OBC), h0 = Math.floor((z - R + HALF) / OBC), h1 = Math.floor((z + R + HALF) / OBC);
+  for (let j = h0; j <= h1; j++) for (let i = g0; i <= g1; i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) {
+      if (o.log || o.down || o.top === -Infinity) continue;
+      const tree = o.tree !== undefined; if (!tree && !(o.top < 1e8 && o.r >= 0.5)) continue;
+      const d = Math.hypot(o.x - x, o.z - z); if (d <= R) out.push({ o, d });
+    }
+  }
+  return out.sort((p, q) => p.d - q.d);
+}
+// a tree that won't hold comes out by the roots
+function uproot(o, dx, dz) {
+  if (o.tree === undefined || o.down) return;
+  const d = Math.hypot(dx, dz) || 1;
+  if (o.snowy) dropSnow(o, true);
+  const wi = wobbling.indexOf(o); if (wi >= 0) wobbling.splice(wi, 1);
+  o.wob = { t: 0, amp: 0, ax: dz / d, az: -dx / d };
+  o.y -= 0.18 * o.s; setTree(o, 1.5 + Math.random() * 0.06);
+  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
+  o.top = -Infinity; o.down = true; felled.push(o);
+  for (let k = 0; k < 30; k++) emit(o.x, o.y + 0.4 + Math.random() * 0.6, o.z, dx * 0.3, 1 + Math.random() * 1.5, dz * 0.3, 2.2, 0.8);
+  crack(0.9); thud(0.4);
+}
+
+/* ---- bogging ---- */
+const BOG = { on: false, acc: 0, depth: 0, x: 0, z: 0, r: 3.4, r0: 0, resist: 0, moved: 0, dig: 0, sink: 0, immune: 0, t: 0, hollow: 0, hx: 1e9, hz: 1e9, warned: false };
+// how much of a bowl the ground is: the average of a ring 12 m out, minus the middle
+function hollowAt(x, z) {
+  let s = 0; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; s += groundAt(x + Math.cos(a) * 12, z + Math.sin(a) * 12); }
+  return s / 8 - groundAt(x, z);
+}
+function enterBog(depth) {
+  BOG.on = true; BOG.depth = depth; BOG.x = P.x; BOG.z = P.z; BOG.r = 2.6 + 2.4 * depth; BOG.moved = 0; BOG.dig = 0; BOG.t = 0; BOG.acc = 0; BOG.warned = false;
+  BOG.r0 = (MASS + TOW.mass) * GR * (0.5 + 1.1 * depth); BOG.resist = BOG.r0;
+  P.vx = P.vz = 0;
+  for (let k = 0; k < 44; k++) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.3, P.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 7, 2 + Math.random() * 4, (Math.random() - 0.5) * 7, 1.6, 1.3);
+  crater(P.x, P.z, 0.22); whump(0.9);
+  const wd = winchDef();
+  toast(wd ? "Bogged to the skis. Get off (Q), wade to a tree and hook your winch (E)." : "Bogged to the skis. Get off (Q) and dig (hold E), or press R.", "bad");
+}
+function freeBog(how) {
+  if (!BOG.on) return;
+  BOG.on = false; BOG.acc = 0; BOG.immune = 8; BOG.dig = 0;
+  toast(how === "winch" ? "Free! Keep your speed up through the soft stuff." : how === "dug" ? "Dug out. Keep your speed up through the soft stuff." : "Free.", "good");
+}
+function bogStep(dt, spd, thrE, fr) {
+  if (BOG.immune > 0) BOG.immune -= dt;
+  if (BOG.on) { BOG.t += dt; return; }
+  if (!P.gnd || P.wet || P.ice || GS.dead || FOOT.on || BOG.immune > 0 || HELP.on) { BOG.acc = Math.max(0, BOG.acc - 1.2 * dt); return; }
+  if (Math.abs(P.x - BOG.hx) > 3 || Math.abs(P.z - BOG.hz) > 3) { BOG.hx = P.x; BOG.hz = P.z; BOG.hollow = hollowAt(P.x, P.z); }
+  const risk = sstep(0.5, 1.8, BOG.hollow) * sstep(0.4, 0.72, fr) * (1 - sstep(0.3, 0.7, P.pack));
+  const dig = thrE > 0.25 && spd < 6 ? risk * (1 - spd / 6) * thrE * (1 + TOW.mass / 500) : 0;
+  if (dig > 0.02) {
+    BOG.acc += dig * 0.45 * dt;
+    if (BOG.acc > 0.45 && !BOG.warned) { BOG.warned = true; toast("The track's digging in. Ease off, or get moving!", "warn"); }
+    if (BOG.acc >= 1) enterBog(clamp(0.3 + 0.55 * risk, 0.3, 0.85));
+  } else { BOG.acc = Math.max(0, BOG.acc - 0.6 * dt); if (BOG.acc < 0.2) BOG.warned = false; }
+}
+
+/* ---- on foot ---- */
+const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0 };
+function makeFigure(m) {
+  const g = new THREE.Group(), U = g.userData; U.arms = []; U.legs = [];
+  const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
+  box(0.44, 0.58, 0.27, m.jacket, 0, 0.3, 0, 0, 0, 0, torso);
+  box(0.46, 0.09, 0.285, m.trim, 0, 0.12, 0, 0, 0, 0, torso);
+  ball(0.12, m.skin, 0, 0.72, 0.01, torso);
+  ball(0.165, m.helmet, 0, 0.75, 0, torso, 1, 1, 1.08);
+  box(0.2, 0.07, 0.06, m.visor, 0, 0.74, 0.14, 0, 0, 0, torso);
+  for (const s of [-1, 1]) {
+    const a = new THREE.Group(); a.position.set(s * 0.29, 0.52, 0); torso.add(a);
+    box(0.11, 0.5, 0.13, m.jacket, 0, -0.24, 0, 0, 0, 0, a); box(0.12, 0.12, 0.14, m.glove, 0, -0.54, 0, 0, 0, 0, a);
+    U.arms.push(a);
+    const l = new THREE.Group(); l.position.set(s * 0.11, 0.93, 0); g.add(l);
+    box(0.17, 0.82, 0.2, m.pants, 0, -0.42, 0, 0, 0, 0, l); box(0.19, 0.14, 0.34, m.boot, 0, -0.88, 0.06, 0, 0, 0, l);
+    U.legs.push(l);
+  }
+  return g;
+}
+function buildWalker() {
+  FOOT.g = makeFigure({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot, skin: M.skin });
+  FOOT.g.visible = false; scene.add(FOOT.g);
+}
+function poseFigure(g, sp, step, crouch, dt) {
+  const U = g.userData, amt = clamp(Math.abs(sp) / 2.4, 0, 1), sw = Math.sin(step) * 0.75 * amt;
+  U.legs[0].rotation.x = sw; U.legs[1].rotation.x = -sw;
+  U.arms[0].rotation.x = -sw * 0.9 - crouch * 0.9; U.arms[1].rotation.x = sw * 0.9 - crouch * 0.9;
+  U.torso.rotation.x = crouch * 0.55 + amt * 0.08; U.torso.position.y = 0.93 - crouch * 0.12;
+}
+function sledSide() { return [Math.cos(P.yaw), -Math.sin(P.yaw)]; }   // the sled's left
+function dismount() {
+  if (!started || GS.dead || FOOT.on || HELP.on) return;
+  if (GS.boardOpen || GS.garageOpen || godOpen) return;
+  if (Math.hypot(P.vx, P.vz) > 2.2 || !P.gnd || P.wet) { toast("Stop the sled first.", "warn"); return; }
+  const [sx, sz] = sledSide(), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  FOOT.x = P.x + sx * 1.05 - fx * 0.3; FOOT.z = P.z + sz * 1.05 - fz * 0.3; FOOT.y = surf(FOOT.x, FOOT.z); FOOT.yaw = P.yaw; FOOT.sp = 0; FOOT.on = true;
+  P.vx = P.vz = 0; camState.init = false;
+  if (winchDef()) WN.state = "out";
+}
+function mount() {
+  if (!FOOT.on) return;
+  if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > 3.6) { toast("Get back to the sled first.", "warn"); return; }
+  FOOT.on = false; FOOT.dig = false; wnStow(true); camState.init = false; camState.yaw = P.yaw;
+}
+function clearRecovery() {
+  BOG.on = false; BOG.acc = 0; BOG.immune = 4; BOG.sink = 0;
+  FOOT.on = false; FOOT.dig = false; wnStow(false);
+  if (typeof HELP !== "undefined" && HELP.on) helpEnd(true);
+}
+function footStep(dt) {
+  const F = FOOT;
+  F.yaw += -F.turn * 2.2 * dt;
+  const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
+  const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
+  const wade = lerp(0.42, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
+  const tgt = F.dig ? 0 : F.fwd > 0 ? 3.0 * wade * F.fwd : F.fwd < 0 ? 1.8 * wade * F.fwd : 0;
+  F.sp += (tgt - F.sp) * (1 - Math.exp(-7 * dt));
+  let nx = F.x + fx * F.sp * dt, nz = F.z + fz * F.sp * dt;
+  // trees, rocks and buildings
+  const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
+  for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) {
+      if (o.log || o.down) continue;
+      const dx = nx - o.x, dz = nz - o.z, rr = o.r + 0.36, d2 = dx * dx + dz * dz;
+      if (d2 < rr * rr && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = o.x + dx / dd * rr; nz = o.z + dz / dd * rr; }
+    }
+  }
+  [nx, nz] = rjWalls(nx, nz, 0.36);
+  // the sled itself is a wall
+  { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
+  if (isSea(nx, nz)) { nx = F.x; nz = F.z; F.sp = 0; }
+  // the line only pays out so far
+  if (WN.state === "out") {
+    const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
+    if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; } else WN.tight = false;
+  }
+  const lim = HALF - 24; F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
+  F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
+  F.y = surf(F.x, F.z) - F.sink * 0.6;
+  F.step += Math.abs(F.sp) * dt * 2.3;
+  F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
+  if (Math.abs(F.sp) > 0.8 && d > 0.3 && Math.random() < dt * 14) emit(F.x - fx * 0.3, F.y + 0.3, F.z - fz * 0.3, -fx * F.sp * 0.3, 0.8 + Math.random(), -fz * F.sp * 0.3, 0.9, 0.7);
+  const g = F.g; g.visible = true; g.position.set(F.x, F.y, F.z); g.rotation.y = F.yaw;
+  poseFigure(g, F.sp, F.step, F.crouch, dt);
+}
+
+/* ---- the winch: line, strap and pull ---- */
+const WN = { state: "stowed", mode: "self", anchor: null, tie: null, tgt: null, dbl: false, reel: false, held: false, padReel: false, tens: 0, need: 0, cap: 0, stall: 0, snapT: 0, sfx: 0, hint: "", pullV: null, tight: false, slip: 0, hold: 0, prompt: "" };
+function fairlead() { return [P.x + Math.sin(P.yaw) * 1.85, P.y + 0.55 - BOG.sink, P.z + Math.cos(P.yaw) * 1.85]; }
+function makeCable(n) {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const mat = std(0x2b3138, 0.5, 0.6), geo = new THREE.CylinderGeometry(0.016, 0.016, 1, 5), segs = [];
+  for (let i = 0; i < n; i++) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; g.add(m); segs.push(m); }
+  const hook = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), std(0xe0a820, 0.4, 0.3)); g.add(hook);
+  const va = new THREE.Vector3(), vb = new THREE.Vector3(), vd = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  return {
+    g, segs, hook,
+    set(a, b, sag) {
+      g.visible = true; let px = a[0], py = a[1], pz = a[2];
+      for (let i = 0; i < n; i++) {
+        const t = (i + 1) / n, x = lerp(a[0], b[0], t), z = lerp(a[2], b[2], t), y = lerp(a[1], b[1], t) - 4 * t * (1 - t) * sag;
+        va.set(px, py, pz); vb.set(x, y, z); vd.subVectors(vb, va); const len = vd.length() || 0.001;
+        const m = segs[i]; m.position.copy(va).add(vb).multiplyScalar(0.5); m.scale.set(1, len, 1); m.quaternion.setFromUnitVectors(up, vd.multiplyScalar(1 / len));
+        px = x; py = y; pz = z;
+      }
+      hook.position.set(b[0], b[1], b[2]);
+    },
+    hide() { g.visible = false; }
+  };
+}
+let strapM = null;
+function buildWinchGear() {
+  WN.cab = makeCable(16);
+  strapM = new THREE.Mesh(new THREE.TorusGeometry(1, 0.035, 6, 16), std(0xff6a1f, 0.7)); strapM.rotation.x = Math.PI / 2; strapM.visible = false; scene.add(strapM);
+  WN.tieCab = makeCable(6);
+  // the winch on the bumper: frame, drum, fairlead roller, hook
+  const W = V.winch = new THREE.Group(); sledBody.add(W); W.visible = false;
+  box(0.36, 0.2, 0.16, M.dark, 0, 0, 0, 0, 0, 0, W);
+  const spin = new THREE.Group(); spin.position.set(0, 0.02, 0); W.add(spin); W.userData.spin = spin;
+  cyl(0.085, 0.085, 0.3, M.steel, 0, 0, 0, 0, 0, Math.PI / 2, spin, 14);
+  cyl(0.045, 0.045, 0.34, M.chrome, 0, -0.06, 0.1, 0, 0, Math.PI / 2, W, 10);
+  box(0.06, 0.09, 0.05, std(0xe0a820, 0.4, 0.3), 0, -0.14, 0.11, 0, 0, 0, W);
+  W.position.set(0, 0.44, 1.7);
+}
+function wnStow(mountAgain) {
+  WN.state = "stowed"; WN.anchor = null; WN.tie = null; WN.tgt = null; WN.reel = false; WN.tens = 0; WN.stall = 0; WN.pullV = null; WN.tight = false; WN.dbl = false; WN.slip = 0;
+  if (WN.cab) WN.cab.hide(); if (WN.tieCab) WN.tieCab.hide(); if (strapM) strapM.visible = false;
+  if (FOOT.g && !FOOT.on) FOOT.g.visible = false;
+  if (mountAgain && typeof rescueUnhook === "function") rescueUnhook();
+}
+const anchorPt = a => [a.x, surf(a.x, a.z) + 0.5, a.z];
+// E on foot: hook, unhook, or start digging
+function footAction() {
+  if (!FOOT.on) return;
+  const wd = winchDef(), near = () => Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6;
+  // recovery calls take the line first
+  if (typeof rescueFootAction === "function" && rescueFootAction()) return;
+  if (WN.state === "hooked" && WN.mode === "self") {
+    const a = WN.anchor; if (a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8) { WN.state = "out"; WN.anchor = null; if (strapM) strapM.visible = false; toast("Strap off. The line runs out behind you."); return; }
+    toast("Walk up to the strap to take it off.", "warn"); return;
+  }
+  if (wd && WN.state === "out" && WN.snapT <= 0) {
+    const fl = fairlead(), cands = anchorsNear(FOOT.x, FOOT.z, 2.6);
+    const ok = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
+    if (ok) {
+      WN.anchor = ok.o; WN.state = "hooked"; WN.mode = "self"; WN.stall = 0; WN.dbl = false;
+      toast(`Strap round the ${anchorName(ok.o)} (${anchorTag(ok.o)}, ${lbf(anchorCap(ok.o)).toLocaleString("en-US")} lb). ${BOG.on ? "Hold Space to reel." : "You're not stuck, but the line's on."}`);
+      return;
+    }
+    if (cands.length) { toast(`The ${anchorName(cands[0].o)} is out of reach of your ${wd.len} m line.`, "warn"); return; }
+  }
+  if (BOG.on && near() && WN.state !== "hooked") { FOOT.dig = !FOOT.dig; toast(FOOT.dig ? "Digging. Hold still." : "Stopped digging."); return; }
+  if (!wd && !BOG.on) { toast("Nothing to do out here. Press Q at the sled to get back on.", "warn"); return; }
+  toast(wd ? "Walk up to a tree or a boulder and press E." : "Nothing to hook.", "warn");
+}
+// X: size the job up
+function footAssess() {
+  if (!FOOT.on) return;
+  if (typeof rescueAssess === "function" && rescueAssess()) return;
+  const wd = winchDef();
+  if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) { WN.dbl = !WN.dbl; toast(WN.dbl ? "Snatch block on the strap, line doubled back to the sled. Twice the pull, half the speed." : "Back to a single line."); return; }
+  if (!BOG.on) { toast("You're not stuck."); return; }
+  const fl = fairlead(), list = anchorsNear(fl[0], fl[2], wd ? wd.len : 14).filter(c => c.d > 2.5).slice(0, 6);
+  const need = `It'll take about ${lbf(BOG.resist * 1.2).toLocaleString("en-US")} lb to drag out.`;
+  if (!wd) { toast(`${need} No winch: dig by the sled (hold E at it).`); return; }
+  const best = list.filter(c => anchorCap(c.o) > BOG.resist * 1.4).sort((a, b) => a.d - b.d)[0];
+  toast(`${need} ${best ? `The ${anchorName(best.o)} ${Math.round(best.d)} m out will hold.` : "Nothing in reach looks good enough: try a bigger tree."}`);
+}
+function wnUpdate(dt) {
+  WN.pullV = null; WN.reel = false; WN.hold = 0;
+  const wd = winchDef();
+  if (!wd) { if (WN.state !== "stowed") wnStow(false); WN.sfx = 0; return; }
+  if (WN.snapT > 0) { WN.snapT -= dt; if (WN.snapT <= 0) toast("Winch line's respooled."); }
+  WN.cap = wd.pull * (WN.dbl ? 1.8 : 1);
+  WN.sfx = 0;
+  if (WN.state === "hooked" && WN.mode === "self") selfReel(dt, wd);
+  else if (WN.state === "hooked" && WN.mode === "rescue" && typeof rescueReel === "function") rescueReel(dt, wd);
+  else WN.tens += (0 - WN.tens) * (1 - Math.exp(-6 * dt));
+}
+function selfReel(dt, wd) {
+  const a = WN.anchor; if (!a || a.down) { WN.state = "out"; WN.anchor = null; return; }
+  const held = WN.held || WN.padReel, fl = fairlead();
+  let dx = a.x - fl[0], dz = a.z - fl[2]; const dist = Math.hypot(dx, dz) || 1; dx /= dist; dz /= dist;
+  if (dist > wd.len + 0.5) { WN.state = "out"; WN.anchor = null; toast("Line's too short for that.", "warn"); return; }
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), along = fx * dx + fz * dz;
+  // dragged sideways it fights you: the skis want to go where they point
+  const need = (BOG.on ? BOG.resist : (MASS + TOW.mass) * GR * 0.35) * (1 + 0.8 * (1 - Math.max(0, along)));
+  WN.need = need; const ratio = need / WN.cap; WN.tens += (clamp(ratio, 0, 1.25) - WN.tens) * (1 - Math.exp(-7 * dt));
+  if (!held || WN.snapT > 0) return;
+  if (wd.fuel && GS.fuel <= 0) { if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast("No fuel to run the winch.", "warn"); } return; }
+  if (!BOG.on && dist < 1.4) return;
+  WN.reel = true;
+  if (need > anchorCap(a)) {                                   // the tree loses
+    uproot(a, -dx, -dz); WN.state = "out"; WN.anchor = null; if (strapM) strapM.visible = false;
+    toast(`The ${anchorName(a)} came out by the roots. Find something bigger${WN.dbl ? "" : wd.block ? " or double the line (X at the strap)" : ""}.`, "bad"); return;
+  }
+  if (ratio > 1) {                                             // more than the winch can give
+    WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "The winch is stalling. Double the line with the snatch block (X at the strap), or find a better angle." : "The winch is stalling. Dig, or find a better angle.", "warn"); }
+    if (WN.stall > 5 && Math.random() < dt * 0.3) { WN.state = "out"; WN.anchor = null; WN.snapT = 40; if (strapM) strapM.visible = false; crack(1); toast("The line parted! Respooling a new one (40 s). Shovel or R.", "bad"); }
+    return;
+  }
+  WN.stall = Math.max(0, WN.stall - dt * 2);
+  const v = wd.speed * (WN.dbl ? 0.55 : 1) * clamp(1.25 - 0.75 * ratio, 0.3, 1);
+  WN.pullV = { x: dx * v, z: dz * v }; WN.sfx = 0.05 + 0.1 * ratio;
+  P.yaw = angLerp(P.yaw, Math.atan2(dx, dz), 1 - Math.exp(-2.5 * dt));
+  if (wd.fuel) GS.fuel = Math.max(0, GS.fuel - wd.fuel * dt);
+  if (Math.random() < dt * 5) wobble(a, 0.03, dx, dz);
+  if (BOG.on) {
+    BOG.moved += v * dt; BOG.resist = BOG.r0 * clamp(1 - 0.75 * BOG.moved / BOG.r, 0.2, 1);
+    if (Math.random() < dt * 30) emit(P.x, P.y + 0.3, P.z, 0, 1 + Math.random() * 2, 0, 1.5, 0.8);
+    if (BOG.moved >= BOG.r) { freeBog("winch"); }
+  }
+}
+// draws the line, the strap and the walker's end of it every frame
+function wnVisual(dt) {
+  if (!WN.cab) return;
+  const wd = winchDef();
+  if (V.winch) V.winch.visible = wd ? true : (PV.cat === "winch" && PV.id && PV.id !== "none");
+  if (!wd || WN.state === "stowed") { WN.cab.hide(); if (strapM) strapM.visible = false; }
+  else if (WN.state === "out") { const fl = fairlead(), h = [FOOT.x, FOOT.y + 1.0, FOOT.z]; const slack = Math.max(0, wd.len - Math.hypot(h[0] - fl[0], h[2] - fl[2])); WN.cab.set(fl, h, Math.min(1.6, slack * 0.12)); WN.cab.hook.visible = false; if (strapM) strapM.visible = false; }
+  else if (WN.state === "hooked" && WN.mode === "self" && WN.anchor) {
+    const a = WN.anchor, fl = fairlead(), ap = anchorPt(a);
+    WN.cab.set(fl, ap, (1 - clamp(WN.tens * 1.6, 0, 1)) * 0.5); WN.cab.hook.visible = true;
+    strapM.visible = true; strapM.position.set(a.x, ap[1] - 0.1, a.z); const r = (a.r || 0.3) + 0.05; strapM.scale.set(r, r, 1);
+  } else if (WN.state === "hooked" && WN.mode === "rescue" && typeof rescueVisual === "function") rescueVisual();
+  if (V.winch && V.winch.userData.spin && WN.reel) V.winch.userData.spin.rotation.x += WN.sfx * 40 * dt;
+  // sounds
+  if (audio && audio.wg) { const t = audio.AC.currentTime; audio.wg.gain.setTargetAtTime(WN.sfx, t, 0.08); audio.ow.frequency.setTargetAtTime(95 + WN.tens * 150, t, 0.1); }
+}
+
+/* ---- call for help: the fjord and an empty tank ---- */
+// Everything else you can get out of yourself. Go through the ice on the fjord, or run dry a long way from
+// anywhere, and you radio for a rescue sled. It comes from the nearest shore or village, winches you out and
+// sends the bill. Wet freight is worth less; a fuel delivery costs less.
+const HELP = { on: false, kind: "", called: false, phase: "", t: 0, eta: 0, fee: 0, rs: null, cab: null, from: null, to: null, shore: null, pull: null, vis: null, sx: 0, sz: 0 };
+function nearestShore(x, z) {
+  for (let R = 6; R <= 600; R += 6) {
+    let best = null;
+    for (let k = 0; k < 24; k++) { const a = k * Math.PI / 12, px = x + Math.cos(a) * R, pz = z + Math.sin(a) * R; if (!isSea(px, pz) && Math.abs(px) < HALF - 60 && Math.abs(pz) < HALF - 60) { best = [px, pz, a]; break; } }
+    if (best) return best;
+  }
+  return [SPAWN.x, SPAWN.z, 0];
+}
+function buildRescueSled() {
+  const g = npcSledMesh(0xc8102e, 0xeef2f5); g.visible = false; scene.add(g);
+  const amb = std(0x6a3a00, 0.4, 0, { emissive: 0xffa020, emissiveIntensity: 1.6 }), bl = [];
+  for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.07, 0.05), amb); m.position.set(s * 0.22, 1.02, 0.62); g.add(m); bl.push(m); }
+  g.userData.beacons = bl;
+  return g;
+}
+function helpCost(kind) { return Math.round((kind === "sea" ? 140 : 45) * (1 - (ST ? ST.rescue : 0))); }
+function startDrown() {
+  if (HELP.on) return;
+  HELP.on = true; HELP.kind = "sea"; HELP.called = false; HELP.phase = "wait"; HELP.t = 0; HELP.fee = helpCost("sea");
+  if (FOOT.on) { FOOT.on = false; FOOT.dig = false; wnStow(false); }
+  P.vx = P.vz = P.vy = 0; closeBoard(); toast("Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
+  whump(1);
+  for (let k = 0; k < 60; k++) emit(P.x + (Math.random() - 0.5) * 3, SEA + 0.1, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 3 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.6, 1.4);
+}
+function callForHelp() {
+  if (GS.dead) return;
+  if (HELP.on) { if (HELP.called) { toast("They're on their way. Hang on."); return; } helpCall(); return; }
+  if (GS.fuel <= 0) { HELP.on = true; HELP.kind = "fuel"; HELP.fee = helpCost("fuel"); HELP.phase = "wait"; HELP.t = 0; helpCall(); return; }
+  toast(BOG.on ? "That's not a rescue job: get off (Q) and winch or dig, or press R." : "You're not in trouble. F calls a rescue sled, and only for the fjord or an empty tank. R resets a stuck sled.", "warn");
+}
+function helpCall() {
+  HELP.called = true; HELP.t = 0;
+  if (!HELP.rs) { HELP.rs = buildRescueSled(); HELP.cab = makeCable(14); }
+  const sea = HELP.kind === "sea", base = sea ? 9 : 16;
+  // where they come from: the nearest village or quay, but never more than a minute out, and less with the messenger
+  let ns = 1e9; for (const s of SITES) if (s.type !== "shop") ns = Math.min(ns, Math.hypot(s.x - P.x, s.z - P.z));
+  const speed = 17, eta = clamp(base + ns / 26, sea ? 12 : 20, sea ? 34 : 70) * (1 - ST.rescue * 0.55);
+  HELP.eta = eta;
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  let to, from;
+  if (sea) { const sh = nearestShore(P.x, P.z); HELP.shore = sh; const ix = Math.cos(sh[2]), iz = Math.sin(sh[2]); to = [sh[0] + ix * 9, sh[1] + iz * 9]; from = [to[0] + ix * speed * (eta - 7), to[1] + iz * speed * (eta - 7)]; }
+  else { to = [P.x - fx * 12, P.z - fz * 12]; from = null; for (let k = 0; k < 12 && !from; k++) { const a = Math.random() * 6.28, d = speed * (eta - 5), px = to[0] + Math.cos(a) * d, pz = to[1] + Math.sin(a) * d; if (!isSea(px, pz) && Math.abs(px) < HALF - 100 && Math.abs(pz) < HALF - 100) from = [px, pz]; } if (!from) from = [to[0] + 60, to[1] + 60]; }
+  if (isSea(from[0], from[1]) || Math.abs(from[0]) > HALF - 80 || Math.abs(from[1]) > HALF - 80) {      // never start them in the water or off the map
+    const sh = nearestShore(to[0], to[1]); from = [sh[0] + Math.cos(sh[2]) * 25, sh[1] + Math.sin(sh[2]) * 25];
+  }
+  HELP.from = from; HELP.to = to; HELP.phase = "approach"; HELP.sx = from[0]; HELP.sz = from[1];
+  const g = HELP.rs; g.visible = true; g.userData.yaw = Math.atan2(to[0] - from[0], to[1] - from[1]);
+  toast(sea ? `Rescue sled is coming: about ${Math.round(eta)} s out. Hold on.` : `Fuel delivery is coming: about ${Math.round(eta)} s out.`, "good");
+}
+function helpEnd(silent) {
+  if (HELP.rs) HELP.rs.visible = false; if (HELP.cab) HELP.cab.hide();
+  HELP.on = false; HELP.called = false; HELP.phase = ""; HELP.kind = "";
+}
+function helpTick(dt) {
+  if (!HELP.on && HELP.phase !== "leave") return;
+  HELP.t += dt;
+  const sea = HELP.kind === "sea", rs = HELP.rs;
+  if (HELP.on && sea) { GS.warmth = Math.max(6, GS.warmth - 1.0 * dt); P.sink = 0.58; }   // cold and getting colder, but a called rescue never finishes you
+  if (HELP.phase === "wait") return;
+  if (!rs) return;
+  const fx = (a, b, t) => a + (b - a) * t;
+  if (HELP.phase === "approach") {
+    const T = Math.max(1, HELP.eta - (sea ? 7 : 6)), k = clamp(HELP.t / T, 0, 1), e = k;
+    const x = fx(HELP.from[0], HELP.to[0], e), z = fx(HELP.from[1], HELP.to[1], e);
+    const yaw = rs.userData.yaw, sx = Math.sin(yaw), sz = Math.cos(yaw), y = surf(x, z);
+    rs.position.set(x, y, z); rs.rotation.set(-Math.atan2(surf(x + sx * 1.2, z + sz * 1.2) - surf(x - sx * 1.2, z - sz * 1.2), 2.4), yaw, 0, "YXZ");
+    stampAt(x, z, sx, sz); markTrail(x, z, true);
+    if (Math.random() < dt * 14) emit(x - sx * 1.5, y + 0.2, z - sz * 1.5, -sx * 6, 1.6, -sz * 6, 1.4);
+    if (k >= 1) { HELP.phase = "hook"; HELP.t = 0; if (!sea) rs.userData.yaw = Math.atan2(P.x - x, P.z - z); }
+  } else if (HELP.phase === "hook") {
+    const sx = Math.sin(rs.userData.yaw), sz = Math.cos(rs.userData.yaw);
+    const a = [rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], tgt = sea ? [P.x, SEA + 0.3, P.z] : [P.x, P.y + 0.8, P.z], k = clamp(HELP.t / 2.2, 0, 1);
+    HELP.cab.set(a, [lerp(a[0], tgt[0], k), lerp(a[1], tgt[1], k), lerp(a[2], tgt[2], k)], (1 - k) * 0.8);
+    if (!sea) { rs.rotation.y = angLerp(rs.rotation.y, rs.userData.yaw, 0.1); }
+    if (k >= 1) { HELP.phase = sea ? "pull" : "hand"; HELP.t = 0; HELP.pull = [P.x, P.z]; if (!sea) toast("Two jerry cans coming your way..."); }
+  } else if (HELP.phase === "pull") {
+    const to = [rs.position.x, rs.position.z], d = Math.hypot(P.x - to[0], P.z - to[1]) || 1, stepL = clamp(d / 13, 3.6, 9) * dt;
+    if (d > 4.4) { P.x -= (P.x - to[0]) / d * stepL; P.z -= (P.z - to[1]) / d * stepL; P.yaw = angLerp(P.yaw, Math.atan2(to[0] - P.x, to[1] - P.z) + Math.PI, 0.02); }
+    P.y = Math.max(rideSurf(P.x, P.z), SEA - 0.45) ; P.vx = P.vz = 0;
+    const sx = Math.sin(rs.userData.yaw), sz = Math.cos(rs.userData.yaw);
+    HELP.cab.set([rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], [P.x, Math.max(P.y + 0.4, SEA + 0.3), P.z], 0.1);
+    if (d <= 4.4 || HELP.t > 22) helpDone();
+  } else if (HELP.phase === "hand") {
+    if (HELP.t > 4.5) helpDone();
+  } else if (HELP.phase === "leave") {
+    const yaw = rs.userData.yaw + Math.PI, sx = Math.sin(yaw), sz = Math.cos(yaw);
+    rs.position.x += sx * 12 * dt; rs.position.z += sz * 12 * dt; rs.position.y = surf(rs.position.x, rs.position.z); rs.rotation.y = angLerp(rs.rotation.y, yaw, 0.1);
+    stampAt(rs.position.x, rs.position.z, sx, sz);
+    if (HELP.t > 5) { rs.visible = false; HELP.phase = ""; }
+  }
+  if (rs && rs.userData.beacons) rs.userData.beacons.forEach((m, i) => m.visible = ((gameClock * 4 + i) % 2) < 1);
+}
+function helpDone() {
+  const sea = HELP.kind === "sea", fee = HELP.fee;
+  GS.cash = Math.max(0, GS.cash - fee);
+  if (sea) {
+    if (isSea(P.x, P.z)) { const sh = nearestShore(P.x, P.z); P.x = sh[0] + Math.cos(sh[2]) * 4; P.z = sh[1] + Math.sin(sh[2]) * 4; }   // never leave you in the water
+    P.sink = 0; P.wet = false; P.vx = P.vz = P.vy = 0; P.y = surf(P.x, P.z) + 0.3; P.yr = 0;
+    const r = HELP.rs, sx = Math.sin(r.userData.yaw), sz = Math.cos(r.userData.yaw);
+    P.safe = { x: P.x, z: P.z, yaw: P.yaw }; towSnap();
+    GS.warmth = Math.max(GS.warmth, 25); BOG.immune = 6;
+    let wet = 0; for (const j of GS.load) { if (j.big) { j.cond = Math.max(0, j.cond - 40 * (j.fragile ? 1.3 : 1) * (1 - ST.armor)); wet++; } else { j.hits = (j.hits || 0) + 2; wet++; } }
+    toast(`Winched out of the fjord: −$${fee}.${wet ? " Everything aboard is soaked and worth less." : ""}`, "warn");
+    HELP.cab.hide(); HELP.phase = "leave"; HELP.t = 0; HELP.on = false; HELP.called = true;
+    r.userData.yaw = Math.atan2(sx, sz);
+  } else {
+    GS.fuel = Math.min(GS.cap, GS.fuel + Math.max(4, GS.cap * 0.4)); GS.outWarned = GS.lowWarned = false;
+    toast(`They tip two jerry cans in and leave a bill: −$${fee}. Don't do that again.`, "warn");
+    HELP.phase = "leave"; HELP.t = 0; HELP.on = false; HELP.called = true; HELP.rs.userData.yaw = Math.atan2(P.x - HELP.rs.position.x, P.z - HELP.rs.position.z);
+  }
+  HELP.kind = "";
+  save();
+}
+
+/* ---- recovery call-outs: the generated mission ---- */
+// A call-out is a trap, a victim and a twist, dropped somewhere the terrain really would catch someone. The trap
+// is found in the ground, not placed on a list: a bowl of soft snow, a drainage cut, a steep sidehill, a gully,
+// a stand of spruce, a lake. How hard the pull is comes from the same ground (mass x (friction + the slope out)),
+// and so does how you park: you anchor on real trees, your sled is what you're pulling against, and whether
+// a birch or a pine is in reach is what decides if the job is easy. A cold clock runs on the victim.
+const RRANKS = [
+  { at: 0, name: "Volunteer" },
+  { at: 3, name: "Recovery crew", opens: "Sidehills, gullies and people on foot are on the board." },
+  { at: 6, name: "Recovery lead", opens: "Spruce jams, lake ice and two-sled call-outs. The dealer will sell you the expedition winch." },
+  { at: 10, name: "Mountain rescue", opens: "Tracked carriers stuck on the fell. Bring the big winch and a good tree." }
+];
+const rrank = n => RRANKS.reduce((r, x) => n >= x.at ? x : r, RRANKS[0]);
+const TRAPS = {
+  bog: { lvl: 0, mu: 0.8, dist: 4.6, decay: 0.75, dirK: 0.25, sink: 0.42, pitch: 0.16, roll: 0.05, base: 0, w: 5, say: "sunk to the skis in a soft hollow", sayF: "waist-deep in a soft hollow", diff: 1 },
+  ditch: { lvl: 0, mu: 0.5, dist: 8, decay: 0.45, dirK: 1.5, sink: 0.05, pitch: 0.08, roll: 0.34, base: 15, w: 5, say: "nose-down in a drainage ditch", sayF: "slid down into a drainage ditch", diff: 1.2 },
+  hill: { lvl: 3, mu: 0.5, dist: 9, decay: 0.3, dirK: 1.2, sink: 0.1, pitch: 0.12, roll: 0.5, base: 35, w: 4, say: "slid off a sidehill and wedged against the slope", sayF: "slid down a steep bank and can't climb back", diff: 1.5 },
+  gully: { lvl: 3, mu: 0.45, dist: 12, decay: 0.35, dirK: 1.0, sink: 0.05, pitch: 0.3, roll: 0.1, base: 45, w: 4, say: "at the bottom of a gully, too steep to climb out", sayF: "at the bottom of a gully", diff: 1.7 },
+  wood: { lvl: 6, mu: 0.6, dist: 8, decay: 0.5, dirK: 1.8, sink: 0.12, pitch: 0.1, roll: 0.2, base: 40, w: 3, say: "jammed between the spruce with the track chewing", sayF: "stuck in a tree well under the spruce", diff: 1.6 },
+  ice: { lvl: 6, mu: 0.3, dist: 6, decay: 0.55, dirK: 0.7, sink: 0.35, pitch: 0.28, roll: 0.05, base: 60, w: 3, say: "through the lake ice with the back end in the water", sayF: "through the lake ice", diff: 2.0 }
+};
+const VICTIMS = [
+  { id: "rider", who: "weekend rider", mass: 340, lvl: 0, w: 6, sled: true, gentle: false, kit: 0, tip: [10, 25] },
+  { id: "herder", who: "reindeer herder with a loaded pulk", mass: 540, lvl: 0, w: 3, sled: true, gentle: false, kit: 1, tip: [15, 35] },
+  { id: "tourist", who: "ski tourist", mass: 115, lvl: 3, w: 3, sled: false, gentle: true, kit: 0, tip: [10, 30] },
+  { id: "crew", who: "road crew's tracked carrier", mass: 1150, lvl: 10, w: 2, sled: true, gentle: false, kit: 1, big: true, tip: [30, 60] }
+];
+const R_NAMES = ["Kåre", "Ragnhild", "Ole", "Siri", "Jonas", "Elin", "Nils", "Anja", "Tor", "Marit", "Hallvard", "Ingrid", "Sander", "Liv"];
+const R_THANKS = {
+  rider: ["Takk! I'd have been there till the spring thaw.", "That's the last time I follow somebody else's tracks.", "You're a legend. I owe you a coffee."],
+  herder: ["Takk. The reindeer will hear about this.", "My brother said I'd never get her out. I'll tell him you did it.", "Good winch. Good tree. Good work."],
+  tourist: ["Thank you... I can feel my feet again.", "I thought nobody was coming. Thank you.", "Next time I'm taking the road."],
+  crew: ["Ha! The boss won't believe this. Well done.", "Five tonnes of snowcat and you dragged it out. Respect.", "We'll buy you a beer at the quay."]
+};
+const RJ = { on: false, vs: [], pool: null, hurt: 0, blown: 0, stall: 0, t0: 0, flare: null, nag: 0, crackT: 0, ended: null };
+
+/* -- finding where it happens -- */
+const gradAt = (x, z, e = 4) => [(groundAt(x + e, z) - groundAt(x - e, z)) / (2 * e), (groundAt(x, z + e) - groundAt(x, z - e)) / (2 * e)];
+function treesIn(x, z, R) { return anchorsNear(x, z, R).filter(c => c.o.tree !== undefined); }
+function trapProbe(kind, x, z) {
+  if (isSea(x, z) || Math.abs(x) > HALF - 500 || Math.abs(z) > HALF - 500) return null;
+  const bio0 = bioAt(x, z), g0 = groundAt(x, z);
+  if (kind !== "ice" && bio0 === 1) return null;
+  for (const s of SITES) if (Math.hypot(s.x - x, s.z - z) < 70) return null;
+  const site = { kind, x, z, g0 }; let ex = 0, ez = 0, dist = TRAPS[kind].dist, rise = 0;
+  if (kind === "bog") {
+    if (hollowAt(x, z) < 1.3 || slopeAt(x, z, 4) > 0.3) return null;
+    const gr = gradAt(x, z, 6), m = Math.hypot(gr[0], gr[1]);
+    if (m > 0.04) { ex = gr[0] / m; ez = gr[1] / m; } else { const a = Math.random() * 6.28; ex = Math.cos(a); ez = Math.sin(a); }
+    site.hollow = hollowAt(x, z);
+  } else if (kind === "ditch") {
+    let best = null;
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 4, ax = Math.cos(a), az = Math.sin(a), nx = -az, nz = ax;
+      const gL = groundAt(x + nx * 6, z + nz * 6), gR = groundAt(x - nx * 6, z - nz * 6), rim = Math.min(gL, gR) - g0, run = Math.abs(groundAt(x + ax * 8, z + az * 8) - groundAt(x - ax * 8, z - az * 8));
+      if (rim >= 0.9 && rim <= 4 && run < 2.4 && (!best || rim > best.rim)) best = { rim, nx, nz, side: gL < gR ? 1 : -1 };
+    }
+    if (!best) return null;
+    ex = best.nx * best.side; ez = best.nz * best.side;
+    let t = 2; while (t < 16 && groundAt(x + ex * t, z + ez * t) < g0 + best.rim - 0.3) t += 1;
+    if (t >= 16) return null; dist = t + 1.8; rise = groundAt(x + ex * t, z + ez * t) - g0;
+  } else if (kind === "hill") {
+    const gr = gradAt(x, z, 4), m = Math.hypot(gr[0], gr[1]);
+    if (m < 0.38 || m > 0.7) return null;
+    ex = gr[0] / m; ez = gr[1] / m; rise = m * 9;
+  } else if (kind === "gully") {
+    if (hollowAt(x, z) < 1.9) return null;
+    let bestA = null, bestR = 1e9;
+    for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, r = groundAt(x + Math.cos(a) * 13, z + Math.sin(a) * 13) - g0; if (r < bestR) { bestR = r; bestA = a; } }
+    if (bestR > 7.5 || bestR < 0.8) return null;
+    ex = Math.cos(bestA); ez = Math.sin(bestA); rise = bestR; dist = 13;
+  } else if (kind === "wood") {
+    const T = treesIn(x, z, 7); if (T.length < 5 || slopeAt(x, z, 4) > 0.3) return null;
+    let bestA = null;
+    for (let k = 0; k < 16 && bestA === null; k++) {
+      const a = (k + Math.random()) * Math.PI / 8, dx = Math.cos(a), dz = Math.sin(a); let ok = true;
+      for (let t = 1.2; t <= 12 && ok; t += 1.2) for (const c of treesIn(x + dx * t, z + dz * t, 2.4)) if (Math.hypot(c.o.x - (x + dx * t), c.o.z - (z + dz * t)) < c.o.r + 1.2) { ok = false; break; }
+      if (ok) bestA = a;
+    }
+    if (bestA === null) return null;
+    ex = Math.cos(bestA); ez = Math.sin(bestA);
+  } else if (kind === "ice") {
+    if (bio0 !== 1) return null;
+    let bestA = null, bestD = 1e9;
+    for (let k = 0; k < 16; k++) {
+      const a = k * Math.PI / 8, dx = Math.cos(a), dz = Math.sin(a); let t = 3;
+      while (t < 46 && bioAt(x + dx * t, z + dz * t) === 1) t += 1.5;
+      if (t <= 34 && !isSea(x + dx * t, z + dz * t) && t < bestD && t >= 9) { bestD = t; bestA = a; }
+    }
+    if (bestA === null) return null;
+    ex = Math.cos(bestA); ez = Math.sin(bestA); site.shore = bestD; site.hole = 7;
+  }
+  site.ex = ex; site.ez = ez; site.dist = dist; site.slope = clamp(rise / Math.max(4, dist), 0, 0.9);
+  return site;
+}
+function findTrap(kinds, lvl, near, rMin, rMax) {
+  const ks = kinds.slice().sort(() => Math.random() - 0.5);
+  for (const kind of ks) {
+    for (let i = 0; i < 3500; i++) {
+      let x, z;
+      if (near) { const a = Math.random() * 6.28, d = 35 + Math.random() * 80; x = near.x + Math.cos(a) * d; z = near.z + Math.sin(a) * d; }
+      else { const a = Math.random() * 6.28, d = rMin + Math.random() * (rMax - rMin); x = depot.x + Math.cos(a) * d; z = depot.z + Math.sin(a) * d; }
+      const s = trapProbe(kind, x, z); if (s) return s;
+    }
+  }
+  return null;
+}
+const wpick = (list, key = "w") => { let t = list.reduce((a, o) => a + o[key], 0), r = Math.random() * t; for (const o of list) { r -= o[key]; if (r <= 0) return o; } return list[0]; };
+function nearestSiteName(x, z) { let b = null, bd = 1e9; for (const s of SITES) { if (s.type === "shop") continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s; } } return b ? shortName(b) : "the fell"; }
+// the park-up spot that'd work: out along the exit line, far enough that the whole pull fits on the line
+function rjParkSpot(v, len) { const L = Math.min(len - 2, v.dist + 6); return [v.x + v.ex * L, v.z + v.ez * L]; }
+
+function makeRescue(from) {
+  const n = GS.rescues || 0, rr = rrank(n), tier = ST.winch;
+  if (!tier) return null;
+  const kinds = Object.keys(TRAPS).filter(k => TRAPS[k].lvl <= n), vics = VICTIMS.filter(v => v.lvl <= n);
+  const reach = Math.min(3000, 1300 + n * 180);
+  const vk = wpick(vics), pool = kinds.map(k => ({ k, w: TRAPS[k].w }));
+  // the trap: a few tries with different kinds, nearest-first for the early ones
+  let site = null;
+  for (let t = 0; t < 4 && !site; t++) { const k = wpick(pool, "w").k; site = findTrap([k], n, null, 300, reach); }
+  if (!site) return null;
+  const T = TRAPS[site.kind], vicPool = vk;
+  const comps = [];
+  const night = dayFactor() < 0.3, storm = GS.storm > 0.3;
+  if (storm) comps.push("storm"); if (night) comps.push("night");
+  if (n >= 3 && vk.id !== "tourist" && Math.random() < 0.25) comps.push("hurt");
+  if (n >= 3 && Math.random() < 0.3) comps.push("short");
+  if (vk.gentle && !comps.includes("hurt")) comps.push("hurt");
+  let second = null;
+  if (n >= 6 && Math.random() < 0.35) { const k2 = wpick(pool, "w").k; second = findTrap([k2], n, site); if (second) comps.push("two"); }
+  const vics2 = [{ site, vk: vicPool }];
+  if (second) vics2.push({ site: second, vk: wpick(vics.filter(v => v.id !== "crew")) });
+  const dest = { id: "sos" + ((Math.random() * 1e6) | 0), type: "sos", x: site.x, z: site.z, y: site.g0 };
+  dest.name = `${({ tourist: "Ski tourist", herder: "Herder", crew: "Road crew", rider: "Rider" })[vk.id]} near ${nearestSiteName(site.x, site.z)}`;
+  const { dist, climb, est } = jobGeom(dest, from);
+  // what the job asks of the winch: reach (your line has to span the pull) and enough pull, with an anchor
+  let need = 1;
+  const reachNeed = Math.max(...vics2.map(v => v.site.shore ? v.site.shore - 1 : v.site.dist * 0.7 + 3.5));
+  const maxMass = Math.max(...vics2.map(v => v.vk.mass));
+  const pull = maxMass * GR * (TRAPS[site.kind].mu + site.slope * 1.1);
+  if (pull > WINCH[1].pull * 0.8 || reachNeed > WINCH[1].len - 0.6) need = 2;
+  if (pull > WINCH[2].pull * 0.85 || reachNeed > WINCH[2].len - 0.6) need = 3;
+  const cold = comps.includes("short") ? 1.15 : comps.includes("storm") ? 1.45 : 1.75;
+  const due = GS.hour + (est * cold + 40) / GAMEHOUR;
+  let pay = (70 + dist / 1000 * 55 + T.base + maxMass * 0.06) * (1 + (comps.includes("storm") ? 0.3 : 0) + (comps.includes("night") ? 0.15 : 0) + (comps.includes("short") ? 0.2 : 0) + (second ? 0.8 : 0));
+  pay = round5(pay);
+  const names = vics2.map(() => pick(R_NAMES));
+  const vtxt = second ? `Two stuck: ${names[0]} (${vicPool.who}) and ${names[1]} (${vics2[1].vk.who})` : `${names[0]}, a ${vicPool.who}`;
+  const sayOf = (s, vi) => vi.id === "tourist" ? TRAPS[s.kind].sayF : TRAPS[s.kind].say;
+  const why = `${vtxt} radioed from near ${nearestSiteName(site.x, site.z)}: ${second ? `${sayOf(site, vicPool)}, and the other ${sayOf(second, vics2[1].vk)}` : sayOf(site, vicPool)}.` +
+    (comps.includes("hurt") ? (vk.gentle ? " They're cold and shaky: ease them out." : " Somebody's hurt. Go gently.") : "") + (comps.includes("night") ? " It's dark: look for the flare." : "") + (comps.includes("storm") ? " The storm's on them." : "");
+  return { rescue: true, dest, cargo: `Recovery: ${dest.name}`, why, pay, due, need: "winch", needTier: need, reach: Math.round(reachNeed), comps, names, vics: vics2, trap: site.kind, kmDist: dist };
+}
+
+/* -- the people and their sleds -- */
+function rjBuildPool() {
+  if (RJ.pool) return;
+  RJ.pool = [];
+  const kits = [{ body: 0xd6402a, suit: 0x2b3d5c }, { body: 0x2a8aa0, suit: 0x6a4a1f }];
+  for (let i = 0; i < 2; i++) {
+    const sled = npcSledMesh(kits[i].body, kits[i].suit, true); sled.visible = false; scene.add(sled);
+    const pulk = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 1.3), std(0x6a4a2a, 0.9)); pulk.position.set(0, 0.25, -2.0); pulk.visible = false; sled.add(pulk);
+    const fig = makeFigure({ jacket: std(kits[i].suit, 0.8), pants: std(0x232a33, 0.85), trim: std(0xe0a820, 0.6), helmet: std(0xe8eef4, 0.3), visor: std(0x1a2027, 0.2), glove: std(0x111418, 0.9), boot: std(0x1a1a1a, 0.9), skin: std(0xd9a27e, 0.8) });
+    fig.visible = false; scene.add(fig);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 44, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.4, depthWrite: false, fog: false }));
+    col.visible = false; scene.add(col);
+    RJ.pool.push({ sled, pulk, fig, col });
+  }
+}
+const rjY = (x, z) => surf(x, z);
+function rjSpawn(c, i) {
+  const d = c.vics[i], s = d.site, vk = d.vk, T = TRAPS[s.kind], P0 = RJ.pool[i];
+  const yaw0 = Math.atan2(s.ex, s.ez) + (s.kind === "wood" ? 1.2 : s.kind === "ditch" ? 0 : Math.PI);   // most of them face the wrong way to drive out
+  const mass = vk.mass, r0 = mass * GR * (T.mu + s.slope * 1.1) * (s.kind === "bog" ? 0.7 + 0.6 * clamp((s.hollow - 1) / 2.5, 0, 1) : 1);
+  const v = { kind: s.kind, vk, name: c.names[i], x: s.x, z: s.z, yaw: yaw0, ex: s.ex, ez: s.ez, dist: s.dist, r0, resist: r0, moved: 0, mass, gentle: vk.gentle || c.comps.includes("hurt"), hurt: false, freed: false, gone: false, left: 0, hooked: false,
+    g: P0.sled, pulk: P0.pulk, fig: P0.fig, col: P0.col, sx: s.x, sz: s.z, hole: s.hole || 0, shore: s.shore || 0, wave: Math.random() * 6, T, stressT: 0 };
+  v.g.visible = vk.sled; v.pulk.visible = vk.id === "herder"; v.g.scale.setScalar(vk.big ? 1.35 : 1);
+  v.fig.visible = true; v.col.visible = true;
+  // the rider stands a little clear of the machine, on the side that's away from where it has to go
+  const sx = Math.cos(yaw0), sz = -Math.sin(yaw0);
+  v.fx = s.x + sx * (vk.sled ? 2.6 : 0) - s.ex * 0.4 * (vk.sled ? 1 : 0); v.fz = s.z + sz * (vk.sled ? 2.6 : 0);
+  return v;
+}
+function rescueStart(c) {
+  rjBuildPool(); for (const p of RJ.pool) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; }
+  GS.rescueJob = c; RJ.on = true; RJ.hurt = 0; RJ.blown = 0; RJ.stall = 0; RJ.t0 = GS.hour; RJ.ended = null;
+  RJ.vs = c.vics.map((_, i) => rjSpawn(c, i));
+  toast(c.why, "warn");
+  setTimeout(() => { if (RJ.on) toast(`Clock: ${fmtTime(c.due)} at the latest. You need a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. Park on the rim, get off (Q), walk the line to them and hook on (E).`); }, 2200);
+}
+function rescueAbort() {
+  for (const p of RJ.pool || []) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; }
+  RJ.on = false; RJ.vs = []; GS.rescueJob = null;
+  if (WN.mode === "rescue" && WN.state !== "stowed") wnStow(false);
+}
+const rjVic = () => RJ.vs.find(v => v.hooked);
+function rjEye(v) {
+  // the tow eye on whichever end points the way out: you hook the side you're going to pull from
+  if (!v.vk.sled) return [v.fx + v.ex * 0.3, v.g.position.y + 1.0, v.fz + v.ez * 0.3];
+  let dx = v.ex, dz = v.ez;
+  if (v.hooked) { const fl = fairlead(), d = Math.hypot(fl[0] - v.x, fl[2] - v.z) || 1; dx = (fl[0] - v.x) / d; dz = (fl[2] - v.z) / d; }
+  const r = 1.3 * v.g.scale.x; return [v.x + dx * r, v.g.position.y + 0.5, v.z + dz * r];
+}
+function rjNearest(x, z) { let b = null, bd = 1e9; for (const v of RJ.vs) { if (v.freed) continue; const d = Math.hypot(v.x - x, v.z - z); if (d < bd) { bd = d; b = v; } } return b ? { v: b, d: bd } : null; }
+
+/* -- on foot: hook, tie back, assess -- */
+function rescueFootAction() {
+  if (!RJ.on) return false;
+  const wd = winchDef(); if (!wd) return false;
+  const hooked = WN.state === "hooked" && WN.mode === "rescue";
+  const nv = rjNearest(FOOT.x, FOOT.z), eye = nv && rjEye(nv.v), de = nv ? Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z) : 99;
+  if (hooked) {
+    if (nv && nv.v.hooked && de < 2.6) { nv.v.hooked = false; WN.state = "out"; WN.tgt = null; WN.tie = null; toast("Hook's off them. The line runs back out."); return true; }
+    const tr = treesIn(FOOT.x, FOOT.z, 2.6).concat(anchorsNear(FOOT.x, FOOT.z, 2.6).filter(c => c.o.tree === undefined));
+    const pk = [...new Map(tr.map(c => [c.o, c])).values()].sort((a, b) => a.d - b.d)[0];
+    if (pk) {
+      if (WN.tie === pk.o) { WN.tie = null; toast("Strap off the " + anchorName(pk.o) + ". Sled's on its own weight again."); return true; }
+      if (Math.hypot(pk.o.x - P.x, pk.o.z - P.z) > 9.5) { toast(`That ${anchorName(pk.o)} is too far from your sled for the tie-back strap (9 m). Park closer to it.`, "warn"); return true; }
+      WN.tie = pk.o; toast(`Sled strapped back to the ${anchorName(pk.o)} (${anchorTag(pk.o)}, ${lbf(anchorCap(pk.o)).toLocaleString("en-US")} lb). It won't slide now.`, "good"); return true;
+    }
+    return false;
+  }
+  if (WN.state === "out" && WN.snapT <= 0 && nv && de < 2.6) {
+    const fl = fairlead(), L = Math.hypot(eye[0] - fl[0], eye[2] - fl[2]);
+    if (L > wd.len - 0.4) { toast(`Your line's ${wd.len} m and they're ${Math.round(L)} m from the fairlead. Go back, ride closer, and try again.`, "warn"); return true; }
+    nv.v.hooked = true; WN.state = "hooked"; WN.mode = "rescue"; WN.tgt = nv.v; WN.tie = null; WN.stall = 0; WN.dbl = false; WN.anchor = null;
+    toast(nv.v.vk.sled ? `Hooked on to ${nv.v.name}'s tow eye. Walk back, strap your sled to a tree, and hold SPACE to reel.` : `Strap round ${nv.v.name}'s chest harness. Go back, strap your sled to a tree, and reel slowly: SPACE.`, "good");
+    return true;
+  }
+  return false;
+}
+function rescueAssess() {
+  if (!RJ.on) return false;
+  const wd = winchDef(); if (!wd) return false;
+  const nv = rjNearest(FOOT.x, FOOT.z), eye = nv && rjEye(nv.v);
+  if (WN.state === "hooked" && WN.mode === "rescue" && wd.block && nv && nv.v.hooked && Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z) < 3) { WN.dbl = !WN.dbl; toast(WN.dbl ? "Snatch block on the tow eye, line doubled back to your sled. Twice the pull, half the speed." : "Back to a single line."); return true; }
+  if (!nv || nv.d > 20) return false;
+  const v = nv.v, fl = fairlead(), pk = rjParkSpot(v, wd.len), trees = anchorsNear(pk[0], pk[1], 10).filter(c => anchorCap(c.o) > v.resist * 1.3).sort((a, b) => Math.hypot(a.o.x - pk[0], a.o.z - pk[1]) - Math.hypot(b.o.x - pk[0], b.o.z - pk[1]));
+  const T = v.T, bear = Math.round((Math.atan2(v.ex, v.ez) * 180 / Math.PI + 360) % 360), card = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(bear / 45) % 8];
+  const need = v.resist * 1.2;
+  toast(`${v.name}, ${v.vk.sled ? v.vk.who : "on foot"}: ${v.vk.id === "tourist" ? T.sayF : T.say}. Pull toward the ${card}. ${lbf(need).toLocaleString("en-US")} lb to start. ${trees.length ? `A ${anchorName(trees[0].o)} ${Math.round(Math.hypot(trees[0].o.x - pk[0], trees[0].o.z - pk[1]))} m from the good spot will hold your sled.` : "Nothing big near the good spot: tie back to the best you can find, or double the line."}${v.gentle ? " Ease them out: slow and steady." : ""}`);
+  return true;
+}
+function rescuePrompt() {
+  if (!RJ.on) return false;
+  const wd = winchDef(), nv = rjNearest(FOOT.x, FOOT.z); if (!wd || !nv) return false;
+  const v = nv.v, eye = rjEye(v), de = Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z), hooked = WN.state === "hooked" && WN.mode === "rescue";
+  let h = "";
+  if (hooked) {
+    const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 4;
+    h = `${WN.tie ? "Tied back" : "Sled's on its own weight"} · ${Math.round(v.moved / v.dist * 100)}% out · Hold SPACE to reel${v.gentle ? " SLOWLY" : ""}${!WN.tie ? " · E at a tree: tie back" : ""}${wd.block ? " · X at them: double" : ""}${de < 2.6 ? " · E: unhook" : ""}`;
+    if (!near && !WN.tie && WN.slip > 0.05) h = "Your sled's sliding. Tie it back to a tree (E at the tree).";
+  } else if (WN.state === "out" && de < 2.6) h = `E: hook on to ${v.name}`;
+  else if (nv.d < 20) h = `X: size it up · walk the line to ${v.name}${WN.tight ? " (line's at its end: ride closer)" : ""}`;
+  else return false;
+  WN.prompt = h; return true;
+}
+function rescueRideHint() {
+  if (!RJ.on) return "";
+  const nv = rjNearest(P.x, P.z); if (!nv || nv.d > 140) return "";
+  if (!winchDef()) return "";
+  return FOOT.on ? "" : `${nv.v.name} ahead: park on the rim (line is ${winchDef().len} m), then Q to get off and walk the line out`;
+}
+function rescueUnhook() { const v = rjVic(); if (v) v.hooked = false; WN.tie = null; }
+
+/* -- the pull -- */
+function rescueReel(dt, wd) {
+  const v = WN.tgt; if (!v || v.freed) { WN.state = "out"; WN.tgt = null; return; }
+  const held = WN.held || WN.padReel, fl = fairlead(), eye = rjEye(v);
+  let dx = fl[0] - v.x, dz = fl[2] - v.z; const dist = Math.hypot(dx, dz) || 1; dx /= dist; dz /= dist;
+  const ed = Math.hypot(eye[0] - fl[0], eye[2] - fl[2]);
+  if (ed > wd.len + 0.6) { v.hooked = false; WN.state = "out"; WN.tgt = null; WN.tie = null; toast("The line's run out. Ride closer.", "warn"); return; }
+  const dotExit = dx * v.ex + dz * v.ez, pen = 1 + v.T.dirK * (1 - Math.max(0, dotExit));
+  const pack = clamp(1 - depthAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL)) / Math.max(0.05, freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL))), 0, 1);
+  const hold = WN.tie ? anchorCap(WN.tie) : (MASS + TOW.mass) * GR * (0.3 + 0.5 * pack);
+  WN.hold = 1;
+  const need = v.resist * pen; WN.need = need;
+  const cap = WN.cap, ratio = need / cap;
+  WN.tens += (clamp(ratio, 0, 1.25) - WN.tens) * (1 - Math.exp(-7 * dt));
+  WN.slip = 0;
+  if (!held || WN.snapT > 0) return;
+  if (wd.fuel && GS.fuel <= 0) { if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast("No fuel to run the winch.", "warn"); } return; }
+  if (dist < 1.7) { if (gameClock - (WN.nagT || -9) > 5) { WN.nagT = gameClock; toast(`They're at your bumper and still ${Math.round(v.dist - v.moved)} m short of clear. Unhook, back the sled off, and go again.`, "warn"); } return; }
+  WN.reel = true;
+  if (WN.tie && need > hold) {                                     // the tie-back tree loses
+    const t = WN.tie; uproot(t, -(t.x - P.x), -(t.z - P.z)); WN.tie = null; RJ.blown++; toast(`The ${anchorName(t)} you tied back to came out by the roots! Use something bigger or double the line.`, "bad"); return;
+  }
+  if (ratio > 1) {
+    WN.stall += dt; WN.sfx = 0.12; RJ.stall += dt;
+    if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "Winch stalling. Double the line with the snatch block (X at them), or get a better angle." : "Winch stalling. Get a straighter pull, or a bigger winch.", "warn"); }
+    if (WN.stall > 5 && Math.random() < dt * 0.3) { v.hooked = false; WN.state = "out"; WN.tgt = null; WN.tie = null; WN.snapT = 40; RJ.blown++; crack(1); toast("The line parted! Respooling a new one (40 s).", "bad"); }
+    return;
+  }
+  WN.stall = Math.max(0, WN.stall - dt * 2);
+  let vv = wd.speed * (WN.dbl ? 0.55 : 1) * clamp(1.25 - 0.75 * ratio, 0.3, 1);
+  if (v.gentle) { vv = Math.min(vv, 0.42); if (WN.tens > 0.8) { v.stressT += dt; if (v.stressT > 2 && !v.hurt) { v.hurt = true; RJ.hurt++; toast(`${v.name} cries out: too hard. Ease off.`, "bad"); } } else v.stressT = Math.max(0, v.stressT - dt); }
+  // your sled only holds so much: what it can't hold, it gives up as a slide toward them
+  let slipF = 0;
+  if (!WN.tie && need > hold) { slipF = clamp((need - hold) / need, 0, 0.75); WN.slip = slipF; }
+  const adv = vv * dt * (1 - slipF);
+  v.x += dx * adv; v.z += dz * adv; v.yaw = angLerp(v.yaw, Math.atan2(dx, dz) + (v.vk.sled ? Math.PI : 0), 1 - Math.exp(-1.6 * dt));
+  v.moved += adv * (0.25 + 0.75 * Math.max(0, dotExit));
+  v.resist = v.r0 * clamp(1 - v.T.decay * v.moved / v.dist, 0.25, 1);
+  if (slipF > 0.05) WN.pullV = { x: -dx * vv * slipF, z: -dz * vv * slipF };
+  WN.sfx = 0.05 + 0.1 * ratio;
+  if (wd.fuel) GS.fuel = Math.max(0, GS.fuel - wd.fuel * dt);
+  if (Math.random() < dt * 25) emit(v.x, v.g.position.y + 0.3, v.z, 0, 1 + Math.random() * 2, 0, 1.5, 0.8);
+  if (Math.random() < dt * 6 && WN.tie) wobble(WN.tie, 0.03, dx, dz);
+  if (v.moved >= v.dist) rjFreed(v);
+}
+function rescueVisual() {
+  const v = WN.tgt, wd = winchDef(); if (!v || !wd) return;
+  const fl = fairlead(), eye = rjEye(v);
+  WN.cab.set(fl, eye, (1 - clamp(WN.tens * 1.6, 0, 1)) * 0.5); WN.cab.hook.visible = true;
+  if (WN.tie && WN.tieCab) { const t = WN.tie, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw); WN.tieCab.set([P.x - fx * 0.9, P.y + 0.5, P.z - fz * 0.9], anchorPt(t), 0.15); WN.tieCab.hook.visible = true; }
+  else if (WN.tieCab) WN.tieCab.hide();
+}
+
+/* -- the ending -- */
+function rjFreed(v) {
+  v.freed = true; v.hooked = false; v.left = 0;
+  if (WN.tgt === v) { WN.state = "out"; WN.tgt = null; WN.tie = null; WN.pullV = null; if (WN.tieCab) WN.tieCab.hide(); }
+  crack(0.4); for (let k = 0; k < 40; k++) emit(v.x, v.g.position.y + 0.4, v.z, (Math.random() - 0.5) * 6, 2 + Math.random() * 3, (Math.random() - 0.5) * 6, 1.6, 1.2);
+  toast(`${v.name} is clear. "${pick(R_THANKS[v.vk.id])}"`, "good");
+  if (RJ.vs.every(q => q.freed)) rjPay();
+}
+function rjPay() {
+  const c = GS.rescueJob; if (!c) return;
+  const left = c.due - GS.hour, total = c.due - RJ.t0, notes = [];
+  let pay = c.pay;
+  const tip = RJ.vs.reduce((a, v) => a + ((v.vk.tip[0] + Math.random() * (v.vk.tip[1] - v.vk.tip[0])) | 0), 0);
+  if (left > total * 0.5) { pay *= 1.15; notes.push("fast"); }
+  if (!RJ.hurt && !RJ.blown && RJ.stall < 2.5) { pay *= 1.15; notes.push("clean recovery"); }
+  if (RJ.hurt) { pay *= 0.6; notes.push("somebody was hurt"); }
+  pay = Math.round(pay) + round5(tip);
+  GS.cash += pay;
+  const before = rrank(GS.rescues || 0); GS.rescues = (GS.rescues || 0) + 1; const after = rrank(GS.rescues);
+  toast(`Recovery done: +$${pay}${notes.length ? " (" + notes.join(", ") + ")" : ""}. ${GS.rescues} recover${GS.rescues === 1 ? "y" : "ies"}.`, "good");
+  if (after !== before) setTimeout(() => toast(`New rescue rank: ${after.name}. ${after.opens || ""}`, "good"), 2600);
+  RJ.ended = { t: 0 }; GS.rescueJob = null; GS.contracts = null;
+  for (const v of RJ.vs) v.left = 0.001;
+  save();
+}
+function rjTick(dt) {
+  if (!RJ.on && !RJ.ended) return;
+  const c = GS.rescueJob;
+  // the cold clock
+  if (RJ.on && c && !RJ.vs.every(v => v.freed) && GS.hour > c.due) {
+    toast("Too late. A crew from the next village got there first. No pay, but they're alive.", "bad");
+    for (const v of RJ.vs) v.left = 0.001; RJ.ended = { t: 0 }; GS.rescueJob = null; GS.contracts = null; if (WN.mode === "rescue") wnStow(false);
+  }
+  let any = false;
+  for (const v of RJ.vs) {
+    const far = Math.hypot(v.x - P.x, v.z - P.z) > 360;
+    if (v.left > 0) {                                  // driving off, or walking off, after the thank-you
+      v.left += dt;
+      if (v.vk.sled) {
+        const k = 1 - Math.exp(-0.7 * v.left), sp = 11 * Math.min(1, v.left / 2.5), yaw = Math.atan2(v.ex, v.ez); v.yaw = angLerp(v.yaw, yaw, 1 - Math.exp(-2 * dt));
+        v.x += Math.sin(v.yaw) * sp * dt; v.z += Math.cos(v.yaw) * sp * dt; v.fx = v.x - Math.sin(v.yaw) * 0.3; v.fz = v.z; stampAt(v.x, v.z, Math.sin(v.yaw), Math.cos(v.yaw)); markTrail(v.x, v.z, true);
+      }
+      if (!v.vk.sled) { v.x += v.ex * 1.6 * dt; v.z += v.ez * 1.6 * dt; v.step = (v.step || 0) + dt * 3.6; }
+      if (v.left > 7) { v.gone = true; v.g.visible = false; v.fig.visible = false; v.col.visible = false; continue; }
+    }
+    if (v.gone) continue;
+    any = true;
+    // pose
+    const y = rjY(v.x, v.z), T = v.T, pr = clamp(v.moved / v.dist, 0, 1), k = 1 - pr, sink = v.freed ? 0 : T.sink * k;
+    const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw), hF = rjY(v.x + fx * 1.2, v.z + fz * 1.2), hR = rjY(v.x - fx * 1.2, v.z - fz * 1.2), lx = fz, lz = -fx, hL = rjY(v.x + lx * 0.7, v.z + lz * 0.7), hRt = rjY(v.x - lx * 0.7, v.z - lz * 0.7);
+    const extraP = v.freed ? 0 : T.pitch * k, extraR = v.freed ? 0 : T.roll * k * (Math.sin(v.yaw * 3 + 1) > 0 ? 1 : -1);
+    v.g.position.set(v.x, y - sink, v.z);
+    v.g.rotation.set(-Math.atan2(hF - hR, 2.4) + extraP, v.yaw, Math.atan2(hL - hRt, 1.4) + extraR, "YXZ");
+    if (v.freed && v.left <= 0) v.g.rotation.x = -Math.atan2(hF - hR, 2.4);
+    // the person: waving, then standing by, then off
+    v.wave += dt * 5; const fig = v.fig;
+    if (v.vk.sled) { const sx = Math.cos(v.yaw), sz = -Math.sin(v.yaw); if (!(v.left > 0)) { v.fx = v.x + sx * 2.4 * v.g.scale.x + fx * 0.2; v.fz = v.z + sz * 2.4 * v.g.scale.x + fz * 0.2; } }
+    else { v.fx = v.x; v.fz = v.z; }
+    const fy = rjY(v.fx, v.fz) - (v.vk.sled ? 0.08 : (v.freed ? 0.1 : 0.55 * k + 0.1));
+    fig.position.set(v.fx, fy, v.fz); fig.rotation.y = Math.atan2(P.x - v.fx, P.z - v.fz);
+    const near = Math.hypot(P.x - v.x, P.z - v.z) < 90 && !v.freed;
+    poseFigure(fig, v.left > 0 && !v.vk.sled ? 1.6 : 0, v.step || 0, 0, dt);
+    const U = fig.userData; if (near) { U.arms[0].rotation.x = -2.6 + Math.sin(v.wave) * 0.4; U.arms[1].rotation.x = -2.6 + Math.cos(v.wave * 1.1) * 0.4; }
+    v.g.visible = v.vk.sled && !far; fig.visible = !far; if (v.vk.sled && v.left > 1.2) fig.visible = false;
+    // the flare: a column over the spot so you can find it in the dark or a whiteout
+    v.col.visible = !v.freed && !v.gone; v.col.position.set(v.fx + 1.5, y + 22, v.fz); v.col.material.opacity = (0.25 + 0.2 * Math.sin(gameClock * 3)) * (0.5 + 0.5 * (1 - dayFactor()) + 0.4 * GS.storm);
+    if (!v.freed && !far && Math.random() < dt * 4) emit(v.fx + 1.5, y + 0.3, v.fz, 0, 2, 0, 0.3, 1.6);
+    // thin ice round the hole: walk out on it and it lets go
+    if (v.kind === "ice" && !v.freed && FOOT.on && Math.hypot(FOOT.x - v.x, FOOT.z - v.z) < v.hole + 1.5 && Math.hypot(FOOT.x - v.x, FOOT.z - v.z) > 2.2) {
+      RJ.crackT += dt; if (RJ.crackT > 0.4 && RJ.crackT - dt <= 0.4) { crack(0.7); toast("The ice is groaning round them. Back off!", "warn"); }
+      if (RJ.crackT > 2.8) { RJ.crackT = 0; GS.warmth = Math.max(8, GS.warmth - 30); FOOT.x = P.x + 1.6; FOOT.z = P.z; whump(0.8); toast("You went through! You scramble back to the sled, soaked. Stay off the thin ice round the hole.", "bad"); }
+    }
+  }
+  if (!any && RJ.ended && !RJ.vs.some(v => v.left > 0 && !v.gone)) { RJ.on = false; RJ.ended = null; for (const p of RJ.pool || []) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; } RJ.vs = []; }
+}
+// the victims' machines are walls to the walker
+function rjWalls(nx, nz, r) {
+  if (!RJ.on) return [nx, nz];
+  for (const v of RJ.vs) { if (v.gone) continue; const rr = (v.vk.big ? 1.6 : v.vk.sled ? 0.95 : 0.5) + r, dx = nx - v.x, dz = nz - v.z, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); nx = v.x + dx / d * rr; nz = v.z + dz / d * rr; } }
+  return [nx, nz];
+}
+
+/* ---- the frame hooks ---- */
+function rescueTick(dt) {
+  if (!started) return;
+  helpTick(dt); rjTick(dt);
+  if (FOOT.on && !GS.dead) {
+    FOOT.dig = FOOT.dig && BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.2;
+    footStep(dt);
+    if (FOOT.dig && BOG.on) {
+      const rate = 1 / (80 * (1 - ST.rescue * 0.55)) * (1 - 0.3 * BOG.depth);
+      BOG.dig += rate * dt; if (Math.random() < dt * 12) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.2, P.z + (Math.random() - 0.5) * 2, 0, 2, 0, 1.5, 0.8);
+      if (BOG.dig >= 1) { FOOT.dig = false; freeBog("dug"); }
+    }
+  } else if (FOOT.g) FOOT.g.visible = false;
+  if (rider) rider.visible = !FOOT.on;
+  wnUpdate(dt);
+  BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
+  wnPrompt();
+}
+function wnPrompt() {
+  let h = "", show = false;
+  const wd = winchDef();
+  if (HELP.on && HELP.kind === "sea") {
+    show = true;
+    h = HELP.called ? `RESCUE SLED INBOUND · ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : "IN THE WATER · F: CALL FOR HELP";
+  } else if (FOOT.on) {
+    show = true;
+    const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.0;
+    if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
+    else if (WN.state === "hooked" && WN.mode === "self") {
+      const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
+      h = `Hold SPACE to reel${wd && wd.block ? " · X at the strap: double the line" : ""}${close ? " · E: unhook" : ""} · Q: get on`;
+    } else if (wd && WN.state === "out") {
+      const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
+      h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
+    } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
+    else h = near ? "Q: get on the sled" : "Walk back to the sled and press Q";
+  } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
+  else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
+  else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
+  if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
+  WN.hint = h; WN.show = show;
+}
+function updWinchHud() {
+  const el = $("wnHud"); if (!el) return;
+  const wd = winchDef(), on = !!WN.show && !GS.dead && !showroomOn() && !GS.boardOpen;
+  el.hidden = !on; if (!on) return;
+  const hooked = WN.state === "hooked" && wd;
+  el.classList.toggle("tense", hooked && WN.tens > 0.85);
+  $("wnHint").textContent = WN.hint;
+  $("wnGauge").hidden = !hooked;
+  if (hooked) { $("wnTens").style.width = clamp(WN.tens * 100, 0, 100).toFixed(0) + "%"; $("wnRead").textContent = `${lbf(WN.need).toLocaleString("en-US")} / ${lbf(WN.cap).toLocaleString("en-US")} lb${WN.dbl ? " · doubled" : ""}${WN.hold ? ` · sled ${WN.slip > 0.05 ? "slipping" : "holding"}` : ""}`; }
+}
+
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
 let last = performance.now(), acc = 0, live = false;
@@ -5266,15 +6138,17 @@ function frame(t) {
   if (TT.on) titleTick(dt, t);
   if (!ready) return;
   readInput(dt);
+  rescueTick(dt);
   if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
+  wnVisual(dt);
   if (started) updGame(dt, spd);
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
-  flushSnow();
+  if (snowDirty) { snowTex.needsUpdate = true; snowDirty = false; }
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
-  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
+  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
   renderer.render(scene, camera);
   if (GS.boardOpen && (BD.tick = !BD.tick)) ctOverlay(t);          // the chart's moving parts, at half rate
   if (!live) { live = true; document.body.classList.add("live"); }
@@ -5383,7 +6257,7 @@ function boot() {
   genWorld(); computeSites(); placeQuay();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildTown(); buildTow(); load(); buildMapBg(); ctBuild();
-  buildNpcs();
+  buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);

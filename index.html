@@ -192,7 +192,7 @@
   .brow .bp{grid-column:3;grid-row:1/3;font-family:var(--display);font-weight:800;font-size:21px;color:var(--bpay);font-variant-numeric:tabular-nums}
   .brow .bp small{font-family:var(--body);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--bink3)}
   .bchip{display:inline-block;margin-left:7px;padding:0 5px;font-weight:700;font-size:9.5px;line-height:14px;letter-spacing:.14em;vertical-align:2px;border:1px solid currentColor;border-radius:2px;color:#7b6a58}
-  .bchip.heavy{color:#8a5a0c}.bchip.priority,.bchip.due{color:#b8321f}.bchip.expedition{color:#5b3fa0}.bchip.grooming{color:#1f6a8a}.bchip.fragile{color:#9a4a22}
+  .bchip.heavy{color:#8a5a0c}.bchip.priority,.bchip.due{color:#b8321f}.bchip.expedition{color:#5b3fa0}.bchip.grooming{color:#1f6a8a}.bchip.fragile{color:#9a4a22}.bchip.recovery{color:#b8321f}
   .brow.locked{opacity:.5;cursor:default}
   .brow.locked .bp{font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--bink3)}
   .brow.locked .bm{white-space:normal}
@@ -310,7 +310,16 @@
   #tTop .tb{position:static;width:46px;height:46px;border-radius:10px;font-size:12px}
   #tE{left:50%;top:calc(80px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:auto;height:44px;padding:0 22px;border-radius:22px;background:var(--signal);border-color:rgba(255,150,110,.5);color:#fff;font-size:14px}
   #tE.on{background:#ff7a45}
-  #tWing.lit{background:#e0a820;color:#1a1400;border-color:rgba(255,220,120,.6)}
+  #tQ{left:16px;bottom:calc(100px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px}
+  #tX{left:120px;bottom:calc(100px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px}
+  #tF{left:16px;bottom:calc(160px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px;background:var(--signal);border-color:rgba(255,150,110,.5);color:#fff}
+  #tReel{right:244px;bottom:calc(128px + env(safe-area-inset-bottom,0px));width:72px;height:72px;background:rgba(127,200,224,.8);color:var(--ink)}
+  #wnHud{left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:10px 16px;text-align:center;font-family:var(--display);font-weight:700;letter-spacing:.06em;font-size:15px;max-width:min(560px,calc(100% - 32px))}
+  #wnHud.tense{border-color:var(--signal)}
+  #wnGauge{margin-top:8px;display:grid;gap:4px;font-size:13px;color:var(--slate)}
+  .wnbar{height:8px;border-radius:4px;background:rgba(234,242,248,.14);overflow:hidden}
+  #wnTens{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--signal));transition:width .1s}
+  body.showroom #wnHud{visibility:hidden}
   body.touch #help{display:none}
   body.touch #toasts{top:calc(134px + env(safe-area-inset-top,0px))}
   body.touch #mapWrap{bottom:auto;top:calc(72px + env(safe-area-inset-top,0px))}
@@ -380,71 +389,6 @@
     body.touch #tE{top:calc(262px + env(safe-area-inset-top,0px))}
     body.touch #toasts{top:calc(306px + env(safe-area-inset-top,0px))}
   }
-  /* ==== ONE THEME: night-ink glass from First Light + the survey chart's double rules, serif notes and chips ====
-     Everything that opens over the ride (title panels, job board, garage, settings, god menu, map, blackout)
-     shares one surface, one header, one row band, one button family and one type pairing. */
-  :root{--panel:rgba(13,24,34,.93);--panel-solid:#101c27;--frost2:#c9d6e0;--pay:#6fd08c;--warm:#ffc26b;--bad:#ff8a6b;
-    --serif:"Cormorant Garamond",Georgia,serif;--rule:rgba(234,242,248,.32);--band:rgba(255,90,31,.12);--bandline:rgba(255,90,31,.45)}
-  /* surface: glass panel, hairline border, inner keyline like the chart's neatline */
-  #settings,#garage,#god,.tpanel,#bSheet{background:var(--panel);border:1px solid var(--line);border-radius:4px;outline:1px solid rgba(234,242,248,.07);outline-offset:-5px;box-shadow:0 24px 60px rgba(0,0,0,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-  .panel{border-radius:4px}
-  #mapWrap{border-radius:14px}
-  /* header: eyebrow, big display title, double rule underneath */
-  .bhead,.tpanel .ph,.bmhead{padding-bottom:12px;margin-bottom:4px;border-bottom:3px double var(--rule)}
-  .brand,.tpanel .pe{font-family:var(--display);font-weight:900;font-size:13px;letter-spacing:.16em;color:var(--signal)}
-  #god .brand{color:var(--signal)}
-  #god{border-color:var(--line)}
-  .btitle,.tpanel .pt{font-family:var(--display);font-weight:900;font-size:36px;line-height:1;color:var(--frost)}
-  .brule{border-color:var(--rule)!important}
-  /* section heads: tracked caps with a hairline running out to the edge */
-  .bsec{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate)}
-  .bsec::after{content:"";flex:1;height:1px;background:var(--line)}
-  #settings label{min-width:92px}
-  #settings label,.tpanel .pl{font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
-  /* notes and sub-lines: the chart's italic serif */
-  #garageBody .row em,#godList .row em{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;line-height:1.22;color:var(--frost2)}
-  .bfoot,#settings .hint,.tpanel p.pnote,.bmlegend{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;line-height:1.3;color:var(--slate)}
-  .bfoot b,#settings .hint b{font-family:var(--display);font-style:normal;font-weight:800;letter-spacing:.06em;color:var(--frost)}
-  #jobSub{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;color:var(--frost2)}
-  .ti .ts{font-family:var(--serif);font-style:italic;font-size:calc(19px*var(--ts))}
-  #blackMsg{font-family:var(--serif);font-style:italic;font-weight:500;font-size:22px;color:var(--frost2)}
-  #blackMsg b{font-style:normal}
-  /* list rows: flat until chosen, then the signal band (same as the job board) */
-  #garageBody .row,#godList .row{background:rgba(234,242,248,.035);border:1px solid transparent;border-radius:3px;transition:background-color .2s,border-color .2s}
-  #garageBody .row:hover,#godList .row:hover,#garageBody .row:focus-visible,#godList .row:focus-visible{border-color:var(--bandline);outline:none}
-  #garageBody .row.fitted,#godList .row.sel,.brow.on{background:var(--band);border-color:var(--bandline)}
-  #garageBody .row.ask:hover{border-color:transparent}
-  #godList .row.on .val{color:#fff;background:var(--signal);border-color:var(--signal)}
-  /* money is always the same green */
-  .bcash,#garageBody .row .pay,#garageBody .acts button,.bmoney,.brow .bp{color:var(--pay)}
-  /* one button family: display caps, frost outline; the primary action is signal-filled */
-  .sbtn,.pbtn,.bgo,#garageBody .acts button{font-family:var(--display);font-weight:800;letter-spacing:.08em;background:rgba(234,242,248,.06);border:1px solid rgba(234,242,248,.2);border-radius:3px;cursor:pointer;transition:border-color .15s,background-color .15s}
-  .sbtn,.pbtn,.bgo{color:var(--frost)}
-  .sbtn{font-size:15px}
-  .sbtn:hover,.pbtn:hover,.bgo:hover,#garageBody .acts button:hover{border-color:var(--frost);background:rgba(234,242,248,.1)}
-  .sbtn.st.on{border-color:var(--signal);background:var(--band);color:var(--frost)}
-  .pbtn.go,.bgo:not(.blocked){color:#fff;background:#db4d1a;border-color:transparent}
-  .pbtn.go:hover,.bgo:not(.blocked):hover{filter:brightness(1.12);background:#db4d1a}
-  .bgo.blocked{color:var(--slate);background:transparent;border-color:var(--line)}
-  .sbtn:focus-visible,.bgo:focus-visible,#garageBody .acts button:focus-visible{outline:2px solid var(--frost);outline-offset:3px}
-  .xbtn,.tx,.bx{color:var(--slate)}
-  .xbtn:hover,.tx:hover,.bx:hover{color:var(--frost)}
-  /* chips and keycaps */
-  .bchip,#garageBody .tag{display:inline-block;justify-self:start;padding:0 5px;font-family:var(--body);font-weight:700;font-size:9.5px;line-height:14px;letter-spacing:.14em;border:1px solid currentColor;border-radius:2px;color:#a9b8c5;vertical-align:2px}
-  .bchip.heavy{color:#e8b25a}.bchip.priority,.bchip.due{color:#ff7a5a}.bchip.expedition{color:#b9a2f5}.bchip.grooming{color:var(--ice)}.bchip.fragile{color:#f2a27a}
-  .brow .bk,.bact kbd,.bfoot2 kbd,.tkeys kbd{color:var(--frost);border:1px solid rgba(234,242,248,.3);border-bottom-width:2px;border-radius:3px}
-  /* the job board, re-inked: dark sheet, the survey chart kept as a paper map inset */
-  #board{background:rgba(5,9,13,.5)}
-  #bSheet{--bink:var(--frost);--bink2:var(--frost2);--bink3:var(--slate);--bacc:var(--signal);--bpay:var(--pay);background-color:var(--panel);background-image:none!important;color:var(--frost)}
-  #boardRows{scrollbar-color:rgba(234,242,248,.25) transparent}
-  #bSheet.stack .bmapw{background:var(--panel-solid)}
-  .bmapi{box-shadow:0 0 0 1px rgba(234,242,248,.22),0 0 0 5px rgba(13,24,34,.9),0 0 0 6px rgba(234,242,248,.1),0 12px 32px rgba(0,0,0,.45)}
-  .bcall{--bink:#1f1a14}
-  .bdet p.warn{color:var(--bad)}
-  .gs3{color:var(--pay)}.gs2{color:var(--warm)}.gs1{color:var(--bad)}
-  .toast{border-radius:3px}
-  @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(22px*var(--ts))}.tpanel .pt{font-size:28px}}
-  @media (max-height:520px){.btitle{font-size:28px}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -518,7 +462,7 @@
   <div class="bsec">Camera</div>
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
   <div class="bsec">Controls</div>
-  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call a tow ($100)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
+  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (F)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
   <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the full map.</div>
 </div>
 
@@ -557,8 +501,9 @@
   <div><b>Ctrl</b>Wheelie</div>
   <div><b>R</b>Reset sled</div>
   <div><b>E</b>Job board / garage</div>
-  <div><b>F</b>Call a tow ($100)</div>
-  <div><b>G</b>Tiller wings in / out</div>
+  <div><b>F</b>Call a rescue sled (fjord dunking or empty tank)</div>
+  <div><b>Q</b>Get off / on the sled (when bogged)</div>
+  <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
   <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
   <div><b>Y</b>God menu</div>
@@ -566,15 +511,23 @@
 
 <div class="hud panel" id="flip" hidden>STUCK? PRESS R</div>
 
+<div class="hud panel" id="wnHud" hidden>
+  <div id="wnHint"></div>
+  <div id="wnGauge" hidden><div class="wnbar"><i id="wnTens"></i></div><span id="wnRead"></span></div>
+</div>
+
 <div id="touch" hidden>
   <div id="tTop">
     <button class="tb" data-k="menu" aria-label="Settings">≡</button>
     <button class="tb" data-k="map">MAP</button>
     <button class="tb" data-k="view">CAM</button>
     <button class="tb" data-k="reset" aria-label="Reset sled">↺</button>
-    <button class="tb" id="tWing" data-k="wings" hidden>WINGS</button>
   </div>
   <button class="tb" id="tE" data-k="e" hidden>JOB BOARD</button>
+  <button class="tb" id="tQ" data-k="q" hidden>GET OFF</button>
+  <button class="tb" id="tX" data-k="x" hidden>DOUBLE</button>
+  <button class="tb" id="tF" data-k="help" hidden>HELP</button>
+  <button class="tb" id="tReel" data-k="reel" hidden>REEL</button>
   <div id="tSteer"><span>◀</span><i></i><span>▶</span></div>
   <button class="tb" id="tWh" data-k="wh">WHEELIE</button>
   <button class="tb" id="tLean" data-k="lean">LEAN</button>

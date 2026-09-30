@@ -25,7 +25,7 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
-- **E** job board (at the quay) or garage (across the road) · **F** call a tow · **R** reset the sled
+- **E** job board (at the quay) or garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled
 - **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
   **B** job board, garage, or back · **Menu** settings · **View** reset · **R3** camera · **Y** god menu
@@ -75,3 +75,7 @@ Open `index.html`, or play the hosted copy at
 
 Built with three.js (r128, from a CDN). Everything else — terrain generation, snow
 deformation, physics, weather, audio — is hand-rolled in `tracklayer.js`.
+
+
+## Winch and recovery
+Low on the throttle in deep, unpacked snow and the track digs a bog. Get off (**Q**), wade to a tree or boulder, hook the winch (**E**) and reel (hold **Space**); the cable drags you to your anchor, not the other way round. The hand winch is short and slow, the electric winch reaches further, and the heavy-duty winch has a snatch block (**X**) to double the line. Stall it and the line sings; overload the anchor and it parts or the tree comes out. **F** only calls a rescue sled when you go through the ice or run dry.
