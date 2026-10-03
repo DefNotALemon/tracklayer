@@ -136,7 +136,9 @@
   .gauge .bar{height:6px;border-radius:3px;background:rgba(234,242,248,.12);overflow:hidden}
   #fuelFill{height:100%;background:var(--signal);transition:width .2s}
   #warmFill{height:100%;background:#ffc26b;transition:width .2s}
-  #fuelFill.low,#warmFill.low{background:#ff3b3b;animation:pulse 1s infinite}
+  #heatFill{height:100%;background:#7fc4e8;transition:width .2s}
+  #heatFill.hot{background:#ff9a3a}
+  #fuelFill.low,#warmFill.low,#heatFill.low{background:#ff3b3b;animation:pulse 1s infinite}
   @keyframes pulse{50%{opacity:.45}}
   #job{top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:10px 16px;max-width:min(520px,calc(100% - 32px))}
   #arrow{flex:none;color:var(--signal);transition:color .3s}
@@ -489,7 +491,7 @@
   .toast{border-radius:10px;box-shadow:0 10px 26px -12px rgba(0,0,0,.5)}
   .pill{border-radius:999px}
   .gauge .bar,#drag{border-radius:999px}
-  #fuelFill,#warmFill,#dragFill{border-radius:999px;transition:width .35s var(--ease),background-color .3s}
+  #fuelFill,#warmFill,#heatFill,#dragFill{border-radius:999px;transition:width .35s var(--ease),background-color .3s}
   #bigmapC{border-radius:16px;box-shadow:var(--soft)}
   .tb{transition:background-color .15s,transform .12s var(--ease)}
   .tb.on{transform:scale(.94)}
@@ -515,6 +517,7 @@
   <div id="dragLbl"><span>Snow drag</span><span id="dragN">0 N</span></div>
   <div class="gauge"><span class="gl">Fuel</span><div class="bar"><div id="fuelFill"></div></div><span class="gv" id="fuelV">18 L</span></div>
   <div class="gauge"><span class="gl">Warmth</span><div class="bar"><div id="warmFill"></div></div><span class="gv" id="warmV">100%</span></div>
+  <div class="gauge"><span class="gl">Temp</span><div class="bar"><div id="heatFill"></div></div><span class="gv" id="heatV">52°C</span></div>
 </div>
 
 <div class="hud panel" id="job" hidden>
@@ -666,5 +669,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=24"></script>
+<script src="tracklayer.js?v=25"></script>
 </body></html>

@@ -2093,6 +2093,44 @@ function collide(fx, fz) {
   const lim = HALF - 24; P.x = clamp(P.x, -lim, lim); P.z = clamp(P.z, -lim, lim);
 }
 let sprayAcc = 0;
+/* ---- engine heat: a sled cools its engine with the snow its track throws up ----
+   Loose snow packs the heat exchangers under the tunnel and keeps the motor happy. Hardpack, your own
+   packed trail on the wind-scoured fell, lake ice and bare rock throw up nothing, so a long pull on the
+   throttle cooks it. Lift off, or ride the loose stuff beside the trail. Ice scratchers (Cooling, at the
+   garage) dig snow off hard surfaces and throw it in to keep the temperature down. */
+const HEAT = { t: 52, mul: 1, feed: 1, limp: false, warned: false, toldKit: false, steamT: 0 };
+const HEAT_WARN = 92, HEAT_DERATE = 97, HEAT_LIMP = 112, HEAT_OK = 80;
+function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
+  if (!started || GS.dead) return;
+  if (gnd) {
+    const h = groundAt(P.x, P.z), hard = sstep(120, 300, h) * (0.45 + 0.55 * fbm(P.x / 240 + 9, P.z / 240 + 4, 2));
+    let feed = clamp((fr - 0.1) / 0.35, 0, 1) * (1 - 0.45 * P.pack) * (1 - 0.7 * hard) + clamp(exc * 6, 0, 0.8);
+    if (P.ice) feed = 0.15;
+    if (P.rock > 0.3 || (fr < 0.05 && !P.ice)) feed = Math.min(feed, 0.05);
+    if (ST.cool > 0 && (P.ice || fr > 0.05) && P.rock < 0.3) feed = Math.max(feed, ST.cool * 0.75);
+    if (wet) feed = 2;                                                    // skipping water is the best coolant there is
+    HEAT.feed += (feed - HEAT.feed) * (1 - Math.exp(-dt / 1.2));
+  }
+  const load = thr * (0.5 + 0.5 * Math.min(spd / 30, 1)) * (0.92 + 0.08 * ST.power) * (BOG.on ? 1.15 : 1);
+  const teq = 38 + 62 * load / (0.45 + 1.4 * HEAT.feed);
+  HEAT.t += (teq - HEAT.t) * (1 - Math.exp(-dt / (teq > HEAT.t ? 26 : 15)));
+  const motor = isElectric(sledDef()) ? "Motor" : "Engine";
+  if (!HEAT.limp && HEAT.t >= HEAT_LIMP) {
+    HEAT.limp = true;
+    toast(`${motor} overheated: limp mode until it cools. Back off, or find loose snow to throw into it.`, "bad");
+    if (!ST.cool && !HEAT.toldKit) { HEAT.toldKit = true; setTimeout(() => toast("Ice scratchers at the garage keep it cool on hardpack and ice.", "warn"), 3200); }
+  }
+  if (HEAT.limp && HEAT.t < HEAT_OK) { HEAT.limp = false; toast(`${motor}'s cooled down. Full power back.`, "good"); }
+  if (!HEAT.warned && HEAT.t >= HEAT_WARN && !HEAT.limp) { HEAT.warned = true; toast(`${motor}'s running hot. It needs loose snow to cool: get off the hardpack or lift off.`, "warn"); }
+  if (HEAT.warned && HEAT.t < HEAT_OK) HEAT.warned = false;
+  HEAT.mul = HEAT.limp ? 0.3 : 1 - 0.45 * clamp((HEAT.t - HEAT_DERATE) / (HEAT_LIMP - HEAT_DERATE), 0, 1);
+  if (HEAT.t > 100) {                                                   // steam off the tunnel
+    HEAT.steamT += dt * (HEAT.t - 98) * 0.9;
+    const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+    while (HEAT.steamT > 1) { HEAT.steamT -= 1; emit(P.x + fx * 0.9, P.y + 0.8, P.z + fz * 0.9, P.vx * 0.6, 1.6, P.vz * 0.6, 0.5, 1.4); }
+  }
+}
+function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
 function physStep(dt) {
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), SEA - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
@@ -2114,6 +2152,8 @@ function physStep(dt) {
   }
   P.wet = wet; if (wet) P.wetT = 6; else P.wetT = Math.max(0, P.wetT - dt);
   P.exc = exc;
+  heatStep(dt, GS.fuel > 0 && !GS.dead ? input.thr : 0, Math.hypot(vx, vz), fr, exc, wet, gnd);
+  const PWR = ST.power * HEAT.mul;
   // steering
   const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
   // wheelie: skis come up off the snow, track does all the work
@@ -2143,8 +2183,8 @@ function physStep(dt) {
     // worst. The stock Frontier holds about 15 mph up the steepest faces.
     const up = Math.max(0, gx * fx + gz * fz), steep = sstep(0.1, 0.85, up);     // uphill grade under the skis
     const hill = M * G * up / (1 + g2);                                         // what the climb takes
-    const grunt = Math.max(3600 * ST.power * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * ST.power * M);
-    const pw = 47000 * ST.power * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
+    const grunt = Math.max(3600 * PWR * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * PWR * M);
+    const pw = 47000 * PWR * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
@@ -3072,6 +3112,7 @@ function makeJobs(from) {
     const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * (urgent ? 1.5 : 1) / 5) * 5;
     GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
   }
+  if (steamerIn()) postSteamerFreight();
   makeContracts(from);
 }
 function makeContracts(from) {
@@ -3217,8 +3258,8 @@ function deliver(site) {
     } else if (j.hits) { if (j.fragile) p *= Math.max(0.3, 1 - (ST.care ? 0.075 : 0.15) * j.hits); note("damaged"); clean = false; }
     if (j.due && GS.hour > j.due) {
       if (j.priority) { p *= 0.3; bondBack = false; note("too late"); }
-      else { p *= 0.5; note("late"); }
-    }
+      else { p *= 0.5; note(j.boat ? "missed the boat" : "late"); }
+    } else if (j.boat) note("made the boat");
     if (j.bond) { if (bondBack) p += j.bond; else lost += j.bond; }
     total += Math.round(p); bumpDelivered();
   }
@@ -3229,11 +3270,11 @@ function deliver(site) {
     if (clean) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
     if (smallLoads().length < ST.slots && Math.random() < 0.6) {
       const dist = Math.hypot(site.x - depot.x, site.z - depot.z);
-      const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) / 5) * 5, due: null, hits: 0 };
+      const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) * 1.3 / 5) * 5, due: boatDue(site), boat: true, hits: 0 };
       setTimeout(() => {
         if (GS.dead || smallLoads().length >= ST.slots) return;   // the boxes came off; the backhaul goes on once they've handed it over
         GS.load.push(back); applyLoadout(); save();
-        toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat.`);
+        toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat. She sails at ${fmtTime(back.due)}.`);
       }, 1400);
     } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
   } else if (!GS.load.length) setTimeout(() => toast("Press E for the job board."), 1400);
@@ -3257,7 +3298,7 @@ function blackout(kind) {
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
     recenter(P.x, P.z, false); camState.init = false; camState.yaw = P.yaw; towSnap();
-    GS.warmth = 70; GS.fuel = Math.max(GS.fuel, GS.cap * 0.5); GS.outWarned = GS.coldWarned = GS.lowWarned = false;
+    GS.warmth = 70; GS.fuel = Math.max(GS.fuel, GS.cap * 0.5); heatCool(); GS.outWarned = GS.coldWarned = GS.lowWarned = false;
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
@@ -3639,7 +3680,7 @@ function renderBoard() {
   if (!GS.jobs.length) note(sm.length ? "Rack loaded: " + sm.map(j => j.cargo.toLowerCase() + " for " + shortName(j.dest)).join(", ") + "." : "No parcels posted.");
   GS.jobs.forEach((j, k) => box.appendChild(boardRow({
     kind: "job", k, key: k + 1, obj: j, dest: j.dest, title: j.cargo,
-    chips: (j.local ? `<span class="bchip">NEAR TOWN</span>` : "") + (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
+    chips: (j.steamer ? `<span class="bchip due">OFF THE STEAMER</span>` : "") + (j.local && !j.steamer ? `<span class="bchip">NEAR TOWN</span>` : "") + (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
     pay: fmtCash(j.pay), meta: `to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km · ${gTag(j.dest)}`
   })));
   sec("Contracts", HITCH_ON[GS.own.parts.hitch] + (ST.bays ? ` · ${baysUsed()}/${ST.bays}` : ""));
@@ -4232,6 +4273,13 @@ const PARTS = {
       { id: "cage", name: "Load bars, foam & rock-guard bumpers", cost: 640, tier: 2, stats: { armor: 0.5 }, note: "Cargo rides in a padded cage, and the trailer shrugs off rock and birch." }
     ]
   },
+  cool: {
+    label: "Cooling", options: [
+      { id: "none", name: "Stock heat exchangers", cost: 0, tier: 0, stats: {}, note: "Cools fine in loose snow. On hardpack, ice and your own packed trail it runs hot." },
+      { id: "scratch", name: "Ice scratchers", cost: 90, tier: 0, stats: { cool: 0.8 }, note: "Spring-steel picks on the rails dig snow off hard surfaces and throw it at the heat exchangers." },
+      { id: "pro", name: "Retractable scratchers & tunnel cooler", cost: 420, tier: 2, stats: { cool: 1.15, drag: 0.01 }, note: "Bigger scratchers that flip down on the hardpack, and an extra cooler in the tunnel. Lake ice and the scoured fell all day." }
+    ]
+  },
   survival: {
     label: "Survival kit", options: [
       { id: "none", name: "A chocolate bar", cost: 0, tier: 0, stats: {}, note: "Morale, not warmth." },
@@ -4264,7 +4312,7 @@ const PARTS = {
     ]
   }
 };
-const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "hitch"];
+const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "cool", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "hitch"];
 
 // Rider kit. `warm` is insulation — the high country and storms ask for more of it.
 const GEAR = {
@@ -4310,7 +4358,7 @@ const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
 const OWN0 = () => ({
   sled: "frontier",
   sleds: ["frontier"],
-  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none" },
+  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none", cool: "none" },
   partsOwned: {},
   gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
   gearOwned: {},
@@ -4468,14 +4516,14 @@ const ownKey = (cat, id) => cat + ":" + id;
 function stats() {
   const sd = sledDef();
   const eng = engineOf(sd);
-  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0 };
+  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0, cool: 0 };
   for (const cat of PART_ORDER) {
     if (cat === "boost" && boostWhy(sd, GS.own.parts.boost || "none")) continue;
     const o = partDef(cat, GS.own.parts[cat]).stats || {};
     st.boost += o.boost || 0;
     st.power += o.power || 0; st.fuel += o.fuel || 0; st.drag += o.drag || 0; st.grip += o.grip || 0;
     st.burn += o.burn || 0; st.cold += o.cold || 0; st.soak += o.soak || 0; st.care += o.care || 0; st.slots += o.slots || 0; st.bays += o.bays || 0; st.groom += o.groom || 0;
-    st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0); st.winch = Math.max(st.winch, o.winch || 0);
+    st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0); st.winch = Math.max(st.winch, o.winch || 0); st.cool = Math.max(st.cool, o.cool || 0);
     st.light = Math.max(st.light, o.light || 1);
   }
   let warm = 0;
@@ -4537,6 +4585,7 @@ const statLine = o => {
   if (s.light) bits.push("brighter");
   if (s.armor) bits.push("−" + Math.round(s.armor * 100) + "% cargo damage");
   if (s.camp) bits.push("warms you when stopped");
+  if (s.cool) bits.push(s.cool > 1 ? "runs cool on ice and hardpack" : "cooler on hardpack");
   if (s.rescue) bits.push("−" + Math.round(s.rescue * 100) + "% rescue fees");
   if (s.winch) bits.push(["", "12 m line", "26 m line", "42 m line, double-line"][s.winch] + ", " + [0, 7, 13, 22][s.winch] + " kN pull".replace("kN", "kN"));
   if (o.warm) bits.push(o.warm + " warmth");
@@ -4668,6 +4717,90 @@ function buildGarageTabs() {
 
 /* ---------------- Kjøllefjord ---------------- */
 let steamer = null, QUAY = null;
+/* ---- the coastal steamer's timetable ----
+   She calls twice a day: northbound in the morning, southbound in the evening, three hours alongside each
+   time, with an hour coming up the fjord and an hour going back out. Freight that comes off her goes on the
+   board while she's in (and comes off the board when she sails), and anything handed to you "for the boat"
+   has to be on the quay before she casts off. */
+const STEAMER = { calls: [{ arr: 8, dep: 11, dir: "northbound" }, { arr: 17, dep: 20, dir: "southbound" }], sail: 1, state: null, call: null };
+function steamerAt(H) {
+  const h = ((H % 24) + 24) % 24;
+  for (const c of STEAMER.calls) {
+    if (h >= c.arr && h < c.dep) return { s: "in", c, p: (h - c.arr) / (c.dep - c.arr) };
+    if (h >= c.arr - STEAMER.sail && h < c.arr) return { s: "arriving", c, p: (h - c.arr + STEAMER.sail) / STEAMER.sail };
+    if (h >= c.dep && h < c.dep + STEAMER.sail) return { s: "leaving", c, p: (h - c.dep) / STEAMER.sail };
+  }
+  return { s: "away", c: null, p: 0 };
+}
+// absolute game hour of the next sailing (or arrival) at or after H
+function steamerNext(H, key) {
+  let best = Infinity;
+  for (let d = Math.floor(H / 24) - 1; d <= Math.floor(H / 24) + 2; d++) for (const c of STEAMER.calls) { const t = d * 24 + c[key]; if (t >= H && t < best) best = t; }
+  return best;
+}
+const steamerIn = () => steamerAt(GS.hour).s === "in";
+// a boat backhaul from `site` makes the first sailing it reasonably can
+function boatDue(site) { const est = jobGeom(depot, site).est * 1.25 / GAMEHOUR; return steamerNext(GS.hour + est, "dep"); }
+const STEAMER_CARGO = [
+  ["Post sacks off the steamer", 0.9, false], ["Crate of oranges from Tromsø", 1.0, true], ["Pharmacy crate off the boat", 1.3, true],
+  ["Outboard motor parts", 1.1, false], ["The Finnmarken and the post", 0.85, false], ["Boxed radio set from Hammerfest", 1.2, true],
+  ["Coffee, flour and sugar for the shop", 0.95, false], ["Spare net floats & line", 0.9, false], ["Mail-order parcel from Oslo", 1.05, false]
+];
+function steamerJob(from) {
+  const homes = SITES.filter(s => s.type === "home" && Math.hypot(s.x - from.x, s.z - from.z) < 1000);
+  const far = SITES.filter(s => s.type !== "depot" && s.type !== "shop" && s.type !== "home" && s.type !== "relay");
+  const d = GS.delivered < 3 || !far.length ? pick(homes) : pick(far), cg = pick(STEAMER_CARGO);
+  const { dist, climb, est } = jobGeom(d, from), local = d.type === "home";
+  const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * 1.4 / 5) * 5;
+  return { dest: d, cargo: cg[0], fragile: cg[2], pay, local, steamer: true, due: GS.hour + est * 1.8 / GAMEHOUR };
+}
+// put the steamer's freight on the board: it takes the last slot (the board holds three parcels)
+function postSteamerFreight() {
+  if (!GS.jobs || GS.jobs.some(j => j.steamer)) return false;
+  const j = steamerJob(depot);
+  if (GS.jobs.some(x => x.dest === j.dest && x.cargo === j.cargo)) return false;
+  if (GS.jobs.length >= 3) GS.jobs.splice(GS.jobs.length - 1, 1, j); else GS.jobs.push(j);
+  return true;
+}
+function steamerHorn() {
+  if (!audio) return;
+  const { AC, master } = audio, t = AC.currentTime, d = Math.hypot(P.x - (steamer ? steamer.position.x : depot.x), P.z - (steamer ? steamer.position.z : depot.z));
+  const v = 0.35 * clamp(1 - d / 2600, 0.08, 1);
+  for (const [f, w] of [[98, 1], [147, 0.6], [196, 0.3]]) {
+    const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+    o.type = "sawtooth"; o.frequency.value = f; lp.type = "lowpass"; lp.frequency.value = 520;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * w, t + 0.25); g.gain.setValueAtTime(v * w, t + 2.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+    o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + 2.9);
+  }
+}
+function updSteamer() {
+  const st = steamerAt(GS.hour);
+  if (steamer && steamer.userData.head) {
+    const u = steamer.userData, ease = x => x * x * (3 - 2 * x), turn = (a, b, k) => a + (((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k;
+    let off = 0, a = u.a;
+    if (st.s === "leaving") { off = st.p * st.p; a = turn(u.a, u.headA, ease(clamp(st.p / 0.35, 0, 1))); }
+    else if (st.s === "arriving") { const q = 1 - st.p; off = q * q; a = turn(u.headA + Math.PI, u.a, ease(clamp((st.p - 0.65) / 0.35, 0, 1))); }
+    steamer.visible = st.s !== "away";
+    steamer.position.set(u.x + u.hx * u.L * off, SEA, u.z + u.hz * u.L * off); steamer.rotation.y = a;
+    const solid = st.s === "in";
+    if (u.solid !== solid) { u.solid = solid; for (const o of u.obs) o.top = solid ? 1e9 : -Infinity; }
+  }
+  const prev = STEAMER.state; STEAMER.state = st.s;
+  if (prev === null || !started) return;
+  if (prev !== "in" && st.s === "in") {
+    steamerHorn();
+    const posted = postSteamerFreight(); if (posted && GS.boardOpen) renderBoard();
+    toast(`The ${st.c.dir} steamer is alongside at Kjøllefjord until ${fmtTime(st.c.dep)}.${posted ? " Fresh freight on the board." : ""}`);
+  }
+  if (prev === "in" && st.s !== "in") {
+    steamerHorn();
+    const n = GS.jobs ? GS.jobs.filter(j => j.steamer).length : 0;
+    if (n) { GS.jobs = GS.jobs.filter(j => !j.steamer); if (GS.boardOpen) renderBoard(); }
+    const missed = GS.load.filter(j => j.boat && GS.hour > j.due).length;
+    toast(`The steamer's cast off.${missed ? " Your load for the boat missed her: it goes on the next one, at half pay." : n ? " Her freight went into the shed." : ""}`, missed ? "warn" : undefined);
+  }
+  if (prev === "away" && st.s === "arriving" && GS.load.some(j => j.boat)) toast(`Steamer's coming up the fjord. She sails at ${fmtTime(st.c.dep)}.`);
+}
 // walk out from the depot until the water starts: that is where the pier goes. The pier is pressed
 // into the height field so the sled can actually ride out along it (and off the end, if you insist).
 function placeQuay() {
@@ -4777,11 +4910,19 @@ function buildTown() {
     for (let v = -26; v <= 20; v += 3.2) for (const sd of [-1, 1]) bx(S, 0.1, 0.9, 1.6, glowM, sd * 6.25, 6.6, v);
     for (let v = -18; v <= 14; v += 3.2) for (const sd of [-1, 1]) bx(S, 0.1, 0.9, 1.6, glowM, sd * 5.45, 9.7, v);
     bx(S, 0.14, 8, 0.14, metal, 0, 18, 14); bx(S, 3, 0.1, 0.1, metal, 0, 21, 14);
-    S.userData = { x: qx + dirx * 30, z: qz + dirz * 30, a: -qa };
+    S.userData = { x: qx + dirx * 30, z: qz + dirz * 30, a: -qa, obs: [], solid: true };
     for (let u = -6; u <= 6; u += 3) for (let v = -44; v <= 44; v += 3) {
       const wx = S.userData.x + u * Math.cos(-qa) + v * Math.sin(-qa), wz = S.userData.z - u * Math.sin(-qa) + v * Math.cos(-qa);
-      addOb({ x: wx, z: wz, r: 2.0, top: 1e9 });
+      const o = { x: wx, z: wz, r: 2.0, top: 1e9, ship: true }; addOb(o); S.userData.obs.push(o);
     }
+    // the way out to the open sea: the heading with the longest run of open water
+    { const U = S.userData; let best = 0, bh = 0;
+      for (let k = 0; k < 72; k++) {
+        const h = k / 72 * Math.PI * 2, hx = Math.sin(h), hz = Math.cos(h); let r = 60;
+        for (; r < 2600; r += 25) { const x = U.x + hx * r, z = U.z + hz * r; if (!isSea(x, z) || !isSea(x + hz * 14, z - hx * 14) || !isSea(x - hz * 14, z + hx * 14)) break; }
+        if (r > best) { best = r; bh = h; }
+      }
+      if (best > 300) { U.headA = bh; U.hx = Math.sin(bh); U.hz = Math.cos(bh); U.L = Math.min(best - 120, 1500); U.head = true; } }
     // fish racks along the shore either side of the pier
     for (const sd of [-1, 1]) { const rx = qx - dirx * 18 + ax * sd * 48, rz = qz - dirz * 18 + az * sd * 48; if (!isSea(rx, rz) && !isSea(rx + dirx * 6, rz + dirz * 6)) hjell(rx, rz, 14, -qa + Math.PI / 2); }
     lamp(qx - dirx * 4 + ax * 12, qz - dirz * 4 + az * 12); lamp(qx - dirx * 4 - ax * 12, qz - dirz * 4 - az * 12);
@@ -5003,7 +5144,7 @@ function updGame(dt, spd) {
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : (s === depot && near !== depot);
   const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
-  updTurbines(dt);
+  updTurbines(dt); updSteamer();
 
   GS.smokeT += dt;
   if (GS.smokeT > 0.15) {
@@ -5045,7 +5186,7 @@ function updGameHud() {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
     const g = groom[tgt.id];
-    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? " · due " + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · steamer sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
@@ -5056,12 +5197,15 @@ function updGameHud() {
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = TC.on ? "Tap JOB BOARD for work" : "Press E for the job board"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
-  $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
+  const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
+  $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
   $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
   $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
   $("warmFill").classList.toggle("low", GS.warmth < 30);
+  $("heatFill").style.width = clamp((HEAT.t - 30) / (HEAT_LIMP + 3 - 30) * 100, 2, 100).toFixed(1) + "%"; $("heatV").textContent = HEAT.limp ? "LIMP" : Math.round(HEAT.t) + "°C";
+  $("heatFill").classList.toggle("hot", HEAT.t >= HEAT_WARN && !HEAT.limp); $("heatFill").classList.toggle("low", HEAT.limp);
 }
 
 /* ---------------- title screen: First Light ---------------- */
