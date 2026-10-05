@@ -1,14 +1,11 @@
-# Uploads the game to https://defnotalemon.itch.io/tracklayer on every push to main.
+# Uploads the game to https://defnotalemon.itch.io/tracklayer.
+# MANUAL ONLY (since 2026-10-04): day-to-day updates go live on GitHub Pages;
+# itch only gets the occasional bigger build. Run it from the Actions tab
+# ("Push to itch.io" -> Run workflow) when it's time for one.
 # Needs a repo secret named BUTLER_API_KEY (itch.io -> Settings -> API keys).
 name: Push to itch.io
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - index.html
-      - tracklayer.js
-      - .github/workflows/itch.yml
   workflow_dispatch:
 
 concurrency:
