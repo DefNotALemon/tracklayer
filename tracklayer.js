@@ -1766,7 +1766,7 @@ function readInput(dt) {
 const MASS = 280; let G = 32.4;
 // The Logbook tablet app's tallies (winter update S4). Saved in the save as `log`; deliveries, rescues, the
 // date and days survived come from GS and the calendar. m = metres ridden, air = seconds in real jumps,
-// jump = longest single jump (s), mail = pieces delivered (nothing feeds it until the ferry update: O3 does LOG.mail += n).
+// jump = longest single jump (s), mail = pieces of post handed in at the quay (mailHandIn).
 const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0 });
 const LOG = LOG0();
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
@@ -2700,6 +2700,13 @@ function drawMap() {
   mctx.restore();
   mctx.strokeStyle = "rgba(234,242,248,.25)"; mctx.lineWidth = 3;
   mctx.beginPath(); mctx.arc(R, R, R - 1.5, 0, 6.283); mctx.stroke();
+  // the ferry clock round the rim: a full ring is 12 game hours to her sailing; orange with post aboard, red when missing her costs you
+  const fi = ferryInfo();
+  if (fi.left !== null) {
+    const fr = clamp(fi.left / 12, 0, 1), rk = GS.mail.length ? mailRisk() : null;
+    mctx.strokeStyle = !rk ? "rgba(127,200,224,.75)" : rk.fine || rk.lose ? "#ff3a1a" : "#ff8a3a"; mctx.lineWidth = 5; mctx.lineCap = "round";
+    mctx.beginPath(); mctx.arc(R, R, R - 3, -Math.PI / 2, -Math.PI / 2 + fr * 6.283); mctx.stroke(); mctx.lineCap = "butt";
+  }
 }
 function toggleBigMap(force) {
   const open = force !== undefined ? force : $("bigmap").hidden;
@@ -2908,7 +2915,7 @@ function updHud(spd) {
 /* ---------------- courier survival layer ---------------- */
 const GAMEHOUR = 50;                       // real seconds per in-game hour (a full day is 20 minutes)
 const GS = {
-  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], claims: [], delivered: 0, rescues: 0, rescueJob: null,
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], claims: [], mail: [], mailT: {}, mailSeq: 0, delivered: 0, rescues: 0, rescueJob: null,
   storm: 0, stormT: 170, stormPhase: "calm", warned: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
@@ -3060,7 +3067,7 @@ const WX = {
       else if (k >= 2 && peak > 0.5 && twist < [0, 0, 0.1, 0.18][k]) { fp = peak * 0.4; s0 = s1 = null; }
       if (fp <= 0.5) s0 = s1 = null; else if (s0 === null) { s0 = ph - 2; s1 = ph + 2; }
       const conf = Math.round(clamp([0, 92, 74, 56][k] - (nFr > 1 ? 8 : 0) - (fp > 0.3 && fp < 0.6 ? 6 : 0) + gauss(r) * 4, 30, 97));
-      const ferry = STEAMER.calls.map(c => { const i = clamp(phantom || peak < 0.02 ? (s0 !== null && c.arr >= s0 && c.arr < s1 ? fp : 0) : hr[c.arr] * fp / peak, 0, 1); return Object.assign({ dir: c.dir, arr: c.arr }, this.ferryState(i)); });
+      const ferry = STEAMER.calls.map(c => { const i = clamp(phantom || peak < 0.02 ? (s0 !== null && c.arr >= s0 && c.arr < s1 ? fp : 0) : hr[Math.floor(c.arr)] * fp / peak, 0, 1); return Object.assign({ dir: c.dir, arr: c.arr }, this.ferryState(i)); });
       const t = this.temp(cal.m), lo = Math.round(t - 4 + 3 * fp + gauss(r) * 1.5), hi = Math.round(t + 1 + 4 * fp + gauss(r) * 1.5);
       const aL = typeof AUR !== "undefined" ? AUR.night(Dk).L : 0, dark = !CAL.isMidnightSun(base + 12 - CAL.off);
       const cloud = clamp(this.atT(qx, qz, base + 21) * 1.4, 0, 1), aurora = dark && typeof AUR !== "undefined" ? clamp(aL * (1 - cloud) + gauss(r) * 0.1 * k, 0, 1) : null;
@@ -3135,7 +3142,9 @@ function renderWx(el) {
   now += o.on ? (o.at !== null ? `Storm at the quay, easing about ${fmtTime(o.at)}${day(o.at)}.` : "Storm at the quay, and no end to it on the charts.") : (o.at !== null ? `Next front${o.from ? " from the " + o.from : ""} reaches the quay about ${fmtTime(o.at)}${day(o.at)}.` : "Nothing on the charts for the next day and a half.");
   const st = CAL.sunTimes(), sun = st.polar ? "Polar night: no sunrise, blue twilight around noon." : st.midnight ? "Midnight sun." : `Sun up ${fmtTime(st.up)}, down ${fmtTime(st.down)}.`;
   const fchip = c => `<span class="bchip ${c.state === "cancelled" ? "due" : c.state === "delayed" ? "heavy" : "ok"}">${c.state === "delayed" ? "+" + c.delay + " H" : c.state.toUpperCase()}</span>`;
-  el.innerHTML = `<div class="wxnow"><b>${n.long}</b> · ${CAL.season().name}${CAL.isPolarNight() ? ` <span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}<p>${now} ${sun}</p></div>
+  const today = steamerCalls(GS.hour, Math.floor(GS.hour / 24) * 24 + 24, true).filter(c => c.dep >= GS.hour).map(c => `${c.dir} ${c.state === "cancelled" ? fmtTime(c.sArr) + " cancelled" : c.state === "delayed" ? `${fmtTime(c.sArr)} running ${c.delay} h late (sails ${fmtTime(c.dep)})` : `sails ${fmtTime(c.dep)} on time`}`);
+  const ferryNow = today.length ? ` Ferry today: ${today.join("; ")}.` : "";
+  el.innerHTML = `<div class="wxnow"><b>${n.long}</b> · ${CAL.season().name}${CAL.isPolarNight() ? ` <span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}<p>${now} ${sun}${ferryNow}</p></div>
     <div class="wxdays">${f.days.map(d => `<div class="wxd${d.peak > 0.55 ? " bad" : ""}">
       <div class="wxh"><span class="wxdow">${d.k === 1 ? "TOMORROW" : d.dow.toUpperCase()}</span><span class="wxdt">${d.label.slice(4)}</span><span class="bchip conf" title="Forecast confidence">${d.conf}%</span></div>
       <svg class="wxg" viewBox="0 0 40 38" aria-hidden="true">${wxGlyph(d.peak, d.polar)}</svg>
@@ -3145,7 +3154,7 @@ function renderWx(el) {
       <div class="wxf">${d.ferry.map(c => `<span>${c.dir === "northbound" ? "N" : "S"} ${fmtTime(c.arr)}</span>${fchip(c)}`).join("")}</div>
       ${d.aurora !== null && d.aurora !== undefined ? `<div class="wxa">Aurora: <b>${d.aurora > 0.6 ? "strong" : d.aurora > 0.35 ? "likely" : d.aurora > 0.15 ? "a chance" : "unlikely"}</b></div>` : ""}
     </div>`).join("")}</div>
-    <p class="wxnote">Issued 00:00 ${f.issued} by the met office in Vardø. Tomorrow's is usually right. Days two and three are a guess with a percentage on it. Steamer times are her calls at Kjøllefjord.</p>`;
+    <p class="wxnote">Issued 00:00 ${f.issued} by the met office in Vardø. Tomorrow's is usually right. Days two and three are a guess with a percentage on it. Ferry times are her calls at Kjøllefjord.</p>`;
 }
 
 // Kjøllefjord is the hub: freight comes off the coastal steamer at the quay and goes out across the
@@ -3601,7 +3610,48 @@ const HOME_CARGO = [
   ["Snow shovel & roof rake", 0.9, false], ["Radio batteries", 1.05, false]
 ];
 const localCount = lvl => lvl < 3 ? 3 : lvl < 6 ? 2 : 1;
+/* ---- the roaming loop (winter update O3) ----
+   From ROAM_AT deliveries on, work comes from wherever you are. Every drop-off posts a fresh list: nearby pickups
+   (the place you're standing at first, then anywhere within ~3.2 km) going 0.5–3.5 km, plus long hauls across
+   the map (4 km and up). You claim one, ride to its P, it loads, ride to its D. Below ROAM_AT the old quay board
+   stays (round-town parcels within 1 km, at the existing 3 and 6 thresholds). Nothing in the jobs pulls you back
+   to town any more: the mail and the ferry do that. */
+const ROAM_AT = 6, ROAM_NEAR = 3200;
+const roaming = () => GS.delivered >= ROAM_AT;
+const workSites = () => SITES.filter(s => s.type !== "shop" && s.x !== undefined);
+function nearestSite(x = P.x, z = P.z) { let b = depot, bd = 1e9; for (const s of workSites()) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s; } } return b; }
+const jobKm = j => (j.from || depot) === depot && !j.roam ? routeKm(j.dest) : Math.hypot(j.dest.x - j.from.x, j.dest.z - j.from.z) * 1.15 / 1000;
+const jobClimb = j => Math.round(Math.max(0, j.dest.y - (j.from || depot).y));
+function roamJobs(here) {
+  here = here && here.type !== "shop" ? here : nearestSite();
+  const all = workSites(), shuf = a => a.sort(() => Math.random() - 0.5), D2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  const near = shuf(all.filter(s => D2(s, here) <= ROAM_NEAR));
+  const nLong = GS.delivered >= 12 ? 2 : 1, nNear = 5 - nLong, jobs = [], used = new Set();
+  const hc = shuf(HOME_CARGO.slice()), fc = shuf(CARGO.slice()); let hi = 0, fi = 0;
+  const cargoFor = (f, d) => d.type === "home" || f.type === "home" ? hc[hi++ % hc.length] : fc[fi++ % fc.length];
+  const toPickup = f => jobGeom(f, { x: P.x, z: P.z, y: groundAt(P.x, P.z) }).est;
+  // nearby: the place you're at has the first one, the rest are within a few km
+  for (let k = 0, tries = 0; jobs.length < nNear && tries < 40; tries++, k++) {
+    const f = k === 0 ? here : near[(Math.random() * near.length) | 0];
+    const ds = all.filter(d => d !== f && D2(d, f) >= 500 && D2(d, f) <= 3500 && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
+    const d = pick(ds), cg = cargoFor(f, d), { dist, climb, est } = jobGeom(d, f), urgent = Math.random() < 0.3;
+    used.add(f.id + ">" + d.id);
+    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, local: d.type === "home" && f.type === "home",
+      pay: round5((30 + dist * 0.09 + climb * 0.4) * cg[1] * (urgent ? 1.4 : 1)), due: urgent ? GS.hour + (toPickup(f) + est) * 1.7 / GAMEHOUR : null });
+  }
+  // long hauls: from round here to the far side of the map
+  for (let k = 0, tries = 0; k < nLong && tries < 30; tries++) {
+    const f = tries === 0 ? here : near[(Math.random() * near.length) | 0] || here;
+    const ds = all.filter(d => d !== f && D2(d, f) >= 4000 && d.type !== "home" && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
+    const d = pick(ds), cg = fc[fi++ % fc.length], { dist, climb } = jobGeom(d, f);
+    used.add(f.id + ">" + d.id); k++;
+    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, long: true, pay: round5((60 + dist * 0.11 + climb * 0.5) * cg[1]), due: null });
+  }
+  GS.jobs = jobs; GS.jobsAt = { x: here.x, z: here.z, site: here };
+  if (steamerIn()) postSteamerFreight();
+}
 function makeJobs(from) {
+  if (roaming()) { roamJobs(from === depot ? null : from); makeContracts(depot); return; }
   const shuf = a => a.sort(() => Math.random() - 0.5);
   const homes = shuf(SITES.filter(s => s.type === "home" && Math.hypot(s.x - from.x, s.z - from.z) < 1000));
   const far = shuf(SITES.filter(s => s.type !== "depot" && s.type !== "shop" && s.type !== "home"));
@@ -3615,7 +3665,7 @@ function makeJobs(from) {
     GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
   }
   if (steamerIn()) postSteamerFreight();
-  makeContracts(from);
+  makeContracts(depot);
 }
 function makeContracts(from) {
   const lvl = GS.delivered, cabins = SITES.filter(s => s.type === "cabin").sort(() => Math.random() - 0.5), relay = SITES.find(s => s.type === "relay");
@@ -3722,6 +3772,7 @@ function acceptJob(k) {
   if (smallLoads().length >= ST.slots) { toast(ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`, "warn"); return; }
   j.hits = 0; GS.load.push(j); GS.jobs.splice(k, 1);
   toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} on the rack.`);
+  if (GS.near && GS.near !== depot) mailVisit(GS.near);
   TABLET.refresh(); applyLoadout(); save();
 }
 const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
@@ -3778,7 +3829,7 @@ function finishGroom(site) {
   if (wf >= 0.6) { p *= 1 + 0.35 * wf; notes.push("wide trail bonus"); }
   if (g.due && GS.hour > g.due) { p *= 0.5; notes.push("late"); }
   if (payMul() > 1) { p *= payMul(); notes.push("polar night ×1.5"); }
-  p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered();
+  p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered(); mailVisit(site);
   toast(`Trail groomed to ${site.name}: +$${p} (${Math.round(fr * 100)}% of the line${notes.length ? ", " + notes.join(", ") : ""}).`, "good");
   updGroom(); save();
 }
@@ -3835,9 +3886,15 @@ function deliver(site) {
   GS.cash += total;
   const what = here.length > 1 ? here.length + " loads" : here[0].cargo.toLowerCase();
   toast(`Delivered ${what} to ${site.name}: +$${total}${notes.length ? " (" + notes.join(", ") + ")" : ""}${lost ? ` · −$${lost} bond` : ""}`, total > 0 ? "good" : "bad");
+  const wasRoam = GS.delivered - here.length >= ROAM_AT;
+  if (site.type !== "depot") mailVisit(site);
+  if (roaming()) {
+    roamJobs(site); TABLET.refresh();
+    setTimeout(() => { if (GS.dead) return; TABLET.notify({ app: "parcels", title: `New work around ${shortName(site)}`, body: wasRoam ? `${GS.jobs.length} parcels posted from here: pickups nearby and ${GS.jobs.filter(j => j.long).length > 1 ? "two long hauls" : "a long haul"}.` : "From now on work comes to you. Every drop-off posts parcels from wherever you are. The mail and the ferry are what bring you back to town.", ttl: wasRoam ? 6 : 12 }); }, wasRoam ? 4200 : 3000);
+  }
   if (site.type !== "depot") {
     if (clean) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
-    if (smallLoads().length < ST.slots && Math.random() < 0.6) {
+    if (!roaming() && smallLoads().length < ST.slots && Math.random() < 0.6) {
       const dist = Math.hypot(site.x - depot.x, site.z - depot.z);
       const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) * 1.3 / 5) * 5, due: boatDue(site), boat: true, hits: 0 };
       setTimeout(() => {
@@ -3872,14 +3929,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail } })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -4265,8 +4322,8 @@ const TABLET = {
   addLayer(id, fn) { (this.layers[id] = this.layers[id] || []).push(fn); },
   layerPts(id) { const out = []; for (const fn of this.layers[id] || []) { try { out.push(...(fn() || [])); } catch (e) { console.error(e); } } return out; },
   widget: {
-    ferry() { const n = steamerNext(GS.hour, "dep"), st = steamerAt(GS.hour); return { label: st.s === "in" ? "Steamer sails" : "Next sailing", at: st.s === "in" ? st.c.dep + Math.floor(GS.hour / 24) * 24 : n, state: null }; },
-    mail() { return null; }                                      // O3: { count, value }
+    ferry() { const f = ferryInfo(); return { label: f.st.s === "in" ? "Ferry sails" : "Next sailing", at: f.at, left: f.left, call: f.c, state: f.c ? f.c.state : null, cancelled: f.cancelled, alongside: f.st.s === "in" }; },
+    mail() { return GS.mail.length ? Object.assign({ count: mailCount(), value: mailValue(), batches: GS.mail.length }, mailRisk()) : null; }
   },
   can() { return started && !GS.dead && !GS.garageOpen && !godOpen && $("settings").hidden && !TT.on; },
   toggle(force, appId) {
@@ -4561,6 +4618,11 @@ function tabDash(dt) {
     g.textAlign = "right"; g.fillStyle = "#6fd08c"; g.fillText(fmtCash(GS.cash), W - 8, top / 2 + 1);
   }
   g.strokeStyle = "rgba(234,242,248,.18)"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, top + 0.5); g.lineTo(W, top + 0.5); g.stroke();
+  // the ferry and the mail sack, top left under the status strip
+  { const fi = ferryInfo(), rk = GS.mail.length ? mailRisk() : null;
+    const t = `FERRY ${fi.at !== null ? fmtTime(fi.at) + " " + fmtLeftS(fi.left) : "—"}  ·  MAIL ${GS.mail.length ? mailCount() + " " + fmtCash(mailValue() * payMul()) : "0"}`;
+    g.font = "600 12px 'Barlow Semi Condensed', sans-serif"; const tw = g.measureText(t).width + 12;
+    g.fillStyle = "rgba(13,24,34,.85)"; g.fillRect(6, top + 5, tw, 17); g.fillStyle = !rk ? "#7fc8e0" : rk.fine || rk.lose ? "#ff6a4a" : "#ffb25a"; g.textAlign = "left"; g.fillText(t, 12, top + 14); }
   // where the arrow's pointing
   const tg = GS.load[0] ? GS.load[0].dest : GS.claims[0] ? (GS.claims[0].from || depot) : GS.tour ? GS.tour.view : null;
   if (tg) {
@@ -4640,8 +4702,10 @@ function tabHome(v) {
 /* ---- work: the same refresh the board did when you opened it ---- */
 function tabWork() {
   updGroom();
-  if (!GS.jobs.length) makeJobs(depot);
-  else if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);
+  const stale = roaming() && (!GS.jobsAt || Math.hypot(P.x - GS.jobsAt.x, P.z - GS.jobsAt.z) > ROAM_NEAR) && !GS.jobs.some(j => j.from === GS.near);
+  if (!GS.jobs.length) makeJobs(roaming() ? (GS.near && GS.near !== garageSite ? GS.near : nearestSite()) : depot);
+  else if (stale) roamJobs(GS.near && GS.near !== garageSite ? GS.near : nearestSite());
+  if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);
   tourSync();
 }
 const claimSmall = () => GS.claims.filter(j => !j.big && !j.tour).length;
@@ -4649,12 +4713,13 @@ const claimBays = () => GS.claims.filter(j => j.big).reduce((a, j) => a + j.bays
 const atQuay = () => GS.near === depot;
 // Taking work from the tablet: at the quay it goes straight on the sled, the way the board did. Anywhere else
 // it's claimed, and it loads when you stop at the pickup (the quay, for now: O3 brings pickups elsewhere).
+const atPickup = j => GS.near === (j.from || depot);
 function takeParcel(k) {
   const j = GS.jobs[k]; if (!j) return;
-  if (atQuay()) { acceptJob(k); return; }
-  if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your rack's spoken for: ${smallLoads().length} aboard and ${claimSmall()} waiting at the quay.`, "warn"); return; }
-  j.from = depot; GS.claims.push(j); GS.jobs.splice(k, 1);
-  toast(`Claimed: ${j.cargo} for ${shortName(j.dest)}. Pick it up at Kjøllefjord quay.`);
+  if (atPickup(j)) { acceptJob(k); return; }
+  if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your rack's spoken for: ${smallLoads().length} aboard and ${claimSmall()} claimed.`, "warn"); return; }
+  j.from = j.from || depot; GS.claims.push(j); GS.jobs.splice(k, 1);
+  toast(`Claimed: ${j.cargo} for ${shortName(j.dest)}. Pick it up at ${j.from.name}.`);
   TABLET.refresh(); save();
 }
 function contractBlock(c) {
@@ -4775,7 +4840,7 @@ function tabMinis(el) { for (const cv of el.querySelectorAll("canvas[data-mini]"
 
 /* ---- the apps ---- */
 const chip = (t, c) => `<span class="bchip${c ? " " + c : ""}">${t}</span>`;
-function parcelChips(j) { return (j.steamer ? chip("OFF THE STEAMER", "due") : "") + (j.local && !j.steamer ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
+function parcelChips(j) { return (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
 function tabCard(o) {
   return `<div class="tcard${o.cls ? " " + o.cls : ""}"${o.tf ? ` data-tf="${o.tf}"` : ""}>
     ${o.mini ? `<canvas class="tmini" data-mini="${o.mini}"></canvas>` : ""}
@@ -4793,24 +4858,26 @@ TABLET.register({
   onOpen() { tabWork(); ctRoutes(); },
   render(el) {
     const sm = smallLoads(), rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
-    let h = tabHead("PARCELS · PICKUP KJØLLEFJORD QUAY", "Parcels", fmtCash(GS.cash));
+    const area = roaming() && GS.jobsAt ? shortName(GS.jobsAt.site).toUpperCase() : null;
+    let h = tabHead(area ? `PARCELS · WORK AROUND ${area}` : "PARCELS · PICKUP KJØLLEFJORD QUAY", "Parcels", fmtCash(GS.cash));
     h += `<div class="tsub">${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}${CAL.isPolarNight() ? " " + chip("POLAR NIGHT ×1.5", "polar") : ""}</div>`;
     const aboard = sm.filter(j => !j.big);
     h += sec("Aboard", `Rack ${sm.length}/${ST.slots}${claimSmall() ? ` · ${claimSmall()} claimed` : ""}`);
     if (!aboard.length) h += `<p class="tnote2">Nothing on the rack.</p>`;
     aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: fmtCash(j.pay * payMul()) }); });
     const cl = GS.claims.filter(j => !j.big && !j.tour);
-    if (cl.length) { h += sec("Claimed · waiting at the quay", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name}, then to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km`, pay: fmtCash(j.pay * payMul()) }); }); }
-    h += sec("Posted", atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
+    if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: fmtCash(j.pay * payMul()) }); }); }
+    h += sec("Posted", roaming() ? "claim it, ride to the P, it loads; at the P it loads straight on" : atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
     if (!GS.jobs.length) h += `<p class="tnote2">No parcels posted. Check back after the next boat.</p>`;
     GS.jobs.forEach((j, k) => {
-      const full = smallLoads().length + claimSmall() >= ST.slots && !atQuay() || (atQuay() && smallLoads().length >= ST.slots);
-      const g = groom[j.dest.id] || 0;
-      h += tabCard({ tf: "job:" + k, mini: `depot|${j.dest.id}`, title: j.cargo, chips: parcelChips(j),
-        meta: `Kjøllefjord quay → ${shortName(j.dest)} · ≈ ${routeKm(j.dest).toFixed(1)} km by trail · climb ${climbOf(j.dest)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`,
-        note: `${groomSay(g)}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
+      const here = atPickup(j), full = smallLoads().length + claimSmall() >= ST.slots && !here || (here && smallLoads().length >= ST.slots);
+      const f = j.from || depot, g = groom[j.dest.id] || 0, fromQ = f === depot && !j.roam;
+      h += tabCard({ tf: "job:" + k, mini: `${f.id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j),
+        meta: fromQ ? `Kjøllefjord quay → ${shortName(j.dest)} · ≈ ${routeKm(j.dest).toFixed(1)} km by trail · climb ${climbOf(j.dest)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`
+          : `${shortName(f)} → ${shortName(j.dest)} · ≈ ${jobKm(j).toFixed(1)} km · climb ${jobClimb(j)} m · ${here ? "pickup is here" : "pickup " + fmtMi(Math.hypot(f.x - P.x, f.z - P.z)) + " from you"}`,
+        note: `${fromQ ? groomSay(g) : j.long ? "A long haul across the peninsula: good money, but it takes you a long way from the ferry." : ""}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
         warn: full ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "",
-        pay: fmtCash(j.pay * payMul()), act: "take:" + k, actLabel: atQuay() ? "LOAD IT" : "CLAIM", blocked: full });
+        pay: fmtCash(j.pay * payMul()), act: "take:" + k, actLabel: here ? "LOAD IT" : "CLAIM", blocked: full });
     });
     h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
@@ -4846,7 +4913,7 @@ TABLET.register({
       let title = c.cargo, meta, note, pay = fmtCash(c.pay * payMul()), lbl, chips = chip(tag === "aurora" ? "AURORA · " + AUR.word(AUR.v).toUpperCase() : tag.toUpperCase(), tag);
       if (c.tour) {
         meta = `to ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
-        note = `<span class="why">${tabEsc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the steamer want the lights from ${tabEsc(c.dest.why)}.</span> They pay by how strong the aurora is when you get there, a third if it's faded. They ride behind you, not on the rack.`;
+        note = `<span class="why">${tabEsc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the ferry want the lights from ${tabEsc(c.dest.why)}.</span> They pay by how strong the aurora is when you get there, a third if it's faded. They ride behind you, not on the rack.`;
         pay = "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()); lbl = atQuay() ? "TAKE THEM UP" : "BOOK THEM";
       } else if (c.rescue) {
         chips += c.comps.map(x => chip(({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x], x === "short" || x === "hurt" ? "due" : "")).join("") + chip("CLOCK " + fmtTime(c.due), "due");
@@ -4890,8 +4957,10 @@ TABLET.register({
   },
   widget() {
     const el = $("tabWid"); if (!el) return;
-    const f = TABLET.widget.ferry(), m = TABLET.widget.mail(), left = f.at - GS.hour, hh = Math.floor(left), mm = Math.floor((left % 1) * 60);
-    el.innerHTML = `<div class="twr"><span>${f.label}</span><b>${fmtTime(f.at)}</b><i>${left > 0 ? `in ${hh ? hh + " h " : ""}${mm} min` : "now"}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? "pieces" : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value : 0)}</b><i>paid when it sails</i></div>`;
+    const f = TABLET.widget.ferry(), m = TABLET.widget.mail(), c = f.call;
+    const stTxt = !c ? "" : c.state === "delayed" ? ` · <em class="late">+${c.delay} h late</em>` : "";
+    const risk = !m ? "hand in at the quay" : m.lose ? `<em class="bad">miss her: pay $${m.lose}</em>` : m.fine ? `<em class="late">miss her: $${m.fine} fine</em>` : m.worst ? "missed one boat · next is a fine" : "rides the next boat free";
+    el.innerHTML = `<div class="twr"><span>${f.label}${c ? " · " + c.dir : ""}</span><b>${f.at !== null ? fmtTime(f.at) : "—"}</b><i>${f.left !== null ? (f.alongside ? "alongside · " : "") + "in " + fmtLeft(f.left) : "no sailings"}${stTxt}${f.cancelled ? ` · <em class="bad">${fmtTime(f.cancelled.sDep)} cancelled</em>` : ""}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? `piece${m.count > 1 ? "s" : ""}${m.batches > 1 ? " · " + m.batches + " batches" : ""}` : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value * payMul() : 0)}</b><i>${risk}</i></div>`;
   },
   tick(dt) {
     this.t += dt; if (this.t < 0.2 || !this.cv) return; this.t = 0;
@@ -4912,7 +4981,7 @@ TABLET.register({
     if (L.pins) {
       for (const j of GS.jobs) { const [x, y] = w2c(j.dest.x, j.dest.z); g.globalAlpha = 0.6; tabPin(g, x, y, CT_ACC, "D", 7); g.globalAlpha = 1; }
       for (const j of GS.claims) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, j.tour ? "#2f8f6a" : CT_ACC, j.tour ? "A" : "D", 8); }
-      if (GS.claims.length || GS.jobs.length) { const [x, y] = w2c(depot.x, depot.z); tabPin(g, x, y, "#1f4a66", "P", 9); }
+      for (const f of new Set(GS.claims.concat(GS.jobs).map(j => j.from || depot))) { const [x, y] = w2c(f.x, f.z); tabPin(g, x, y, "#1f4a66", "P", 9); }
     }
     if (L.del) { for (const j of GS.load) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, CT_ACC, "D", 10); } if (GS.tour) { const [x, y] = w2c(GS.tour.view.x, GS.tour.view.z); tabPin(g, x, y, "#2f8f6a", "A", 10); } if (GS.groomJob) { const [x, y] = w2c(GS.groomJob.dest.x, GS.groomJob.dest.z); tabPin(g, x, y, "#1f6a8a", "G", 9); } }
     if (L.rescue) for (const p of TABLET.layerPts("rescue")) { const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
@@ -4956,25 +5025,26 @@ TABLET.register({
     let grid = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => `<div class="tcw">${d}</div>`).join("") + "<div></div>".repeat(lead);
     for (let d = 1; d <= days; d++) {
       const D = Math.round((Date.UTC(vm.y, vm.m, d) - CAL_EPOCH) / 864e5), inS = D >= D0 && D < D0 + N;
-      grid += `<div class="tcd${D === today ? " today" : ""}${D < today ? " past" : ""}${inS && pnAt(D) ? " pn" : ""}${inS && meltAt(D) ? " ml" : ""}${!inS ? " off" : ""}"><b>${d}</b>${inS && D >= today && D < today + 3 ? `<i class="fdot" title="Steamer calls"></i>` : ""}</div>`;
+      grid += `<div class="tcd${D === today ? " today" : ""}${D < today ? " past" : ""}${inS && pnAt(D) ? " pn" : ""}${inS && meltAt(D) ? " ml" : ""}${!inS ? " off" : ""}"><b>${d}</b>${inS && D >= today && D < today + 3 ? `<i class="fdot" title="Ferry calls"></i>` : ""}</div>`;
     }
     const canPrev = vm.m !== 10, canNext = vm.m !== 4;
     // the next sailings: the steamer's two calls a day, with what the forecast thinks of them
     const fc = WX.forecast(), sail = [];
     for (let k = 0; k < 3; k++) {
       const D = today + k, q = CAL.day(D);
-      for (const s of STEAMER.calls) {
-        const at = (D - CAL.dayIndex()) * 24 + Math.floor(GS.hour / 24) * 24 + s.arr; if (at + 3 < GS.hour) continue;
-        const fd = fc.days.find(x => x.D === D), fs = fd && fd.ferry ? fd.ferry.find(x => x.dir === s.dir) : null;
-        sail.push(`<div class="tfr"><span>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : DOW3[q.dow]}</span><b>${fmtTime(s.arr)}–${fmtTime(s.dep)}</b><i>${s.dir}</i>${fs ? chip(fs.state === "delayed" ? "+" + fs.delay + " H" : fs.state.toUpperCase(), fs.state === "cancelled" ? "due" : fs.state === "delayed" ? "heavy" : "ok") : chip(k ? "NO FORECAST" : "SCHEDULED")}</div>`);
+      for (let ci = 0; ci < STEAMER.calls.length; ci++) {
+        const s = STEAMER.calls[ci], c = steamerCall(Math.floor(GS.hour / 24) + k, ci); if (c.dep + 0.5 < GS.hour) continue;
+        const fd = fc.days.find(x => x.D === D), fs = k === 0 ? c : fd && fd.ferry ? fd.ferry.find(x => x.dir === s.dir) : null;
+        const times = k === 0 && c.state === "delayed" ? `${fmtTime(c.arr)}–${fmtTime(c.dep)}` : `${fmtTime(s.arr)}–${fmtTime(s.dep)}`;
+        sail.push(`<div class="tfr"><span>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : DOW3[q.dow]}</span><b>${times}</b><i>${s.dir}</i>${fs ? chip(fs.state === "delayed" ? "+" + fs.delay + " H" : fs.state.toUpperCase(), fs.state === "cancelled" ? "due" : fs.state === "delayed" ? "heavy" : "ok") : chip("NO FORECAST")}</div>`);
       }
     }
     el.innerHTML = `<div class="tapp tcal">${tabHead("THE SEASON · " + sy + "–" + String(sy + 1).slice(2), "Calendar")}
       <div class="tsub">${CAL.now().long} · ${CAL.season().name}${pn0 !== null ? ` · polar night ${fmtD(pn0)} to ${fmtD(pn1)}` : ""} · melt from 1 May</div>
       ${strip}
       <div class="tcal2"><div><div class="tmh"><button type="button" class="tbtn ghost sm"${canPrev ? ' data-tf="cal:prev"' : " disabled"} id="calPrev">‹</button><b>${MONTHS[vm.m].toUpperCase()} ${vm.y}</b><button type="button" class="tbtn ghost sm"${canNext ? ' data-tf="cal:next"' : " disabled"} id="calNext">›</button></div><div class="tcg">${grid}</div>
-        <div class="tleg">${chip("POLAR NIGHT", "polar")}${chip("MELT", "heavy")}<span class="bchip">• STEAMER</span></div></div>
-      <div>${sec("Ferry days", "the coastal steamer at Kjøllefjord")}${sail.join("")}<p class="tnote2">The steamer calls twice a day. Storms can hold her up or cancel a call; the forecast says how likely that is.</p></div></div></div>`;
+        <div class="tleg">${chip("POLAR NIGHT", "polar")}${chip("MELT", "heavy")}<span class="bchip">• FERRY</span></div></div>
+      <div>${sec("Ferry days", "the coastal ferry at Kjøllefjord")}${sail.join("")}<p class="tnote2">The ferry calls twice a day: northbound sails 09:30, southbound 21:00. Storms can hold her up or cancel a call. Today's calls are posted at the quay; the rest is the forecast. Your mail goes out on her: hand the sack in at the quay before she sails.</p></div></div></div>`;
     const step = d => { let m = vm.m + d, y = vm.y; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } this.view = { y, m }; TABLET.render(); };
     $("calPrev").addEventListener("click", () => canPrev && step(-1)); $("calNext").addEventListener("click", () => canNext && step(1));
   }
@@ -5828,32 +5898,152 @@ function buildGarageTabs() {
 
 /* ---------------- Kjøllefjord ---------------- */
 let steamer = null, QUAY = null;
-/* ---- the coastal steamer's timetable ----
-   She calls twice a day: northbound in the morning, southbound in the evening, three hours alongside each
-   time, with an hour coming up the fjord and an hour going back out. Freight that comes off her goes on the
-   board while she's in (and comes off the board when she sails), and anything handed to you "for the boat"
-   has to be on the quay before she casts off. */
-const STEAMER = { calls: [{ arr: 8, dep: 11, dir: "northbound" }, { arr: 17, dep: 20, dir: "southbound" }], sail: 1, state: null, call: null };
+/* ---- the coastal ferry's timetable ----
+   She calls twice a day. Northbound: in the fjord mouth about 07:00, alongside 08:15, sails 09:30. Southbound:
+   alongside 19:45, sails 21:00. About ten real minutes between sailings, so a day has two loops in it.
+   Each call is decided by the weather at the quay at her scheduled arrival (WX.ferry): a strong front holds her
+   up 1–3 h (both times shift), a severe one cancels the call. The forecast's chips are a forecast of exactly
+   this. A call is frozen once she's within two hours of it, so a god-menu storm can't make her vanish mid-call. */
+const STEAMER = { calls: [{ arr: 8.25, dep: 9.5, dir: "northbound" }, { arr: 19.75, dep: 21, dir: "southbound" }], sail: 1.25, horn: 1 / 6, state: null, call: null, memo: {}, memoK: "" };
+function steamerCall(D, ci) {
+  const fk = WX.seed + ":" + CAL.off + ":" + (WX.force ? WX.force.until + ":" + WX.force.v : "");
+  if (STEAMER.memoK !== fk) { const keep = {}, same = STEAMER.memoK.split(":").slice(0, 2).join(":") === fk.split(":").slice(0, 2).join(":"); if (same) for (const k in STEAMER.memo) if (STEAMER.memo[k].fixed) keep[k] = STEAMER.memo[k]; STEAMER.memo = keep; STEAMER.memoK = fk; }
+  const key = D * 4 + ci; let o = STEAMER.memo[key];
+  if (!o) {
+    const c = STEAMER.calls[ci], at = D * 24 + c.arr, f = WX.ferry(at);
+    o = STEAMER.memo[key] = { id: key, D, ci, dir: c.dir, sArr: at, sDep: D * 24 + c.dep, state: f.state, delay: f.delay, arr: at + f.delay, dep: D * 24 + c.dep + f.delay };
+    const ks = Object.keys(STEAMER.memo); if (ks.length > 60) for (const k of ks) if (Math.abs(STEAMER.memo[k].D - D) > 6) delete STEAMER.memo[k];
+  }
+  if (!o.fixed && GS.hour >= o.sArr - 2) o.fixed = true;
+  return o;
+}
+// every call touching [H0, H1] (cancelled ones only if `all`), in timetable order
+function steamerCalls(H0, H1, all) {
+  const out = [];
+  for (let D = Math.floor(H0 / 24) - 1; D <= Math.floor(H1 / 24) + 1; D++) for (let ci = 0; ci < STEAMER.calls.length; ci++) {
+    const c = steamerCall(D, ci);
+    if ((all || c.state !== "cancelled") && c.dep + STEAMER.sail >= H0 && c.arr - STEAMER.sail <= H1) out.push(c);
+  }
+  return out;
+}
 function steamerAt(H) {
-  const h = ((H % 24) + 24) % 24;
-  for (const c of STEAMER.calls) {
-    if (h >= c.arr && h < c.dep) return { s: "in", c, p: (h - c.arr) / (c.dep - c.arr) };
-    if (h >= c.arr - STEAMER.sail && h < c.arr) return { s: "arriving", c, p: (h - c.arr + STEAMER.sail) / STEAMER.sail };
-    if (h >= c.dep && h < c.dep + STEAMER.sail) return { s: "leaving", c, p: (h - c.dep) / STEAMER.sail };
+  for (const c of steamerCalls(H, H)) {
+    if (H >= c.arr && H < c.dep) return { s: "in", c, p: (H - c.arr) / (c.dep - c.arr) };
+    if (H >= c.arr - STEAMER.sail && H < c.arr) return { s: "arriving", c, p: (H - c.arr + STEAMER.sail) / STEAMER.sail };
+    if (H >= c.dep && H < c.dep + STEAMER.sail) return { s: "leaving", c, p: (H - c.dep) / STEAMER.sail };
   }
   return { s: "away", c: null, p: 0 };
 }
-// absolute game hour of the next sailing (or arrival) at or after H
-function steamerNext(H, key) {
-  let best = Infinity;
-  for (let d = Math.floor(H / 24) - 1; d <= Math.floor(H / 24) + 2; d++) for (const c of STEAMER.calls) { const t = d * 24 + c[key]; if (t >= H && t < best) best = t; }
-  return best;
+// the next call whose `key` time ("arr" or "dep") is at or after H; cancelled calls are skipped unless `all`
+function steamerNextCall(H, key = "dep", all) {
+  for (let D = Math.floor(H / 24) - 1; D <= Math.floor(H / 24) + 4; D++) for (let ci = 0; ci < STEAMER.calls.length; ci++) {
+    const c = steamerCall(D, ci); if ((all || c.state !== "cancelled") && c[key] >= H) return c;
+  }
+  return null;
+}
+function steamerNext(H, key) { const c = steamerNextCall(H, key); return c ? c[key] : Infinity; }
+const ferryChip = c => c.state === "cancelled" ? chip("CANCELLED", "due") : c.state === "delayed" ? chip("+" + c.delay + " H", "heavy") : chip("ON TIME", "ok");
+
+/* ---- the mail sack (winter update O3) ----
+   Every cabin, home, village or the lighthouse you stop at for work (a pickup, a drop-off, a groomed line) hands you
+   their post: a few pieces at a low price each, more at the villages, worth more the further out it comes from.
+   A place only has post for you once every MAIL.cool game hours. It's only paid when you hand the sack in at the
+   quay, any time before she sails. Mail is tracked in batches: everything picked up before a given sailing is one
+   batch. Each real departure (a cancelled call doesn't count) adds a miss to every batch still in your sack:
+   1st miss free (it rides the next boat), 2nd a 10% fine, 3rd you pay the batch's full value and the post office
+   takes it back. The sack is strapped to you, so it survives blackouts and the fjord. Saved with the game. */
+const MAIL = { cool: 6, per: 14, perKm: 4, warnAt: 1.5, pieces: { village: [3, 6], home: [1, 3], other: [2, 4] } };
+const mailCount = () => GS.mail.reduce((a, b) => a + b.n, 0);
+const mailValue = () => GS.mail.reduce((a, b) => a + b.v, 0);
+// what the next sailing would cost you if the sack's still on you when she goes
+function mailRisk() {
+  let fine = 0, lose = 0;
+  for (const b of GS.mail) { if (b.misses === 1) fine += Math.max(1, Math.round(b.v * 0.1)); else if (b.misses >= 2) lose += b.v; }
+  return { fine, lose, worst: GS.mail.reduce((a, b) => Math.max(a, b.misses), 0) };
+}
+function mailVisit(site) {
+  if (!site || site.type === "depot" || site.type === "shop" || site.x === undefined) return null;
+  const last = GS.mailT[site.id]; if (last !== undefined && GS.hour - last < MAIL.cool && GS.hour >= last) return null;
+  GS.mailT[site.id] = GS.hour;
+  const [lo, hi] = site.kind === "village" ? MAIL.pieces.village : site.type === "home" ? MAIL.pieces.home : MAIL.pieces.other;
+  const n = lo + Math.floor(Math.random() * (hi - lo + 1)), km = Math.hypot(site.x - depot.x, site.z - depot.z) / 1000;
+  let v = 0; for (let i = 0; i < n; i++) v += (MAIL.per + MAIL.perKm * km) * (0.85 + Math.random() * 0.3);
+  v = Math.round(v);
+  const nx = steamerNextCall(GS.hour, "dep"), forId = nx ? nx.id : -1;
+  let b = GS.mail[GS.mail.length - 1];
+  if (!b || b.misses || b.forId !== forId) { b = { id: ++GS.mailSeq, n: 0, v: 0, misses: 0, forId, born: +GS.hour.toFixed(3), from: [] }; GS.mail.push(b); }
+  b.n += n; b.v += v; if (!b.from.includes(site.name)) b.from.push(site.name);
+  setTimeout(() => { if (!GS.dead) toast(`${n === 1 ? "A letter" : n + " pieces of post"} for the boat from ${shortName(site)} (+$${v} when it sails). Sack: ${mailCount()} · ${fmtCash(mailValue())}.`); }, 2700);
+  return { n, v };
+}
+function mailHandIn() {
+  if (!GS.mail.length) return;
+  const n = mailCount(), v = mailValue(), late = GS.mail.some(b => b.misses), notes = [];
+  let pay = v; if (payMul() > 1) { pay *= payMul(); notes.push("polar night ×1.5"); }
+  pay = Math.round(pay); GS.cash += pay; GS.mail = []; LOG.mail += n;
+  const nx = steamerNextCall(GS.hour, "dep");
+  toast(`Mail sack in at the quay post: ${n} piece${n > 1 ? "s" : ""}, +$${pay}${notes.length ? " (" + notes.join(", ") + ")" : ""}.${late ? " The late ones are finally on their way." : ""} It goes out ${nx ? `on the ${fmtTime(nx.dep)} ${nx.dir}` : "on the next boat"}.`, "good");
+  TABLET.refresh(); save();
+}
+// a sailing went: every batch picked up before she cast off takes a miss
+function mailSailed(c) {
+  if (!GS.mail.length) return;
+  let fine = 0, lost = 0, free = 0, nl = 0;
+  for (const b of GS.mail.slice()) {
+    if (b.born > c.dep) continue;
+    b.misses++;
+    if (b.misses === 1) free += b.n;
+    else if (b.misses === 2) { const f = Math.max(1, Math.round(b.v * 0.1)); fine += f; b.fined = f; }
+    else { lost += b.v; nl += b.n; GS.mail.splice(GS.mail.indexOf(b), 1); }
+  }
+  const owe = fine + lost; if (!owe && !free) return;
+  GS.cash = Math.max(0, GS.cash - owe);
+  const bits = [];
+  if (free) bits.push(`${free} piece${free > 1 ? "s ride" : " rides"} the next boat, no charge`);
+  if (fine) bits.push(`A 10% late fine on mail that's missed two boats: −$${fine}`);
+  if (lost) bits.push(`${nl} piece${nl > 1 ? "s" : ""} missed three boats. The post office takes ${nl > 1 ? "them" : "it"} back and you pay the full $${lost}`);
+  TABLET.notify({ app: "map", kind: owe ? "alert" : "warn", ttl: 9, title: `The ${c.dir} ferry sailed without your mail`, body: bits.join(". ") + "." });
+  TABLET.refresh(); save();
+}
+function mailTick(dt) {
+  GS.mailTk = (GS.mailTk || 0) + dt; if (GS.mailTk < 0.25) return; GS.mailTk = 0;
+  if (GS.mailH === undefined || GS.mailH > GS.hour || GS.hour - GS.mailH > 72) GS.mailH = GS.hour;
+  const H0 = GS.mailH, H1 = GS.hour; GS.mailH = H1;
+  if (H1 > H0) for (const c of steamerCalls(H0, H1)) if (c.dep > H0 && c.dep <= H1) mailSailed(c);
+  // the pull back to town: a ping an hour and a half before she sails if you've got post on you
+  const nx = steamerNextCall(GS.hour, "dep");
+  if (nx && GS.mail.length && !nx.mailWarned && nx.dep - GS.hour < MAIL.warnAt && GS.near !== depot) {
+    nx.mailWarned = true; const r = mailRisk(), km = Math.hypot(P.x - depot.x, P.z - depot.z) / 1000;
+    TABLET.notify({ app: "map", kind: r.fine || r.lose ? "alert" : "info", ttl: 8, title: `Ferry sails ${fmtTime(nx.dep)} · ${mailCount()} pieces aboard`,
+      body: `${fmtCash(mailValue())} of post on you, quay ${km.toFixed(1)} km. ${r.lose ? `Miss her and you pay $${r.lose} for mail that's missed three boats.` : r.fine ? `Miss her and it's a $${r.fine} late fine.` : "Miss her and it rides the next one free."}` });
+  }
+}
+// what the Map widget, the minimap and the dash show
+function ferryInfo() {
+  const st = steamerAt(GS.hour), nx = st.s === "in" ? st.c : steamerNextCall(GS.hour, "dep");
+  const skip = steamerNextCall(GS.hour, "dep", true);                       // a cancelled call ahead of the real one
+  return { st, c: nx, at: nx ? nx.dep : null, left: nx ? nx.dep - GS.hour : null, cancelled: skip && skip !== nx && skip.state === "cancelled" ? skip : null };
+}
+const fmtLeft = h => h === null ? "" : h < 0.02 ? "now" : `${Math.floor(h) ? Math.floor(h) + " h " : ""}${Math.floor((h % 1) * 60)} min`;
+const fmtLeftS = h => h === null ? "" : h < 0.02 ? "now" : `${Math.floor(h)}h${String(Math.floor((h % 1) * 60)).padStart(2, "0")}`;
+// the minimap's ferry and mail line (under the dial; on phones too). Only touches the DOM when the text changes.
+const MAILHUD = { k: "", t: 0 };
+function updMailHud(dt) {
+  if ((MAILHUD.t += dt) < 0.25) return; MAILHUD.t = 0;
+  const f = ferryInfo(), r = GS.mail.length ? mailRisk() : null, c = f.c;
+  const fer = c ? `<b>FERRY ${fmtTime(c.dep)}</b> ${f.st.s === "in" ? "in · " : ""}${fmtLeftS(f.left)}${c.state === "delayed" ? ` <em>+${c.delay}h</em>` : ""}` : "<b>NO FERRY</b>";
+  const mail = GS.mail.length ? `<b>MAIL ${mailCount()}</b> ${fmtCash(mailValue() * payMul())}` : `<b>MAIL</b> empty`;
+  const cls = !r ? "" : r.lose ? "bad" : r.fine ? "late" : "";
+  const k = fer + mail + cls + (f.left !== null && f.left < MAIL.warnAt && GS.mail.length);
+  if (k === MAILHUD.k) return; MAILHUD.k = k;
+  const el = $("mailBar"); if (!el) return;
+  el.innerHTML = `<span>${fer}</span><span>${mail}</span>`; el.className = cls + (f.left !== null && f.left < MAIL.warnAt && GS.mail.length ? " soon" : "");
 }
 const steamerIn = () => steamerAt(GS.hour).s === "in";
 // a boat backhaul from `site` makes the first sailing it reasonably can
 function boatDue(site) { const est = jobGeom(depot, site).est * 1.25 / GAMEHOUR; return steamerNext(GS.hour + est, "dep"); }
 const STEAMER_CARGO = [
-  ["Post sacks off the steamer", 0.9, false], ["Crate of oranges from Tromsø", 1.0, true], ["Pharmacy crate off the boat", 1.3, true],
+  ["Post sacks off the ferry", 0.9, false], ["Crate of oranges from Tromsø", 1.0, true], ["Pharmacy crate off the boat", 1.3, true],
   ["Outboard motor parts", 1.1, false], ["The Finnmarken and the post", 0.85, false], ["Boxed radio set from Hammerfest", 1.2, true],
   ["Coffee, flour and sugar for the shop", 0.95, false], ["Spare net floats & line", 0.9, false], ["Mail-order parcel from Oslo", 1.05, false]
 ];
@@ -5870,47 +6060,69 @@ function postSteamerFreight() {
   if (!GS.jobs || GS.jobs.some(j => j.steamer)) return false;
   const j = steamerJob(depot);
   if (GS.jobs.some(x => x.dest === j.dest && x.cargo === j.cargo)) return false;
-  if (GS.jobs.length >= 3) GS.jobs.splice(GS.jobs.length - 1, 1, j); else GS.jobs.push(j);
+  if (roaming()) { j.from = depot; GS.jobs.unshift(j); if (GS.jobs.length > 6) GS.jobs.pop(); }
+  else if (GS.jobs.length >= 3) GS.jobs.splice(GS.jobs.length - 1, 1, j); else GS.jobs.push(j);
   return true;
 }
-function steamerHorn() {
+function steamerHorn(long = true) {
   if (!audio) return;
   const { AC, master } = audio, t = AC.currentTime, d = Math.hypot(P.x - (steamer ? steamer.position.x : depot.x), P.z - (steamer ? steamer.position.z : depot.z));
-  const v = 0.35 * clamp(1 - d / 2600, 0.08, 1);
-  for (const [f, w] of [[98, 1], [147, 0.6], [196, 0.3]]) {
-    const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+  const v = 0.35 * clamp(1 - d / 2600, 0.08, 1), blasts = long ? [[0, 2.6]] : [[0, 0.9], [1.3, 0.9]];
+  for (const [t0, len] of blasts) for (const [f, w] of [[98, 1], [147, 0.6], [196, 0.3]]) {
+    const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter(), s = t + t0;
     o.type = "sawtooth"; o.frequency.value = f; lp.type = "lowpass"; lp.frequency.value = 520;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v * w, t + 0.25); g.gain.setValueAtTime(v * w, t + 2.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
-    o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + 2.9);
+    g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(v * w, s + 0.25); g.gain.setValueAtTime(v * w, s + len - 0.6); g.gain.exponentialRampToValueAtTime(0.0001, s + len);
+    o.connect(lp); lp.connect(g); g.connect(master); o.start(s); o.stop(s + len + 0.1);
   }
 }
-function updSteamer() {
+const callName = c => `${c.dir} ferry`, _fv = new THREE.Vector3();
+function updSteamer(dt = 0) {
   const st = steamerAt(GS.hour);
   if (steamer && steamer.userData.head) {
     const u = steamer.userData, ease = x => x * x * (3 - 2 * x), turn = (a, b, k) => a + (((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * k;
     let off = 0, a = u.a;
-    if (st.s === "leaving") { off = st.p * st.p; a = turn(u.a, u.headA, ease(clamp(st.p / 0.35, 0, 1))); }
-    else if (st.s === "arriving") { const q = 1 - st.p; off = q * q; a = turn(u.headA + Math.PI, u.a, ease(clamp((st.p - 0.65) / 0.35, 0, 1))); }
+    if (st.s === "leaving") { off = st.p * st.p; a = turn(u.a, u.headA, ease(clamp(st.p / 0.3, 0, 1))); }
+    else if (st.s === "arriving") { const q = 1 - st.p; off = q * q; a = turn(u.headA + Math.PI, u.a, ease(clamp((st.p - 0.7) / 0.3, 0, 1))); }
     steamer.visible = st.s !== "away";
     steamer.position.set(u.x + u.hx * u.L * off, SEA, u.z + u.hz * u.L * off); steamer.rotation.y = a;
     const solid = st.s === "in";
     if (u.solid !== solid) { u.solid = solid; for (const o of u.obs) o.top = solid ? 1e9 : -Infinity; }
+    // lights: nav lights and the masthead show from anywhere at night; the deck floods only while she's alongside
+    const night = 1 - dayFactor(), dist = Math.hypot(P.x - steamer.position.x, P.z - steamer.position.z);
+    if (u.nav) for (const m of u.nav) m.material.opacity = clamp(0.25 + night, 0, 1) * (st.s === "away" ? 0 : 1);
+    if (u.wake) { u.wake.visible = st.s === "arriving" || st.s === "leaving"; u.wake.material.opacity = 0.5 * Math.min(1, (st.s === "leaving" ? st.p : 1 - st.p) * 3); }
+    // a smudge of exhaust off the funnel while you're near enough to see it
+    u.smT = (u.smT || 0) + dt;
+    if (st.s !== "away" && dist < 1600 && u.smT > (solid ? 0.5 : 0.2)) { u.smT = 0; const f = u.funnel.getWorldPosition(_fv); emit(f.x, f.y + 2, f.z, windU.uWind.value.x * 1.2, 2, windU.uWind.value.y * 1.2, 0.8, 6); }
   }
-  const prev = STEAMER.state; STEAMER.state = st.s;
+  const prev = STEAMER.state; STEAMER.state = st.s; STEAMER.call = st.c;
   if (prev === null || !started) return;
+  // the day's notices: a delay or a cancellation is posted at the quay six hours ahead
+  STEAMER.noteT = (STEAMER.noteT || 0) + dt;
+  if (STEAMER.noteT > 1) {
+    STEAMER.noteT = 0;
+    for (const c of steamerCalls(GS.hour, GS.hour + 6, true)) {
+      if (c.told || c.state === "on time" || GS.hour < c.sArr - 6 || GS.hour > c.sArr) continue;
+      c.told = true;
+      TABLET.notify({ app: "map", kind: c.state === "cancelled" ? "alert" : "warn", ttl: 9,
+        title: c.state === "cancelled" ? `Ferry cancelled · ${c.dir} ${fmtTime(c.sArr)}` : `Ferry delayed +${c.delay} h · ${c.dir}`,
+        body: c.state === "cancelled" ? `Weather. No call at Kjøllefjord, so no sailing at ${fmtTime(c.sDep)}. Mail waits for the next one, no miss counted.` : `Alongside about ${fmtTime(c.arr)} instead of ${fmtTime(c.sArr)}, sails ${fmtTime(c.dep)}.` });
+    }
+  }
+  if (st.s === "in" && !st.c.horned && GS.hour >= st.c.dep - STEAMER.horn) { st.c.horned = true; steamerHorn(true); }
   if (prev !== "in" && st.s === "in") {
-    steamerHorn();
-    const posted = postSteamerFreight(); if (posted) { TABLET.refresh(); TABLET.notify({ app: "parcels", title: "Freight off the steamer", body: "A parcel off the boat is posted in Parcels. Pickup at the quay.", ttl: 7 }); }
-    toast(`The ${st.c.dir} steamer is alongside at Kjøllefjord until ${fmtTime(st.c.dep)}.${posted ? " Fresh freight in Parcels." : ""}`);
+    steamerHorn(false);
+    const posted = postSteamerFreight(); if (posted) { TABLET.refresh(); TABLET.notify({ app: "parcels", title: "Freight off the ferry", body: "A parcel off the boat is posted in Parcels. Pickup at the quay.", ttl: 7 }); }
+    toast(`The ${callName(st.c)} is alongside at Kjøllefjord until ${fmtTime(st.c.dep)}.${posted ? " Fresh freight in Parcels." : ""}`);
   }
   if (prev === "in" && st.s !== "in") {
-    steamerHorn();
+    steamerHorn(false);
     const n = GS.jobs ? GS.jobs.filter(j => j.steamer).length : 0;
     if (n) { GS.jobs = GS.jobs.filter(j => !j.steamer); GS.claims = GS.claims.filter(j => !j.steamer); TABLET.refresh(); }
     const missed = GS.load.filter(j => j.boat && GS.hour > j.due).length;
-    toast(`The steamer's cast off.${missed ? " Your load for the boat missed her: it goes on the next one, at half pay." : n ? " Her freight went into the shed." : ""}`, missed ? "warn" : undefined);
+    toast(`The ferry's cast off.${missed ? " Your load for the boat missed her: it goes on the next one, at half pay." : n ? " Her freight went into the shed." : ""}`, missed ? "warn" : undefined);
   }
-  if (prev === "away" && st.s === "arriving" && GS.load.some(j => j.boat)) toast(`Steamer's coming up the fjord. She sails at ${fmtTime(st.c.dep)}.`);
+  if (prev === "away" && st.s === "arriving" && (GS.load.some(j => j.boat) || (typeof mailCount === "function" && mailCount()))) toast(`The ferry's coming up the fjord. She sails at ${fmtTime(st.c.dep)}.`);
 }
 // walk out from the depot until the water starts: that is where the pier goes. The pier is pressed
 // into the height field so the sled can actually ride out along it (and off the end, if you insist).
@@ -6008,20 +6220,40 @@ function buildTown() {
       const wx = qx + u * Math.cos(-qa) + v * Math.sin(-qa), wz = qz - u * Math.sin(-qa) + v * Math.cos(-qa);
       if (u > 14 || Math.abs(v + 20) < 8 && u < 7) addOb({ x: wx, z: wz, r: 2.2, top: u > 14 ? qy + 0.4 : 1e9 });
     }
-    // the coastal steamer, alongside: black hull, white decks, the funnel
+    // the coastal ferry, alongside: black hull with a red boot-top, white decks in tiers, the bridge, a black-and-red
+    // funnel, orange lifeboats. Nav lights and the masthead are fog-free sprites so you see her in the fjord at night.
     const S = new THREE.Group(); S.position.set(qx + dirx * 30, SEA, qz + dirz * 30); S.rotation.y = -qa; scene.add(S); steamer = S;
+    const bootM = L(0x8c2a22), winM = L(0x1d2a36), orange = L(0xe0742a);
     bx(S, 14, 6, 88, hull, 0, 1.5, 0);
+    bx(S, 14.1, 0.9, 88.1, bootM, 0, -1.0, 0);
     put(S, new THREE.CylinderGeometry(7, 7, 6, 3, 1, false, 0, Math.PI), hull, 0, 1.5, 44).rotation.set(Math.PI / 2, 0, 0);
+    put(S, new THREE.CylinderGeometry(7.05, 7.05, 0.9, 3, 1, false, 0, Math.PI), bootM, 0, -1.0, 44).rotation.set(Math.PI / 2, 0, 0);
+    bx(S, 14.2, 0.35, 88.2, white, 0, 4.4, 0);                                   // the white rubbing strake
     bx(S, 13.4, 0.5, 86, L(0xd9d5cc), 0, 4.7, 0);
     bx(S, 12.4, 3.2, 52, white, 0, 6.5, -4);
     bx(S, 10.8, 3.0, 36, white, 0, 9.6, -2);
     bx(S, 8.6, 2.8, 14, white, 0, 12.5, 8);
-    put(S, new THREE.CylinderGeometry(1.6, 1.9, 5, 12), red, 0, 14.5, -8);
+    bx(S, 10.2, 1.0, 3.2, winM, 0, 12.8, 15.1);                                  // the bridge front, dark glass
+    bx(S, 12.6, 0.4, 4, white, 0, 11.3, 15.4);                                   // bridge wings
+    const fun = put(S, new THREE.CylinderGeometry(1.6, 1.9, 5, 12), hull, 0, 14.5, -8);
+    put(S, new THREE.CylinderGeometry(1.66, 1.7, 1.4, 12), red, 0, 14.6, -8);
     put(S, new THREE.CylinderGeometry(1.7, 1.7, 1.2, 12), hull, 0, 17.0, -8);
     for (let v = -26; v <= 20; v += 3.2) for (const sd of [-1, 1]) bx(S, 0.1, 0.9, 1.6, glowM, sd * 6.25, 6.6, v);
     for (let v = -18; v <= 14; v += 3.2) for (const sd of [-1, 1]) bx(S, 0.1, 0.9, 1.6, glowM, sd * 5.45, 9.7, v);
+    for (let v = -28; v <= 24; v += 2.2) for (const sd of [-1, 1]) bx(S, 0.1, 0.5, 0.7, glowM, sd * 7.05, 2.8, v);   // portholes
+    for (const v of [-20, -12, 4, 12]) for (const sd of [-1, 1]) { const b = bx(S, 1.6, 1.1, 5.2, orange, sd * 6.0, 9.0, v); b.castShadow = false; }   // lifeboats
     bx(S, 0.14, 8, 0.14, metal, 0, 18, 14); bx(S, 3, 0.1, 0.1, metal, 0, 21, 14);
-    S.userData = { x: qx + dirx * 30, z: qz + dirz * 30, a: -qa, obs: [], solid: true };
+    bx(S, 0.12, 6, 0.12, metal, 0, 9, 40); bx(S, 0.12, 4, 0.12, metal, 0, 9, -42);
+    for (const sd of [-1, 1]) bx(S, 3.2, 0.6, 2.6, metal, sd * 3.5, 5.4, 34);   // the cargo hatch and crane on the foredeck
+    const navTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 32; const g = c.getContext("2d"), r = g.createRadialGradient(16, 16, 0, 16, 16, 16); r.addColorStop(0, "#fff"); r.addColorStop(0.25, "rgba(255,255,255,.85)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+    const nav = [];
+    for (const [col, x, y, z, sc] of [[0xff3a2a, 7.3, 12.2, 15, 0.016], [0x3aff6a, -7.3, 12.2, 15, 0.016], [0xfff6e0, 0, 22.2, 14, 0.018], [0xfff6e0, 0, 12.2, 40, 0.013], [0xfff6e0, 0, 11.2, -42, 0.013]]) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: navTex, color: col, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, sizeAttenuation: false }));
+      sp.scale.set(sc, sc, 1); sp.position.set(x, y, z); S.add(sp); nav.push(sp);
+    }
+    const wake = new THREE.Mesh(new THREE.PlaneGeometry(16, 120), new THREE.MeshBasicMaterial({ color: 0xe8f0f6, transparent: true, opacity: 0.4, depthWrite: false }));
+    wake.rotation.x = -Math.PI / 2; wake.position.set(0, 0.15, -100); wake.visible = false; S.add(wake);
+    S.userData = { x: qx + dirx * 30, z: qz + dirz * 30, a: -qa, obs: [], solid: true, nav, wake, funnel: fun };
     for (let u = -6; u <= 6; u += 3) for (let v = -44; v <= 44; v += 3) {
       const wx = S.userData.x + u * Math.cos(-qa) + v * Math.sin(-qa), wz = S.userData.z - u * Math.sin(-qa) + v * Math.cos(-qa);
       const o = { x: wx, z: wz, r: 2.0, top: 1e9, ship: true }; addOb(o); S.userData.obs.push(o);
@@ -6033,7 +6265,7 @@ function buildTown() {
         for (; r < 2600; r += 25) { const x = U.x + hx * r, z = U.z + hz * r; if (!isSea(x, z) || !isSea(x + hz * 14, z - hx * 14) || !isSea(x - hz * 14, z + hx * 14)) break; }
         if (r > best) { best = r; bh = h; }
       }
-      if (best > 300) { U.headA = bh; U.hx = Math.sin(bh); U.hz = Math.cos(bh); U.L = Math.min(best - 120, 1500); U.head = true; } }
+      if (best > 300) { U.headA = bh; U.hx = Math.sin(bh); U.hz = Math.cos(bh); U.L = Math.min(best - 120, 2400); U.head = true; } }
     // fish racks along the shore either side of the pier
     for (const sd of [-1, 1]) { const rx = qx - dirx * 18 + ax * sd * 48, rz = qz - dirz * 18 + az * sd * 48; if (!isSea(rx, rz) && !isSea(rx + dirx * 6, rz + dirz * 6)) hjell(rx, rz, 14, -qa + Math.PI / 2); }
     lamp(qx - dirx * 4 + ax * 12, qz - dirz * 4 + az * 12); lamp(qx - dirx * 4 - ax * 12, qz - dirz * 4 - az * 12);
@@ -6593,6 +6825,8 @@ function updGame(dt, spd) {
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
   if (near && spd < 4 && GS.claims.length) collectClaims(near);
+  if (near === depot && spd < 4 && GS.mail.length) mailHandIn();
+  mailTick(dt); updMailHud(dt);
   if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
@@ -6614,9 +6848,10 @@ function updGame(dt, spd) {
   }
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
-  for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : (s === depot && near !== depot);
+  const clSites = !GS.load.length && GS.claims.length ? new Set(GS.claims.map(j => j.from || depot)) : null;
+  for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0));
   const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
-  updTurbines(dt); updSteamer();
+  updTurbines(dt); updSteamer(dt);
 
   GS.smokeT += dt;
   if (GS.smokeT > 0.15) {
@@ -6647,6 +6882,7 @@ function updGameHud() {
   } else if (GS.groomJob) tgt = groomTarget();
   const pend = !rjv && !GS.tour && !GS.load.length && !GS.groomJob && pendingPickup();
   if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
+  else if (!rjv && !GS.tour && !GS.load.length && !GS.groomJob && GS.claims.length) { let bd = 1e9; for (const j of GS.claims) { const f = j.from || depot, d = Math.hypot(f.x - P.x, f.z - P.z); if (d < bd) { bd = d; tgt = f; } } }
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
@@ -6663,7 +6899,7 @@ function updGameHud() {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
     const g = groom[tgt.id];
-    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · steamer sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · ferry sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
@@ -6678,7 +6914,7 @@ function updGameHud() {
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
-  const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
+  const sh = steamerAt(GS.hour), shN = steamerNextCall(GS.hour, "arr"), shTxt = sh.s === "in" ? `Ferry in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Ferry sailing" : sh.s === "arriving" ? "Ferry arriving" : shN ? `Ferry ${fmtTime(shN.arr)}${shN.state === "delayed" ? " (late)" : ""}` : "No ferry";
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
   updCalHud();
   $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
@@ -6814,13 +7050,14 @@ function titleBack() {
 function newGame() {
   GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.claims = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
   Object.assign(LOG, LOG0());
+  GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
 }
 function titleWipe() {
   newGame();
-  const p = $("tPanel"); p.className = "tpanel fresh"; p.innerHTML = `<p>New game. The boat's in at Kjøllefjord.</p>`;
+  const p = $("tPanel"); p.className = "tpanel fresh"; p.innerHTML = `<p>New game. First of November at Kjøllefjord.</p>`;
   TT.mode = "fresh"; TT.sel = 0;
   setTimeout(() => { titleRender(); titleBack(); }, 1700);
 }
@@ -6838,7 +7075,7 @@ function startRide() {
   for (const id of ["zone", "speedo", "mapWrap", "help", "job"]) $(id).hidden = false;
   setTouchUI();
   makeJobs(depot);
-  setTimeout(() => toast("Welcome to Kjøllefjord. The boat's in."), 1300);
+  setTimeout(() => { const f = ferryInfo(); toast(`Welcome to Kjøllefjord. ${f.st.s === "in" ? "The ferry's in." : f.c ? `Next ferry sails ${fmtTime(f.c.dep)}.` : ""}`); }, 1300);
   if (innerWidth <= 640 || TC.on) $("help").hidden = true;
   canvas.focus();
 }

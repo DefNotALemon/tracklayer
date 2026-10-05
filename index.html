@@ -35,6 +35,12 @@
   #mapWrap{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:8px}
   #map{display:block;width:180px;height:180px;border-radius:50%;box-shadow:0 0 0 1px var(--line),0 6px 18px rgba(0,0,0,.35)}
   #mapWrap{border-radius:14px}
+  #mailBar{display:flex;justify-content:space-between;gap:8px;padding:6px 2px 0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);font-variant-numeric:tabular-nums;white-space:nowrap}
+  #mailBar b{color:var(--frost);font-weight:700}#mailBar em{font-style:normal;color:#ff8a3a}
+  #mailBar.late span:last-child b{color:#ff8a3a}#mailBar.bad span:last-child b{color:#ff3a1a}#mailBar.soon span:first-child b{animation:mailBlink 1s steps(2) infinite}
+  @keyframes mailBlink{50%{color:#ff8a3a}}
+  body.touch #mailBar{flex-direction:column;gap:1px;font-size:9.5px;letter-spacing:.04em;padding:4px 0 0}
+  .twr em{font-style:normal;font-weight:700}.twr em.late{color:#ff8a3a}.twr em.bad{color:#ff6a4a}
   #mapWrap .cap{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);display:flex;justify-content:space-between;gap:10px;padding:6px 2px 0}
   #help{top:calc(16px + env(safe-area-inset-top,0px));right:16px;padding:10px 14px;font-size:13px;line-height:1.55;color:var(--frost)}
   #help b{font-family:var(--display);font-weight:800;letter-spacing:.08em;color:var(--signal);display:inline-block;min-width:4.6em}
@@ -708,6 +714,7 @@
 
 <div class="hud panel" id="mapWrap" hidden>
   <canvas id="map" width="360" height="360"></canvas>
+  <div id="mailBar"></div>
   <div class="cap"><span>Trail · 0.6 km across</span><span id="dist">0.0 km</span></div>
 </div>
 
@@ -783,5 +790,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=31"></script>
+<script src="tracklayer.js?v=32"></script>
 </body></html>

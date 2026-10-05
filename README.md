@@ -3,7 +3,7 @@
 A snowmobile courier-survival game that runs in the browser. No build step: `index.html` holds the page and styles, `tracklayer.js` holds the game code.
 
 It is set on the Nordkinn peninsula in Finnmark, Norway's far north. You run freight off
-the coastal steamer at Kjøllefjord quay and out across eight kilometres of bare plateau,
+the coastal ferry at Kjøllefjord quay and out across eight kilometres of bare plateau,
 frozen lakes and birch valleys to the villages along the coast — Dyfjord, Mehamn, Gamvik,
 Skjånes, Lebesby, Ifjord — the reindeer herders' cabins up on the fell, the wind farm on
 Gartefjellet and the lighthouse at Slettnes. The fjords never freeze; ride off the quay
@@ -35,13 +35,29 @@ Work comes in on the **dash tablet**, an iPad-style screen on the bars that show
 you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it: the world keeps
 running and you can still steer, you just can't see much trail. In third person it opens as a big
 overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
-**Map** (the survey chart with deliveries, pins, rescues and depots, plus the steamer countdown),
+**Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
 **Weather**, **Calendar**, **Contracts** (heavy freight, priority, expedition, grooming, tours and
 call-outs, for now), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
-Take a job at the quay and it goes straight on the sled; take it anywhere else and it waits at the
-quay for you. Pings on the dash (with a banner when the tablet's down) tell you when something
-comes up.
+Take a job where it's waiting and it goes straight on the sled; take it anywhere else and you
+claim it, and it loads when you stop at its **P**. Your first six deliveries are round town, picked
+up at the quay. After that the work comes to you: every drop-off posts parcels from wherever you
+are, mostly short hops to places within a few kilometres plus a long haul or two across the map.
+Pings on the dash (with a banner when the tablet's down) tell you when something comes up.
+
+## The ferry and the mail
+
+The coastal ferry calls at Kjøllefjord twice a day: **northbound** alongside 08:15, sails 09:30, and
+**southbound** alongside 19:45, sails 21:00. You see her come up the fjord, hear her horn before she
+casts off, and watch her go. Storms can hold her up a few hours or cancel a call; the forecast warns
+you, and a delay or cancellation is posted on the dash six hours ahead.
+
+Every home, cabin, village or the lighthouse you stop at for work hands you their post. It's a few
+pieces at $15–30 each (more from further out), and it's only paid when you hand the sack in
+at the quay before she sails. Miss a sailing and it rides the next one free. Miss a second and
+there's a 10% fine. Miss a third and you pay the full value and the post office takes it back. The
+countdown, the piece count and the value are on the minimap (the ring round the dial is the ferry
+clock) and in the Map app's corner. It's the mail, not the jobs, that brings you back to town.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee.
@@ -63,7 +79,7 @@ strong the lights are when you get there.
 
 Storms are weather fronts that sweep across the map, so the west coast gets hit before the
 quay. The tablet's Weather app (or **B**, for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
-confidence figure and are sometimes wrong. It also shows whether the steamer's calls look
+confidence figure and are sometimes wrong. It also shows whether the ferry's calls look
 on time, delayed or cancelled.
 
 ## The hitch and bigger work
