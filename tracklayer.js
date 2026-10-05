@@ -278,7 +278,8 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
       // the moon: disc, tight halo, faint wide glow
       float m = max(dot(d, uMoon), 0.0);
       c += vec3(0.86,0.9,1.0) * uMoonI * (smoothstep(0.99955,0.99965,m)*1.3 + pow(m, 500.0)*0.25 + pow(m, 25.0)*0.05) * smoothstep(-0.02,0.02,uMoon.y);
-      // aurora: green curtains hanging across the northern half of the sky, drifting
+      // aurora: green curtains hanging across the northern half of the sky, drifting. No branches: measured,
+      // an if() around this cost more than it saved
       float az = atan(d.x, -d.z);
       float band = sin(az * 2.3 + uTime * 0.05) * 0.5 + sin(az * 5.1 - uTime * 0.09) * 0.25 + sin(az * 11.0 + uTime * 0.17) * 0.12;
       float ah = 0.42 + band * 0.18;
@@ -287,6 +288,8 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
       float au = curtain * rays * smoothstep(0.08, 0.3, h) * (1.0 - smoothstep(0.55, 0.95, h)) * smoothstep(-0.9, 0.4, -d.z);
       vec3 auC = mix(vec3(0.12, 0.85, 0.42), vec3(0.55, 0.25, 0.8), smoothstep(ah, ah + 0.14, h));
       c += auC * au * uAurora * (1.0 - uStorm) * 0.7;
+      // strong nights: the corona, faint rays converging overhead
+      c += vec3(0.1, 0.62, 0.38) * smoothstep(0.9, 1.6, uAurora) * smoothstep(0.55, 0.95, h) * rays * (0.6 + 0.4 * sin(az * 9.0 + uTime * 0.3)) * 0.22 * (1.0 - uStorm);
       if (d.y < 0.0) c = uFog;
       c = mix(c, uFog, clamp(uStorm*0.9 + (1.0 - smoothstep(0.0,0.06,h))*0.45, 0.0, 1.0));
       gl_FragColor = vec4(c,1.0); }`
@@ -2695,6 +2698,18 @@ function drawBigMap() {
       g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
     }
   }
+  for (const v of LOOKOUTS) {                                     // aurora viewpoints: a small teal triangle, named when you're taking a tour there
+    if (v.x === undefined) continue;
+    const [vx, vz] = w2(v.x, v.z), tg = GS.tour && GS.tour.view === v;
+    g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(vx, vz - 10); g.lineTo(vx - 9, vz + 7); g.lineTo(vx + 9, vz + 7); g.closePath(); g.fill();
+    g.fillStyle = "#6ff0b8"; g.beginPath(); g.moveTo(vx, vz - 6); g.lineTo(vx - 5.5, vz + 4.5); g.lineTo(vx + 5.5, vz + 4.5); g.closePath(); g.fill();
+    if (tg || AUR.v > 0.38) {
+      if (tg) { g.strokeStyle = "#6ff0b8"; g.lineWidth = 3.5; g.beginPath(); g.arc(vx, vz, 16, 0, 6.283); g.stroke(); }
+      g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(v.name).width + 10;
+      g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 11, w, 20); g.fillStyle = "#6ff0b8"; g.fillText(v.name, vx, vz + 26);
+      g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+    }
+  }
   if (GS.rescueJob) for (const v of RJ.vs) {
     if (v.freed) continue;
     const [vx, vz] = w2(v.x, v.z);
@@ -3013,6 +3028,29 @@ const WX = {
     return { on, i: i0, at: null };
   }
 };
+/* aurora: each night (12:00 to 12:00) gets an activity level from the seed, with substorm bursts on top.
+   Polar night is more often active and stronger. What you see is that, times darkness, times clear sky. */
+const AUR = {
+  v: 0, raw: 0, on: false,
+  night(N) {
+    const r = wxRng(WX.seed, N, 77), pn = CAL.isPolarNight(N * 24 + 24 - CAL.off);
+    const act = r() < (pn ? 0.8 : 0.5), q = r();
+    return { pn, act, L: act ? (pn ? 0.5 + 0.55 * q : 0.3 + 0.55 * q) : 0.06 + 0.12 * q, p1: r() * 6.283, p2: r() * 6.283 };
+  },
+  level(H = GS.hour) {
+    const T = CAL.abs(H), n = this.night(Math.floor((T - 12) / 24));
+    const b = 0.5 + 0.5 * Math.sin(T * 2.0 + n.p1), b2 = 0.5 + 0.5 * Math.sin(T * 4.7 + n.p2);
+    return clamp(n.L * (0.22 + 0.78 * b * b * (0.65 + 0.35 * b2)) * 1.15, 0, 1);
+  },
+  update(sunE, storm) {
+    this.raw = this.level();
+    this.v = this.raw * sstep(-4, -10, sunE) * clamp(1 - storm * 1.4, 0, 1);
+    return this.v;
+  },
+  strength() { return this.v; }, active() { return this.v > 0.35; }, strong() { return this.v > 0.6; },
+  word(v) { return v > 0.75 ? "Strong" : v > 0.5 ? "Bright" : v > 0.3 ? "Active" : v > 0.12 ? "Faint" : "Quiet"; }
+};
+
 WX.seed = (Math.random() * 2 ** 31) | 0;
 // the morning after: a toast when the sun stops (or starts) coming up, and a line of forecast
 CAL.onDayChange((n, prev) => {
@@ -3374,7 +3412,7 @@ function keyAt(K, e, i, out) {
   if (typeof A === "number") return lerp(A, B, t);
   return out.setRGB(lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t));
 }
-const C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.35, 0.85, 0.55);
+const C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.3, 0.95, 0.68), C_AURG = new THREE.Color(0.32, 0.8, 0.62);
 function updSky() {
   const H = GS.hour, h = H % 24, st = GS.storm, u = sky.material.uniforms;
   // sun
@@ -3383,10 +3421,9 @@ function updSky() {
   const lag = (H / 24 * 12.19 + 25) % 360 / R2D, illum = 0.5 * (1 + Math.cos(lag));
   skyDir((h - 12) / 12 * Math.PI + Math.PI - lag, MDEC, _moonV); const me = Math.asin(clamp(_moonV.y, -1, 1)) * R2D;
   const dayness = sstep(-10, 4, e), night = sstep(-4, -13, e);
-  // aurora activity wanders: quiet some nights, a full storm on others
-  const act = clamp(0.2 + 0.8 * (0.5 + 0.5 * Math.sin(H * 0.41 + 0.7) * Math.sin(H * 0.173 + 2.1)), 0, 1);
-  const aur = sstep(-6, -15, e) * act * (1 - 0.45 * illum * sstep(0, 15, me));
-  u.uTime.value = gameClock; u.uStorm.value = st; u.uAurora.value = aur;
+  // aurora: AUR decides tonight's activity and its bursts; darkness and cloud decide how much shows
+  const aur = AUR.update(e, st), ak = sstep(0.4, 0.9, aur);          // ak: strong enough to light the snow
+  u.uTime.value = gameClock; u.uStorm.value = st; u.uAurora.value = aur * 1.5 * (1 - 0.35 * illum * sstep(0, 15, me));
   u.uSun.value.copy(_sunV); u.uMoon.value.copy(_moonV); u.uMoonI.value = (0.25 + 0.75 * illum) * sstep(0, -8, e) * (1 - st);
   keyAt(SKYK, e, 1, u.uZen.value); keyAt(SKYK, e, 2, u.uMid.value); keyAt(SKYK, e, 3, u.uHor.value); keyAt(SKYK, e, 4, u.uHorA.value);
   keyAt(SKYK, e, 8, u.uGlow.value).multiplyScalar(1 - 0.85 * st);
@@ -3401,10 +3438,11 @@ function updSky() {
   else { sun.intensity = moonI; sun.color.copy(C_MOON); sunDir.copy(_moonV); }
   if (sunDir.y < 0.05) { sunDir.y = 0.05; } sunDir.normalize();
   // sky fill: tinted by the sky, a little extra off moonlit snow, a green cast under a strong aurora
-  hemi.intensity = keyAt(SKYK, e, 7) + 0.1 * illum * moonUp * night * (1 - st);
-  keyAt(SKYK, e, 6, hemi.color).lerp(C_AUR, 0.2 * aur);
-  hemi.groundColor.setRGB(lerp(0.34, 0.91, dayness), lerp(0.40, 0.93, dayness), lerp(0.55, 0.96, dayness));
-  renderer.toneMappingExposure = lerp(0.95, 1.05, dayness);
+  // a strong aurora is bright enough to ride by: a green-teal fill off the whole northern sky
+  hemi.intensity = keyAt(SKYK, e, 7) + 0.1 * illum * moonUp * night * (1 - st) + 0.42 * ak;
+  keyAt(SKYK, e, 6, hemi.color).lerp(C_AUR, 0.15 * sstep(0.1, 0.5, aur) + 0.55 * ak);
+  hemi.groundColor.setRGB(lerp(0.34, 0.91, dayness), lerp(0.40, 0.93, dayness), lerp(0.55, 0.96, dayness)).lerp(C_AURG, 0.45 * ak);
+  renderer.toneMappingExposure = lerp(0.95, 1.05, dayness) + 0.06 * ak;
   stars.material.uniforms.uOp.value = night * (1 - st) * (0.95 - 0.35 * illum * moonUp); stars.position.copy(camera.position);
   stars.quaternion.setFromAxisAngle(POLE, -h / 24 * Math.PI * 2); stars.material.uniforms.uTime.value = gameClock;   // the sky wheels round the pole star
   const df = sstep(-7, 3, e);
@@ -3563,6 +3601,70 @@ function makeContracts(from) {
   else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
   GS.contracts = C; GS.contractsWinch = ST ? ST.winch : 0;
 }
+
+/* ---- aurora tours ----
+   While an aurora is up, tourists off the steamer queue at the quay for a ride up to one of three high
+   viewpoints. Pay is set by how strong the lights are when you get them there; if it fades first they pay
+   less. Tourists ride on the seat behind you, not the rack, so a tour doesn't use a parcel slot. */
+const LOOKOUTS = [
+  { id: "v_finnkirka", name: "Finnkirka lookout", seed: [-1900, -1150], R: 450, why: "the headland over the fjord mouth, with the Finnkirka sea stack below" },
+  { id: "v_stjerne", name: "Stjernevarden", seed: [600, -300], R: 900, why: "the old cairn on the high plateau, nothing between you and the whole northern sky" },
+  { id: "v_ifjordfjellet", name: "Ifjordfjellet ridge", seed: [-1800, 2700], R: 900, why: "the top of the ridge above Ifjord, the long way round" }
+];
+function buildViews() {
+  const rnd = mulberry32(7071), stone = new THREE.MeshLambertMaterial({ color: 0x6e6a64 }), snow = new THREE.MeshLambertMaterial({ color: 0xeef3f8 }), wood = new THREE.MeshLambertMaterial({ color: 0x5a4636 });
+  for (const v of LOOKOUTS) {
+    let best = null, bh = -1e9;
+    for (let k = 0; k < 900; k++) {
+      const a = rnd() * 6.283, r = Math.sqrt(rnd()) * v.R, x = v.seed[0] + Math.cos(a) * r, z = v.seed[1] + Math.sin(a) * r;
+      if (Math.abs(x) > HALF - 250 || Math.abs(z) > HALF - 250 || isSea(x, z) || slopeAt(x, z, 6) > 0.3 || SITES.some(s => Math.hypot(s.x - x, s.z - z) < 160)) continue;
+      const h = groundAt(x, z); if (h > bh) { bh = h; best = [x, z]; }
+    }
+    if (!best) best = v.seed;
+    v.x = best[0]; v.z = best[1]; v.y = groundAt(v.x, v.z); v.type = "view";
+    // a cairn with snow on it, and a bench somebody carried up here
+    const g = new THREE.Group(); g.position.set(v.x, v.y - 0.15, v.z); scene.add(g);
+    const st = [[0, 0.35, 0, 0.9], [0.2, 0.95, -0.1, 0.7], [-0.1, 1.45, 0.05, 0.5], [0.05, 1.8, 0, 0.32]];
+    for (const [x, y, z, r] of st) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stone); m.position.set(x, y, z); m.rotation.set(rnd() * 3, rnd() * 3, 0); g.add(m); }
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 5, 0, 6.283, 0, 1.3), snow); cap.position.set(0.05, 1.95, 0); g.add(cap);
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.42), wood); bench.position.set(2.6, 0.48, 0.8); bench.rotation.y = 0.4; g.add(bench);
+    for (const sx of [-0.75, 0.75]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.38), wood); leg.position.set(2.6 + sx * Math.cos(0.4), 0.24, 0.8 - sx * Math.sin(0.4)); leg.rotation.y = 0.4; g.add(leg); }
+    addOb({ x: v.x, z: v.z, r: 1.2, top: 1e9 });
+    v.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: 0x5ff0b0, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    v.beacon.position.set(v.x, v.y + 480, v.z); v.beacon.visible = false; scene.add(v.beacon);
+  }
+}
+const tourBase = v => { const { dist, climb } = jobGeom(v, depot); return round5(40 + dist * 0.06 + climb * 0.2); };
+const tourMul = a => a < 0.15 ? 0.35 : 0.45 + 0.9 * clamp(a / 0.8, 0, 1);       // ×0.45 to ×1.35; a faded sky pays about a third
+const TOUR_PAX = ["a couple from Osaka", "three students from Tromsø", "a family from Hamburg", "two photographers from Madrid", "a honeymoon couple from Leeds", "four retirees from Ohio", "a film crew of two from Oslo"];
+// keep the board's tour offers in step with the sky: posted while an aurora is up, gone when it fades
+function tourSync() {
+  if (!GS.contracts) return false;
+  const has = GS.contracts.some(c => c.tour);
+  if (!GS.tour && AUR.v > 0.38 && !has) {
+    const vs = LOOKOUTS.slice().sort(() => Math.random() - 0.5).slice(0, 2);
+    for (const v of vs) GS.contracts.unshift({ tour: true, dest: v, cargo: "Aurora tour", pax: pick(TOUR_PAX), pay: tourBase(v) });
+    return true;
+  }
+  if (has && (GS.tour || AUR.v < 0.25)) { GS.contracts = GS.contracts.filter(c => !c.tour); return true; }
+  return false;
+}
+function acceptTour(c) {
+  if (GS.tour) { toast("You've already got tourists on the back.", "warn"); return; }
+  GS.tour = { view: c.dest, pax: c.pax, base: c.pay, t0: GS.hour, best: AUR.v };
+  GS.contracts = GS.contracts.filter(x => !x.tour);
+  toast(`${c.pax[0].toUpperCase() + c.pax.slice(1)} climb on behind you, cameras out. Get them up to ${c.dest.name} while it's still dancing.`, "good");
+  renderBoard(); save();
+}
+function tourArrive() {
+  const t = GS.tour, a = AUR.v, m = tourMul(a);
+  let pay = t.base * m, notes = [];
+  notes.push(a < 0.15 ? "the lights had faded" : a > 0.6 ? "a full display" : a > 0.35 ? "a good show" : "a faint show");
+  if (payMul() > 1) { pay *= payMul(); notes.push("polar night ×1.5"); }
+  pay = Math.round(pay); GS.cash += pay; GS.tour = null; bumpDelivered();
+  toast(a < 0.15 ? `${t.view.name}. Nothing but stars by the time you got there. They pay $${pay} and photograph the cairn instead.` : `${t.view.name}. ${a > 0.6 ? "The whole sky's moving. Nobody says anything for a minute." : "They get their pictures."} +$${pay} (${notes.join(", ")}).`, a < 0.15 ? "warn" : "good");
+  save();
+}
 const smallLoads = () => GS.load.filter(j => !j.big);
 const baysUsed = () => bigLoads().reduce((a, j) => a + j.bays, 0);
 function acceptJob(k) {
@@ -3575,6 +3677,7 @@ function acceptJob(k) {
 const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
+  if (c.tour) { acceptTour(c); return; }
   if (c.rescue) {
     if (GS.rescueJob) { toast("Finish the call you're on first.", "warn"); return; }
     if (ST.winch < c.needTier) { toast(`That call needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.`, "warn"); return; }
@@ -3699,6 +3802,7 @@ function deliver(site) {
 function blackout(kind) {
   if (GS.dead) return;
   GS.dead = true; closeBoard(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
+  if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town with the rescue crew. No fare."), 4200); }
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
   const bonds = GS.load.reduce((a, j) => a + (j.bond || 0), 0);
@@ -3856,7 +3960,8 @@ function ctRoutes() {
     }
   }
   for (const s of SITES) if (s.type !== "depot" && s.type !== "shop" && s.x !== undefined) CT.routes[s.id] = ctPath(s);
-  for (const c of GS.contracts || []) if (c.rescue) CT.routes[c.dest.id] = ctPath(c.dest);
+  for (const c of GS.contracts || []) if (c.rescue || c.tour) CT.routes[c.dest.id] = ctPath(c.dest);
+  if (GS.tour) CT.routes[GS.tour.view.id] = ctPath(GS.tour.view);
 }
 function ctPath(site) {
   const n = CT.RN, st = WORLD / (n - 1), end = ctNode(site.x, site.z);
@@ -3965,6 +4070,12 @@ function ctSymbols(g, u, compact) {
     else if (s.kind === "cabin") ctSquare(g, x, y, u(4.6), u(2.2));
     else if (s.kind === "home") ctSquare(g, x, y, u(3.2), u(1.6));
     else if (s.kind === "village") { const big = CT_LBL[s.id] && CT_LBL[s.id].key; ctDot(g, x, y, u(big ? 2.9 : 2.5), big ? CT_INK : "#5e4d3c", u(2.3)); }
+  }
+  for (const v of LOOKOUTS) {                                   // aurora viewpoints: a survey triangle and an italic name
+    if (v.x === undefined) continue;
+    const x = ctX(v.x), y = ctX(v.z);
+    g.fillStyle = CT_INK; g.beginPath(); g.moveTo(x, y - u(4.2)); g.lineTo(x - u(3.8), y + u(2.8)); g.lineTo(x + u(3.8), y + u(2.8)); g.closePath(); g.fill();
+    if (!compact) ctText(g, v.name, x + u(6), y + u(3.5), `italic 500 ${u(11)}px ${CT_SERIF}`, "#3d3024", CT_PAPER, u(3), "left", "0px", true);
   }
   for (const s of SITES) {
     const L = CT_LBL[s.id]; if (!L || s.x === undefined) continue;
@@ -4108,6 +4219,12 @@ function renderBoard() {
   (GS.contracts || []).forEach((c, k) => {
     if (c.locked) { box.appendChild(boardRow({ kind: "locked", title: c.locked, pay: "Locked", meta: c.sub })); return; }
     const hitch = GS.own.parts.hitch, fits = c.rescue ? ST.winch >= c.needTier : c.groom ? isGroomer(hitch) : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
+    if (c.tour) {
+      box.appendChild(boardRow({ kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo,
+        chips: `<span class="bchip aurora">AURORA · ${AUR.word(AUR.v).toUpperCase()}</span><span class="bchip">${c.pax.split(" ").slice(0, 2).join(" ").toUpperCase()}</span>`,
+        pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()), meta: `to ${c.dest.name} · ${routeKm(c.dest).toFixed(1)} km · climb ${climbOf(c.dest)} m` }));
+      return;
+    }
     const tag = c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
     box.appendChild(boardRow({
       kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo, cls: fits ? "" : "nofit",
@@ -4137,7 +4254,14 @@ function boardDetail(r) {
     act = `LOAD IT · ${fmtCash(j.pay * payMul())}`;
   } else if (r.kind === "con") {
     const c = r.obj, hitch = GS.own.parts.hitch;
-    if (c.rescue) {
+    if (c.tour) {
+      head = `To ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
+      lines.push(`<span class="why">${esc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the steamer want the lights from ${esc(c.dest.why)}.</span>`);
+      const now$ = c.pay * tourMul(AUR.v) * payMul(), top$ = c.pay * 1.35 * payMul();
+      lines.push(`They pay by how strong the aurora is when you get there: ${now$ >= top$ * 0.97 ? `${fmtCash(top$)} if it's still this good` : `about ${fmtCash(now$)} at tonight's ${AUR.word(AUR.v).toLowerCase()} show, up to ${fmtCash(top$)} under a full display`}. If it fades before you arrive, they pay a third. They ride behind you, not on the rack.`);
+      if (GS.tour) { warn = "You've already got tourists on the back."; blocked = true; }
+      act = `TAKE THEM UP · ~${fmtCash(c.pay * tourMul(AUR.v) * payMul())}`;
+    } else if (c.rescue) {
       head = `${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
       lines.push(`<span class="why">${esc(c.why)}</span>`);
       lines.push(`Clock: ${fmtTime(c.due)}. Park on the rim, get off, walk the line out and hook on, strap your sled back to a tree and reel them out. Pays for getting them clear, more for being fast and gentle. About ${c.reach} m of line to do it in one pull.`);
@@ -4207,6 +4331,7 @@ function boardPad(gp, dt) {
 }
 function openBoard() {
   updGroom(); if (!GS.jobs.length) makeJobs(depot); else if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);   // a winch bought since the board was posted (or a quiet day) gets the call-outs a fresh look
+  tourSync();
   GS.boardOpen = true; $("board").hidden = false; BD.padA = true; BD.cur = BD.prev = null; BD.selObj = null; BD.sel = -1;
   boardLayout(); ctRoutes(); renderBoard(); ctPaintBase();
   const r = BD.rows[BD.sel]; if (r && !TC.on) r.el.focus({ preventScroll: true });
@@ -5896,6 +6021,15 @@ function updGame(dt, spd) {
   if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
+  if (GS.tour && spd < 5 && Math.hypot(P.x - GS.tour.view.x, P.z - GS.tour.view.z) < 26) tourArrive();
+  for (const v of LOOKOUTS) if (v.beacon) v.beacon.visible = !!GS.tour && GS.tour.view === v;
+  GS.aurT = (GS.aurT || 0) + dt;
+  if (GS.aurT > 2) {
+    GS.aurT = 0;
+    if (!AUR.on && AUR.v > 0.4) { AUR.on = true; if (!GS.tour) toast(`Aurora over the Nordkinn${AUR.v > 0.6 ? ", and a strong one" : ""}. Tourists are queueing at the quay for a ride up to the viewpoints.`, "good"); }
+    else if (AUR.on && AUR.v < 0.2) { AUR.on = false; if (GS.tour) toast("The aurora's fading. Your tourists are getting anxious.", "warn"); }
+    if (tourSync() && GS.boardOpen) renderBoard();
+  }
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : (s === depot && near !== depot);
@@ -5924,20 +6058,25 @@ function updGameHud() {
   let tgt = depot;
   const rjv = GS.rescueJob ? rjNearest(P.x, P.z) : null;
   if (rjv) tgt = rjv.v;
+  else if (GS.tour) tgt = GS.tour.view;
   else if (GS.load.length) {
     let best = 1e9;
     for (const j of GS.load) { const d = Math.hypot(j.dest.x - P.x, j.dest.z - P.z); if (d < best) { best = d; tgt = j.dest; } }
   } else if (GS.groomJob) tgt = groomTarget();
-  const pend = !rjv && !GS.load.length && !GS.groomJob && pendingPickup();
+  const pend = !rjv && !GS.tour && !GS.load.length && !GS.groomJob && pendingPickup();
   if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
-  $("arrow").style.color = !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
+  $("arrow").style.color = GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
   if (rjv) {
     const c = GS.rescueJob, left = c.due - GS.hour, n = RJ.vs.filter(v => !v.freed).length;
     $("jobTitle").textContent = `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`;
     $("jobSub").textContent = `${fmtMi(rjv.d)} · $${Math.round(c.pay * payMul())} · ${left > 0 ? `clock runs out ${fmtTime(c.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}`;
+  } else if (GS.tour) {
+    const t = GS.tour;
+    $("jobTitle").textContent = `Aurora tour → ${t.view.name}${GS.load.length ? "  (+" + GS.load.length + " aboard)" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · aurora ${AUR.word(AUR.v).toLowerCase()} · about $${Math.round(t.base * tourMul(AUR.v) * payMul())} if you got there now`;
   } else if (GS.load.length) {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
@@ -6088,7 +6227,7 @@ function titleBack() {
   TT.mode = "menu"; titleSelect(TT.sel, true);
 }
 function newGame() {
-  GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; rescueAbort();
+  GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -7280,7 +7419,7 @@ addEventListener("keydown", e => {
 function boot() {
   genWorld(); computeSites(); placeQuay();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild();
+  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild();
   buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
