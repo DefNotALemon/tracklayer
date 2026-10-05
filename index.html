@@ -587,6 +587,13 @@
   .tstore{display:grid;gap:8px;margin-top:12px}
   .tsto{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.035)}
   .tsto .tic{color:#6ff0b8}
+  /* licence schools (O4): the mission list under the school card */
+  .tsml2{display:grid;gap:0;margin:2px 0 6px;border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden}
+  .tsm2{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--rule);font-size:13.5px;font-weight:600}
+  .tsm2:last-child{border-bottom:0}
+  .tsm2 b{font-style:italic;font-weight:500;color:var(--slate);font-variant-numeric:tabular-nums}
+  .tsm2.ok span{color:var(--frost2);text-decoration:line-through;text-decoration-color:rgba(111,240,184,.5)}
+  .tsm2.now{background:var(--band)}
   .tempty{display:grid;justify-items:center;gap:8px;padding:36px 20px;text-align:center;color:var(--slate)}
   .tempty svg{width:54px;height:54px;color:var(--frost2);opacity:.55}
   .tempty p{font-style:italic;font-weight:500;font-size:15px;max-width:46ch;line-height:1.5;margin:0}
@@ -807,5 +814,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=34"></script>
+<script src="tracklayer.js?v=35"></script>
 </body></html>

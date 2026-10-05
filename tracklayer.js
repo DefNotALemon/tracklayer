@@ -2860,6 +2860,14 @@ function drawBigMap() {
       g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
     }
   }
+  for (const p of TABLET.layerPts("schools")) {                  // licence schools you've signed up for, and a course's checkpoints
+    const [qx, qz] = w2(p.x, p.z);
+    if (p.kind === "cp") { g.fillStyle = "#0d1822"; g.beginPath(); g.arc(qx, qz, p.next ? 9 : 7, 0, 6.283); g.fill(); g.fillStyle = p.next ? "#ff8a3a" : "#7fc8e0"; g.beginPath(); g.arc(qx, qz, p.next ? 6 : 4.5, 0, 6.283); g.fill(); continue; }
+    g.fillStyle = "#0d1822"; g.fillRect(qx - 8, qz - 8, 16, 16); g.fillStyle = p.col; g.fillRect(qx - 5, qz - 5, 10, 10);
+    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(p.name).width + 10;
+    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(qx - w / 2, qz + 12, w, 20); g.fillStyle = p.col; g.fillText(p.name, qx, qz + 27);
+    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+  }
   if (GS.rescueJob) for (const v of RJ.vs) {
     if (v.freed) continue;
     const [vx, vz] = w2(v.x, v.z);
@@ -3015,7 +3023,7 @@ function updHud(spd) {
 /* ---------------- courier survival layer ---------------- */
 const GAMEHOUR = 50;                       // real seconds per in-game hour (a full day is 20 minutes)
 const GS = {
-  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], claims: [], mail: [], mailT: {}, mailSeq: 0, delivered: 0, rescues: 0, rescueJob: null,
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], claims: [], mail: [], mailT: {}, mailSeq: 0, delivered: 0, rescues: 0, rescueJob: null, apps: {}, lic: {}, signed: {}, sdone: {},
   storm: 0, stormT: 170, stormPhase: "calm", warned: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
@@ -3500,6 +3508,7 @@ function summerCard(c, days, bill) {
   step();
 }
 function seasonTurn(c, days) {
+  if (SCHOOL.on) schoolEnd("quiet");                 // nobody runs a course through the summer
   const bill = SEASON.settle(days);
   meltRefreeze();
   // the sled spent the summer in the shed at the quay: back there, full tank, warm
@@ -3726,10 +3735,12 @@ function computeSites() {
   const gp = flatSpot(depot.x + 34, depot.z + 4, 18);
   garageSite.x = gp[0]; garageSite.z = gp[1]; garageSite.y = groundAt(gp[0], gp[1]);
   SPAWN.x = depot.x; SPAWN.z = depot.z + 6; SPAWN.yaw = Math.PI;
+  computeSchools();
 }
 function nearSite(x, z, r) {
   return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < Math.max(r, s.clear || 0) || Math.hypot(x - s.x + 11, z - s.z) < r))
-    || STATIONS.some(t => t.x !== undefined && Math.hypot(x - t.x, z - t.z) < Math.max(r, 30));
+    || STATIONS.some(t => t.x !== undefined && Math.hypot(x - t.x, z - t.z) < Math.max(r, 30))
+    || schoolList().some(s => s.x !== undefined && Math.hypot(x - s.x, z - (s.z - 4)) < Math.max(r, s.clear));
 }
 
 /* ---------------- fuel: gas stations, cabins that sell it, tips (winter update O3, section 6) ----------------
@@ -4339,15 +4350,20 @@ function makeContracts(from) {
   else if (lvl >= 3 && cabins[0]) {
     const d = cabins[0], { dist, climb, est } = jobGeom(d, from);
     C.push({ groom: true, dest: d, cargo: `Groom the ${d.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "")} trail`, pay: round5(140 + dist * 0.22 + climb * 0.6), due: GS.hour + est * 3.2 / GAMEHOUR, need: "groomer" });
-  } else C.push({ locked: "Grooming contracts", sub: lvl >= 3 ? "Every cabin trail has melted out. Back when it freezes." : `Trail crew work — ${RANKS[1].at} deliveries` });
+    // a second line once you're known on the trails
+    if (lvl >= 8 && cabins[4]) { const d2 = cabins[4], q = jobGeom(d2, from); C.push({ groom: true, dest: d2, cargo: `Groom the ${shortName(d2)} trail`, pay: round5(140 + q.dist * 0.22 + q.climb * 0.6), due: GS.hour + q.est * 3.2 / GAMEHOUR, need: "groomer" }); }
+  } else C.push({ locked: "Grooming contracts", sub: lvl >= 3 ? "Every cabin trail has melted out. Back when it freezes." : `Trail crew work — ${RANKS[1].at} deliveries and a groomer on the hitch` });
   // heavy freight: one or two on the trailer
   if (lvl >= 5) {
     const n = lvl >= 9 ? 2 : 1, menu = HEAVY.filter(x => x.lvl <= lvl).sort(() => Math.random() - 0.5);
+    // half of it comes off the ferry at the quay; the rest waits on a village harbour
+    const harbours = SITES.filter(s => s.kind === "village");
     for (let k = 0; k < n; k++) {
       const d = cabins[1 + k], h = menu[k % menu.length]; if (!d) continue;
-      const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < 0.3;
+      const hb = harbours.filter(s => s !== d && Math.hypot(s.x - d.x, s.z - d.z) > 900);
+      const f = Math.random() < 0.5 && hb.length ? pick(hb) : depot, { dist, climb, est } = jobGeom(d, f), urgent = Math.random() < 0.3;
       const pay = round5((120 + dist * 0.3 + climb * 1.2) * h.mul * (urgent ? 1.35 : 1));
-      C.push({ big: true, bays: 1, dest: d, cargo: h.cargo, kg: h.kg, fragile: h.fragile, look: h.look, pay, bond: round5(pay * 0.15), due: urgent ? GS.hour + est * 2.2 / GAMEHOUR : null, need: "trailer" });
+      C.push({ big: true, bays: 1, from: f, dest: d, cargo: h.cargo, kg: h.kg, fragile: h.fragile, look: h.look, pay, bond: round5(pay * 0.15), due: urgent ? GS.hour + (jobGeom(f, { x: P.x, z: P.z, y: groundAt(P.x, P.z) }).est + est) * 2.2 / GAMEHOUR : null, need: "trailer" });
     }
   } else C.push({ locked: "Heavy freight", sub: `Appliances, generators, solar kits — ${RANKS[2].at} deliveries and a trailer` });
   // priority: someone's in trouble, tonight
@@ -4355,13 +4371,13 @@ function makeContracts(from) {
   else if (lvl >= 12) {
     const d = cabins[3], p = pick(PRIORITY), { dist, climb, est } = jobGeom(d, from);
     const pay = round5((120 + dist * 0.3 + climb * 1.2) * (2.1 + GS.storm * 0.8));
-    C.push({ big: true, bays: 1, priority: true, dest: d, cargo: p.cargo, kg: p.kg, fragile: p.fragile, look: p.look, why: p.why.replace("{s}", d.name), pay, bond: round5(pay * 0.25), due: GS.hour + est * 1.35 / GAMEHOUR, need: "trailer" });
+    C.push({ big: true, bays: 1, priority: true, from: depot, dest: d, cargo: p.cargo, kg: p.kg, fragile: p.fragile, look: p.look, why: p.why.replace("{s}", d.name), pay, bond: round5(pay * 0.25), due: GS.hour + est * 1.35 / GAMEHOUR, need: "trailer" });
   } else if (lvl >= 5) C.push({ locked: "Priority runs", sub: `Emergencies at the cabins — ${RANKS[3].at} deliveries` });
   // expedition: out to the lighthouse on the tip, on the flatbed
   if (lvl >= 20 && relay) {
     const e = pick(EXPEDITION), { dist, climb, est } = jobGeom(relay, from);
     const pay = round5((400 + dist * 0.5 + climb * 2.5) * (e.fragile ? 1.25 : 1.1));
-    C.push({ big: true, bays: 2, expedition: true, dest: relay, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why, pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.6 / GAMEHOUR, need: "flatbed" });
+    C.push({ big: true, bays: 2, expedition: true, from: depot, dest: relay, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why, pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.6 / GAMEHOUR, need: "flatbed" });
   } else if (lvl >= 12) C.push({ locked: "Slettnes expeditions", sub: lvl >= 20 ? "The trail out to Slettnes has melted out. The keeper waits for the boat now." : `Flatbed loads out to the lighthouse — ${RANKS[4].at} deliveries` });
   // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
   if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
@@ -4459,6 +4475,7 @@ function acceptContract(k) {
     toast(`Groom the line to ${c.dest.name}. The dots on the map are the stretches still to do.`);
     TABLET.refresh(); save(); return;
   }
+  if (!licensed("freight")) { toast("Trailer freight needs a Freight licence. The Freight app signs you up for school.", "warn"); return; }
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`, "warn"); return; }
   if (baysUsed() + c.bays > ST.bays) { toast(ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded.", "warn"); return; }
@@ -4582,6 +4599,7 @@ function deliver(site) {
 }
 function blackout(kind) {
   if (GS.dead) return;
+  if (SCHOOL.on) { schoolBlackout(kind); return; }
   GS.dead = true; TABLET.close(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
   if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town with the rescue crew. No fare."), 4200); }
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
@@ -4603,14 +4621,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -4931,7 +4949,7 @@ function ctFonts() {
     .then(() => { CT.fonts++; TABLET.paper = null; });
 }
 
-/* chart helpers shared by the tablet's Map, Parcels and Contracts apps */
+/* chart helpers shared by the tablet's Map, Parcels, Freight and Trail Crew apps */
 const shortName = s => s.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "");
 const fmtCash = v => "$" + Math.round(v).toLocaleString("en-US");
 const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
@@ -4985,7 +5003,8 @@ function ctSled(g, x, y, ang, alpha, u) {
    matrix3d homography so taps and clicks land where they look. In third person (and on foot) it's a big
    overlay instead.
 
-   Adding an app:  TABLET.register({ id, name, icon, order, locked, badge(), render(el), onOpen(), onClose(), tick(dt), live })
+   Adding an app:  TABLET.register({ id, name, icon, order, locked, hidden(), badge(), render(el), onOpen(), onClose(), tick(dt), live })
+     hidden() true keeps it off the home screen (store apps until they're downloaded: see STORE / GS.apps).
      render(el) fills `el` (re-run by TABLET.refresh()). Give anything selectable data-tf="unique-key" so the
      d-pad / arrows can reach it; a [data-tf] that contains a .tbtn is activated through that button.
      `live` (seconds) re-renders while open; tick(dt) runs every frame the app is up (for canvases).
@@ -5032,7 +5051,8 @@ const TABLET = {
   go(id) {
     const prev = this.app && this.byId[this.app];
     if (prev && prev.onClose) prev.onClose();
-    const a = id && this.byId[id];
+    let a = id && this.byId[id];
+    if (a && a.hidden && a.hidden()) { toast(`${a.name} isn't installed. It's in the App Store.`, "warn"); id = "store"; a = this.byId.store; }
     if (a && a.locked) { toast(`${a.name} isn't installed yet.`, "warn"); return; }
     this.app = a ? id : null; this.focus = null; $("tabV").scrollTop = 0;
     if (a && a.onOpen) a.onOpen();
@@ -5356,7 +5376,7 @@ const TICON = {
   map: svgI(`<path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z"/><path d="M8.5 4v13.5M15.5 6.5V20"/><circle cx="12" cy="10" r="1.3" fill="currentColor"/>`),
   weather: svgI(`<circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.5v1.3M3.8 4l.9.9M2.5 8.5h1.3M13.2 4l-.9.9"/><path d="M8 19h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.2A3 3 0 0 0 8 19z"/>`),
   calendar: svgI(`<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/>`),
-  contracts: svgI(`<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 9h7M8.5 12.5h7M8.5 16h4.5"/>`),
+  crew: svgI(`<path d="M3 17.5h18"/><path d="M5 17.5V12h8l2.5 3v2.5"/><path d="M13 12V9h-3"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="13" cy="19" r="1.5"/><path d="M15.5 15H21v2.5M17 12.5l2-2M19 12.5l2-2"/>`),
   logbook: svgI(`<path d="M5 4.5h11a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6"/>`),
   store: svgI(`<path d="M4 8h16l-1.3 12H5.3z"/><path d="M8.5 10V7a3.5 3.5 0 0 1 7 0v3"/>`),
   freight: svgI(`<path d="M2.5 15h12V7h-12zM14.5 10h3.8l3.2 3.2V15h-7"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17.5" cy="17" r="1.8"/>`),
@@ -5370,7 +5390,7 @@ function tabHome(v) {
   const n = CAL.now(), here = WX.at(P.x, P.z), wxw = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
   const st = CAL.sunTimes(), sun = st.polar ? "no sunrise today" : st.midnight ? "midnight sun" : `sun up ${fmtTime(st.up)}, down ${fmtTime(st.down)}`;
   const rk = rankOf(GS.delivered);
-  const tiles = TABLET.apps.map(a => {
+  const tiles = TABLET.apps.filter(a => !(a.hidden && a.hidden())).map(a => {
     const bd = a.badge ? a.badge() : ""; return `<button type="button" class="ttile${a.locked ? " locked" : ""}" data-tf="app:${a.id}" data-app="${a.id}"><span class="tic">${a.icon}${bd ? `<b class="tbdg">${bd}</b>` : ""}</span><span class="tnm">${tabEsc(a.name)}</span></button>`;
   }).join("");
   const log = TABLET.log.slice(0, 4).map(q => `<div class="tlg"><span>${fmtTime(q.at)}</span><b>${tabEsc(q.title)}</b><i>${tabEsc(q.body)}</i></div>`).join("");
@@ -5412,6 +5432,8 @@ function contractBlock(c) {
   if (c.tour) return GS.tour || GS.claims.some(x => x.tour) ? "You've already got tourists booked." : "";
   if (c.rescue) return ST.winch < c.needTier ? `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.` : GS.rescueJob ? "Finish the call you're on first." : "";
   if (c.groom) return !isGroomer(hitch) ? "That's grooming work. You need a groomer drag on the hitch: the garage sells them." : GS.groomJob ? "Finish the line you're grooming first." : "";
+  if (c.big && !licensed("freight")) return "Needs your Freight licence. Sign up for Freight school above.";
+  if (SCHOOL.on) return "Finish (or quit) the course first.";
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`;
   if (baysUsed() + claimBays() + c.bays > ST.bays) return ST.bays > 1 ? "The flatbed's full (or spoken for)." : "The trailer's already loaded (or spoken for).";
@@ -5420,10 +5442,12 @@ function contractBlock(c) {
 }
 function takeContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
-  if (c.groom || c.rescue || atQuay()) { acceptContract(k); return; }
-  const why = contractBlock(c); if (why) { toast(why, "warn"); return; }
-  c.from = depot; GS.claims.push(c); GS.contracts.splice(k, 1);
-  toast(c.tour ? `Booked: ${c.pax} for ${c.dest.name}. They're waiting at the quay.` : `Claimed: ${c.cargo} for ${shortName(c.dest)}. It's on the quay; the $${c.bond} bond is paid when you strap it down.`);
+  if (SCHOOL.on) { toast("Finish (or quit) the course first.", "warn"); return; }
+  const why = contractBlock(c);
+  if (c.groom || c.rescue || GS.near === (c.from || depot)) { if (why && c.big) { toast(why, "warn"); return; } acceptContract(k); return; }
+  if (why) { toast(why, "warn"); return; }
+  c.from = c.from || depot; GS.claims.push(c); GS.contracts.splice(k, 1);
+  toast(c.tour ? `Booked: ${c.pax} for ${c.dest.name}. They're waiting at the quay.` : `Claimed: ${c.cargo} for ${shortName(c.dest)}. It's waiting at ${c.from === depot ? "the quay" : c.from.name}; the $${c.bond} bond is paid when you strap it down.`);
   TABLET.refresh(); save();
 }
 // stopped at a pickup: load whatever's claimed there (each claim retries every few seconds if it can't go yet)
@@ -5550,7 +5574,7 @@ const sec = (a, b) => `<div class="tsec"><span>${a}</span><span>${b || ""}</span
 
 TABLET.register({
   id: "parcels", name: "Parcels", icon: TICON.parcels, order: 1,
-  badge: () => GS.load.filter(j => !j.big).length || GS.jobs.length || "",
+  badge: () => GS.load.filter(j => !j.big).length || GS.jobs.length || (GS.contracts || []).filter(c => c.tour).length || "",
   onOpen() { tabWork(); ctRoutes(); },
   render(el) {
     const sm = smallLoads(), rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
@@ -5576,63 +5600,18 @@ TABLET.register({
         warn: full ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "",
         pay: payTxt(j), act: "take:" + k, actLabel: here ? "LOAD IT" : "CLAIM", blocked: full });
     });
-    h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock.</p>`;
+    // aurora tours: passengers off the ferry, so they live here with the parcels (they ride the seat, not the rack)
+    const tours = conList(c => c.tour), ctour = GS.claims.filter(j => j.tour);
+    if (GS.tour || ctour.length || tours.n) {
+      h += sec("Aurora tours", AUR.v > 0.3 ? "the lights are up" : "");
+      if (GS.tour) h += tabCard({ tf: "tr", mini: `depot|${GS.tour.view.id}|t`, title: "Aurora tour · under way", chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${tabEsc(GS.tour.pax)} → ${GS.tour.view.name}`, pay: "~" + fmtCash(GS.tour.base * tourMul(AUR.v) * payMul()) });
+      ctour.forEach((c, i) => { h += tabCard({ tf: "tcl:" + i, mini: `depot|${c.dest.id}|t`, title: "Aurora tour · booked", chips: chip("AURORA", "aurora"), meta: `${tabEsc(c.pax)} → ${c.dest.name} · waiting at the quay`, pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()) }); });
+      h += tours.h;
+    }
+    h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock. Trailer freight is in the Freight app, grooming in Trail Crew.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     for (const b of el.querySelectorAll("[data-act^=take]")) b.addEventListener("click", () => takeParcel(+b.dataset.act.split(":")[1]));
-    tabMinis(el);
-  }
-});
-
-TABLET.register({
-  id: "contracts", name: "Contracts", icon: TICON.contracts, order: 5,
-  badge: () => (GS.contracts || []).filter(c => !c.locked).length || "",
-  onOpen() { tabWork(); ctRoutes(); },
-  render(el) {
-    const bg = bigLoads();
-    let h = tabHead("CONTRACTS · UNTIL FREIGHT AND TRAIL CREW ARRIVE", "Contracts", fmtCash(GS.cash));
-    h += `<div class="tsub">${HITCH_ON[GS.own.parts.hitch]}${ST.bays ? ` · ${baysUsed()}/${ST.bays} bays` : ""}${claimBays() ? ` · ${claimBays()} claimed` : ""}</div>`;
-    if (bg.length || GS.groomJob || GS.rescueJob || GS.tour) {
-      h += sec("Under way", "");
-      for (const j of bg) h += tabCard({ tf: "bg:" + j.cargo, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: chip(j.expedition ? "EXPEDITION" : j.priority ? "PRIORITY" : "HEAVY", j.expedition ? "expedition" : j.priority ? "priority" : "heavy") + (j.due ? chip("DUE " + fmtTime(j.due), "due") : ""), meta: `to ${shortName(j.dest)} · ${Math.round(j.cond)}% condition · ${j.kg} kg`, pay: fmtCash(j.pay * payMul()) });
-      if (GS.groomJob) h += tabCard({ tf: "gj", mini: `depot|${GS.groomJob.dest.id}|g`, title: GS.groomJob.cargo, chips: chip("GROOMING", "grooming"), meta: `${Math.round(groomFrac(GS.groomJob) * 100)}% of the line groomed · due ${fmtTime(GS.groomJob.due)}`, pay: fmtCash(GS.groomJob.pay * payMul()) });
-      if (GS.tour) h += tabCard({ tf: "tr", mini: `depot|${GS.tour.view.id}|t`, title: "Aurora tour", chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${tabEsc(GS.tour.pax)} → ${GS.tour.view.name}`, pay: "~" + fmtCash(GS.tour.base * tourMul(AUR.v) * payMul()) });
-      if (GS.rescueJob) h += tabCard({ tf: "rj", title: GS.rescueJob.cargo || "Recovery call-out", chips: chip("RECOVERY", "recovery"), meta: `clock runs out ${fmtTime(GS.rescueJob.due)}`, pay: fmtCash(GS.rescueJob.pay * payMul()) });
-    }
-    const cl = GS.claims.filter(j => j.big || j.tour);
-    if (cl.length) { h += sec("Claimed · waiting at the quay", ""); cl.forEach((c, i) => { h += tabCard({ tf: "ccl:" + i, mini: `${(c.from || depot).id}|${c.dest.id}${c.tour ? "|t" : ""}`, title: c.tour ? "Aurora tour" : c.cargo, chips: c.tour ? chip("AURORA", "aurora") : chip(c.expedition ? "EXPEDITION" : c.priority ? "PRIORITY" : "HEAVY", c.expedition ? "expedition" : c.priority ? "priority" : "heavy"), meta: c.tour ? `${tabEsc(c.pax)} → ${c.dest.name}` : `to ${shortName(c.dest)} · $${c.bond} bond at pickup`, pay: c.tour ? "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()) : fmtCash(c.pay * payMul()) }); }); }
-    h += sec("Posted", atQuay() ? "at the quay: loads straight on" : "freight and tours load at the quay");
-    TABLET.miniDest = {};
-    (GS.contracts || []).forEach((c, k) => {
-      if (c.locked) { h += tabCard({ cls: "locked", title: c.locked, chips: chip("LOCKED"), meta: tabEsc(c.sub) }); return; }
-      const why = contractBlock(c), d = c.dest, km = routeKm(d).toFixed(1), g = groom[d.id] || 0;
-      if (c.rescue) TABLET.miniDest[d.id] = d;
-      const tag = c.tour ? "aurora" : c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
-      let title = c.cargo, meta, note, pay = fmtCash(c.pay * payMul()), lbl, chips = chip(tag === "aurora" ? "AURORA · " + AUR.word(AUR.v).toUpperCase() : tag.toUpperCase(), tag);
-      if (c.tour) {
-        meta = `to ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
-        note = `<span class="why">${tabEsc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the ferry want the lights from ${tabEsc(c.dest.why)}.</span> They pay by how strong the aurora is when you get there, a third if it's faded. They ride behind you, not on the rack.`;
-        pay = "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()); lbl = atQuay() ? "TAKE THEM UP" : "BOOK THEM";
-      } else if (c.rescue) {
-        chips += c.comps.map(x => chip(({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x], x === "short" || x === "hurt" ? "due" : "")).join("") + chip("CLOCK " + fmtTime(c.due), "due");
-        meta = `${tabEsc(d.name)} · ≈ ${km} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}`;
-        note = `<span class="why">${tabEsc(c.why)}</span> Park on the rim, walk the line out and hook on, strap your sled back to a tree and reel them out. About ${c.reach} m of line to do it in one pull.`;
-        lbl = "TAKE THE CALL";
-      } else if (c.groom) {
-        chips += chip("DUE " + fmtTime(c.due), "due");
-        meta = `${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(d)} · climb ${climbOf(d)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`;
-        note = "Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much you groom, more for a clean line, more again if the wing tiller lays it wide.";
-        lbl = "TAKE THE LINE";
-      } else {
-        if (c.due) chips += chip("DUE " + fmtTime(c.due), "due");
-        meta = `to ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m · ${c.kg} kg${c.fragile ? " · fragile" : ""}`;
-        note = `${c.why ? `<span class="why">${tabEsc(c.why)}</span> ` : ""}Pays by condition, refused below 30%. The $${c.bond} bond comes back if it arrives whole${c.priority ? " and on time" : ""}.${c.bays > 1 ? " Takes the whole flatbed." : ""}${c.due ? ` Due ${fmtTime(c.due)}${c.priority ? ", late and they keep the bond" : ", late pays half"}.` : ""}`;
-        lbl = atQuay() ? "STRAP IT DOWN" : "CLAIM";
-      }
-      h += tabCard({ tf: "con:" + k, mini: `depot|${d.id}|${c.groom ? "g" : c.tour ? "t" : c.rescue ? "r" : ""}`, title, chips, meta, note, warn: why, pay, act: "con:" + k, actLabel: lbl, blocked: !!why });
-    });
-    el.innerHTML = `<div class="tapp">${h}</div>`;
-    for (const b of el.querySelectorAll("[data-act^=con]")) b.addEventListener("click", () => takeContract(+b.dataset.act.split(":")[1]));
-    tabMinis(el);
+    conBind(el);
   }
 });
 
@@ -5685,6 +5664,11 @@ TABLET.register({
     if (L.del) { for (const j of GS.load) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, CT_ACC, "D", 10); } if (GS.tour) { const [x, y] = w2c(GS.tour.view.x, GS.tour.view.z); tabPin(g, x, y, "#2f8f6a", "A", 10); } if (GS.groomJob) { const [x, y] = w2c(GS.groomJob.dest.x, GS.groomJob.dest.z); tabPin(g, x, y, "#1f6a8a", "G", 9); } }
     if (L.rescue) for (const p of TABLET.layerPts("rescue")) { const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
     if (L.fuel) for (const p of TABLET.layerPts("fuel")) tabFuel(g, w2c, p, sc);
+    for (const p of TABLET.layerPts("schools")) {
+      const [x, y] = w2c(p.x, p.z);
+      if (p.kind === "cp") { g.fillStyle = p.next ? CT_ACC : "rgba(31,74,102,.85)"; g.strokeStyle = "rgba(237,230,211,.95)"; g.lineWidth = 2; g.beginPath(); g.arc(x, y, p.next ? 7 : 5, 0, 6.283); g.fill(); g.stroke(); if (p.name) { g.fillStyle = "#fff"; g.font = "700 9px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(p.name, x, y + 0.5); } continue; }
+      tabPin(g, x, y, p.col, "S", 10); tabLabel(g, p.name, x, y + 14, 12, p.col);
+    }
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
     const [px, py] = w2c(P.x, P.z);
     g.save(); g.translate(px, py); g.rotate(Math.PI - P.yaw);
@@ -5714,6 +5698,12 @@ function tabMelt(g, w2c, sc) {
 }
 // the call-out you're on goes on the map's rescue layer; O5's rescues will add their own
 TABLET.addLayer("fuel", fuelPoints);
+// the licence schools you've signed up for, and the course's checkpoints while you're on one
+TABLET.addLayer("schools", () => {
+  const out = schoolList().filter(s => s.x !== undefined && (GS.signed[s.id] || (SCHOOL.on && SCHOOL.sc === s))).map(s => ({ x: s.x, z: s.z, name: s.short.toUpperCase(), col: s.col, kind: "school" }));
+  const c = SCHOOL.on && SCHOOL.ctx; if (c) c.pts.forEach((p, i) => { if (i >= c.wi) out.push({ x: p.x, z: p.z, kind: "cp", name: String(i + 1), next: i === c.wi }); });
+  return out;
+});
 TABLET.addLayer("rescue", () => GS.rescueJob && typeof RJ !== "undefined" ? RJ.vs.filter(v => !v.freed).map(v => ({ x: v.x, z: v.z, name: v.name + " · stuck", kind: "recovery" })) : []);
 
 TABLET.register({
@@ -5816,7 +5806,7 @@ function lbRows() {
   return { ride, work };
 }
 TABLET.register({
-  id: "logbook", name: "Logbook", icon: TICON.logbook, order: 6, live: 3,
+  id: "logbook", name: "Logbook", icon: TICON.logbook, order: 8.5, live: 3,
   render(el) {
     const { ride, work } = lbRows();
     const row = r => `<div class="tlr" data-tf="lb:${r.k}"><div class="tlv"><b${r.txt ? ' class="txt"' : ""}>${tabEsc(r.v)}</b><u>${tabEsc(r.u)}</u></div><div class="tlt"><span class="tll">${tabEsc(r.label)}${r.chip ? " " + chip(tabEsc(r.chip.toUpperCase())) : ""}</span><span class="tlm">${tabEsc(r.m)}</span></div></div>`;
@@ -5827,15 +5817,615 @@ TABLET.register({
   }
 });
 
+/* ---------------- licence schools (winter update O4) ----------------
+   Two schools, each a building of its own out on the map (not in SITES, so no parcels, mail or groom lines
+   ever go there). Download Freight or Rescue from the App Store, sign up in the app, ride out. Stopping in the
+   yard pings START COURSE. On the course you ride the school's sled (a Matriarch 850T in school colours with
+   the full kit); your own sled is parked in the yard as a snapshot, cargo and all, and your loads are set
+   aside until you finish or quit. A corridor round the current mission keeps you on the course.
+
+   A school runs its `missions` in order; passed ones are saved (GS.sdone[id]) so quitting keeps them. The last
+   one passed grants the licence (GS.lic[id] = true).
+
+   Adding a mission (O5 writes the Rescue school's this way):
+     SCHOOL.addMission("rescue", {
+       id, name, kind,            // kind is the chip on the card ("HOOKUP", "CLIMB", ...)
+       brief,                     // one or two sentences, shown on the card and pinged when it starts
+       hitch: "none" | "trailer" | "flatbed" | "groomer" | "tiller",   // what the school sled tows for it
+       plan(sc) -> { pts: [{ x, z, r, stop, label, onReach(ctx) }], ... },   // built once from the terrain round the yard
+       setup(ctx), tick(dt, ctx) -> null | "pass" | { fail: "why" }, hud(ctx) -> string, cleanup(ctx)
+     });
+   The runner walks ctx.pts in order (reach within r; `stop` means under 3 m/s), counts trailer rolls in
+   ctx.tips, times the attempt in ctx.t (seconds), and passes the mission once the last point is reached and
+   tick() hasn't failed it. ctx.load(spec) straps a school load on the trailer (it lives in GS.load with
+   school: true, so the trailer, bigHit and the condition % all work as they do on real freight). A fail runs you
+   back to the yard and starts the same mission again. A mission that doesn't end at the yard is followed by a
+   ride back to it, and the next one starts there. */
+var SCHOOLS = {
+  freight: { id: "freight", name: "Nordkinn Frakt training yard", short: "Freight school", seed: [-150, -1750], licence: "Freight licence", col: "#d9a520",
+    sign: "NORDKINN FRAKT", sub: "SJÅFØRSKOLE · TRAINING YARD", paint: "yellow", missions: [], plans: {} },
+  rescue: { id: "rescue", name: "Nordkinn Redning base", short: "Rescue school", seed: [-2350, 700], licence: "Rescue licence", col: "#c43a26",
+    sign: "NORDKINN REDNING", sub: "REDNINGSSKOLE · RESCUE BASE", paint: "red", missions: [], plans: {} }
+};
+const SCHOOL_SLED = "matriarch";
+const SCHOOL_LIVERY = {
+  freight: { body: "#f2c230", panel: "#15191e", trim: "#15191e", seat: "#15191e", name: "School yellow, black panels" },
+  rescue: { body: "#d8261c", panel: "#f2f5f8", trim: "#f2f5f8", seat: "#15191e", name: "Rescue red, white panels" }
+};
+const SCHOOL_PARTS = { shield: "heated", grips: "grips", tank: "long", lights: "hid", guard: "straps", cool: "pro", survival: "stove" };
+const SCHOOL_CORRIDOR = 240, SCHOOL_HARD = 420;
+var SCHOOL = {
+  on: false, sc: null, mi: 0, m: null, ctx: null, phase: null, saved: null, savedLoad: null, savedFuel: 0, parked: null, park: null,
+  outT: 0, outWarned: false, guide: null, here: null, pingT: {}, cw: [],
+  addMission(id, def) { SCHOOLS[id].missions.push(def); }
+};
+const licensed = id => !!GS.lic[id];
+const schoolDone = id => GS.sdone[id] || (GS.sdone[id] = []);
+const schoolNext = sc => sc.missions.findIndex(m => !schoolDone(sc.id).includes(m.id));
+// placed with the sites, before the trees go in (nearSite keeps the forest out of the yard)
+function computeSchools() {
+  for (const k in SCHOOLS) { const s = SCHOOLS[k], p = flatSpot(s.seed[0], s.seed[1], 160); s.x = p[0]; s.z = p[1]; s.y = groundAt(s.x, s.z); s.clear = 46; }
+}
+const schoolList = () => Object.values(SCHOOLS);
+const okGround = (x, z, sl = 0.5) => Math.abs(x) < HALF - 220 && Math.abs(z) < HALF - 220 && bioAt(x, z) !== 3 && bioAt(x, z) !== 1 && slopeAt(x, z, 5) < sl;
+// can a loaded sled get along the straight line a→b? (no sea, no lakes, nothing steeper than `sl`)
+function lineOk(a, b, sl = 0.55) {
+  const L = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(2, Math.ceil(L / 18));
+  for (let i = 1; i < n; i++) { const t = i / n, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); if (!okGround(x, z, sl)) return false; }
+  return true;
+}
+
+/* ---- the buildings ---- */
+function schoolSign(s) {
+  const cv = document.createElement("canvas"); cv.width = 512; cv.height = 192; const g = cv.getContext("2d");
+  g.fillStyle = "#13202b"; g.fillRect(0, 0, 512, 192); g.fillStyle = s.col; g.fillRect(0, 0, 512, 22); g.fillRect(0, 170, 512, 22);
+  g.fillStyle = "#f2efe6"; g.font = "700 64px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(s.sign, 256, 84);
+  g.font = "600 26px 'Barlow Semi Condensed', sans-serif"; g.fillStyle = s.col; g.fillText(s.sub, 256, 138);
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; return new THREE.MeshBasicMaterial({ map: t });
+}
+function buildSchools() {
+  const K = KIT, cone = new THREE.MeshLambertMaterial({ color: 0xff6a1f }), band = new THREE.MeshLambertMaterial({ color: 0xf2f5f8 });
+  const coneG = new THREE.ConeGeometry(0.22, 0.6, 10), bandG = new THREE.CylinderGeometry(0.12, 0.15, 0.1, 10);
+  for (const s of schoolList()) {
+    // the school: a long timber building with its door on the yard, a sign out front and a ring of cones
+    K.house(s.x, s.z - 15, 16, 8, 4.6, 0, K[s.paint] || K.red, true);
+    K.house(s.x + 13, s.z - 14, 7, 6, 3.4, 0, K.white, false);
+    const g = new THREE.Group(); g.position.set(s.x - 9, groundAt(s.x - 9, s.z - 5) - 0.2, s.z - 5); g.rotation.y = 0.35; scene.add(g);
+    for (const sx of [-1.4, 1.4]) K.bx(g, 0.14, 2.6, 0.14, K.woodD, sx, 1.3, 0);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), schoolSign(s)); sign.position.set(0, 2.1, 0.08); g.add(sign);
+    K.bx(g, 3.3, 1.3, 0.1, K.woodD, 0, 2.1, -0.01);
+    addOb({ x: s.x - 9, z: s.z - 5, r: 0.5, top: 1e9 });
+    for (let k = 0; k < 14; k++) {
+      const a = k / 14 * Math.PI * 2, x = s.x + Math.cos(a) * 30, z = s.z + 6 + Math.sin(a) * 22; if (z < s.z - 8) continue;
+      const c = new THREE.Group(); c.position.set(x, groundAt(x, z) - 0.05, z); scene.add(c);
+      K.put(c, coneG, cone, 0, 0.3, 0); K.put(c, bandG, band, 0, 0.36, 0);
+    }
+    K.lamp(s.x + 6, s.z - 9); K.lamp(s.x - 18, s.z - 8);
+    s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(s.col), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    s.beacon.position.set(s.x, s.y + 480, s.z); s.beacon.visible = false; scene.add(s.beacon);
+  }
+  // one beacon for the course's next checkpoint
+  SCHOOL.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+  SCHOOL.beacon.scale.set(0.8, 1, 0.8); SCHOOL.beacon.visible = false; scene.add(SCHOOL.beacon);
+}
+// the trailer waiting in the yard for the hookup mission: runners, a deck and a yellow frame
+function schoolTrailerMesh(x, z, yaw) {
+  const K = KIT, g = new THREE.Group(), y = surf(x, z); g.position.set(x, y, z); g.rotation.y = yaw; scene.add(g);
+  const steel = new THREE.MeshLambertMaterial({ color: 0x8d99a6 }), yel = new THREE.MeshLambertMaterial({ color: 0xe0a820 });
+  for (const sx of [-0.55, 0.55]) K.bx(g, 0.08, 0.08, 2.4, steel, sx, 0.06, 0);
+  K.bx(g, 1.3, 0.1, 2.2, K.woodD, 0, 0.32, 0); K.bx(g, 1.34, 0.4, 0.06, yel, 0, 0.55, -1.08); K.bx(g, 0.06, 0.06, 1.3, yel, 0, 0.3, 1.75);
+  for (const sx of [-0.62, 0.62]) K.bx(g, 0.06, 0.4, 2.2, yel, sx, 0.55, 0);
+  return g;
+}
+
+/* ---- your own sled, parked in the yard while you're on the course ---- */
+function parkSnapshot(x, z, yaw) {
+  const snap = sledBody.clone(true);
+  // the rider and the dash tablet aren't parked with it, and its lights would light the yard twice
+  const skip = [V.rider, V.tab].map(o => sledBody.children.indexOf(o)).filter(i => i >= 0).map(i => snap.children[i]);
+  const lights = []; snap.traverse(o => { if (o.isLight) lights.push(o); });
+  for (const o of skip.concat(lights)) if (o && o.parent) o.parent.remove(o);
+  snap.position.set(0, 0, 0);
+  snap.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
+  const g = new THREE.Group(); g.add(snap); g.position.set(x, rideSurf(x, z), z); g.rotation.y = yaw; scene.add(g);
+  addOb({ x, z, r: 0.9, top: rideSurf(x, z) + 1.1, parked: true });
+  return g;
+}
+function unpark() {
+  const g = SCHOOL.parked; if (!g) return;
+  scene.remove(g); g.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); });
+  SCHOOL.parked = null;
+  // and take its collision post back out of the grid
+  const p = SCHOOL.park, k = Math.floor((p.z + HALF) / OBC) * OBW + Math.floor((p.x + HALF) / OBC), a = obGrid.get(k);
+  if (a) { const i = a.findIndex(o => o.parked); if (i >= 0) a.splice(i, 1); }
+}
+function schoolPut(x, z, yaw) {
+  P.x = x; P.z = z; P.yaw = yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
+  recenter(P.x, P.z, true); P.y = rideSurf(P.x, P.z) + 0.4; P.safe = { x, z, yaw };
+  camState.init = false; camState.yaw = yaw; towSnap();
+}
+const yardStart = sc => ({ x: sc.x, z: sc.z + 10 });
+
+/* ---- signing up, starting, finishing ---- */
+function schoolSignUp(id) {
+  const sc = SCHOOLS[id]; if (!GS.apps[id]) return;
+  GS.signed[id] = true; SCHOOL.guide = id; save();
+  toast(`You're signed up at ${sc.name}. It's pinned on the Map, and the arrow will take you there.`, "good");
+  TABLET.refresh();
+}
+function schoolCanStart(sc) {
+  if (SCHOOL.on) return "You're already on a course.";
+  if (!GS.signed[sc.id]) return "Sign up in the app first.";
+  if (licensed(sc.id)) return `You've got your ${sc.licence}.`;
+  if (!sc.missions.length) return "The instructors are still writing this course. It opens with the rescue update.";
+  if (SCHOOL.here !== sc) return `The course starts at ${sc.name}.`;
+  if (GS.tour) return "Get your tourists up the hill first.";
+  if (GS.rescueJob) return "Finish the call-out you're on first.";
+  if (FOOT.on) return "Get back on your sled first.";
+  return "";
+}
+function schoolBegin(id) {
+  const sc = SCHOOLS[id], why = schoolCanStart(sc); if (why) { toast(why, "warn"); return; }
+  // park your sled where it stands, cargo and all
+  SCHOOL.park = { x: P.x, z: P.z, yaw: P.yaw };
+  SCHOOL.parked = parkSnapshot(P.x, P.z, P.yaw);
+  SCHOOL.saved = GS.own; SCHOOL.savedLoad = GS.load; SCHOOL.savedFuel = GS.fuel; GS.load = [];
+  SCHOOL.on = true; SCHOOL.sc = sc; SCHOOL.guide = null;
+  GS.own = schoolOwn("none"); restat(); GS.fuel = GS.cap; applyLoadout();
+  const st = yardStart(sc); schoolPut(st.x, st.z, 0);
+  TABLET.close();
+  toast(`You leave your ${(SLEDS.find(s => s.id === SCHOOL.saved.sled) || SLEDS[0]).name} by the door. The instructor tosses you the key to the school's Matriarch.`, "good");
+  schoolMission(schoolNext(sc));
+}
+function schoolOwn(hitch) {
+  const o = OWN0(); o.sled = SCHOOL_SLED; o.sleds = [SCHOOL_SLED];
+  Object.assign(o.parts, SCHOOL_PARTS, { hitch: hitch || "none" });
+  o.gear = Object.assign({}, (SCHOOL.saved || GS.own).gear);
+  return o;
+}
+function schoolHitch(kind) {
+  if (GS.own.parts.hitch === kind) return;
+  GS.own.parts.hitch = kind; TOW.wingOn = false; restat(); GS.fuel = GS.cap; towSnap();
+}
+function schoolMission(i) {
+  const sc = SCHOOL.sc, m = sc.missions[i]; if (!m) { schoolEnd("quiet"); return; }
+  if (SCHOOL.ctx && SCHOOL.m && SCHOOL.m.cleanup) SCHOOL.m.cleanup(SCHOOL.ctx);
+  GS.load = []; schoolHitch(m.hitch || "none");
+  const plan = sc.plans[m.id] || (sc.plans[m.id] = m.plan(sc));
+  const ctx = SCHOOL.ctx = { m, sc, plan, pts: plan.pts.map(p => Object.assign({}, p)), wi: 0, t: 0, tips: 0, tipOn: false,
+    load(spec) { const j = Object.assign({ school: true, big: true, bays: 1, fragile: false, look: "crate", cond: 100, hits: 0, pay: 0, dest: { id: "school", name: sc.short, x: sc.x, z: sc.z, y: sc.y } }, spec); GS.load = [j]; applyLoadout(); return j; } };
+  SCHOOL.mi = i; SCHOOL.m = m; SCHOOL.phase = "run"; SCHOOL.outT = 0; SCHOOL.outWarned = false;
+  if (m.setup) m.setup(ctx);
+  TABLET.notify({ app: sc.id, title: `${sc.short} · ${i + 1}/${sc.missions.length}: ${m.name}`, body: m.brief, kind: "info", ttl: 9 });
+  save();
+}
+function schoolFail(why) {
+  const sc = SCHOOL.sc, m = SCHOOL.m;
+  toast(`${why} The instructor runs you back to the yard. Again.`, "bad");
+  if (m && m.cleanup) m.cleanup(SCHOOL.ctx);
+  SCHOOL.ctx = null;
+  const st = yardStart(sc); schoolPut(st.x, st.z, 0); GS.warmth = Math.max(GS.warmth, 70); heatCool();
+  SCHOOL.phase = "reset"; SCHOOL.retT = gameClock;      // schoolTick restarts it after a breath
+}
+function schoolPass() {
+  const sc = SCHOOL.sc, m = SCHOOL.m, ctx = SCHOOL.ctx, d = schoolDone(sc.id);
+  if (!d.includes(m.id)) d.push(m.id);
+  if (m.cleanup) m.cleanup(ctx);
+  const next = schoolNext(sc);
+  if (next < 0) {
+    GS.lic[sc.id] = true; GS.contracts = null; save();
+    toast(`Passed: ${m.name}. That's the course. The instructor signs your ${sc.licence}.`, "good");
+    SCHOOL.phase = "done"; SCHOOL.retT = gameClock; return;
+  }
+  toast(`Passed: ${m.name}. ${Math.round(ctx.t)} s.${atYard(sc) ? "" : " Ride back to the yard for the next one."}`, "good");
+  GS.load = []; applyLoadout(); save();
+  SCHOOL.phase = "return"; SCHOOL.retT = gameClock;
+}
+const atYard = sc => Math.hypot(P.x - sc.x, P.z - (sc.z + 6)) < 34;
+// quit (or finish): back on your own sled, where you left it, with your loads
+function schoolEnd(how) {
+  if (!SCHOOL.on) return;
+  const sc = SCHOOL.sc;
+  if (SCHOOL.m && SCHOOL.m.cleanup && SCHOOL.ctx) SCHOOL.m.cleanup(SCHOOL.ctx);
+  GS.own = SCHOOL.saved; GS.load = SCHOOL.savedLoad || []; SCHOOL.saved = null; SCHOOL.savedLoad = null;
+  SCHOOL.on = false; SCHOOL.m = null; SCHOOL.ctx = null; SCHOOL.phase = null;
+  restat(); GS.fuel = Math.min(GS.cap, Math.max(SCHOOL.savedFuel, GS.cap * 0.5)); applyLoadout();
+  const p = SCHOOL.park; unpark();
+  if (p) schoolPut(p.x, p.z, p.yaw);
+  if (SCHOOL.beacon) SCHOOL.beacon.visible = false;
+  TABLET.refresh(); save();
+  if (how === "licence") TABLET.notify({ app: sc.id, title: `${sc.licence} granted`, body: sc.id === "freight" ? "Trailer and flatbed work is open in the Freight app, as far as your rank goes." : "You're licensed. Go on duty in the Rescue app.", kind: "good", ttl: 10 });
+  else if (how === "quit") toast(`You hand the key back. Your ${schoolDone(sc.id).length}/${sc.missions.length} passed missions are on file.`);
+}
+// blacking out, or going in, on the course: the school fishes you out, no fees, and you go again
+function schoolBlackout(kind) {
+  schoolUnhelp();
+  GS.warmth = 80; heatCool();
+  schoolFail(kind === "sea" ? "Straight into the water." : "You froze up out there.");
+}
+
+function schoolUnhelp() {
+  if (!HELP.on) return;
+  HELP.on = false; HELP.called = false; P.wet = false; P.sink = 0;
+  if (HELP.rs) HELP.rs.visible = false; if (HELP.cab) HELP.cab.hide();
+}
+/* ---- every frame on the course, and round the yards ---- */
+function schoolSegDist(p, a, b) { const dx = b.x - a.x, dz = b.z - a.z, L = dx * dx + dz * dz || 1, t = clamp(((p.x - a.x) * dx + (p.z - a.z) * dz) / L, 0, 1); return Math.hypot(p.x - a.x - dx * t, p.z - a.z - dz * t); }
+function schoolTick(dt, spd) {
+  // the yards: warm inside, a ping offering the course, the guide beacon
+  let here = null; for (const s of schoolList()) if (s.x !== undefined && Math.hypot(P.x - s.x, P.z - (s.z + 4)) < 36) here = s;
+  if (here !== SCHOOL.here && here && !SCHOOL.on) {
+    if (SCHOOL.guide === here.id) SCHOOL.guide = null;
+    const st = GS.signed[here.id] ? schoolCanStart(here) : "";
+    if (!GS.apps[here.id]) toast(`${here.name}. Download the ${here.id === "freight" ? "Freight" : "Rescue"} app to sign up.`);
+    else if (!GS.signed[here.id]) toast(`${here.name}. Sign up in the ${here.id === "freight" ? "Freight" : "Rescue"} app.`);
+    else if (licensed(here.id)) toast(`${here.name}. Your ${here.licence} is pinned up by the door.`);
+    else if (!here.missions.length) toast(`${here.name}. ${st}`);
+    else if (gameClock - (SCHOOL.pingT[here.id] || -99) > 20) {
+      SCHOOL.pingT[here.id] = gameClock;
+      const n = schoolDone(here.id).length;
+      TABLET.notify({ app: here.id, title: here.name, body: n ? `${n}/${here.missions.length} missions passed. Pick up where you left off?` : `${here.missions.length} short missions on the school's sled, then your ${here.licence}.`, kind: "good", ttl: 20,
+        actions: [{ label: n ? "RESUME COURSE" : "START COURSE", do: () => schoolBegin(here.id) }, { label: "Not now", do: () => { } }] });
+    }
+  }
+  SCHOOL.here = here;
+  if (here && !HELP.on) GS.warmth = Math.min(100, GS.warmth + 12 * dt);
+  for (const s of schoolList()) if (s.beacon) s.beacon.visible = !SCHOOL.on && SCHOOL.guide === s.id;
+  if (!SCHOOL.on) return;
+  const sc = SCHOOL.sc, ctx = SCHOOL.ctx;
+  if (atYard(sc)) GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt);
+  if (SCHOOL.phase === "done") { if (gameClock - SCHOOL.retT > 2.4) schoolEnd("licence"); return; }
+  if (SCHOOL.phase === "return" && atYard(sc) && spd < 4 && gameClock - SCHOOL.retT > 1.8) { SCHOOL.phase = "next"; schoolMission(schoolNext(sc)); return; }
+  if (SCHOOL.phase === "reset" && gameClock - SCHOOL.retT > 1.6) { schoolMission(SCHOOL.mi); return; }
+  if (HELP.on && HELP.kind === "sea" && SCHOOL.phase === "run") { schoolUnhelp(); GS.warmth = Math.max(GS.warmth, 70); schoolFail("Straight into the water."); return; }
+  if (SCHOOL.phase !== "run" || !ctx || GS.dead) { if (SCHOOL.phase !== "reset" && SCHOOL.phase !== "done") schoolLock(dt); return; }
+  ctx.t += dt;
+  // trailer rolls: towStep sets TOW.tipT when it goes over
+  if (TOW.tipT > 2 && !ctx.tipOn) { ctx.tipOn = true; ctx.tips++; } else if (TOW.tipT <= 0) ctx.tipOn = false;
+  const p = ctx.pts[ctx.wi];
+  if (p && Math.hypot(P.x - p.x, P.z - p.z) < (p.r || 14) && (!p.stop || spd < 3)) {
+    ctx.wi++; if (p.onReach) p.onReach(ctx);
+    if (ctx.wi < ctx.pts.length) { if (p.say) toast(p.say); else if (typeof whump === "function") whump(0.15); }
+  }
+  const r = ctx.m.tick ? ctx.m.tick(dt, ctx) : null;
+  if (r && r.fail) { schoolFail(r.fail); return; }
+  if (ctx.wi >= ctx.pts.length && r !== "hold") { schoolPass(); return; }
+  schoolLock(dt);
+}
+// locked to the course: a corridor round the yard, the checkpoints and the way back
+function schoolLock(dt) {
+  const sc = SCHOOL.sc, ctx = SCHOOL.ctx, y = { x: sc.x, z: sc.z }, pts = [y].concat(ctx ? ctx.pts : []).concat([y]);
+  let d = Math.hypot(P.x - y.x, P.z - y.z);
+  for (let i = 0; i + 1 < pts.length; i++) d = Math.min(d, schoolSegDist(P, pts[i], pts[i + 1]));
+  if (d < SCHOOL_CORRIDOR) { SCHOOL.outT = 0; SCHOOL.outWarned = false; return; }
+  SCHOOL.outT += dt;
+  if (!SCHOOL.outWarned) { SCHOOL.outWarned = true; toast("Instructor on the radio: \"That's off the course. Turn round.\"", "warn"); }
+  if (SCHOOL.outT > 6 || d > SCHOOL_HARD) {
+    SCHOOL.outT = 0; SCHOOL.outWarned = false;
+    const back = ctx && ctx.wi > 0 ? ctx.pts[ctx.wi - 1] : yardStart(sc), nx = ctx && ctx.pts[ctx.wi] ? ctx.pts[ctx.wi] : y;
+    schoolPut(back.x, back.z, Math.atan2(nx.x - back.x, nx.z - back.z));
+    toast("The instructor comes out on the school's other sled and leads you back onto the course.", "warn");
+  }
+}
+function schoolTarget() {
+  if (SCHOOL.on) { const c = SCHOOL.ctx; if (SCHOOL.phase === "run" && c && c.pts[c.wi]) return c.pts[c.wi]; return yardStart(SCHOOL.sc); }
+  if (SCHOOL.guide && SCHOOLS[SCHOOL.guide]) return SCHOOLS[SCHOOL.guide];
+  return null;
+}
+function schoolHud(tgt) {
+  const sc = SCHOOL.sc, ctx = SCHOOL.ctx, m = SCHOOL.m, d = Math.hypot(tgt.x - P.x, tgt.z - P.z);
+  $("jobTitle").textContent = `${sc.short} · ${SCHOOL.mi + 1}/${sc.missions.length}: ${m ? m.name : ""}`;
+  if (SCHOOL.phase === "run" && ctx) {
+    const p = ctx.pts[ctx.wi], big = GS.load[0];
+    $("jobSub").textContent = `${p ? p.label || "Next checkpoint" : ""} · ${fmtMi(d)}${big ? " · " + Math.round(big.cond) + "% condition" : ""}${m.hud ? " · " + m.hud(ctx) : ""}`;
+  } else if (SCHOOL.phase === "done") $("jobSub").textContent = "Course passed. Signing your licence.";
+  else if (SCHOOL.phase === "reset") $("jobSub").textContent = "The instructor's setting the course up again";
+  else $("jobSub").textContent = `Ride back to the yard for the next mission · ${fmtMi(d)}`;
+  if (SCHOOL.beacon) {
+    const show = SCHOOL.phase === "run" || SCHOOL.phase === "return";
+    SCHOOL.beacon.visible = show; if (show) SCHOOL.beacon.position.set(tgt.x, groundAt(tgt.x, tgt.z) + 480, tgt.z);
+  }
+}
+
+/* ---- the Freight school's course ---- */
+// a side-hill near the yard: steep enough across to roll a trailer that's driven carelessly, not so steep you can't hold a line
+function planSideHill(sc) {
+  let best = null, bs = 1e9;
+  for (let k = 0; k < 900; k++) {
+    const a = k * 2.399, r = 160 + (k / 900) * 560, x = sc.x + Math.cos(a) * r, z = sc.z + Math.sin(a) * r;
+    if (!okGround(x, z, 0.6)) continue;
+    const e = 8, gx = (groundAt(x + e, z) - groundAt(x - e, z)) / (2 * e), gz = (groundAt(x, z + e) - groundAt(x, z - e)) / (2 * e), gm = Math.hypot(gx, gz);
+    if (gm < 0.2 || gm > 0.42) continue;
+    const ux = -gz / gm, uz = gx / gm, A = { x: x - ux * 85, z: z - uz * 85 }, B = { x: x + ux * 85, z: z + uz * 85 };
+    if (!okGround(A.x, A.z) || !okGround(B.x, B.z) || !lineOk(A, B, 0.5)) continue;
+    // how even the cross-slope is along the run
+    let dev = 0; for (const t of [-0.6, -0.3, 0.3, 0.6]) { const qx = x + ux * 85 * t, qz = z + uz * 85 * t; dev += Math.abs(slopeAt(qx, qz, 8) - gm); }
+    const near = Math.hypot(A.x - sc.x, A.z - sc.z) < Math.hypot(B.x - sc.x, B.z - sc.z) ? [A, B] : [B, A];
+    const sc0 = dev * 2 + Math.abs(gm - 0.3) * 3 + r * 0.0008 + (lineOk(sc, near[0], 0.5) ? 0 : 1);
+    if (sc0 < bs) { bs = sc0; best = { c: { x, z }, A: near[0], B: near[1], gm }; }
+  }
+  if (!best) { const A = { x: sc.x + 140, z: sc.z + 60 }, B = { x: sc.x + 300, z: sc.z + 60 }; best = { c: { x: (A.x + B.x) / 2, z: A.z }, A, B, gm: 0.2 }; }
+  return best;
+}
+// the biggest climb within a kilometre that a loaded sled can actually get up
+function planClimb(sc) {
+  let best = null, bs = -1e9;
+  for (let k = 0; k < 1200; k++) {
+    const a = k * 2.399, r = 250 + (k / 1200) * 900, x = sc.x + Math.cos(a) * r, z = sc.z + Math.sin(a) * r;
+    if (!okGround(x, z, 0.35)) continue;
+    const climb = groundAt(x, z) - sc.y; if (climb < 25) continue;
+    const mid = { x: lerp(sc.x, x, 0.45), z: lerp(sc.z, z, 0.45) };
+    if (!lineOk(sc, mid, 0.5) || !lineOk(mid, { x, z }, 0.48)) continue;
+    const s0 = Math.min(climb, 130) - r * 0.03;
+    if (s0 > bs) { bs = s0; best = { top: { x, z }, mid, climb: Math.round(climb) }; }
+  }
+  if (!best) { const top = { x: sc.x + 400, z: sc.z }; best = { top, mid: { x: sc.x + 200, z: sc.z }, climb: Math.round(groundAt(top.x, top.z) - sc.y) }; }
+  return best;
+}
+// a run out to somewhere 1.1 to 1.7 km off, with a clean enough line there and back
+function planPriority(sc) {
+  let best = null, bs = 1e9;
+  for (let k = 0; k < 900; k++) {
+    const a = k * 2.399, r = 1100 + (k / 900) * 600, x = sc.x + Math.cos(a) * r, z = sc.z + Math.sin(a) * r;
+    if (!okGround(x, z, 0.3)) continue;
+    const mid = { x: lerp(sc.x, x, 0.5), z: lerp(sc.z, z, 0.5) };
+    if (!lineOk(sc, mid, 0.5) || !lineOk(mid, { x, z }, 0.5)) continue;
+    const s0 = Math.abs(groundAt(x, z) - sc.y) * 0.4 + Math.abs(r - 1350) * 0.02;
+    if (s0 < bs) { bs = s0; best = { to: { x, z }, mid, L: r }; }
+  }
+  if (!best) { const to = { x: sc.x - 1200, z: sc.z }; best = { to, mid: { x: sc.x - 600, z: sc.z }, L: 1200 }; }
+  return best;
+}
+// the expedition loop: three checkpoints round the yard, the long way, and home
+function planLoop(sc) {
+  let best = null, bs = 1e9;
+  for (let k = 0; k < 160; k++) {
+    const a0 = (k / 160) * Math.PI * 2, pts = [];
+    for (let i = 0; i < 3; i++) {
+      const a = a0 + i * 1.6, r = 520 + ((k * 7 + i * 3) % 5) * 70, x = sc.x + Math.cos(a) * r, z = sc.z + Math.sin(a) * r;
+      if (!okGround(x, z, 0.35)) break; pts.push({ x, z });
+    }
+    if (pts.length < 3) continue;
+    const chain = [sc].concat(pts).concat([sc]);
+    let ok = true, L = 0, rough = 0;
+    for (let i = 0; i + 1 < chain.length; i++) { if (!lineOk(chain[i], chain[i + 1], 0.5)) { ok = false; break; } L += Math.hypot(chain[i + 1].x - chain[i].x, chain[i + 1].z - chain[i].z); rough += Math.abs(groundAt(chain[i + 1].x, chain[i + 1].z) - groundAt(chain[i].x, chain[i].z)); }
+    if (!ok) continue;
+    const s0 = Math.abs(L - 2600) * 0.01 - Math.min(rough, 160) * 0.05;
+    if (s0 < bs) { bs = s0; best = { pts, L: Math.round(L) }; }
+  }
+  if (!best) best = { pts: [{ x: sc.x + 500, z: sc.z }, { x: sc.x + 500, z: sc.z + 500 }, { x: sc.x, z: sc.z + 500 }], L: 2000 };
+  return best;
+}
+const yardPt = (sc, label) => ({ x: sc.x, z: sc.z + 6, r: 18, stop: true, label: label || "Park it in the yard" });
+SCHOOL.addMission("freight", {
+  id: "hookup", name: "Hook up and hold the side-hill", kind: "HOOKUP · SIDE-HILL",
+  brief: "Back the school sled up to the trailer by the shed and stop to hook on. Then take it across the side-hill and bring it home. Roll it and you start again.",
+  hitch: "none",
+  plan(sc) {
+    const h = planSideHill(sc), tx = sc.x + 16, tz = sc.z - 2;
+    return { side: h, trailer: { x: tx, z: tz }, pts: [
+      { x: tx, z: tz, r: 5.5, stop: true, label: "Stop at the trailer to hook up" },
+      { x: h.A.x, z: h.A.z, r: 18, label: "To the side-hill" },
+      { x: h.c.x, z: h.c.z, r: 20, label: "Across the side-hill, steady" },
+      { x: h.B.x, z: h.B.z, r: 18, label: "Off the side-hill" },
+      yardPt(sc)] };
+  },
+  setup(ctx) {
+    const t = ctx.plan.trailer; ctx.mesh = schoolTrailerMesh(t.x, t.z, Math.PI);
+    ctx.pts[0].onReach = c => {
+      if (c.mesh) { scene.remove(c.mesh); c.mesh = null; }
+      schoolHitch("trailer"); c.load({ cargo: "Two propane cylinders (training)", kg: 110, look: "tanks" });
+      toast("Clunk. Hooked on, chains crossed, lights working. Now the side-hill: slow, and don't turn uphill sharp.", "good");
+    };
+  },
+  tick(dt, ctx) { if (ctx.tips) return { fail: "You rolled the trailer." }; return null; },
+  hud(ctx) { return ctx.wi === 0 ? "creep up to it" : ctx.wi < 4 ? `cross-slope ${Math.round(Math.atan(ctx.plan.side.gm) * 57.3)}°, don't roll it` : "home"; },
+  cleanup(ctx) { if (ctx.mesh) { scene.remove(ctx.mesh); ctx.mesh = null; } }
+});
+SCHOOL.addMission("freight", {
+  id: "climb", name: "Heavy load up the hill", kind: "HEAVY · CLIMB",
+  brief: "Two full fuel drums on the trailer, 300 kg, and the biggest hill round the yard. Keep it moving: stall and dig in and you'll be there all day.",
+  hitch: "trailer",
+  plan(sc) { const c = planClimb(sc); return { climb: c, limit: Math.round(90 + Math.hypot(c.top.x - sc.x, c.top.z - sc.z) / 4 + c.climb * 1.5), pts: [
+    { x: c.mid.x, z: c.mid.z, r: 22, label: "Up the lower slope" }, { x: c.top.x, z: c.top.z, r: 16, stop: true, label: `Stop on top (${c.climb} m up)` }] }; },
+  setup(ctx) { ctx.load({ cargo: "Two fuel drums (training)", kg: 300, look: "drum" }); },
+  tick(dt, ctx) {
+    if (ctx.t > ctx.plan.limit) return { fail: "Out of time on the climb." };
+    if (GS.load[0] && GS.load[0].cond < 30) return { fail: "The drums came off the trailer." };
+    return null;
+  },
+  hud(ctx) { return `${Math.max(0, Math.ceil(ctx.plan.limit - ctx.t))} s of patience left`; }
+});
+SCHOOL.addMission("freight", {
+  id: "priority", name: "Priority run against the clock", kind: "PRIORITY · TIMED",
+  brief: "A furnace blower, fragile, to the marker and straight back before the instructor's stopwatch runs out. Late is a fail; so is breaking it.",
+  hitch: "trailer",
+  plan(sc) { const p = planPriority(sc), limit = Math.round(p.L * 2 * 1.1 / 10.5 + 35); return { run: p, limit, pts: [
+    { x: p.mid.x, z: p.mid.z, r: 26, label: "Out to the marker" }, { x: p.to.x, z: p.to.z, r: 16, label: "Round the marker", say: "Round the marker. Clock's still running." },
+    { x: p.mid.x, z: p.mid.z, r: 26, label: "Back to the yard" }, yardPt(sc, "Stop in the yard")] }; },
+  setup(ctx) { ctx.load({ cargo: "Furnace blower & parts (training)", kg: 60, fragile: true, look: "crate" }); },
+  tick(dt, ctx) {
+    if (ctx.t > ctx.plan.limit) return { fail: "Too slow. The pipes froze." };
+    if (GS.load[0] && GS.load[0].cond < 50) return { fail: "The blower's in pieces." };
+    return null;
+  },
+  hud(ctx) { const l = ctx.plan.limit - ctx.t; return `${l > 0 ? Math.floor(l / 60) + ":" + String(Math.floor(l % 60)).padStart(2, "0") : "0:00"} on the clock`; }
+});
+SCHOOL.addMission("freight", {
+  id: "expedition", name: "Flatbed expedition", kind: "FLATBED · EXPEDITION",
+  brief: "The heavy flatbed with a 360 kg standby generator. Three checkpoints the long way round and back to the yard, with at least 60% of it left.",
+  hitch: "flatbed",
+  plan(sc) { const l = planLoop(sc); return { loop: l, pts: l.pts.map((p, i) => ({ x: p.x, z: p.z, r: 22, label: `Checkpoint ${i + 1} of 3` })).concat([yardPt(sc, "Home to the yard")]) }; },
+  setup(ctx) { ctx.load({ cargo: "Standby generator (training)", kg: 360, bays: 2, look: "bigcrate" }); },
+  tick(dt, ctx) { const j = GS.load[0]; if (j && j.cond < 60) return { fail: "Under 60%. Nobody signs for that." }; return null; },
+  hud(ctx) { return `${(ctx.plan.loop.L / 1000).toFixed(1)} km loop`; }
+});
+
+/* ---- the App Store: Freight, Rescue and Real Estate are downloads; Trail Crew came with the tablet ---- */
 const STORE = [
-  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", icon: TICON.freight, about: "Sign up for Freight school, earn your heavy-haul licence on the school's sleds, then take trailer and flatbed work from anywhere on the peninsula." },
-  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", icon: TICON.rescue, about: "Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." },
-  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", icon: TICON.realestate, about: "Buy a depot cabin. Tourists rent it while you're out, and it keeps a fuel cache topped up for you." }
+  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority and expedition freight, each with its own pickup and drop-off." },
+  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." },
+  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent." },
+  { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true }
 ];
+function storeGet(id) {
+  const s = STORE.find(x => x.id === id); if (!s || s.builtin || GS.apps[id]) return;
+  if (GS.cash < s.price) { toast(`${s.name} costs $${s.price}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= s.price; GS.apps[id] = 1; tabPing("good"); save();
+  toast(id === "realestate" ? `Real Estate installed. Listings open with the next update.` : `${s.name} installed. Open it to sign up for ${s.name} school.`, "good");
+  TABLET.render();
+}
 TABLET.register({
-  id: "store", name: "App Store", icon: TICON.store, order: 7,
+  id: "store", name: "App Store", icon: TICON.store, order: 9,
+  badge: () => STORE.filter(s => !s.builtin && !GS.apps[s.id]).length || "",
   render(el) {
-    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work")}<div class="tstore">${STORE.map(s => `<div class="tsto" data-tf="st:${s.id}"><span class="tic">${s.icon}</span><div><div class="tct"><span>${s.name}</span>${chip("COMING SOON")}</div><div class="tcm">${s.by}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn blocked" disabled>GET</button></div>`).join("")}</div><p class="tnote2">Coming with the next update. Contracts keeps the freight, grooming and call-out work going until then.</p></div>`;
+    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work", fmtCash(GS.cash))}<div class="tstore">${STORE.map(s => {
+      const have = s.builtin || GS.apps[s.id], poor = !have && GS.cash < s.price;
+      return `<div class="tsto" data-tf="st:${s.id}"><span class="tic">${s.icon}</span><div><div class="tct"><span>${s.name}</span>${have ? chip("INSTALLED", "ok") : chip(s.price ? "$" + s.price : "FREE")}</div><div class="tcm">${s.by}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn${have ? " ghost" : poor ? " blocked" : ""}" data-get="${s.id}">${have ? "OPEN" : "GET"}</button></div>`;
+    }).join("")}</div><p class="tnote2">One-off prices, no subscriptions. Freight and Rescue each come with a sign-up for their licence school.</p></div>`;
+    for (const b of el.querySelectorAll("[data-get]")) b.addEventListener("click", () => { const id = b.dataset.get; if (GS.apps[id] || id === "crew") TABLET.go(id); else storeGet(id); });
+  }
+});
+
+/* ---- shared contract cards (Freight, Trail Crew, and the tours in Parcels) ---- */
+const conFrom = c => c.from || depot;
+const conKm = c => conFrom(c) === depot ? routeKm(c.dest) : Math.hypot(c.dest.x - conFrom(c).x, c.dest.z - conFrom(c).z) * 1.15 / 1000;
+const conClimb = c => conFrom(c) === depot ? climbOf(c.dest) : Math.round(Math.max(0, c.dest.y - conFrom(c).y));
+const bigTag = j => j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
+function conCard(c, k) {
+  if (c.locked) return tabCard({ cls: "locked", title: c.locked, chips: chip("LOCKED"), meta: tabEsc(c.sub) });
+  const why = contractBlock(c), d = c.dest, f = conFrom(c), km = conKm(c).toFixed(1), g = groom[d.id] || 0, here = GS.near === f;
+  if (c.rescue) TABLET.miniDest[d.id] = d;
+  const tag = c.tour ? "aurora" : c.rescue ? "recovery" : c.groom ? "grooming" : bigTag(c);
+  let title = c.cargo, meta, note, pay = fmtCash(c.pay * payMul()), lbl, chips = chip(tag === "aurora" ? "AURORA · " + AUR.word(AUR.v).toUpperCase() : tag.toUpperCase(), tag);
+  if (c.tour) {
+    meta = `Kjøllefjord quay → ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
+    note = `<span class="why">${tabEsc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the ferry want the lights from ${tabEsc(c.dest.why)}.</span> They pay by how strong the aurora is when you get there, a third if it's faded. They ride behind you, not on the rack.`;
+    pay = "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()); lbl = atQuay() ? "TAKE THEM UP" : "BOOK THEM";
+  } else if (c.rescue) {
+    chips += c.comps.map(x => chip(({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x], x === "short" || x === "hurt" ? "due" : "")).join("") + chip("CLOCK " + fmtTime(c.due), "due");
+    meta = `${tabEsc(d.name)} · ≈ ${km} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}`;
+    note = `<span class="why">${tabEsc(c.why)}</span> Park on the rim, walk the line out and hook on, strap your sled back to a tree and reel them out. About ${c.reach} m of line to do it in one pull.`;
+    lbl = "TAKE THE CALL";
+  } else if (c.groom) {
+    chips += chip("DUE " + fmtTime(c.due), "due") + (GS.own.parts.hitch === "tiller" ? chip("WIDE PAYS MORE", "ok") : "");
+    meta = `${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km of line from the quay to ${shortName(d)} · climb ${climbOf(d)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`;
+    note = "Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much you groom, more for a clean line, and up to a third more again if the wing tiller lays it wide (G for the wings).";
+    lbl = "TAKE THE LINE";
+  } else {
+    if (c.due) chips += chip("DUE " + fmtTime(c.due), "due");
+    if (f !== depot) chips += chip("PICKUP " + shortName(f).toUpperCase());
+    meta = `${f === depot ? "Kjøllefjord quay" : shortName(f)} → ${shortName(d)} · ≈ ${km} km · climb ${conClimb(c)} m · ${c.kg} kg${c.fragile ? " · fragile" : ""}${here ? " · pickup is here" : " · pickup " + fmtMi(Math.hypot(f.x - P.x, f.z - P.z)) + " from you"}`;
+    note = `${c.why ? `<span class="why">${tabEsc(c.why)}</span> ` : ""}Pays by condition, refused below 30%. The $${c.bond} bond comes back if it arrives whole${c.priority ? " and on time" : ""}.${c.bays > 1 ? " Takes the whole flatbed." : ""}${c.due ? ` Due ${fmtTime(c.due)}${c.priority ? ", late and they keep the bond" : ", late pays half"}.` : ""}`;
+    lbl = here ? "STRAP IT DOWN" : "CLAIM";
+  }
+  return tabCard({ tf: "con:" + k, mini: `${c.tour || c.groom || c.rescue ? "depot" : f.id}|${d.id}|${c.groom ? "g" : c.tour ? "t" : c.rescue ? "r" : ""}`, title, chips, meta, note, warn: why, pay, act: "con:" + k, actLabel: lbl, blocked: !!why });
+}
+function conBind(el) {
+  for (const b of el.querySelectorAll("[data-act^=con]")) b.addEventListener("click", () => takeContract(+b.dataset.act.split(":")[1]));
+  tabMinis(el);
+}
+// GS.contracts holds every contract (indices are what takeContract wants); each app shows its own slice of it
+function conList(test) { let h = "", n = 0; TABLET.miniDest = {}; (GS.contracts || []).forEach((c, k) => { if (test(c)) { h += conCard(c, k); n++; } }); return { h, n }; }
+const isFreightCon = c => c.big || (c.locked && /freight|priority|expedition/i.test(c.locked));
+const isCrewCon = c => c.groom || c.rescue || (c.locked && /groom|recovery/i.test(c.locked));
+
+/* ---- the school card, shared by Freight and Rescue ---- */
+function schoolCard(sc) {
+  const sg = GS.signed[sc.id], lic = licensed(sc.id), done = schoolDone(sc.id), on = SCHOOL.on && SCHOOL.sc === sc, d = sc.x !== undefined ? Math.hypot(sc.x - P.x, sc.z - P.z) : 0;
+  let h = sec(sc.short, lic ? "licensed" : !sc.missions.length ? "course coming" : sg ? `${done.length}/${sc.missions.length} passed` : "");
+  if (lic) return h + `<p class="tnote2">${chip(sc.licence.toUpperCase(), "ok")} Signed at ${sc.name}. It's pinned up by the door.</p>`;
+  const list = sc.missions.map((m, i) => `<div class="tsm2${done.includes(m.id) ? " ok" : on && SCHOOL.mi === i ? " now" : ""}"><b>${i + 1}</b><span>${tabEsc(m.name)}</span>${chip(done.includes(m.id) ? "PASSED" : on && SCHOOL.mi === i ? "NOW" : m.kind, done.includes(m.id) ? "ok" : on && SCHOOL.mi === i ? "due" : "")}</div>`).join("")
+    || `<p class="tnote2">The instructors are still writing this course. Sign up now and it opens with the rescue update.</p>`;
+  let act = "", lbl = "", note = "";
+  if (on) { act = "sq"; lbl = "QUIT THE COURSE"; note = `On the course now: ${tabEsc(SCHOOL.m ? SCHOOL.m.name : "")}. ${tabEsc(SCHOOL.m ? SCHOOL.m.brief : "")} Quitting keeps what you've passed.`; }
+  else if (!sg) { act = "su"; lbl = "SIGN UP FOR SCHOOL"; note = `Free with the app. ${sc.name} is ${fmtMi(d)} from you; signing up pins it on the Map and points the arrow there. On the course you ride the school's sled and your own waits in the yard.`; }
+  else if (SCHOOL.here === sc && sc.missions.length) { act = "sb"; lbl = done.length ? "RESUME COURSE" : "START COURSE"; note = "You're in the yard. Your sled and anything on it stays parked here until you finish or quit."; }
+  else { act = "sg"; lbl = SCHOOL.guide === sc.id ? "STOP GUIDING" : "GUIDE ME THERE"; note = `${sc.name}, ${fmtMi(d)} from you. Stop in the yard to start.`; }
+  h += tabCard({ tf: "sch:" + sc.id, title: sc.name, chips: sg ? chip("SIGNED UP", "ok") : chip("SCHOOL"), meta: `${sc.missions.length ? sc.missions.length + " missions on the school's Matriarch 850T" : "course being written"} · licence at the end`, note, pay: "", act: "sch:" + act, actLabel: lbl, blocked: act === "sb" && !!schoolCanStart(sc) });
+  return h + (sc.missions.length ? `<div class="tsml2">${list}</div>` : list);
+}
+function schoolBind(el, sc) {
+  for (const b of el.querySelectorAll("[data-act^=sch]")) b.addEventListener("click", () => {
+    const a = b.dataset.act.split(":")[1];
+    if (a === "su") schoolSignUp(sc.id);
+    else if (a === "sb") schoolBegin(sc.id);
+    else if (a === "sq") schoolEnd("quit");
+    else if (a === "sg") { SCHOOL.guide = SCHOOL.guide === sc.id ? null : sc.id; TABLET.render(); }
+  });
+}
+
+/* ---- Freight: heavy, priority and expedition contracts, behind the licence and the ranks ---- */
+TABLET.register({
+  id: "freight", name: "Freight", icon: TICON.freight, order: 5,
+  hidden: () => !GS.apps.freight,
+  badge: () => licensed("freight") ? (GS.contracts || []).filter(c => c.big).length || "" : SCHOOL.on && SCHOOL.sc === SCHOOLS.freight ? "!" : "",
+  onOpen() { tabWork(); ctRoutes(); },
+  render(el) {
+    const sc = SCHOOLS.freight, lic = licensed("freight"), bg = bigLoads().filter(j => !j.school);
+    let h = tabHead("FREIGHT · NORDKINN FRAKT AS", "Freight", fmtCash(GS.cash));
+    h += `<div class="tsub">${lic ? chip("FREIGHT LICENCE", "ok") + " " : ""}${rankOf(GS.delivered).name} · ${HITCH_ON[GS.own.parts.hitch]}${ST.bays ? ` · ${baysUsed()}/${ST.bays} bays` : ""}${claimBays() ? ` · ${claimBays()} claimed` : ""}</div>`;
+    h += schoolCard(sc);
+    if (bg.length) { h += sec("Under way", ""); for (const j of bg) h += tabCard({ tf: "bg:" + j.cargo, mini: `${conFrom(j).id}|${j.dest.id}`, title: j.cargo, chips: chip(bigTag(j).toUpperCase(), bigTag(j)) + (j.due ? chip("DUE " + fmtTime(j.due), "due") : ""), meta: `to ${shortName(j.dest)} · ${Math.round(j.cond)}% condition · ${j.kg} kg`, pay: fmtCash(j.pay * payMul()) }); }
+    const cl = GS.claims.filter(j => j.big);
+    if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((c, i) => { h += tabCard({ tf: "fcl:" + i, mini: `${conFrom(c).id}|${c.dest.id}`, title: c.cargo, chips: chip(bigTag(c).toUpperCase(), bigTag(c)), meta: `pick up at ${conFrom(c).name} (${fmtMi(Math.hypot(conFrom(c).x - P.x, conFrom(c).z - P.z))} from you), then to ${shortName(c.dest)} · $${c.bond} bond at pickup`, pay: fmtCash(c.pay * payMul()) }); }); }
+    const { h: ph, n } = conList(isFreightCon);
+    h += sec("Posted", lic ? "claim it, ride to the P, strap it down; at the P it loads straight on" : "your licence opens these");
+    h += n ? ph : `<p class="tnote2">Nothing posted right now.</p>`;
+    h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}.</p>`;
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    conBind(el); schoolBind(el, sc);
+  }
+});
+
+/* ---- Trail Crew: grooming (and, until the Rescue career, volunteer recovery call-outs) ---- */
+TABLET.register({
+  id: "crew", name: "Trail Crew", icon: TICON.crew, order: 5.5,
+  badge: () => (GS.contracts || []).filter(c => c.groom || c.rescue).length || "",
+  onOpen() { tabWork(); ctRoutes(); updGroom(); },
+  render(el) {
+    let h = tabHead("TRAIL CREW · NORDKINN LØYPELAG", "Trail Crew", fmtCash(GS.cash));
+    h += `<div class="tsub">${HITCH_ON[GS.own.parts.hitch]}${GS.own.parts.hitch === "tiller" ? ` · wings ${TOW.wingOn ? "out (5.8 m)" : "folded (2.6 m)"}` : ""} · ${ST.winch ? ["", "hand", "electric", "heavy-duty"][ST.winch] + " winch" : "no winch"}</div>`;
+    if (GS.groomJob || GS.rescueJob) {
+      h += sec("Under way", "");
+      if (GS.groomJob) { const g = GS.groomJob, wf = g.pts.length ? g.pts.filter(q => q.wide).length / g.pts.length : 0; h += tabCard({ tf: "gj", mini: `depot|${g.dest.id}|g`, title: g.cargo, chips: chip("GROOMING", "grooming") + (wf >= 0.6 ? chip("WIDE TRAIL", "ok") : ""), meta: `${Math.round(groomFrac(g) * 100)}% of the line groomed · ${Math.round(wf * 100)}% of it wide · due ${fmtTime(g.due)}`, pay: fmtCash(g.pay * payMul()) }); }
+      if (GS.rescueJob) h += tabCard({ tf: "rj", title: GS.rescueJob.cargo || "Recovery call-out", chips: chip("RECOVERY", "recovery"), meta: `clock runs out ${fmtTime(GS.rescueJob.due)}`, pay: fmtCash(GS.rescueJob.pay * payMul()) });
+    }
+    const gr = conList(c => c.groom || (c.locked && /groom/i.test(c.locked)));
+    h += sec("Grooming", "lines out from the quay"); h += gr.n ? gr.h : `<p class="tnote2">No lines posted right now.</p>`;
+    const rc = conList(c => c.rescue || (c.locked && /recovery/i.test(c.locked)));
+    if (rc.n) { h += sec("Volunteer recovery", "stuck riders, no licence needed"); h += rc.h; }
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    // conList resets miniDest per call, so collect the rescue sites again before the minis draw
+    TABLET.miniDest = {}; for (const c of GS.contracts || []) if (c.rescue) TABLET.miniDest[c.dest.id] = c.dest;
+    conBind(el);
+  }
+});
+
+/* ---- Rescue: the school (O5 writes its missions and the on-duty career) ---- */
+TABLET.register({
+  id: "rescue", name: "Rescue", icon: TICON.rescue, order: 7,
+  hidden: () => !GS.apps.rescue,
+  render(el) {
+    const sc = SCHOOLS.rescue, lic = licensed("rescue");
+    let h = tabHead("RESCUE · NORDKINN REDNING", "Rescue", fmtCash(GS.cash));
+    h += `<div class="tsub">${lic ? chip("RESCUE LICENCE", "ok") + " " : ""}${GS.rescues || 0} rescue${GS.rescues === 1 ? "" : "s"} on file · ${(RRANKS || []).reduce((r, x) => (GS.rescues || 0) >= x.at ? x : r, RRANKS[0]).name}</div>`;
+    h += schoolCard(sc);
+    h += sec("On duty", "");
+    h += `<p class="tnote2">${lic ? "The duty roster and dash callouts come with the rescue update." : "Once you're licensed you'll go on duty here, and callouts will ping the dash."} Until then, volunteer recovery call-outs are posted in Trail Crew.</p>`;
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    schoolBind(el, sc);
+  }
+});
+
+/* ---- Real Estate: installed now, listings with the Marketplace & Real Estate update ---- */
+TABLET.register({
+  id: "realestate", name: "Real Estate", icon: TICON.realestate, order: 8,
+  hidden: () => !GS.apps.realestate,
+  render(el) {
+    el.innerHTML = `<div class="tapp">${tabHead("REAL ESTATE · FINNMARK EIENDOM", "Depot cabins", fmtCash(GS.cash))}
+      ${sec("Listings", "")}<p class="tnote2">No listings yet. Depot cabins go on sale with the next update: buy one through this app, rent it to tourists while you're out, and keep a fuel cache there that's paid for out of your account every week.</p>
+      <p class="tnote2">Your depots will show on the Map app's Depots layer.</p></div>`;
   }
 });
 
@@ -5872,7 +6462,8 @@ function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.s
 // the sled the settings are painting: whatever the garage is previewing, else the one you own
 const paintSled = () => (PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef();
 function liveryOf(sd) {
-  const L = sd.livery, o = SET.paint[sd.id] || {};
+  const sch = typeof SCHOOL !== "undefined" && SCHOOL.on && sd.id === SCHOOL_SLED && GS.own.sled === SCHOOL_SLED;   // the school sled wears the school's colours
+  const L = sch ? SCHOOL_LIVERY[SCHOOL.sc.id] : sd.livery, o = sch ? {} : SET.paint[sd.id] || {};
   return { body: o.body || L.body, panel: L.panel, trim: L.trim, seat: o.seat || L.seat, stock: !o.body && !o.seat };
 }
 function setPaint(sd, key, val) {
@@ -7543,18 +8134,20 @@ function updGame(dt, spd) {
   fuelStep(dt, spd);
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
-  if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
-  if (near && spd < 4 && GS.claims.length) collectClaims(near);
-  if (near === depot && spd < 4 && GS.mail.length) mailHandIn();
+  schoolTick(dt, spd);
+  const work = near && spd < 4 && !SCHOOL.on;           // on a school course your own loads are parked in the yard
+  if (work && GS.load.some(j => j.dest === near)) deliver(near);
+  if (work && GS.claims.length) collectClaims(near);
+  if (work && near === depot && GS.mail.length) mailHandIn();
   mailTick(dt); updMailHud(dt);
-  if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
+  if (work && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
-  if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
+  if (work && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
   if (GS.tour && spd < 5 && Math.hypot(P.x - GS.tour.view.x, P.z - GS.tour.view.z) < 26) tourArrive();
   // the job board has no key for now (the tablet replaces it), so tourists simply climb on when you stop at
   // the quay while an aurora is up; once per visit
   if (near !== depot) GS.tourHere = false;
-  else if (!GS.tour && !GS.tourHere && spd < 4 && AUR.v > 0.38 && !GS.dead) {
+  else if (!GS.tour && !GS.tourHere && spd < 4 && AUR.v > 0.38 && !GS.dead && !SCHOOL.on) {
     GS.tourHere = true; const v = pick(LOOKOUTS);
     acceptTour({ dest: v, pax: pick(TOUR_PAX), pay: tourBase(v) });
   }
@@ -7569,7 +8162,7 @@ function updGame(dt, spd) {
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   const clSites = !GS.load.length && GS.claims.length ? new Set(GS.claims.map(j => j.from || depot)) : null;
-  for (const s of SITES) if (s.beacon) s.beacon.visible = GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0));
+  for (const s of SITES) if (s.beacon) s.beacon.visible = SCHOOL.on || SCHOOL.guide ? false : GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0));
   const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt); updSteamer(dt);
 
@@ -7603,11 +8196,16 @@ function updGameHud() {
   const pend = !rjv && !GS.tour && !GS.load.length && !GS.groomJob && pendingPickup();
   if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
   else if (!rjv && !GS.tour && !GS.load.length && !GS.groomJob && GS.claims.length) { let bd = 1e9; for (const j of GS.claims) { const f = j.from || depot, d = Math.hypot(f.x - P.x, f.z - P.z); if (d < bd) { bd = d; tgt = f; } } }
+  // the licence schools: on a course the arrow follows the checkpoints; signed up, it takes you to the yard when you're not carrying anything
+  const stg = schoolTarget(), sGuide = !SCHOOL.on && stg && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && !pend && !GS.claims.length;
+  if (SCHOOL.on || sGuide) tgt = stg;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
   $("arrow").style.color = GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
-  if (rjv) {
+  if (SCHOOL.on) schoolHud(tgt);
+  else if (sGuide) { $("jobTitle").textContent = `To ${tgt.name}`; $("jobSub").textContent = `${tgt.short} · ${fmtMi(dist)} · stop in the yard to start`; }
+  else if (rjv) {
     const c = GS.rescueJob, left = c.due - GS.hour, n = RJ.vs.filter(v => !v.freed).length;
     $("jobTitle").textContent = `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`;
     $("jobSub").textContent = `${fmtMi(rjv.d)} · $${Math.round(c.pay * payMul())} · ${left > 0 ? `clock runs out ${fmtTime(c.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}`;
@@ -7772,6 +8370,7 @@ function newGame() {
   GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.claims = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
   Object.assign(LOG, LOG0());
   GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
+  if (SCHOOL.on) schoolEnd("quiet"); GS.apps = {}; GS.lic = {}; GS.signed = {}; GS.sdone = {}; SCHOOL.guide = null;
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -8892,7 +9491,8 @@ const GOD_ITEMS = [
       else { WX.force = { v: 1, until: GS.hour + 3 }; toast("Storm called in for three hours.", "warn"); }
     } },
   { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
-  { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels and Contracts."); } },
+  { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels, Freight and Trail Crew."); } },
+  { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted."); } },
   { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
 ];
 function godTeleport(s) {
@@ -8967,7 +9567,7 @@ addEventListener("keydown", e => {
 function boot() {
   genWorld(); computeSites(); placeQuay(); computeStations(); computeFuelCabins(); meltBuild();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
+  buildFar(); buildProps(); buildSites(); buildSchools(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];

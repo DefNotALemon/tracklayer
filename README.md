@@ -36,14 +36,28 @@ you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it
 running and you can still steer, you just can't see much trail. In third person it opens as a big
 overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
 **Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
-**Weather**, **Calendar**, **Contracts** (heavy freight, priority, expedition, grooming, tours and
-call-outs, for now), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
+**Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
+you've a winch), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
 Take a job where it's waiting and it goes straight on the sled; take it anywhere else and you
 claim it, and it loads when you stop at its **P**. Your first six deliveries are round town, picked
 up at the quay. After that the work comes to you: every drop-off posts parcels from wherever you
 are, mostly short hops to places within a few kilometres plus a long haul or two across the map.
 Pings on the dash (with a banner when the tablet's down) tell you when something comes up.
+
+## Apps and licences
+
+The **App Store** sells three more apps: **Freight** ($120), **Rescue** ($90) and **Real Estate**
+($50). Freight and Rescue each come with a sign-up for their licence school: the **Nordkinn Frakt
+training yard** south-east of town, under Gartefjellet, and the **Nordkinn Redning base** out west
+toward Lebesby. Sign up and the school is pinned on the Map and the arrow takes you there; stop in
+the yard to start. On the course you ride the school's Matriarch 850T (your own sled waits in the
+yard with anything on it) and stay on the course or the instructor fetches you back. Freight school
+is four short missions: hook up a trailer and hold a side-hill, drag 300 kg up the big hill, a
+timed priority run with a fragile load, and a flatbed expedition loop. Pass them all for your
+**Freight licence**, which opens heavy, priority and expedition freight in the Freight app (your
+courier rank still decides which). Aurora tours are posted in Parcels. Rescue school's course and
+the Real Estate listings come with later updates.
 
 ## The ferry and the mail
 
