@@ -2573,12 +2573,13 @@ function physStep(dt) {
       // planing or settling: under planing speed the water stops holding you up
       if (spd < VPLANE) P.sink += ((1 - spd / VPLANE) * 1.2 + 0.1) * dt;
       else P.sink = Math.max(0, P.sink - 0.9 * dt);
-      // the rooster tail
-      sprayAcc += (1.5 + Math.abs(vl) * 0.5) * Math.min(spd, 30) * dt;
+      // the rooster tail: a big wall of water thrown up and back off the track, plus curtains off both sides (much heavier than the first pass)
+      sprayAcc += (14 + Math.abs(vl) * 1.8) * Math.min(spd, 32) * dt;
       while (sprayAcc > 1) {
         sprayAcc -= 1;
-        const side = (Math.random() - 0.5) * 0.6;
-        emit(P.x - fx * 1.7 + lx * side, P.wl + 0.05, P.z - fz * 1.7 + lz * side, -fx * spd * 0.35 + vx * 0.2, 2.5 + spd * 0.22, -fz * spd * 0.35 + vz * 0.2, 1.2, 1.3);
+        const side = (Math.random() - 0.5) * 1.5;
+        emit(P.x - fx * 1.7 + lx * side, P.wl + 0.05, P.z - fz * 1.7 + lz * side, -fx * spd * 0.5 + vx * 0.2, 4 + spd * 0.4 + Math.random() * 3, -fz * spd * 0.5 + vz * 0.2, 2.6, 1.9);
+        if (Math.random() < 0.45) { const s = Math.random() < 0.5 ? -1 : 1; emit(P.x - fx * 0.6 + lx * s * 0.7, P.wl + 0.05, P.z - fz * 0.6 + lz * s * 0.7, -fx * spd * 0.2 + vx * 0.3 + lx * s * (3 + spd * 0.2), 2 + spd * 0.15, -fz * spd * 0.2 + vz * 0.3 + lz * s * (3 + spd * 0.2), 1.6, 1.3); }
       }
     } else
     sprayAcc += (exc * 60 + 0.4 + (P.ice ? 0 : Math.abs(vl) * 0.8)) * Math.min(spd, 30) * dt * (P.ice ? 0.3 : 1);
