@@ -3728,7 +3728,100 @@ function computeSites() {
   SPAWN.x = depot.x; SPAWN.z = depot.z + 6; SPAWN.yaw = Math.PI;
 }
 function nearSite(x, z, r) {
-  return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < Math.max(r, s.clear || 0) || Math.hypot(x - s.x + 11, z - s.z) < r));
+  return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < Math.max(r, s.clear || 0) || Math.hypot(x - s.x + 11, z - s.z) < r))
+    || STATIONS.some(t => t.x !== undefined && Math.hypot(x - t.x, z - t.z) < Math.max(r, 30));
+}
+
+/* ---------------- fuel: gas stations, cabins that sell it, tips (winter update O3, section 6) ----------------
+   Three stations at the mainstream spots: Kjøllefjord, Mehamn and Lebesby, each a few hundred metres' ride out of
+   the village on the side the road would come in (there's no road on the map: it's shut half the winter), with
+   normal prices. About a quarter of the remote cabins and villages with no station sell it from a jerry-can rack at
+   FUEL.markup x the pump price. Stop at a pump (or a fuel cabin) and the tank fills at FUEL.rate L/s, charged by the
+   litre as it goes. Some parcels pay part of the reward as fuel: j.tipL litres, shown as "+12 L" next to the cash. */
+const FUEL = { price: 2.5, markup: 1.6, rate: 6, tipVal: 0.8, reach: 16, share: 0.25 };
+const STATIONS = [
+  { id: "st_kjollefjord", name: "Kjøllefjord Drivstoff", near: "depot", price: 2.45, r0: 130, dir: 0.35 },
+  { id: "st_mehamn", name: "Mehamn Drivstoff", near: "mehamn", price: 2.6, r0: 100, dir: 2.2 },
+  { id: "st_lebesby", name: "Lebesby Drivstoff", near: "lebesby", price: 2.55, r0: 100, dir: -0.6 }
+];
+const fuelFmt = v => "$" + v.toFixed(2) + "/L";
+function computeStations() {
+  const taken = [];
+  for (const t of STATIONS) {
+    const site = t.near === "depot" ? depot : SITES.find(q => q.id === t.near);
+    let best = null, bs = 1e9;
+    for (let ri = 0; ri < 9; ri++) for (let k = 0; k < 36; k++) {
+      const r = t.r0 + ri * 12, a = k / 36 * Math.PI * 2, x = site.x + Math.cos(a) * r, z = site.z + Math.sin(a) * r;
+      if (Math.abs(x) > HALF - 220 || Math.abs(z) > HALF - 220) continue;
+      let ok = true;
+      for (const [dx, dz] of [[0, 0], [14, 0], [-14, 0], [0, 10], [0, -10], [12, 8], [-12, -8], [12, -8], [-12, 8]]) {
+        if (isSea(x + dx, z + dz) || bioAt(x + dx, z + dz) !== 0 || groundAt(x + dx, z + dz) < SEA + 4) { ok = false; break; }
+      }
+      if (!ok) continue;
+      if (SITES.some(q => q.x !== undefined && q !== site && Math.hypot(q.x - x, q.z - z) < 70) || taken.some(q => Math.hypot(q.x - x, q.z - z) < 300)) continue;
+      const sl = slopeAt(x, z, 8) + slopeAt(x - 8, z, 6) + slopeAt(x + 8, z, 6) + slopeAt(x, z + 6, 6) + slopeAt(x, z - 6, 6);
+      const sc = sl * 40 + Math.abs(((a - t.dir + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * 4 + ri * 0.5;
+      if (sc < bs) { bs = sc; best = [x, z]; }
+    }
+    if (!best) best = flatSpot(site.x + Math.cos(t.dir) * t.r0, site.z + Math.sin(t.dir) * t.r0, 60);
+    t.x = best[0]; t.z = best[1]; t.y = groundAt(t.x, t.z); t.site = site; t.fuelPrice = t.price; t.kind = "station";
+    t.ry = Math.atan2(-(site.z - t.z), site.x - t.x);            // the forecourt's long axis points back at the village
+    taken.push(t);
+  }
+}
+// a quarter of the remote cabins (anything that's a cabin and hasn't got a station) sell fuel at ~1.6x: always the same ones
+function computeFuelCabins() {
+  const pool = SITES.filter(q => q.type === "cabin" && !STATIONS.some(t => t.near === q.id)).sort((a, b) => a.id < b.id ? -1 : 1), rnd = mulberry32(9161);
+  for (let i = pool.length - 1; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const n = Math.max(1, Math.round(pool.length * FUEL.share));
+  for (const q of pool.slice(0, n)) { q.fuelMult = FUEL.markup; q.fuelPrice = Math.round(FUEL.price * FUEL.markup * 20) / 20; }
+}
+// every place that sells fuel, for the Map app and the low-fuel hint
+function fuelPoints() {
+  const out = STATIONS.filter(t => t.x !== undefined).map(t => ({ x: t.x, z: t.z, name: t.name, kind: "station", price: t.fuelPrice }));
+  for (const q of SITES) if (q.fuelPrice) out.push({ x: q.x, z: q.z, name: shortName(q), kind: "cabin", price: q.fuelPrice });
+  return out;
+}
+function nearestFuel() {
+  let b = null, bd = 1e9;
+  for (const p of fuelPoints()) { const d = Math.hypot(p.x - P.x, p.z - P.z); if (d < bd) { bd = d; b = p; } }
+  return b ? { name: b.name, d: bd, price: b.price } : null;
+}
+function fuelSpot() {
+  for (const t of STATIONS) if (t.x !== undefined && Math.hypot(P.x - t.x, P.z - t.z) < FUEL.reach) return t;
+  const n = GS.near; return n && n.fuelPrice ? n : null;
+}
+// stopped at a pump: the tank fills and the till rings, a litre at a time; toast when you're full, broke or gone
+const FS = { spot: null, L: 0, cost: 0, paid: 0, broke: false };
+function fuelEnd(why) {
+  const sp = FS.spot; if (!sp) return;
+  const owe = Math.round(FS.cost) - FS.paid; if (owe > 0) GS.cash = Math.max(0, GS.cash - owe);
+  if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `Pulled off the pump: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
+  else if (why === "broke" && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. You can't afford a splash of it.`, "warn");
+  FS.broke = why === "broke";
+  FS.spot = null; FS.L = FS.cost = FS.paid = 0; save();
+}
+function fuelStep(dt, spd) {
+  const sp = GS.dead || HELP.on || FOOT.on ? null : fuelSpot(), room = GS.cap - GS.fuel;
+  if (sp && spd < 4 && room > 0.02) {
+    if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
+    const want = Math.min(FUEL.rate * dt, room), afford = Math.max(0, (GS.cash - (FS.cost - FS.paid)) / sp.fuelPrice), l = Math.min(want, afford);
+    if (l > 0) {
+      GS.fuel += l; FS.L += l; FS.cost += l * sp.fuelPrice; GS.outWarned = GS.lowWarned = false; FS.broke = false;
+      const due = Math.floor(FS.cost) - FS.paid; if (due > 0) { GS.cash -= due; FS.paid += due; }
+    }
+    if (l < want - 1e-6) fuelEnd("broke");
+  } else if (FS.spot) fuelEnd(room <= 0.02 ? "full" : "left");
+  else if (!sp || spd >= 4) FS.broke = false;
+}
+// tips: some parcels pay part of the reward as fuel. The cash comes down by the litres at ~0.8x the pump price.
+const tipLiters = j => j.tipL ? Math.max(1, Math.round(j.tipL * payMul())) : 0;
+const payTxt = j => fmtCash(j.pay * payMul()) + (j.tipL ? " +" + tipLiters(j) + " L" : "");
+function fuelTip(j, chance, lo, hi) {
+  if (Math.random() >= chance) return j;
+  const L = lo + ((Math.random() * (hi - lo + 1)) | 0), cut = round5(L * FUEL.price * FUEL.tipVal);
+  if (j.pay - cut < 15) return j;
+  j.tipL = L; j.pay -= cut; return j;
 }
 
 /* ---------------- building kit: shared by the villages and the town ---------------- */
@@ -3913,6 +4006,74 @@ function buildSites() {
     const bc = s.type === "depot" ? 0x7fc8e0 : 0xff5a1f;
     s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: bc, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
     s.beacon.position.set(s.x, s.y + 480, s.z); s.beacon.visible = false; scene.add(s.beacon);
+  }
+}
+
+/* ---- gas stations and fuel cabins: low-poly models ---- */
+function fuelSignTex(price) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 224; const g = c.getContext("2d");
+  g.fillStyle = "#16324a"; g.fillRect(0, 0, 256, 224);
+  g.fillStyle = "#d98a14"; g.fillRect(0, 0, 256, 38); g.fillRect(0, 190, 256, 34);
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "#16324a"; g.font = "700 28px 'Barlow Semi Condensed', Arial, sans-serif"; g.fillText("DRIVSTOFF", 128, 20); g.fillText("$ PER LITRE", 128, 207);
+  g.fillStyle = "#f4efe3"; g.font = "700 96px 'Barlow Semi Condensed', Arial, sans-serif"; g.fillText(price.toFixed(2), 128, 112);
+  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4; return tex;
+}
+function buildStations() {
+  const { woodD, snowM, metal, glowM, L, white } = KIT;
+  const redM = L(0xc23a22), navy = L(0x16324a), dark = L(0x1d2228), slab = L(0xaeb6bd), lightM = new THREE.MeshBasicMaterial({ color: 0xfff1cf }), amber = L(0xd98a14);
+  for (const t of STATIONS) {
+    if (t.x === undefined) continue;
+    const g = new THREE.Group(), cr = Math.cos(t.ry), sr = Math.sin(t.ry);
+    g.position.set(t.x, groundAt(t.x, t.z) - 0.2, t.z); g.rotation.y = t.ry; scene.add(g);
+    const W = (lx, lz) => [t.x + lx * cr + lz * sr, t.z - lx * sr + lz * cr];
+    const ob = (lx, lz, r) => { const [x, z] = W(lx, lz); addOb({ x, z, r, top: 1e9 }); };
+    const bx = (w, h, d, m, x, y, z) => KIT.bx(g, w, h, d, m, x, y, z);
+    bx(24, 1.0, 15, slab, 0, -0.3, 0);                                   // the forecourt, swept; thick so a sloping site doesn't leave a gap
+    // the canopy: white roof with a red rim and snow on it, four posts, a light panel underneath
+    for (const px of [-3.8, 7.8]) for (const pz of [-4.2, 4.2]) { bx(0.4, 4.4, 0.4, white, px, 2.4, pz); ob(px, pz, 0.45); }
+    bx(12.6, 0.35, 10.2, white, 2, 4.78, 0); bx(12.8, 0.24, 10.4, redM, 2, 4.56, 0); bx(12.5, 0.28, 10.1, snowM, 2, 5.1, 0);
+    bx(10.4, 0.05, 6.6, lightM, 2, 4.35, 0);
+    // the pumps on a raised island between the two lanes
+    bx(8.6, 0.25, 1.7, L(0x8c9399), 2, 0.32, 0);
+    for (const px of [-0.4, 4.4]) {
+      bx(0.9, 1.7, 0.7, redM, px, 1.3, 0); bx(0.98, 0.16, 0.78, white, px, 2.2, 0);
+      for (const sd of [-1, 1]) {
+        bx(0.6, 0.36, 0.05, glowM, px, 1.75, sd * 0.37); bx(0.14, 0.55, 0.14, dark, px + 0.62, 1.2, sd * 0.2);
+        const hose = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.03, 5, 8, Math.PI), dark); hose.position.set(px + 0.34, 0.72, sd * 0.4); hose.rotation.z = Math.PI; g.add(hose);
+      }
+      ob(px, 0, 0.85);
+    }
+    // the price pylon on the side the traffic comes from: the same panel facing both ways
+    const sign = new THREE.MeshBasicMaterial({ map: fuelSignTex(t.fuelPrice) });
+    bx(0.3, 6.4, 0.3, navy, 10.6, 3.4, 6.2); bx(0.2, 2.2, 2.4, [sign, sign, amber, amber, amber, amber], 10.6, 6.6, 6.2); ob(10.6, 6.2, 0.4);
+    // the kiosk: a small painted shop at the back with its windows lit
+    const [kx, kz] = W(-8, 0), k = KIT.house(kx, kz, 7, 5, 2.7, t.ry, KIT.yellow, true);
+    bx(2.6, 0.12, 0.5, redM, -8, 3.1, 2.7);
+    bx(1.0, 0.9, 0.7, metal, -10.6, 0.65, -5.0); ob(-10.6, -5.0, 0.7);   // a propane cage
+    for (const [lx, lz] of [[-3.5, 6.4], [9.5, -6.4]]) { const [x, z] = W(lx, lz); KIT.lamp(x, z); }
+  }
+}
+// a fuel cabin keeps its jerry cans on a pallet by the porch, under a painted board with the price on it
+function buildFuelCabins() {
+  const { woodD, L } = KIT, redM = L(0xc23a22), dark = L(0x1d2228), amber = L(0xd98a14);
+  for (const s of SITES) {
+    if (!s.fuelPrice || s.x === undefined) continue;
+    let spot = null;
+    for (let k = 0; k < 60 && !spot; k++) {
+      const a = k * 2.4, r = 5 + (k % 10) * 1.8, x = s.x - 11 + Math.cos(a) * r, z = s.z + Math.sin(a) * r;
+      if (!isSea(x, z) && groundAt(x, z) > SEA + 1.5 && slopeAt(x, z, 2) < 0.25 && !solidNear(x, z, 3.2)) spot = [x, z, a];
+    }
+    if (!spot) spot = [s.x - 11, s.z - 8, 0];
+    const [x, z, a] = spot, g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.1, z); g.rotation.y = a; scene.add(g);
+    const bx = (w, h, d, m, px, py, pz) => KIT.bx(g, w, h, d, m, px, py, pz);
+    bx(1.7, 0.14, 1.1, woodD, 0, 0.07, 0);
+    for (const [px, py, pz] of [[-0.55, 0.45, -0.25], [0, 0.45, -0.25], [0.55, 0.45, -0.25], [-0.3, 0.45, 0.28], [0.3, 0.45, 0.28], [0, 0.99, -0.25], [-0.55, 0.99, -0.25]]) {
+      bx(0.42, 0.52, 0.22, redM, px, py, pz); bx(0.16, 0.07, 0.2, dark, px + 0.08, py + 0.3, pz);
+    }
+    const sign = new THREE.MeshBasicMaterial({ map: fuelSignTex(s.fuelPrice) });
+    bx(0.12, 2.1, 0.12, woodD, 1.2, 1.05, 0.2); bx(1.1, 0.96, 0.08, [amber, amber, amber, amber, sign, sign], 1.2, 2.1, 0.2);
+    addOb({ x, z, r: 1.0, top: 1e9 });
   }
 }
 
@@ -4138,8 +4299,8 @@ function roamJobs(here) {
     const ds = all.filter(d => d !== f && D2(d, f) >= 500 && D2(d, f) <= 3500 && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
     const d = pick(ds), cg = cargoFor(f, d), { dist, climb, est } = jobGeom(d, f), urgent = Math.random() < 0.3;
     used.add(f.id + ">" + d.id);
-    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, local: d.type === "home" && f.type === "home", soft: routeOf(d) === "melting",
-      pay: round5((30 + dist * 0.09 + climb * 0.4) * cg[1] * (urgent ? 1.4 : 1) * slushPay(d)), due: urgent ? GS.hour + (toPickup(f) + est) * 1.7 / GAMEHOUR : null });
+    jobs.push(fuelTip({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, local: d.type === "home" && f.type === "home", soft: routeOf(d) === "melting",
+      pay: round5((30 + dist * 0.09 + climb * 0.4) * cg[1] * (urgent ? 1.4 : 1) * slushPay(d)), due: urgent ? GS.hour + (toPickup(f) + est) * 1.7 / GAMEHOUR : null }, 0.22, 4, 9));
   }
   // long hauls: from round here to the far side of the map
   for (let k = 0, tries = 0; k < nLong && tries < 30; tries++) {
@@ -4147,7 +4308,7 @@ function roamJobs(here) {
     const ds = all.filter(d => d !== f && D2(d, f) >= 4000 && d.type !== "home" && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
     const d = pick(ds), cg = fc[fi++ % fc.length], { dist, climb } = jobGeom(d, f);
     used.add(f.id + ">" + d.id); k++;
-    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, long: true, soft: routeOf(d) === "melting", pay: round5((60 + dist * 0.11 + climb * 0.5) * cg[1] * slushPay(d)), due: null });
+    jobs.push(fuelTip({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, long: true, soft: routeOf(d) === "melting", pay: round5((60 + dist * 0.11 + climb * 0.5) * cg[1] * slushPay(d)), due: null }, 0.45, 10, 18));
   }
   GS.jobs = jobs; GS.jobsAt = { x: here.x, z: here.z, site: here };
   if (steamerIn()) postSteamerFreight();
@@ -4165,7 +4326,7 @@ function makeJobs(from) {
     if (!d) continue;
     const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < (local ? 0.3 : 0.4);
     const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * (urgent ? 1.5 : 1) * slushPay(d) / 5) * 5;
-    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, soft: routeOf(d) === "melting", due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
+    GS.jobs.push(local ? { dest: d, cargo: cg[0], fragile: cg[2], pay, local, soft: routeOf(d) === "melting", due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null } : fuelTip({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, soft: routeOf(d) === "melting", due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null }, 0.25, 6, 12));
   }
   if (steamerIn()) postSteamerFreight();
   makeContracts(depot);
@@ -4373,7 +4534,7 @@ function deliver(site) {
   const here = GS.load.filter(j => j.dest === site);
   if (!here.length) return;
   GS.load = GS.load.filter(j => j.dest !== site);
-  let total = 0, notes = [], clean = true, lost = 0;
+  let total = 0, notes = [], clean = true, lost = 0, fuelL = 0;
   const note = n => { if (!notes.includes(n)) notes.push(n); };
   for (const j of here) {
     let p = j.pay, bondBack = !!j.bond;
@@ -4385,13 +4546,20 @@ function deliver(site) {
       if (j.priority) { p *= 0.3; bondBack = false; note("too late"); }
       else { p *= 0.5; note(j.boat ? "missed the boat" : "late"); }
     } else if (j.boat) note("made the boat");
+    const kf = j.pay > 0 ? clamp(p / j.pay, 0, 1) : 0;
+    if (j.tipL && kf > 0) fuelL += Math.max(1, Math.round(j.tipL * kf * payMul()));
     if (payMul() > 1 && p > 0) { p *= payMul(); note("polar night ×1.5"); }
     if (j.bond) { if (bondBack) p += j.bond; else lost += j.bond; }
     total += Math.round(p); bumpDelivered();
   }
   GS.cash += total;
+  if (fuelL > 0) {                                       // the fuel half of the pay goes straight in the tank; what won't fit is paid out at the pump price
+    const add = Math.min(fuelL, Math.max(0, GS.cap - GS.fuel)), over = fuelL - add;
+    GS.fuel += add; GS.outWarned = GS.lowWarned = false;
+    if (over > 0.4) { const c = Math.round(over * FUEL.price); GS.cash += c; note(`tank full: ${Math.round(over)} L paid as $${c}`); }
+  }
   const what = here.length > 1 ? here.length + " loads" : here[0].cargo.toLowerCase();
-  toast(`Delivered ${what} to ${site.name}: +$${total}${notes.length ? " (" + notes.join(", ") + ")" : ""}${lost ? ` · −$${lost} bond` : ""}`, total > 0 ? "good" : "bad");
+  toast(`Delivered ${what} to ${site.name}: +$${total}${fuelL ? ` +${fuelL} L` : ""}${notes.length ? " (" + notes.join(", ") + ")" : ""}${lost ? ` · −$${lost} bond` : ""}`, total > 0 || fuelL ? "good" : "bad");
   const wasRoam = GS.delivered - here.length >= ROAM_AT;
   if (site.type !== "depot") mailVisit(site);
   if (roaming()) {
@@ -4823,13 +4991,13 @@ function ctSled(g, x, y, ang, alpha, u) {
      `live` (seconds) re-renders while open; tick(dt) runs every frame the app is up (for canvases).
    Notifications:  TABLET.notify({ title, body, app, kind: "info"|"good"|"warn"|"alert", ttl, actions: [{ label, do(n) }], onExpire(n) })
      returns the note (n.dismiss()). Dash ping + a banner that shows even with the tablet down.
-   Map layers:  TABLET.addLayer(id, () => [{ x, z, name, kind }])  ("rescue" and "depots" exist, empty).
+   Map layers:  TABLET.addLayer(id, () => [{ x, z, name, kind }])  ("rescue", "depots" and "fuel" exist; fuel is filled by the gas stations and fuel cabins).
    Map corner widget: TABLET.widget.ferry() / .mail() are the hooks O3 replaces. */
 const TD2R = Math.PI / 180;
 const TABLET = {
   apps: [], byId: {}, open: false, mode: null, z: 0, e: 0, app: null, w: 720, h: 461, focus: null,
   nav: 0, navT: 0, padA: true, padB: true, rs: 0, rsT: 0, notes: [], log: [], seq: 0, live: null, liveT: 0,
-  plain: null, paper: null, paperT: -1e9, layers: { rescue: [], depots: [] }, dashT: 0, statT: 0, ptrDown: false, fovT: 60,
+  plain: null, paper: null, paperT: -1e9, layers: { rescue: [], depots: [], fuel: [] }, dashT: 0, statT: 0, ptrDown: false, fovT: 60,
   register(def) {
     const a = Object.assign({ order: 50, badge: null, locked: false }, def);
     this.apps = this.apps.filter(x => x.id !== a.id); this.apps.push(a); this.apps.sort((p, q) => p.order - q.order);
@@ -5313,6 +5481,17 @@ function tabPin(g, x, y, col, glyph, r = 9) {
   if (glyph) { g.fillStyle = "#fff"; g.font = `700 ${Math.round(r * 1.15)}px 'Barlow Semi Condensed', sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(glyph, 0, -r * 1.86); }
   g.restore();
 }
+// the fuel icon: an amber badge with a little pump in it. A station stands alone; a cabin's sits on its corner.
+function tabFuel(g, w2c, p, sc) {
+  const [x0, y0] = w2c(p.x, p.z), st = p.kind === "station", r = st ? 10 : 8, x = st ? x0 : x0 + 11, y = st ? y0 : y0 - 9, col = "#d98a14";
+  g.save(); g.translate(x, y);
+  g.fillStyle = col; g.strokeStyle = "rgba(237,230,211,.95)"; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, r, 0, 6.283); g.fill(); g.stroke();
+  const s = r * 0.62; g.fillStyle = "#fff"; g.strokeStyle = "#fff"; g.lineWidth = Math.max(1.2, s * 0.24); g.lineCap = "round"; g.lineJoin = "round";
+  g.fillRect(-s * 0.7, -s * 0.85, s * 0.9, s * 1.7); g.fillStyle = col; g.fillRect(-s * 0.5, -s * 0.62, s * 0.5, s * 0.46);
+  g.beginPath(); g.moveTo(s * 0.3, -s * 0.4); g.lineTo(s * 0.72, -s * 0.2); g.lineTo(s * 0.72, s * 0.45); g.stroke();
+  g.restore();
+  tabLabel(g, (st && sc > 1.2 ? p.name + " · " : "") + "$" + p.price.toFixed(2), x, y + r + 12, 11, "#8a5a0a");
+}
 function tabLabel(g, t, x, y, size, col, italic) {
   g.font = `${italic ? "italic 500" : "600"} ${size}px 'Barlow Semi Condensed', sans-serif`; g.textAlign = "center"; g.textBaseline = "alphabetic";
   g.lineJoin = "round"; g.strokeStyle = "rgba(237,230,211,.92)"; g.lineWidth = Math.max(3, size * 0.3); g.strokeText(t, x, y); g.fillStyle = col; g.fillText(t, x, y);
@@ -5357,7 +5536,7 @@ function tabMinis(el) { for (const cv of el.querySelectorAll("canvas[data-mini]"
 
 /* ---- the apps ---- */
 const chip = (t, c) => `<span class="bchip${c ? " " + c : ""}">${t}</span>`;
-function parcelChips(j) { return (j.soft ? chip("SLUSH +15%", "heavy") : "") + (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
+function parcelChips(j) { return (j.soft ? chip("SLUSH +15%", "heavy") : "") + (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.tipL ? chip("FUEL TIP", "ok") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
 function tabCard(o) {
   return `<div class="tcard${o.cls ? " " + o.cls : ""}"${o.tf ? ` data-tf="${o.tf}"` : ""}>
     ${o.mini ? `<canvas class="tmini" data-mini="${o.mini}"></canvas>` : ""}
@@ -5381,9 +5560,9 @@ TABLET.register({
     const aboard = sm.filter(j => !j.big);
     h += sec("Aboard", `Rack ${sm.length}/${ST.slots}${claimSmall() ? ` · ${claimSmall()} claimed` : ""}`);
     if (!aboard.length) h += `<p class="tnote2">Nothing on the rack.</p>`;
-    aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: fmtCash(j.pay * payMul()) }); });
+    aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: payTxt(j) }); });
     const cl = GS.claims.filter(j => !j.big && !j.tour);
-    if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: fmtCash(j.pay * payMul()) }); }); }
+    if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: payTxt(j) }); }); }
     h += sec("Posted", roaming() ? "claim it, ride to the P, it loads; at the P it loads straight on" : atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
     if (!GS.jobs.length) h += `<p class="tnote2">${MELT.k > 0.5 ? "Nothing posted. With the snow going, folk are waiting for the boat instead." : "No parcels posted. Check back after the next boat."}</p>`;
     else if (MELT.kq > 0 && meltWork() < 0.85) h += `<p class="tnote2">The melt's on: less work, and only where the trail still holds. Melting trails pay a little extra.</p>`;
@@ -5393,9 +5572,9 @@ TABLET.register({
       h += tabCard({ tf: "job:" + k, mini: `${f.id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j),
         meta: fromQ ? `Kjøllefjord quay → ${shortName(j.dest)} · ≈ ${routeKm(j.dest).toFixed(1)} km by trail · climb ${climbOf(j.dest)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`
           : `${shortName(f)} → ${shortName(j.dest)} · ≈ ${jobKm(j).toFixed(1)} km · climb ${jobClimb(j)} m · ${here ? "pickup is here" : "pickup " + fmtMi(Math.hypot(f.x - P.x, f.z - P.z)) + " from you"}`,
-        note: `${fromQ ? groomSay(g) : j.long ? "A long haul across the peninsula: good money, but it takes you a long way from the ferry." : ""}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
+        note: `${fromQ ? groomSay(g) : j.long ? "A long haul across the peninsula: good money, but it takes you a long way from the ferry." : ""}${j.tipL ? ` Part of the pay is fuel: ${tipLiters(j)} L straight into your tank (whatever won't fit is paid in cash).` : ""}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
         warn: full ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "",
-        pay: fmtCash(j.pay * payMul()), act: "take:" + k, actLabel: here ? "LOAD IT" : "CLAIM", blocked: full });
+        pay: payTxt(j), act: "take:" + k, actLabel: here ? "LOAD IT" : "CLAIM", blocked: full });
     });
     h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
@@ -5460,13 +5639,13 @@ TABLET.register({
 TABLET.register({
   id: "map", name: "Map", icon: TICON.map, order: 2,
   onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoom = this.zoom || 0; },
-  layersOn: { del: true, pins: true, rescue: true, depots: true, routes: true },
+  layersOn: { del: true, pins: true, rescue: true, depots: true, routes: true, fuel: true },
   render(el) {
     const L = this.layersOn, ch = (id, t, n) => `<button type="button" class="tml${L[id] ? " on" : ""}" data-tf="lay:${id}" data-lay="${id}"><i class="k ${id}"></i>${t}${n !== undefined ? ` <b>${n}</b>` : ""}</button>`;
-    const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots");
+    const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots"), fue = TABLET.layerPts("fuel");
     // the chart fills the page; the layer chips, the zoom button and the ferry/mail widget float on top of it
     el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
-      <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
+      <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${ch("fuel", "Fuel", fue.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
         <button type="button" class="tbtn ghost" data-tf="zoom" id="tabZoom">${this.zoom ? "WHOLE MAP" : "AROUND ME"}</button></div>
       <div class="twid" id="tabWid"></div></div>`;
     for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
@@ -5505,6 +5684,7 @@ TABLET.register({
     }
     if (L.del) { for (const j of GS.load) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, CT_ACC, "D", 10); } if (GS.tour) { const [x, y] = w2c(GS.tour.view.x, GS.tour.view.z); tabPin(g, x, y, "#2f8f6a", "A", 10); } if (GS.groomJob) { const [x, y] = w2c(GS.groomJob.dest.x, GS.groomJob.dest.z); tabPin(g, x, y, "#1f6a8a", "G", 9); } }
     if (L.rescue) for (const p of TABLET.layerPts("rescue")) { const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
+    if (L.fuel) for (const p of TABLET.layerPts("fuel")) tabFuel(g, w2c, p, sc);
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
     const [px, py] = w2c(P.x, P.z);
     g.save(); g.translate(px, py); g.rotate(Math.PI - P.yaw);
@@ -5533,6 +5713,7 @@ function tabMelt(g, w2c, sc) {
   }
 }
 // the call-out you're on goes on the map's rescue layer; O5's rescues will add their own
+TABLET.addLayer("fuel", fuelPoints);
 TABLET.addLayer("rescue", () => GS.rescueJob && typeof RJ !== "undefined" ? RJ.vs.filter(v => !v.freed).map(v => ({ x: v.x, z: v.z, name: v.name + " · stuck", kind: "recovery" })) : []);
 
 TABLET.register({
@@ -7343,7 +7524,7 @@ function updGame(dt, spd) {
   }
   GS.storm += (wxT - GS.storm) * (1 - Math.exp(-dt / 10));
   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
-  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
+  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near.fuelPrice ? `${near.name}. Warm stove inside, and jerry cans on the porch: fuel at ${fuelFmt(near.fuelPrice)}.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
   const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
@@ -7359,7 +7540,8 @@ function updGame(dt, spd) {
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
   if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
-  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
+  fuelStep(dt, spd);
+  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
   if (near && spd < 4 && GS.claims.length) collectClaims(near);
@@ -7437,7 +7619,7 @@ function updGameHud() {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
     const g = groom[tgt.id];
-    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · ferry sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.tipL ? " +" + tipLiters(j) + " L" : ""}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · ferry sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
@@ -8783,9 +8965,9 @@ addEventListener("keydown", e => {
 });
 
 function boot() {
-  genWorld(); computeSites(); placeQuay(); meltBuild();
+  genWorld(); computeSites(); placeQuay(); computeStations(); computeFuelCabins(); meltBuild();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
+  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
