@@ -305,6 +305,7 @@
   #tGas{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:96px;height:96px;font-size:16px;background:rgba(255,90,31,.82);border-color:rgba(255,150,110,.5)}
   #tGas.on{background:#ff7a45;color:#fff;border-color:#fff}
   #tBrk{right:126px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:72px;height:72px}
+  #tHorn{right:210px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px}
   #tHop{right:16px;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
   #tLean{right:92px;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
   #tWh{right:168px;bottom:calc(128px + env(safe-area-inset-bottom,0px));font-size:11px}
@@ -357,6 +358,7 @@
     body.touch .tb{width:52px;height:52px;font-size:11px}
     body.touch #tGas{width:76px;height:76px;font-size:13px}
     body.touch #tBrk{right:100px;width:58px;height:58px}
+    body.touch #tHorn{right:164px;font-size:10px;width:max(38px,min(52px,calc(58vw - 162px)));height:max(38px,min(52px,calc(58vw - 162px)))}   /* shrinks a little on 360px-wide phones so it keeps clear of the steer pad */
     body.touch #tHop,body.touch #tLean,body.touch #tWh{bottom:calc(102px + env(safe-area-inset-bottom,0px))}
     body.touch #tLean{right:76px}
     body.touch #tWh{right:136px;font-size:9px}
@@ -547,7 +549,7 @@
       <div id="boardRows"></div>
       <div class="brule"></div>
       <div class="bdet" id="boardDetail" aria-live="polite"></div>
-      <div class="bfoot2"><span class="kb"><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span class="kb"><kbd>ENTER</kbd> take it</span><span class="kb"><kbd>1</kbd>–<kbd>3</kbd> parcels, <kbd>4</kbd>+ contracts</span><span class="kb"><kbd>E</kbd> close</span><span class="tp">Tap a line to plot it, tap again to take it</span></div>
+      <div class="bfoot2"><span class="kb"><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span class="kb"><kbd>ENTER</kbd> take it</span><span class="kb"><kbd>1</kbd>–<kbd>3</kbd> parcels, <kbd>4</kbd>+ contracts</span><span class="kb"><kbd>Esc</kbd> close</span><span class="tp">Tap a line to plot it, tap again to take it</span></div>
     </div>
     <div class="bmapw"><div class="bmapi">
       <canvas id="bMap" width="700" height="700" role="img" aria-label="Survey chart of the Nordkinn peninsula with the selected route from Kjøllefjord quay"></canvas>
@@ -598,7 +600,7 @@
   <div class="bhead"><div><div class="brand">NORDKINN SKUTER &amp; SERVICE</div><div class="btitle">Garage</div></div><div style="display:flex;gap:12px;align-items:center"><div class="bcash" id="garageCash">$0</div><button id="closeGarage" class="xbtn" aria-label="Close garage">✕</button></div></div>
   <div class="setrow" id="garageTabs"></div>
   <div id="garageBody"></div>
-  <div class="bfoot">Hover anything to see it on your sled first. Buy it once and it's yours: parts and kit carry across every sled you own. <b>E</b> or <b>Esc</b> closes.</div>
+  <div class="bfoot">Hover anything to see it on your sled first. Buy it once and it's yours: parts and kit carry across every sled you own. <b>T</b> or <b>Esc</b> closes.</div>
 </div>
 
 <div id="black" hidden><div id="blackMsg"></div></div>
@@ -615,7 +617,8 @@
   <div><b>Space</b>Hop</div>
   <div><b>Ctrl</b>Wheelie</div>
   <div><b>R</b>Reset sled</div>
-  <div><b>E</b>Job board / garage</div>
+  <div><b>E</b>Horn</div>
+  <div><b>T</b>Garage</div>
   <div><b>G</b>Tiller wings in / out</div>
   <div><b>F</b>Call a rescue sled (fjord dunking or empty tank)</div>
   <div><b>Z</b>Wipe frost off your visor</div>
@@ -641,7 +644,7 @@
     <button class="tb" data-k="reset" aria-label="Reset sled">↺</button>
     <button class="tb" id="tWing" data-k="wings" hidden>WINGS</button>
   </div>
-  <button class="tb" id="tE" data-k="e" hidden>JOB BOARD</button>
+  <button class="tb" id="tE" data-k="garage" hidden>GARAGE</button>
   <button class="tb" id="tQ" data-k="q" hidden>GET OFF</button>
   <button class="tb" id="tX" data-k="x" hidden>DOUBLE</button>
   <button class="tb" id="tF" data-k="help" hidden>HELP</button>
@@ -652,6 +655,7 @@
   <button class="tb" id="tLean" data-k="lean">LEAN</button>
   <button class="tb" id="tHop" data-k="hop">HOP</button>
   <button class="tb" id="tBrk" data-k="brake">BRAKE</button>
+  <button class="tb" id="tHorn" data-k="horn">HORN</button>
   <button class="tb" id="tGas" data-k="gas">GAS</button>
 </div>
 
@@ -676,5 +680,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=27"></script>
+<script src="tracklayer.js?v=28"></script>
 </body></html>

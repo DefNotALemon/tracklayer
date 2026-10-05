@@ -1609,7 +1609,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false;
+let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false;
 
 /* ---------------- touch controls ---------------- */
 // Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
@@ -1626,8 +1626,9 @@ function updTouch() {
   if (!TC.on) return;
   const modal = GS.garageOpen || GS.boardOpen || !$("settings").hidden || !$("bigmap").hidden || godOpen || GS.dead;
   $("touch").classList.toggle("modal", modal);
-  const lbl = GS.near === garageSite ? "GARAGE" : GS.near === depot ? "JOB BOARD" : null;
+  const lbl = GS.near === garageSite ? "GARAGE" : null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
+  const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
   const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
   const wd = winchDef(), foot = FOOT.on;
   const q = $("tQ"); q.hidden = !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
@@ -1650,7 +1651,8 @@ function updTouch() {
       else if (k === "view") cycleView();
       else if (k === "map") toggleBigMap();
       else if (k === "menu") gameKey({ code: "Escape" });
-      else if (k === "e") gameKey({ code: "KeyE" });
+      else if (k === "garage") gameKey({ code: "KeyT" });
+      else if (k === "horn") horn();
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
       else if (k === "x") gameKey({ code: "KeyX" });
@@ -1693,9 +1695,9 @@ function readInput(dt) {
     if (h && FOOT.on) WN.padReel = true;
     const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.boardOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
     const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen && !GS.boardOpen) gameKey({ code: "KeyX" }); padX = xb;
-    // B does what E does (job board, garage) or backs out of whatever's open; Menu is Esc
+    // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
-    if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyE" });
+    if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyT" });
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
@@ -1705,6 +1707,7 @@ function readInput(dt) {
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !GS.boardOpen) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) horn(); padHorn = l3;
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
@@ -2515,6 +2518,36 @@ function whump(v) {
   s.buffer = buf; f.type = "lowpass"; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(160, t + 0.9);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * v, t + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
   s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 1.2);
+}
+/* ---------------- horn ---------------- */
+// Two-tone "meep-MEEP" on E (keyboard), L3 (gamepad) and the HORN touch button. It only makes a noise:
+// no gameplay effect, no NPC or wildlife reaction, no score. That is on purpose, so keep it that way.
+// It sits well above the engine (whose fundamental is 40-180 Hz) so it cuts through without ducking anything.
+let hornBus = null;
+function hornOk() { return started && !GS.dead && !FOOT.on && !GS.boardOpen && !GS.garageOpen && !godOpen && $("settings").hidden && $("bigmap").hidden; }
+function horn() {
+  if (!audio || !hornOk()) return;
+  const { AC, master } = audio, t = AC.currentTime;
+  if (AC.state === "suspended") AC.resume();
+  if (hornBus) { const old = hornBus; old.g.gain.cancelScheduledValues(t); old.g.gain.setTargetAtTime(0.0001, t, 0.008); setTimeout(() => { try { old.g.disconnect(); } catch (e) { } }, 120); }
+  const bus = AC.createGain(), hp = AC.createBiquadFilter(), lp = AC.createBiquadFilter(), sat = AC.createWaveShaper(), comp = AC.createDynamicsCompressor();
+  hp.type = "highpass"; hp.frequency.value = 330; lp.type = "lowpass"; lp.frequency.value = 3200;
+  sat.curve = distCurve(5); sat.oversample = "2x";
+  comp.threshold.value = -16; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.1;
+  bus.gain.value = 0.5; bus.connect(hp); hp.connect(sat); sat.connect(lp); lp.connect(comp);
+  const out = AC.createGain(); out.gain.value = 0.64; comp.connect(out); out.connect(master);   // level is set here, after the saturator, so it stays under the engine's headroom
+  hornBus = { g: bus };
+  const note = (f, t0, dur) => {
+    const env = AC.createGain(); env.connect(bus);
+    env.gain.setValueAtTime(0.0001, t0); env.gain.exponentialRampToValueAtTime(1, t0 + 0.012); env.gain.setValueAtTime(1, t0 + dur - 0.05); env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    for (const [type, mul, w] of [["sawtooth", 1, 0.5], ["square", 1.006, 0.35], ["sawtooth", 2, 0.22]]) {
+      const o = AC.createOscillator(), g = AC.createGain(); o.type = type; g.gain.value = w;
+      o.frequency.setValueAtTime(f * mul * 0.93, t0); o.frequency.exponentialRampToValueAtTime(f * mul, t0 + 0.035);   // the little scoop up into each note is the silly part
+      o.connect(g); g.connect(env); o.start(t0); o.stop(t0 + dur + 0.02);
+    }
+  };
+  note(392, t, 0.12);          // G4: meep
+  note(523.25, t + 0.135, 0.36); // C5: MEEEP
 }
 function updAudio(spd) {
   if (!audio) return;
@@ -3443,7 +3476,7 @@ function deliver(site) {
         toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat. She sails at ${fmtTime(back.due)}.`);
       }, 1400);
     } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
-  } else if (!GS.load.length) setTimeout(() => toast("Press E for the job board."), 1400);
+  }
   applyLoadout(); save();
 }
 function blackout(kind) {
@@ -3934,7 +3967,7 @@ function boardTake(i) {
   if (i !== BD.sel) boardSelect(i);
   if (r.kind === "job") acceptJob(r.k);
   else if (r.kind === "con") acceptContract(r.k);
-  else if (r.kind === "garage") { closeBoard(); toast(TC.on ? "The garage is the shed across the road. Ride over and tap GARAGE." : "The garage is the shed across the road. Ride over and press E."); }
+  else if (r.kind === "garage") { closeBoard(); toast(TC.on ? "The garage is the shed across the road. Ride over and tap GARAGE." : "The garage is the shed across the road. Ride over and press T."); }
 }
 function boardKey(e) {
   const c = e.code;
@@ -4112,7 +4145,8 @@ function gameKey(e) {
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
   if (e.code === "KeyE" && FOOT.on && !GS.boardOpen && !GS.garageOpen) { footAction(); return; }
-  if (e.code === "KeyE") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else if (GS.near === depot) openBoard(); else toast("The job board is at the quay, the garage is across the road.", "warn"); }
+  if (e.code === "KeyE") { if (!e.repeat) horn(); return; }
+  if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyF") callForHelp();
@@ -5614,7 +5648,7 @@ function updGame(dt, spd) {
   }
   GS.storm += ((GS.stormPhase === "storm" ? 1 : 0) - GS.storm) * (1 - Math.exp(-dt / 20));
   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
-  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press E"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up, refuel, ${TC.on ? "tap JOB BOARD" : "press E"} for work.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
+  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
   const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
@@ -5690,7 +5724,7 @@ function updGameHud() {
   } else if (pend) {
     $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
-  } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = TC.on ? "Tap JOB BOARD for work" : "Press E for the job board"; }
+  } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
   const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
@@ -5776,8 +5810,8 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Job board, garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Job board, garage"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";
@@ -5793,7 +5827,7 @@ function titlePanel(kind) {
       <div class="pbtns"><button type="button" class="pbtn" data-a="back">KEEP MY SAVE</button><button type="button" class="pbtn go" data-a="wipe">START OVER</button></div>`;
   } else if (kind === "howto") {
     const col = (t, list) => `<div><div class="pl">${t}</div>${list.map(([k, a]) => `<div class="pk"><b>${k}</b><span>${a}</span></div>`).join("")}</div>`;
-    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. JOB BOARD and GARAGE come up at the top when you're at the quay. When your visor ices over, a WIPE button shows up above HOP.</p>`;
+    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. GARAGE comes up at the top when you're at the shop, and HORN sits beside BRAKE. When your visor ices over, a WIPE button shows up above HOP.</p>`;
     label = "How to play";
     h = `<div class="ph"><div><div class="pe">KJØLLEFJORD QUAY</div><div class="pt">How to play</div></div>${x}</div>
       <p>When the road over Ifjordfjellet shuts, everything the Nordkinn needs comes off the coastal steamer at the quay and goes out by sled: to Mehamn and Gamvik on the Barents coast, Lebesby and Ifjord down the fjord, the herders' cabins up on the fell, the light out at Slettnes. Fresh powder drags at your sled and burns fuel. Every trail you cut stays packed, fast and cheap, until new snow buries it. The sun barely clears the hills, the nights are long and the storms come straight off the sea. Keep your tank and your body warm enough to make it back.</p>
@@ -5838,7 +5872,7 @@ function startRide() {
   for (const id of ["zone", "speedo", "mapWrap", "help", "job"]) $(id).hidden = false;
   setTouchUI();
   makeJobs(depot);
-  setTimeout(() => toast(TC.on ? "Welcome to Kjøllefjord. The boat's in. Tap JOB BOARD for work." : "Welcome to Kjøllefjord. The boat's in. Press E for the job board."), 1300);
+  setTimeout(() => toast("Welcome to Kjøllefjord. The boat's in."), 1300);
   if (innerWidth <= 640 || TC.on) $("help").hidden = true;
   canvas.focus();
 }
