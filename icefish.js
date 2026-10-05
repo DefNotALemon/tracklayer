@@ -360,6 +360,7 @@ function build() {
     const knob = new T.Mesh(new T.CylinderGeometry(.006, .006, .014, 8), LM(0x15191c)); knob.rotation.z = Math.PI / 2; knob.position.set(.024, .032, 0); spool.add(knob);
     const foot = new T.Mesh(new T.BoxGeometry(.008, .03, .012), LM(0x2a2f34)); foot.position.y = .028; reel.add(foot); }
   reel.visible = false; G.main.add(reel); G.reel = reel;
+  if (H.wear) H.wear(reel, Math.min(.7, (1 - condOf("reel", D.kit.reel)) * 1.25), 11, { decals: false, dents: false });   // a used reel looks it (O6)
   G.cork = new T.Mesh(new T.CylinderGeometry(.011, .012, .16, 10), LM(0xb88a5a)); G.cork.visible = false; G.main.add(G.cork);
   G.ripples = [];
   for (let i = 0; i < 3; i++) { const r = new T.Mesh(new T.RingGeometry(.9, 1, 24), U(new T.MeshBasicMaterial({ color: 0xdcecf2, transparent: true, opacity: 0, depthWrite: false, fog: false }))); r.rotation.x = -Math.PI / 2; r.renderOrder = 9; G.under.add(r); G.ripples.push({ m: r, t: i / 3 }); }
@@ -520,7 +521,7 @@ function makeAuger(a, wear = 0) {
   g.userData.spin = spin; g.rotation.order = "YXZ";
   return g;
 }
-function dropObj(o) { if (!o) return; o.parent && o.parent.remove(o); const seen = new Set(); o.traverse(c => { if (c.geometry && !seen.has(c.geometry)) { seen.add(c.geometry); c.geometry.dispose(); } if (c.material && !seen.has(c.material)) { seen.add(c.material); c.material.dispose(); } }); }
+function dropObj(o) { if (!o) return; o.parent && o.parent.remove(o); const seen = new Set(); o.traverse(c => { if (c.geometry && !seen.has(c.geometry)) { seen.add(c.geometry); c.geometry.dispose(); } if (c.material && !seen.has(c.material)) { seen.add(c.material); c.material.dispose(); } if (c.userData && c.userData.wear0) c.userData.wear0.dispose(); }); }
 function equip(id, quiet) {
   if (!D.own.auger[id]) return;
   D.kit.auger = id; const a = kitAug(); S.left = a.cap; S.running = false;
@@ -528,6 +529,7 @@ function equip(id, quiet) {
   dropObj(G.augerDrill); dropObj(G.augerCarry);
   const wear = 1 - condOf("auger", id);
   G.augerDrill = makeAuger(a, wear); G.augerCarry = makeAuger(a, wear); G.augerDrill.visible = false;
+  if (H.wear && wear > 0) for (const o of [G.augerDrill, G.augerCarry]) H.wear(o, Math.min(.6, wear), 5, { maxDecals: 2, dents: false });   // chips and rust from Bytteboden (O6)
   G.main.add(G.augerDrill); G.main.add(G.augerCarry);
   if (!quiet) H.save();
 }

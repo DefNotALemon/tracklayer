@@ -37,7 +37,7 @@ running and you can still steer, you just can't see much trail. In third person 
 overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
 **Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
-you've a winch), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
+you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
 Take a job where it's waiting and it goes straight on the sled; take it anywhere else and you
 claim it, and it loads when you stop at its **P**. Your first six deliveries are round town, picked
@@ -56,8 +56,13 @@ yard with anything on it) and stay on the course or the instructor fetches you b
 is four short missions: hook up a trailer and hold a side-hill, drag 300 kg up the big hill, a
 timed priority run with a fragile load, and a flatbed expedition loop. Pass them all for your
 **Freight licence**, which opens heavy, priority and expedition freight in the Freight app (your
-courier rank still decides which). Aurora tours are posted in Parcels. Real Estate listings come
-with a later update.
+courier rank still decides which). Aurora tours are posted in Parcels.
+
+**Real Estate** sells depot cabins: two of the herder cabins and two lakeside cabins, Fjellbu and
+Viddastua. Tourists rent a depot on the nights you're not there, paid every Monday; a stove,
+insulation and a sauna raise the rent. Each depot has a fuel cache: its pump fills you free, and
+the bill (a weekly standing charge plus the litres you took) comes out every Monday. Your depots
+show on the Map's Depots layer, and you can warm up in them.
 
 ## Search and rescue
 
@@ -75,6 +80,22 @@ more often in storms and a little more in polar night. Accepted calls go on the 
 with their clock (a search shows the area, never the person). Saves pay and build **reputation**,
 which brings better-paid calls further out; a lost casualty or a handed-over call costs reputation,
 and so does letting pings go two or more in a row. Volunteer winch recoveries stay in Trail Crew.
+
+## Bytteboden: buying used
+
+The tablet's marketplace. Private sellers in the villages, cabins and homes list used engines,
+whole sleds, hitch receivers, trailers, groomers and ice-fishing rods, reels and augers. Listings
+come and go one at a time, each lasting a few days. Used gear is cheaper than new and a bit worn,
+at 65–90% condition, and it looks it: faded paint, chips, a little rust, a dent. Condition costs a
+little performance. Haggle in the listing's chat (some sellers are stubborn, some desperate), and
+stop at the seller's to inspect it before you pay, because about one ad in six is worse than it
+says.
+
+The garage doesn't sell engines any more. Buy one on Bytteboden, haul it home on a trailer, and
+the shop fits it for labour. Trailers and groomers hook straight on if your **hitch receiver**
+takes them (the flatbed and wing tiller need the heavy-duty one). Sleds you ride home, and tackle
+goes in your pack. The garage's **Workshop** tab restores condition for a fee, but the wear marks
+stay. Fishing gear can't be restored.
 
 ## The ferry and the mail
 
@@ -126,7 +147,8 @@ there's a summer montage, then it all freezes over again for the next winter.
 
 ## The hitch and bigger work
 
-The garage sells three tow-behind rigs, one on the hitch at a time:
+The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**
+first ($150, or $380 for the heavy-duty one the flatbed and wing tiller want):
 
 - **Groomer drag** — packs a two-metre lane flat and hard; groomed snow takes three
   times as long to fill back in. Takes grooming contracts.
