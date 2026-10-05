@@ -523,6 +523,28 @@
   #summer .sumc{width:min(460px,calc(100% - 32px));text-align:center;display:grid;gap:10px}
   #summer .sumt{font-weight:800;font-size:44px;line-height:1;color:var(--frost);font-variant-numeric:tabular-nums}
   #summer p{font-style:italic;font-weight:500;font-size:15px;line-height:1.45;color:var(--frost2);margin:0}
+  #wx{position:fixed;z-index:5;right:16px;top:50%;transform:translateY(-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:20px;display:grid;gap:10px;background:var(--panel);border:1px solid rgba(234,242,248,.1);border-radius:var(--r-lg);box-shadow:var(--soft),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);color:var(--frost);overscroll-behavior:contain}
+  #wx:not([hidden]){animation:uiIn .34s var(--ease) both}
+  #wx .wxnow{font-size:13px;letter-spacing:.04em;color:var(--frost2)}
+  #wx .wxnow b{font-weight:700;color:var(--frost)}
+  #wx .wxnow p,#wx .wxnote{font-style:italic;font-weight:500;font-size:14px;line-height:1.45;color:var(--frost2);margin:6px 0 0}
+  #wx .wxnote{color:var(--slate);border-top:1px solid var(--rule);padding-top:10px;margin:0}
+  #wx .wxdays{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  #wx .wxd{display:grid;align-content:start;gap:4px;padding:12px;border-radius:var(--r-md);background:rgba(234,242,248,.04);border:1px solid var(--rule);background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(234,242,248,.035) 23px 24px)}
+  #wx .wxd.bad{border-color:rgba(255,122,90,.35)}
+  #wx .wxh{display:flex;align-items:center;gap:6px}
+  #wx .wxdow{font-weight:700;font-size:11px;letter-spacing:.12em;color:var(--signal)}
+  #wx .wxdt{font-size:12px;color:var(--slate);flex:1}
+  #wx .bchip.conf{color:var(--frost2)}
+  #wx .bchip.ok{color:var(--pay)}
+  #wx .wxg{width:46px;height:44px;color:var(--frost2);margin:2px 0}
+  #wx .wxw{font-weight:800;font-size:20px;line-height:1.05}
+  #wx .wxm{font-size:13px;color:var(--frost2);font-variant-numeric:tabular-nums}
+  #wx .wxf{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center;margin-top:4px;padding-top:6px;border-top:1px solid var(--rule);font-size:12px;color:var(--slate);font-variant-numeric:tabular-nums}
+  #wx .wxa{font-style:italic;font-weight:500;font-size:13px;color:#6ff0b8}
+  #wx .wxa b{font-style:normal;font-weight:700}
+  @media (max-width:640px){#wx{right:50%;transform:translate(50%,-50%)}#wx .wxdays{grid-template-columns:1fr}#wx .wxd{grid-template-columns:auto 1fr;column-gap:12px}#wx .wxd>.wxh,#wx .wxd>.wxf,#wx .wxd>.wxa{grid-column:1/-1}#wx .wxg{grid-row:span 3}}
+  @media (prefers-reduced-motion:reduce){#wx{animation:none!important}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -579,6 +601,11 @@
       <div class="bcall" id="bCall" aria-hidden="true"></div>
     </div></div>
   </div>
+</div>
+
+<div class="panel" id="wx" hidden role="dialog" aria-label="Weather forecast">
+  <div class="bhead"><div><div class="brand">MET · NORDKINN</div><div class="btitle">Forecast</div></div><button id="closeWx" class="xbtn" aria-label="Close forecast">✕</button></div>
+  <div id="wxBody"></div>
 </div>
 
 <div class="panel" id="settings" hidden>
@@ -646,7 +673,7 @@
   <div><b>Z</b>Wipe frost off your visor</div>
   <div><b>Q</b>Get off / on the sled (when bogged)</div>
   <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
-  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
+  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">B</b> Forecast</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
   <div><b>Y</b>God menu</div>
 </div>
@@ -662,6 +689,7 @@
   <div id="tTop">
     <button class="tb" data-k="menu" aria-label="Settings">≡</button>
     <button class="tb" data-k="map">MAP</button>
+    <button class="tb" data-k="wx" aria-label="Weather forecast">WX</button>
     <button class="tb" data-k="view">CAM</button>
     <button class="tb" data-k="reset" aria-label="Reset sled">↺</button>
     <button class="tb" id="tWing" data-k="wings" hidden>WINGS</button>

@@ -1609,7 +1609,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false;
+let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false;
 
 /* ---------------- touch controls ---------------- */
 // Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
@@ -1650,6 +1650,7 @@ function updTouch() {
       else if (k === "reset") resetSled();
       else if (k === "view") cycleView();
       else if (k === "map") toggleBigMap();
+      else if (k === "wx") toggleWx();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "garage") gameKey({ code: "KeyT" });
       else if (k === "horn") horn();
@@ -1697,7 +1698,7 @@ function readInput(dt) {
     const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen && !GS.boardOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
-    if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyT" });
+    if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden || !$("wx").hidden ? "Escape" : "KeyT" });
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
@@ -1708,6 +1709,7 @@ function readInput(dt) {
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !GS.boardOpen) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) horn(); padHorn = l3;
+    const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.boardOpen && !GS.garageOpen) toggleWx(); padWx = dr;   // d-pad right: the forecast
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
@@ -2935,6 +2937,129 @@ function summerCard(c, days) {
   step();
 }
 
+// seeded hash -> rng, so fronts, forecasts and aurora nights are the same every time you look at a day
+const wxRng = (...k) => { let h = 2166136261; for (const v of k) { h ^= (v | 0) + 0x9e3779b9; h = Math.imul(h, 16777619); h ^= h >>> 13; } return mulberry32(h); };
+const gauss = r => { let s = 0; for (let i = 0; i < 4; i++) s += r(); return (s - 2) * 1.73; };   // ~N(0,1)
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const compassOf = (x, z) => COMPASS[Math.round(((Math.atan2(x, -z) * R2D + 360) % 360) / 45) % 8];   // world dir -> compass (north is -z)
+
+/* weather: fronts generated per calendar day from the seed. Each one has a direction of travel, a speed,
+   a depth and a strength, and sweeps across the map, so the west coast gets it before the quay. Storm
+   strength at any spot and time is the strongest front over it (leading edge sharper than the tail). */
+const WX_MEAN = [1.45, 1.3, 1.1, 0.85, 0.55, 0, 0, 0, 0, 0, 1.1, 1.4];   // fronts per day, by month
+const WX = {
+  seed: 1, force: null, fronts: {}, fc: null, f: null,
+  dayFronts(D) {
+    const k = D, c = this.fronts[k]; if (c && c.seed === this.seed) return c.list;
+    const r = wxRng(this.seed, D, 13), mean = WX_MEAN[CAL.day(D).m], list = [];
+    const n = (r() < mean * 0.75 ? 1 : 0) + (r() < mean * 0.3 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const polar = r() < 0.25;                                 // a Barents polar low from the north, or an Atlantic low from the west
+      const th = polar ? Math.PI / 2 + (r() - 0.4) * 1.0 : (r() - 0.6) * 1.5;
+      const dx = Math.cos(th), dz = Math.sin(th);
+      list.push({ t0: D * 24 + r() * 24, dx, dz, v: 1600 + r() * 2000, L: 4500 + r() * 6000, s: polar ? 0.6 + 0.4 * r() : 0.3 + 0.7 * Math.pow(r(), 0.8), from: compassOf(-dx, -dz), polar });
+    }
+    const keys = Object.keys(this.fronts); if (keys.length > 24) for (const q of keys) if (Math.abs(q - D) > 6) delete this.fronts[q];
+    this.fronts[k] = { seed: this.seed, list }; return list;
+  },
+  frontAt(f, x, z, T) { const u = (x * f.dx + z * f.dz - f.v * (T - f.t0)) / f.L; return f.s * Math.exp(u > 0 ? -2.9 * u * u : -u * u); },
+  // calendar-hour T version: strongest front over (x, z); WX.f is the front that won
+  atT(x, z, T) {
+    const D = Math.floor(T / 24); let v = 0; this.f = null;
+    for (let d = D - 2; d <= D + 1; d++) for (const f of this.dayFronts(d)) { const q = this.frontAt(f, x, z, T); if (q > v) { v = q; this.f = f; } }
+    return v;
+  },
+  at(x, z, H = GS.hour) {
+    const v = this.atT(x, z, CAL.abs(H)), F = this.force;
+    if (F && H < F.until) return F.v ? Math.max(v, 1) : 0;
+    return v;
+  },
+  // the steamer's call at game hour H: what the weather at the quay does to it (O3 hooks the boat to this)
+  ferryState(i) { return i > 0.85 ? { state: "cancelled", delay: 0 } : i > 0.55 ? { state: "delayed", delay: Math.max(1, Math.round((i - 0.5) * 6)) } : { state: "on time", delay: 0 }; },
+  ferry(H) { const i = this.at(depot.x, depot.z, H); return Object.assign({ i }, this.ferryState(i)); },
+  label(p) { return p < 0.2 ? "Clear" : p < 0.42 ? "Snow showers" : p < 0.7 ? "Storm" : "Severe storm"; },
+  temp(m) { return [-11, -11, -8, -3, 2, 8, 11, 10, 6, 1, -4, -8][m]; },
+  // the 3-day forecast, issued at midnight. Tomorrow is close to right; days 2 and 3 carry a confidence
+  // figure and can be wrong (timing off, a storm that never comes, or one that wasn't forecast).
+  forecast() {
+    const D = CAL.dayIndex(); if (this.fc && this.fc.D === D && this.fc.seed === this.seed) return this.fc;
+    const days = [], qx = depot.x, qz = depot.z;
+    for (let k = 1; k <= 3; k++) {
+      const Dk = D + k, base = Dk * 24, cal = CAL.day(Dk), r = wxRng(this.seed, Dk, 1000 + k);
+      let peak = 0, ph = 12, from = null, s0 = null, s1 = null; const hr = [];
+      for (let h = 0; h < 24; h++) { const i = this.atT(qx, qz, base + h + 0.5); hr.push(i); if (i > peak) { peak = i; ph = h; from = this.f && this.f.from; } if (i > 0.5) { if (s0 === null) s0 = h; s1 = h + 1; } }
+      const nFr = this.dayFronts(Dk).length;
+      let fp = clamp(peak + gauss(r) * [0, 0.07, 0.2, 0.3][k], 0, 1), sh = Math.round(gauss(r) * [0, 1, 2.5, 4][k]);
+      const twist = r(); let phantom = false;
+      if (k >= 2 && peak < 0.4 && twist < [0, 0, 0.12, 0.2][k]) { phantom = true; fp = 0.5 + 0.35 * r(); ph = 6 + Math.floor(r() * 12); s0 = ph - 2; s1 = ph + 3; from = from || ["W", "NW", "SW"][Math.floor(r() * 3)]; }
+      else if (k >= 2 && peak > 0.5 && twist < [0, 0, 0.1, 0.18][k]) { fp = peak * 0.4; s0 = s1 = null; }
+      if (fp <= 0.5) s0 = s1 = null; else if (s0 === null) { s0 = ph - 2; s1 = ph + 2; }
+      const conf = Math.round(clamp([0, 92, 74, 56][k] - (nFr > 1 ? 8 : 0) - (fp > 0.3 && fp < 0.6 ? 6 : 0) + gauss(r) * 4, 30, 97));
+      const ferry = STEAMER.calls.map(c => { const i = clamp(phantom || peak < 0.02 ? (s0 !== null && c.arr >= s0 && c.arr < s1 ? fp : 0) : hr[c.arr] * fp / peak, 0, 1); return Object.assign({ dir: c.dir, arr: c.arr }, this.ferryState(i)); });
+      const t = this.temp(cal.m), lo = Math.round(t - 4 + 3 * fp + gauss(r) * 1.5), hi = Math.round(t + 1 + 4 * fp + gauss(r) * 1.5);
+      const aL = typeof AUR !== "undefined" ? AUR.night(Dk).L : 0, dark = !CAL.isMidnightSun(base + 12 - CAL.off);
+      const cloud = clamp(this.atT(qx, qz, base + 21) * 1.4, 0, 1), aurora = dark && typeof AUR !== "undefined" ? clamp(aL * (1 - cloud) + gauss(r) * 0.1 * k, 0, 1) : null;
+      days.push({ k, D: Dk, label: `${DOW3[cal.dow]} ${cal.d} ${MON3[cal.m]}`, dow: DOW3[cal.dow], peak: fp, word: this.label(fp), from: fp > 0.2 ? from : null, win: s0 !== null ? [clamp(s0 + sh, 0, 23), clamp(s1 + sh, 1, 24)] : null, conf, wind: Math.max(1, Math.round(3 + 20 * fp + gauss(r))), lo: Math.min(lo, hi - 1), hi, ferry, aurora, polar: CAL.isPolarNight(base + 12 - CAL.off) });
+    }
+    return (this.fc = { D, seed: this.seed, days, issued: CAL.now(D * 24 - CAL.off).label });
+  },
+  // what's happening at the quay now and when it next changes
+  outlook() {
+    const H = GS.hour, i0 = this.at(depot.x, depot.z, H), on = i0 > 0.5;
+    for (let t = 0.5; t <= 36; t += 0.5) {
+      const i = this.at(depot.x, depot.z, H + t);
+      if ((i > 0.5) !== on) return { on, i: i0, at: H + t, from: this.f && this.f.from };
+    }
+    return { on, i: i0, at: null };
+  }
+};
+WX.seed = (Math.random() * 2 ** 31) | 0;
+// the morning after: a toast when the sun stops (or starts) coming up, and a line of forecast
+CAL.onDayChange((n, prev) => {
+  WX.fc = null; if ($("wx") && !$("wx").hidden) renderWx();
+  if (prev === null) return;
+  const pn = CAL.isPolarNight(), was = CAL.isPolarNight(GS.hour - 24);
+  if (pn && !was) toast("The sun didn't come up today. Polar night: every job pays ×1.5 until it's back in January.", "good");
+  else if (!pn && was) toast("A sliver of sun at noon today. Polar night is over, and so is the ×1.5.");
+  const t = WX.forecast().days[0];
+  setTimeout(() => toast(`${n.label}. Tomorrow: ${t.word.toLowerCase()}${t.win ? ` from about ${fmtTime(t.win[0])}` : ""}. Press ${TC.on ? "WX" : "B"} for the forecast.`), 2600);
+});
+
+/* the forecast panel (temporary: O2 turns this into the tablet's Weather app) */
+const WXP = { t: 0 };
+const wxGlyph = (p, night) => {
+  const cloud = `<path d="M9 25h21a6 6 0 0 0 0-12 8.5 8.5 0 0 0-16.4 1.6A5.3 5.3 0 0 0 9 25z" fill="rgba(234,242,248,.16)" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`;
+  if (p < 0.2) return night ? `<path d="M26 8a11 11 0 1 0 8 17A9 9 0 0 1 26 8z" fill="rgba(158,201,255,.18)" stroke="#9ec9ff" stroke-width="1.6"/>` : `<circle cx="20" cy="18" r="7" fill="rgba(255,194,107,.25)" stroke="#ffc26b" stroke-width="1.6"/>${[0, 1, 2, 3, 4, 5, 6, 7].map(k => { const a = k * Math.PI / 4; return `<line x1="${20 + Math.cos(a) * 10.5}" y1="${18 + Math.sin(a) * 10.5}" x2="${20 + Math.cos(a) * 13.5}" y2="${18 + Math.sin(a) * 13.5}" stroke="#ffc26b" stroke-width="1.6" stroke-linecap="round"/>`; }).join("")}`;
+  if (p < 0.42) return cloud + [[14, 30], [21, 33], [28, 30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="currentColor"/>`).join("");
+  const n = p < 0.7 ? 4 : 7;
+  return cloud + Array.from({ length: n }, (_, k) => { const x = 10 + k * (22 / (n - 1)); return `<line x1="${x + 3}" y1="28" x2="${x - 2}" y2="35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`; }).join("");
+};
+function renderWx() {
+  const f = WX.forecast(), o = WX.outlook(), n = CAL.now(), el = $("wxBody");
+  const here = WX.at(P.x, P.z), nowW = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
+  const day = h => { const d = Math.floor((CAL.abs(h)) / 24) - CAL.dayIndex(); return d <= 0 ? "" : d === 1 ? " tomorrow" : " " + CAL.now(h).label.split(" ")[0]; };
+  let now = `It's ${nowW} where you are, ${WX.temp(n.m) + Math.round(3 * here)}°. `;
+  now += o.on ? (o.at !== null ? `Storm at the quay, easing about ${fmtTime(o.at)}${day(o.at)}.` : "Storm at the quay, and no end to it on the charts.") : (o.at !== null ? `Next front${o.from ? " from the " + o.from : ""} reaches the quay about ${fmtTime(o.at)}${day(o.at)}.` : "Nothing on the charts for the next day and a half.");
+  const st = CAL.sunTimes(), sun = st.polar ? "Polar night: no sunrise, blue twilight around noon." : st.midnight ? "Midnight sun." : `Sun up ${fmtTime(st.up)}, down ${fmtTime(st.down)}.`;
+  const fchip = c => `<span class="bchip ${c.state === "cancelled" ? "due" : c.state === "delayed" ? "heavy" : "ok"}">${c.state === "delayed" ? "+" + c.delay + " H" : c.state.toUpperCase()}</span>`;
+  el.innerHTML = `<div class="wxnow"><b>${n.long}</b> · ${CAL.season().name}${CAL.isPolarNight() ? ` <span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}<p>${now} ${sun}</p></div>
+    <div class="wxdays">${f.days.map(d => `<div class="wxd${d.peak > 0.55 ? " bad" : ""}">
+      <div class="wxh"><span class="wxdow">${d.k === 1 ? "TOMORROW" : d.dow.toUpperCase()}</span><span class="wxdt">${d.label.slice(4)}</span><span class="bchip conf" title="Forecast confidence">${d.conf}%</span></div>
+      <svg class="wxg" viewBox="0 0 40 38" aria-hidden="true">${wxGlyph(d.peak, d.polar)}</svg>
+      <div class="wxw">${d.word}</div>
+      <div class="wxm">${d.win ? `${d.from ? "from the " + d.from + " · " : ""}${fmtTime(d.win[0])}–${fmtTime(d.win[1] % 24)}` : d.from ? "showers from the " + d.from : "settled"}</div>
+      <div class="wxm">${d.lo}° / ${d.hi}° · wind ${d.wind} m/s</div>
+      <div class="wxf">${d.ferry.map(c => `<span>${c.dir === "northbound" ? "N" : "S"} ${fmtTime(c.arr)}</span>${fchip(c)}`).join("")}</div>
+      ${d.aurora !== null && d.aurora !== undefined ? `<div class="wxa">Aurora: <b>${d.aurora > 0.6 ? "strong" : d.aurora > 0.35 ? "likely" : d.aurora > 0.15 ? "a chance" : "unlikely"}</b></div>` : ""}
+    </div>`).join("")}</div>
+    <p class="wxnote">Issued 00:00 ${f.issued} by the met office in Vardø. Tomorrow's is usually right. Days two and three are a guess with a percentage on it. Steamer times are her calls at Kjøllefjord.</p>`;
+}
+function toggleWx(force) {
+  const p = $("wx"), show = force === undefined ? p.hidden : force;
+  p.hidden = !show; if (show) { WXP.t = 0; renderWx(); }
+}
+$("closeWx").addEventListener("click", () => toggleWx(false));
+
 // Kjøllefjord is the hub: freight comes off the coastal steamer at the quay and goes out across the
 // Nordkinn by sled, because the road over Ifjordfjellet is shut half the winter.
 const SITES = [
@@ -3593,14 +3718,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -4241,7 +4366,8 @@ function gameKey(e) {
   if (e.code === "KeyE" && FOOT.on && !GS.boardOpen && !GS.garageOpen) { footAction(); return; }
   if (e.code === "KeyE") { if (!e.repeat) horn(); return; }
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
-  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "KeyB") { toggleWx(); return; }                 // B for barometer: the forecast
+  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("wx").hidden) toggleWx(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyF") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
@@ -5736,13 +5862,17 @@ function updGame(dt, spd) {
   GS.hour += dt / GAMEHOUR; gameClock += dt;
   CAL.tick();
   GS.saveT = (GS.saveT || 0) + dt; if (GS.saveT > 15) { GS.saveT = 0; save(); }
-  GS.stormT -= dt;
-  if (GS.stormPhase === "calm" && GS.stormT < 45 && !GS.warned) { GS.warned = true; toast("Storm moving in. It'll get cold and hard to see.", "warn"); }
-  if (GS.stormT <= 0) {
-    if (GS.stormPhase === "calm") { GS.stormPhase = "storm"; GS.stormT = 90 + Math.random() * 90; }
-    else { GS.stormPhase = "calm"; GS.stormT = 200 + Math.random() * 200; GS.warned = false; toast("The storm is breaking up."); }
+  // weather: the fronts over where you are right now (WX), with a look an hour ahead for the warning
+  const wxT = WX.at(P.x, P.z);
+  if (GS.stormPhase === "calm" && wxT > 0.55) { GS.stormPhase = "storm"; GS.warned = true; }
+  else if (GS.stormPhase === "storm" && wxT < 0.42) { GS.stormPhase = "calm"; GS.warned = false; toast("The storm is breaking up."); }
+  GS.wxLook = (GS.wxLook || 0) + dt;
+  if (GS.stormPhase === "calm" && GS.wxLook > 2) {
+    GS.wxLook = 0; const ahead = WX.at(P.x, P.z, GS.hour + 1), from = WX.f ? WX.f.from : null;
+    if (!GS.warned && ahead > 0.55) { GS.warned = true; toast(`Storm moving in${from ? " from the " + from : ""}. It'll get cold and hard to see.`, "warn"); }
+    else if (GS.warned && ahead < 0.4 && wxT < 0.4) GS.warned = false;
   }
-  GS.storm += ((GS.stormPhase === "storm" ? 1 : 0) - GS.storm) * (1 - Math.exp(-dt / 20));
+  GS.storm += (wxT - GS.storm) * (1 - Math.exp(-dt / 10));
   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
   if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
@@ -5822,7 +5952,8 @@ function updGameHud() {
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
-  const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
+  const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
+  if (!$("wx").hidden && (WXP.t += 0.066) > 5) { WXP.t = 0; renderWx(); }
   const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
   updCalHud();
@@ -5918,8 +6049,8 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["B", "Weather forecast"], ["Esc", "Settings"], ["Y", "God menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["D-pad right", "Weather forecast"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";
@@ -5958,7 +6089,7 @@ function titleBack() {
 }
 function newGame() {
   GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; rescueAbort();
-  GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null;                 // a new game starts at 09:36 on 1 November
+  GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
 }
@@ -7069,9 +7200,9 @@ const GOD_ITEMS = [
   { id: "time", label: "Skip 3 hours", sub: () => fmtTime(GS.hour), do: () => { GS.hour += 3; } },
   { id: "day", label: "Skip a day", sub: () => CAL.now().label, do: () => { GS.hour += 24; } },
   { id: "date", label: "Jump to date", sub: () => "◀ " + GOD_DATES[godDate][2] + " ▶", adjust: d => { godDate = (godDate + d + GOD_DATES.length) % GOD_DATES.length; }, do: () => { const g = GOD_DATES[godDate]; CAL.jumpTo(g[0], g[1]); toast(`It's ${CAL.now().long}.`); } },
-  { id: "storm", label: "Weather", sub: () => GS.stormPhase === "storm" ? "Storm · A to clear" : "Clear · A for a storm", do: () => {
-      if (GS.stormPhase === "storm") { GS.stormPhase = "calm"; GS.stormT = 400; GS.warned = false; toast("Sky's clearing."); }
-      else { GS.stormPhase = "storm"; GS.stormT = 150; GS.warned = true; toast("Storm called in.", "warn"); }
+  { id: "storm", label: "Weather", sub: () => (WX.force && GS.hour < WX.force.until ? (WX.force.v ? "Storm called in" : "Held clear") : GS.stormPhase === "storm" ? "Storm (front)" : "Clear") + " · A to change", do: () => {
+      if (GS.stormPhase === "storm" || (WX.force && WX.force.v && GS.hour < WX.force.until)) { WX.force = { v: 0, until: GS.hour + 4 }; toast("Sky's clearing for a few hours."); }
+      else { WX.force = { v: 1, until: GS.hour + 3 }; toast("Storm called in for three hours.", "warn"); }
     } },
   { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
   { id: "jobs", label: "Fresh jobs on the board", do: () => { makeJobs(depot); makeContracts(depot); if (GS.boardOpen) renderBoard(); toast("New work posted at the quay."); } },
