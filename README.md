@@ -25,10 +25,10 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
-- **E** job board (at the quay) or garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled
+- **E** job board (at the quay) or garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
 - **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** job board, garage, or back · **Menu** settings · **View** reset · **R3** camera · **Y** god menu
+  **B** job board, garage, or back · **Menu** settings · **View** reset · **D-pad left** wipe visor · **R3** camera · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
 
 The job board is a survey chart of the Nordkinn drawn from the terrain itself. Pick a parcel

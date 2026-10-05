@@ -1416,6 +1416,169 @@ function updFlakes(dt) {
   flGeo.attributes.position.needsUpdate = true;
 }
 
+/* ---------------- breath fog + visor frost ---------------- */
+// Two cheap effects, both driven by the warmth stat.
+// Breath: a ring of 22 soft sprites puffed from the rider's mouth (a faint DOM puff at the foot of the
+//   screen in first person). Puffs come faster as you work the throttle and fatter as it gets colder.
+// Frost: ONE full-screen quad drawn last, its whole look decided in the fragment shader by a single
+//   0..1 level. A rime ring creeps in from the rim of the screen and leaves a clear elliptical hole in the
+//   middle that shrinks as warmth drops (at level 1 the ring covers about 60% of the screen). While there
+//   is no frost the quad is not drawn at all, so a warm rider pays nothing.
+// Wipe: Z / pad D-pad left / the WIPE touch button. A gloved hand sweeps the visor in two strokes, the
+//   frost stays gone for ~4 s, then creeps back. Getting warm (a cabin, the stove, the thermos) lowers the
+//   target, and the frost thaws out with it.
+const VZ = { level: 0, target: 0, hold: 0, sweep: -1, hinted: false, mesh: null, mat: null, ex: 0, brT: 1.5, fp: null, glove: null };
+const VZ_SWEEP = 0.62, VZ_HOLD = 3.4, VZ_CREEP = 0.14, VZ_THAW = 1.3, VZ_ON = 60, VZ_FULL = 8;
+const BR = { sp: [], n: 22, head: 0 }, _bm = new THREE.Vector3();
+
+function frostNoise() {
+  // four tiling, smoothed noise fields (one per RGBA channel) packed in one 128² texture: bilinear does the rest
+  const N = 128, d = new Uint8Array(N * N * 4);
+  let s = 0x9e3779b9; const rnd = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  for (let ch = 0; ch < 4; ch++) {
+    const acc = new Float32Array(N * N); let amp = 1;
+    for (const L of [4, 8, 16, 32]) {
+      const lat = new Float32Array(L * L); for (let i = 0; i < lat.length; i++) lat[i] = rnd();
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const fx = x / N * L, fy = y / N * L, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+        const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+        const a = lat[(y0 % L) * L + (x0 % L)], b = lat[(y0 % L) * L + ((x0 + 1) % L)], c = lat[((y0 + 1) % L) * L + (x0 % L)], e = lat[((y0 + 1) % L) * L + ((x0 + 1) % L)];
+        acc[y * N + x] += amp * (a + (b - a) * sx + (c - a) * sy + (a - b - c + e) * sx * sy);
+      }
+      amp *= 0.55;
+    }
+    let lo = 1e9, hi = -1e9; for (let i = 0; i < acc.length; i++) { if (acc[i] < lo) lo = acc[i]; if (acc[i] > hi) hi = acc[i]; }
+    for (let i = 0; i < acc.length; i++) d[i * 4 + ch] = Math.round((acc[i] - lo) / (hi - lo) * 255);
+  }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+}
+const VZ_VERT = "varying vec2 vP; void main(){ vP = position.xy; gl_Position = vec4(position.xy, 0.0, 1.0); }";
+const VZ_FRAG = `
+uniform sampler2D uNoise;
+uniform float uLevel, uAsp, uTone;
+uniform vec2 uWipe;
+varying vec2 vP;
+void main() {
+  vec2 p = vP;                                   // -1..1 across the screen, so the clear hole is an ellipse the shape of the screen
+  float r = length(p);
+  float hole = mix(1.45, 0.76, uLevel);          // where the rime is half strength; 1.0 is the middle of each screen edge
+  if (r < hole - 0.62) discard;
+  float ang = atan(p.y, p.x) * 0.15915494 + 0.5;
+  vec2 q = p * vec2(uAsp, 1.0) * 0.5;
+  vec4 nA = texture2D(uNoise, q * 1.9);
+  vec4 nB = texture2D(uNoise, q * 6.5 + 0.31);
+  vec4 nC = texture2D(uNoise, vec2(ang * 5.0, 0.31));
+  vec4 nD = texture2D(uNoise, vec2(ang * 14.0, 0.77));
+  float spike = (1.0 - abs(2.0 * nC.r - 1.0)) * 0.6 + (1.0 - abs(2.0 * nD.g - 1.0)) * 0.4;   // pointed fingers of rime
+  float rough = nA.r * 0.6 + nB.r * 0.4;
+  float edge = hole + (spike - 0.78) * 0.5 * (0.3 + uLevel) + (rough - 0.5) * 0.24;
+  float body = smoothstep(edge - 0.17, edge + 0.17, r);
+  float a = body * (0.90 + 0.09 * nA.g);
+  // the gloved wipe: stroke A clears the top half left to right, stroke B the bottom half right to left, with a ragged, streaky front
+  float jit = (nA.b - 0.5) * 0.10 + (nB.b - 0.5) * 0.06;
+  float topW = smoothstep(-0.10, 0.04, p.y + (nA.g - 0.5) * 0.10);
+  float cA = 1.0 - smoothstep(uWipe.x - 0.07, uWipe.x + 0.07, p.x + jit);
+  float cB = smoothstep(uWipe.y - 0.07, uWipe.y + 0.07, p.x + jit);
+  a *= 1.0 - mix(cB, cA, topW);
+  if (a < 0.004) discard;
+  vec3 thin = vec3(0.60, 0.77, 0.90), rime = vec3(0.93, 0.97, 1.0);
+  vec3 col = mix(thin, rime, smoothstep(0.15, 0.95, body * (0.55 + 0.45 * nA.g)));
+  col += 0.05 * smoothstep(0.78, 0.96, nB.g * (0.45 + nA.b)) * body;
+  gl_FragColor = vec4(col * uTone, a);
+}`;
+function visorMesh() {
+  if (VZ.mesh) return VZ.mesh;
+  VZ.mat = new THREE.ShaderMaterial({ uniforms: { uNoise: { value: frostNoise() }, uLevel: { value: 0 }, uAsp: { value: 1.7 }, uTone: { value: 1 }, uWipe: { value: new THREE.Vector2(-1.5, 1.5) } }, vertexShader: VZ_VERT, fragmentShader: VZ_FRAG, transparent: true, depthTest: false, depthWrite: false, fog: false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), VZ.mat); m.frustumCulled = false; m.renderOrder = 10000; m.visible = false; scene.add(m);
+  return VZ.mesh = m;
+}
+function wipeVisor() {
+  if (!started || GS.dead || GS.boardOpen || GS.garageOpen || godOpen || !$("settings").hidden || !$("bigmap").hidden) return;
+  if (VZ.sweep >= 0 || VZ.level < 0.04) return;       // nothing to wipe, or the glove is already on the visor
+  VZ.sweep = 0; VZ.hold = 0;
+}
+function gloveAt(t) {
+  // the glove follows the same two strokes the shader clears with; t is 0..1 over the whole wipe
+  const g = VZ.glove || (VZ.glove = $("glove")); if (!g) return;
+  if (t < 0 || t >= 1) { g.style.display = "none"; return; }
+  const W = innerWidth, H = innerHeight, gw = Math.min(W, H) * 0.36, gh = gw * 1.25;
+  const sA = t < 0.5, u = sA ? t * 2 : (t - 0.5) * 2, e = u * u * (3 - 2 * u);
+  const px = sA ? lerp(-1.2, 1.2, e) : lerp(1.2, -1.2, e), py = sA ? 0.44 : -0.36;
+  const sx = (px * 0.5 + 0.5) * W, sy = (0.5 - py * 0.5) * H, rot = (sA ? 82 : -82) + Math.sin(t * 22) * 5;
+  g.style.display = "block"; g.style.width = gw + "px";
+  g.style.transform = `translate3d(${(sx - gw / 2).toFixed(1)}px,${(sy - gh / 2).toFixed(1)}px,0) rotate(${rot.toFixed(1)}deg)`;
+  g.style.opacity = Math.min(1, t / 0.08, (1 - t) / 0.1).toFixed(2);
+}
+function updVisor(dt) {
+  const gear = GS.own.gear, heatedHelmet = gear && gear.head === "heated";   // "Battery visor. No fog, no ice."
+  const off = heatedHelmet || showroomOn() || GS.dead;
+  VZ.target = off ? 0 : Math.pow(clamp((VZ_ON - GS.warmth) / (VZ_ON - VZ_FULL), 0, 1), 1.15);
+  if (VZ.sweep >= 0) {
+    VZ.sweep += dt;
+    if (VZ.sweep >= VZ_SWEEP) { VZ.sweep = -1; VZ.level = 0; VZ.hold = VZ_HOLD; }       // the strokes have cleared everything: from here it just creeps back
+  } else if (VZ.hold > 0) { VZ.hold -= dt; VZ.level = 0; }
+  else if (VZ.level < VZ.target) VZ.level = Math.min(VZ.target, VZ.level + VZ_CREEP * dt);
+  if (VZ.level > VZ.target) VZ.level = Math.max(VZ.target, VZ.level - VZ_THAW * dt);   // warming up lowers the target: the frost thaws out and stays gone
+  if (VZ.target <= 0.001) VZ.hold = 0;
+  if (!VZ.hinted && VZ.level > 0.3) { VZ.hinted = true; toast(TC.on ? "Your visor's icing over. Tap WIPE to clear it, or get warm." : "Your visor's icing over. Press Z (pad: D-pad left) to wipe it, or get warm.", "warn"); }
+  const show = VZ.level > 0.012 || VZ.sweep >= 0;
+  if (!show) { if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false; return; }
+  const m = visorMesh(), U = VZ.mat.uniforms; m.visible = true;
+  U.uLevel.value = VZ.level; U.uAsp.value = innerWidth / innerHeight; U.uTone.value = 0.38 + 0.62 * dayFactor();
+  if (VZ.sweep >= 0) {
+    const t = VZ.sweep / VZ_SWEEP, sA = t < 0.5, u = sA ? t * 2 : (t - 0.5) * 2, e = u * u * (3 - 2 * u);
+    U.uWipe.value.set(sA ? lerp(-1.45, 1.45, e) : 1.45, sA ? 1.45 : lerp(1.45, -1.45, e)); gloveAt(t);
+  } else { U.uWipe.value.set(-1.5, 1.5); if (VZ.glove && VZ.glove.style.display !== "none") gloveAt(-1); }
+}
+function puffFp(ci, ms) {
+  const el = VZ.fp || (VZ.fp = $("breathFp")); if (!el || !el.animate) return;
+  const peak = 0.10 + 0.30 * ci;
+  el.animate([{ opacity: 0, transform: "translate(-50%,38%) scale(.55)" }, { opacity: peak, transform: "translate(-50%,10%) scale(.95)", offset: 0.28 }, { opacity: 0, transform: "translate(-50%,-22%) scale(1.5)" }], { duration: ms, easing: "ease-out" });
+}
+function puffWorld(ci, ex, foot) {
+  if (!BR.sp.length) for (let i = 0; i < BR.n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; scene.add(s);
+    BR.sp.push({ s, age: 1, life: 1, vx: 0, vy: 0, vz: 0, size: 1, peak: 0 });
+  }
+  let fx, fz;
+  if (foot) { fx = Math.sin(FOOT.yaw); fz = Math.cos(FOOT.yaw); _bm.set(FOOT.x + fx * 0.22, FOOT.y + 1.58, FOOT.z + fz * 0.22); }
+  else { fx = Math.sin(P.yaw); fz = Math.cos(P.yaw); V.head.g.updateWorldMatrix(true, false); V.head.g.localToWorld(_bm.set(0, -0.03, 0.26)); }
+  const n = 1 + (ci > 0.4) + (ci > 0.75) + (ex > 0.7), tint = 0.5 + 0.5 * dayFactor();
+  const vx0 = foot ? 0 : P.vx * 0.18, vz0 = foot ? 0 : P.vz * 0.18, wx = windU.uWind.value.x * 0.5, wz = windU.uWind.value.y * 0.5;
+  for (let k = 0; k < n; k++) {
+    const b = BR.sp[BR.head]; BR.head = (BR.head + 1) % BR.n;
+    b.s.position.set(_bm.x + (Math.random() - 0.5) * 0.12, _bm.y + (Math.random() - 0.3) * 0.1, _bm.z + (Math.random() - 0.5) * 0.12);
+    const out = 0.35 + 0.5 * ex + Math.random() * 0.25;
+    b.vx = vx0 + wx + fx * out + (Math.random() - 0.5) * 0.3; b.vy = 0.28 + Math.random() * 0.25; b.vz = vz0 + wz + fz * out + (Math.random() - 0.5) * 0.3;
+    b.age = -k * 0.07; b.life = 1.1 + Math.random() * 0.6 + ci * 0.5;
+    b.size = 0.75 + 0.55 * ci + Math.random() * 0.25 + ex * 0.2; b.peak = 0.16 + 0.42 * ci;
+    b.s.material.color.setScalar(tint);
+  }
+}
+function updBreath(dt) {
+  for (const b of BR.sp) {                       // puffs already in the air finish whatever the camera is doing
+    if (b.age >= b.life) continue;
+    b.age += dt;
+    if (b.age < 0) continue;
+    if (b.age >= b.life) { b.s.visible = false; continue; }
+    const t = b.age / b.life, k = Math.exp(-1.7 * dt);
+    b.vx *= k; b.vz *= k; b.vy = b.vy * k + 0.05 * dt;
+    b.s.position.x += b.vx * dt; b.s.position.y += b.vy * dt; b.s.position.z += b.vz * dt;
+    b.s.material.opacity = b.peak * (t < 0.14 ? t / 0.14 : Math.pow(1 - (t - 0.14) / 0.86, 1.6));
+    b.s.scale.setScalar(b.size * (0.3 + 0.7 * Math.sqrt(t))); b.s.visible = true;
+  }
+  if (GS.dead || showroomOn()) return;
+  const foot = FOOT.on, fp = VIEWS[camMode].fp && !foot;       // on foot the first-person view falls back to the chase cam
+  VZ.ex += ((foot ? Math.min(1, Math.abs(FOOT.fwd)) * 0.7 : input.thr) - VZ.ex) * (1 - Math.exp(-2.2 * dt));
+  if ((VZ.brT -= dt) > 0) return;
+  // how cold it feels: mostly your warmth, plus the weather (night, storm, the open fell) that is draining it
+  const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1), amb = clamp((0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) / 1.9, 0, 1);
+  const ci = clamp(0.65 * (1 - GS.warmth / 100) + 0.35 * amb, 0, 1), gap = lerp(3.1, 1.0, VZ.ex) * (0.85 + Math.random() * 0.3);
+  VZ.brT = gap;
+  if (fp) puffFp(ci, clamp(gap * 950, 700, 1700)); else puffWorld(ci, VZ.ex, foot);
+}
+
 /* ---------------- input ---------------- */
 const keys = new Set();
 const input = { thr: 0, brk: 0, steer: 0, lean: 0, hop: false, wheelie: 0 };
@@ -1446,7 +1609,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false;
+let padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false;
 
 /* ---------------- touch controls ---------------- */
 // Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
@@ -1471,6 +1634,7 @@ function updTouch() {
   const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
   $("tF").hidden = !(HELP.on && HELP.kind === "sea" && !HELP.called) && !(GS.fuel <= 0 && !HELP.on);
   $("tReel").hidden = !(wd && WN.state === "hooked");
+  $("tWipe").hidden = !(VZ.target > 0.12 || VZ.level > 0.08 || VZ.sweep >= 0);
 }
 {
   const HOLD = { gas: "thr", brake: "brk", lean: "lean", wh: "wh", reel: "reel" };
@@ -1491,6 +1655,7 @@ function updTouch() {
       else if (k === "q") gameKey({ code: "KeyQ" });
       else if (k === "x") gameKey({ code: "KeyX" });
       else if (k === "help") gameKey({ code: "KeyF" });
+      else if (k === "wipe") wipeVisor();
     });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
     b.addEventListener("touchend", e => e.preventDefault(), { passive: false });   // no synthetic click: a panel that just opened under the thumb must not get it
@@ -1539,6 +1704,7 @@ function readInput(dt) {
     if (started && GS.boardOpen && !godOpen) boardPad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
+    const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !GS.boardOpen) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
@@ -3950,6 +4116,7 @@ function gameKey(e) {
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyF") callForHelp();
+  if (e.code === "KeyZ") wipeVisor();
 }
 
 /* settings: paint, rider kit, volume */
@@ -5154,7 +5321,7 @@ function updGame(dt, spd) {
   updNpcs(dt);
   groomT += dt; if (groomT > 2.5) { groomT = 0; updGroom(); }
   refill(); fadeTrails(dt);
-  $("frost").style.opacity = (clamp((40 - GS.warmth) / 40, 0, 1) * 0.95).toFixed(3);
+  updVisor(dt); updBreath(dt);
 }
 function groomTarget() {
   // the next ungroomed stretch along the line, or the cabin once it's good enough
@@ -5280,8 +5447,8 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Job board, garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Job board, garage"], ["Menu", "Settings"], ["View", "Reset the sled"], ["R3", "Camera"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Job board, garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Esc", "Settings"], ["Y", "God menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Job board, garage"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";
@@ -5297,7 +5464,7 @@ function titlePanel(kind) {
       <div class="pbtns"><button type="button" class="pbtn" data-a="back">KEEP MY SAVE</button><button type="button" class="pbtn go" data-a="wipe">START OVER</button></div>`;
   } else if (kind === "howto") {
     const col = (t, list) => `<div><div class="pl">${t}</div>${list.map(([k, a]) => `<div class="pk"><b>${k}</b><span>${a}</span></div>`).join("")}</div>`;
-    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. JOB BOARD and GARAGE come up at the top when you're at the quay.</p>`;
+    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. JOB BOARD and GARAGE come up at the top when you're at the quay. When your visor ices over, a WIPE button shows up above HOP.</p>`;
     label = "How to play";
     h = `<div class="ph"><div><div class="pe">KJØLLEFJORD QUAY</div><div class="pt">How to play</div></div>${x}</div>
       <p>When the road over Ifjordfjellet shuts, everything the Nordkinn needs comes off the coastal steamer at the quay and goes out by sled: to Mehamn and Gamvik on the Barents coast, Lebesby and Ifjord down the fjord, the herders' cabins up on the fell, the light out at Slettnes. Fresh powder drags at your sled and burns fuel. Every trail you cut stays packed, fast and cheap, until new snow buries it. The sun barely clears the hills, the nights are long and the storms come straight off the sea. Keep your tank and your body warm enough to make it back.</p>
@@ -6389,7 +6556,7 @@ function frame(t) {
   if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
   wnVisual(dt);
-  if (started) updGame(dt, spd);
+  if (started) updGame(dt, spd); else if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
