@@ -66,8 +66,8 @@ Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress sav
 ## The calendar, the dark and the weather
 
 A game day is 20 real minutes, and the calendar is real: a new game starts on 1 November and
-the season runs to the end of May (summer is skipped for now, and you come back on 1 November
-with everything you own). Daylight follows Kjøllefjord's 70.9°N. In early November the sun
+the season runs to the end of May, then the summer fast-forwards and you come back on 1 November
+to a fresh snowpack with everything you own (the Calendar app counts the years). Daylight follows Kjøllefjord's 70.9°N. In early November the sun
 barely clears the horizon at noon. From about 20 November to 22 January it doesn't rise at
 all: there's a blue twilight around noon and dark the rest of the time, and **every job pays
 ×1.5**. By March the days are twelve hours, and from mid-May the sun never sets.
@@ -81,6 +81,17 @@ Storms are weather fronts that sweep across the map, so the west coast gets hit 
 quay. The tablet's Weather app (or **B**, for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
 confidence figure and are sometimes wrong. It also shows whether the ferry's calls look
 on time, delayed or cancelled.
+
+## The spring melt
+
+From April the snow goes to slush in the afternoons (heavier, slower, sloppier) and sets to a
+crust overnight. From about 9 April it starts melting out: south-facing slopes and the shore
+first, the high fell last. Bare ground scrapes and throws sparks, and a sled crawls across it
+and runs hot. From May the lakes open up from the shore in. Open water skips like the fjord,
+and a band of dark, thin ice ahead of it cracks under a slow sled and gives way. As trails melt
+out they close: the Map app shows each one as open, melting or closed, and work thins out and
+only goes where the trail still holds (melting trails pay a little extra). At the end of May
+there's a summer montage, then it all freezes over again for the next winter.
 
 ## The hitch and bigger work
 

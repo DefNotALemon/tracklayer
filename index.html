@@ -28,6 +28,9 @@
   .pill[data-s="PACKED"]{background:var(--signal);color:#fff}
   .pill[data-s="ICE"]{background:var(--ice);color:var(--ink)}
   .pill[data-s="WATER"]{background:#2e6f9e;color:#fff}
+  .pill[data-s="SLUSH"]{background:#8fa3b2;color:var(--ink)}
+  .pill[data-s="BARE"]{background:#7a5f3e;color:#fff}
+  .pill[data-s="THIN ICE"]{background:#b8321f;color:#fff}
   #bonus{font-size:14px;font-weight:600;color:var(--signal);letter-spacing:.04em;min-height:1.2em}
   #drag{height:4px;border-radius:2px;background:rgba(234,242,248,.12);overflow:hidden}
   #dragFill{height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--frost));transition:width .15s}
@@ -437,6 +440,20 @@
   #summer .sumc{width:min(460px,calc(100% - 32px));text-align:center;display:grid;gap:10px}
   #summer .sumt{font-weight:800;font-size:44px;line-height:1;color:var(--frost);font-variant-numeric:tabular-nums}
   #summer p{font-style:italic;font-weight:500;font-size:15px;line-height:1.45;color:var(--frost2);margin:0}
+  /* the summer montage (O7): the date flips through the summer under italic serif notes, then the bills and the new year */
+  #summer{--sserif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif}
+  #summer .sumc{gap:14px}
+  #summer #sumNote{font-family:var(--sserif);font-style:italic;font-weight:400;font-size:18px;line-height:1.5;min-height:3em;opacity:0;transform:translateY(4px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+  #summer #sumNote.on{opacity:1;transform:none}
+  #summer .sumb{border-top:1px solid var(--rule);padding-top:10px;display:grid;gap:4px;text-align:left}
+  #summer .sumb[hidden],#summer .sumy[hidden]{display:none}
+  #summer .sumb p{font-family:var(--sserif);font-size:14px}
+  #summer .sbh{font-weight:700;font-size:11px;letter-spacing:.14em;color:var(--slate)}
+  #summer .sbr{display:flex;justify-content:space-between;gap:12px;font-size:14px;color:var(--frost2)}
+  #summer .sbr b{font-variant-numeric:tabular-nums;color:var(--frost)}#summer .sbr b.neg{color:#ff8a5a}#summer .sbr b.pos{color:#6ff0b8}
+  #summer .sbr.tot{border-top:1px solid var(--rule);padding-top:4px;font-weight:700}
+  #summer .sumy{justify-self:center;padding:2px 12px;border:1px solid var(--signal);border-radius:999px;color:var(--signal);font-weight:800;font-size:12px;letter-spacing:.14em}
+  .cchip.ml{color:#d9c49a;background:rgba(200,160,90,.12)}
   /* ==== THE DASH TABLET (winter update O2): replaces the job board. First Light panels, ruled lines, italic notes, chips ====
      #tabS is the screen at a logical size; JS lays it on the 3D dash glass (matrix3d) or centres it as an overlay. */
   #tab{position:fixed;left:0;top:0;width:0;height:0;z-index:3}
@@ -518,8 +535,8 @@
   .tml b{color:var(--frost)}
   .tml.on{color:var(--frost);border-color:rgba(234,242,248,.35);background:rgba(234,242,248,.07)}
   .tml i.k{width:10px;height:10px;border-radius:50%;opacity:.45}.tml.on i.k{opacity:1}
-  .tml i.del{background:var(--signal)}.tml i.pins{background:#7fc8e0}.tml i.rescue{background:#ff3a1a}.tml i.depots{background:#b9a2f5}
-  .twid{position:absolute;left:10px;bottom:10px;display:grid;grid-template-columns:repeat(3,auto);gap:18px;padding:9px 14px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(13,24,34,.86)}
+  .tml i.del{background:var(--signal)}.tml i.pins{background:#7fc8e0}.tml i.rescue{background:#ff3a1a}.tml i.depots{background:#b9a2f5}.tml i.routes{background:#d0731f;border-radius:2px}
+  .twid{position:absolute;left:10px;bottom:10px;display:grid;grid-auto-flow:column;grid-auto-columns:auto;gap:18px;padding:9px 14px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(13,24,34,.86)}
   #tabS.small .twid{gap:10px;padding:6px 10px}#tabS.small .twr b{font-size:15px}#tabS.small .twr i{display:none}
   #tabS.small .tlays{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:4px}#tabS.small .tml{padding:3px 8px;font-size:11.5px;white-space:nowrap}
   #tabS.small .tmap .tbtn{min-height:28px;padding:0 10px;font-size:11px}#tabS.small .tmtop{top:6px;left:6px;right:6px}#tabS.small .twid{left:6px;bottom:6px}
@@ -626,7 +643,7 @@
 <div class="hud panel" id="zone" hidden>
   <div class="brand">TRACKLAYER</div>
   <div class="cal" id="cal"><span class="cdate"><b id="calDate">SUN 1 NOV</b> <i id="calYear">2026</i></span><span class="ctime" id="calTime">09:36</span></div>
-  <div class="cchips"><span class="cchip pn" id="calPN" hidden>POLAR NIGHT ×1.5</span><span class="cchip au" id="calAU" hidden>AURORA</span></div>
+  <div class="cchips"><span class="cchip pn" id="calPN" hidden>POLAR NIGHT ×1.5</span><span class="cchip au" id="calAU" hidden>AURORA</span><span class="cchip ml" id="calML" hidden>THAW</span></div>
   <div class="name" id="zoneName">BACKCOUNTRY</div>
   <div class="elev" id="elev">Elev 0 m</div>
   <div class="elev" id="clock">07:24 · Clear · $0</div>
@@ -664,7 +681,7 @@
 <div id="tabBan" class="tban" hidden></div>
 <div id="breathFp" aria-hidden="true"></div>
 <div id="glove" aria-hidden="true"><svg viewBox="0 0 120 150"><defs><linearGradient id="gvL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4452"/><stop offset="1" stop-color="#151a21"/></linearGradient></defs><g fill="url(#gvL)" stroke="rgba(234,242,248,.16)" stroke-width="1.5"><rect x="26" y="26" width="15" height="56" rx="7.5"/><rect x="43" y="14" width="15" height="68" rx="7.5"/><rect x="60" y="20" width="15" height="62" rx="7.5"/><rect x="77" y="32" width="14" height="50" rx="7"/><path d="M26 74 C10 70 4 84 12 96 L28 112 L40 100 Z"/><rect x="24" y="60" width="70" height="62" rx="18"/><rect x="20" y="112" width="78" height="36" rx="10"/></g><rect x="20" y="124" width="78" height="7" fill="#ff5a1f" opacity=".85"/></svg></div>
-<div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p>The snow goes, the fjord boats run, and the sleds sit in the shed under a tarp. You keep everything. See you when it freezes.</p></div></div>
+<div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p id="sumNote"></p><div class="sumb" id="sumBills" hidden></div><div class="sumy" id="sumYear" hidden></div></div></div>
 
 <div class="panel" id="settings" hidden>
   <div class="bhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">Settings</div></div><button id="closeSet" class="xbtn" aria-label="Close settings">✕</button></div>
@@ -790,5 +807,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=32"></script>
+<script src="tracklayer.js?v=33"></script>
 </body></html>

@@ -31,6 +31,8 @@ const WORLD = 8192, HALF = 4096, GRES = 4, GN = WORLD / GRES + 1;   // coarse te
 const CELL = 0.25, FN = WORLD / CELL;   // 32768 fine cells per side                                // fine snow grid (25 cm)
 const SEA = 0;                                                       // sea level: the fjords never freeze
 const ground = new Float32Array(GN * GN), freshG = new Float32Array(GN * GN), bio = new Uint8Array(GN * GN); // bio: 0 open fell, 1 lake ice, 2 birch, 3 sea
+// lake ice: which lake a cell belongs to (LAKES index + 1) and how far out from its middle it sits (0 centre .. 255 shore). The melt opens lakes from the shore in.
+const lakeId = new Uint8Array(GN * GN), lakeT = new Uint8Array(GN * GN);
 // where the peninsula pushes out into the sea beyond the main body
 const LOBES = [
   { x: -350, z: -3500, r: 850, a: 0.5 },     // Kinnarodden, the north tip
@@ -133,14 +135,15 @@ function genWorld() {
       const x = i * GRES - HALF;
       let h = baseH(x, z), b = 0;
       if (h < SEA) b = 3;
-      else for (const L of LAKES) {
+      else for (let li = 0; li < LAKES.length; li++) {
+        const L = LAKES[li];
         if (!L.ok) continue;
         const dx = x - L.x, dz = z - L.z, dd = Math.sqrt(dx * dx + dz * dz);
         if (dd > L.r * 1.7) continue;
         const t = dd / (L.r * (0.76 + 0.48 * fbm(x / 170 + L.x, z / 170, 3)));
         const mk = 1 - sstep(0.85, 2.1, t);
         h += (L.lv - h) * mk;
-        if (t < 0.97) b = 1;
+        if (t < 0.97) { b = 1; lakeId[j * GN + i] = li + 1; lakeT[j * GN + i] = Math.min(255, Math.round(t / 0.97 * 255)); }
       }
       ground[j * GN + i] = h; bio[j * GN + i] = b;
     }
@@ -174,20 +177,27 @@ function genWorld() {
 const CH = 32, CPR = FN / CH;
 const chunks = new Array(CPR * CPR);
 const activeChunks = []; let refillIdx = 0, gameClock = 0;
-function freshCell(ix, iz) {
+// the winter snowpack at a fine cell, before any melt
+function freshBase(ix, iz) {
   const x = ix * CELL - HALF, z = iz * CELL - HALF;
   let d = sampleG(freshG, x, z);
   if (d > 0.1) d += (vn(x / 7 + 3, z / 7) - 0.5) * 0.34 * Math.min(1, d * 2) + (vn(x / 1.9, z / 1.9 + 5) - 0.5) * 0.07;
   else d += vn(x / 2.3, z / 2.3) * 0.025;
   return d < 0 ? 0 : d;
 }
+// what's left of it today (the spring melt thins it and opens bare ground; see MELT)
+function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && d > 0 ? d * meltMul(ix * CELL - HALF, iz * CELL - HALF) : d; }
 function getChunk(cx, cz) {
   const key = cz * CPR + cx;
   let c = chunks[key];
   if (!c) {
-    c = { d: new Float32Array(CH * CH), f: new Float32Array(CH * CH) };
-    for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) { const v = freshCell(cx * CH + i, cz * CH + j); c.f[j * CH + i] = v; c.d[j * CH + i] = v; }
-    chunks[key] = c; c.key = key; c.cx = cx; c.cz = cz; c.t = gameClock; activeChunks.push(c);
+    c = { d: new Float32Array(CH * CH), f: new Float32Array(CH * CH), b: new Float32Array(CH * CH) };
+    const melt = MELT.kq > 0;
+    for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) {
+      const b = freshBase(cx * CH + i, cz * CH + j), v = melt && b > 0 ? b * meltMul((cx * CH + i) * CELL - HALF, (cz * CH + j) * CELL - HALF) : b;
+      c.b[j * CH + i] = b; c.f[j * CH + i] = v; c.d[j * CH + i] = v;
+    }
+    chunks[key] = c; c.key = key; c.cx = cx; c.cz = cz; c.t = gameClock; c.mk = MELT.kq; activeChunks.push(c);
   }
   return c;
 }
@@ -212,9 +222,17 @@ const smoothSurf = (x, z) => groundAt(x, z) + sampleG(freshG, x, z) * 0.4;
 // throws water back hard enough to hold the whole machine up. Drop under planing speed and it
 // settles in, the drag climbs, it settles further. Pin it and you can claw back up; let off and it's gone.
 const VPLANE = 12.5;                                                   // m/s, about 28 mph, to stay up
-const waterLine = () => SEA - 0.12 - P.sink * 0.5;               // the sled sits lower as it bogs
-const rideSurf = (x, z) => { const s = surf(x, z); return bioAt(x, z) === 3 ? Math.max(s, waterLine()) : s; };
-const smoothRide = (x, z) => { const s = smoothSurf(x, z); return bioAt(x, z) === 3 ? Math.max(s, waterLine()) : s; };
+// The water under the sled: the sea, or (in the melt) a lake that has opened up. Its level lives in P.wl.
+const waterLine = (w = P.wl) => w - 0.12 - P.sink * 0.5;             // the sled sits lower as it bogs
+function wlvAt(x, z) {                                                 // water surface here, or null for dry land / ice
+  const i = clamp(Math.round((x + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + HALF) / GRES), 0, GN - 1), k = j * GN + i, b = bio[k];
+  if (b === 3) return SEA;
+  if (b === 1 && MELT.kq > 0) { const L = LKS[lakeId[k] - 1]; if (L && (lakeT[k] > L.thr || (MELT.holes.size && MELT.holes.has(k)))) return L.W; }
+  return null;
+}
+const isWater = (x, z) => wlvAt(x, z) !== null;
+const rideSurf = (x, z) => { const s = surf(x, z), w = wlvAt(x, z); return w === null ? s : Math.max(s, waterLine(w)); };
+const smoothRide = (x, z) => { const s = smoothSurf(x, z), w = wlvAt(x, z); return w === null ? s : Math.max(s, waterLine(w)); };
 
 /* ---------------- three.js setup ---------------- */
 const canvas = $("gl");
@@ -337,9 +355,11 @@ const patchGeo = new THREE.BufferGeometry();
   patchGeo.setAttribute("aUv", new THREE.BufferAttribute(uv, 2));
   patchGeo.setIndex(new THREE.BufferAttribute(buildGridIndex(S), 1));
 }
+// melt uniforms shared by the snow patch, the far terrain and the lakes (MELT sets them)
+const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uThin: { value: 1 }, uLakeThr: { value: new Array(LAKES.length).fill(9) } };
 const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
 patchMat.onBeforeCompile = sh => {
-  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S };
+  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet;
   sh.vertexShader = "uniform sampler2D uSnow; uniform float uTexel; attribute vec2 aUv; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     sh.vertexShader
       .replace("#include <beginnormal_vertex>", `
@@ -356,17 +376,28 @@ patchMat.onBeforeCompile = sh => {
         float hB = blur.x;
         vPack = blur.y; vFresh = sC.b; vIce = sC.a; vSlopeY = objectNormal.y;`)
       .replace("#include <begin_vertex>", `vec3 transformed = vec3(position.x, hB - position.y*1.4, position.z); vWP = (modelMatrix*vec4(transformed,1.0)).xyz;`);
-  sh.fragmentShader = "varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     sh.fragmentShader.replace("#include <color_fragment>", `
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
+      float ice = min(vIce, 1.0), thin = clamp(vIce - 1.0, 0.0, 1.0);          // 1..2 is ice the melt is eating (dark, grey, wet)
       vec3 col = mix(powder, packedC, vPack);
-      col = mix(col, iceC, vIce*(0.3 + 0.7*vPack));
-      float rock = (1.0 - smoothstep(0.03,0.14,vFresh)) * (1.0 - vIce) * (1.0 - smoothstep(0.55,0.78,vSlopeY));
+      col = mix(col, iceC, ice*(0.3 + 0.7*vPack));
+      col = mix(col, vec3(0.17,0.25,0.31), thin*0.8);
+      // spring: wet snow goes grey, the edges of the drifts go dirty, and where it's gone there's earth and heather
+      float lo = (1.0 - smoothstep(0.08,0.3,vFresh)) * (1.0 - ice) * uSpr;
+      col *= mix(vec3(1.0), vec3(0.85,0.89,0.93), uWet * 0.8);
+      col *= mix(vec3(1.0), vec3(0.83,0.8,0.76), lo * 0.7);
+      vec2 ep = floor(vWP.xz*1.7);
+      float en = fract(sin(dot(ep, vec2(41.31,17.83)))*43758.5453);
+      vec3 earth = mix(mix(vec3(0.27,0.22,0.16), vec3(0.29,0.31,0.18), en), vec3(0.34,0.27,0.24), step(0.86, en));
+      float bare = (1.0 - smoothstep(0.02,0.1,vFresh)) * (1.0 - ice) * uSpr;
+      col = mix(col, earth, bare);
+      float rock = (1.0 - smoothstep(0.03,0.14,vFresh)) * (1.0 - ice) * (1.0 - smoothstep(0.55,0.78,vSlopeY));
       col = mix(col, rockC, rock);
       vec2 cellp = floor(vWP.xz*9.0);
       float rnd = fract(sin(dot(cellp, vec2(12.9898,78.233)))*43758.5453);
       float tw = fract(rnd*37.0 + dot(normalize(vWP - cameraPosition), vec3(4.0,6.0,5.0)));
-      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * 0.9;
+      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 0.9;
       diffuseColor.rgb *= col;`);
 };
 const patchMesh = new THREE.Mesh(patchGeo, patchMat);
@@ -380,7 +411,7 @@ function fillCell(arr, i, j, ix, iz) {
   let d, f;
   if (c) { const k = (iz & 31) * CH + (ix & 31); d = c.d[k]; f = c.f[k]; } else { d = f = freshCell(ix, iz); }
   const o = (j * S + i) * 4;
-  arr[o] = groundAt(x, z) + d; arr[o + 1] = packOf(d, f); arr[o + 2] = f; arr[o + 3] = bioAt(x, z) === 1 ? 1 : 0;
+  arr[o] = groundAt(x, z) + d; arr[o + 1] = packOf(d, f); arr[o + 2] = f; arr[o + 3] = bioAt(x, z) === 1 ? 1 + iceThin(x, z) : 0;
 }
 const farU = { uPatch: { value: new THREE.Vector4(-1e6, -1e6, -1e6, -1e6) }, uTrail: { value: null } };
 function recenter(px, pz, force) {
@@ -396,7 +427,7 @@ function recenter(px, pz, force) {
     if (rowOK && i1 >= i0) dst.set(src.subarray((sj * S + i0 + dx) * 4, (sj * S + i1 + dx + 1) * 4), (j * S + i0) * 4);
     for (let i = 0; i < S; i++) { if (rowOK && i >= i0 && i <= i1) continue; fillCell(dst, i, j, cx + i, cz + j); }
   }
-  pdata = dst; pdata2 = src; pox = cx; poz = cz;
+  pdata = dst; pdata2 = src; pox = cx; poz = cz; MELT.moved = true;
   snowTex.image.data = pdata; snowTex.needsUpdate = true; snowFull = true; snowDirty = false; snowJ0 = 1e9; snowJ1 = -1;
   const wx = cx * CELL - HALF, wz = cz * CELL - HALF;
   patchMesh.position.set(wx, 0, wz);
@@ -406,7 +437,7 @@ function writeCell(ix, iz, oldD, newD, f) {
   const i = ix - pox, j = iz - poz;
   if (i < 0 || j < 0 || i >= S || j >= S) return;
   const o = (j * S + i) * 4;
-  pdata[o] += newD - oldD; pdata[o + 1] = packOf(newD, f);
+  pdata[o] += newD - oldD; pdata[o + 1] = packOf(newD, f); pdata[o + 2] = f;
   snowDirty = true; if (j < snowJ0) snowJ0 = j; if (j > snowJ1) snowJ1 = j;
 }
 
@@ -443,10 +474,13 @@ function paint(geo, fn) {
 
 function buildFar() {
   const step = 2, n = (GN - 1) / step + 1;   // 8 m far-terrain grid
-  const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3);
+  const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), mlt = new Float32Array(n * n * 3), mlT = new Float32Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const gi = i * step, gj = j * step, k = gj * GN + gi, v = j * n + i;
     const d = freshG[k], b = bio[k];
+    // the melt, done on the GPU out here: when this vertex melts out (the same 8 m grid as meltG), its snow, and its lake
+    // (the threshold is filled in when meltG is built, just before the thaw; until then nothing melts)
+    mlT[v] = b === 3 ? -1 : MELT.grid ? meltG[v] / 200 : 9; mlt[v * 3] = d; mlt[v * 3 + 1] = b === 1 ? lakeId[k] : 0; mlt[v * 3 + 2] = lakeT[k] / 255;
     pos[v * 3] = gi * GRES - HALF; pos[v * 3 + 1] = b === 3 ? Math.min(ground[k], SEA - 1.5) : ground[k] + d; pos[v * 3 + 2] = gj * GRES - HALF;
     let r = 0.93, g = 0.955, bl = 1.0;
     if (b === 3) { r = 0.07; g = 0.14; bl = 0.2; }
@@ -458,19 +492,37 @@ function buildFar() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  geo.setAttribute("aMelt", new THREE.BufferAttribute(mlt, 3)); geo.setAttribute("aMeltT", new THREE.BufferAttribute(mlT, 1));
   geo.setIndex(new THREE.BufferAttribute(buildGridIndex(n), 1));
   geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+  const NL = LAKES.length;
   mat.onBeforeCompile = sh => {
-    Object.assign(sh.uniforms, farU);
-    sh.vertexShader = "uniform vec4 uPatch; varying vec2 vWxz;\n" + sh.vertexShader.replace("#include <begin_vertex>", `
-      vec3 transformed = vec3(position); vWxz = position.xz;
+    Object.assign(sh.uniforms, farU, meltU);
+    sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
+      vec3 transformed = vec3(position); vWxz = position.xz; vBare = 0.0; vOpen = 0.0;
+      if (uMeltK > 0.0 && aMeltT >= 0.0) {
+        if (aMelt.y > 0.5) {                                  // lake ice: open water from the shore in
+          float thr = 9.0; int li = int(aMelt.y + 0.5) - 1;
+          for (int q = 0; q < ${NL}; q++) if (q == li) thr = uLakeThr[q];
+          if (aMelt.z > thr) { transformed.y -= ${LAKE_DROP.toFixed(2)}; vOpen = 1.0; }
+        } else {
+          float m = uThin * smoothstep(0.0, 0.16, aMeltT - uMeltK);
+          transformed.y -= aMelt.x * (1.0 - m);
+          vBare = 1.0 - clamp(aMelt.x * m / 0.12, 0.0, 1.0);
+        }
+      }
       if (position.x > uPatch.x && position.x < uPatch.z && position.z > uPatch.y && position.z < uPatch.w) {
         bool deep = position.x > uPatch.x + 5.0 && position.x < uPatch.z - 5.0 && position.z > uPatch.y + 5.0 && position.z < uPatch.w - 5.0;
         transformed.y -= deep ? 30.0 : 1.3; }`);
-    sh.fragmentShader = "uniform sampler2D uTrail; varying vec2 vWxz;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
       float tr = texture2D(uTrail, (vWxz + ${HALF}.0) / ${WORLD}.0).r;
-      diffuseColor.rgb *= mix(vec3(1.0), vec3(0.76,0.82,0.9), tr);`);
+      diffuseColor.rgb *= mix(vec3(1.0), vec3(0.76,0.82,0.9), tr);
+      diffuseColor.rgb *= mix(vec3(1.0), vec3(0.86,0.89,0.93), uWet * 0.7);
+      float en = fract(sin(dot(floor(vWxz / 9.0), vec2(41.31,17.83))) * 43758.5453);
+      vec3 earth = mix(vec3(0.26,0.22,0.16), vec3(0.28,0.3,0.18), en);
+      diffuseColor.rgb = mix(diffuseColor.rgb, earth, clamp(vBare, 0.0, 1.0) * uSpr);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);`);
   };
   far = new THREE.Mesh(geo, mat); far.receiveShadow = false;
   scene.add(far);
@@ -1433,6 +1485,35 @@ function updSparks(dt) {
   }
   skGeo.attributes.position.needsUpdate = true;
 }
+// spring muck: grey slush off wet snow, and grit and mud off bare ground. Its own small pool so the snow spray stays white.
+const MKN = 1400, mkPos = new Float32Array(MKN * 3), mkVel = new Float32Array(MKN * 3), mkLife = new Float32Array(MKN), mkCol = new Float32Array(MKN * 3);
+for (let i = 0; i < MKN; i++) mkPos[i * 3 + 1] = -9999;
+const mkGeo = new THREE.BufferGeometry(); mkGeo.setAttribute("position", new THREE.BufferAttribute(mkPos, 3)); mkGeo.setAttribute("color", new THREE.BufferAttribute(mkCol, 3));
+const muck = new THREE.Points(mkGeo, new THREE.PointsMaterial({ size: 0.3, map: dotTex, transparent: true, opacity: 0.9, depthWrite: false, vertexColors: true }));
+muck.frustumCulled = false; scene.add(muck);
+let mkHead = 0, mkLive = 0;
+function emitMuck(x, y, z, vx, vy, vz, spread, dirt) {
+  const i = mkHead; mkHead = (mkHead + 1) % MKN;
+  mkPos[i * 3] = x; mkPos[i * 3 + 1] = y; mkPos[i * 3 + 2] = z;
+  mkVel[i * 3] = vx + (Math.random() - 0.5) * spread; mkVel[i * 3 + 1] = vy + Math.random() * spread * 0.5; mkVel[i * 3 + 2] = vz + (Math.random() - 0.5) * spread;
+  mkLife[i] = 0.5 + Math.random() * 0.6; mkLive = 1.2;
+  const v = Math.random() * 0.08;
+  if (dirt) { mkCol[i * 3] = 0.3 + v; mkCol[i * 3 + 1] = 0.25 + v; mkCol[i * 3 + 2] = 0.18 + v; }
+  else { mkCol[i * 3] = 0.66 + v; mkCol[i * 3 + 1] = 0.72 + v; mkCol[i * 3 + 2] = 0.76 + v; }
+  mkGeo.attributes.color.needsUpdate = true;
+}
+function updMuck(dt) {
+  if (mkLive <= 0) return; mkLive -= dt;                          // nothing to move once the last clod has landed
+  for (let i = 0; i < MKN; i++) {
+    if (mkLife[i] <= 0) continue;
+    mkLife[i] -= dt;
+    if (mkLife[i] <= 0) { mkPos[i * 3 + 1] = -9999; continue; }
+    const k = Math.exp(-1.6 * dt);
+    mkVel[i * 3] *= k; mkVel[i * 3 + 2] *= k; mkVel[i * 3 + 1] = mkVel[i * 3 + 1] * k - 14 * dt;    // heavy and wet: it falls fast
+    mkPos[i * 3] += mkVel[i * 3] * dt; mkPos[i * 3 + 1] += mkVel[i * 3 + 1] * dt; mkPos[i * 3 + 2] += mkVel[i * 3 + 2] * dt;
+  }
+  mkGeo.attributes.position.needsUpdate = true;
+}
 const flGeo = new THREE.BufferGeometry(); flGeo.setAttribute("position", new THREE.BufferAttribute(flPos, 3));
 const flakes = new THREE.Points(flGeo, new THREE.PointsMaterial({ size: 0.13, map: dotTex, transparent: true, opacity: 0.9, depthWrite: false, color: 0xffffff }));
 flakes.frustumCulled = false; scene.add(flakes);
@@ -1769,7 +1850,7 @@ const MASS = 280; let G = 32.4;
 // jump = longest single jump (s), mail = pieces of post handed in at the quay (mailHandIn).
 const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0 });
 const LOG = LOG0();
-const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0 };
 function resetSled() {
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
   if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; wnStow(false); }
@@ -2348,9 +2429,9 @@ function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
 }
 function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
 function physStep(dt) {
-  if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), SEA - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
+  if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
-  const sea = isSea(P.x, P.z); if (!sea) P.sink = 0;
+  const wl0 = wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;   // the sea, or a lake the melt has opened
   const hs = rideSurf(P.x, P.z), gnd = P.y <= hs + 0.12;
   const wet = sea && gnd && waterLine() >= surf(P.x, P.z) - 0.02;         // riding on the water, not the seabed
   const e = 0.8, gx = (smoothRide(P.x + e, P.z) - smoothRide(P.x - e, P.z)) / (2 * e), gz = (smoothRide(P.x, P.z + e) - smoothRide(P.x, P.z - e)) / (2 * e);
@@ -2361,9 +2442,16 @@ function physStep(dt) {
   P.ice = bioAt(P.x, P.z) === 1 && fr < 0.12;
   // only very steep bare rock matters: the sled loses its footing and slides down the mountain
   P.rock = P.ice || wet ? 0 : (1 - sstep(0.05, 0.16, fr)) * sstep(0.7, 0.95, Math.hypot(gx, gz));
+  // the spring melt: slush (heavy, wet, sloppy) and ground the snow has gone off (scrapes, sparks, stops you)
+  const bareFx = P.ice || wet ? 0 : 1 - sstep(0.03, 0.1, fr), bare = bareFx * MELT.spr;
+  const slush = P.ice || wet ? 0 : MELT.wet * sstep(0.04, 0.25, fr);
+  P.bare = bareFx; P.slush = slush;
+  P.thin = !sea && gnd && P.ice ? iceThin(P.x, P.z) : 0;
+  if (P.thin > 0 && started && !GS.dead) thinIceStep(dt, Math.hypot(vx, vz), MASS + TOW.mass, fx, fz);
+  else MELT.crack = Math.max(0, MELT.crack - 0.8 * dt);
   if (wet && !P.wet) {                                                  // hitting the water: a sheet of spray off the nose
     const s0 = Math.hypot(vx, vz);
-    for (let k = 0; k < 24 + s0 * 2; k++) emit(P.x + fx * 1.4 + lx * (Math.random() - 0.5) * 2, SEA + 0.1, P.z + fz * 1.4 + lz * (Math.random() - 0.5) * 2, vx * 0.5 + lx * (Math.random() - 0.5) * 8, 2 + Math.random() * s0 * 0.25, vz * 0.5 + lz * (Math.random() - 0.5) * 8, 1.5, 1.1);
+    for (let k = 0; k < 24 + s0 * 2; k++) emit(P.x + fx * 1.4 + lx * (Math.random() - 0.5) * 2, P.wl + 0.1, P.z + fz * 1.4 + lz * (Math.random() - 0.5) * 2, vx * 0.5 + lx * (Math.random() - 0.5) * 8, 2 + Math.random() * s0 * 0.25, vz * 0.5 + lz * (Math.random() - 0.5) * 8, 1.5, 1.1);
     if (started && !GS.dead && (P.wetT <= 0 || s0 < VPLANE)) toast(s0 >= VPLANE ? "Skipping water. Keep it pinned." : "Too slow for open water!", s0 >= VPLANE ? "good" : "bad");
   }
   P.wet = wet; if (wet) P.wetT = 6; else P.wetT = Math.max(0, P.wetT - dt);
@@ -2386,11 +2474,13 @@ function physStep(dt) {
   else P.yr *= Math.exp(-1.5 * dt);                                   // no steering in the air, spin just bleeds off
   const dyaw = P.yr * dt; P.yaw += dyaw;
   if (gnd) {
-    const share = (wet ? 0.5 : P.ice ? 0.35 : 0.9) * (1 - 0.7 * P.rock), a = dyaw * share, ca = Math.cos(a), sa = Math.sin(a);
+    const share = (wet ? 0.5 : P.ice ? 0.35 : 0.9 - 0.3 * slush) * (1 - 0.7 * P.rock), a = dyaw * share, ca = Math.cos(a), sa = Math.sin(a);
     const nvx = vx * ca + vz * sa, nvz = vz * ca - vx * sa; vx = nvx; vz = nvz;
     const g2 = gx * gx + gz * gz; vx -= G * gx / (1 + g2) * dt; vz -= G * gz / (1 + g2) * dt;
     P.drag = 5600 * exc * ST.drag;
-    const rolling = wet ? 420 : P.ice ? 140 : lerp(260, 60, P.rock);
+    // bare ground: track and skis on heather and gravel. It rises with speed so a sled crawls across a melted-out
+    // patch (a stock sled tops out near 16 mph on it) instead of stopping dead
+    const rolling = (wet ? 420 : P.ice ? 140 : lerp(260, 60, P.rock)) + slush * 600 + bare * (1400 + 700 * Math.min(Math.hypot(vx, vz), 30));
     // Climbing. Power is power: a hill never makes a sled faster than the flat would. What a
     // climb gets is the clutch backshifting under load: the track pulls whatever the hill and the
     // snow ask for plus a little to spare (more on stronger sleds), so any sled can pull away
@@ -2407,9 +2497,9 @@ function physStep(dt) {
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
     // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
-    const Fs = P.drag + TOW.drag + rolling + 0.9 * sp * sp + (wet ? (2.2 + 9 * P.sink) * sp * sp + 3000 * P.sink : 0);
+    const Fs = P.drag + TOW.drag + rolling + (0.9 + 1.6 * slush) * sp * sp + (wet ? (2.2 + 9 * P.sink) * sp * sp + 3000 * P.sink : 0);
     if (sp > 0.01) { const dv = Math.min(sp, Fs / M * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
-    const grip = wet ? 1.6 + ST.grip * 0.2 : lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh);
+    const grip = (wet ? 1.6 + ST.grip * 0.2 : lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh)) * (1 - 0.35 * slush);
     // ruts: a packed trail is a groove, and the sled settles into it unless you steer out
     let rut = 0;
     if (!P.ice && !wet) {
@@ -2440,15 +2530,24 @@ function physStep(dt) {
       while (sprayAcc > 1) {
         sprayAcc -= 1;
         const side = (Math.random() - 0.5) * 0.6;
-        emit(P.x - fx * 1.7 + lx * side, SEA + 0.05, P.z - fz * 1.7 + lz * side, -fx * spd * 0.35 + vx * 0.2, 2.5 + spd * 0.22, -fz * spd * 0.35 + vz * 0.2, 1.2, 1.3);
+        emit(P.x - fx * 1.7 + lx * side, P.wl + 0.05, P.z - fz * 1.7 + lz * side, -fx * spd * 0.35 + vx * 0.2, 2.5 + spd * 0.22, -fz * spd * 0.35 + vz * 0.2, 1.2, 1.3);
       }
     } else
     sprayAcc += (exc * 60 + 0.4 + (P.ice ? 0 : Math.abs(vl) * 0.8)) * Math.min(spd, 30) * dt * (P.ice ? 0.3 : 1);
     while (sprayAcc > 1) {
       sprayAcc -= 1;
       const side = (Math.random() - 0.5) * 0.5;
+      if (Math.random() < Math.max(slush * 0.85, bareFx * 0.9)) {             // wet slush, or mud and grit off bare ground
+        emitMuck(P.x - fx * 1.6 + lx * side, P.y + 0.12, P.z - fz * 1.6 + lz * side, -fx * spd * 0.22 + vx * 0.3, 1.2 + spd * 0.1 + exc * 4, -fz * spd * 0.22 + vz * 0.3, 1.3 + exc * 3, bareFx > slush);
+        continue;
+      }
       emit(P.x - fx * 1.6 + lx * side, P.y + 0.15, P.z - fz * 1.6 + lz * side, -fx * spd * 0.25 + vx * 0.3, 1.5 + spd * 0.12 + exc * 6, -fz * spd * 0.25 + vz * 0.3, 1.6 + exc * 4);
       if (exc > 0.05 && Math.random() < 0.5) { const s = Math.random() < 0.5 ? -0.6 : 0.6; emit(P.x + fx * 1.9 + lx * s, P.y + 0.1, P.z + fz * 1.9 + lz * s, vx * 0.6 + lx * s * 3, 1.2 + exc * 5, vz * 0.6 + lz * s * 3, 1.4); }
+    }
+    // carbides and the track's studs on rock and gravel
+    if (bareFx > 0.4 && spd > 2) {
+      sparkAcc += bareFx * Math.min(spd, 20) * 2.2 * dt;
+      while (sparkAcc > 1) { sparkAcc -= 1; const s = Math.random() < 0.5 ? -0.55 : 0.55; spark(P.x + fx * (Math.random() * 2.6 - 1.6) + lx * s, P.y + 0.06, P.z + fz * (Math.random() * 2.6 - 1.6) + lz * s, -vx * 0.25 + lx * s * (2 + Math.random() * 3), 1 + Math.random() * 2.5, -vz * 0.25 + lz * s * (2 + Math.random() * 3)); }
     }
   } else P.drag *= 0.9;
   if (WN.pullV) { vx = WN.pullV.x; vz = WN.pullV.z; }                         // the winch has the sled
@@ -2510,11 +2609,11 @@ function physStep(dt) {
       thud(Math.min(1, 0.4 + att * 0.3));
       if (started && !GS.dead) toast(att > 1 ? "Ugly landing. That hurt the load." : "Landed crooked.", "warn");
     } else {
-      if (isSea(P.x, P.z) && P.y <= waterLine() + 0.05) {
+      if (sea && P.y <= waterLine() + 0.05) {
         // belly-flopping onto water: it's hard as concrete at speed, and it scrubs the speed off
         const bite = Math.min(0.35, impact * 0.025); vx *= 1 - bite; vz *= 1 - bite; P.vx = vx; P.vz = vz;
         const s0 = Math.hypot(vx, vz);
-        for (let k = 0; k < 30 + impact * 6; k++) emit(P.x + (Math.random() - 0.5) * 2, SEA + 0.1, P.z + (Math.random() - 0.5) * 3, vx * 0.3 + (Math.random() - 0.5) * 9, 2 + Math.random() * (3 + impact * 0.4), vz * 0.3 + (Math.random() - 0.5) * 9, 1.5, 1.2);
+        for (let k = 0; k < 30 + impact * 6; k++) emit(P.x + (Math.random() - 0.5) * 2, P.wl + 0.1, P.z + (Math.random() - 0.5) * 3, vx * 0.3 + (Math.random() - 0.5) * 9, 2 + Math.random() * (3 + impact * 0.4), vz * 0.3 + (Math.random() - 0.5) * 9, 1.5, 1.2);
         if (impact > 7) { cargoHit(impact * 0.7); thud(Math.min(1, impact / 16)); }
         if (s0 < VPLANE && started && !GS.dead) toast("Landed short. You're sinking!", "bad");
       } else if (impact > 7) { cargoHit(impact * 0.7); crater(P.x, P.z, Math.min(0.45, impact * 0.04)); thud(Math.min(1, impact / 16)); }
@@ -2606,7 +2705,8 @@ function updAudio(spd) {
   audio.lp.Q.setTargetAtTime(2.5 + r * 5, t, 0.08);
   audio.eg.gain.setTargetAtTime(GS.fuel > 0 && !GS.dead ? 0.09 + r * 0.16 : 0, t, 0.15);
   audio.hiss.g.gain.setTargetAtTime(P.gnd ? Math.min(0.5, spd / 30 * (0.08 + P.exc * 1.6)) : 0, t, 0.08);
-  audio.hiss.b.frequency.setTargetAtTime(P.wet ? 1700 : P.ice ? 2600 : 1000, t, 0.2);
+  audio.hiss.b.frequency.setTargetAtTime(P.wet ? 1700 : P.ice ? 2600 : P.bare > 0.5 ? 3600 : P.slush > 0.35 ? 700 : 1000, t, 0.2);
+  if (P.gnd && P.bare > 0.5) audio.hiss.g.gain.setTargetAtTime(Math.min(0.45, 0.06 + spd / 40), t, 0.06);   // the scrape of carbides on gravel
   if (P.wet) audio.hiss.g.gain.setTargetAtTime(Math.min(0.55, 0.12 + spd / 60), t, 0.08);
   audio.wind.g.gain.setTargetAtTime(0.05 + Math.min(0.3, spd / 45 * 0.3), t, 0.2);
 }
@@ -2648,7 +2748,7 @@ function drawMap() {
   const ang = P.yaw + Math.PI;                                          // heading-up
   mctx.translate(R, R); mctx.rotate(ang); mctx.scale(k, k);
   mctx.translate(-(P.x + HALF) * M2SRC, -(P.z + HALF) * M2SRC);
-  mctx.drawImage(mapBg, 0, 0); mctx.drawImage(mapTrail, 0, 0);
+  mctx.drawImage(mapBg, 0, 0); if (MELT.ovOn && MELT.kq > 0) mctx.drawImage(MELT.ov, 0, 0, MB, MB); mctx.drawImage(mapTrail, 0, 0);
   if (GS.groomJob) { const r = 2.6 / k; for (const p of GS.groomJob.pts) { mctx.fillStyle = p.done ? "#6fd08c" : "#ff8a3a"; mctx.beginPath(); mctx.arc((p.x + HALF) * M2SRC, (p.z + HALF) * M2SRC, r, 0, 6.283); mctx.fill(); } }
   mctx.restore();
   // what's ahead: a soft cone up the middle
@@ -2717,7 +2817,7 @@ function drawBigMap() {
   const c = $("bigmapC"), g = c.getContext("2d"), N = c.width, k = N / MB;
   g.fillStyle = "#0d1822"; g.fillRect(0, 0, N, N);
   g.imageSmoothingEnabled = true;
-  g.drawImage(mapBg, 0, 0, N, N); g.drawImage(mapTrail, 0, 0, N, N);
+  g.drawImage(mapBg, 0, 0, N, N); if (MELT.ovOn && MELT.kq > 0) g.drawImage(MELT.ov, 0, 0, N, N); g.drawImage(mapTrail, 0, 0, N, N);
   const w2 = (x, z) => [(x + HALF) * M2SRC * k, (z + HALF) * M2SRC * k];
   if (GS.groomJob) for (const p of GS.groomJob.pts) { const [gx, gz] = w2(p.x, p.z); g.fillStyle = "#0d1822"; g.beginPath(); g.arc(gx, gz, 5.5, 0, 6.283); g.fill(); g.fillStyle = p.done ? "#6fd08c" : "#ff8a3a"; g.beginPath(); g.arc(gx, gz, 3.8, 0, 6.283); g.fill(); }
   g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center";
@@ -2895,15 +2995,15 @@ function updVisuals(dt) {
     P.stuckT = (tipped || (input.thr > 0 && spd < 0.6)) ? P.stuckT + dt : 0;
     $("flip").hidden = P.stuckT < 2.5 || BOG.on || FOOT.on || HELP.on;
     safeT += dt;
-    if (safeT > 2 && P.gnd && !P.wet && !isSea(P.x, P.z) && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
+    if (safeT > 2 && P.gnd && !P.wet && !isWater(P.x, P.z) && !P.thin && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
   }
   return spd;
 }
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
-  const stt = P.wet ? "WATER" : P.ice ? "ICE" : (P.pack > 0.62 ? "PACKED" : "POWDER");
+  const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
-  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
   const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
@@ -2978,12 +3078,13 @@ const CAL = {
     if (n.m >= 5 && n.m <= 9 && !this.skipping) { this.summerSkip(); return; }
     for (const cb of this.cbs) { try { cb(n, prev); } catch (e) { console.error(e); } }
   },
-  // Jun-Oct: placeholder fast-forward (O7 builds the melt and the refreeze). Jumps the calendar to the
-  // next 1 November at the same time of day, keeping everything you own.
+  // Jun-Oct: the summer skip (O7). Jumps the calendar to the next 1 November at the same time of day, settles the
+  // summer's bills, refreezes the world and plays the montage. Everything you own is kept.
   summerSkip() {
     const c = this.day(), from = Date.UTC(c.y, c.m, c.d), to = Date.UTC(c.y, 10, 1), days = Math.round((to - from) / 864e5);
-    this.skipping = true; summerCard(c, days);
+    this.skipping = true;
     this.off += days * 24; this.lastDay = this.dayIndex(); this.skipping = false;
+    seasonTurn(c, days);
     const n = this.now();
     for (const cb of this.cbs) { try { cb(n, null); } catch (e) { console.error(e); } }
     save();
@@ -2996,17 +3097,417 @@ const CAL = {
   }
 };
 const payMul = () => CAL.isPolarNight() ? 1.5 : 1;
-function summerCard(c, days) {
+/* ---------------- the spring melt and the summer skip (winter update O7) ----------------
+   No endgame: the melt is part of the yearly loop. Everything here is a pure function of the date, so nothing new
+   is saved and a reload lands in the same spring.
+   - MELT.k runs 0 -> 1 from 9 April to 31 May. meltG (8 m, built at boot) holds when each spot melts out: early on
+     south-facing slopes, along the shore and low down, late in deep drifts and up on the high fell, with noise.
+     Snow depth anywhere = winter depth x meltMul(): a general settling, then gone where k passes the threshold.
+   - MELT.wet is the slush: it builds through April and swings with the sun, crust in the morning, slush by afternoon.
+   - Terrain only changes in steps (kq, 1/200 of the melt, about every 6 game hours). A step rescales the chunks you've
+     ridden (their unmelted snow is kept in c.b), refills the snow patch a slice of rows at a time and re-runs the
+     route finder in slices, inside a per-frame time budget, so a phone never sees a hitch. The far terrain melts in
+     its shader from the same numbers.
+   - Lakes open from the shore in (low lakes first). Open cells drop LAKE_DROP under a water plane and ride by the
+     same skip/sink rules as the fjord, at the lake's own level. A band of thin ice ahead of the open water cracks
+     under a slow sled and gives way.
+   - The summer skip at the end of May: a montage card, bills (SEASON.bills, for O6's depots) and the refreeze. */
+const MTN = (GN - 1) / 2 + 1, MTR = GRES * 2;                       // melt-out threshold grid: 8 m, same as the far terrain
+const meltG = new Uint8Array(MTN * MTN);                            // threshold x 200
+const LAKE_DROP = 2.6, LAKE_THIN = 0.11, MELT_START = 8, MELT_LEN = 53;   // days after 1 April
+const LKS = [];                                                     // per lake: opening state, cells, water plane
+const MELT = { grid: false, gridG: null, k: 0, kq: 0, wet: 0, spr: 0, thin: 1, sy: null, dApr: 0, sweep: null, moved: false, holes: new Set(), crack: 0, crackT: 0,
+  route: {}, ov: null, ovOn: false, said: {}, visT: 0 };
+
+// the melt-out thresholds: built a slice a frame in late March (or all at once at boot if it's already spring), so a
+// winter boot doesn't pay for them. Then the far terrain's copy goes up to the GPU in slices too.
+function* meltGridG(slice) {
+  for (let j = 0; j < MTN; j++) {
+    const z = j * MTR - HALF, gj = j * 2, j0 = Math.max(0, gj - 2), j1 = Math.min(GN - 1, gj + 2);
+    for (let i = 0; i < MTN; i++) {
+      const x = i * MTR - HALF, gi = i * 2, k = gj * GN + gi, o = j * MTN + i;
+      if (bio[k] === 3) { meltG[o] = 0; continue; }
+      const i0 = Math.max(0, gi - 2), i1 = Math.min(GN - 1, gi + 2), h = ground[k];
+      const gx = (ground[gj * GN + i1] - ground[gj * GN + i0]) / ((i1 - i0) * GRES), gz = (ground[j1 * GN + gi] - ground[j0 * GN + gi]) / ((j1 - j0) * GRES);
+      const sl = Math.hypot(gx, gz), south = clamp(-gz / (sl + 0.02), -1, 1) * sstep(0.04, 0.3, sl);   // north is -z, so a south face drops toward +z
+      const coast = 1 - sstep(0.02, 0.2, landAt(x, z)), low = 1 - sstep(12, 110, h);
+      const T = 0.52 + 0.26 * sstep(0.3, 1.0, freshG[k]) - 0.24 * south - 0.2 * coast - 0.1 * low + 0.24 * sstep(170, 420, h)
+        + (fbm(x / 150 + 31, z / 150 - 12, 2) - 0.5) * 0.6 + (vn(x / 40 + 7, z / 40) - 0.5) * 0.12;
+      meltG[o] = Math.round(clamp(T, 0.17, 1.27) * 200);
+    }
+    if (slice && (j & 7) === 7) yield;
+  }
+  const at = far && far.geometry.attributes.aMeltT;
+  if (at) {
+    const a = at.array, N = a.length, step = 131072;
+    for (let o = 0; o < N; o += step) {
+      const e = Math.min(N, o + step);
+      for (let v = o; v < e; v++) if (a[v] >= 0) a[v] = meltG[v] / 200;
+      if (slice) { at.updateRange.offset = o; at.updateRange.count = e - o; at.needsUpdate = true; yield 1; }   // 1: one upload range per frame
+    }
+    if (!slice) { at.updateRange.count = -1; at.needsUpdate = true; }
+  }
+  MELT.grid = true;
+}
+function meltBuild() {
+  for (let li = 0; li < LAKES.length; li++) {
+    const L = LAKES[li]; LKS[li] = null; if (!L.ok) continue;
+    const R = L.r * 1.3, cells = [];
+    const a0 = clamp(Math.floor((L.x - R + HALF) / GRES), 0, GN - 1), a1 = clamp(Math.ceil((L.x + R + HALF) / GRES), 0, GN - 1);
+    const b0 = clamp(Math.floor((L.z - R + HALF) / GRES), 0, GN - 1), b1 = clamp(Math.ceil((L.z + R + HALF) / GRES), 0, GN - 1);
+    for (let gj = b0; gj <= b1; gj++) for (let gi = a0; gi <= a1; gi++) { const k = gj * GN + gi; if (lakeId[k] === li + 1) cells.push(k); }
+    if (!cells.length) continue;
+    const cnt = new Int32Array(257); for (const k of cells) cnt[255 - lakeT[k] + 1]++;   // shore first: a counting sort on lakeT
+    for (let q = 1; q < 257; q++) cnt[q] += cnt[q - 1];
+    const srt = new Int32Array(cells.length); for (const k of cells) srt[cnt[255 - lakeT[k]]++] = k;
+    let near = depot, nd = 1e9; for (const s of SITES) if (s.x !== undefined && s.type !== "shop") { const d = Math.hypot(s.x - L.x, s.z - L.z); if (d < nd) { nd = d; near = s; } }
+    LKS[li] = { L, li, W: L.lv - 0.1, R, k0: 0.3 + 0.32 * sstep(40, 380, L.lv) + (hash(li, 91) - 0.5) * 0.1, o: 0, n: 0, thr: 999, thrN: 9, thinN: 9,
+      cells: srt, name: "the lake above " + near.name.replace(/ (herder cabin|wind farm|lighthouse|quay)$/, ""), mesh: null, u: null, tex: null, holes: false };
+  }
+}
+// a flat sheet of water per lake, discarded wherever the lake is still frozen (a per-lake map of how far out from the
+// middle each spot is, against the lake's opening line)
+function buildLakeWater() {
+  const N = 64;
+  for (const L of LKS) {
+    if (!L) continue;
+    const data = new Uint8Array(N * N);
+    L.tex = new THREE.DataTexture(data, N, N, THREE.LuminanceFormat, THREE.UnsignedByteType);
+    L.tex.magFilter = L.tex.minFilter = THREE.LinearFilter; L.tex.generateMipmaps = false;
+    lakeTexFill(L);
+    L.u = { uTn: { value: L.tex }, uThr: { value: 9 }, uOrg: { value: new THREE.Vector3(L.L.x - L.R, L.L.z - L.R, 2 * L.R) }, uTime: seaU.uTime };
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1a3442, roughness: 0.16, metalness: 0.3 });
+    mat.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, L.u);
+      sh.vertexShader = "varying vec2 vLw;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n vLw = (modelMatrix * vec4(position, 1.0)).xz;");
+      sh.fragmentShader = "uniform sampler2D uTn; uniform float uThr; uniform vec3 uOrg; uniform float uTime; varying vec2 vLw;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+        float tn = texture2D(uTn, (vLw - uOrg.xy) / uOrg.z).r;
+        if (tn < uThr) discard;
+        float rp = sin(vLw.x * 0.9 + uTime * 1.1) * sin(vLw.y * 0.7 - uTime * 0.8);
+        diffuseColor.rgb *= 0.92 + 0.12 * rp + 0.25 * smoothstep(uThr, uThr + 0.04, tn) * (1.0 - smoothstep(uThr + 0.04, uThr + 0.1, tn));`);
+    };
+    const geo = new THREE.PlaneGeometry(2 * L.R, 2 * L.R, 1, 1); geo.rotateX(-Math.PI / 2);
+    L.mesh = new THREE.Mesh(geo, mat); L.mesh.position.set(L.L.x, L.W, L.L.z); L.mesh.receiveShadow = true; L.mesh.visible = false;
+    scene.add(L.mesh);
+  }
+}
+function lakeTexFill(L) {
+  const N = 64, data = L.tex.image.data, id = L.li + 1;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = L.L.x - L.R + (i + 0.5) / N * 2 * L.R, z = L.L.z - L.R + (j + 0.5) / N * 2 * L.R;
+    const gi = clamp(Math.round((x + HALF) / GRES), 0, GN - 1), gj = clamp(Math.round((z + HALF) / GRES), 0, GN - 1), k = gj * GN + gi;
+    data[j * N + i] = lakeId[k] === id ? lakeT[k] : 0;
+  }
+  L.tex.needsUpdate = true;
+}
+// how much of the winter's snow is left here, 0..1 (open water: none)
+function meltMul(x, z) {
+  const kq = MELT.kq; if (kq <= 0) return 1;
+  const ci = clamp(Math.round((x + HALF) / GRES), 0, GN - 1), cj = clamp(Math.round((z + HALF) / GRES), 0, GN - 1), ck = cj * GN + ci;
+  if (bio[ck] === 1) { const L = LKS[lakeId[ck] - 1]; if (L && (lakeT[ck] > L.thr || (MELT.holes.size && MELT.holes.has(ck)))) return 0; }
+  const gx = clamp((x + HALF) / MTR, 0, MTN - 1.001), gz = clamp((z + HALF) / MTR, 0, MTN - 1.001);
+  const ix = gx | 0, iz = gz | 0, fx = gx - ix, fz = gz - iz, o = iz * MTN + ix;
+  const a = meltG[o], b = meltG[o + 1], c = meltG[o + MTN], d = meltG[o + MTN + 1];
+  const t = ((a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz) / 200 - kq) / 0.16;
+  return t >= 1 ? MELT.thin : t <= 0 ? 0 : MELT.thin * t * t * (3 - 2 * t);
+}
+// lake ice the melt is eating, 0..1 (0 = sound ice, or not a lake, or already open water)
+function iceThin(x, z) {
+  if (MELT.kq <= 0) return 0;
+  const i = clamp(Math.round((x + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + HALF) / GRES), 0, GN - 1), k = j * GN + i;
+  const L = LKS[lakeId[k] - 1]; if (!L || L.thinN > 1) return 0;
+  const t = lakeT[k]; if (t > L.thr) return 0;
+  return clamp((t / 255 - L.thinN) / (LAKE_THIN * 0.5), 0, 1);
+}
+const meltDay = () => CAL.abs() / 24;
+function meltSeason() {
+  const c = CAL.day(), sy = c.m >= 10 ? c.y : c.y - 1;
+  if (MELT.sy !== sy) { MELT.sy = sy; MELT.dApr = Math.round((Date.UTC(sy + 1, 3, 1) - CAL_EPOCH) / 864e5); }
+}
+// every frame: the slush, and a terrain step when the melt has moved on
+function meltTick(dt) {
+  meltSeason();
+  const day = meltDay(), se = CAL.season().id, k = se === "summer" ? 1 : clamp((day - MELT.dApr - MELT_START) / MELT_LEN, 0, 1);
+  MELT.k = k;
+  const h = ((GS.hour % 24) + 24) % 24, sunny = 0.5 + 0.5 * Math.sin((h - 9) / 24 * 2 * Math.PI);   // warmest about 15:00, a crust by 03:00
+  const thaw = se === "summer" ? 1 : sstep(MELT.dApr, MELT.dApr + 22, day);
+  MELT.wet = thaw * lerp(0.3 + 0.7 * sunny, 1, sstep(0.55, 0.9, k)) * (1 - 0.6 * GS.storm);
+  MELT.spr = sstep(0, 0.03, k);
+  meltU.uWet.value = MELT.wet; meltU.uSpr.value = MELT.spr;
+  let kq = Math.floor(k * 200) / 200;
+  if (!MELT.grid) {                                                   // late March: build the thresholds, a slice a frame
+    if (day > MELT.dApr - 6 || kq > 0) {
+      if (!MELT.gridG) MELT.gridG = meltGridG(true);
+      const t0 = performance.now(), budget = GFX.low ? 2 : 3.5;
+      do { const r = MELT.gridG.next(); if (r.done) { MELT.gridG = null; break; } if (r.value === 1) break; } while (performance.now() - t0 < budget);
+    }
+    if (!MELT.grid) kq = 0;
+  }
+  if (kq !== MELT.kq) meltStep(kq);
+  if (MELT.sweep) {
+    const t0 = performance.now(), budget = GFX.low ? 2 : 3.5;
+    do { if (MELT.sweep.next().done) { MELT.sweep = null; break; } } while (performance.now() - t0 < budget);
+  }
+  MELT.visT -= dt;
+  if (MELT.visT <= 0) {
+    MELT.visT = 0.5;
+    const cx = camera.position.x, cz = camera.position.z;
+    for (const L of LKS) if (L && L.mesh) L.mesh.visible = (L.thrN < 1.5 || L.holes) && Math.hypot(cx - L.L.x, cz - L.L.z) < GFX.farR + L.R;
+  }
+}
+function meltStep(kq) {
+  const back = kq < MELT.kq;
+  MELT.kq = kq; MELT.thin = 1 - 0.3 * sstep(0, 0.6, kq);
+  meltU.uMeltK.value = kq; meltU.uThin.value = MELT.thin;
+  if (kq <= 0 && MELT.holes.size) {                                   // the refreeze (or the god menu going back): fill the holes in
+    for (const k of MELT.holes) ground[k] += LAKE_DROP;
+    MELT.holes.clear(); for (const L of LKS) if (L && L.holes) { L.holes = false; lakeTexFill(L); }
+  }
+  let thinNow = null, openNow = null;
+  LKS.forEach((L, i) => {
+    if (!L) return;
+    const o = kq > 0 ? sstep(L.k0, L.k0 + 0.45, kq) : 0, pre = sstep(L.k0 - 0.08, L.k0, kq);
+    L.o = o; L.thrN = o > 0 ? 1 - o : 9; L.thr = o > 0 ? Math.floor((1 - o) * 255) : 999;
+    L.thinN = kq > 0 && pre > 0 ? 1 - o - LAKE_THIN * pre : 9;
+    meltU.uLakeThr.value[i] = L.thrN;
+    if (L.u) L.u.uThr.value = L.thrN - 0.012;
+    // open (or, going back, close) the shore cells past the line: they drop under the water
+    while (L.n < L.cells.length && lakeT[L.cells[L.n]] > L.thr) { const k = L.cells[L.n++]; if (MELT.holes.has(k)) MELT.holes.delete(k); else ground[k] -= LAKE_DROP; }
+    while (L.n > 0 && lakeT[L.cells[L.n - 1]] <= L.thr) ground[L.cells[--L.n]] += LAKE_DROP;
+    if (L.thinN < 1 && !MELT.said["thin" + i]) { MELT.said["thin" + i] = true; thinNow = thinNow || L; }
+    if (L.o > 0 && !MELT.said["open" + i]) { MELT.said["open" + i] = true; openNow = openNow || L; }
+  });
+  if (kq <= 0) { MELT.route = {}; if (CT.rm0) CT.rm.set(CT.rm0); MELT.ovOn = false; MELT.said = {}; }
+  if (started && !back && kq > 0) {
+    if (!MELT.said.bare) { MELT.said.bare = true; toast("First bare ground: the south-facing slopes and the shore are melting out. Sleds don't like rock.", "warn"); }
+    else if (openNow) toast(`Open water at the edge of ${openNow.name}. Skip it flat out or go round.`, "warn");
+    else if (thinNow) toast(`The ice on ${thinNow.name} has gone dark at the edges. Thin ice: keep off it, or keep moving.`, "warn");
+  }
+  MELT.sweep = meltSweep(kq);
+}
+// the slow part of a step, run a slice per frame inside meltTick's time budget
+function* meltSweep(kq) {
+  for (let i = 0; i < activeChunks.length; i++) { const c = activeChunks[i]; if (c && c.mk !== kq) { rescaleChunk(c); yield; } }
+  for (let r = 0; r < S;) { if (MELT.moved) { MELT.moved = false; r = 0; } patchRows(r, Math.min(S, r + 6)); r += 6; yield; }
+  if (!CT.ready) return;
+  // the route grid: open water is impassable, melted-out ground is hard going
+  if (!CT.rm0) CT.rm0 = CT.rm.slice();
+  const n = CT.RN, rk = (GN - 1) / (n - 1);
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {
+      const v = j * n + i, m0 = CT.rm0[v]; if (!m0 || kq <= 0) { CT.rm[v] = m0; continue; }
+      const g = j * rk * GN + i * rk, x = i * rk * GRES - HALF, z = j * rk * GRES - HALF;
+      const m = meltMul(x, z), base = freshG[g];
+      CT.rm[v] = bio[g] === 1 && m === 0 ? 0 : base >= 0.12 && base * m < 0.07 ? m0 * 3.5 : m < 0.5 ? m0 * 1.4 : m0;
+    }
+    if ((j & 7) === 7) yield;
+  }
+  if (kq <= 0) return;
+  yield* ctRoutesG(true);
+  meltRoutes();
+  yield;
+  yield* meltOverlay();
+}
+function rescaleChunk(c) {
+  for (let k = 0; k < CH * CH; k++) {
+    const ix = c.cx * CH + (k & 31), iz = c.cz * CH + (k >> 5), b = c.b[k];
+    const fNew = b > 0 ? b * meltMul(ix * CELL - HALF, iz * CELL - HALF) : 0, fOld = c.f[k];
+    if (fNew === fOld) continue;
+    const d0 = c.d[k], d = fOld > 1e-4 ? d0 * fNew / fOld : fNew;   // tracks and berms keep their shape as the snow under them goes
+    c.f[k] = fNew; c.d[k] = d; writeCell(ix, iz, d0, d, fNew);
+  }
+  c.mk = MELT.kq;
+}
+function patchRows(r0, r1) {
+  if (pox < -9000) return;
+  for (let j = r0; j < r1; j++) for (let i = 0; i < S; i++) fillCell(pdata, i, j, pox + i, poz + j);
+  snowDirty = true; if (r0 < snowJ0) snowJ0 = r0; if (r1 - 1 > snowJ1) snowJ1 = r1 - 1;
+}
+// each place's line from the quay: open, melting (bare stretches, pays a little extra), or closed until it freezes
+const ROUTE_WORD = { open: "OPEN", melting: "MELTING", closed: "CLOSED" };
+function routeStat(s) {
+  const r = CT.routes[s.id]; if (!r) return "open";
+  if (r.unreach) return "closed";
+  let n = 0, bare = 0;
+  const P0 = r.P;
+  for (let i = 1; i < P0.length; i++) {
+    const [ax, az] = P0[i - 1], [bx, bz] = P0[i], L = Math.hypot(bx - ax, bz - az), m = Math.max(1, Math.round(L / 40));
+    for (let q = 0; q < m; q++) {
+      const t = q / m, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+      if (Math.hypot(x - depot.x, z - depot.z) < 260 || Math.hypot(x - s.x, z - s.z) < 260) continue;   // the streets of town are always slush
+      if (bioAt(x, z) === 1 && isWater(x, z)) { n++; bare++; continue; }
+      const base = sampleG(freshG, x, z); if (base < 0.12) continue;
+      n++; if (base * meltMul(x, z) < 0.07) bare++;
+    }
+  }
+  const f = n ? bare / n : 0;
+  return f > 0.3 ? "closed" : f > 0.1 ? "melting" : "open";
+}
+function meltRoutes() {
+  const closed = [], melting = [];
+  for (const s of SITES) {
+    if (s.type === "depot" || s.type === "shop" || s.x === undefined) continue;
+    const was = MELT.route[s.id] || "open"; let st = routeStat(s);
+    if (was === "closed") st = "closed";                               // once a trail's gone, it's gone till the freeze
+    MELT.route[s.id] = st;
+    if (st !== was) (st === "closed" ? closed : melting).push(s);
+  }
+  if (!started) return;
+  const nm = a => { const v = a.filter(s => s.type !== "home").map(s => shortName(s)); return v.length > 2 ? v.slice(0, -1).join(", ") + " and " + v[v.length - 1] : v.join(" and "); };
+  if (closed.length) {
+    const t = nm(closed);
+    toast(t ? `The ${t} trail${closed.filter(s => s.type !== "home").length > 1 ? "s have" : " has"} melted out. No work out there till it freezes.` : "Some of the round-town runs have melted out.", "warn");
+    const drop = j => !j.claimed && MELT.route[j.dest.id] === "closed";
+    if (GS.jobs && GS.jobs.some(drop)) { GS.jobs = GS.jobs.filter(j => !drop(j)); TABLET.refresh(); }
+  } else if (melting.length && !MELT.said.melting) { MELT.said.melting = true; toast(`The trail to ${shortName(melting[0])} is melting out in places. It pays a little extra while it lasts.`); }
+  if (!MELT.said.lastweek && MELT.k > 0.87) { MELT.said.lastweek = true; toast("Not long left. At the end of May the sled goes in the shed for the summer.", undefined); }
+}
+const routeOf = s => (s && MELT.kq > 0 && MELT.route[s.id]) || "open";
+const siteOpen = s => routeOf(s) !== "closed";
+const meltWork = () => MELT.kq > 0 ? 1 - 0.5 * sstep(0.15, 0.95, MELT.k) : 1;     // how much work there is, 1 in winter down to half
+const slushPay = d => routeOf(d) === "melting" ? 1.15 : 1;                           // a melting trail pays a little extra while it lasts
+// the Map app and the minimap: bare ground and open lakes over the chart (512 px across the map)
+function* meltOverlay() {
+  const N = 512, cv = MELT.ov || (MELT.ov = Object.assign(document.createElement("canvas"), { width: N, height: N })), g = cv.getContext("2d");
+  const img = MELT.ovImg || (MELT.ovImg = g.createImageData(N, N)), D = img.data, st = WORLD / N;
+  for (let j = 0; j < N; j++) {
+    const z = (j + 0.5) * st - HALF;
+    for (let i = 0; i < N; i++) {
+      const x = (i + 0.5) * st - HALF, o = (j * N + i) * 4, b = bioAt(x, z);
+      let r = 0, gg = 0, bl = 0, a = 0;
+      if (b === 1 && isWater(x, z)) { r = 40; gg = 86; bl = 118; a = 220; }
+      else if (b !== 3) {
+        const base = sampleG(freshG, x, z), m = meltMul(x, z);
+        if (base * m < 0.07 && base >= 0.05) { r = 122; gg = 98; bl = 66; a = 150; }
+        else if (m < 0.5) { r = 150; gg = 132; bl = 106; a = 60; }
+      }
+      D[o] = r; D[o + 1] = gg; D[o + 2] = bl; D[o + 3] = a;
+    }
+    if ((j & 7) === 7) yield;
+  }
+  g.putImageData(img, 0, 0); MELT.ovOn = true;
+}
+// thin ice: a slow sled cracks it (heavier rigs faster), and enough cracking breaks it under you
+function thinIceStep(dt, spd, M, fx, fz) {
+  const rate = spd < 13 ? (1.4 - spd / 11) * (M / 320) * (0.5 + 0.5 * P.thin) : -0.7;
+  MELT.crack = Math.max(0, MELT.crack + rate * dt);
+  if (rate > 0) {
+    MELT.crackT -= dt;
+    if (MELT.crackT <= 0) {
+      MELT.crackT = 0.25 + Math.random() * 0.45 * (1.2 - MELT.crack);
+      iceCrackSnd(0.4 + MELT.crack * 0.6);
+      for (let k = 0; k < 5; k++) emit(P.x + (Math.random() - 0.5) * 2.4, P.y + 0.04, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2, 0.6 + Math.random(), (Math.random() - 0.5) * 2, 0.6, 0.5);
+    }
+    if (!MELT.said.crack) { MELT.said.crack = true; toast("The ice is cracking! Keep moving, or get off it.", "bad"); }
+  }
+  if (MELT.crack >= 1) { MELT.crack = 0; iceBreak(P.x, P.z); }
+}
+function iceBreak(x, z) {
+  const ci = Math.round((x + HALF) / GRES), cj = Math.round((z + HALF) / GRES);
+  for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+    if (di * di + dj * dj > 5) continue;
+    const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= GN || j >= GN) continue;
+    const k = j * GN + i, L = LKS[lakeId[k] - 1];
+    if (bio[k] !== 1 || !L || lakeT[k] > L.thr || MELT.holes.has(k)) continue;
+    ground[k] -= LAKE_DROP; MELT.holes.add(k); L.holes = true;
+    const N = 64, ti = Math.round((i * GRES - HALF - (L.L.x - L.R)) / (2 * L.R) * N - 0.5), tj = Math.round((j * GRES - HALF - (L.L.z - L.R)) / (2 * L.R) * N - 0.5);
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const u = ti + a, v = tj + b; if (u >= 0 && v >= 0 && u < N && v < N) L.tex.image.data[v * N + u] = 255; }
+    L.tex.needsUpdate = true; if (L.mesh) L.mesh.visible = true;
+  }
+  // the snow and the patch over the hole
+  const R = 12;
+  for (let cz = Math.floor((z - R + HALF) / (CH * CELL)); cz <= Math.floor((z + R + HALF) / (CH * CELL)); cz++)
+    for (let cx = Math.floor((x - R + HALF) / (CH * CELL)); cx <= Math.floor((x + R + HALF) / (CH * CELL)); cx++) { const c = chunks[cz * CPR + cx]; if (c) rescaleChunk(c); }
+  const r0 = clamp(Math.floor((z - R + HALF) / CELL) - poz, 0, S), r1 = clamp(Math.ceil((z + R + HALF) / CELL) - poz, 0, S);
+  if (r1 > r0) patchRows(r0, r1);
+  whump(0.9);
+  for (let k = 0; k < 40; k++) emit(x + (Math.random() - 0.5) * 5, P.wl + 0.1, z + (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 6, 2 + Math.random() * 3, (Math.random() - 0.5) * 6, 1.2, 1.2);
+  if (started && !GS.dead) toast("The ice gave way!", "bad");
+}
+function iceCrackSnd(v) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
+  s.buffer = buf; f.type = "bandpass"; f.frequency.setValueAtTime(2400 + Math.random() * 1800, t); f.frequency.exponentialRampToValueAtTime(500, t + 0.25); f.Q.value = 2;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.5); s.stop(t + 0.32);
+}
+// the refreeze: a fresh snowpack, frozen lakes, no old tracks, every route open. Nothing you own is touched.
+// at boot (or after a load): bring the world straight to today's melt, all at once, before the first frame
+function meltBoot() {
+  meltSeason();
+  if (!MELT.grid && (meltDay() > MELT.dApr - 6 || CAL.season().id === "summer")) { for (const _ of meltGridG(false)); }
+  meltTick(0);
+  if (MELT.sweep) { while (!MELT.sweep.next().done); MELT.sweep = null; }
+}
+function meltRefreeze() {
+  meltSeason(); meltStep(0); MELT.sweep = null; MELT.crack = 0;
+  for (const c of activeChunks) chunks[c.key] = undefined;
+  activeChunks.length = 0; refillIdx = 0;
+  trailData.fill(0); trailTex.needsUpdate = true; tctx.clearRect(0, 0, MB, MB);
+  for (const L of LKS) if (L && L.mesh) L.mesh.visible = false;
+  recenter(P.x, P.z, true);
+}
+
+/* the summer: bills, the montage and the new winter */
+const SEASON = {
+  // O6 (depot cabins) registers here: { name, perWeek() } - positive for income (rent), negative for costs (the fuel cache)
+  bills: [], card: false,
+  addBill(b) { this.bills.push(b); return b; },
+  year(c = CAL.day()) { return (c.m >= 10 ? c.y : c.y - 1) - 2026 + 1; },
+  settle(days) {
+    const weeks = days / 7, lines = [];
+    for (const b of this.bills) { let v = 0; try { v = Math.round(b.perWeek() * weeks); } catch (e) { } if (v) lines.push({ name: b.name, v }); }
+    const total = lines.reduce((a, l) => a + l.v, 0);
+    GS.cash = Math.max(0, GS.cash + total);
+    return { lines, total, weeks };
+  }
+};
+const SUMMER_NOTES = [
+  [5, 1, "June. The last ice goes out of the high lakes. The sled goes in the shed under a tarp."],
+  [5, 21, "Midsummer. The sun goes round the sky and never sets. Nobody in Kjøllefjord sleeps."],
+  [6, 10, "July. Cloudberries on the fell, reindeer down on the shore, tourists off every ferry."],
+  [7, 8, "August. Somebody on the quay asks if you're the snowmobile courier. You say it depends."],
+  [8, 6, "September. First frost on the heather. The birches go yellow overnight."],
+  [9, 4, "October. Snow on the tops. The lakes skin over, then freeze right through."]
+];
+function summerCard(c, days, bill) {
   const el = $("summer"); if (!el) return;
-  const t0 = Date.UTC(c.y, c.m, c.d), lbl = $("sumDate");
-  el.hidden = false; el.classList.remove("out");
-  let k = 0; const N = 46;
+  const t0 = Date.UTC(c.y, c.m, c.d), lbl = $("sumDate"), note = $("sumNote"), bl = $("sumBills"), yr = $("sumYear");
+  const end = new Date(t0 + days * 864e5), Y = SEASON.year({ m: 10, y: end.getUTCFullYear() });
+  el.hidden = false; el.classList.remove("out"); SEASON.card = true;
+  bl.hidden = yr.hidden = true; yr.textContent = ""; note.classList.remove("on");
+  const setNote = t => { if (note.textContent === t) return; note.classList.remove("on"); setTimeout(() => { note.textContent = t; note.classList.add("on"); }, 220); };
+  let k = 0; const N = 72;
   const step = () => {
-    const dt = new Date(t0 + Math.round(days * k / N) * 864e5);
-    lbl.textContent = `${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
-    if (k++ < N) setTimeout(step, 22 + 60 * Math.pow(k / N, 3)); else setTimeout(() => { el.classList.add("out"); setTimeout(() => el.hidden = true, 700); }, 1900);
+    const dt = new Date(t0 + Math.round(days * k / N) * 864e5), m = dt.getUTCMonth(), d = dt.getUTCDate();
+    lbl.textContent = `${d} ${MONTHS[m]} ${dt.getUTCFullYear()}`;
+    let t = SUMMER_NOTES[0][2]; for (const [nm, nd, tx] of SUMMER_NOTES) if (m > nm || (m === nm && d >= nd)) t = tx;
+    if (k < N) setNote(t);
+    if (k++ < N) { setTimeout(step, 70 + 30 * Math.sin(k / N * Math.PI)); return; }
+    setNote(`1 November. A fresh snowpack on the whole peninsula, the lakes frozen hard and every trail open again.`);
+    bl.innerHTML = `<div class="sbh">WHILE YOU WERE AWAY · ${Math.round(bill.weeks)} WEEKS</div>` + (bill.lines.length
+      ? bill.lines.map(l => `<div class="sbr"><span>${l.name}</span><b class="${l.v < 0 ? "neg" : "pos"}">${l.v < 0 ? "−" : "+"}${fmtCash(Math.abs(l.v))}</b></div>`).join("") + `<div class="sbr tot"><span>All told</span><b>${bill.total < 0 ? "−" : "+"}${fmtCash(Math.abs(bill.total))}</b></div>`
+      : `<p>Nothing owing. No depots to rent out or keep fuelled yet, so the summer cost you nothing.</p>`);
+    yr.textContent = `YEAR ${Y} · WINTER ${end.getUTCFullYear()}–${String(end.getUTCFullYear() + 1).slice(2)}`;
+    setTimeout(() => { bl.hidden = false; yr.hidden = false; }, 400);
+    // it closes itself, or a tap / key / pad button closes it once the new year's up
+    let done = false;
+    const close = () => { if (done) return; done = true; removeEventListener("keydown", close); el.removeEventListener("pointerdown", close); clearInterval(pad); el.classList.add("out"); SEASON.card = false; setTimeout(() => el.hidden = true, 700); };
+    const pad = setInterval(() => { const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(g => g) : null; if (gp && gp.buttons.some(b => b && b.pressed)) close(); }, 100);
+    setTimeout(() => { addEventListener("keydown", close); el.addEventListener("pointerdown", close); }, 900);
+    setTimeout(close, 5600);
   };
   step();
+}
+function seasonTurn(c, days) {
+  const bill = SEASON.settle(days);
+  meltRefreeze();
+  // the sled spent the summer in the shed at the quay: back there, full tank, warm
+  P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.sink = 0; P.wet = false;
+  recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.3; P.safe = { x: P.x, z: P.z, yaw: P.yaw }; camState.init = false; camState.yaw = P.yaw; towSnap();
+  GS.fuel = GS.cap; GS.warmth = 100; GS.outWarned = GS.lowWarned = GS.coldWarned = false;
+  if (started) { GS.jobs = []; makeJobs(depot); }
+  summerCard(c, days, bill);
 }
 
 // seeded hash -> rng, so fronts, forecasts and aurora nights are the same every time you look at a day
@@ -3624,9 +4125,10 @@ const jobKm = j => (j.from || depot) === depot && !j.roam ? routeKm(j.dest) : Ma
 const jobClimb = j => Math.round(Math.max(0, j.dest.y - (j.from || depot).y));
 function roamJobs(here) {
   here = here && here.type !== "shop" ? here : nearestSite();
-  const all = workSites(), shuf = a => a.sort(() => Math.random() - 0.5), D2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  // in the melt, work only goes where the trail still holds, and there's less of it as the snow goes
+  const all = workSites().filter(s => s === here || siteOpen(s)), shuf = a => a.sort(() => Math.random() - 0.5), D2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const near = shuf(all.filter(s => D2(s, here) <= ROAM_NEAR));
-  const nLong = GS.delivered >= 12 ? 2 : 1, nNear = 5 - nLong, jobs = [], used = new Set();
+  const thin = meltWork(), nLong = MELT.k > 0.75 ? 1 : GS.delivered >= 12 ? 2 : 1, nNear = Math.max(1, Math.round((5 - nLong) * thin)), jobs = [], used = new Set();
   const hc = shuf(HOME_CARGO.slice()), fc = shuf(CARGO.slice()); let hi = 0, fi = 0;
   const cargoFor = (f, d) => d.type === "home" || f.type === "home" ? hc[hi++ % hc.length] : fc[fi++ % fc.length];
   const toPickup = f => jobGeom(f, { x: P.x, z: P.z, y: groundAt(P.x, P.z) }).est;
@@ -3636,8 +4138,8 @@ function roamJobs(here) {
     const ds = all.filter(d => d !== f && D2(d, f) >= 500 && D2(d, f) <= 3500 && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
     const d = pick(ds), cg = cargoFor(f, d), { dist, climb, est } = jobGeom(d, f), urgent = Math.random() < 0.3;
     used.add(f.id + ">" + d.id);
-    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, local: d.type === "home" && f.type === "home",
-      pay: round5((30 + dist * 0.09 + climb * 0.4) * cg[1] * (urgent ? 1.4 : 1)), due: urgent ? GS.hour + (toPickup(f) + est) * 1.7 / GAMEHOUR : null });
+    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, local: d.type === "home" && f.type === "home", soft: routeOf(d) === "melting",
+      pay: round5((30 + dist * 0.09 + climb * 0.4) * cg[1] * (urgent ? 1.4 : 1) * slushPay(d)), due: urgent ? GS.hour + (toPickup(f) + est) * 1.7 / GAMEHOUR : null });
   }
   // long hauls: from round here to the far side of the map
   for (let k = 0, tries = 0; k < nLong && tries < 30; tries++) {
@@ -3645,7 +4147,7 @@ function roamJobs(here) {
     const ds = all.filter(d => d !== f && D2(d, f) >= 4000 && d.type !== "home" && !used.has(f.id + ">" + d.id)); if (!ds.length) continue;
     const d = pick(ds), cg = fc[fi++ % fc.length], { dist, climb } = jobGeom(d, f);
     used.add(f.id + ">" + d.id); k++;
-    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, long: true, pay: round5((60 + dist * 0.11 + climb * 0.5) * cg[1]), due: null });
+    jobs.push({ dest: d, from: f, cargo: cg[0], fragile: cg[2], roam: true, long: true, soft: routeOf(d) === "melting", pay: round5((60 + dist * 0.11 + climb * 0.5) * cg[1] * slushPay(d)), due: null });
   }
   GS.jobs = jobs; GS.jobsAt = { x: here.x, z: here.z, site: here };
   if (steamerIn()) postSteamerFreight();
@@ -3653,39 +4155,43 @@ function roamJobs(here) {
 function makeJobs(from) {
   if (roaming()) { roamJobs(from === depot ? null : from); makeContracts(depot); return; }
   const shuf = a => a.sort(() => Math.random() - 0.5);
-  const homes = shuf(SITES.filter(s => s.type === "home" && Math.hypot(s.x - from.x, s.z - from.z) < 1000));
-  const far = shuf(SITES.filter(s => s.type !== "depot" && s.type !== "shop" && s.type !== "home"));
+  const homes = shuf(SITES.filter(s => s.type === "home" && Math.hypot(s.x - from.x, s.z - from.z) < 1000 && siteOpen(s)));
+  const far = shuf(SITES.filter(s => s.type !== "depot" && s.type !== "shop" && s.type !== "home" && siteOpen(s)));
   const nL = Math.min(homes.length, localCount(GS.delivered));
   const hc = shuf(HOME_CARGO.slice()), fc = shuf(CARGO.slice());   // no two of the same thing on one board
   GS.jobs = [];
-  for (let k = 0; k < 3; k++) {
+  for (let k = 0, nJ = Math.max(1, Math.round(3 * meltWork())); k < nJ; k++) {
     const local = k < nL, d = local ? homes[k] : far[k - nL], cg = local ? hc[k] : fc[k];
+    if (!d) continue;
     const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < (local ? 0.3 : 0.4);
-    const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * (urgent ? 1.5 : 1) / 5) * 5;
-    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
+    const pay = Math.round(((local ? 30 : 35) + dist * 0.12 + climb * (local ? 0.25 : 0.5)) * cg[1] * (urgent ? 1.5 : 1) * slushPay(d) / 5) * 5;
+    GS.jobs.push({ dest: d, cargo: cg[0], fragile: cg[2], pay, local, soft: routeOf(d) === "melting", due: urgent ? GS.hour + est * 1.7 / GAMEHOUR : null });
   }
   if (steamerIn()) postSteamerFreight();
   makeContracts(depot);
 }
 function makeContracts(from) {
-  const lvl = GS.delivered, cabins = SITES.filter(s => s.type === "cabin").sort(() => Math.random() - 0.5), relay = SITES.find(s => s.type === "relay");
+  const lvl = GS.delivered, cabins = SITES.filter(s => s.type === "cabin" && siteOpen(s)).sort(() => Math.random() - 0.5), relay0 = SITES.find(s => s.type === "relay"), relay = siteOpen(relay0) ? relay0 : null;
   const C = [];
-  // grooming: drag a groomer down the line to a cabin and leave it set hard
-  if (lvl >= 3) {
+  // grooming: drag a groomer down the line to a cabin and leave it set hard (not once the snow's going to slush)
+  if (lvl >= 3 && MELT.k > 0.3) C.push({ locked: "Grooming contracts", sub: "Nothing left worth grooming. The trails are going to slush." });
+  else if (lvl >= 3 && cabins[0]) {
     const d = cabins[0], { dist, climb, est } = jobGeom(d, from);
     C.push({ groom: true, dest: d, cargo: `Groom the ${d.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "")} trail`, pay: round5(140 + dist * 0.22 + climb * 0.6), due: GS.hour + est * 3.2 / GAMEHOUR, need: "groomer" });
-  } else C.push({ locked: "Grooming contracts", sub: `Trail crew work — ${RANKS[1].at} deliveries` });
+  } else C.push({ locked: "Grooming contracts", sub: lvl >= 3 ? "Every cabin trail has melted out. Back when it freezes." : `Trail crew work — ${RANKS[1].at} deliveries` });
   // heavy freight: one or two on the trailer
   if (lvl >= 5) {
     const n = lvl >= 9 ? 2 : 1, menu = HEAVY.filter(x => x.lvl <= lvl).sort(() => Math.random() - 0.5);
     for (let k = 0; k < n; k++) {
-      const d = cabins[1 + k], h = menu[k % menu.length], { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < 0.3;
+      const d = cabins[1 + k], h = menu[k % menu.length]; if (!d) continue;
+      const { dist, climb, est } = jobGeom(d, from), urgent = Math.random() < 0.3;
       const pay = round5((120 + dist * 0.3 + climb * 1.2) * h.mul * (urgent ? 1.35 : 1));
       C.push({ big: true, bays: 1, dest: d, cargo: h.cargo, kg: h.kg, fragile: h.fragile, look: h.look, pay, bond: round5(pay * 0.15), due: urgent ? GS.hour + est * 2.2 / GAMEHOUR : null, need: "trailer" });
     }
   } else C.push({ locked: "Heavy freight", sub: `Appliances, generators, solar kits — ${RANKS[2].at} deliveries and a trailer` });
   // priority: someone's in trouble, tonight
-  if (lvl >= 12) {
+  if (lvl >= 12 && !cabins[3]) C.push({ locked: "Priority runs", sub: "Nobody's cut off: you can't get a sled out to the cabins in this melt." });
+  else if (lvl >= 12) {
     const d = cabins[3], p = pick(PRIORITY), { dist, climb, est } = jobGeom(d, from);
     const pay = round5((120 + dist * 0.3 + climb * 1.2) * (2.1 + GS.storm * 0.8));
     C.push({ big: true, bays: 1, priority: true, dest: d, cargo: p.cargo, kg: p.kg, fragile: p.fragile, look: p.look, why: p.why.replace("{s}", d.name), pay, bond: round5(pay * 0.25), due: GS.hour + est * 1.35 / GAMEHOUR, need: "trailer" });
@@ -3695,7 +4201,7 @@ function makeContracts(from) {
     const e = pick(EXPEDITION), { dist, climb, est } = jobGeom(relay, from);
     const pay = round5((400 + dist * 0.5 + climb * 2.5) * (e.fragile ? 1.25 : 1.1));
     C.push({ big: true, bays: 2, expedition: true, dest: relay, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why, pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.6 / GAMEHOUR, need: "flatbed" });
-  } else if (lvl >= 12) C.push({ locked: "Slettnes expeditions", sub: `Flatbed loads out to the lighthouse — ${RANKS[4].at} deliveries` });
+  } else if (lvl >= 12) C.push({ locked: "Slettnes expeditions", sub: lvl >= 20 ? "The trail out to Slettnes has melted out. The keeper waits for the boat now." : `Flatbed loads out to the lighthouse — ${RANKS[4].at} deliveries` });
   // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
   if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
   else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
@@ -3920,7 +4426,7 @@ function blackout(kind) {
   GS.load = [];
   GS.jobs = []; GS.contracts = null; GS.claims = [];
   applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
-  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
+  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? (P.wl !== SEA ? "<b>THROUGH THE ICE</b>The Red Cross crew got a line on you from the shore. The sled came up on a winch, eventually. The lake kept everything else." : "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else.") : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
@@ -4039,22 +4545,31 @@ function ctNode(x, z) {                                           // nearest rou
   }
   return best;
 }
-// one least-cost search out from the quay gives the line to every place on the map
-function ctRoutes() {
+// one least-cost search out from the quay gives the line to every place on the map. The melt runs it a slice a
+// frame (slice = true yields); the tablet still runs it in one go, which cancels any sliced run under way.
+function ctRoutes() { for (const _ of ctRoutesG(false)); }
+function* ctRoutesG(slice) {
   if (!CT.ready) return;
+  const gen = CT.gen = (CT.gen || 0) + 1;
   const n = CT.RN, N2 = n * n, st = WORLD / (n - 1), h = CT.rh, mul = CT.rm, tf = CT.tf, dist = CT.dist, par = CT.par, hp = CT.hp, pos = CT.pos;
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {        // packed trail (yours, or the other riders') is cheap going
-    let v = 0;
-    for (let dz = -4; dz < 4 && v <= 70; dz++) { const z = j * 8 + dz; if (z < 0 || z >= TR) continue; for (let dx = -4; dx < 4; dx++) { const x = i * 8 + dx; if (x < 0 || x >= TR) continue; const t = trailData[(z * TR + x) * 4]; if (t > v) v = t; } }
-    tf[j * n + i] = v > 70 ? 0.55 : 1;
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < n; i++) {        // packed trail (yours, or the other riders') is cheap going
+      let v = 0;
+      for (let dz = -4; dz < 4 && v <= 70; dz++) { const z = j * 8 + dz; if (z < 0 || z >= TR) continue; for (let dx = -4; dx < 4; dx++) { const x = i * 8 + dx; if (x < 0 || x >= TR) continue; const t = trailData[(z * TR + x) * 4]; if (t > v) v = t; } }
+      tf[j * n + i] = v > 70 ? 0.55 : 1;
+    }
+    if (slice && (j & 3) === 3) { yield; if (CT.gen !== gen) return; }
   }
   dist.fill(Infinity); par.fill(-1); pos.fill(-1);
+  if (slice) { yield; if (CT.gen !== gen) return; }
   let hn = 0;
   const up = i => { const v = hp[i], k = dist[v]; while (i > 0) { const p = (i - 1) >> 1, pv = hp[p]; if (dist[pv] <= k) break; hp[i] = pv; pos[pv] = i; i = p; } hp[i] = v; pos[v] = i; };
   const down = i => { const v = hp[i], k = dist[v]; for (;;) { let c = 2 * i + 1; if (c >= hn) break; if (c + 1 < hn && dist[hp[c + 1]] < dist[hp[c]]) c++; if (dist[hp[c]] >= k) break; hp[i] = hp[c]; pos[hp[i]] = i; i = c; } hp[i] = v; pos[v] = i; };
   const s0 = ctNode(depot.x, depot.z); dist[s0] = 0; hp[hn] = s0; up(hn++);
   const DI = [-1, 0, 1, -1, 1, -1, 0, 1], DJ = [-1, -1, -1, 0, 0, 1, 1, 1];
+  let pops = 0;
   while (hn > 0) {
+    if (slice && ++pops % 1000 === 0) { yield; if (CT.gen !== gen) return; }
     const u = hp[0]; pos[u] = -2; hn--; if (hn > 0) { hp[0] = hp[hn]; pos[hp[0]] = 0; down(0); }
     const ui = u % n, uj = (u / n) | 0, du = dist[u], mu = mul[u] * tf[u];
     for (let q = 0; q < 8; q++) {
@@ -4066,14 +4581,16 @@ function ctRoutes() {
       if (du + c < dist[v]) { dist[v] = du + c; par[v] = u; if (pos[v] < 0) { hp[hn] = v; up(hn++); } else up(pos[v]); }
     }
   }
-  for (const s of SITES) if (s.type !== "depot" && s.type !== "shop" && s.x !== undefined) CT.routes[s.id] = ctPath(s);
+  let np = 0;
+  for (const s of SITES) if (s.type !== "depot" && s.type !== "shop" && s.x !== undefined) { CT.routes[s.id] = ctPath(s); if (slice && ++np % 4 === 0) { yield; if (CT.gen !== gen) return; } }
   for (const c of GS.contracts || []) if (c.rescue || c.tour) CT.routes[c.dest.id] = ctPath(c.dest);
   if (GS.tour) CT.routes[GS.tour.view.id] = ctPath(GS.tour.view);
 }
 function ctPath(site) {
   const n = CT.RN, st = WORLD / (n - 1), end = ctNode(site.x, site.z);
   let P = [];
-  if (CT.dist[end] < Infinity) for (let v = end; v >= 0; v = CT.par[v]) P.push([(v % n) * st - HALF, ((v / n) | 0) * st - HALF]);
+  const unreach = !(CT.dist[end] < Infinity);
+  if (!unreach) for (let v = end; v >= 0; v = CT.par[v]) P.push([(v % n) * st - HALF, ((v / n) | 0) * st - HALF]);
   P.reverse();
   if (P.length < 2) P = [[depot.x, depot.z], [site.x, site.z]];
   P[0] = [depot.x, depot.z]; P[P.length - 1] = [site.x, site.z];
@@ -4092,7 +4609,7 @@ function ctPath(site) {
     Q.push(P[P.length - 1]); P = Q;
   }
   let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
-  return { P, L };
+  return { P, L, unreach };
 }
 // the paper: sea, lake ice, birch stipple and a little grain, one pixel at a time
 function ctRaster(g, S) {
@@ -4589,7 +5106,7 @@ function tabDash(dt) {
   g.beginPath(); g.rect(0, top, W, H - top); g.clip();
   const cx = W / 2, cy = top + (H - top) * 0.66, span = 520, k = W / span, ang = P.yaw + Math.PI;
   g.save(); g.translate(cx, cy); g.rotate(ang); g.scale(k / M2SRC, k / M2SRC); g.translate(-(P.x + HALF) * M2SRC, -(P.z + HALF) * M2SRC);
-  g.drawImage(mapBg, 0, 0); g.drawImage(mapTrail, 0, 0);
+  g.drawImage(mapBg, 0, 0); if (MELT.ovOn && MELT.kq > 0) g.drawImage(MELT.ov, 0, 0, MB, MB); g.drawImage(mapTrail, 0, 0);
   if (GS.groomJob) { const r = 2.4 * M2SRC / k; for (const p of GS.groomJob.pts) { g.fillStyle = p.done ? "#6fd08c" : "#ff8a3a"; g.beginPath(); g.arc((p.x + HALF) * M2SRC, (p.z + HALF) * M2SRC, r, 0, 6.283); g.fill(); } }
   g.restore();
   const cA = Math.cos(ang), sA = Math.sin(ang), toS = (x, z) => { const dx = (x - P.x) * k, dz = (z - P.z) * k; return [cx + dx * cA - dz * sA, cy + dx * sA + dz * cA]; };
@@ -4840,7 +5357,7 @@ function tabMinis(el) { for (const cv of el.querySelectorAll("canvas[data-mini]"
 
 /* ---- the apps ---- */
 const chip = (t, c) => `<span class="bchip${c ? " " + c : ""}">${t}</span>`;
-function parcelChips(j) { return (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
+function parcelChips(j) { return (j.soft ? chip("SLUSH +15%", "heavy") : "") + (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
 function tabCard(o) {
   return `<div class="tcard${o.cls ? " " + o.cls : ""}"${o.tf ? ` data-tf="${o.tf}"` : ""}>
     ${o.mini ? `<canvas class="tmini" data-mini="${o.mini}"></canvas>` : ""}
@@ -4868,7 +5385,8 @@ TABLET.register({
     const cl = GS.claims.filter(j => !j.big && !j.tour);
     if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: fmtCash(j.pay * payMul()) }); }); }
     h += sec("Posted", roaming() ? "claim it, ride to the P, it loads; at the P it loads straight on" : atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
-    if (!GS.jobs.length) h += `<p class="tnote2">No parcels posted. Check back after the next boat.</p>`;
+    if (!GS.jobs.length) h += `<p class="tnote2">${MELT.k > 0.5 ? "Nothing posted. With the snow going, folk are waiting for the boat instead." : "No parcels posted. Check back after the next boat."}</p>`;
+    else if (MELT.kq > 0 && meltWork() < 0.85) h += `<p class="tnote2">The melt's on: less work, and only where the trail still holds. Melting trails pay a little extra.</p>`;
     GS.jobs.forEach((j, k) => {
       const here = atPickup(j), full = smallLoads().length + claimSmall() >= ST.slots && !here || (here && smallLoads().length >= ST.slots);
       const f = j.from || depot, g = groom[j.dest.id] || 0, fromQ = f === depot && !j.roam;
@@ -4942,13 +5460,13 @@ TABLET.register({
 TABLET.register({
   id: "map", name: "Map", icon: TICON.map, order: 2,
   onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoom = this.zoom || 0; },
-  layersOn: { del: true, pins: true, rescue: true, depots: true },
+  layersOn: { del: true, pins: true, rescue: true, depots: true, routes: true },
   render(el) {
     const L = this.layersOn, ch = (id, t, n) => `<button type="button" class="tml${L[id] ? " on" : ""}" data-tf="lay:${id}" data-lay="${id}"><i class="k ${id}"></i>${t}${n !== undefined ? ` <b>${n}</b>` : ""}</button>`;
     const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots");
     // the chart fills the page; the layer chips, the zoom button and the ferry/mail widget float on top of it
     el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
-      <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}</div>
+      <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
         <button type="button" class="tbtn ghost" data-tf="zoom" id="tabZoom">${this.zoom ? "WHOLE MAP" : "AROUND ME"}</button></div>
       <div class="twid" id="tabWid"></div></div>`;
     for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
@@ -4960,7 +5478,8 @@ TABLET.register({
     const f = TABLET.widget.ferry(), m = TABLET.widget.mail(), c = f.call;
     const stTxt = !c ? "" : c.state === "delayed" ? ` · <em class="late">+${c.delay} h late</em>` : "";
     const risk = !m ? "hand in at the quay" : m.lose ? `<em class="bad">miss her: pay $${m.lose}</em>` : m.fine ? `<em class="late">miss her: $${m.fine} fine</em>` : m.worst ? "missed one boat · next is a fine" : "rides the next boat free";
-    el.innerHTML = `<div class="twr"><span>${f.label}${c ? " · " + c.dir : ""}</span><b>${f.at !== null ? fmtTime(f.at) : "—"}</b><i>${f.left !== null ? (f.alongside ? "alongside · " : "") + "in " + fmtLeft(f.left) : "no sailings"}${stTxt}${f.cancelled ? ` · <em class="bad">${fmtTime(f.cancelled.sDep)} cancelled</em>` : ""}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? `piece${m.count > 1 ? "s" : ""}${m.batches > 1 ? " · " + m.batches + " batches" : ""}` : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value * payMul() : 0)}</b><i>${risk}</i></div>`;
+    const rt = MELT.kq > 0 ? Object.values(MELT.route) : null;
+    el.innerHTML = (rt ? `<div class="twr"><span>Trails · the melt</span><b>${rt.filter(v => v !== "closed").length}/${rt.length}</b><i>open · ${rt.filter(v => v === "melting").length} melting · <em class="bad">${rt.filter(v => v === "closed").length} closed</em></i></div>` : "") + `<div class="twr"><span>${f.label}${c ? " · " + c.dir : ""}</span><b>${f.at !== null ? fmtTime(f.at) : "—"}</b><i>${f.left !== null ? (f.alongside ? "alongside · " : "") + "in " + fmtLeft(f.left) : "no sailings"}${stTxt}${f.cancelled ? ` · <em class="bad">${fmtTime(f.cancelled.sDep)} cancelled</em>` : ""}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? `piece${m.count > 1 ? "s" : ""}${m.batches > 1 ? " · " + m.batches + " batches" : ""}` : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value * payMul() : 0)}</b><i>${risk}</i></div>`;
   },
   tick(dt) {
     this.t += dt; if (this.t < 0.2 || !this.cv) return; this.t = 0;
@@ -4972,6 +5491,7 @@ TABLET.register({
     const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, this.zoom && sx > WORLD ? -sx / 2 : cx - sx / 2, cz - sz / 2, sx, sz), span = sz;
     g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; }, sc = H / span * 10;   // px per 10 m
     const L = this.layersOn, hot = new Set();
+    if (L.routes && MELT.kq > 0) tabMelt(g, w2c, sc);
     if (L.del) for (const j of GS.load) hot.add(j.dest);
     if (L.pins) for (const j of GS.claims.concat(GS.jobs)) hot.add(j.dest);
     if (GS.groomJob) for (const p of GS.groomJob.pts) { const [x, y] = w2c(p.x, p.z); g.fillStyle = p.done ? "#2f7a4a" : CT_ACC; g.beginPath(); g.arc(x, y, 2.4, 0, 6.283); g.fill(); }
@@ -4996,6 +5516,22 @@ TABLET.register({
     g.restore();
   }
 });
+// the melt on the chart: bare ground and open lakes, then every place's line from the quay coloured by whether it
+// still holds (ink), is melting out (orange, dashed) or is closed (red, crossed out at the far end)
+const ROUTE_COL = { open: "#2f5a46", melting: "#d0731f", closed: "#b8321f" };
+function tabMelt(g, w2c, sc) {
+  if (MELT.ov && MELT.ovOn) { const [x0, y0] = w2c(-HALF, -HALF), [x1, y1] = w2c(HALF, HALF); g.save(); g.imageSmoothingEnabled = true; g.globalAlpha = 0.9; g.drawImage(MELT.ov, x0, y0, x1 - x0, y1 - y0); g.restore(); }
+  for (const s of SITES) {
+    const st = MELT.route[s.id], r = CT.routes[s.id]; if (!st || !r || (s.type === "home" && sc < 1.2)) continue;
+    g.save(); g.strokeStyle = ROUTE_COL[st]; g.globalAlpha = st === "open" ? 0.55 : 0.9; g.lineWidth = st === "open" ? 1.4 : 2.2; g.setLineDash(st === "melting" ? [7, 5] : st === "closed" ? [2, 5] : []);
+    g.beginPath(); r.P.forEach((p, i) => { const [x, y] = w2c(p[0], p[1]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.restore();
+    if (st !== "open") {
+      const [x, y] = w2c(s.x, s.z);
+      if (st === "closed") { g.strokeStyle = ROUTE_COL.closed; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x - 7, y - 7); g.lineTo(x + 7, y + 7); g.moveTo(x + 7, y - 7); g.lineTo(x - 7, y + 7); g.stroke(); }
+      if (s.type !== "home" || sc > 1.4) tabLabel(g, ROUTE_WORD[st], x, y - 14, 10, ROUTE_COL[st]);
+    }
+  }
+}
 // the call-out you're on goes on the map's rescue layer; O5's rescues will add their own
 TABLET.addLayer("rescue", () => GS.rescueJob && typeof RJ !== "undefined" ? RJ.vs.filter(v => !v.freed).map(v => ({ x: v.x, z: v.z, name: v.name + " · stuck", kind: "recovery" })) : []);
 
@@ -5009,10 +5545,11 @@ TABLET.register({
   onOpen() { this.view = null; },
   render(el) {
     const c = CAL.day(), sy = c.m >= 10 ? c.y : c.y - 1, D0 = Math.round((Date.UTC(sy, 10, 1) - CAL_EPOCH) / 864e5), N = Math.round((Date.UTC(sy + 1, 5, 1) - Date.UTC(sy, 10, 1)) / 864e5);
-    const pnAt = D => CAL.isPolarNight(D * 24 - CAL.off + 12), meltAt = D => CAL.day(D).m === 4;
+    const mD = Math.round((Date.UTC(sy + 1, 3, 1 + MELT_START) - CAL_EPOCH) / 864e5);   // the melt-out starts 9 April
+    const pnAt = D => CAL.isPolarNight(D * 24 - CAL.off + 12), meltAt = D => D >= mD;
     // the season strip: polar night and the melt, months, and today
     let pn0 = null, pn1 = null; for (let D = D0; D < D0 + N; D++) if (pnAt(D)) { if (pn0 === null) pn0 = D; pn1 = D; }
-    const mD = Math.round((Date.UTC(sy + 1, 4, 1) - CAL_EPOCH) / 864e5), today = c.D, pc = D => ((D - D0) / N * 100).toFixed(2) + "%";
+    const today = c.D, pc = D => ((D - D0) / N * 100).toFixed(2) + "%";
     const fmtD = D => { const q = CAL.day(D); return `${q.d} ${MON3[q.m]}`; };
     let strip = `<div class="tstrip">`;
     if (pn0 !== null) strip += `<div class="tsg pn" style="left:${pc(pn0)};width:calc(${pc(pn1 + 1)} - ${pc(pn0)})"><span>POLAR NIGHT</span></div>`;
@@ -5039,8 +5576,9 @@ TABLET.register({
         sail.push(`<div class="tfr"><span>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : DOW3[q.dow]}</span><b>${times}</b><i>${s.dir}</i>${fs ? chip(fs.state === "delayed" ? "+" + fs.delay + " H" : fs.state.toUpperCase(), fs.state === "cancelled" ? "due" : fs.state === "delayed" ? "heavy" : "ok") : chip("NO FORECAST")}</div>`);
       }
     }
-    el.innerHTML = `<div class="tapp tcal">${tabHead("THE SEASON · " + sy + "–" + String(sy + 1).slice(2), "Calendar")}
-      <div class="tsub">${CAL.now().long} · ${CAL.season().name}${pn0 !== null ? ` · polar night ${fmtD(pn0)} to ${fmtD(pn1)}` : ""} · melt from 1 May</div>
+    const yr = SEASON.year(c), rt = MELT.kq > 0 ? Object.values(MELT.route) : [], shut = rt.filter(v => v === "closed").length;
+    el.innerHTML = `<div class="tapp tcal">${tabHead("YEAR " + yr + " · THE SEASON " + sy + "–" + String(sy + 1).slice(2), "Calendar")}
+      <div class="tsub">${chip("YEAR " + yr, "ok")} ${CAL.now().long} · ${CAL.season().name}${pn0 !== null ? ` · polar night ${fmtD(pn0)} to ${fmtD(pn1)}` : ""} · thaw from 1 Apr, melt-out from ${fmtD(mD)} · summer from 1 Jun${shut ? ` · ${shut} of ${rt.length} trails closed` : ""}</div>
       ${strip}
       <div class="tcal2"><div><div class="tmh"><button type="button" class="tbtn ghost sm"${canPrev ? ' data-tf="cal:prev"' : " disabled"} id="calPrev">‹</button><b>${MONTHS[vm.m].toUpperCase()} ${vm.y}</b><button type="button" class="tbtn ghost sm"${canNext ? ' data-tf="cal:next"' : " disabled"} id="calNext">›</button></div><div class="tcg">${grid}</div>
         <div class="tleg">${chip("POLAR NIGHT", "polar")}${chip("MELT", "heavy")}<span class="bchip">• FERRY</span></div></div>
@@ -6758,7 +7296,7 @@ function updNpcs(dt) {
       }
       const slope = Math.hypot(groundAt(ax + 4, az) - groundAt(ax - 4, az), groundAt(ax, az + 4) - groundAt(ax, az - 4)) / 8;
       if (Math.abs(n.x) > HALF - 250 || Math.abs(n.z) > HALF - 250) { npcPickTarget(n); n.avoid = Math.PI * 0.6; n.avoidT = 2.5; }
-      else if (blocked || slope > 0.55 || sampleG(freshG, ax, az) < 0.1) { n.avoid = (Math.random() < 0.5 ? -1 : 1) * 0.9; n.avoidT = 0.9 + Math.random() * 0.8; }
+      else if (blocked || slope > 0.55 || sampleG(freshG, ax, az) * (MELT.kq > 0 ? meltMul(ax, az) : 1) < 0.1 || isWater(ax, az)) { n.avoid = (Math.random() < 0.5 ? -1 : 1) * 0.9; n.avoidT = 0.9 + Math.random() * 0.8; }
     }
     want += n.avoid;
     n.yaw = angLerp(n.yaw, want, 1 - Math.exp(-2.2 * dt));
@@ -6819,7 +7357,7 @@ function updGame(dt, spd) {
   else if (!near) GS.warmth -= cold * dt;
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
-  if (isSea(P.x, P.z) && P.y < SEA - 0.4 && !HELP.on) startDrown();
+  { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
   if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
@@ -6929,10 +7467,11 @@ function updGameHud() {
 // the date-and-time block at the top of the HUD panel; only touches the DOM when something changes
 const CALHUD = { k: "" };
 function updCalHud() {
-  const n = CAL.now(), pn = CAL.isPolarNight(), k = n.label + n.time + pn + (typeof AUR !== "undefined" ? AUR.word(AUR.v) : "");
+  const n = CAL.now(), pn = CAL.isPolarNight(), mw = MELT.wet < 0.06 ? "" : MELT.wet < 0.4 ? "THAW · CRUST" : MELT.k > 0.5 ? "MELT · SLUSH" : "THAW · SLUSH";
+  const k = n.label + n.time + pn + mw + (typeof AUR !== "undefined" ? AUR.word(AUR.v) : "");
   if (k === CALHUD.k) return; CALHUD.k = k;
   $("calDate").textContent = n.label.toUpperCase(); $("calYear").textContent = n.y; $("calTime").textContent = n.time;
-  $("calPN").hidden = !pn;
+  $("calPN").hidden = !pn; $("calML").hidden = !mw; if (mw) $("calML").textContent = mw;
   if (typeof AUR !== "undefined") { const a = AUR.v > 0.3; $("calAU").hidden = !a; if (a) $("calAU").textContent = "AURORA · " + AUR.word(AUR.v).toUpperCase(); }
 }
 const fmtSun = () => { const s = CAL.sunTimes(); return s.polar ? "POLAR NIGHT · NO SUNRISE" : s.midnight ? "MIDNIGHT SUN" : `SUN UP ${fmtTime(s.up)} · DOWN ${fmtTime(s.down)}`; };
@@ -7544,7 +8083,7 @@ const HELP = { on: false, kind: "", called: false, phase: "", t: 0, eta: 0, fee:
 function nearestShore(x, z) {
   for (let R = 6; R <= 600; R += 6) {
     let best = null;
-    for (let k = 0; k < 24; k++) { const a = k * Math.PI / 12, px = x + Math.cos(a) * R, pz = z + Math.sin(a) * R; if (!isSea(px, pz) && Math.abs(px) < HALF - 60 && Math.abs(pz) < HALF - 60) { best = [px, pz, a]; break; } }
+    for (let k = 0; k < 24; k++) { const a = k * Math.PI / 12, px = x + Math.cos(a) * R, pz = z + Math.sin(a) * R; if (!isWater(px, pz) && Math.abs(px) < HALF - 60 && Math.abs(pz) < HALF - 60) { best = [px, pz, a]; break; } }
     if (best) return best;
   }
   return [SPAWN.x, SPAWN.z, 0];
@@ -7562,9 +8101,10 @@ function startDrown() {
   HELP.on = true; HELP.kind = "sea"; HELP.called = false; HELP.phase = "wait"; HELP.t = 0; HELP.fee = helpCost("sea");
   LOG.fjord++;                                                             // one dunking, however it ends (winched out, or blacked out first)
   if (FOOT.on) { FOOT.on = false; FOOT.dig = false; wnStow(false); }
-  P.vx = P.vz = P.vy = 0; TABLET.close(); toast("Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
+  const lake = P.wl !== SEA;
+  P.vx = P.vz = P.vy = 0; TABLET.close(); toast(lake ? "Through the ice! Press F to call for help: every second in that meltwater costs you warmth." : "Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
   whump(1);
-  for (let k = 0; k < 60; k++) emit(P.x + (Math.random() - 0.5) * 3, SEA + 0.1, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 3 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.6, 1.4);
+  for (let k = 0; k < 60; k++) emit(P.x + (Math.random() - 0.5) * 3, P.wl + 0.1, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 3 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.6, 1.4);
 }
 function callForHelp() {
   if (GS.dead) return;
@@ -7613,16 +8153,16 @@ function helpTick(dt) {
     if (k >= 1) { HELP.phase = "hook"; HELP.t = 0; if (!sea) rs.userData.yaw = Math.atan2(P.x - x, P.z - z); }
   } else if (HELP.phase === "hook") {
     const sx = Math.sin(rs.userData.yaw), sz = Math.cos(rs.userData.yaw);
-    const a = [rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], tgt = sea ? [P.x, SEA + 0.3, P.z] : [P.x, P.y + 0.8, P.z], k = clamp(HELP.t / 2.2, 0, 1);
+    const a = [rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], tgt = sea ? [P.x, P.wl + 0.3, P.z] : [P.x, P.y + 0.8, P.z], k = clamp(HELP.t / 2.2, 0, 1);
     HELP.cab.set(a, [lerp(a[0], tgt[0], k), lerp(a[1], tgt[1], k), lerp(a[2], tgt[2], k)], (1 - k) * 0.8);
     if (!sea) { rs.rotation.y = angLerp(rs.rotation.y, rs.userData.yaw, 0.1); }
     if (k >= 1) { HELP.phase = sea ? "pull" : "hand"; HELP.t = 0; HELP.pull = [P.x, P.z]; if (!sea) toast("Two jerry cans coming your way..."); }
   } else if (HELP.phase === "pull") {
     const to = [rs.position.x, rs.position.z], d = Math.hypot(P.x - to[0], P.z - to[1]) || 1, stepL = clamp(d / 13, 3.6, 9) * dt;
     if (d > 4.4) { P.x -= (P.x - to[0]) / d * stepL; P.z -= (P.z - to[1]) / d * stepL; P.yaw = angLerp(P.yaw, Math.atan2(to[0] - P.x, to[1] - P.z) + Math.PI, 0.02); }
-    P.y = Math.max(rideSurf(P.x, P.z), SEA - 0.45) ; P.vx = P.vz = 0;
+    P.y = Math.max(rideSurf(P.x, P.z), P.wl - 0.45) ; P.vx = P.vz = 0;
     const sx = Math.sin(rs.userData.yaw), sz = Math.cos(rs.userData.yaw);
-    HELP.cab.set([rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], [P.x, Math.max(P.y + 0.4, SEA + 0.3), P.z], 0.1);
+    HELP.cab.set([rs.position.x + sx * 1.8, rs.position.y + 0.6, rs.position.z + sz * 1.8], [P.x, Math.max(P.y + 0.4, P.wl + 0.3), P.z], 0.1);
     if (d <= 4.4 || HELP.t > 22) helpDone();
   } else if (HELP.phase === "hand") {
     if (HELP.t > 4.5) helpDone();
@@ -7638,13 +8178,13 @@ function helpDone() {
   const sea = HELP.kind === "sea", fee = HELP.fee;
   GS.cash = Math.max(0, GS.cash - fee);
   if (sea) {
-    if (isSea(P.x, P.z)) { const sh = nearestShore(P.x, P.z); P.x = sh[0] + Math.cos(sh[2]) * 4; P.z = sh[1] + Math.sin(sh[2]) * 4; }   // never leave you in the water
+    if (isWater(P.x, P.z)) { const sh = nearestShore(P.x, P.z); P.x = sh[0] + Math.cos(sh[2]) * 4; P.z = sh[1] + Math.sin(sh[2]) * 4; }   // never leave you in the water
     P.sink = 0; P.wet = false; P.vx = P.vz = P.vy = 0; P.y = surf(P.x, P.z) + 0.3; P.yr = 0;
     const r = HELP.rs, sx = Math.sin(r.userData.yaw), sz = Math.cos(r.userData.yaw);
     P.safe = { x: P.x, z: P.z, yaw: P.yaw }; towSnap();
     GS.warmth = Math.max(GS.warmth, 25); BOG.immune = 6;
     let wet = 0; for (const j of GS.load) { if (j.big) { j.cond = Math.max(0, j.cond - 40 * (j.fragile ? 1.3 : 1) * (1 - ST.armor)); wet++; } else { j.hits = (j.hits || 0) + 2; wet++; } }
-    toast(`Winched out of the fjord: −$${fee}.${wet ? " Everything aboard is soaked and worth less." : ""}`, "warn");
+    toast(`Winched out of the ${P.wl !== SEA ? "lake" : "fjord"}: −$${fee}.${wet ? " Everything aboard is soaked and worth less." : ""}`, "warn");
     HELP.cab.hide(); HELP.phase = "leave"; HELP.t = 0; HELP.on = false; HELP.called = true;
     r.userData.yaw = Math.atan2(sx, sz);
   } else {
@@ -8122,13 +8662,14 @@ function frame(t) {
   readInput(dt);
   rescueTick(dt);
   TABLET.step(dt);
-  if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
+  if (started && !SEASON.card) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
   wnVisual(dt);
   dogTick(dt);
-  if (started) updGame(dt, spd); else if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
+  if (started && !SEASON.card) updGame(dt, spd); else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
+  meltTick(dt);
   updSky(); seaU.uTime.value += dt;
-  updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
+  updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
   flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
@@ -8242,9 +8783,9 @@ addEventListener("keydown", e => {
 });
 
 function boot() {
-  genWorld(); computeSites(); placeQuay();
+  genWorld(); computeSites(); placeQuay(); meltBuild();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild();
+  buildFar(); buildProps(); buildSites(); buildViews(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
