@@ -1240,6 +1240,9 @@ box(0.58, 0.05, 0.52, sledTrimMat, 0, 0.92, -1.55, 0.18, 0, 0, V.rackBox);
 // rolls into corners. Legs and arms are two-bone IK chains re-solved when the machine or
 // kit changes (legs) and every frame (arms, since the bars turn).
 // the rider is built at a ~1.75 m adult's proportions; RIDER_SCALE sizes everything above the hips
+// the visor wipe's shared state (timeline in wipeTimeline, below with the frost): the rider's arm reads it every frame, so it must exist before the rider is posed
+const WIPE = { w: 0, px: 0, py: 0, lean: 0, ts: 0, live: false, hand: false };
+const _sm = x => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
 const RIDER_SCALE = 1.14;
 const rider = new THREE.Group(); sledBody.add(rider); V.rider = rider;
 const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER_SCALE);
@@ -1304,7 +1307,7 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
   riderHead = [helm, chin, visor, hstripe, neck];
   V.headAll = [helm, chin, visor, hstripe, beanie, bobble, face, mask, goggles, gogStrap, V.heatVisor, neck];
   // gloves are part of the bars, so they turn with them and the arms reach for them
-  V.gloves = []; V.mitts = []; V.heatBand = []; V.wrist = [];
+  V.gloves = []; V.mitts = []; V.heatBand = []; V.wrist = []; V.hands = []; V.handRest = [];
   const _XAX = new THREE.Vector3(1, 0, 0);
   for (const [i, sx] of [-1, 1].entries()) {
     const gp = V.grip[i], hand = new THREE.Group(); hand.position.copy(gp); barPivot.add(hand);
@@ -1312,6 +1315,7 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
     // left hand isn't flipped upside down the way a 180°-ish setFromUnitVectors would do it)
     const hx = new THREE.Vector3(0.13, sx * 0.04, -sx * 0.04).normalize(), hz = new THREE.Vector3(0, 0, 1).cross(hx).cross(hx).negate().normalize(), hy = hz.clone().cross(hx);
     hand.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(hx, hy, hz));
+    V.hands.push(hand); V.handRest.push({ p: hand.position.clone(), q: hand.quaternion.clone() });
     // a closed fist: fingers curl over the top and round the front of the grip, palm behind it,
     // thumb hooked over the inboard end, back of the hand rising to the wrist behind the bar
     const fist = (k, g) => {
@@ -1331,7 +1335,32 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
     hand.updateMatrix();                                                                                   // the wrist in barPivot space (hand.matrixWorld isn't built yet)
     V.wrist.push(new THREE.Vector3(0, 0.05, -0.13).applyMatrix4(hand.matrix));                              // where the forearm meets the glove cuff
   }
+  // the wipe hand: the rider's left hand comes off the bar, opens, and scrubs the visor (poseArms / placeWipeHand). Hand space
+  // as the fist: wrist behind (-z), fingers ahead (+z), palm facing -y, back of the hand +y, thumb on +x. Gloves have four
+  // fingers; mitts keep them together in one rounded block. Shown only during a wipe; the fist is hidden while it is up.
+  {
+    const hand = V.hands[1], flat = (k, mitt) => {
+      const g = new THREE.Group(); g.visible = false; hand.add(g);
+      box(0.092 * k, 0.034 * k, 0.1 * k, M.glove, 0, 0, -0.045 * k, 0, 0, 0, g);                                // palm
+      box(0.07 * k, 0.03 * k, 0.05 * k, M.glove, 0, 0.004 * k, -0.098 * k, -0.25, 0, 0, g);                      // heel of the hand, rolling into the wrist
+      if (mitt) { box(0.1 * k, 0.04 * k, 0.09 * k, M.glove, 0, 0, 0.045 * k, 0, 0, 0, g); ball(0.05 * k, M.glove, 0, 0, 0.09 * k, g, 1, 0.8, 0.7); }
+      else for (const [fx, len] of [[-0.033, 0.074], [-0.011, 0.088], [0.011, 0.082], [0.033, 0.066]]) {
+        box(0.021 * k, 0.026 * k, len * k, M.glove, fx * k, 0, (0.005 + len / 2) * k, 0, fx * 3, 0, g);          // finger, fanned a touch
+        ball(0.0125 * k, M.glove, fx * k * 1.05, 0, (0.005 + len) * k, g, 1, 0.95, 1);                           // fingertip
+      }
+      // thumb: a rounded two-joint digit that grows out of a pad on the side of the palm and angles forward alongside the index finger
+      ball(0.032 * k, M.glove, 0.044 * k, -0.004 * k, -0.07 * k, g, 1, 0.8, 1.15);                               // ball of the thumb, blends it into the palm
+      { const tp = [[0.052, -0.008, -0.07], [0.078, -0.008, -0.03], [0.083, -0.006, 0.014]].map(a => new THREE.Vector3(a[0] * k, a[1] * k, a[2] * k)),
+          t1 = limbDyn(0.02 * k, 0.017 * k, M.glove, g), t2 = limbDyn(0.017 * k, 0.014 * k, M.glove, g);
+        t1.userData.set(tp[0], tp[1]); t2.userData.set(tp[1], tp[2]); }
+      const cuff = new THREE.CylinderGeometry(0.052 * k, 0.047 * k, 0.07 * k, 12); cuff.rotateX(Math.PI / 2);
+      put(new THREE.Mesh(cuff, M.glove), 0, 0, -0.118 * k, 0, 0, 0, g);                                          // gauntlet over the sleeve end
+      return g;
+    };
+    V.wipeHand = { g: flat(1, false), m: flat(1.2, true) };
+  }
 }
+const WRIST_FIST = new THREE.Vector3(0, 0.05, -0.13), WRIST_OPEN = new THREE.Vector3(0, 0, -0.14);
 // two-bone IK: joint position for a chain root→joint→tip with lengths l1, l2, bent toward `pole`
 const _ikd = new THREE.Vector3(), _ikp = new THREE.Vector3(), _ikj = new THREE.Vector3();
 function ik2(root, tip, l1, l2, pole, out) {
@@ -1427,6 +1456,45 @@ function poseLegs(lift) {
   }
 }
 
+// the wipe hand: swap the grip fist for the open hand (and back), by the gloves the rider is wearing
+function wipeHandSet(on) {
+  const mitt = GS.own.gear.gloves !== "leather", wh = V.wipeHand;
+  if (on) { V.gloves[1].visible = V.mitts[1].visible = false; wh.g.visible = !mitt; wh.m.visible = mitt; }
+  else { wh.g.visible = wh.m.visible = false; V.gloves[1].visible = !mitt; V.mitts[1].visible = mitt; }
+  WIPE.hand = on;
+}
+const _wP = new THREE.Vector3(), _wX = new THREE.Vector3(), _wY = new THREE.Vector3(), _wZ = new THREE.Vector3(), _wM = new THREE.Matrix4(), _wQ = new THREE.Quaternion(), _wQ2 = new THREE.Quaternion();
+// where the left hand goes: in front of the visor, palm to the helmet, fingers up and leaning with the stroke. Blends from the
+// grip by w. Leaves the wrist (barPivot space) in _pT for the arm IK. Needs barPivot's world matrix current.
+function placeWipeHand(w) {
+  const hand = V.hands[1], rest = V.handRest[1], head = V.head.g;
+  head.updateWorldMatrix(true, false);
+  // in first person the camera sits ~0.25 m ahead of the (hidden) helmet, so the hand is held out in front of the lens instead of at the visor
+  const fp = V.headHid;
+  _wP.set(-WIPE.px / 1.2 * (fp ? 0.27 : 0.2), 0.06 + WIPE.py * 0.1, fp ? 0.46 : 0.25); head.localToWorld(_wP); barPivot.worldToLocal(_wP);
+  _wZ.set(WIPE.lean, 1, 0).normalize(); _wY.set(0, 0, 1); _wX.crossVectors(_wY, _wZ).normalize(); _wY.crossVectors(_wZ, _wX);
+  _wM.makeBasis(_wX, _wY, _wZ); _wQ.setFromRotationMatrix(_wM);
+  head.getWorldQuaternion(_wQ2); _wQ.premultiply(_wQ2);
+  barPivot.getWorldQuaternion(_wQ2).invert(); _wQ.premultiply(_wQ2);
+  hand.position.lerpVectors(rest.p, _wP, w); hand.quaternion.slerpQuaternions(rest.q, _wQ, w); hand.updateMatrix();
+  WIPE.live = true;
+  const open = w > 0.3; if (open !== WIPE.hand) wipeHandSet(open);
+  _pT.copy(open ? WRIST_OPEN : WRIST_FIST).applyMatrix4(hand.matrix);
+  // out of reach (the far end of a stroke held out in first person)? pull the hand in along the line to the shoulder so the glove stays on the forearm
+  _wP.copy(_pT); barPivot.localToWorld(_wP); ub.worldToLocal(_wP);
+  const reach = (RIDER.upper + RIDER.fore) * 0.97, d = _wP.distanceTo(V.shoulder[1]);
+  if (d > reach) {
+    _wX.copy(V.shoulder[1]).sub(_wP).multiplyScalar((d - reach) / d); _wY.copy(_wP).add(_wX);
+    ub.localToWorld(_wY); barPivot.worldToLocal(_wY); ub.localToWorld(_wP); barPivot.worldToLocal(_wP); _wY.sub(_wP);
+    hand.position.add(_wY); hand.updateMatrix(); _pT.add(_wY);
+  }
+}
+function restWipeHand() {
+  const hand = V.hands[1], rest = V.handRest[1];
+  hand.position.copy(rest.p); hand.quaternion.copy(rest.q); hand.updateMatrix();
+  wipeHandSet(false); WIPE.live = false;
+}
+
 // every frame: arms reach the grips wherever the bars have turned, torso rolls into the turn
 function poseArms() {
   if (!V.arms || !V.machineOf) return;
@@ -1452,7 +1520,9 @@ function poseArms() {
   ub.rotation.set(pitch, steer * 0.18, -steer * 0.28);
   barPivot.updateWorldMatrix(true, false); ub.updateWorldMatrix(true, false);
   for (const [i, sx] of [-1, 1].entries()) {
-    _pT.copy(V.wrist[i]); barPivot.localToWorld(_pT); ub.worldToLocal(_pT);
+    if (i === 1 && WIPE.w > 0.001 && rider.visible) placeWipeHand(WIPE.w);                            // the left hand is off the bar, scrubbing the visor
+    else { if (i === 1 && WIPE.live) restWipeHand(); _pT.copy(V.wrist[i]); }
+    barPivot.localToWorld(_pT); ub.worldToLocal(_pT);
     _pA.copy(V.shoulder[i]); _pP.set(sx * 1.0, -0.7, 0.1);
     ik2(_pA, _pT, RIDER.upper, RIDER.fore, _pP, _pJ);
     V.arms[i * 2].userData.set(_pA, _pJ); V.arms[i * 2 + 1].userData.set(_pJ, _pT);
@@ -1570,12 +1640,23 @@ function updFlakes(dt) {
 //   0..1 level. A rime ring creeps in from the rim of the screen and leaves a clear elliptical hole in the
 //   middle that shrinks as warmth drops (at level 1 the ring covers about 60% of the screen). While there
 //   is no frost the quad is not drawn at all, so a warm rider pays nothing.
-// Wipe: Z / pad D-pad left / the WIPE touch button. A gloved hand sweeps the visor in two strokes, the
-//   frost stays gone for ~4 s, then creeps back. Getting warm (a cabin, the stove, the thermos) lowers the
+// Wipe: Z / pad D-pad left / the WIPE touch button. The rider's own left arm comes up (a real 3D forearm and open
+//   hand, see poseArms / placeWipeHand; the on-foot figure bends an elbow in poseFigure) and sweeps the visor in two
+//   strokes while the frost clears behind it, then the frost stays gone for ~4 s and creeps back. Getting warm (a cabin, the stove, the thermos) lowers the
 //   target, and the frost thaws out with it.
-const VZ = { level: 0, target: 0, hold: 0, sweep: -1, hinted: false, mesh: null, mat: null, ex: 0, brT: 1.5, fp: null, glove: null };
-const VZ_SWEEP = 0.62, VZ_HOLD = 3.4, VZ_CREEP = 0.14, VZ_THAW = 1.3, VZ_ON = 60, VZ_FULL = 8;
+const VZ = { level: 0, target: 0, hold: 0, sweep: -1, hinted: false, mesh: null, mat: null, ex: 0, brT: 1.5, fp: null };
+const VZ_SWEEP = 1.0, VZ_HOLD = 3.4, VZ_CREEP = 0.14, VZ_THAW = 1.3, VZ_ON = 60, VZ_FULL = 8;
 const BR = { sp: [], n: 22, head: 0 }, _bm = new THREE.Vector3();
+// the wipe's one timeline (t 0..1): the arm rises to the visor over 0-0.2, makes two strokes over 0.2-0.8 (the frost
+// shader's clearing front follows ts), then drops away over 0.8-1. poseArms / poseFigure read WIPE every frame.
+function wipeTimeline(t) {
+  WIPE.w = _sm(t / 0.2) * _sm((1 - t) / 0.2);
+  const ts = clamp((t - 0.2) / 0.6, 0, 1), sA = ts < 0.5, e = _sm(sA ? ts * 2 : (ts - 0.5) * 2);
+  WIPE.ts = ts;
+  WIPE.px = sA ? lerp(-1.2, 1.2, e) : lerp(1.2, -1.2, e);            // -1..1 is the screen; the hand's side-to-side follows it
+  WIPE.py = lerp(0.44, -0.36, _sm((ts - 0.42) / 0.16));              // upper stroke, a hop down at the far edge, lower stroke
+  WIPE.lean = -0.3 * clamp((0.5 - ts) * 12, -1, 1) + Math.sin(ts * 26) * 0.12 * _sm(ts * 8) * _sm((1 - ts) * 8);   // fingers trail the stroke, with a scrub
+}
 
 function frostNoise() {
   // four tiling, smoothed noise fields (one per RGBA channel) packed in one 128² texture: bilinear does the rest
@@ -1644,18 +1725,6 @@ function wipeVisor() {
   if (VZ.sweep >= 0 || VZ.level < 0.04) return;       // nothing to wipe, or the glove is already on the visor
   VZ.sweep = 0; VZ.hold = 0;
 }
-function gloveAt(t) {
-  // the glove follows the same two strokes the shader clears with; t is 0..1 over the whole wipe
-  const g = VZ.glove || (VZ.glove = $("glove")); if (!g) return;
-  if (t < 0 || t >= 1) { g.style.display = "none"; return; }
-  const W = innerWidth, H = innerHeight, gw = Math.min(W, H) * 0.36, gh = gw * 1.25;
-  const sA = t < 0.5, u = sA ? t * 2 : (t - 0.5) * 2, e = u * u * (3 - 2 * u);
-  const px = sA ? lerp(-1.2, 1.2, e) : lerp(1.2, -1.2, e), py = sA ? 0.44 : -0.36;
-  const sx = (px * 0.5 + 0.5) * W, sy = (0.5 - py * 0.5) * H, rot = (sA ? 82 : -82) + Math.sin(t * 22) * 5;
-  g.style.display = "block"; g.style.width = gw + "px";
-  g.style.transform = `translate3d(${(sx - gw / 2).toFixed(1)}px,${(sy - gh / 2).toFixed(1)}px,0) rotate(${rot.toFixed(1)}deg)`;
-  g.style.opacity = Math.min(1, t / 0.08, (1 - t) / 0.1).toFixed(2);
-}
 function updVisor(dt) {
   const gear = GS.own.gear, heatedHelmet = gear && gear.head === "heated";   // "Battery visor. No fog, no ice."
   const off = heatedHelmet || showroomOn() || GS.dead;
@@ -1667,15 +1736,16 @@ function updVisor(dt) {
   else if (VZ.level < VZ.target) VZ.level = Math.min(VZ.target, VZ.level + VZ_CREEP * dt);
   if (VZ.level > VZ.target) VZ.level = Math.max(VZ.target, VZ.level - VZ_THAW * dt);   // warming up lowers the target: the frost thaws out and stays gone
   if (VZ.target <= 0.001) VZ.hold = 0;
+  if (VZ.sweep >= 0) wipeTimeline(VZ.sweep / VZ_SWEEP); else WIPE.w = 0;     // the arm (and, on foot, the figure's elbow) reads this
   if (!VZ.hinted && VZ.level > 0.3) { VZ.hinted = true; toast(TC.on ? "Your visor's icing over. Tap WIPE to clear it, or get warm." : "Your visor's icing over. Press Z (pad: D-pad left) to wipe it, or get warm.", "warn"); }
   const show = VZ.level > 0.012 || VZ.sweep >= 0;
   if (!show) { if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false; return; }
   const m = visorMesh(), U = VZ.mat.uniforms; m.visible = true;
   U.uLevel.value = VZ.level; U.uAsp.value = innerWidth / innerHeight; U.uTone.value = 0.38 + 0.62 * dayFactor();
   if (VZ.sweep >= 0) {
-    const t = VZ.sweep / VZ_SWEEP, sA = t < 0.5, u = sA ? t * 2 : (t - 0.5) * 2, e = u * u * (3 - 2 * u);
-    U.uWipe.value.set(sA ? lerp(-1.45, 1.45, e) : 1.45, sA ? 1.45 : lerp(1.45, -1.45, e)); gloveAt(t);
-  } else { U.uWipe.value.set(-1.5, 1.5); if (VZ.glove && VZ.glove.style.display !== "none") gloveAt(-1); }
+    const ts = WIPE.ts, sA = ts < 0.5, u = sA ? ts * 2 : (ts - 0.5) * 2, e = u * u * (3 - 2 * u);
+    U.uWipe.value.set(sA ? lerp(-1.45, 1.45, e) : 1.45, sA ? 1.45 : lerp(1.45, -1.45, e));
+  } else U.uWipe.value.set(-1.5, 1.5);
 }
 function puffFp(ci, ms) {
   const el = VZ.fp || (VZ.fp = $("breathFp")); if (!el || !el.animate) return;
@@ -5356,8 +5426,10 @@ addEventListener("resize", () => { if (TABLET.open) TABLET.layout(); });
 
 // the dip: where the camera wants to be to read the screen, and the lens that makes it fill the view
 const _tC = new THREE.Vector3(), _tN = new THREE.Vector3(), _tU = new THREE.Vector3(), _tE = new THREE.Vector3(), _tF = new THREE.Vector3(), _tD = new THREE.Vector3(), _tR = new THREE.Vector3(), _tM = new THREE.Matrix4(), _tQ = new THREE.Quaternion();
+const _tX = new THREE.Vector3(), _tY = new THREE.Vector3(), _tZ = new THREE.Vector3();
 function tabTarget() {
   V.tabScr.updateWorldMatrix(true, false);
+  V.tabScr.matrixWorld.extractBasis(_tX, _tY, _tZ); _tX.normalize(); _tY.normalize(); _tZ.normalize();   // the glass's right, up and outward normal
   V.tabScr.getWorldPosition(_tC);
   // how far to sit: as far from the glass as the rider's leaned-in eye is (the eye, 10 cm forward and 7 cm down, in the sled's own space)
   sledRoot.updateMatrixWorld(); _tE.set(0, 1.59, -0.04); sledRoot.localToWorld(_tE);
@@ -5422,10 +5494,8 @@ function tabView_sync() {
 }
 
 // the dash screen when you're not looking at it: a live heading-up map, the clock, and a strip for pings
-const _tX = new THREE.Vector3(), _tY = new THREE.Vector3(), _tZ = new THREE.Vector3();
 function tabDash(dt) {
   const fp = VIEWS[camMode].fp && !FOOT.on;
-  V.tabScr.matrixWorld.extractBasis(_tX, _tY, _tZ); _tX.normalize(); _tY.normalize(); _tZ.normalize();   // the glass's right, up and outward normal
   TABLET.dashT += dt; if (TABLET.dashT < (fp ? 0.1 : 0.5) || (fp && TABLET.e > 0.95)) return;
   TABLET.dashT = 0;
   const c = V.tabCv, g = c.getContext("2d"), W = c.width, H = c.height, top = 22;
@@ -9598,7 +9668,7 @@ function bogStep(dt, spd, thrE, fr) {
 /* ---- on foot ---- */
 const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0 };
 function makeFigure(m) {
-  const g = new THREE.Group(), U = g.userData; U.arms = []; U.legs = [];
+  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = [];
   const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
   box(0.44, 0.58, 0.27, m.jacket, 0, 0.3, 0, 0, 0, 0, torso);
   box(0.46, 0.09, 0.285, m.trim, 0, 0.12, 0, 0, 0, 0, torso);
@@ -9606,9 +9676,11 @@ function makeFigure(m) {
   ball(0.165, m.helmet, 0, 0.75, 0, torso, 1, 1, 1.08);
   box(0.2, 0.07, 0.06, m.visor, 0, 0.74, 0.14, 0, 0, 0, torso);
   for (const s of [-1, 1]) {
-    const a = new THREE.Group(); a.position.set(s * 0.29, 0.52, 0); torso.add(a);
-    box(0.11, 0.5, 0.13, m.jacket, 0, -0.24, 0, 0, 0, 0, a); box(0.12, 0.12, 0.14, m.glove, 0, -0.54, 0, 0, 0, 0, a);
-    U.arms.push(a);
+    const a = new THREE.Group(); a.rotation.order = "YXZ"; a.position.set(s * 0.29, 0.52, 0); torso.add(a);
+    box(0.11, 0.28, 0.13, m.jacket, 0, -0.14, 0, 0, 0, 0, a);
+    const fa = new THREE.Group(); fa.position.y = -0.28; a.add(fa);                                  // forearm on an elbow: straight unless the figure wipes its visor
+    box(0.11, 0.22, 0.13, m.jacket, 0, -0.11, 0, 0, 0, 0, fa); box(0.12, 0.12, 0.14, m.glove, 0, -0.26, 0, 0, 0, 0, fa);
+    U.arms.push(a); U.fore.push(fa);
     const l = new THREE.Group(); l.position.set(s * 0.11, 0.93, 0); g.add(l);
     box(0.17, 0.82, 0.2, m.pants, 0, -0.42, 0, 0, 0, 0, l); box(0.19, 0.14, 0.34, m.boot, 0, -0.88, 0.06, 0, 0, 0, l);
     U.legs.push(l);
@@ -9624,6 +9696,14 @@ function poseFigure(g, sp, step, crouch, dt) {
   U.legs[0].rotation.x = sw; U.legs[1].rotation.x = -sw;
   U.arms[0].rotation.x = -sw * 0.9 - crouch * 0.9; U.arms[1].rotation.x = sw * 0.9 - crouch * 0.9;
   U.torso.rotation.x = crouch * 0.55 + amt * 0.08; U.torso.position.y = 0.93 - crouch * 0.12;
+  if (g === FOOT.g) {                                                // the walker wipes its visor with its left arm: lift, bend the elbow, sweep across the face
+    const w = WIPE.w, a = U.arms[1], f = U.fore[1];
+    if (w > 0.001) {
+      a.rotation.x = lerp(a.rotation.x, -1.15, w);
+      a.rotation.y = lerp(0, Math.asin(clamp((-WIPE.px / 1.2 * 0.2 - 0.29) / 0.36, -0.97, 0.97)), w);
+      f.rotation.x = lerp(0, -1.55 - WIPE.py * 0.25, w);
+    } else { a.rotation.y = 0; f.rotation.x = 0; }
+  }
 }
 function sledSide() { return [Math.cos(P.yaw), -Math.sin(P.yaw)]; }   // the sled's left
 function dismount() {

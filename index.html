@@ -159,8 +159,6 @@
   .toast.out{opacity:0;transform:translateY(-6px)}
   /* visor frost itself is a full-screen shader quad in the WebGL canvas (see "breath fog + visor frost" in tracklayer.js); these are its two small DOM helpers */
   #breathFp{position:fixed;left:50%;bottom:-3vmin;width:min(54vmin,480px);height:min(26vmin,230px);margin:0;border-radius:50%;z-index:1;pointer-events:none;opacity:0;transform:translate(-50%,38%);will-change:transform,opacity;background:radial-gradient(ellipse at 50% 58%,rgba(236,245,252,.9) 0%,rgba(236,245,252,.45) 38%,rgba(236,245,252,0) 70%)}
-  #glove{position:fixed;left:0;top:0;display:none;z-index:1;pointer-events:none;opacity:0;will-change:transform,opacity;aspect-ratio:120/150;filter:blur(1.4px) drop-shadow(0 8px 14px rgba(0,0,0,.45))}
-  #glove svg{display:block;width:100%;height:100%}
   .bhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
   .bhead .brand{font-family:var(--display);font-weight:900;letter-spacing:.14em;font-size:13px;color:var(--signal)}
   .btitle{font-family:var(--display);font-weight:900;font-size:34px;line-height:1}
@@ -722,7 +720,7 @@
 <div id="toasts" aria-live="polite"></div>
 <div id="tabBan" class="tban" hidden></div>
 <div id="breathFp" aria-hidden="true"></div>
-<div id="glove" aria-hidden="true"><svg viewBox="0 0 120 150"><defs><linearGradient id="gvL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4452"/><stop offset="1" stop-color="#151a21"/></linearGradient></defs><g fill="url(#gvL)" stroke="rgba(234,242,248,.16)" stroke-width="1.5"><rect x="26" y="26" width="15" height="56" rx="7.5"/><rect x="43" y="14" width="15" height="68" rx="7.5"/><rect x="60" y="20" width="15" height="62" rx="7.5"/><rect x="77" y="32" width="14" height="50" rx="7"/><path d="M26 74 C10 70 4 84 12 96 L28 112 L40 100 Z"/><rect x="24" y="60" width="70" height="62" rx="18"/><rect x="20" y="112" width="78" height="36" rx="10"/></g><rect x="20" y="124" width="78" height="7" fill="#ff5a1f" opacity=".85"/></svg></div>
+
 <div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p id="sumNote"></p><div class="sumb" id="sumBills" hidden></div><div class="sumy" id="sumYear" hidden></div></div></div>
 
 <div class="panel" id="settings" hidden>
