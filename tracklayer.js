@@ -5096,6 +5096,335 @@ function buildTown() {
   }
 }
 
+/* ---------------- the town dog ---------------- */
+/* A scruffy spitz who lives by the quay. Come within ~25 m and it runs alongside you, barking, as far as the town
+   sign at the edge of Kjøllefjord, where it gives up, sits, watches you leave and trots home.
+   It is scenery, never a hazard: it has no obstacle in the physics (the sled can't hit it or be held up by it), it
+   sidesteps out of your way, and it is deaf to the horn: nothing in here listens for one. */
+const TOWN_R = 108;                                    // the town limit, metres from the depot: the last houses are ~75 m out
+const SIGNS = [];
+const DOG = {
+  g: null, rig: null, head: null, jaw: null, tail: null, legs: null,
+  x: 0, z: 0, y: 0, yaw: 0, vx: 0, vz: 0, pitch: 0, home: { x: 0, z: 0 }, state: "idle", t: 0,
+  act: "stand", actT: 2, tgt: null, faceY: 0, stop: null, side: 1, keepSide: 1, armed: true, watchT: 0, sit: 0, sniff: 0, phase: 0,
+  bark: 0, burst: 0, burstT: 0, nextBark: 0, lastVi: 0, farewell: 0, probe: 0, sideT: 0, stall: 0, px: 0, pz: 0, stuck: 0, jit: 0, jx: 0, jz: 0, placed: false
+};
+const dAng = (a, b) => ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+// a solid obstacle (building, tree, post, boulder) within r of a point, or null
+function solidNear(x, z, r) {
+  const gx = Math.floor((x + HALF) / OBC), gz = Math.floor((z + HALF) / OBC);
+  for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) if (o.top > 1e8 && Math.hypot(x - o.x, z - o.z) < r + o.r) return o;
+  }
+  return null;
+}
+const dogLand = (x, z) => !isSea(x, z) && groundAt(x, z) > SEA + 0.1;
+
+/* the town sign: white timber board on two posts, one face for people coming in and one for people leaving */
+function signTexture(outward) {
+  const c = document.createElement("canvas"); c.width = 640; c.height = 256;
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const F = "'Barlow Semi Condensed','Arial Narrow',sans-serif";
+  const paint = () => {
+    const g = c.getContext("2d");
+    g.fillStyle = "#ece6d8"; g.fillRect(0, 0, 640, 256);
+    g.strokeStyle = "#26323b"; g.lineWidth = 10; g.strokeRect(12, 12, 616, 232);
+    g.fillStyle = "#1d2830"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = outward ? `600 40px ${F}` : `italic 500 46px ${F}`;
+    if (outward) { if ("letterSpacing" in g) g.letterSpacing = "6px"; g.fillText("VELKOMMEN TIL", 320, 72); if ("letterSpacing" in g) g.letterSpacing = "0px"; }
+    let px = 118; g.font = `800 ${px}px ${F}`;
+    const w = g.measureText("KJØLLEFJORD").width; if (w > 540) { px *= 540 / w; g.font = `800 ${px}px ${F}`; }
+    g.fillText("KJØLLEFJORD", 320, outward ? 158 : 112);
+    if (!outward) { g.font = `italic 500 46px ${F}`; g.fillText("Gode reiser", 320, 200); }
+    tex.needsUpdate = true;
+  };
+  paint();
+  if (document.fonts && document.fonts.load) document.fonts.load(`800 40px 'Barlow Semi Condensed'`).then(paint).catch(() => { });
+  return tex;
+}
+function buildTownSigns() {
+  const { put, bx, woodD, snowM, L } = KIT;
+  const faceO = new THREE.MeshLambertMaterial({ map: signTexture(true) }), faceI = new THREE.MeshLambertMaterial({ map: signTexture(false) }), edge = L(0x26323b);
+  for (let k = 0; k < 12; k++) {
+    const a = k / 12 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), x = depot.x + ca * TOWN_R, z = depot.z + sa * TOWN_R;
+    if (isSea(x, z) || isSea(x + ca * 8, z + sa * 8) || isSea(x - ca * 8, z - sa * 8) || groundAt(x, z) < SEA + 1.2 || slopeAt(x, z, 3) > 0.35 || solidNear(x, z, 4)) continue;
+    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); g.rotation.y = Math.PI / 2 - a; scene.add(g);   // local +z points out of town
+    for (const sx of [-1.1, 1.1]) { put(g, new THREE.CylinderGeometry(0.07, 0.09, 2.9, 7), woodD, sx, 1.45, 0); addOb({ x: x + sx * Math.cos(g.rotation.y), z: z - sx * Math.sin(g.rotation.y), r: 0.3, top: 1e9 }); }
+    bx(g, 2.7, 1.14, 0.1, edge, 0, 2.0, 0);
+    bx(g, 2.9, 0.13, 0.3, snowM, 0, 2.64, 0);
+    const fo = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.0), faceO); fo.position.set(0, 2.0, 0.056); g.add(fo);
+    const fi = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.0), faceI); fi.position.set(0, 2.0, -0.056); fi.rotation.y = Math.PI; g.add(fi);
+    SIGNS.push({ x, z, a });
+  }
+}
+
+/* the dog itself: a low-poly Finnish-spitz type, ~45 cm at the shoulder. Cream with a grey saddle, a thick ruff, a plume
+   of a tail curled over its back. Faceted fur (flat-shaded icospheres), same lean-realistic build as the sleds. */
+function buildDog() {
+  const std = (c, r = 0.95) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0, flatShading: true });
+  const cream = std(0xd2bc8f), fluff = std(0xe4d6b4), grey = std(0x7f7c78), dark = std(0x15161a, 0.5), paw = std(0xc4ae82), tan = std(0xbfa97c);
+  const ico = (r, d = 1) => new THREE.IcosahedronGeometry(r, d);
+  const add = (par, geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.castShadow = true; par.add(m); return m; };
+  const g = new THREE.Group();
+  const rig = new THREE.Group(); rig.position.set(0, 0.30, 0.16); g.add(rig);      // everything above the legs; it pitches back when the dog sits
+  const R = (x, y, z) => [x, y - 0.30, z - 0.16];
+  add(rig, ico(1), cream, ...R(0, 0.34, -0.04), 0.19, 0.19, 0.34);                // torso
+  add(rig, ico(1), grey, ...R(0, 0.405, -0.09), 0.2, 0.125, 0.28);                  // the grey saddle
+  add(rig, ico(1), fluff, ...R(0, 0.36, 0.2), 0.17, 0.2, 0.17);                      // chest ruff
+  add(rig, ico(1), cream, ...R(0, 0.33, -0.3), 0.18, 0.17, 0.17);                    // fluffy rump
+  const head = new THREE.Group(); head.position.set(...R(0, 0.47, 0.38)); rig.add(head);
+  add(head, ico(0.1), cream, 0, 0, 0, 1, 0.92, 1.05);                                // skull
+  add(head, ico(0.08), fluff, 0, -0.04, -0.01, 1.2, 0.8, 0.9);                       // cheek fluff
+  const muz = add(head, new THREE.ConeGeometry(0.05, 0.17, 6), tan, 0, -0.015, 0.13); muz.rotation.x = Math.PI / 2;
+  add(head, ico(0.022, 0), dark, 0, -0.012, 0.212);                                   // nose
+  for (const s of [-1, 1]) {
+    const ear = add(head, new THREE.ConeGeometry(0.04, 0.12, 4), cream, s * 0.057, 0.105, -0.015); ear.rotation.z = -s * 0.16;
+    add(head, ico(0.011, 0), dark, s * 0.045, 0.025, 0.088);                         // eyes
+  }
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.045, 0.07); head.add(jaw);   // opens when it barks
+  add(jaw, new THREE.BoxGeometry(0.06, 0.02, 0.1), fluff, 0, -0.004, 0.05);
+  const tail = new THREE.Group(); tail.position.set(...R(0, 0.45, -0.38)); rig.add(tail);
+  const curl = add(tail, new THREE.TorusGeometry(0.095, 0.05, 5, 9, Math.PI * 1.15), cream, 0, 0, 0.095); curl.rotation.y = Math.PI / 2;
+  add(tail, ico(0.09), fluff, 0, 0.115, 0.1, 0.8, 0.95, 1.5);                        // the plume
+  const legs = [];
+  for (const [x, z, rear] of [[-0.09, 0.2, false], [0.09, 0.2, false], [-0.1, -0.24, true], [0.1, -0.24, true]]) {
+    const lg = new THREE.Group(); lg.position.set(x, 0.30, z); g.add(lg);
+    add(lg, new THREE.CylinderGeometry(0.036, 0.027, 0.28, 6), cream, 0, -0.15, 0);
+    add(lg, new THREE.BoxGeometry(0.07, 0.04, 0.1), paw, 0, -0.285, 0.016);
+    add(lg, ico(0.07, 0), rear ? cream : fluff, 0, rear ? -0.07 : -0.05, rear ? -0.01 : 0.01, 0.8, rear ? 1.5 : 1.2, 1.15);   // trousers / feathering
+    legs.push(lg);
+  }
+  g.visible = false; scene.add(g);
+  Object.assign(DOG, { g, rig, head, jaw, tail, legs });
+  // home: a patch of open ground just inland of the pier, off the shore road
+  const q = QUAY || { qx: depot.x, qz: depot.z, qa: 0 }, dx = Math.cos(q.qa), dz = Math.sin(q.qa);
+  const bx0 = q.qx - dx * 10 - dz * 9, bz0 = q.qz - dz * 10 + dx * 9;
+  let hx = depot.x, hz = depot.z;
+  for (let k = 0; k < 80; k++) {
+    const a = k * 2.4, r = Math.sqrt(k) * 2.2, x = bx0 + Math.cos(a) * r, z = bz0 + Math.sin(a) * r;
+    if (dogLand(x, z) && groundAt(x, z) > SEA + 0.8 && !solidNear(x, z, 2.5) && slopeAt(x, z, 2) < 0.3 && Math.hypot(x - depot.x, z - depot.z) < TOWN_R - 12) { hx = x; hz = z; break; }
+  }
+  DOG.home.x = hx; DOG.home.z = hz; dogReset();
+}
+function dogReset() {
+  const D = DOG; D.x = D.home.x; D.z = D.home.z; D.vx = D.vz = 0; D.state = "idle"; D.act = "stand"; D.actT = 1.5; D.tgt = null; D.stop = null;
+  D.sit = 0; D.burst = 0; D.bark = 0; D.armed = true; D.placed = false; D.stuck = 0; D.jit = 0;
+  D.yaw = Math.atan2(depot.x - D.x, depot.z - D.z); D.faceY = D.yaw;
+}
+
+/* barks, synthesised: a sawtooth with a falling pitch through two vocal-tract formants, a rasp of noise on top and a
+   touch of drive. Four variants (a sharp yap, a rounder woof, a high yip, a deeper ruff) so it never sounds stamped out. */
+const DOG_BARKS = [
+  { f0: 880, f1: 520, dur: 0.15, form: [900, 1900], rough: 0.5, gain: 1.0 },
+  { f0: 760, f1: 430, dur: 0.19, form: [750, 1500], rough: 0.7, gain: 1.0 },
+  { f0: 990, f1: 620, dur: 0.12, form: [1050, 2300], rough: 0.4, gain: 0.8 },
+  { f0: 640, f1: 360, dur: 0.24, form: [620, 1300], rough: 0.9, gain: 1.1 }
+];
+function dogBark(vi, soft) {
+  const D = DOG; D.bark = 1;
+  if (!audio) return;
+  const { AC, master, buf } = audio, b = DOG_BARKS[vi], t = AC.currentTime + 0.005;
+  const rx = D.x - P.x, rz = D.z - P.z, d = Math.hypot(rx, rz), fz = Math.cos(P.yaw), fx = Math.sin(P.yaw), left = rx * fz - rz * fx;     // left of the rider is positive
+  const vol = 0.4 * clamp(1 - d / 80, 0.1, 1) * b.gain * (soft ? 0.6 : 1) * (0.88 + Math.random() * 0.24);
+  const out = AC.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(vol, t + 0.012); out.gain.exponentialRampToValueAtTime(0.0001, t + b.dur * 1.35);
+  if (AC.createStereoPanner) { const pn = AC.createStereoPanner(); pn.pan.value = clamp(-left / 14, -0.85, 0.85); out.connect(pn); pn.connect(master); } else out.connect(master);
+  const k = 0.94 + Math.random() * 0.12, o = AC.createOscillator(), ws = AC.createWaveShaper(), vg = AC.createGain();
+  o.type = "sawtooth"; o.frequency.setValueAtTime(b.f0 * k, t); o.frequency.exponentialRampToValueAtTime(b.f1 * k, t + b.dur);
+  ws.curve = distCurve(6); vg.gain.value = 0.9; o.connect(ws);
+  [[b.form[0], 1.0], [b.form[1], 0.55]].forEach(([f, w]) => { const bp = AC.createBiquadFilter(), fg = AC.createGain(); bp.type = "bandpass"; bp.frequency.value = f * k; bp.Q.value = 4.5; fg.gain.value = w; ws.connect(bp); bp.connect(fg); fg.connect(vg); });
+  vg.connect(out); o.start(t); o.stop(t + b.dur * 1.5);
+  const s = AC.createBufferSource(), hp = AC.createBiquadFilter(), ng = AC.createGain();       // the rasp and the breath at the front of it
+  s.buffer = buf; hp.type = "highpass"; hp.frequency.value = 1500; ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(b.rough * 0.5, t + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, t + b.dur * 0.9);
+  s.connect(hp); hp.connect(ng); ng.connect(out); s.start(t, Math.random() * 1.5); s.stop(t + b.dur * 1.1);
+}
+
+function dogGiveUp() {
+  const D = DOG; D.state = "giveup"; D.t = 0; D.armed = false; D.burst = 0;
+  let best = null, bd = 34;
+  for (const s of SIGNS) { const d = Math.hypot(s.x - D.x, s.z - D.z); if (d < bd) { bd = d; best = s; } }
+  D.stop = { x: D.x, z: D.z };
+  if (best) {                                          // it settles just inside the sign, off to the side it came from
+    const ca = Math.cos(best.a), sa = Math.sin(best.a), tx = -sa, tz = ca, sd = ((D.x - best.x) * tx + (D.z - best.z) * tz) >= 0 ? 1 : -1;
+    const sx = best.x - ca * 3 + tx * sd * 2.2, sz = best.z - sa * 3 + tz * sd * 2.2;
+    if (dogLand(sx, sz) && !solidNear(sx, sz, 0.5)) D.stop = { x: sx, z: sz };
+  }
+  D.lastVi = (D.lastVi + 1 + (Math.random() * 3 | 0)) % 4; D.farewell = 0.25;
+}
+function dogChase() {
+  const D = DOG, l = (P.x - D.x) * Math.cos(P.yaw) - (P.z - D.z) * Math.sin(P.yaw);
+  D.state = "chase"; D.t = 0; D.burst = 0; D.stall = 0; D.nextBark = 0.12; D.side = l > 0 ? -1 : 1;           // it takes whichever side of the sled it's already on
+}
+
+function dogTick(dt) {
+  const D = DOG; if (!D.g) return;
+  dt = Math.min(dt, 0.05);
+  const rx = P.x - D.x, rz = P.z - D.z;
+  let ds = Math.hypot(rx, rz);
+  if (ds > 420) { if (D.placed) dogReset(); D.g.visible = false; return; }      // nobody about: it's at home and not worth simulating
+  D.g.visible = true; D.placed = true; D.t += dt;
+  const live = started && !GS.dead, sv = Math.hypot(P.vx, P.vz);
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx, vf = P.vx * fx + P.vz * fz;
+  // the keep-clear zone: the sled, plus whatever it's towing, plus the ground it will cover in the next second or so
+  const hasRig = !!TOW.kind, rigLen = hasRig ? Math.min(14, Math.hypot(TOW.x - P.x, TOW.z - P.z)) + 2.5 : 0;
+  const half = Math.max(1.5, hasRig && TOW.kind === "tiller" ? 1.7 + 1.6 * TOW.wing : 1.5);
+  const zBack = -(2.4 + rigLen), zFront = 3.0 + Math.max(0, vf) * 0.9;
+  if (ds > 40) D.armed = true;
+  if (D.state === "idle" || D.state === "sit" || D.state === "home") { if (live && D.armed && ds < 25) dogChase(); }
+  else if (D.state === "chase" && (!live || ds > 150)) dogGiveUp();          // it keeps after you to the edge of town, however fast you go
+
+  let gx = null, gz = null, maxSp = 3.4, faceYaw = null, sitT = 0, sniffT = 0, wag = 0.2, ff = 0;
+  switch (D.state) {
+    case "idle": {
+      D.actT -= dt;
+      if (D.actT <= 0) {
+        const r = Math.random();
+        if (r < 0.34) { D.act = "sit"; D.actT = 5 + Math.random() * 7; D.faceY = D.yaw + (Math.random() - 0.5) * 1.6; }
+        else if (r < 0.6) { D.act = "stand"; D.actT = 2.5 + Math.random() * 3.5; D.faceY = D.yaw + (Math.random() - 0.5) * 2.4; }
+        else {
+          D.act = "mosey"; D.actT = 14; const a = Math.random() * 6.283, rr = 2 + Math.random() * 4.5, tx = D.home.x + Math.cos(a) * rr, tz = D.home.z + Math.sin(a) * rr;
+          D.tgt = dogLand(tx, tz) && !solidNear(tx, tz, 0.6) ? { x: tx, z: tz } : null; if (!D.tgt) { D.act = "stand"; D.actT = 2; }
+        }
+      }
+      if (D.act === "sit") { sitT = 1; faceYaw = D.faceY; wag = 0.3; }
+      else if (D.act === "stand") { faceYaw = D.faceY; sniffT = Math.sin(D.t * 0.9) > 0.3 ? 1 : 0; wag = 0.3; }
+      else if (D.tgt) {
+        gx = D.tgt.x; gz = D.tgt.z; maxSp = 1.5; wag = 0.35;
+        if (Math.hypot(gx - D.x, gz - D.z) < 0.7) { D.act = "stand"; D.actT = 3; D.tgt = null; }
+      }
+      break;
+    }
+    case "chase": {
+      const lat = half + 1.6, still = sv < 1.5;
+      if (D.sideT > 0) D.sideT -= dt;
+      gx = P.x + fx * (still ? -0.2 : 0.5 + sv * 0.1) + lx * D.side * lat; gz = P.z + fz * (still ? -0.2 : 0.5 + sv * 0.1) + lz * D.side * lat;
+      if ((!dogLand(gx, gz) || solidNear(gx, gz, 0.4)) && !(D.sideT > 0)) { D.side = -D.side; D.sideT = 1.5; gx = P.x + lx * D.side * lat; gz = P.z + lz * D.side * lat; }
+      maxSp = 9.6; ff = 1; wag = 1;
+      const dd = Math.hypot(gx - D.x, gz - D.z);
+      if (sv > 2 && Math.hypot(D.vx, D.vz) < 1.2 && dd > 6) { if ((D.stall += dt) > 1.2) { dogGiveUp(); break; } } else D.stall = 0;     // boxed in by water or a wall
+      if (still && dd < 0.9) { faceYaw = Math.atan2(rx, rz); if (D.t > 1.2) sitT = 1; wag = 0.7; }
+      D.nextBark -= dt;                                  // a burst of one to three, every second or two while you're moving; one hello when you're parked
+      if (D.nextBark <= 0 && D.burst <= 0) { D.burst = 1 + (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0); D.burstT = 0; D.nextBark = sv > 2.5 ? 1.4 + Math.random() * 1.6 : 12 + Math.random() * 6; D.lastVi = (D.lastVi + 1 + (Math.random() * 3 | 0)) % 4; }
+      break;
+    }
+    case "giveup": {
+      gx = D.stop.x; gz = D.stop.z; maxSp = 5.5; wag = 0;
+      if ((Math.hypot(gx - D.x, gz - D.z) < 1.0 && Math.hypot(D.vx, D.vz) < 0.9) || D.t > 8) { D.state = "sit"; D.watchT = 0; }
+      else if (Math.hypot(gx - D.x, gz - D.z) < 4) faceYaw = Math.atan2(rx, rz);
+      break;
+    }
+    case "sit": {
+      sitT = 1; faceYaw = Math.atan2(rx, rz); wag = 0.1; D.watchT += dt;
+      if ((D.watchT > 5 && ds > 60) || D.watchT > 14) { D.state = "home"; D.t = 0; D.stuck = 0; }       // it watches until you're out of sight, or it gets bored
+      break;
+    }
+    case "home": {
+      gx = D.home.x; gz = D.home.z; maxSp = 3.4; wag = 0.3;
+      if (Math.hypot(gx - D.x, gz - D.z) < 1.2) { D.state = "idle"; D.act = "stand"; D.actT = 2.5; D.faceY = D.yaw; }
+      break;
+    }
+  }
+  if (D.burst > 0 && live) { D.burstT -= dt; if (D.burstT <= 0) { dogBark(D.lastVi); D.burst--; D.burstT = 0.2 + Math.random() * 0.1; D.lastVi = (D.lastVi + 1 + (Math.random() * 2 | 0)) % 4; } }
+  if (D.farewell > 0 && live) { D.farewell -= dt; if (D.farewell <= 0) dogBark(3, true); }     // a last, sulky ruff as it gives up
+  D.bark = Math.max(0, D.bark - dt * 7);
+
+  // steering: where it wants to go, matching your speed when it's alongside, easing off as it arrives
+  let wx = 0, wz = 0;
+  if (gx !== null && !(sitT > 0.5)) {
+    const dx = gx - D.x, dz = gz - D.z, dd = Math.hypot(dx, dz) || 1, want = Math.min(maxSp, dd * (ff ? 2.6 : 2.0));
+    wx = dx / dd * want; wz = dz / dd * want;
+    if (ff) { const k = clamp(1 - dd / 9, 0, 1); wx += P.vx * k; wz += P.vz * k; const m = Math.hypot(wx, wz); if (m > maxSp) { wx *= maxSp / m; wz *= maxSp / m; } }
+  }
+  if (D.jit > 0) { D.jit -= dt; wx += D.jx * 3; wz += D.jz * 3; }
+  const acc = Math.min(1, dt * (ff ? 7 : 4.5));
+  D.vx += (wx - D.vx) * acc; D.vz += (wz - D.vz) * acc;
+
+  // the sidestep: if it's in the sled's path (or where the sled will be a heartbeat from now) it bolts sideways, whatever it was doing
+  {
+    const rax = D.x - P.x, raz = D.z - P.z, along = rax * fx + raz * fz, lat = rax * lx + raz * lz, zone = half + 1.3;
+    if (along > zBack - 1 && along < zFront + 1.5 && Math.abs(lat) < zone) {
+      const s = Math.abs(lat) > 0.25 ? Math.sign(lat) : D.keepSide; D.keepSide = s;
+      const k = 1 - Math.abs(lat) / zone, vl = s * (4 + 9 * k), cur = D.vx * lx + D.vz * lz;
+      if (s * cur < s * vl) { const dv = (vl - cur) * Math.min(1, dt * 12); D.vx += lx * dv; D.vz += lz * dv; }
+    }
+  }
+  // buildings, trees and posts: slide round them
+  {
+    const gcx = Math.floor((D.x + HALF) / OBC), gcz = Math.floor((D.z + HALF) / OBC);
+    for (let j = gcz - 1; j <= gcz + 1; j++) for (let i = gcx - 1; i <= gcx + 1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.top < 1e8) continue;
+        const dx = D.x - o.x, dz = D.z - o.z, rr = o.r + 0.38, d2 = dx * dx + dz * dz; if (d2 >= (rr + 1) * (rr + 1)) continue;
+        const d = Math.sqrt(d2) || 1e-3, nx = dx / d, nz = dz / d, ts = (D.vx * -nz + D.vz * nx) >= 0 ? 1 : -1, k = (1 - (d - rr) / 1) * dt * 22;
+        D.vx += (nx * 0.5 - nz * ts * 0.9) * k; D.vz += (nz * 0.5 + nx * ts * 0.9) * k;
+      }
+    }
+  }
+  const m0 = Math.hypot(D.vx, D.vz), cap = D.state === "chase" ? 15 : 10.5;                 // chase speed plus the odd sidestep burst
+  if (m0 > cap) { D.vx *= cap / m0; D.vz *= cap / m0; }
+  // move, staying on dry land
+  let nx = D.x + D.vx * dt, nz = D.z + D.vz * dt;
+  if (!dogLand(nx, nz)) { if (dogLand(nx, D.z)) { nz = D.z; D.vz = 0; } else if (dogLand(D.x, nz)) { nx = D.x; D.vx = 0; } else { nx = D.x; nz = D.z; D.vx = D.vz = 0; } }
+  D.x = nx; D.z = nz;
+  // hard limits, applied last so nothing above can break them: out of buildings, out of the sled's way, inside the town limit
+  {
+    const gcx = Math.floor((D.x + HALF) / OBC), gcz = Math.floor((D.z + HALF) / OBC);
+    for (let j = gcz - 1; j <= gcz + 1; j++) for (let i = gcx - 1; i <= gcx + 1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.top < 1e8) continue;
+        const dx = D.x - o.x, dz = D.z - o.z, rr = o.r + 0.3, d2 = dx * dx + dz * dz; if (d2 >= rr * rr) continue;
+        const d = Math.sqrt(d2) || 1e-3, px = dx / d, pz = dz / d; D.x += px * (rr - d); D.z += pz * (rr - d);
+        const vn = D.vx * px + D.vz * pz; if (vn < 0) { D.vx -= vn * px; D.vz -= vn * pz; }
+      }
+    }
+    const rax = D.x - P.x, raz = D.z - P.z, along = rax * fx + raz * fz, lat = rax * lx + raz * lz, hard = half - 0.1;
+    if (along > zBack && along < Math.min(zFront, 3.6) && Math.abs(lat) < hard) {
+      const s = Math.abs(lat) > 0.15 ? Math.sign(lat) : D.keepSide, push = s * hard - lat; D.x += lx * push; D.z += lz * push; D.keepSide = s;
+      const vl = D.vx * lx + D.vz * lz; if (s * vl < 0) { D.vx -= lx * vl; D.vz -= lz * vl; }
+    }
+    const tx = D.x - depot.x, tz = D.z - depot.z, rT = Math.hypot(tx, tz), lim = TOWN_R - 2.2;
+    if (rT > lim) {
+      D.x = depot.x + tx / rT * lim; D.z = depot.z + tz / rT * lim;
+      const vr = (D.vx * tx + D.vz * tz) / rT; if (vr > 0) { D.vx -= vr * tx / rT; D.vz -= vr * tz / rT; }
+      if (D.state === "chase") dogGiveUp();           // the edge of town: that's as far as it goes
+    }
+  }
+  // stuck behind something on the way home? a nudge sideways, and if you're well out of sight, home by magic
+  if ((D.probe -= dt) <= 0) {
+    D.probe = 2;
+    if (gx !== null && (D.state === "home" || D.state === "giveup" || D.act === "mosey") && Math.hypot(gx - D.x, gz - D.z) > 2.5 && Math.hypot(D.x - D.px, D.z - D.pz) < 0.5) {
+      D.jit = 0.7; const a = Math.random() * 6.283; D.jx = Math.cos(a); D.jz = Math.sin(a);
+      if (++D.stuck >= 3 && D.state === "home" && ds > 90) { D.x = D.home.x; D.z = D.home.z; D.stuck = 0; }
+    } else D.stuck = 0;
+    D.px = D.x; D.pz = D.z;
+  }
+
+  // pose
+  const sp = Math.hypot(D.vx, D.vz);
+  if (sp > 0.6) sitT = 0;
+  D.sit += (sitT - D.sit) * Math.min(1, dt * (sitT > D.sit ? 3.5 : 6));
+  D.sniff += (sniffT - D.sniff) * Math.min(1, dt * 4);
+  const ty = sp > 0.5 ? Math.atan2(D.vx, D.vz) : faceYaw !== null ? faceYaw : D.yaw;
+  D.yaw += dAng(D.yaw, ty) * Math.min(1, dt * (sp > 1 ? 9 : 4));
+  if (sp > 0.12) D.phase += dt * Math.PI * 2 * (0.7 + sp * 0.46);
+  const gal = sstep(5.5, 8, sp), amp = lerp(0.32, 0.85, clamp(sp / 9, 0, 1)) * clamp(sp / 0.8, 0, 1), ph = D.phase, L = D.legs;
+  const sw = [Math.sin(ph), Math.sin(ph + Math.PI * (1 - gal)), Math.sin(ph + Math.PI * (1 - gal) - 0.9 * gal), Math.sin(ph - 0.9 * gal)];   // trot -> bound as it speeds up
+  L[0].rotation.x = sw[0] * amp * (1 - D.sit); L[1].rotation.x = sw[1] * amp * (1 - D.sit);
+  L[2].rotation.x = lerp(sw[2] * amp, -1.35, D.sit); L[3].rotation.x = lerp(sw[3] * amp, -1.35, D.sit);
+  L[2].position.y = L[3].position.y = lerp(0.30, 0.13, D.sit);
+  D.rig.position.y = 0.30 + (sp > 0.3 ? Math.abs(Math.sin(ph)) * 0.018 * clamp(sp / 4, 0, 1.5) : Math.sin(D.t * 2.2) * 0.003);
+  D.rig.rotation.x = -0.62 * D.sit + Math.sin(ph) * 0.07 * gal;
+  D.head.rotation.x = 0.42 * D.sit + 0.55 * D.sniff - 0.3 * D.bark - 0.08 + Math.sin(ph) * 0.05 * clamp(sp / 4, 0, 1);
+  D.jaw.rotation.x = 0.55 * D.bark + (sp > 6 ? 0.14 : 0);
+  D.tail.rotation.z = Math.sin(D.t * (9 + sp)) * 0.3 * wag;
+  const gy = surf(D.x, D.z) - 0.015; D.y = D.placed && Math.abs(gy - D.y) < 2 ? D.y + (gy - D.y) * Math.min(1, dt * 14) : gy;
+  const sy = Math.sin(D.yaw), cy = Math.cos(D.yaw), hF = surf(D.x + sy * 0.4, D.z + cy * 0.4), hR = surf(D.x - sy * 0.4, D.z - cy * 0.4);
+  D.pitch += (-Math.atan2(hF - hR, 0.8) - D.pitch) * Math.min(1, dt * 10);
+  D.g.position.set(D.x, D.y, D.z); D.g.rotation.set(D.pitch, D.yaw, 0, "YXZ");
+}
+
 /* what you own, on the sled and on the rider */
 function applyLoadout() {
   if (!V.track || !V.machines) return;
@@ -6556,6 +6885,7 @@ function frame(t) {
   if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
   wnVisual(dt);
+  dogTick(dt);
   if (started) updGame(dt, spd); else if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
@@ -6670,7 +7000,7 @@ addEventListener("keydown", e => {
 function boot() {
   genWorld(); computeSites(); placeQuay();
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
-  buildFar(); buildProps(); buildSites(); buildTown(); buildTow(); load(); buildMapBg(); ctBuild();
+  buildFar(); buildProps(); buildSites(); buildTown(); buildTownSigns(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild();
   buildNpcs(); buildWalker(); buildWinchGear();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
