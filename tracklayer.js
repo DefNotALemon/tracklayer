@@ -5197,7 +5197,7 @@ const TD2R = Math.PI / 180;
 const TABLET = {
   apps: [], byId: {}, open: false, mode: null, z: 0, e: 0, app: null, w: 720, h: 461, focus: null,
   nav: 0, navT: 0, padA: true, padB: true, rs: 0, rsT: 0, notes: [], log: [], seq: 0, live: null, liveT: 0,
-  plain: null, paper: null, paperT: -1e9, layers: { rescue: [], depots: [], fuel: [] }, dashT: 0, statT: 0, ptrDown: false, fovT: 60,
+  plain: null, recents: [], homePage: 0, paper: null, paperT: -1e9, layers: { rescue: [], depots: [], fuel: [] }, dashT: 0, statT: 0, ptrDown: false, fovT: 60,
   register(def) {
     const a = Object.assign({ order: 50, badge: null, locked: false }, def);
     this.apps = this.apps.filter(x => x.id !== a.id); this.apps.push(a); this.apps.sort((p, q) => p.order - q.order);
@@ -5235,7 +5235,7 @@ const TABLET = {
     let a = id && this.byId[id];
     if (a && a.hidden && a.hidden()) { toast(`${a.name} isn't installed. It's in the App Store.`, "warn"); id = "store"; a = this.byId.store; }
     if (a && a.locked) { toast(`${a.name} isn't installed yet.`, "warn"); return; }
-    this.app = a ? id : null; this.focus = null; $("tabV").scrollTop = 0;
+    this.app = a ? id : null; if (a) this.recents = [id].concat(this.recents.filter(x => x !== id)).slice(0, 6); this.focus = null; $("tabV").scrollTop = 0;
     if (a && a.onOpen) a.onOpen();
     this.render();
   },
@@ -5244,7 +5244,7 @@ const TABLET = {
   render() {
     if (!this.open) return;
     const v = $("tabV"), a = this.app && this.byId[this.app], st = v.scrollTop;
-    $("tabTitle").textContent = a ? a.name.toUpperCase() : "HOME";
+    $("tabTitle").textContent = a ? a.name.toUpperCase() : "NORDKINN";
     $("tabS").classList.toggle("inapp", !!a); $("tabS").dataset.app = a ? a.id : "home";
     v.innerHTML = "";
     try { if (a) a.render(v); else tabHome(v); } catch (e) { console.error(e); v.innerHTML = `<p class="tnote2">Something on this page crashed. Back to home and try again.</p>`; }
@@ -5595,23 +5595,39 @@ const TICON = {
   ping: svgI(`<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>`)
 };
 
-/* ---- the home screen ---- */
+/* ---- the home screen: a springboard. Night wallpaper, an icon grid that never scrolls (it pages), a dock with your recents ---- */
+const TAB_DOCK = ["parcels", "map", "weather"];
+let _tabWall = null, _tabWallK = -1;
+function tabWall() {
+  const k = Math.round(clamp(AUR.v || 0, 0, 1) * 4); if (_tabWall && k === _tabWallK) return _tabWall; _tabWallK = k;
+  const au = k / 4;
+  let s = "";
+  for (let i = 0; i < 46; i++) { const x = (i * 137.5) % 800, y = (i * 71.3) % 250, r = 0.6 + (i % 4) * 0.35; s += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(2)}" fill="#dff3ff" opacity="${(0.25 + (i % 5) * 0.12).toFixed(2)}"/>`; }
+  const ridge = (y, amp, ph, fill) => { let d = `M0 512 L0 ${y}`; for (let x = 0; x <= 800; x += 20) d += ` L${x} ${(y - Math.max(0, Math.sin(x / 90 + ph) * amp + Math.sin(x / 33 + ph * 2) * amp * 0.3)).toFixed(1)}`; return `<path d="${d} L800 512 Z" fill="${fill}"/>`; };
+  const glow = (id, c) => `<radialGradient id="${id}"><stop offset="0" stop-color="${c}" stop-opacity=".55"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`;
+  return _tabWall = `<svg viewBox="0 0 800 512" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${glow("sbg1", "#3cdca8")}${glow("sbg2", "#7a6bff")}</defs>
+    ${s}<g opacity="${(0.45 + au * 0.55).toFixed(2)}"><ellipse cx="230" cy="96" rx="300" ry="50" fill="url(#sbg1)" transform="rotate(-9 230 96)"/><ellipse cx="560" cy="70" rx="260" ry="40" fill="url(#sbg2)" transform="rotate(7 560 70)"/></g>
+    ${ridge(430, 26, 0.4, "#0c1a28")}${ridge(462, 22, 2.1, "#0a1520")}${ridge(492, 14, 4.2, "#08111b")}</svg>`;
+}
 function tabHome(v) {
-  const n = CAL.now(), here = WX.at(P.x, P.z), wxw = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
-  const st = CAL.sunTimes(), sun = st.polar ? "no sunrise today" : st.midnight ? "midnight sun" : `sun up ${fmtTime(st.up)}, down ${fmtTime(st.down)}`;
-  const rk = rankOf(GS.delivered);
-  const tiles = TABLET.apps.filter(a => !(a.hidden && a.hidden())).map(a => {
-    const bd = a.badge ? a.badge() : ""; return `<button type="button" class="ttile${a.locked ? " locked" : ""}" data-tf="app:${a.id}" data-app="${a.id}"><span class="tic">${a.icon}${bd ? `<b class="tbdg">${bd}</b>` : ""}</span><span class="tnm">${tabEsc(a.name)}</span></button>`;
-  }).join("");
-  const log = TABLET.log.slice(0, 4).map(q => `<div class="tlg"><span>${fmtTime(q.at)}</span><b>${tabEsc(q.title)}</b><i>${tabEsc(q.body)}</i></div>`).join("");
-  v.innerHTML = `<div class="thome">
-    <div class="thero"><div><div class="tey">NORDKINN · ${tabEsc(CAL.season().name.toUpperCase())}</div><div class="tbig">${n.time}</div><div class="tsml">${n.long}</div></div>
-      <div class="tchips">${CAL.isPolarNight() ? `<span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}${AUR.v > 0.3 ? `<span class="bchip aurora">AURORA · ${AUR.word(AUR.v).toUpperCase()}</span>` : ""}<span class="bchip">${tabEsc(rk.name.toUpperCase())}</span></div></div>
-    <p class="tnote2">It's ${wxw} out here, ${sun}. ${GS.load.length ? `${GS.load.length} load${GS.load.length > 1 ? "s" : ""} aboard.` : GS.claims.length ? `${GS.claims.length} waiting for you at the quay.` : "Nothing aboard."}</p>
-    <div class="tgrid">${tiles}</div>
-    ${log ? `<div class="tsec"><span>Dash pings</span><span></span></div><div class="tlog">${log}</div>` : ""}
-  </div>`;
-  for (const b of v.querySelectorAll(".ttile")) b.addEventListener("click", () => TABLET.go(b.dataset.app));
+  const T = TABLET, n = CAL.now(), here = WX.at(P.x, P.z), wxw = here > 0.55 ? "Storm" : here > 0.2 ? "Snow showers" : "Clear";
+  const rk = rankOf(GS.delivered), vis = T.apps.filter(a => !(a.hidden && a.hidden()));
+  const port = T.h > T.w, compact = T.h < 420, cols = port ? 4 : 6, per = cols * (port ? 3 : 2), pages = Math.max(1, Math.ceil(vis.length / per));
+  T.homePage = clamp(T.homePage || 0, 0, pages - 1);
+  const icon = (a, dock) => { const bd = a.badge ? a.badge() : ""; return `<button type="button" class="sbi${a.locked ? " locked" : ""}" data-tf="${dock ? "dk" : "app"}:${a.id}" data-app="${a.id}" aria-label="${tabEsc(a.name)}"><span class="sbic">${a.icon}${bd ? `<b class="tbdg">${bd}</b>` : ""}</span>${dock ? "" : `<span class="sbn">${tabEsc(a.name)}</span>`}</button>`; };
+  const ok = id => T.byId[id] && !(T.byId[id].hidden && T.byId[id].hidden());
+  const dock = TAB_DOCK.filter(ok).map(id => icon(T.byId[id], true)).join("");
+  const rec = (T.recents || []).filter(id => !TAB_DOCK.includes(id) && ok(id)).slice(0, 2).map(id => icon(T.byId[id], true)).join("");
+  const dots = pages > 1 ? `<div class="sbdots">${Array.from({ length: pages }, (_, i) => `<button type="button" class="sbdot${i === T.homePage ? " on" : ""}" data-tf="hp:${i}" data-p="${i}" aria-label="Page ${i + 1}"></button>`).join("")}</div>` : "";
+  const aboard = smallLoads().length, claimed = claimSmall();
+  const line = aboard || claimed ? `${aboard} aboard${claimed ? ` · ${claimed} claimed` : ""}` : GS.jobs.length ? `${GS.jobs.length} posted at the board` : "Nothing aboard";
+  v.innerHTML = `<div class="sb${compact ? " c" : ""}"><div class="sbw">${tabWall()}</div>
+    <div class="sbhero"><div><div class="sbclk">${n.time}</div><div class="sbdt">${tabEsc(n.long)}</div></div>
+      <div class="sbr"><div class="tchips"><span class="bchip">${wxw.toUpperCase()}</span>${CAL.isPolarNight() ? `<span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}${AUR.v > 0.3 ? `<span class="bchip aurora">AURORA · ${AUR.word(AUR.v).toUpperCase()}</span>` : ""}<span class="bchip">${tabEsc(rk.name.toUpperCase())}</span></div><div class="sbln">${line}</div></div></div>
+    <div class="sbgrid" style="--cols:${cols}">${vis.slice(T.homePage * per, T.homePage * per + per).map(a => icon(a, false)).join("")}</div>${dots}
+    <div class="sbdock">${dock}${rec ? `<span class="sbdiv"></span>${rec}` : ""}</div></div>`;
+  for (const b of v.querySelectorAll(".sbi")) b.addEventListener("click", () => TABLET.go(b.dataset.app));
+  for (const b of v.querySelectorAll(".sbdot")) b.addEventListener("click", () => { T.homePage = +b.dataset.p; TABLET.render(); });
 }
 
 /* ---- work: the same refresh the board did when you opened it ---- */
@@ -5782,48 +5798,152 @@ function tabCard(o) {
 function tabHead(eye, title, right) { return `<div class="thd"><div><div class="tey">${eye}</div><div class="tti">${title}</div></div>${right ? `<div class="tmoney">${right}</div>` : ""}</div>`; }
 const sec = (a, b) => `<div class="tsec"><span>${a}</span><span>${b || ""}</span></div>`;
 
+/* ---- Parcels: a job board. Your rack's slots across the top, the posted work in a list, and a route map that flies to whichever job you're looking at ---- */
+const TI_FISH = svgI(`<path d="M2.5 12c3-4.8 9-6 13.2-2.2L21 7v10l-5.3-2.8C11.5 18 5.5 16.8 2.5 12z"/><circle cx="15.5" cy="11" r=".9" fill="currentColor"/>`);
+const TI_STAR = svgI(`<path d="m12 3.2 2.4 5.3 5.8.6-4.3 3.9 1.2 5.7-5.1-3-5.1 3 1.2-5.7L3.8 9.1l5.8-.6z"/>`);
+const pbLen = p => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return s; };
+function pbCut(p, f) {
+  if (f >= 1) return p; const T = pbLen(p) * Math.max(0, f), out = [p[0]]; let s = 0;
+  for (let i = 1; i < p.length; i++) { const d = Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (s + d >= T) { const u = d ? (T - s) / d : 0; out.push([p[i - 1][0] + (p[i][0] - p[i - 1][0]) * u, p[i - 1][1] + (p[i][1] - p[i - 1][1]) * u]); return out; } out.push(p[i]); s += d; }
+  return out;
+}
+const pbEase = u => u * u * (3 - 2 * u);
+const pbKm = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+// the legs and pins for one row: you → pickup (or the fishing lake) → drop-off
+function pbLegs(r) {
+  const legs = [], pins = []; let cur = [P.x, P.z];
+  const leg = (to, col, pts) => { legs.push({ pts: pts || [cur, [to.x, to.z]], col }); cur = [to.x, to.z]; };
+  if (r.from) { pins.push({ x: r.from.x, z: r.from.z, col: "#1f4a66", g: "P", label: r.from === depot ? "QUAY" : shortName(r.from).toUpperCase() }); if (Math.hypot(cur[0] - r.from.x, cur[1] - r.from.z) > 30) leg(r.from, "#3f86b0"); else cur = [r.from.x, r.from.z]; }
+  if (r.via) { pins.push({ x: r.via.x, z: r.via.z, col: "#2a7fa8", g: "F", label: r.via.name.toUpperCase() }); leg(r.via, "#3f86b0"); }
+  const trail = r.from === depot && CT.routes[r.to.id] ? CT.routes[r.to.id].P : null, col = r.tour ? "#2f8f6a" : CT_ACC;
+  pins.push({ x: r.to.x, z: r.to.z, col, g: r.tour ? "A" : "D", label: shortName(r.to).toUpperCase() });
+  leg(r.to, col, trail);
+  return { legs, pins };
+}
+// every row the board can show: the slots (aboard, claimed) and the list (posted parcels, fresh fish, tours)
+function pbRows() {
+  const slots = [], posted = [], full = () => smallLoads().length + claimSmall() >= ST.slots;
+  for (const j of smallLoads()) slots.push({ kind: "ab", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: null, to: j.dest, pay: payTxt(j), sub: `to ${shortName(j.dest)}`,
+    meta: `to ${tabEsc(shortName(j.dest))} · ${fmtMi(pbKm(j.dest, P))} from you${j.hits ? " · knocked about" : ""}`, note: pbNote(j) });
+  for (const j of GS.claims.filter(c => !c.big && !c.tour)) { const f = j.from || depot; slots.push({ kind: "cl", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} → ${shortName(j.dest)}`,
+    meta: `pick up at ${tabEsc(f.name)} (${fmtMi(pbKm(f, P))} from you), then ${jobKm(j).toFixed(1)} km to ${tabEsc(shortName(j.dest))}`, note: pbNote(j) }); }
+  GS.jobs.forEach(j => {
+    const here = atPickup(j), f = j.from || depot, fromQ = f === depot && !j.roam, g = groom[j.dest.id] || 0;
+    const blocked = full() && !here || (here && smallLoads().length >= ST.slots), dkm = fromQ ? routeKm(j.dest) : jobKm(j), clm = fromQ ? climbOf(j.dest) : jobClimb(j);
+    posted.push({ kind: "job", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} → ${shortName(j.dest)} · ${dkm.toFixed(1)} km`,
+      meta: `${tabEsc(f === depot ? "Quay" : shortName(f))} → ${tabEsc(shortName(j.dest))} · ≈ ${dkm.toFixed(1)} km · climb ${clm} m${fromQ ? ` · <span class="${gsCls(g)}">${groomLabel(g)}</span>` : ""} · ${here ? "pickup is here" : "pickup " + fmtMi(pbKm(f, P)) + " from you"}`,
+      note: (fromQ ? groomSay(g) + " " : j.long ? "A long haul across the peninsula: good money, but it takes you a long way from the ferry. " : "") + pbNote(j),
+      warn: blocked ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "", blocked, act: () => takeParcel(GS.jobs.indexOf(j)), actLabel: here ? "LOAD" : "CLAIM" });
+  });
+  if (FISH && FISH.orders) for (const o of FISH.orders()) {
+    posted.push({ kind: "fish", obj: o.obj, icon: TI_FISH, title: "Fresh fish · " + o.what, from: null, via: o.lake, to: o.site, pay: fmtCash(o.pay),
+      chips: chip("FRESH FISH", "grooming") + (o.fill ? chip("IN THE COOLER", "ok") : "") + (o.taken ? chip("PROMISED", "ok") : "") + chip("BY " + o.by.toUpperCase(), "due"),
+      sub: `${o.fill ? "cooler" : o.lake ? o.lake.name : "a lake"} → ${shortName(o.site)}`,
+      meta: `${o.lake ? tabEsc(o.lake.name) + " → " : ""}${tabEsc(shortName(o.site))} · ${fmtMi(pbKm(o.site, P))} from you`,
+      note: `${tabEsc(o.why)} ${o.fill ? "You've got it: stop there and it's handed over." : "Catch it first (no more than two days in the cooler)."}`,
+      warn: !o.taken && o.blocked ? "You've promised fish to three places already." : "", blocked: o.blocked, act: o.taken ? null : () => FISH.takeOrder(o.id), actLabel: "PROMISE" });
+  }
+  (GS.contracts || []).forEach(c => {
+    if (!c.tour || c.locked) return; const why = contractBlock(c);
+    posted.push({ kind: "tour", tour: true, obj: c, icon: TI_STAR, title: "Aurora tour · " + c.pax, chips: chip("AURORA", "aurora"), from: depot, to: c.dest, pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()), sub: `quay → ${c.dest.name}`,
+      meta: `${tabEsc(c.pax)} → ${tabEsc(c.dest.name)} · waiting at the quay`, note: AUR.v > 0.3 ? "The lights are up. Tours pay by how good the sky is." : "The sky is quiet: tours pay a third. Wait for the lights.", warn: why, blocked: !!why, act: () => takeContract(GS.contracts.indexOf(c)), actLabel: "BOOK" });
+  });
+  if (GS.tour) posted.push({ kind: "tour", tour: true, obj: GS.tour, icon: TI_STAR, title: "Aurora tour · under way", chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), from: null, to: GS.tour.view, pay: "~" + fmtCash(GS.tour.base * tourMul(AUR.v) * payMul()), sub: `${GS.tour.pax} → ${GS.tour.view.name}`, meta: `${tabEsc(GS.tour.pax)} → ${tabEsc(GS.tour.view.name)}`, note: "" });
+  for (const c of GS.claims.filter(x => x.tour)) posted.push({ kind: "tour", tour: true, obj: c, icon: TI_STAR, title: "Aurora tour · booked", chips: chip("AURORA", "aurora"), from: depot, to: c.dest, pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()), sub: `quay → ${c.dest.name}`, meta: `${tabEsc(c.pax)} → ${tabEsc(c.dest.name)} · waiting at the quay`, note: "" });
+  return { slots, posted };
+}
+function pbNote(j) { return (j.tipL ? `Part of the pay is fuel: ${tipLiters(j)} L straight into your tank. ` : "") + (j.fragile ? `Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay. ` : "") + (j.due ? `Due ${fmtTime(j.due)}, late pays half.` : ""); }
+
 TABLET.register({
-  id: "parcels", name: "Parcels", icon: TICON.parcels, order: 1,
+  id: "parcels", name: "Parcels", icon: TICON.parcels, order: 1, live: 3,
   badge: () => GS.load.filter(j => !j.big).length || GS.jobs.length || (GS.contracts || []).filter(c => c.tour).length || "",
-  onOpen() { tabWork(); ctRoutes(); },
+  sel: null, page: 0, pageFor: null, cam: null, tgt: null, bump: 1, rv: 0, drawT: 0, tgtT: 9, slots: [], posted: [], skipF: true,
+  onOpen() { tabWork(); ctRoutes(); this.cam = null; this.tgt = null; this.page = 0; this.pageFor = null; this.sel = null; this.retarget(); },
+  retarget() { this.bump = 1; this.rv = 0; this.tgtT = 9; },
+  cur() { return this.slots.concat(this.posted).find(r => r.obj === this.sel); },
+  byRef(ref) { return (ref[0] === "s" ? this.slots : this.posted)[+ref.slice(1)]; },
+  select(obj) { if (obj === this.sel) return; this.sel = obj; this.retarget(); this.paintSel(); },
+  capHtml(r) { return r ? `<div class="l1"><b>${tabEsc(r.title)}</b></div><div class="l1">${r.chips || ""}</div><div class="l2">${r.meta}</div>${r.note && r.note.trim() ? `<p>${r.note}</p>` : ""}${r.warn ? `<div class="tcw">${tabEsc(r.warn)}</div>` : ""}` : `<div class="l2">Nothing selected. Pick a job to see its route.</div>`; },
+  paintSel() {
+    const v = $("tabV"); for (const e of v.querySelectorAll("[data-r]")) { const r = this.byRef(e.dataset.r); e.classList.toggle("sel", !!r && r.obj === this.sel); }
+    const cap = $("pbCap"); if (cap) cap.innerHTML = this.capHtml(this.cur());
+  },
   render(el) {
-    const sm = smallLoads(), rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
-    const area = roaming() && GS.jobsAt ? shortName(GS.jobsAt.site).toUpperCase() : null;
-    let h = tabHead(area ? `PARCELS · WORK AROUND ${area}` : "PARCELS · PICKUP KJØLLEFJORD QUAY", "Parcels", fmtCash(GS.cash));
-    h += `<div class="tsub">${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}${CAL.isPolarNight() ? " " + chip("POLAR NIGHT ×1.5", "polar") : ""}</div>`;
-    const aboard = sm.filter(j => !j.big);
-    h += sec("Aboard", `Rack ${sm.length}/${ST.slots}${claimSmall() ? ` · ${claimSmall()} claimed` : ""}`);
-    if (!aboard.length) h += `<p class="tnote2">Nothing on the rack.</p>`;
-    aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: payTxt(j) }); });
-    const cl = GS.claims.filter(j => !j.big && !j.tour);
-    if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: payTxt(j) }); }); }
-    if (FISH) h += FISH.parcelsHtml({ sec, tabCard, chip, fmtCash, fmtTime, esc: tabEsc });           // fresh-fish orders from the homes and cabins
-    h += sec("Posted", roaming() ? "claim it, ride to the P, it loads; at the P it loads straight on" : atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
-    if (!GS.jobs.length) h += `<p class="tnote2">${MELT.k > 0.5 ? "Nothing posted. With the snow going, folk are waiting for the boat instead." : "No parcels posted. Check back after the next boat."}</p>`;
-    else if (MELT.kq > 0 && meltWork() < 0.85) h += `<p class="tnote2">The melt's on: less work, and only where the trail still holds. Melting trails pay a little extra.</p>`;
-    GS.jobs.forEach((j, k) => {
-      const here = atPickup(j), full = smallLoads().length + claimSmall() >= ST.slots && !here || (here && smallLoads().length >= ST.slots);
-      const f = j.from || depot, g = groom[j.dest.id] || 0, fromQ = f === depot && !j.roam;
-      h += tabCard({ tf: "job:" + k, mini: `${f.id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j),
-        meta: fromQ ? `Kjøllefjord quay → ${shortName(j.dest)} · ≈ ${routeKm(j.dest).toFixed(1)} km by trail · climb ${climbOf(j.dest)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`
-          : `${shortName(f)} → ${shortName(j.dest)} · ≈ ${jobKm(j).toFixed(1)} km · climb ${jobClimb(j)} m · ${here ? "pickup is here" : "pickup " + fmtMi(Math.hypot(f.x - P.x, f.z - P.z)) + " from you"}`,
-        note: `${fromQ ? groomSay(g) : j.long ? "A long haul across the peninsula: good money, but it takes you a long way from the ferry." : ""}${j.tipL ? ` Part of the pay is fuel: ${tipLiters(j)} L straight into your tank (whatever won't fit is paid in cash).` : ""}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
-        warn: full ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "",
-        pay: payTxt(j), act: "take:" + k, actLabel: here ? "LOAD IT" : "CLAIM", blocked: full });
-    });
-    // aurora tours: passengers off the ferry, so they live here with the parcels (they ride the seat, not the rack)
-    const tours = conList(c => c.tour), ctour = GS.claims.filter(j => j.tour);
-    if (GS.tour || ctour.length || tours.n) {
-      h += sec("Aurora tours", AUR.v > 0.3 ? "the lights are up" : "");
-      if (GS.tour) h += tabCard({ tf: "tr", mini: `depot|${GS.tour.view.id}|t`, title: "Aurora tour · under way", chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${tabEsc(GS.tour.pax)} → ${GS.tour.view.name}`, pay: "~" + fmtCash(GS.tour.base * tourMul(AUR.v) * payMul()) });
-      ctour.forEach((c, i) => { h += tabCard({ tf: "tcl:" + i, mini: `depot|${c.dest.id}|t`, title: "Aurora tour · booked", chips: chip("AURORA", "aurora"), meta: `${tabEsc(c.pax)} → ${c.dest.name} · waiting at the quay`, pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()) }); });
-      h += tours.h;
+    const L = pbRows(); this.slots = L.slots; this.posted = L.posted;
+    const all = this.slots.concat(this.posted);
+    if (!all.some(r => r.obj === this.sel)) { const f = this.posted[0] || this.slots[0]; this.sel = f ? f.obj : null; this.pageFor = null; this.retarget(); }
+    const rk = rankOf(GS.delivered), used = this.slots.length, free = Math.max(0, ST.slots - used), nSlots = Math.min(ST.slots, 8);
+    const cell = i => { const r = this.slots[i]; return r ? `<button type="button" class="pbs ${r.kind}${r.obj === this.sel ? " sel" : ""}" data-tf="ps:${i}" data-r="s${i}"><b>${r.kind === "ab" ? "Aboard" : "Claimed"}</b><span>${tabEsc(r.title)}</span></button>` : `<div class="pbs"><b>Free</b><span>slot ${i + 1}</span></div>`; };
+    el.innerHTML = `<div class="pb${TABLET.h < 420 ? " c" : ""}"><div class="pbl">
+      <div class="pbtop"><b>Slots · ${used}/${ST.slots}</b><span>${free ? free + (free === 1 ? " slot free" : " slots free") : "rack's full"} · ${tabEsc(rk.name)} · ${GS.delivered} delivered${CAL.isPolarNight() ? " · polar night ×1.5" : ""}</span></div>
+      <div class="pbslots">${Array.from({ length: nSlots }, (_, i) => cell(i)).join("")}</div>
+      <div class="pbrows" id="pbRows"></div><div class="pbpg" id="pbPg"></div></div>
+      <div class="pbm"><canvas id="pbCv"></canvas><div class="pbcap" id="pbCap"></div></div></div>`;
+    const box = el.querySelector("#pbRows"), N = this.posted.length, per = Math.max(1, Math.floor((box.clientHeight + 6) / 58)) || 4, pages = Math.max(1, Math.ceil(N / per));
+    const si = this.posted.findIndex(r => r.obj === this.sel);
+    if (si >= 0 && this.pageFor !== this.sel) { this.page = Math.floor(si / per); this.pageFor = this.sel; }
+    this.page = clamp(this.page, 0, pages - 1);
+    const from = this.page * per, rows = this.posted.slice(from, from + per);
+    if (!N) box.innerHTML = `<p class="tnote2">${MELT.k > 0.5 ? "Nothing posted. With the snow going, folk are waiting for the boat instead." : "No parcels posted. Check back after the next boat."}</p>`;
+    else box.innerHTML = rows.map((r, i) => `<div class="pbr ${r.kind}${r.obj === this.sel ? " sel" : ""}" data-tf="pr:${from + i}" data-r="p${from + i}"><span class="pbi">${r.icon}</span><div class="pbt"><b>${tabEsc(r.title)}</b><small>${tabEsc(r.sub)}</small></div><span class="pbp">${r.pay}</span>${r.act ? `<button type="button" class="tbtn${r.blocked ? " blocked" : ""}" data-a="p${from + i}">${r.actLabel}</button>` : ""}</div>`).join("");
+    const nJob = this.posted.filter(r => r.kind === "job").length, nFish = this.posted.filter(r => r.kind === "fish").length;
+    $("pbPg").innerHTML = `<span>${N} on the board${nFish ? ` · ${nFish} fresh fish` : nJob !== N ? "" : ""}</span>${pages > 1 ? `<span class="pgb"><button type="button" class="tbtn ghost sm" data-tf="pp:-1" ${this.page ? "" : "disabled"}>‹</button><i>${this.page + 1} / ${pages}</i><button type="button" class="tbtn ghost sm" data-tf="pp:1" ${this.page < pages - 1 ? "" : "disabled"}>›</button></span>` : ""}`;
+    for (const b of el.querySelectorAll("[data-a]")) b.addEventListener("click", e => { e.stopPropagation(); const r = this.byRef(b.dataset.a); if (r) { this.sel = r.obj; r.act(); } });
+    for (const e of el.querySelectorAll(".pbr[data-r],.pbs[data-r]")) e.addEventListener("click", () => { const r = this.byRef(e.dataset.r); if (r) this.select(r.obj); });
+    for (const b of el.querySelectorAll("[data-tf^='pp:']")) b.addEventListener("click", () => { const np = clamp(this.page + +b.dataset.tf.slice(3), 0, pages - 1), r = this.posted[np * per]; this.page = np; if (r) { this.sel = r.obj; this.pageFor = r.obj; this.retarget(); } TABLET.render(); });
+    this.paintSel(); this.skipF = true;
+    if (this.cam) this.draw();
+  },
+  // where the camera wants to be for the selected row: everything on its route in frame, a little more room at the bottom for the caption
+  fit(asp) {
+    const r = this.cur(), pts = [[P.x, P.z]];
+    if (r) { for (const l of pbLegs(r).legs) pts.push(...l.pts); if (r.via) pts.push([r.via.x - r.via.r * 0.7, r.via.z], [r.via.x + r.via.r * 0.7, r.via.z]); } else pts.push([depot.x, depot.z]);
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    const pad = Math.max(110, 0.2 * Math.max(x1 - x0, z1 - z0)); let w = x1 - x0 + 2 * pad, h = z1 - z0 + 2 * pad;
+    if (w / h < asp) w = h * asp; else h = w / asp;
+    return { x: (x0 + x1) / 2, z: (z0 + z1) / 2 + h * 0.1, s: clamp(h * 1.1, 260, WORLD * 0.98) };
+  },
+  tick(dt) {
+    // the d-pad (or the mouse) over a row or slot is the job the map flies to
+    const f = TABLET.focus;
+    if (this.skipF) { this.skipF = false; this.lastF = f; } else if (f !== this.lastF) {
+      this.lastF = f; const m = f && /^p([rs]):(\d+)$/.exec(f);
+      if (m) { const r = (m[1] === "r" ? this.posted : this.slots)[+m[2]]; if (r) this.select(r.obj); }
     }
-    h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock. Trailer freight is in the Freight app, grooming in Trail Crew.</p>`;
-    el.innerHTML = `<div class="tapp">${h}</div>`;
-    for (const b of el.querySelectorAll("[data-act^=take]")) b.addEventListener("click", () => takeParcel(+b.dataset.act.split(":")[1]));
-    conBind(el);
-    if (FISH) FISH.parcelsBind(el);
+    const cv = $("pbCv"); if (!cv) return;
+    const box = cv.parentElement, W = box.clientWidth, H = box.clientHeight; if (W < 40 || H < 40) return;
+    this.tgtT += dt; if (this.tgtT > 0.5 || !this.tgt) { this.tgt = this.fit(W / H); this.tgtT = 0; }
+    this.rv = Math.min(1, this.rv + dt / 1.1); this.bump *= Math.exp(-dt * 2.6);
+    const t = this.tgt, k = 1 - Math.exp(-dt * 4);
+    if (!this.cam) this.cam = { x: t.x, z: t.z, s: t.s * 2 }; else { const c = this.cam; c.x += (t.x - c.x) * k; c.z += (t.z - c.z) * k; c.s = Math.exp(Math.log(c.s) + (Math.log(t.s) - Math.log(c.s)) * k); }
+    this.drawT += dt; if (this.drawT < 0.033) return; this.drawT = 0; this.draw();
+  },
+  draw() {
+    const cv = $("pbCv"); if (!cv || !this.cam) return;
+    const box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, H = box.clientHeight; if (W < 40 || H < 40) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const c = this.cam, sz = clamp(c.s * (1 + 0.45 * this.bump), 160, WORLD * 0.98), sx = sz * W / H;
+    const cx = sx >= WORLD ? 0 : clamp(c.x, -HALF + sx / 2, HALF - sx / 2), cz = clamp(c.z, -HALF + sz / 2, HALF - sz / 2);
+    const g = cv.getContext("2d"), w0 = tabView(g, cv.width, cv.height, cx - sx / 2, cz - sz / 2, sx, sz), sc = H / sz * 10;
+    g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w0(x, z); return [a / dpr, b / dpr]; };
+    const r = this.cur(), hot = new Set(), RV = pbEase(this.rv), pop = 0.55 + 0.45 * clamp(this.rv * 2.5, 0, 1);
+    if (r) { if (r.from) hot.add(r.from); hot.add(r.to); }
+    for (const o of this.posted) if (o !== r && o.to) { const [x, y] = w2c(o.to.x, o.to.z); g.globalAlpha = 0.5; tabPin(g, x, y, CT_ACC, "", 5); g.globalAlpha = 1; }
+    if (r && r.via) { const [x, y] = w2c(r.via.x, r.via.z), rr = r.via.r / sz * H; g.save(); g.fillStyle = "rgba(42,127,168,.2)"; g.strokeStyle = "rgba(31,106,148,.85)"; g.lineWidth = 2; g.setLineDash([7, 5]); g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); g.stroke(); g.restore(); }
+    tabSites(g, w2c, sc, hot);
+    if (r) {
+      const { legs, pins } = pbLegs(r), lens = legs.map(l => pbLen(l.pts)), total = lens.reduce((a, b) => a + b, 0) || 1; let left = RV * total;
+      legs.forEach((l, i) => { const fr = lens[i] ? clamp(left / lens[i], 0, 1) : 1; left -= lens[i]; if (fr > 0) tabRoute(g, w2c, pbCut(l.pts, fr), l.col); });
+      for (const p of pins) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, p.col, p.g, 10 * pop); if (this.rv > 0.4) tabLabel(g, p.label, x, y + 14, 12, p.col); }
+      const all = []; for (const l of legs) all.push(...l.pts);
+      if (all.length > 1) { const df = this.rv < 1 ? RV : (performance.now() % 3200) / 3200, q = pbCut(all, df), e = q[q.length - 1], [x, y] = w2c(e[0], e[1]); g.fillStyle = "#fff"; g.beginPath(); g.arc(x, y, 5.5, 0, 6.283); g.fill(); g.fillStyle = CT_ACC; g.beginPath(); g.arc(x, y, 3.2, 0, 6.283); g.fill(); }
+    }
+    const [px, py] = w2c(P.x, P.z);
+    g.save(); g.translate(px, py); g.rotate(Math.PI - P.yaw);
+    g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -14); g.lineTo(-10, 10); g.lineTo(10, 10); g.closePath(); g.fill();
+    g.fillStyle = "#1f4a66"; g.beginPath(); g.moveTo(0, -10); g.lineTo(-6.5, 6.5); g.lineTo(6.5, 6.5); g.closePath(); g.fill(); g.restore();
+    tabLabel(g, "YOU", px, py + 24, 11, "#1f4a66");
+    g.restore();
   }
 });
 

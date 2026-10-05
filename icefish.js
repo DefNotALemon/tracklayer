@@ -1807,6 +1807,23 @@ function deliverOrders(site) {
     H.save(); H.TABLET.refresh();
   }
 }
+// the Parcels job board's view of the fresh-fish orders: where to fish (the lake that costs the least detour on the way to the buyer) and where to drop it
+function ordersData() {
+  const O = D.orders, out = [];
+  const one = (o, taken) => {
+    const s = siteById(o.site); if (!s) return;
+    const fill = !!fillFor(o), t = H.CAL.now(o.exp - H.CAL.off), nm = o.sp ? SPECIES[o.sp].name.toLowerCase() : "";
+    let lake = null;
+    if (!fill) for (const pass of [1, 0]) {
+      let bd = 1e9; for (const L of LK) { if (pass && o.sp && !L.mix[o.sp]) continue; const d = Math.hypot(L.x - H.P.x, L.z - H.P.z) + Math.hypot(L.x - s.x, L.z - s.z); if (d < bd) { bd = d; lake = L; } }
+      if (lake) break;
+    }
+    out.push({ obj: o, id: o.id, taken, site: s, lake, fill, what: `${o.kg} kg of ${nm || "any fresh fish"}`, why: o.why, pay: orderPay(o), by: `${t.label} ${t.time}`, blocked: O.taken.length >= 3 });
+  };
+  for (const o of O.taken) one(o, true);
+  for (const o of O.posted) one(o, false);
+  return out;
+}
 // the Parcels app's FRESH FISH section (tracklayer puts it in and binds the buttons)
 function parcelsHtml(A) {
   const O = D.orders; if (!O.posted.length && !O.taken.length) return "";
@@ -2026,7 +2043,7 @@ let COOLER_MAX = 10;
 const API = {
   GEAR, SPECIES, BAITS, LURES, used, ice: ICE, lakes: LK, depthAt, lakeAt, fresh, normalize, setData,
   _g: () => G, get on() { return S.on; }, get wx() { return W.x; }, get wz() { return W.z; }, get wy() { return S.on ? H.surf(W.x, W.z) : 0; },
-  frame, render, key, keyup, pad, ctx, hint, ctxLabel, tick, paused, blocking, abort, beacon, parcelsHtml, parcelsBind, logbookHtml,
+  frame, render, key, keyup, pad, ctx, hint, ctxLabel, tick, paused, blocking, abort, beacon, parcelsHtml, parcelsBind, logbookHtml, orders: ordersData, takeOrder,
   openShop, openBuyer, panelOpen: () => !!openPanelId(), back: panelBack, setTouchHold: (k, on) => { if (S.tk) S.tk[k] = on; }
 };
 window.TLFish = Object.assign(window.TLFish || {}, { GEAR, SPECIES, BAITS, LURES, AUGERS, RODS, REELS, LINES, used, ice: ICE, init, fresh, normalize });
