@@ -37,7 +37,7 @@ running and you can still steer, you just can't see much trail. In third person 
 overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
 **Map** (the survey chart with deliveries, pins, rescues and depots, plus the steamer countdown),
 **Weather**, **Calendar**, **Contracts** (heavy freight, priority, expedition, grooming, tours and
-call-outs, for now), **Logbook** and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
+call-outs, for now), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
 Take a job at the quay and it goes straight on the sled; take it anywhere else and it waits at the
 quay for you. Pings on the dash (with a banner when the tablet's down) tell you when something

@@ -1764,6 +1764,11 @@ function readInput(dt) {
 
 /* ---------------- physics ---------------- */
 const MASS = 280; let G = 32.4;
+// The Logbook tablet app's tallies (winter update S4). Saved in the save as `log`; deliveries, rescues, the
+// date and days survived come from GS and the calendar. m = metres ridden, air = seconds in real jumps,
+// jump = longest single jump (s), mail = pieces delivered (nothing feeds it until the ferry update: O3 does LOG.mail += n).
+const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0 });
+const LOG = LOG0();
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0 };
 function resetSled() {
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
@@ -2248,7 +2253,7 @@ function flattenTree(o) {
   o.wob = { t: 0, amp: 0, ax: pz, az: -px };                            // tips over the way the sled was going
   o.y -= 0.18 * o.s; setTree(o, 1.5 + Math.random() * 0.06);
   treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
-  o.top = -Infinity; o.down = true; felled.push(o);                     // no longer an obstacle for anyone
+  o.top = -Infinity; o.down = true; felled.push(o); LOG.trees++;         // no longer an obstacle for anyone
   for (let k = 0; k < 30; k++) emit(o.x, o.y + 0.4 + Math.random() * 0.6, o.z, P.vx * 0.3, 1 + Math.random() * 1.5, P.vz * 0.3, 2.2, 0.8);
   P.vx *= 0.93; P.vz *= 0.93;
   P.shake = Math.max(P.shake, 0.18); crack(0.7); thud(0.3);
@@ -2492,6 +2497,7 @@ function physStep(dt) {
   // a landing counts the moment the skis are back on the snow — deep powder swallows the
   // hard contact, so this can't wait for a clean surface hit
   if (P.gnd && wasAir > 0.3 && peak > 0.32) {      // a real jump, not a bump
+    LOG.air += wasAir; if (wasAir > LOG.jump) LOG.jump = wasAir;                       // the Logbook's airtime and longest jump
     const att = Math.abs(P.airP) + Math.abs(P.airR) * 1.25;      // how far off flat you came down
     // forgiving touchdown: the sled snaps straight to the slope, the rider bleeds a little speed
     P.yr *= 0.3;
@@ -2519,7 +2525,7 @@ function physStep(dt) {
   } else if (P.gnd) { P.airT = 0; P.airPeak = 0; }
   collide(fx, fz);
   towStep(dt);
-  P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt;
+  P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt; LOG.m += Math.hypot(vx, vz) * dt;
 }
 
 /* ---------------- audio ---------------- */
@@ -3866,14 +3872,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail } })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -4974,9 +4980,62 @@ TABLET.register({
   }
 });
 
+/* ---- the Logbook: your winter in a field notebook (S4) ----
+   Two ruled pages, an orange margin, italic serif figures and a pencilled remark per stat. The figures come
+   from LOG (km, trees, air, jump, fjord, mail: saved as `log`), GS.delivered, GS.rescues, GS.hour and the
+   calendar. The remarks are picked by value, never at random, so a live re-render doesn't reshuffle them. */
+const lbFmt = n => Math.round(n).toLocaleString("en-GB");
+// ascending [limit, remark] pairs: the first limit the value is under wins; a function gets the value
+const lbPick = (v, tiers) => { for (const [lim, t] of tiers) if (v < lim) return typeof t === "function" ? t(v) : t; return ""; };
+function lbRows() {
+  const km = LOG.m / 1000, tr = LOG.trees, air = LOG.air, jp = LOG.jump, fj = LOG.fjord, dl = GS.delivered, ml = LOG.mail, rs = GS.rescues || 0;
+  const days = Math.max(0, Math.floor((GS.hour - 9.6) / 24));          // whole days since the first morning; the summer skip adds to CAL.off, not here
+  const c = CAL.day(), se = CAL.season(), sy = c.m >= 10 ? c.y : c.y - 1, summer = se.id === "summer";
+  const winterNo = sy - 2026 + 1, ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+  const airV = air < 600 ? [air.toFixed(1), "sec"] : [(air / 60).toFixed(1), "min"];
+  const I = Infinity;
+  const ride = [
+    { k: "km", label: "Kilometres ridden", v: km >= 100 ? lbFmt(km) : km.toFixed(1), u: "km", m: lbPick(km, [
+      [0.05, "Not a metre on the clock. The snow is patient."], [3, "Warming up. Mostly in circles, by the look of the tracks."],
+      [8.2, "Not even once across the whole map yet."], [40, v => `${(v / 8.2).toFixed(1)} times across the map, edge to edge.`],
+      [120, "Out to the lighthouse and back, over and over."], [I, "The sled has stopped asking how far."]]) },
+    { k: "trees", label: "Trees flattened", v: lbFmt(tr), u: tr === 1 ? "birch" : "birches", m: lbPick(tr, [
+      [1, "Not a birch harmed. Yet."], [2, "One birch regrets meeting you."], [100, v => `${lbFmt(v)} birches regret meeting you.`],
+      [300, v => `${lbFmt(v)} birches. The forestry office has noticed.`], [I, v => `${lbFmt(v)}. That's not a trail, that's a clearing.`]]) },
+    { k: "air", label: "Time in the air", v: airV[0], u: airV[1], m: lbPick(air, [
+      [0.1, "Both skis on the ground all winter. Sensible. Boring."], [10, "Barely long enough to say a prayer."],
+      [60, "Long enough to look around. Not long enough to plan the landing."], [300, "Whole minutes of your life spent not touching anything."], [I, "Technically more aeroplane than snowmobile."]]) },
+    { k: "jump", label: "Longest jump", v: jp.toFixed(1), u: "sec", m: lbPick(jp, [
+      [0.1, "No proper jump yet. Find a lip."], [1, "A hop with ambitions."], [2, "Long enough to reconsider things."],
+      [3.5, "Your stomach caught up somewhere around the landing."], [I, "Somebody at the quay saw that. They're still telling it."]]) },
+    { k: "fjord", label: "Times in the fjord", v: lbFmt(fj), u: fj === 1 ? "time" : "times", m: lbPick(fj, [
+      [1, "Dry as a bone. The fish are disappointed."], [2, "Once. The fishing boat remembers."], [4, "The fishing boat knows your name by now."], [I, "You and the fjord have an arrangement."]]) }
+  ];
+  const work = [
+    { k: "deliv", label: "Deliveries made", chip: rankOf(dl).name, v: lbFmt(dl), u: dl === 1 ? "drop" : "drops", m: lbPick(dl, [
+      [1, "Nothing's gone out yet. The boat's in."], [5, "Learning the roads, mostly by getting lost."], [20, "People have started waving from the windows."],
+      [60, "The quay stopped asking where you were going."], [I, "Half the peninsula has your tracks on their step."]]) },
+    { k: "mail", label: "Mail delivered", v: lbFmt(ml), u: ml === 1 ? "piece" : "pieces", m: ml > 0 ? lbPick(ml, [[20, "Letters, lottery tickets and one very small parcel."], [I, "The post office is thinking about a medal."]]) : "No sack yet. The ferry update brings the post." },
+    { k: "resc", label: "Rescues", v: lbFmt(rs), u: rs === 1 ? "rescue" : "rescues", m: lbPick(rs, [
+      [1, "Nobody's needed pulling out yet."], [2, "One. They owe you a coffee."], [6, "Word's getting round that you stop."], [I, "The Red Cross has stopped calling you the new one."]]) },
+    { k: "days", label: "Days survived", v: lbFmt(days), u: days === 1 ? "day" : "days", m: lbPick(days, [
+      [1, "Day one. Still here."], [7, "Not even a week. It's early."], [30, "Learning when to turn back."], [100, "The winter's getting used to you."], [I, "Longer than most of the herders' dogs would bet on."]]) },
+    { k: "season", label: "Season · " + se.name, v: summer ? String(c.y) : sy + "–" + String(sy + 1).slice(2), u: summer ? "summer" : "winter", txt: true,
+      m: ({ early: "Snow's settled in. The sun's on its way out.", deep: "No sun. Headlights, aurora and hot coffee.", late: "The light's coming back. So are the tourists.",
+        spring: "Crust in the morning, slush by lunch.", melt: "The lakes are thinking about it. Stay off them.", summer: "Boats on the fjord. The sled's in the shed." })[se.id] + (summer ? "" : ` Your ${ord(winterNo)} winter.`) }
+  ];
+  return { ride, work };
+}
 TABLET.register({
-  id: "logbook", name: "Logbook", icon: TICON.logbook, order: 6,
-  render(el) { el.innerHTML = `<div class="tapp">${tabHead("YOUR WINTER", "Logbook")}<div class="tempty">${TICON.logbook}<p>Blank pages for now. The next update writes your winter in here: kilometres ridden, trees flattened, time in the air, and how many times you went into the fjord.</p></div></div>`; }
+  id: "logbook", name: "Logbook", icon: TICON.logbook, order: 6, live: 3,
+  render(el) {
+    const { ride, work } = lbRows();
+    const row = r => `<div class="tlr" data-tf="lb:${r.k}"><div class="tlv"><b${r.txt ? ' class="txt"' : ""}>${tabEsc(r.v)}</b><u>${tabEsc(r.u)}</u></div><div class="tlt"><span class="tll">${tabEsc(r.label)}${r.chip ? " " + chip(tabEsc(r.chip.toUpperCase())) : ""}</span><span class="tlm">${tabEsc(r.m)}</span></div></div>`;
+    el.innerHTML = `<div class="tapp tlb">${tabHead("YOUR WINTER", "Logbook")}
+      <p class="tlnote">Kept in pencil, on the back of a freight manifest. The figures are true. The remarks are the sled's.</p>
+      <div class="tlk"><section class="tlp"><h3 class="tlh">The ride<span>OUT ON THE SNOW</span></h3>${ride.map(row).join("")}</section>
+      <section class="tlp"><h3 class="tlh">The work<span>BACK AT THE QUAY</span></h3>${work.map(row).join("")}</section></div></div>`;
+  }
 });
 
 const STORE = [
@@ -6754,6 +6813,7 @@ function titleBack() {
 }
 function newGame() {
   GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.claims = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
+  Object.assign(LOG, LOG0());
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -7263,6 +7323,7 @@ function helpCost(kind) { return Math.round((kind === "sea" ? 140 : 45) * (1 - (
 function startDrown() {
   if (HELP.on) return;
   HELP.on = true; HELP.kind = "sea"; HELP.called = false; HELP.phase = "wait"; HELP.t = 0; HELP.fee = helpCost("sea");
+  LOG.fjord++;                                                             // one dunking, however it ends (winched out, or blacked out first)
   if (FOOT.on) { FOOT.on = false; FOOT.dig = false; wnStow(false); }
   P.vx = P.vz = P.vy = 0; TABLET.close(); toast("Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
   whump(1);
