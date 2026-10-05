@@ -2885,10 +2885,11 @@ const CAL = {
   dayIndex(H = GS.hour) { return Math.floor(this.abs(H) / 24); },
   // the date part, cached per calendar day: this is called a few times a frame
   day(D = this.dayIndex()) {
-    const c = this.dc && this.dc.D === D ? this.dc : null; if (c) return c;
+    const M = this.dc || (this.dc = new Map()), c = M.get(D); if (c) return c;
     const dt = new Date(CAL_EPOCH + D * 864e5), y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
     const doy = (Date.UTC(y, m, d) - Date.UTC(y, 0, 1)) / 864e5;
-    return (this.dc = { D, y, m, d, dow: dt.getUTCDay(), doy });
+    if (M.size > 64) M.clear();
+    const o = { D, y, m, d, dow: dt.getUTCDay(), doy }; M.set(D, o); return o;
   },
   now(H = GS.hour) { const c = this.day(this.dayIndex(H)), h = ((H % 24) + 24) % 24; return { y: c.y, m: c.m, d: c.d, dow: c.dow, doy: c.doy, day: c.D, h, time: fmtTime(h), label: `${DOW3[c.dow]} ${c.d} ${MON3[c.m]}`, long: `${DOW3[c.dow]} ${c.d} ${MONTHS[c.m]} ${c.y}` }; },
   // solar declination (radians) for the date and time
@@ -3032,7 +3033,13 @@ const WX = {
    Polar night is more often active and stronger. What you see is that, times darkness, times clear sky. */
 const AUR = {
   v: 0, raw: 0, on: false,
+  memo: new Map(),
   night(N) {
+    const key = N * 1e10 + WX.seed, hit = this.memo.get(key); if (hit) return hit;
+    if (this.memo.size > 64) this.memo.clear();
+    const o = this._night(N); this.memo.set(key, o); return o;
+  },
+  _night(N) {
     const r = wxRng(WX.seed, N, 77), pn = CAL.isPolarNight(N * 24 + 24 - CAL.off);
     const act = r() < (pn ? 0.8 : 0.5), q = r();
     return { pn, act, L: act ? (pn ? 0.5 + 0.55 * q : 0.3 + 0.55 * q) : 0.06 + 0.12 * q, p1: r() * 6.283, p2: r() * 6.283 };
@@ -3651,10 +3658,10 @@ function tourSync() {
 }
 function acceptTour(c) {
   if (GS.tour) { toast("You've already got tourists on the back.", "warn"); return; }
-  GS.tour = { view: c.dest, pax: c.pax, base: c.pay, t0: GS.hour, best: AUR.v };
-  GS.contracts = GS.contracts.filter(x => !x.tour);
+  GS.tour = { view: c.dest, pax: c.pax, base: c.pay, t0: GS.hour, best: AUR.v }; GS.tourHere = true;
+  if (GS.contracts) GS.contracts = GS.contracts.filter(x => !x.tour);
   toast(`${c.pax[0].toUpperCase() + c.pax.slice(1)} climb on behind you, cameras out. Get them up to ${c.dest.name} while it's still dancing.`, "good");
-  renderBoard(); save();
+  if (GS.boardOpen) renderBoard(); save();
 }
 function tourArrive() {
   const t = GS.tour, a = AUR.v, m = tourMul(a);
@@ -6022,6 +6029,13 @@ function updGame(dt, spd) {
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
   if (GS.tour && spd < 5 && Math.hypot(P.x - GS.tour.view.x, P.z - GS.tour.view.z) < 26) tourArrive();
+  // the job board has no key for now (the tablet replaces it), so tourists simply climb on when you stop at
+  // the quay while an aurora is up; once per visit
+  if (near !== depot) GS.tourHere = false;
+  else if (!GS.tour && !GS.tourHere && spd < 4 && AUR.v > 0.38 && !GS.dead) {
+    GS.tourHere = true; const v = pick(LOOKOUTS);
+    acceptTour({ dest: v, pax: pick(TOUR_PAX), pay: tourBase(v) });
+  }
   for (const v of LOOKOUTS) if (v.beacon) v.beacon.visible = !!GS.tour && GS.tour.view === v;
   GS.aurT = (GS.aurT || 0) + dt;
   if (GS.aurT > 2) {
