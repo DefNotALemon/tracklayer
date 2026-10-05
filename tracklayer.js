@@ -1056,6 +1056,41 @@ for (const s of [-1, 1]) box(0.04, 0.16, 0.04, M.dark, s * 0.2, 0.1, -0.04, -0.4
   const bead = new THREE.CylinderGeometry(0.44, 0.452, 0.035, 18, 1, true, -1.0, 2.0); bead.translate(0, 0.0175, -0.44);
   V.paneBead = put(new THREE.Mesh(bead, sledTrimMat), 0, 0, 0, 0, 0, 0, sh); V.paneBead.castShadow = false;
 }
+// the dash tablet: a rugged 10-inch screen in a rubber cradle on a RAM-style arm off the bar clamp. Idle, it
+// shows a live heading-up map (a small CanvasTexture, see TABLET.dash); dip your head to it (Tab) and the
+// tablet OS is laid exactly over this glass. Built facing -z (the rider) and tilted back toward the eyes.
+const TABHW = { W: 0.22, H: 0.1408, R: 0.012, tilt: 0.55 };
+// a rounded rectangle, for the iPad-style frame and the glass inside it
+function roundRect(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+{
+  const T = new THREE.Group(); sledBody.add(T); V.tab = T; T.rotation.x = TABHW.tilt;
+  const W = TABHW.W, H = TABHW.H, bz = 0.009;                                                      // bz: the bezel round the glass
+  // the body: a thin slab with rounded corners and softened edges, space-grey aluminium
+  const body = new THREE.ExtrudeGeometry(roundRect(W + bz * 2, H + bz * 2, TABHW.R + bz), { depth: 0.008, bevelEnabled: true, bevelThickness: 0.0025, bevelSize: 0.0025, bevelSegments: 3, curveSegments: 10 });
+  body.translate(0, 0, -0.004);
+  const bm = put(new THREE.Mesh(body, std(0x2a2e34, 0.38, 0.55)), 0, 0, 0, 0, 0, 0, T);
+  // the black glass border on the front face, so the screen reads as a display under one sheet of glass
+  const front = new THREE.Mesh(new THREE.ShapeGeometry(roundRect(W + bz * 1.6, H + bz * 1.6, TABHW.R + bz * 0.8), 10), std(0x07090b, 0.12, 0.2));
+  front.rotation.y = Math.PI; front.position.z = -0.0068; T.add(front);
+  box(0.06, 0.06, 0.01, M.alu, 0, 0, 0.012, 0, 0, 0, T);                                            // the mount plate on its back
+  ball(0.016, M.dark, 0, 0, 0.022, T);
+  const c = document.createElement("canvas"); c.width = 320; c.height = 205;
+  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+  // the display: the same rounded rectangle, its UVs spread over the canvas
+  const sg = new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), uv = sg.attributes.uv, ps = sg.attributes.position;
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, ps.getX(k) / W + 0.5, ps.getY(k) / H + 0.5);
+  const scr = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }));
+  scr.rotation.y = Math.PI; scr.position.z = -0.0072; T.add(scr);
+  V.tabScr = scr; V.tabCv = c; V.tabTex = tex;
+  // the arm, from the bar clamp up to the ball: one tube re-aimed by applyLoadout for each machine's bar height
+  const ag = new THREE.CylinderGeometry(0.012, 0.014, 1, 8); ag.translate(0, 0.5, 0);
+  V.tabArm = put(new THREE.Mesh(ag, M.dark), 0, 0, 0); V.tabKnob = ball(0.02, M.dark, 0, 0, 0);
+}
 // cargo on the deck
 cargoMesh = new THREE.Group(); sledBody.add(cargoMesh); cargoMesh.visible = false;
 for (let i = 0; i < 3; i++) {
@@ -1497,7 +1532,7 @@ function visorMesh() {
   return VZ.mesh = m;
 }
 function wipeVisor() {
-  if (!started || GS.dead || GS.boardOpen || GS.garageOpen || godOpen || !$("settings").hidden || !$("bigmap").hidden) return;
+  if (!started || GS.dead || GS.garageOpen || godOpen || !$("settings").hidden || !$("bigmap").hidden) return;
   if (VZ.sweep >= 0 || VZ.level < 0.04) return;       // nothing to wipe, or the glove is already on the visor
   VZ.sweep = 0; VZ.hold = 0;
 }
@@ -1589,7 +1624,8 @@ let camMode = 0, muted = false;
 const VIEWS = [{ n: "Chase", d: 7.8, h: 3.2, f: 60 }, { n: "Close chase", d: 4.6, h: 2.0, f: 62 }, { n: "First person", fp: true, f: 78 }, { n: "Drone", d: 16, h: 9, f: 52 }];
 addEventListener("keydown", e => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code) || (started && e.ctrlKey && !e.metaKey)) e.preventDefault();
-  if (started && GS.boardOpen && boardKey(e)) return;
+  if (e.code === "Tab") { e.preventDefault(); if (started && !e.repeat) TABLET.toggle(); return; }
+  if (started && TABLET.open && TABLET.key(e)) return;
   if (e.repeat) return;
   keys.add(e.code);
   if (!started) return;
@@ -1612,7 +1648,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false;
+let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false;
 
 /* ---------------- touch controls ---------------- */
 // Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
@@ -1627,7 +1663,7 @@ function setTouchUI() {
 }
 function updTouch() {
   if (!TC.on) return;
-  const modal = GS.garageOpen || GS.boardOpen || !$("settings").hidden || !$("bigmap").hidden || godOpen || GS.dead;
+  const modal = GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden || godOpen || GS.dead;
   $("touch").classList.toggle("modal", modal);
   const lbl = GS.near === garageSite ? "GARAGE" : null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
@@ -1653,7 +1689,7 @@ function updTouch() {
       else if (k === "reset") resetSled();
       else if (k === "view") cycleView();
       else if (k === "map") toggleBigMap();
-      else if (k === "wx") toggleWx();
+      else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "garage") gameKey({ code: "KeyT" });
       else if (k === "horn") horn();
@@ -1695,28 +1731,29 @@ function readInput(dt) {
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
     if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
-    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !GS.boardOpen && !FOOT.on) input.hop = true; padHop = h;
+    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !TABLET.open && !FOOT.on) input.hop = true; padHop = h;
     if (h && FOOT.on) WN.padReel = true;
-    const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.boardOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
-    const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen && !GS.boardOpen) gameKey({ code: "KeyX" }); padX = xb;
+    const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
+    const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
-    if (bb && !padB && started && !godOpen && !GS.dead) gameKey({ code: GS.boardOpen || GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden || !$("wx").hidden ? "Escape" : "KeyT" });
+    if (bb && !padB && started && !godOpen && !GS.dead && !TABLET.open) gameKey({ code: GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyT" });   // with the tablet up, B is its back button (TABLET.pad)
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
     if (godOpen) { godPad(gp, dt); analog = null; }
     if (!started && TT.on) titlePad(gp, dt);
-    if (started && GS.boardOpen && !godOpen) boardPad(gp, dt);
+    if (started && !godOpen) TABLET.pad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
-    const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !GS.boardOpen) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
+    const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) horn(); padHorn = l3;
-    const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.boardOpen && !GS.garageOpen) toggleWx(); padWx = dr;   // d-pad right: the forecast
-    const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen && !GS.boardOpen) toggleWings(); TOW.padWing = wg;
+    const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
+    const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
+    const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
-  if (!started || GS.boardOpen) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
+  if (!started) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
   FOOT.fwd = 0; FOOT.turn = 0;
   if (FOOT.on) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
@@ -2529,7 +2566,7 @@ function whump(v) {
 // no gameplay effect, no NPC or wildlife reaction, no score. That is on purpose, so keep it that way.
 // It sits well above the engine (whose fundamental is 40-180 Hz) so it cuts through without ducking anything.
 let hornBus = null;
-function hornOk() { return started && !GS.dead && !FOOT.on && !GS.boardOpen && !GS.garageOpen && !godOpen && $("settings").hidden && $("bigmap").hidden; }
+function hornOk() { return started && !GS.dead && !FOOT.on && !GS.garageOpen && !godOpen && $("settings").hidden && $("bigmap").hidden; }
 function horn() {
   if (!audio || !hornOk()) return;
   const { AC, master } = audio, t = AC.currentTime;
@@ -2661,7 +2698,7 @@ function drawMap() {
 function toggleBigMap(force) {
   const open = force !== undefined ? force : $("bigmap").hidden;
   $("bigmap").hidden = !open;
-  if (open) { closeBoard(); toggleSettings(false); drawBigMap(); }
+  if (open) { TABLET.close(); toggleSettings(false); drawBigMap(); }
 }
 function drawBigMap() {
   const c = $("bigmapC"), g = c.getContext("2d"), N = c.width, k = N / MB;
@@ -2796,6 +2833,7 @@ function updVisuals(dt) {
     camState.fpPitch += (pT - camState.fpPitch) * (1 - Math.exp(-7 * dt));
     camState.fpRoll += (rT - camState.fpRoll) * (1 - Math.exp(-5 * dt));
     camera.rotation.set(camState.fpPitch, camState.fpYaw, camState.fpRoll);
+    if (TABLET.e > 0.001 && TABLET.mode === "dash") tabCamFP();          // the dip onto the dash tablet
   } else {
     // towing: back the chase cam off so the rig behind you is in the shot
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
@@ -2825,8 +2863,13 @@ function updVisuals(dt) {
     camera.lookAt(ox - fz2 * push, P.y + 0.85, oz + fx2 * push);
     if (Math.abs(camera.fov - 50) > 0.05) { camera.fov = 50; camera.updateProjectionMatrix(); }
   } else if (SR.on) { SR.on = false; camState.init = false; document.body.classList.remove("showroom"); $("srHint").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
-  const fov = view.f + Math.min(16, spd * 0.4);
-  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-3 * dt)); camera.updateProjectionMatrix(); }
+  const fov = view.f + Math.min(16, spd * 0.4), dip = TABLET.e > 0.001 && TABLET.mode === "dash" && view.fp;
+  // the base lens eases with speed as before; dipping to the tablet narrows it so the screen fills the view
+  let fb = dip && camState.fovB !== undefined ? camState.fovB : camera.fov;
+  if (Math.abs(fb - fov) > 0.05) fb += (fov - fb) * (1 - Math.exp(-3 * dt));
+  camState.fovB = fb;
+  const fw = dip ? lerp(fb, TABLET.fovT, TABLET.e) : fb;
+  if (Math.abs(camera.fov - fw) > 0.01) { camera.fov = fw; camera.updateProjectionMatrix(); }
   if (!started || TCAM.launch) titleCam(dt);
   sky.position.copy(camera.position);
   sun.position.set(FXp + sunDir.x * 200, FYp + sunDir.y * 200, FZp + sunDir.z * 200); sun.target.position.set(FXp, FYp, FZp);
@@ -2859,8 +2902,8 @@ function updHud(spd) {
 /* ---------------- courier survival layer ---------------- */
 const GAMEHOUR = 50;                       // real seconds per in-game hour (a full day is 20 minutes)
 const GS = {
-  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], delivered: 0, rescues: 0, rescueJob: null,
-  storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
+  cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], claims: [], delivered: 0, rescues: 0, rescueJob: null,
+  storm: 0, stormT: 170, stormPhase: "calm", warned: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
 const GOD = { fuel: false, warm: false, turbo: false, lowg: false, freeze: false };
@@ -3061,17 +3104,16 @@ const AUR = {
 WX.seed = (Math.random() * 2 ** 31) | 0;
 // the morning after: a toast when the sun stops (or starts) coming up, and a line of forecast
 CAL.onDayChange((n, prev) => {
-  WX.fc = null; if ($("wx") && !$("wx").hidden) renderWx();
+  WX.fc = null; if (typeof TABLET !== "undefined") TABLET.refresh("weather");
   if (prev === null) return;
   const pn = CAL.isPolarNight(), was = CAL.isPolarNight(GS.hour - 24);
   if (pn && !was) toast("The sun didn't come up today. Polar night: every job pays ×1.5 until it's back in January.", "good");
   else if (!pn && was) toast("A sliver of sun at noon today. Polar night is over, and so is the ×1.5.");
   const t = WX.forecast().days[0];
-  setTimeout(() => toast(`${n.label}. Tomorrow: ${t.word.toLowerCase()}${t.win ? ` from about ${fmtTime(t.win[0])}` : ""}. Press ${TC.on ? "WX" : "B"} for the forecast.`), 2600);
+  setTimeout(() => TABLET.notify({ app: "weather", title: `${n.label} · met office`, body: `Tomorrow: ${t.word.toLowerCase()}${t.win ? ` from about ${fmtTime(t.win[0])}` : ""}. ${t.conf}% sure.`, ttl: 7 }), 2600);
 });
 
-/* the forecast panel (temporary: O2 turns this into the tablet's Weather app) */
-const WXP = { t: 0 };
+/* the forecast: drawn into the tablet's Weather app (it was a temporary panel on B until the tablet landed) */
 const wxGlyph = (p, night) => {
   const cloud = `<path d="M9 25h21a6 6 0 0 0 0-12 8.5 8.5 0 0 0-16.4 1.6A5.3 5.3 0 0 0 9 25z" fill="rgba(234,242,248,.16)" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`;
   if (p < 0.2) return night ? `<path d="M26 8a11 11 0 1 0 8 17A9 9 0 0 1 26 8z" fill="rgba(158,201,255,.18)" stroke="#9ec9ff" stroke-width="1.6"/>` : `<circle cx="20" cy="18" r="7" fill="rgba(255,194,107,.25)" stroke="#ffc26b" stroke-width="1.6"/>${[0, 1, 2, 3, 4, 5, 6, 7].map(k => { const a = k * Math.PI / 4; return `<line x1="${20 + Math.cos(a) * 10.5}" y1="${18 + Math.sin(a) * 10.5}" x2="${20 + Math.cos(a) * 13.5}" y2="${18 + Math.sin(a) * 13.5}" stroke="#ffc26b" stroke-width="1.6" stroke-linecap="round"/>`; }).join("")}`;
@@ -3079,8 +3121,8 @@ const wxGlyph = (p, night) => {
   const n = p < 0.7 ? 4 : 7;
   return cloud + Array.from({ length: n }, (_, k) => { const x = 10 + k * (22 / (n - 1)); return `<line x1="${x + 3}" y1="28" x2="${x - 2}" y2="35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`; }).join("");
 };
-function renderWx() {
-  const f = WX.forecast(), o = WX.outlook(), n = CAL.now(), el = $("wxBody");
+function renderWx(el) {
+  const f = WX.forecast(), o = WX.outlook(), n = CAL.now();
   const here = WX.at(P.x, P.z), nowW = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
   const day = h => { const d = Math.floor((CAL.abs(h)) / 24) - CAL.dayIndex(); return d <= 0 ? "" : d === 1 ? " tomorrow" : " " + CAL.now(h).label.split(" ")[0]; };
   let now = `It's ${nowW} where you are, ${WX.temp(n.m) + Math.round(3 * here)}°. `;
@@ -3099,11 +3141,6 @@ function renderWx() {
     </div>`).join("")}</div>
     <p class="wxnote">Issued 00:00 ${f.issued} by the met office in Vardø. Tomorrow's is usually right. Days two and three are a guess with a percentage on it. Steamer times are her calls at Kjøllefjord.</p>`;
 }
-function toggleWx(force) {
-  const p = $("wx"), show = force === undefined ? p.hidden : force;
-  p.hidden = !show; if (show) { WXP.t = 0; renderWx(); }
-}
-$("closeWx").addEventListener("click", () => toggleWx(false));
 
 // Kjøllefjord is the hub: freight comes off the coastal steamer at the quay and goes out across the
 // Nordkinn by sled, because the road over Ifjordfjellet is shut half the winter.
@@ -3661,7 +3698,7 @@ function acceptTour(c) {
   GS.tour = { view: c.dest, pax: c.pax, base: c.pay, t0: GS.hour, best: AUR.v }; GS.tourHere = true;
   if (GS.contracts) GS.contracts = GS.contracts.filter(x => !x.tour);
   toast(`${c.pax[0].toUpperCase() + c.pax.slice(1)} climb on behind you, cameras out. Get them up to ${c.dest.name} while it's still dancing.`, "good");
-  if (GS.boardOpen) renderBoard(); save();
+  TABLET.refresh(); save();
 }
 function tourArrive() {
   const t = GS.tour, a = AUR.v, m = tourMul(a);
@@ -3679,7 +3716,7 @@ function acceptJob(k) {
   if (smallLoads().length >= ST.slots) { toast(ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`, "warn"); return; }
   j.hits = 0; GS.load.push(j); GS.jobs.splice(k, 1);
   toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} on the rack.`);
-  renderBoard(); applyLoadout(); save();
+  TABLET.refresh(); applyLoadout(); save();
 }
 const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
 function acceptContract(k) {
@@ -3688,7 +3725,7 @@ function acceptContract(k) {
   if (c.rescue) {
     if (GS.rescueJob) { toast("Finish the call you're on first.", "warn"); return; }
     if (ST.winch < c.needTier) { toast(`That call needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.`, "warn"); return; }
-    GS.contracts.splice(k, 1); closeBoard(); rescueStart(c); save(); return;
+    GS.contracts.splice(k, 1); TABLET.close(); rescueStart(c); save(); return;
   }
   const hitch = GS.own.parts.hitch;
   if (c.groom) {
@@ -3696,7 +3733,7 @@ function acceptContract(k) {
     if (GS.groomJob) { toast("Finish the line you're grooming first.", "warn"); return; }
     c.pts = groomLine(depot, c.dest); GS.groomJob = c; GS.contracts.splice(k, 1);
     toast(`Groom the line to ${c.dest.name}. The dots on the map are the stretches still to do.`);
-    renderBoard(); save(); return;
+    TABLET.refresh(); save(); return;
   }
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`, "warn"); return; }
@@ -3704,7 +3741,7 @@ function acceptContract(k) {
   if (GS.cash < c.bond) { toast(`The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= c.bond; c.cond = 100; c.hits = 0; GS.load.push(c); GS.contracts.splice(k, 1);
   toast(`Strapped down: ${c.cargo} (${c.kg} kg) for ${c.dest.name}. $${c.bond} bond paid, back on delivery.${c.priority ? " Clock's running." : ""}`, c.priority || c.expedition ? "warn" : undefined);
-  renderBoard(); applyLoadout(); save();
+  TABLET.refresh(); applyLoadout(); save();
 }
 // grooming lines: points along the straight run from the quay. Lake ice and cliff you can't groom are left out.
 function groomLine(a, b) {
@@ -3808,7 +3845,7 @@ function deliver(site) {
 }
 function blackout(kind) {
   if (GS.dead) return;
-  GS.dead = true; closeBoard(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
+  GS.dead = true; TABLET.close(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
   if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town with the rescue crew. No fare."), 4200); }
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
@@ -3818,7 +3855,7 @@ function blackout(kind) {
   GS.cash = Math.max(0, GS.cash - fee);
   for (const j of GS.load) if (j.crate) j.crate.aboard = false;   // a paid-for engine isn't lost: it goes back to the seller's shed
   GS.load = [];
-  GS.jobs = []; GS.contracts = null;
+  GS.jobs = []; GS.contracts = null; GS.claims = [];
   applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
   $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
@@ -4139,35 +4176,14 @@ function ctStatic(S, css) {
   g.strokeRect(0.5, 0.5, CT_REF - 1, CT_REF - 1); g.strokeRect(5.5, 5.5, CT_REF - 11, CT_REF - 11);
   return cv;
 }
-// the fixed chart plus the trails on it right now, into the board's lower canvas
-function ctPaintBase() {
-  const cv = $("bMap"); if (!cv || !CT.ready || !BD.css) return;
-  const S = cv.width, g = cv.getContext("2d");
-  g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(ctStatic(S, BD.css), 0, 0);
-  const t = CT.tint || (CT.tint = document.createElement("canvas")); t.width = t.height = MB;
-  const tg = t.getContext("2d"); tg.clearRect(0, 0, MB, MB); tg.drawImage(mapTrail, 0, 0);
-  tg.globalCompositeOperation = "source-in"; tg.fillStyle = "#8c3a1c"; tg.fillRect(0, 0, MB, MB); tg.globalCompositeOperation = "source-over";
-  g.save(); g.beginPath(); const e = 6 * S / CT_REF; g.rect(e, e, S - 2 * e, S - 2 * e); g.clip();
-  g.globalAlpha = 0.72; g.imageSmoothingEnabled = true; g.drawImage(t, 0, 0, S, S); g.restore();
-}
 // load the chart's faces before drawing it, and redraw once they arrive
 function ctFonts() {
   if (!document.fonts || !document.fonts.load) return;
   Promise.all([`italic 500 16px ${CT_SERIF}`, `500 16px ${CT_SERIF}`, `600 12px ${CT_SANS}`, `700 12px ${CT_SANS}`].map(f => document.fonts.load(f).catch(() => null)))
-    .then(() => { CT.fonts++; if (GS.boardOpen) ctPaintBase(); });
+    .then(() => { CT.fonts++; TABLET.paper = null; });
 }
 
-// a little grain for the board's paper, made once
-function boardPaper() {
-  const c = document.createElement("canvas"); c.width = c.height = 160;
-  const g = c.getContext("2d"), img = g.createImageData(160, 160), D = img.data;
-  for (let i = 0; i < D.length; i += 4) { const q = Math.random(); if (q < 0.035) { D[i] = 92; D[i + 1] = 70; D[i + 2] = 46; D[i + 3] = 12 + q * 900; } else if (q > 0.976) { D[i] = 255; D[i + 1] = 253; D[i + 2] = 246; D[i + 3] = 110; } }
-  g.putImageData(img, 0, 0);
-  $("bSheet").style.backgroundImage = `url(${c.toDataURL()})`;
-}
-
-/* the board itself: parcels and contracts on the left, the chart on the right */
-const BD = { rows: [], sel: -1, selObj: null, ptr: "mouse", downT: -1e9, cur: null, prev: null, triA: -Math.PI / 2, nav: 0, navT: 0, padA: true, css: 0, land: true };
+/* chart helpers shared by the tablet's Map, Parcels and Contracts apps */
 const shortName = s => s.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "");
 const fmtCash = v => "$" + Math.round(v).toLocaleString("en-US");
 const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
@@ -4175,188 +4191,7 @@ const gsCls = g => "gs" + (g > 0.8 ? 3 : g > 0.45 ? 2 : g > 0.15 ? 1 : 0);
 const groomSay = g => g > 0.8 ? "Packed trail most of the way." : g > 0.45 ? "About half of it is packed trail." : g > 0.15 ? "Mostly unbroken snow." : "Unbroken snow the whole way.";
 const routeKm = d => { const r = CT.routes[d.id]; return r ? r.L / 1000 : Math.hypot(d.x - depot.x, d.z - depot.z) / 1000; };
 const climbOf = d => Math.round(Math.max(0, d.y - depot.y) * 3);
-function boardLayout() {
-  const W = innerWidth, H = innerHeight, sh = $("bSheet"), land = W >= 700 && W > H * 1.15;
-  let S, col = 0;
-  if (land) {
-    S = Math.min(H - 24 - 30, 860); col = clamp(W - 24 - S - 16, 380, 470);   // the list keeps its width; the chart gives way
-    if (W - 24 - 16 - col < S) S = Math.max(220, W - 24 - 16 - col);
-  } else S = Math.min(W - 24 - 26, H * 0.5, 640);
-  S = Math.floor(S);
-  BD.land = land; BD.css = S;
-  sh.classList.toggle("stack", !land);
-  sh.style.setProperty("--bmap", S + "px"); sh.style.setProperty("--bcol", col + "px");
-  const px = Math.round(S * Math.min(2, devicePixelRatio || 1));
-  for (const id of ["bMap", "bOv"]) { const c = $(id); if (c.width !== px) c.width = c.height = px; c.style.width = c.style.height = S + "px"; }
-}
-function boardRow(r) {
-  const b = document.createElement("button"); b.type = "button"; b.className = "brow " + r.kind + (r.cls ? " " + r.cls : "");
-  b.innerHTML = `<span class="bk">${r.key !== undefined ? r.key : "·"}</span><span class="bc">${r.title}${r.chips || ""}</span><span class="bp">${r.pay}</span><span class="bm">${r.meta}</span>`;
-  if (r.kind === "locked") { b.tabIndex = -1; b.setAttribute("aria-disabled", "true"); }
-  else {
-    const i = BD.rows.length;
-    b.addEventListener("pointerdown", e => { BD.ptr = e.pointerType || "mouse"; BD.downT = performance.now(); });
-    b.addEventListener("mouseenter", () => { if (BD.ptr === "mouse" && BD.sel !== i) boardSelect(i); });
-    b.addEventListener("focus", () => { if (BD.sel !== i && performance.now() - BD.downT > 700) boardSelect(i); });   // a tap's focus is left to its click
-    b.addEventListener("click", () => { if (BD.ptr !== "mouse" && BD.sel !== i) { boardSelect(i); return; } boardTake(i); });
-  }
-  r.el = b; BD.rows.push(r);
-  return b;
-}
-function renderBoard() {
-  const sm = smallLoads(), bg = bigLoads(), box = $("boardRows");
-  $("boardCash").textContent = fmtCash(GS.cash);
-  const rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
-  $("boardRank").innerHTML = `${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}${CAL.isPolarNight() ? ` <span class="bchip polar" title="Every payout is half again while the sun stays down">POLAR NIGHT ×1.5</span>` : ""}`;
-  box.innerHTML = ""; BD.rows = [];
-  const sec = (a, b) => { const d = document.createElement("div"); d.className = "bsx"; d.innerHTML = `<span>${a}</span><span>${b || ""}</span>`; box.appendChild(d); };
-  const note = t => { const d = document.createElement("div"); d.className = "bnote"; d.textContent = t; box.appendChild(d); };
-  const gTag = d => { const g = groom[d.id] || 0; return `<span class="${gsCls(g)}">${groomLabel(g)}</span>`; };
-  sec("Parcels", `Rack ${sm.length}/${ST.slots}`);
-  if (!GS.jobs.length) note(sm.length ? "Rack loaded: " + sm.map(j => j.cargo.toLowerCase() + " for " + shortName(j.dest)).join(", ") + "." : "No parcels posted.");
-  GS.jobs.forEach((j, k) => box.appendChild(boardRow({
-    kind: "job", k, key: k + 1, obj: j, dest: j.dest, title: j.cargo,
-    chips: (j.steamer ? `<span class="bchip due">OFF THE STEAMER</span>` : "") + (j.local && !j.steamer ? `<span class="bchip">NEAR TOWN</span>` : "") + (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
-    pay: fmtCash(j.pay * payMul()), meta: `to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km · ${gTag(j.dest)}`
-  })));
-  sec("Contracts", HITCH_ON[GS.own.parts.hitch] + (ST.bays ? ` · ${baysUsed()}/${ST.bays}` : ""));
-  if (bg.length) note("On the trailer: " + bg.map(j => `${j.cargo.toLowerCase()} (${Math.round(j.cond)}%)`).join(", ") + ".");
-  if (GS.groomJob) note(`Grooming the line to ${shortName(GS.groomJob.dest)}: ${Math.round(groomFrac(GS.groomJob) * 100)}% done.`);
-  let n = 4;
-  (GS.contracts || []).forEach((c, k) => {
-    if (c.locked) { box.appendChild(boardRow({ kind: "locked", title: c.locked, pay: "Locked", meta: c.sub })); return; }
-    const hitch = GS.own.parts.hitch, fits = c.rescue ? ST.winch >= c.needTier : c.groom ? isGroomer(hitch) : c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
-    if (c.tour) {
-      box.appendChild(boardRow({ kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo,
-        chips: `<span class="bchip aurora">AURORA · ${AUR.word(AUR.v).toUpperCase()}</span><span class="bchip">${c.pax.split(" ").slice(0, 2).join(" ").toUpperCase()}</span>`,
-        pay: "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()), meta: `to ${c.dest.name} · ${routeKm(c.dest).toFixed(1)} km · climb ${climbOf(c.dest)} m` }));
-      return;
-    }
-    const tag = c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
-    box.appendChild(boardRow({
-      kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo, cls: fits ? "" : "nofit",
-      chips: `<span class="bchip ${tag}">${tag.toUpperCase()}</span>` + (c.rescue ? c.comps.map(x => `<span class="bchip ${x === "short" || x === "hurt" ? "due" : ""}">${({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x]}</span>`).join("") : "") + (c.due ? `<span class="bchip due">${c.rescue ? "CLOCK" : "DUE"} ${fmtTime(c.due)}</span>` : ""),
-      pay: fmtCash(c.pay * payMul()),
-      meta: c.rescue ? `${routeKm(c.dest).toFixed(1)} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}` : c.groom ? `${(Math.hypot(c.dest.x - depot.x, c.dest.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(c.dest)} · ${gTag(c.dest)}` : `to ${shortName(c.dest)} · ${routeKm(c.dest).toFixed(1)} km · ${c.kg} kg${c.fragile ? " · fragile" : ""}`
-    }));
-  });
-  sec("Garage", "across the road");
-  box.appendChild(boardRow({ kind: "garage", key: "G", obj: "garage", dest: garageSite, title: "Nordkinn Skuter & Service", pay: `<small>${sledDef().name}</small>`, meta: "sleds, parts, rider kit and the hitch rigs" }));
-  // keep the same line picked if it's still there, else the one that took its place
-  let i = BD.rows.findIndex(r => r.obj === BD.selObj);
-  if (i < 0) i = BD.rows.findIndex((r, q) => q >= Math.max(0, BD.sel) && r.kind !== "locked");
-  if (i < 0) i = BD.rows.findIndex(r => r.kind !== "locked");
-  BD.sel = -1; boardSelect(i, false);
-}
-function boardDetail(r) {
-  const el = $("boardDetail"); if (!r) { el.innerHTML = ""; return; }
-  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  let head = "", lines = [], warn = "", act = "", blocked = false;
-  const d = r.dest, km = routeKm(d).toFixed(1), g = groom[d.id] || 0;
-  if (r.kind === "job") {
-    const j = r.obj;
-    head = `To ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
-    lines.push(`${groomSay(g)}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`);
-    if (smallLoads().length >= ST.slots) { warn = ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`; blocked = true; }
-    act = `LOAD IT · ${fmtCash(j.pay * payMul())}`;
-  } else if (r.kind === "con") {
-    const c = r.obj, hitch = GS.own.parts.hitch;
-    if (c.tour) {
-      head = `To ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
-      lines.push(`<span class="why">${esc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the steamer want the lights from ${esc(c.dest.why)}.</span>`);
-      const now$ = c.pay * tourMul(AUR.v) * payMul(), top$ = c.pay * 1.35 * payMul();
-      lines.push(`They pay by how strong the aurora is when you get there: ${now$ >= top$ * 0.97 ? `${fmtCash(top$)} if it's still this good` : `about ${fmtCash(now$)} at tonight's ${AUR.word(AUR.v).toLowerCase()} show, up to ${fmtCash(top$)} under a full display`}. If it fades before you arrive, they pay a third. They ride behind you, not on the rack.`);
-      if (GS.tour) { warn = "You've already got tourists on the back."; blocked = true; }
-      act = `TAKE THEM UP · ~${fmtCash(c.pay * tourMul(AUR.v) * payMul())}`;
-    } else if (c.rescue) {
-      head = `${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
-      lines.push(`<span class="why">${esc(c.why)}</span>`);
-      lines.push(`Clock: ${fmtTime(c.due)}. Park on the rim, get off, walk the line out and hook on, strap your sled back to a tree and reel them out. Pays for getting them clear, more for being fast and gentle. About ${c.reach} m of line to do it in one pull.`);
-      if (ST.winch < c.needTier) { warn = `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.`; blocked = true; }
-      else if (GS.rescueJob) { warn = "Finish the call you're on first."; blocked = true; }
-      act = `TAKE THE CALL · ${fmtCash(c.pay * payMul())}`;
-    } else if (c.groom) {
-      head = `Groom the line to ${shortName(d)} · ${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km · climb ${climbOf(d)} m`;
-      lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line, and more again if the wing tiller lays it wide. Due ${fmtTime(c.due)}.`);
-      if (!isGroomer(hitch)) { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
-      else if (GS.groomJob) { warn = "Finish the line you're grooming first."; blocked = true; }
-      act = `TAKE THE LINE · ${fmtCash(c.pay * payMul())}`;
-    } else {
-      head = `To ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m · ${c.kg} kg`;
-      if (c.why) lines.push(`<span class="why">${esc(c.why)}</span>`);
-      lines.push(`Pays by condition, refused below 30%.${c.fragile ? " Fragile." : ""} The $${c.bond} bond comes back if it arrives whole${c.priority ? " and on time" : ""}.${c.bays > 1 ? " Takes the whole flatbed." : ""}${c.due ? ` Due ${fmtTime(c.due)}${c.priority ? ", late and they keep the bond" : ", late pays half"}.` : ""}`);
-      const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
-      if (!okHitch) { warn = `Needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`; blocked = true; }
-      else if (baysUsed() + c.bays > ST.bays) { warn = ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded."; blocked = true; }
-      else if (GS.cash < c.bond) { warn = `The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`; blocked = true; }
-      act = `STRAP IT DOWN · ${fmtCash(c.pay * payMul())}`;
-    }
-  } else if (r.kind === "garage") {
-    head = "Across the road, big roll door";
-    lines.push(`Sleds, parts, rider kit, and the hitch: groomer drags and freight trailers. You're on the ${sledDef().name}.`);
-    act = "RIDE OVER";
-  }
-  el.innerHTML = `<div class="dl">${esc(head)}</div>${lines.map(t => `<p>${t}</p>`).join("")}${warn ? `<p class="warn">${esc(warn)}</p>` : ""}<div class="bact"><button type="button" class="bgo${blocked ? " blocked" : ""}" id="boardGo">${esc(act)}</button><span class="kb"><kbd>ENTER</kbd></span></div>`;
-  $("boardGo").addEventListener("click", () => boardTake(BD.sel));
-}
-function boardSelect(i, scroll = true) {
-  const r = BD.rows[i]; if (!r || r.kind === "locked") return;
-  const changed = i !== BD.sel; BD.sel = i; BD.selObj = r.obj;
-  BD.rows.forEach((q, k) => q.el.classList.toggle("on", k === i));
-  if (changed || !$("boardDetail").firstChild) boardDetail(r);   // first: the details can change the list's height
-  if (scroll) r.el.scrollIntoView({ block: "nearest" });
-}
-function boardMove(d) {
-  if (!BD.rows.length) return;
-  let i = BD.sel;
-  for (let t = 0; t < BD.rows.length; t++) { i = (i + d + BD.rows.length) % BD.rows.length; if (BD.rows[i].kind !== "locked") break; }
-  boardSelect(i); const b = BD.rows[i] && BD.rows[i].el; if (b && document.activeElement && document.activeElement.closest && document.activeElement.closest("#board")) b.focus({ preventScroll: true });
-}
-function boardTake(i) {
-  const r = BD.rows[i]; if (!r) return;
-  if (i !== BD.sel) boardSelect(i);
-  if (r.kind === "job") acceptJob(r.k);
-  else if (r.kind === "con") acceptContract(r.k);
-  else if (r.kind === "garage") { closeBoard(); toast(TC.on ? "The garage is the shed across the road. Ride over and tap GARAGE." : "The garage is the shed across the road. Ride over and press T."); }
-}
-function boardKey(e) {
-  const c = e.code;
-  if (c === "ArrowDown" || c === "KeyS") { e.preventDefault(); boardMove(1); return true; }
-  if (c === "ArrowUp" || c === "KeyW") { e.preventDefault(); boardMove(-1); return true; }
-  if (c === "Enter" || c === "NumpadEnter") { e.preventDefault(); if (!e.repeat) boardTake(BD.sel); return true; }
-  if (c === "Space" || c === "ArrowLeft" || c === "ArrowRight") return true;
-  if (/^Digit[1-9]$/.test(c)) { if (!e.repeat) { const i = BD.rows.findIndex(r => r.key === +c.slice(5)); if (i >= 0) boardTake(i); } return true; }
-  return false;
-}
-function boardPad(gp, dt) {
-  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ay = gp.axes[1] || 0;
-  const nav = b(12) || ay < -0.6 ? -1 : b(13) || ay > 0.6 ? 1 : 0;
-  BD.navT -= dt;
-  if (nav !== BD.nav || (nav && BD.navT <= 0)) { if (nav) boardMove(nav); BD.navT = nav === BD.nav ? 0.12 : 0.38; }
-  BD.nav = nav;
-  const a = b(0); if (a && !BD.padA) boardTake(BD.sel); BD.padA = a;
-}
-function openBoard() {
-  updGroom(); if (!GS.jobs.length) makeJobs(depot); else if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);   // a winch bought since the board was posted (or a quiet day) gets the call-outs a fresh look
-  tourSync();
-  GS.boardOpen = true; $("board").hidden = false; BD.padA = true; BD.cur = BD.prev = null; BD.selObj = null; BD.sel = -1;
-  boardLayout(); ctRoutes(); renderBoard(); ctPaintBase();
-  const r = BD.rows[BD.sel]; if (r && !TC.on) r.el.focus({ preventScroll: true });
-}
-function closeBoard() {
-  GS.boardOpen = false; $("board").hidden = true; $("bCall").classList.remove("on");
-  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("#board")) document.activeElement.blur();
-}
-let boardRT = 0;
-addEventListener("resize", () => { clearTimeout(boardRT); boardRT = setTimeout(() => { if (GS.boardOpen) { boardLayout(); ctPaintBase(); BD.cur = null; } }, 120); });
-$("bOv").addEventListener("click", e => {                         // tap a numbered tag on the chart to pick that job
-  const rc = e.currentTarget.getBoundingClientRect(), k = CT_REF / rc.width, x = (e.clientX - rc.left) * k, y = (e.clientY - rc.top) * k;
-  let best = -1, bd = 16 * k;
-  BD.rows.forEach((r, i) => { if (!r.dest || r.kind === "locked" || !r.tag) return; const d = Math.hypot(r.tag[0] - x, r.tag[1] - y); if (d < bd) { bd = d; best = i; } });
-  if (best >= 0) boardSelect(best);
-});
-
-/* the chart's moving parts, redrawn every frame the board is open */
+/* chart drawing helpers: a route as a dashed line, rings, the little sled glyph */
 function ctEase(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 function ctAt(r, s) {
   const P = r.P, cum = r.cum; let j = 1;
@@ -4395,111 +4230,776 @@ function ctSled(g, x, y, ang, alpha, u) {
   g.beginPath(); g.arc(-1.9, 0, 1.7, 0, 6.2832); g.fillStyle = CT_INK; g.fill();
   g.restore();
 }
-function ctRouteFor(r) {                                           // the selected line, in chart units
-  if (!r || !r.dest) return null;
-  if (r.kind === "garage") return { P: [[ctX(depot.x), ctX(depot.z)], [ctX(garageSite.x), ctX(garageSite.z)]], short: true };
-  if (r.kind === "con" && r.obj.groom) return { P: [[ctX(depot.x), ctX(depot.z)], [ctX(r.dest.x), ctX(r.dest.z)]], groom: true, pts: groomLine(depot, r.dest) };
-  const w = CT.routes[r.dest.id]; if (!w) return null;
-  return { P: w.P.map(p => [ctX(p[0]), ctX(p[1])]) };
-}
-function ctOverlay(now) {
-  const cv = $("bOv"); if (!cv || !BD.css) return;
-  const g = cv.getContext("2d"), S = cv.width, m = BD.css / CT_REF, LS = clamp(m, 0.84, 1.16), u = v => v * LS / m;
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, S, S); g.setTransform(S / CT_REF, 0, 0, S / CT_REF, 0, 0);
-  g.save(); g.beginPath(); g.rect(6, 6, CT_REF - 12, CT_REF - 12); g.clip();
-  const sel = BD.rows[BD.sel], key = sel ? (sel.kind === "garage" ? "garage" : sel.dest.id + ":" + (sel.obj && sel.obj.groom ? "g" : "r") + BD.sel) : "";
-  if (!BD.cur || BD.cur.key !== key) {                            // a new line: fade the old one out, draw the new one in
-    const o = BD.cur;
-    BD.prev = o && o.r ? Object.assign({}, o, { fadeT: now, head: o.r.cum ? u(9.5) + (o.r.L - u(18.5)) * ctEase(clamp((now - o.t0) / o.dur, 0, 1)) : 0 }) : null;
-    const r = ctRouteFor(sel);
-    if (r) { r.cum = [0]; for (let i = 1; i < r.P.length; i++) r.cum.push(r.cum[i - 1] + Math.hypot(r.P[i][0] - r.P[i - 1][0], r.P[i][1] - r.P[i - 1][1])); r.L = r.cum[r.cum.length - 1]; }
-    BD.cur = { key, r, sel, t0: now, dur: r && !r.short ? 520 + r.L * 1.6 : 260, done: false, doneT: 0 };
-    $("bCall").classList.remove("on");
-  }
-  const cur = BD.cur, p = clamp((now - cur.t0) / cur.dur, 0, 1), e = ctEase(p);
-  if (!cur.done && p >= 1) { cur.done = true; cur.doneT = now; ctCallout(cur); }
-  // the jobs on the board: numbered tags where they go
-  const at = {};
-  BD.rows.forEach((r, i) => {
-    r.tag = null; if (!r.dest || (r.kind !== "job" && r.kind !== "con")) return;
-    const n = at[r.dest.id] = (at[r.dest.id] || 0) + 1;
-    r.tag = ctTagAt(r.dest, n, u);
-  });
-  // loads already aboard: a dashed ring where each one is going
-  g.setLineDash([u(3), u(2.5)]); g.lineWidth = u(1.4); g.strokeStyle = "rgba(31,26,20,.8)";
-  for (const j of GS.load) { g.beginPath(); g.arc(ctX(j.dest.x), ctX(j.dest.z), u(9), 0, 6.2832); g.stroke(); }
-  g.setLineDash([]);
-  if (GS.groomJob) for (const q of GS.groomJob.pts) { g.fillStyle = q.done ? "#2f7a4a" : CT_ACC; g.beginPath(); g.arc(ctX(q.x), ctX(q.z), u(2), 0, 6.2832); g.fill(); }
-  // the line fading out
-  if (BD.prev) {
-    const fa = 1 - (now - BD.prev.fadeT) / 240;
-    if (fa <= 0) BD.prev = null; else if (BD.prev.r && BD.prev.r.cum) ctStroke(g, BD.prev.r, u(9.5), BD.prev.head, fa, u, now, BD.prev.r.groom);
-  }
-  // the line being plotted, the sled riding it, and the quay's arrow turning to follow
-  const qx = ctX(depot.x), qy = ctX(depot.z); let want = -Math.PI / 2;
-  if (cur.r && !cur.r.short) {
-    const s1 = cur.r.L - u(9), head = u(9.5) + (s1 - u(9.5)) * e;
-    if (cur.r.groom) for (const q of cur.r.pts) { const d = Math.hypot(ctX(q.x) - qx, ctX(q.z) - qy); if (d < head) { g.fillStyle = CT_ACC; g.beginPath(); g.arc(ctX(q.x), ctX(q.z), u(2.2), 0, 6.2832); g.fill(); } }
-    ctStroke(g, cur.r, u(9.5), head, 1, u, now, cur.r.groom);
-    const lead = ctAt(cur.r, Math.min(cur.r.L, u(20))); want = Math.atan2(lead[1] - qy, lead[0] - qx);
-  }
-  let dA = want - BD.triA; while (dA > Math.PI) dA -= Math.PI * 2; while (dA < -Math.PI) dA += Math.PI * 2;
-  BD.triA += dA * 0.18;
-  g.save(); g.translate(qx, qy); g.rotate(BD.triA);
-  g.beginPath(); for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3; if (k) g.lineTo(Math.cos(a) * u(10), Math.sin(a) * u(10)); else g.moveTo(u(10), 0); } g.closePath();
-  g.lineJoin = "round"; g.strokeStyle = "rgba(237,230,211,0.9)"; g.lineWidth = u(4.6); g.stroke(); g.strokeStyle = CT_ACC; g.lineWidth = u(2); g.stroke();
-  g.restore();
-  if (cur.r && cur.sel) {
-    const d = cur.sel.dest, x = ctX(d.x), y = ctX(d.z), f = cur.done ? 1 : clamp((e - 0.8) / 0.2, 0, 1);
-    if (f > 0 && !cur.r.short) { g.globalAlpha = f; ctRing(g, x, y, u(7.4), u(1.9), u); g.globalAlpha = 1; }
-    if (cur.done) for (let k = 0; k < 2; k++) {
-      const ph = (((now - cur.doneT) / 2100) + k * 0.5) % 1;
-      g.globalAlpha = 0.6 * Math.pow(1 - ph, 1.4); g.beginPath(); g.arc(x, y, u(cur.r.short ? 6 : 7.5) + u(15) * ph, 0, 6.2832);
-      g.strokeStyle = CT_ACC; g.lineWidth = u(1.5); g.stroke(); g.globalAlpha = 1;
+/* ---------------- the dash tablet: OS, apps and notifications (winter update O2) ----------------
+   The tablet replaces the job board. It's a screen on the dash (see TABHW / V.tab): idle it shows a live
+   heading-up map; Tab (pad d-pad up, touch TABLET) dips the first-person camera onto it over ~0.3 s while the
+   world keeps running. The OS itself is DOM (#tab / #tabS), laid over the 3D glass every frame with a CSS
+   matrix3d homography so taps and clicks land where they look. In third person (and on foot) it's a big
+   overlay instead.
+
+   Adding an app:  TABLET.register({ id, name, icon, order, locked, badge(), render(el), onOpen(), onClose(), tick(dt), live })
+     render(el) fills `el` (re-run by TABLET.refresh()). Give anything selectable data-tf="unique-key" so the
+     d-pad / arrows can reach it; a [data-tf] that contains a .tbtn is activated through that button.
+     `live` (seconds) re-renders while open; tick(dt) runs every frame the app is up (for canvases).
+   Notifications:  TABLET.notify({ title, body, app, kind: "info"|"good"|"warn"|"alert", ttl, actions: [{ label, do(n) }], onExpire(n) })
+     returns the note (n.dismiss()). Dash ping + a banner that shows even with the tablet down.
+   Map layers:  TABLET.addLayer(id, () => [{ x, z, name, kind }])  ("rescue" and "depots" exist, empty).
+   Map corner widget: TABLET.widget.ferry() / .mail() are the hooks O3 replaces. */
+const TD2R = Math.PI / 180;
+const TABLET = {
+  apps: [], byId: {}, open: false, mode: null, z: 0, e: 0, app: null, w: 720, h: 461, focus: null,
+  nav: 0, navT: 0, padA: true, padB: true, rs: 0, rsT: 0, notes: [], log: [], seq: 0, live: null, liveT: 0,
+  plain: null, paper: null, paperT: -1e9, layers: { rescue: [], depots: [] }, dashT: 0, statT: 0, ptrDown: false, fovT: 60,
+  register(def) {
+    const a = Object.assign({ order: 50, badge: null, locked: false }, def);
+    this.apps = this.apps.filter(x => x.id !== a.id); this.apps.push(a); this.apps.sort((p, q) => p.order - q.order);
+    this.byId[a.id] = a; if (this.open && !this.app) this.render();
+    return a;
+  },
+  addLayer(id, fn) { (this.layers[id] = this.layers[id] || []).push(fn); },
+  layerPts(id) { const out = []; for (const fn of this.layers[id] || []) { try { out.push(...(fn() || [])); } catch (e) { console.error(e); } } return out; },
+  widget: {
+    ferry() { const n = steamerNext(GS.hour, "dep"), st = steamerAt(GS.hour); return { label: st.s === "in" ? "Steamer sails" : "Next sailing", at: st.s === "in" ? st.c.dep + Math.floor(GS.hour / 24) * 24 : n, state: null }; },
+    mail() { return null; }                                      // O3: { count, value }
+  },
+  can() { return started && !GS.dead && !GS.garageOpen && !godOpen && $("settings").hidden && !TT.on; },
+  toggle(force, appId) {
+    if (force === undefined && appId !== undefined && this.open && this.app !== appId) { this.go(appId); return; }   // B while the tablet's up on another app: go to Weather
+    const want = force === undefined ? !this.open : force;
+    if (want && !this.can()) return;
+    if (want) {
+      toggleBigMap(false);
+      if (!this.open && appId === undefined && this.live && this.live.app) appId = this.live.app;   // a ping on the dash: open where it points
+      if (!this.open) { this.open = true; $("tab").hidden = false; document.body.classList.add("tabOn"); tabWork(); this.layout(); tabPing("open"); }
+      if (appId !== undefined) this.go(appId); else this.render();
+    } else this.close();
+  },
+  close(now) {
+    if (!this.open && !now) return;
+    if (this.app && this.byId[this.app] && this.byId[this.app].onClose) this.byId[this.app].onClose();
+    this.open = false; document.body.classList.remove("tabOn");
+    if (now) { this.z = 0; this.e = 0; $("tab").hidden = true; }
+    this.updBanner();
+  },
+  go(id) {
+    const prev = this.app && this.byId[this.app];
+    if (prev && prev.onClose) prev.onClose();
+    const a = id && this.byId[id];
+    if (a && a.locked) { toast(`${a.name} isn't installed yet.`, "warn"); return; }
+    this.app = a ? id : null; this.focus = null; $("tabV").scrollTop = 0;
+    if (a && a.onOpen) a.onOpen();
+    this.render();
+  },
+  back() { if (this.app) this.go(null); else this.close(); },
+  refresh(id) { if (!this.open) return; if (id && this.app !== id && this.app) return; this.render(); },
+  render() {
+    if (!this.open) return;
+    const v = $("tabV"), a = this.app && this.byId[this.app], st = v.scrollTop;
+    $("tabTitle").textContent = a ? a.name.toUpperCase() : "HOME";
+    $("tabS").classList.toggle("inapp", !!a); $("tabS").dataset.app = a ? a.id : "home";
+    v.innerHTML = "";
+    try { if (a) a.render(v); else tabHome(v); } catch (e) { console.error(e); v.innerHTML = `<p class="tnote2">Something on this page crashed. Back to home and try again.</p>`; }
+    v.scrollTop = st; this.liveT = 0;
+    this.statusBar();
+    const els = this.focusables();
+    if (!els.some(el => el.dataset.tf === this.focus)) this.focus = els.length ? els.find(el => el.closest("#tabV"))?.dataset.tf || els[0].dataset.tf : null;
+    this.paintFocus(false);
+    this.updBanner();
+  },
+  statusBar() {
+    const n = CAL.now();
+    $("tabClock").textContent = n.time; $("tabDate").textContent = n.label.toUpperCase();
+    $("tabCash").textContent = fmtCash(GS.cash);
+    $("tabPN").hidden = !CAL.isPolarNight();
+  },
+  focusables() { return [...$("tabS").querySelectorAll("[data-tf]")].filter(el => el.offsetParent !== null && !el.closest("[hidden]")); },
+  // layout position inside the screen (logical px), so the d-pad works the same whatever the 3D tilt is
+  posOf(el) {
+    const root = $("tabS"), v = $("tabV"); let x = 0, y = 0, n = el;
+    while (n && n !== root) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    if (v.contains(el)) y -= v.scrollTop;
+    return { x, y, w: el.offsetWidth, h: el.offsetHeight };
+  },
+  paintFocus(scroll = true) {
+    const els = this.focusables();
+    for (const el of els) el.classList.toggle("tfoc", el.dataset.tf === this.focus);
+    if (!scroll) return;
+    const el = els.find(q => q.dataset.tf === this.focus); if (!el) return;
+    const v = $("tabV"); if (!v.contains(el)) return;
+    let top = 0, n = el; while (n && n !== v) { top += n.offsetTop; n = n.offsetParent; }
+    if (n !== v) return;
+    if (top < v.scrollTop + 8) v.scrollTop = top - 8; else if (top + el.offsetHeight > v.scrollTop + v.clientHeight - 8) v.scrollTop = top + el.offsetHeight - v.clientHeight + 8;
+  },
+  move(dx, dy) {
+    const els = this.focusables(); if (!els.length) return;
+    const cur = els.find(el => el.dataset.tf === this.focus);
+    if (!cur) { this.focus = els[0].dataset.tf; this.paintFocus(); return; }
+    const c = this.posOf(cur), cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+    let best = null, bs = 1e9;
+    for (const el of els) {
+      if (el === cur) continue;
+      const p = this.posOf(el), px = p.x + p.w / 2, py = p.y + p.h / 2, ex = px - cx, ey = py - cy;
+      const along = ex * dx + ey * dy, across = Math.abs(ex * dy) + Math.abs(ey * dx);
+      // overlapping rows/columns count as straight ahead
+      const ov = dx ? (p.y < c.y + c.h && p.y + p.h > c.y) : (p.x < c.x + c.w && p.x + p.w > c.x);
+      if (along <= 2) continue;
+      const sc = along + (ov ? 0 : across * 2.2 + 40);
+      if (sc < bs) { bs = sc; best = el; }
     }
-    if (!cur.r.short) { const s1 = cur.r.L - u(9), pos = ctAt(cur.r, Math.min(u(9.5) + (s1 - u(9.5)) * e, s1 - u(8))); ctSled(g, pos[0], pos[1], pos[2], clamp(e * 6, 0, 1), u); }
+    if (best) { this.focus = best.dataset.tf; this.paintFocus(); tabPing("tick"); }
+  },
+  activate() {
+    const el = this.focusables().find(q => q.dataset.tf === this.focus); if (!el) return;
+    const btn = el.matches("button,.tbtn") ? el : el.querySelector(".tbtn:not([disabled])");
+    if (btn && !btn.disabled) btn.click();
+  },
+  key(e) {
+    const c = e.code;
+    const d = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[c];
+    if (d) { e.preventDefault(); this.move(d[0], d[1]); return true; }
+    if (c === "Enter" || c === "NumpadEnter") { e.preventDefault(); if (!e.repeat) this.activate(); return true; }
+    if (c === "Backspace" || c === "Escape") { e.preventDefault(); if (!e.repeat) this.back(); return true; }
+    if (c === "KeyB" && this.app === "weather") { if (!e.repeat) this.close(); return true; }
+    return false;
+  },
+  // gamepad: while it's up the d-pad (and right stick) move, A selects, B backs out; the left stick and triggers still ride
+  pad(gp, dt) {
+    const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+    const nav = b(12) ? 1 : b(13) ? 2 : b(14) ? 3 : b(15) ? 4 : ry < -0.6 ? 1 : ry > 0.6 ? 2 : rx < -0.6 ? 3 : rx > 0.6 ? 4 : 0;
+    const a = b(0), bb = b(1);
+    if (this.open) {
+      this.navT -= dt;
+      if (nav !== this.nav || (nav && this.navT <= 0)) {
+        if (nav && !(nav === 1 && this.navOpen)) this.move(...[[0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]][nav]);
+        this.navT = nav === this.nav ? 0.13 : 0.4;
+      }
+      if (!nav) this.navOpen = false;
+      if (a && !this.padA) this.activate();
+      if (bb && !this.padB) this.back();
+    } else this.navOpen = nav === 1;                             // the d-pad press that opened it doesn't also move the cursor
+    this.nav = nav; this.padA = a; this.padB = bb;
+  },
+  /* ---- notifications ---- */
+  notify(o) {
+    const n = Object.assign({ kind: "info", ttl: o.actions && o.actions.length ? 30 : 6, body: "" }, o);
+    n.id = ++this.seq; n.at = GS.hour; n.t0 = performance.now(); n.until = n.t0 + n.ttl * 1000; n.done = false;
+    n.dismiss = () => { if (n.done) return; n.done = true; if (this.live === n) this.live = null; this.notes = this.notes.filter(q => q !== n); this.updBanner(); };
+    this.notes.push(n); this.log.unshift(n); if (this.log.length > 12) this.log.pop();
+    this.live = n; tabPing(n.kind === "alert" ? "alert" : "note");
+    this.updBanner(); if (this.open && !this.app) this.render();
+    return n;
+  },
+  noteTick() {
+    const now = performance.now();
+    for (const n of this.notes.slice()) if (now > n.until) { n.dismiss(); if (n.onExpire) try { n.onExpire(n); } catch (e) { console.error(e); } }
+    if (!this.live && this.notes.length) { this.live = this.notes[this.notes.length - 1]; this.updBanner(); }
+  },
+  updBanner() {
+    const n = this.live, inTab = this.open && this.e > 0.5, ban = $("tabBan"), tn = $("tabNote"), k = n ? n.id + (inTab ? "i" : "o") + (started ? 1 : 0) : "";
+    if (ban.dataset.k === k) return; ban.dataset.k = k;
+    ban.hidden = !n || inTab || !started; tn.hidden = !n || !inTab;
+    ban.innerHTML = n && !inTab ? tabNoteHtml(n, true) : ""; tn.innerHTML = n && inTab ? tabNoteHtml(n, false) : "";
+    if (n) tabBindNote(inTab ? tn : ban, n);
+    if (inTab && this.open) this.paintFocus(false);
+  },
+  /* ---- layout: logical screen size, then where it goes on the page each frame ---- */
+  layout() {
+    const dash = this.modeNow() === "dash"; this.mode = dash ? "dash" : "overlay";
+    const W = innerWidth, H = innerHeight, s = $("tabS");
+    let w, h;
+    if (dash) {
+      const t = tabTarget(); const hf = 2 * Math.atan(Math.tan(t.fov / 2 * TD2R) * (W / H));
+      w = clamp(Math.round(t.angW / hf * W), 560, 1000); h = Math.round(w / (TABHW.W / TABHW.H));
+    } else {
+      // on a phone, keep clear of the riding buttons (they stay live on top): measure them rather than guess
+      let top = 24, bot = 24, L = 24, R = 24;
+      if (TC.on && !$("touch").hidden) {
+        const rc = id => { const e = $(id); return e && !e.hidden ? e.getBoundingClientRect() : null; };
+        const tt = rc("tTop"), st = rc("tSteer"), right = ["tWh", "tLean", "tHop", "tHorn", "tBrk", "tGas"].map(rc).filter(Boolean);
+        top = (tt ? tt.bottom : 56) + 8;
+        if (W > H) { L = (st ? st.right : 170) + 10; R = W - Math.min(...right.map(r => r.left), W - 220) + 10; bot = 10; }
+        else { L = R = 10; bot = H - Math.min(...right.map(r => r.top), st ? st.top : H - 220) + 8; }
+      }
+      w = Math.min(W - L - R, 1000); h = Math.min(H - top - bot, W < H ? w * 1.55 : w / 1.5625, 680);
+      if (W > H && h < w / 2.2) w = Math.round(h * 2.2);
+      this.ox = Math.round(L + (W - L - R - w) / 2); this.oy = Math.round(top + (H - top - bot - h) / 2);
+    }
+    this.w = Math.round(w); this.h = Math.round(h);
+    s.style.width = this.w + "px"; s.style.height = this.h + "px";
+    s.style.setProperty("--tr", (dash ? Math.round(TABHW.R / TABHW.W * this.w) : 24) + "px");   // the display's rounded corners, same as the 3D glass
+    s.classList.toggle("port", this.h > this.w); s.classList.toggle("dash", dash); s.classList.toggle("small", this.w < 640);
+    this.render();
+  },
+  modeNow() { return VIEWS[camMode].fp && !FOOT.on && !showroomOn() ? "dash" : "overlay"; },
+  // before the camera: ease the dip in or out (0.3 s, smoothstep), and keep the mode in step with the view
+  step(dt) {
+    if (this.open && !this.can()) this.close(true);
+    if (this.open && this.modeNow() !== this.mode) { this.layout(); }
+    this.z = clamp(this.z + (this.open ? dt : -dt) / 0.3, 0, 1);
+    this.e = this.z * this.z * (3 - 2 * this.z);
+    if (!this.open && this.z === 0 && !$("tab").hidden) { $("tab").hidden = true; this.updBanner(); }
+    this.noteTick();
+    if (this.open) {
+      const a = this.app && this.byId[this.app];
+      if (a && a.tick) try { a.tick(dt); } catch (e) { console.error(e); }
+      this.statT += dt; if (this.statT > 1) { this.statT = 0; this.statusBar(); }
+      if (a && a.live && (this.liveT += dt) > a.live && !this.ptrDown) this.render();
+      if (!a && (this.liveT += dt) > 2 && !this.ptrDown) this.render();
+    }
+  },
+  // after the camera: put the DOM screen on the glass (dash) or on the page (overlay)
+  place() {
+    const el = $("tabS"), wrap = $("tab");
+    if (wrap.hidden) return;
+    if (this.mode === "dash") {
+      const q = tabCorners(); if (!q) { el.style.opacity = 0; return; }
+      el.style.transform = tabHomography(this.w, this.h, q);
+      el.style.opacity = clamp((this.e - 0.5) / 0.4, 0, 1).toFixed(3);
+    } else {
+      const k = 0.94 + 0.06 * this.e;
+      el.style.transform = `translate(${this.ox + this.w * (1 - k) / 2}px,${this.oy + this.h * (1 - k) / 2 + (1 - this.e) * 14}px) scale(${k})`;
+      el.style.opacity = this.e.toFixed(3);
+    }
+    if (this.e > 0.5 !== this.bannerIn) { this.bannerIn = this.e > 0.5; this.updBanner(); }
   }
-  // numbered tags last, on top of everything
-  BD.rows.forEach((r, i) => {
-    if (!r.tag) return;
-    const on = i === BD.sel, [x, y] = r.tag;
-    g.beginPath(); g.arc(x, y, u(7), 0, 6.2832); g.fillStyle = on ? CT_ACC : "#f4efe3"; g.fill();
-    g.lineWidth = u(1.1); g.strokeStyle = on ? "#f4efe3" : CT_INK; g.stroke();
-    ctText(g, String(r.key), x, y + u(3.4), `700 ${u(9.5)}px ${CT_SANS}`, on ? "#fff" : CT_INK, null, 0, "center");
-  });
+};
+$("tabS").addEventListener("mousedown", e => e.preventDefault());          // no DOM focus: Space still hops, Enter is ours
+$("tabS").addEventListener("pointerdown", () => { TABLET.ptrDown = true; });
+addEventListener("pointerup", () => { TABLET.ptrDown = false; });
+$("tabS").addEventListener("pointerover", e => { if (e.pointerType !== "mouse") return; const t = e.target.closest("[data-tf]"); if (t && t.dataset.tf !== TABLET.focus) { TABLET.focus = t.dataset.tf; TABLET.paintFocus(false); } });
+$("tabBack").addEventListener("click", () => TABLET.back());
+$("tabX").addEventListener("click", () => TABLET.close());
+addEventListener("resize", () => { if (TABLET.open) TABLET.layout(); });
+
+// the dip: where the camera wants to be to read the screen, and the lens that makes it fill the view
+const _tC = new THREE.Vector3(), _tN = new THREE.Vector3(), _tU = new THREE.Vector3(), _tE = new THREE.Vector3(), _tF = new THREE.Vector3(), _tD = new THREE.Vector3(), _tR = new THREE.Vector3(), _tM = new THREE.Matrix4(), _tQ = new THREE.Quaternion();
+function tabTarget() {
+  V.tabScr.updateWorldMatrix(true, false);
+  V.tabScr.getWorldPosition(_tC);
+  _tU.set(0, 1, 0).transformDirection(sledRoot.matrixWorld);
+  _tF.set(Math.sin(P.yaw), 0, Math.cos(P.yaw));
+  sledRoot.updateMatrixWorld(); _tE.set(0, 1.66, -0.14); sledRoot.localToWorld(_tE);                 // the rider's eye, as in updVisuals
+  _tE.addScaledVector(_tF, 0.1).addScaledVector(_tU, -0.07);                                        // lean in and drop the head a little
+  const d = Math.max(0.3, _tE.distanceTo(_tC)), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d), asp = innerWidth / innerHeight;
+  const fv = Math.max(angH / 0.62, 2 * Math.atan(Math.tan(angW / 0.9 / 2) / asp));           // ~62% of the height (the tilt makes the near edge loom), or 90% of the width on an upright phone
+  return { fov: clamp(fv * R2D, 12, 70), angW, angH, d };
+}
+function tabCamFP() {
+  const t = tabTarget(); TABLET.fovT = t.fov;
+  _tD.copy(_tC).sub(_tE).normalize();
+  _tR.crossVectors(_tD, _tU).normalize(); const up = new THREE.Vector3().crossVectors(_tR, _tD);
+  const a = 0.1 * t.fov * TD2R;                                     // aim a touch above the screen so a strip of trail stays in view
+  const aim = _tD.clone().multiplyScalar(Math.cos(a)).addScaledVector(up, Math.sin(a));
+  _tM.lookAt(_tE, _tE.clone().add(aim), up); _tQ.setFromRotationMatrix(_tM);
+  camera.position.lerp(_tE, TABLET.e); camera.quaternion.slerp(_tQ, TABLET.e);
+}
+const _tv = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _tc = new THREE.Vector3();
+function tabCorners() {
+  camera.updateMatrixWorld(); V.tabScr.updateWorldMatrix(true, false);
+  const W = TABHW.W / 2, H = TABHW.H / 2, cs = [[-W, H], [W, H], [W, -H], [-W, -H]], out = [];
+  for (let i = 0; i < 4; i++) {
+    const v = _tv[i].set(cs[i][0], cs[i][1], 0).applyMatrix4(V.tabScr.matrixWorld);
+    _tc.copy(v).applyMatrix4(camera.matrixWorldInverse); if (_tc.z > -0.02) return null;   // behind the lens
+    v.project(camera); out.push((v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight);
+  }
+  return out;
+}
+// CSS matrix3d that maps the w x h screen onto the quad (TL, TR, BR, BL)
+function tabHomography(w, h, q) {
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = q;
+  const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3, den = dx1 * dy2 - dx2 * dy1;
+  const g = den ? (sx * dy2 - dx2 * sy) / den : 0, hh = den ? (dx1 * sy - sx * dy1) / den : 0;
+  const a = x1 - x0 + g * x1, b = x3 - x0 + hh * x3, d = y1 - y0 + g * y1, e = y3 - y0 + hh * y3;
+  const m = [a / w, d / w, 0, g / w, b / h, e / h, 0, hh / h, 0, 0, 1, 0, x0, y0, 0, 1];
+  return "matrix3d(" + m.map(v => +v.toFixed(7)).join(",") + ")";
+}
+
+// the dash screen when you're not looking at it: a live heading-up map, the clock, and a strip for pings
+function tabDash(dt) {
+  const fp = VIEWS[camMode].fp && !FOOT.on;
+  TABLET.dashT += dt; if (TABLET.dashT < (fp ? 0.1 : 0.5) || (fp && TABLET.e > 0.95)) return;
+  TABLET.dashT = 0;
+  const c = V.tabCv, g = c.getContext("2d"), W = c.width, H = c.height, top = 22;
+  g.save();
+  g.fillStyle = "#0d1822"; g.fillRect(0, 0, W, H);
+  g.beginPath(); g.rect(0, top, W, H - top); g.clip();
+  const cx = W / 2, cy = top + (H - top) * 0.66, span = 520, k = W / span, ang = P.yaw + Math.PI;
+  g.save(); g.translate(cx, cy); g.rotate(ang); g.scale(k / M2SRC, k / M2SRC); g.translate(-(P.x + HALF) * M2SRC, -(P.z + HALF) * M2SRC);
+  g.drawImage(mapBg, 0, 0); g.drawImage(mapTrail, 0, 0);
+  if (GS.groomJob) { const r = 2.4 * M2SRC / k; for (const p of GS.groomJob.pts) { g.fillStyle = p.done ? "#6fd08c" : "#ff8a3a"; g.beginPath(); g.arc((p.x + HALF) * M2SRC, (p.z + HALF) * M2SRC, r, 0, 6.283); g.fill(); } }
+  g.restore();
+  const cA = Math.cos(ang), sA = Math.sin(ang), toS = (x, z) => { const dx = (x - P.x) * k, dz = (z - P.z) * k; return [cx + dx * cA - dz * sA, cy + dx * sA + dz * cA]; };
+  const pin = (x, z, col, ring) => {
+    let [sx, sy] = toS(x, z); const ex = clamp(sx, 10, W - 10), ey = clamp(sy, top + 10, H - 10), edge = ex !== sx || ey !== sy;
+    g.fillStyle = "#0d1822"; g.beginPath(); g.arc(ex, ey, edge ? 5 : 7, 0, 6.283); g.fill();
+    g.fillStyle = col; g.beginPath(); g.arc(ex, ey, edge ? 3.2 : 4.6, 0, 6.283); g.fill();
+    if (ring && !edge) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.arc(ex, ey, 10 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); g.stroke(); }
+  };
+  for (const s of SITES) { if (s.type === "shop" || s.x === undefined) continue; const [sx, sy] = toS(s.x, s.z); if (sx > -10 && sx < W + 10 && sy > top - 10 && sy < H + 10) { g.fillStyle = "#0d1822"; g.fillRect(sx - 4, sy - 4, 8, 8); g.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; g.fillRect(sx - 2.5, sy - 2.5, 5, 5); } }
+  for (const j of GS.claims) pin((j.from || depot).x, (j.from || depot).z, "#7fc8e0", true);
+  for (const j of GS.load) pin(j.dest.x, j.dest.z, "#ff5a1f", true);
+  if (GS.groomJob) pin(GS.groomJob.dest.x, GS.groomJob.dest.z, "#ff8a3a", false);
+  if (GS.tour) pin(GS.tour.view.x, GS.tour.view.z, "#6ff0b8", true);
+  for (const p of TABLET.layerPts("rescue")) pin(p.x, p.z, "#ff3a1a", true);
+  g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(cx, cy - 13); g.lineTo(cx - 9, cy + 9); g.lineTo(cx + 9, cy + 9); g.closePath(); g.fill();
+  g.fillStyle = "#ff5a1f"; g.beginPath(); g.moveTo(cx, cy - 9); g.lineTo(cx - 6, cy + 6); g.lineTo(cx + 6, cy + 6); g.closePath(); g.fill();
+  g.restore();
+  // the status strip, and a ping when there is one
+  const n = TABLET.live, blink = n && Math.floor(performance.now() / 400) % 2 === 0;
+  g.fillStyle = n ? (blink ? "#ff5a1f" : "#3a1a0e") : "#101c27"; g.fillRect(0, 0, W, top);
+  g.font = "600 13px 'Barlow Semi Condensed', sans-serif"; g.textBaseline = "middle"; g.fillStyle = "#eaf2f8";
+  if (n) { g.textAlign = "left"; g.fillText((n.title || "").toUpperCase().slice(0, 34), 8, top / 2 + 1); }
+  else {
+    const cn = CAL.now(); g.textAlign = "left"; g.fillText(cn.time + "  " + cn.label.toUpperCase(), 8, top / 2 + 1);
+    g.textAlign = "right"; g.fillStyle = "#6fd08c"; g.fillText(fmtCash(GS.cash), W - 8, top / 2 + 1);
+  }
+  g.strokeStyle = "rgba(234,242,248,.18)"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, top + 0.5); g.lineTo(W, top + 0.5); g.stroke();
+  // where the arrow's pointing
+  const tg = GS.load[0] ? GS.load[0].dest : GS.claims[0] ? (GS.claims[0].from || depot) : GS.tour ? GS.tour.view : null;
+  if (tg) {
+    const t = `→ ${tg.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "")} ${fmtMi(Math.hypot(tg.x - P.x, tg.z - P.z))}`;
+    g.font = "600 12px 'Barlow Semi Condensed', sans-serif"; const tw = g.measureText(t).width + 12;
+    g.fillStyle = "rgba(13,24,34,.85)"; g.fillRect(W - tw - 6, H - 22, tw, 17); g.fillStyle = "#ff8a3a"; g.textAlign = "left"; g.fillText(t, W - tw, H - 13);
+  }
+  g.font = "italic 500 11px 'Barlow Semi Condensed', sans-serif"; g.fillStyle = "rgba(234,242,248,.55)"; g.textAlign = "left"; g.fillText(TC.on ? "TABLET" : "Tab", 7, H - 12);
+  V.tabTex.needsUpdate = true;
+}
+
+// pings on the dash: two soft sine blips (three low ones for an alert), and a tick for moving around
+function tabPing(kind) {
+  if (!audio || muted) return;
+  const { AC, master } = audio, t = AC.currentTime;
+  const seq = kind === "alert" ? [[880, 0], [880, 0.16], [880, 0.32]] : kind === "note" ? [[1320, 0], [1760, 0.1]] : kind === "open" ? [[990, 0], [1480, 0.06]] : [[2200, 0]];
+  const v = kind === "tick" ? 0.02 : kind === "open" ? 0.04 : 0.07;
+  for (const [f, d] of seq) {
+    const o = AC.createOscillator(), gg = AC.createGain(); o.type = "sine"; o.frequency.value = f;
+    gg.gain.setValueAtTime(0.0001, t + d); gg.gain.exponentialRampToValueAtTime(v, t + d + 0.01); gg.gain.exponentialRampToValueAtTime(0.0001, t + d + (kind === "tick" ? 0.03 : 0.11));
+    o.connect(gg); gg.connect(master); o.start(t + d); o.stop(t + d + 0.14);
+  }
+}
+const tabEsc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+function tabNoteHtml(n, banner) {
+  if (!n || !n.id) return "";
+  const a = n.app && TABLET.byId[n.app];
+  const hint = banner ? `<span class="tnk">${TC.on ? "tap to open" : "<kbd>Tab</kbd> to open"}</span>` : "";
+  return `<div class="tni">${a ? a.icon : TICON.ping}</div><div class="tnb"><div class="tne">${a ? a.name.toUpperCase() : "TABLET"} · ${fmtTime(n.at)}${hint}</div><div class="tnt">${tabEsc(n.title)}</div>${n.body ? `<div class="tnx">${tabEsc(n.body)}</div>` : ""}${n.actions ? `<div class="tna">${n.actions.map((x, i) => `<button type="button" class="tbtn${i ? " ghost" : ""}" data-na="${i}" data-tf="note:${n.id}:${i}">${tabEsc(x.label)}</button>`).join("")}</div>` : ""}</div><button type="button" class="tnc" data-nx="1" aria-label="Dismiss">✕</button>`;
+}
+function tabBindNote(el, n) {
+  if (!el || !n) return;
+  el.className = (el.id === "tabBan" ? "tban " : "tnote ") + (n.kind || "info");
+  el.onclick = e => {
+    const b = e.target.closest("[data-na]"), x = e.target.closest("[data-nx]");
+    if (b) { const act = n.actions[+b.dataset.na]; n.dismiss(); if (act && act.do) act.do(n); return; }
+    if (x) { n.dismiss(); return; }
+    if (el.id === "tabBan") { TABLET.toggle(true, n.app || undefined); }
+  };
+}
+
+/* ---- icons: line glyphs in the survey chart's hand ---- */
+const svgI = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const TICON = {
+  parcels: svgI(`<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9M7.8 5.2l8.5 4.6"/>`),
+  map: svgI(`<path d="M3 6.5 8.5 4l7 2.5L21 4v13.5L15.5 20l-7-2.5L3 20z"/><path d="M8.5 4v13.5M15.5 6.5V20"/><circle cx="12" cy="10" r="1.3" fill="currentColor"/>`),
+  weather: svgI(`<circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.5v1.3M3.8 4l.9.9M2.5 8.5h1.3M13.2 4l-.9.9"/><path d="M8 19h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.6 1.2A3 3 0 0 0 8 19z"/>`),
+  calendar: svgI(`<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/>`),
+  contracts: svgI(`<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 9h7M8.5 12.5h7M8.5 16h4.5"/>`),
+  logbook: svgI(`<path d="M5 4.5h11a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M9 8h6"/>`),
+  store: svgI(`<path d="M4 8h16l-1.3 12H5.3z"/><path d="M8.5 10V7a3.5 3.5 0 0 1 7 0v3"/>`),
+  freight: svgI(`<path d="M2.5 15h12V7h-12zM14.5 10h3.8l3.2 3.2V15h-7"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17.5" cy="17" r="1.8"/>`),
+  rescue: svgI(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M7.5 12h9"/>`),
+  realestate: svgI(`<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5M10 20v-5h4v5"/><path d="M16 6V4h2v3.6"/>`),
+  ping: svgI(`<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>`)
+};
+
+/* ---- the home screen ---- */
+function tabHome(v) {
+  const n = CAL.now(), here = WX.at(P.x, P.z), wxw = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
+  const st = CAL.sunTimes(), sun = st.polar ? "no sunrise today" : st.midnight ? "midnight sun" : `sun up ${fmtTime(st.up)}, down ${fmtTime(st.down)}`;
+  const rk = rankOf(GS.delivered);
+  const tiles = TABLET.apps.map(a => {
+    const bd = a.badge ? a.badge() : ""; return `<button type="button" class="ttile${a.locked ? " locked" : ""}" data-tf="app:${a.id}" data-app="${a.id}"><span class="tic">${a.icon}${bd ? `<b class="tbdg">${bd}</b>` : ""}</span><span class="tnm">${tabEsc(a.name)}</span></button>`;
+  }).join("");
+  const log = TABLET.log.slice(0, 4).map(q => `<div class="tlg"><span>${fmtTime(q.at)}</span><b>${tabEsc(q.title)}</b><i>${tabEsc(q.body)}</i></div>`).join("");
+  v.innerHTML = `<div class="thome">
+    <div class="thero"><div><div class="tey">NORDKINN · ${tabEsc(CAL.season().name.toUpperCase())}</div><div class="tbig">${n.time}</div><div class="tsml">${n.long}</div></div>
+      <div class="tchips">${CAL.isPolarNight() ? `<span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}${AUR.v > 0.3 ? `<span class="bchip aurora">AURORA · ${AUR.word(AUR.v).toUpperCase()}</span>` : ""}<span class="bchip">${tabEsc(rk.name.toUpperCase())}</span></div></div>
+    <p class="tnote2">It's ${wxw} out here, ${sun}. ${GS.load.length ? `${GS.load.length} load${GS.load.length > 1 ? "s" : ""} aboard.` : GS.claims.length ? `${GS.claims.length} waiting for you at the quay.` : "Nothing aboard."}</p>
+    <div class="tgrid">${tiles}</div>
+    ${log ? `<div class="tsec"><span>Dash pings</span><span></span></div><div class="tlog">${log}</div>` : ""}
+  </div>`;
+  for (const b of v.querySelectorAll(".ttile")) b.addEventListener("click", () => TABLET.go(b.dataset.app));
+}
+
+/* ---- work: the same refresh the board did when you opened it ---- */
+function tabWork() {
+  updGroom();
+  if (!GS.jobs.length) makeJobs(depot);
+  else if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);
+  tourSync();
+}
+const claimSmall = () => GS.claims.filter(j => !j.big && !j.tour).length;
+const claimBays = () => GS.claims.filter(j => j.big).reduce((a, j) => a + j.bays, 0);
+const atQuay = () => GS.near === depot;
+// Taking work from the tablet: at the quay it goes straight on the sled, the way the board did. Anywhere else
+// it's claimed, and it loads when you stop at the pickup (the quay, for now: O3 brings pickups elsewhere).
+function takeParcel(k) {
+  const j = GS.jobs[k]; if (!j) return;
+  if (atQuay()) { acceptJob(k); return; }
+  if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your rack's spoken for: ${smallLoads().length} aboard and ${claimSmall()} waiting at the quay.`, "warn"); return; }
+  j.from = depot; GS.claims.push(j); GS.jobs.splice(k, 1);
+  toast(`Claimed: ${j.cargo} for ${shortName(j.dest)}. Pick it up at Kjøllefjord quay.`);
+  TABLET.refresh(); save();
+}
+function contractBlock(c) {
+  const hitch = GS.own.parts.hitch;
+  if (c.tour) return GS.tour || GS.claims.some(x => x.tour) ? "You've already got tourists booked." : "";
+  if (c.rescue) return ST.winch < c.needTier ? `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.` : GS.rescueJob ? "Finish the call you're on first." : "";
+  if (c.groom) return !isGroomer(hitch) ? "That's grooming work. You need a groomer drag on the hitch: the garage sells them." : GS.groomJob ? "Finish the line you're grooming first." : "";
+  const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
+  if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`;
+  if (baysUsed() + claimBays() + c.bays > ST.bays) return ST.bays > 1 ? "The flatbed's full (or spoken for)." : "The trailer's already loaded (or spoken for).";
+  if (GS.cash < c.bond) return `The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`;
+  return "";
+}
+function takeContract(k) {
+  const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
+  if (c.groom || c.rescue || atQuay()) { acceptContract(k); return; }
+  const why = contractBlock(c); if (why) { toast(why, "warn"); return; }
+  c.from = depot; GS.claims.push(c); GS.contracts.splice(k, 1);
+  toast(c.tour ? `Booked: ${c.pax} for ${c.dest.name}. They're waiting at the quay.` : `Claimed: ${c.cargo} for ${shortName(c.dest)}. It's on the quay; the $${c.bond} bond is paid when you strap it down.`);
+  TABLET.refresh(); save();
+}
+// stopped at a pickup: load whatever's claimed there (each claim retries every few seconds if it can't go yet)
+function collectClaims(site) {
+  for (const j of GS.claims.slice()) {
+    if ((j.from || depot) !== site || gameClock - (j.tryT || -99) < 6) continue;
+    j.tryT = gameClock; GS.claims.splice(GS.claims.indexOf(j), 1);
+    if (j.tour) { acceptTour(j); continue; }
+    const list = j.big ? (GS.contracts = GS.contracts || []) : GS.jobs; list.push(j); const k = list.length - 1;
+    if (j.big) acceptContract(k); else acceptJob(k);
+    if (list[k] === j) { list.splice(k, 1); GS.claims.push(j); }      // couldn't load it (the toast said why): it waits
+  }
+}
+
+/* ---- charts for the apps: a label-free survey chart (one raster, built once), with your trails tinted on ---- */
+function tabChart() {
+  if (TABLET.plain || !CT.ready) return TABLET.plain;
+  const S = GFX.low ? 1536 : 2048, cv = document.createElement("canvas"); cv.width = cv.height = S;
+  const g = cv.getContext("2d"); ctRaster(g, S);
+  const px1 = CT_REF / S, G2R = CT_REF / (CT.N - 1);
+  g.setTransform(S / CT_REF, 0, 0, S / CT_REF, 0, 0); g.lineCap = "round"; g.lineJoin = "round";
+  const segs = (a, style, w) => { g.strokeStyle = style; g.lineWidth = w; g.beginPath(); for (let i = 0; i < a.length; i += 4) { g.moveTo(a[i] * G2R, a[i + 1] * G2R); g.lineTo(a[i + 2] * G2R, a[i + 3] * G2R); } g.stroke(); };
+  CT.water.forEach((a, i) => segs(a, `rgba(182,210,230,${[0.15, 0.22, 0.3, 0.4, 0.52][i]})`, 0.6 * px1 * 2));
+  CT.lv.forEach((a, i) => { const idx = CT_LEVELS[i] % 100 === 0; segs(a, idx ? "#8f5a34" : "#b67d51", (idx ? 1.6 : 0.8) * px1 * 2); });
+  segs(CT.lakes, "rgba(58,98,132,.9)", px1 * 1.6);
+  segs(CT.coast, "rgba(22,40,58,.95)", px1 * 2);
+  g.strokeStyle = "rgba(48,102,150,.26)"; g.lineWidth = px1 * 1.5; g.beginPath();
+  for (let q = 1; q * CT_KM < CT_REF; q++) { const p = q * CT_KM; g.moveTo(p, 0); g.lineTo(p, CT_REF); g.moveTo(0, p); g.lineTo(CT_REF, p); }
+  g.stroke();
+  return TABLET.plain = cv;
+}
+function tabPaper() {
+  const base = tabChart(); if (!base) return null;
+  if (TABLET.paper && performance.now() - TABLET.paperT < 4000) return TABLET.paper;
+  const S = base.width, cv = TABLET.paper || (TABLET.paper = document.createElement("canvas")); if (cv.width !== S) cv.width = cv.height = S;
+  const g = cv.getContext("2d"); g.drawImage(base, 0, 0);
+  const t = CT.tint || (CT.tint = document.createElement("canvas")); t.width = t.height = MB;
+  const tg = t.getContext("2d"); tg.clearRect(0, 0, MB, MB); tg.drawImage(mapTrail, 0, 0);
+  tg.globalCompositeOperation = "source-in"; tg.fillStyle = "#8c3a1c"; tg.fillRect(0, 0, MB, MB); tg.globalCompositeOperation = "source-over";
+  g.globalAlpha = 0.72; g.drawImage(t, 0, 0, S, S); g.globalAlpha = 1;
+  TABLET.paperT = performance.now();
+  return cv;
+}
+// a view of the chart: world box [x0, z0, span] onto a w x h canvas
+function tabView(g, W, H, x0, z0, sx, sz) {
+  const p = tabPaper(), k = p ? p.width / WORLD : 1;
+  g.fillStyle = "#2e4b63"; g.fillRect(0, 0, W, H);
+  if (p) { g.imageSmoothingEnabled = true; g.drawImage(p, (x0 + HALF) * k, (z0 + HALF) * k, sx * k, sz * k, 0, 0, W, H); }
+  return (x, z) => [(x - x0) / sx * W, (z - z0) / sz * H];
+}
+function tabPin(g, x, y, col, glyph, r = 9) {
+  g.save(); g.translate(x, y);
+  g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-r * 0.35, -r * 0.9, -r, -r * 1.25, -r, -r * 1.9); g.arc(0, -r * 1.9, r, Math.PI, 0); g.bezierCurveTo(r, -r * 1.25, r * 0.35, -r * 0.9, 0, 0); g.closePath();
+  g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = "rgba(237,230,211,.95)"; g.stroke();
+  if (glyph) { g.fillStyle = "#fff"; g.font = `700 ${Math.round(r * 1.15)}px 'Barlow Semi Condensed', sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(glyph, 0, -r * 1.86); }
   g.restore();
 }
-// a job's number tag sits on the far side of the place from its name
-function ctTagAt(d, n, u) {
-  const L = CT_LBL[d.id] || {}, x = ctX(d.x), y = ctX(d.z), k = n - 1;
-  if (L.al === "center") return [x + (k - 0.5) * u(15) + u(7.5), y + u(12)];
-  if (L.al === "right") return [x + u(11) + k * u(15), y - u(3)];
-  return [x - u(11) - k * u(15), y - u(3)];
+function tabLabel(g, t, x, y, size, col, italic) {
+  g.font = `${italic ? "italic 500" : "600"} ${size}px 'Barlow Semi Condensed', sans-serif`; g.textAlign = "center"; g.textBaseline = "alphabetic";
+  g.lineJoin = "round"; g.strokeStyle = "rgba(237,230,211,.92)"; g.lineWidth = Math.max(3, size * 0.3); g.strokeText(t, x, y); g.fillStyle = col; g.fillText(t, x, y);
 }
-// the paper tag by the destination: how far it is by trail, and what the climb is
-function ctCallout(cur) {
-  const el = $("bCall"), r = cur.sel; if (!r || !r.dest) return;
-  const d = r.dest, g = groom[d.id] || 0;
-  let t, sub;
-  if (r.kind === "garage") { t = "0 km · garage"; sub = "across the road"; }
-  else if (r.obj && r.obj.groom) { t = `${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km of line`; sub = `${Math.round((cur.r.pts || []).length)} stretches to groom`; }
-  else { t = `≈ ${routeKm(d).toFixed(1)} km by trail`; sub = `climb ${climbOf(d)} m · ${groomLabel(g)}`; }
-  el.innerHTML = `<b>${t}</b><i>${sub}</i>`;
-  const k = BD.css / CT_REF, x = ctX(d.x) * k, y = ctX(d.z) * k, right = x > BD.css * 0.62, below = y < BD.css * 0.3;
-  el.style.left = (x + (right ? -16 : 16)) + "px"; el.style.top = (y + (below ? 16 : -16)) + "px";
-  el.style.transform = `translate(${right ? "-100%" : "0"}, ${below ? "0" : "-100%"})`;
-  el.classList.add("on");
+function tabSites(g, w2c, scale, hot) {
+  for (const s of SITES) {
+    if (s.x === undefined || s.type === "shop") continue;
+    const [x, y] = w2c(s.x, s.z), home = s.type === "home", hz = hot.has(s);
+    if (home && scale < 0.6 && !hz) { g.fillStyle = CT_INK; g.fillRect(x - 2, y - 2, 4, 4); continue; }
+    g.fillStyle = "rgba(237,230,211,.95)"; g.fillRect(x - (home ? 4 : 5.5), y - (home ? 4 : 5.5), home ? 8 : 11, home ? 8 : 11);
+    g.fillStyle = s === depot ? "#1f4a66" : CT_INK; g.fillRect(x - (home ? 2.5 : 3.8), y - (home ? 2.5 : 3.8), home ? 5 : 7.6, home ? 5 : 7.6);
+    const nm = s === depot ? "KJØLLEFJORD QUAY" : (CT_LBL[s.id] ? CT_LBL[s.id].t : s.name);
+    if (!home || hz || scale > 1.4) tabLabel(g, home ? s.name : nm, x, y - 10, home ? 12 : 13, hz ? CT_ACC : "#2a2119", home);
+  }
 }
+function tabRoute(g, w2c, P, col = CT_ACC) {
+  if (!P || P.length < 2) return;
+  g.save(); g.lineJoin = "round"; g.beginPath(); for (let i = 0; i < P.length; i++) { const [x, y] = w2c(P[i][0], P[i][1]); if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+  g.lineCap = "round"; g.strokeStyle = "rgba(237,230,211,.9)"; g.lineWidth = 5.5; g.stroke();
+  g.setLineDash([6, 4]); g.lineDashOffset = -((performance.now() * 0.014) % 10); g.lineCap = "butt"; g.strokeStyle = col; g.lineWidth = 2.4; g.stroke(); g.restore();
+}
+// the little map on a job card: pickup and drop-off pins with the trail line between them
+function tabMini(cv, from, to, opt = {}) {
+  const dpr = Math.min(2, devicePixelRatio || 1), W = Math.max(60, Math.round(cv.clientWidth * dpr)) || cv.width, H = Math.max(40, Math.round(cv.clientHeight * dpr)) || cv.height;
+  if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
+  const g = cv.getContext("2d");
+  const route = opt.groom ? [[from.x, from.z], [to.x, to.z]] : from === depot && CT.routes[to.id] ? CT.routes[to.id].P : [[from.x, from.z], [to.x, to.z]];
+  let x0 = Math.min(from.x, to.x), x1 = Math.max(from.x, to.x), z0 = Math.min(from.z, to.z), z1 = Math.max(from.z, to.z);
+  for (const p of route) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const pad = Math.max(160, 0.16 * Math.max(x1 - x0, z1 - z0)); x0 -= pad; x1 += pad; z0 -= pad * 1.3; z1 += pad * 0.8;
+  let sx = x1 - x0, sz = z1 - z0; const asp = W / H;
+  if (sx / sz < asp) { const n = sz * asp; x0 -= (n - sx) / 2; sx = n; } else { const n = sx / asp; z0 -= (n - sz) / 2; sz = n; }
+  const w2c = tabView(g, W, H, x0, z0, sx, sz);
+  g.save(); g.scale(dpr, dpr);
+  const w2 = (x, z) => { const [a, b] = w2c(x, z); return [a / dpr, b / dpr]; };
+  tabRoute(g, w2, route, opt.groom ? "#1f6a8a" : CT_ACC);
+  const [ax, ay] = w2(from.x, from.z), [bx, by] = w2(to.x, to.z);
+  tabPin(g, ax, ay, "#1f4a66", "P", 7.5); tabPin(g, bx, by, opt.col || CT_ACC, opt.glyph || "D", 7.5);
+  g.restore();
+}
+function tabMinis(el) { for (const cv of el.querySelectorAll("canvas[data-mini]")) { const [f, t, kind] = cv.dataset.mini.split("|"); const F = SITES.find(s => s.id === f) || depot, T = SITES.find(s => s.id === t) || LOOKOUTS.find(s => s.id === t) || (TABLET.miniDest && TABLET.miniDest[t]); if (T) tabMini(cv, F, T, kind === "g" ? { groom: true, glyph: "G", col: "#1f6a8a" } : kind === "t" ? { glyph: "A", col: "#2f8f6a" } : kind === "r" ? { glyph: "!", col: "#b8321f" } : {}); } }
+
+/* ---- the apps ---- */
+const chip = (t, c) => `<span class="bchip${c ? " " + c : ""}">${t}</span>`;
+function parcelChips(j) { return (j.steamer ? chip("OFF THE STEAMER", "due") : "") + (j.local && !j.steamer ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
+function tabCard(o) {
+  return `<div class="tcard${o.cls ? " " + o.cls : ""}"${o.tf ? ` data-tf="${o.tf}"` : ""}>
+    ${o.mini ? `<canvas class="tmini" data-mini="${o.mini}"></canvas>` : ""}
+    <div class="tcb"><div class="tct"><span>${tabEsc(o.title)}</span>${o.chips || ""}</div>
+      <div class="tcm">${o.meta || ""}</div>${o.note ? `<div class="tcn">${o.note}</div>` : ""}${o.warn ? `<div class="tcw">${tabEsc(o.warn)}</div>` : ""}
+      ${o.pay || o.act ? `<div class="tca"><span class="tpay">${o.pay || ""}</span>${o.act ? `<button type="button" class="tbtn${o.blocked ? " blocked" : ""}" data-act="${o.act}">${tabEsc(o.actLabel)}</button>` : ""}</div>` : ""}
+    </div></div>`;
+}
+function tabHead(eye, title, right) { return `<div class="thd"><div><div class="tey">${eye}</div><div class="tti">${title}</div></div>${right ? `<div class="tmoney">${right}</div>` : ""}</div>`; }
+const sec = (a, b) => `<div class="tsec"><span>${a}</span><span>${b || ""}</span></div>`;
+
+TABLET.register({
+  id: "parcels", name: "Parcels", icon: TICON.parcels, order: 1,
+  badge: () => GS.load.filter(j => !j.big).length || GS.jobs.length || "",
+  onOpen() { tabWork(); ctRoutes(); },
+  render(el) {
+    const sm = smallLoads(), rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
+    let h = tabHead("PARCELS · PICKUP KJØLLEFJORD QUAY", "Parcels", fmtCash(GS.cash));
+    h += `<div class="tsub">${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}${CAL.isPolarNight() ? " " + chip("POLAR NIGHT ×1.5", "polar") : ""}</div>`;
+    const aboard = sm.filter(j => !j.big);
+    h += sec("Aboard", `Rack ${sm.length}/${ST.slots}${claimSmall() ? ` · ${claimSmall()} claimed` : ""}`);
+    if (!aboard.length) h += `<p class="tnote2">Nothing on the rack.</p>`;
+    aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: fmtCash(j.pay * payMul()) }); });
+    const cl = GS.claims.filter(j => !j.big && !j.tour);
+    if (cl.length) { h += sec("Claimed · waiting at the quay", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name}, then to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km`, pay: fmtCash(j.pay * payMul()) }); }); }
+    h += sec("Posted", atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
+    if (!GS.jobs.length) h += `<p class="tnote2">No parcels posted. Check back after the next boat.</p>`;
+    GS.jobs.forEach((j, k) => {
+      const full = smallLoads().length + claimSmall() >= ST.slots && !atQuay() || (atQuay() && smallLoads().length >= ST.slots);
+      const g = groom[j.dest.id] || 0;
+      h += tabCard({ tf: "job:" + k, mini: `depot|${j.dest.id}`, title: j.cargo, chips: parcelChips(j),
+        meta: `Kjøllefjord quay → ${shortName(j.dest)} · ≈ ${routeKm(j.dest).toFixed(1)} km by trail · climb ${climbOf(j.dest)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`,
+        note: `${groomSay(g)}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`,
+        warn: full ? (ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`) : "",
+        pay: fmtCash(j.pay * payMul()), act: "take:" + k, actLabel: atQuay() ? "LOAD IT" : "CLAIM", blocked: full });
+    });
+    h += `<p class="tnote2">Pay shown is what lands on delivery. Late pays half; fragile loads lose pay with every knock.</p>`;
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    for (const b of el.querySelectorAll("[data-act^=take]")) b.addEventListener("click", () => takeParcel(+b.dataset.act.split(":")[1]));
+    tabMinis(el);
+  }
+});
+
+TABLET.register({
+  id: "contracts", name: "Contracts", icon: TICON.contracts, order: 5,
+  badge: () => (GS.contracts || []).filter(c => !c.locked).length || "",
+  onOpen() { tabWork(); ctRoutes(); },
+  render(el) {
+    const bg = bigLoads();
+    let h = tabHead("CONTRACTS · UNTIL FREIGHT AND TRAIL CREW ARRIVE", "Contracts", fmtCash(GS.cash));
+    h += `<div class="tsub">${HITCH_ON[GS.own.parts.hitch]}${ST.bays ? ` · ${baysUsed()}/${ST.bays} bays` : ""}${claimBays() ? ` · ${claimBays()} claimed` : ""}</div>`;
+    if (bg.length || GS.groomJob || GS.rescueJob || GS.tour) {
+      h += sec("Under way", "");
+      for (const j of bg) h += tabCard({ tf: "bg:" + j.cargo, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: chip(j.expedition ? "EXPEDITION" : j.priority ? "PRIORITY" : "HEAVY", j.expedition ? "expedition" : j.priority ? "priority" : "heavy") + (j.due ? chip("DUE " + fmtTime(j.due), "due") : ""), meta: `to ${shortName(j.dest)} · ${Math.round(j.cond)}% condition · ${j.kg} kg`, pay: fmtCash(j.pay * payMul()) });
+      if (GS.groomJob) h += tabCard({ tf: "gj", mini: `depot|${GS.groomJob.dest.id}|g`, title: GS.groomJob.cargo, chips: chip("GROOMING", "grooming"), meta: `${Math.round(groomFrac(GS.groomJob) * 100)}% of the line groomed · due ${fmtTime(GS.groomJob.due)}`, pay: fmtCash(GS.groomJob.pay * payMul()) });
+      if (GS.tour) h += tabCard({ tf: "tr", mini: `depot|${GS.tour.view.id}|t`, title: "Aurora tour", chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${tabEsc(GS.tour.pax)} → ${GS.tour.view.name}`, pay: "~" + fmtCash(GS.tour.base * tourMul(AUR.v) * payMul()) });
+      if (GS.rescueJob) h += tabCard({ tf: "rj", title: GS.rescueJob.cargo || "Recovery call-out", chips: chip("RECOVERY", "recovery"), meta: `clock runs out ${fmtTime(GS.rescueJob.due)}`, pay: fmtCash(GS.rescueJob.pay * payMul()) });
+    }
+    const cl = GS.claims.filter(j => j.big || j.tour);
+    if (cl.length) { h += sec("Claimed · waiting at the quay", ""); cl.forEach((c, i) => { h += tabCard({ tf: "ccl:" + i, mini: `${(c.from || depot).id}|${c.dest.id}${c.tour ? "|t" : ""}`, title: c.tour ? "Aurora tour" : c.cargo, chips: c.tour ? chip("AURORA", "aurora") : chip(c.expedition ? "EXPEDITION" : c.priority ? "PRIORITY" : "HEAVY", c.expedition ? "expedition" : c.priority ? "priority" : "heavy"), meta: c.tour ? `${tabEsc(c.pax)} → ${c.dest.name}` : `to ${shortName(c.dest)} · $${c.bond} bond at pickup`, pay: c.tour ? "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()) : fmtCash(c.pay * payMul()) }); }); }
+    h += sec("Posted", atQuay() ? "at the quay: loads straight on" : "freight and tours load at the quay");
+    TABLET.miniDest = {};
+    (GS.contracts || []).forEach((c, k) => {
+      if (c.locked) { h += tabCard({ cls: "locked", title: c.locked, chips: chip("LOCKED"), meta: tabEsc(c.sub) }); return; }
+      const why = contractBlock(c), d = c.dest, km = routeKm(d).toFixed(1), g = groom[d.id] || 0;
+      if (c.rescue) TABLET.miniDest[d.id] = d;
+      const tag = c.tour ? "aurora" : c.rescue ? "recovery" : c.groom ? "grooming" : c.expedition ? "expedition" : c.priority ? "priority" : "heavy";
+      let title = c.cargo, meta, note, pay = fmtCash(c.pay * payMul()), lbl, chips = chip(tag === "aurora" ? "AURORA · " + AUR.word(AUR.v).toUpperCase() : tag.toUpperCase(), tag);
+      if (c.tour) {
+        meta = `to ${c.dest.name} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
+        note = `<span class="why">${tabEsc(c.pax[0].toUpperCase() + c.pax.slice(1))} off the steamer want the lights from ${tabEsc(c.dest.why)}.</span> They pay by how strong the aurora is when you get there, a third if it's faded. They ride behind you, not on the rack.`;
+        pay = "~" + fmtCash(c.pay * tourMul(AUR.v) * payMul()); lbl = atQuay() ? "TAKE THEM UP" : "BOOK THEM";
+      } else if (c.rescue) {
+        chips += c.comps.map(x => chip(({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x], x === "short" || x === "hurt" ? "due" : "")).join("") + chip("CLOCK " + fmtTime(c.due), "due");
+        meta = `${tabEsc(d.name)} · ≈ ${km} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}`;
+        note = `<span class="why">${tabEsc(c.why)}</span> Park on the rim, walk the line out and hook on, strap your sled back to a tree and reel them out. About ${c.reach} m of line to do it in one pull.`;
+        lbl = "TAKE THE CALL";
+      } else if (c.groom) {
+        chips += chip("DUE " + fmtTime(c.due), "due");
+        meta = `${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(d)} · climb ${climbOf(d)} m · <span class="${gsCls(g)}">${groomLabel(g)}</span>`;
+        note = "Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much you groom, more for a clean line, more again if the wing tiller lays it wide.";
+        lbl = "TAKE THE LINE";
+      } else {
+        if (c.due) chips += chip("DUE " + fmtTime(c.due), "due");
+        meta = `to ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m · ${c.kg} kg${c.fragile ? " · fragile" : ""}`;
+        note = `${c.why ? `<span class="why">${tabEsc(c.why)}</span> ` : ""}Pays by condition, refused below 30%. The $${c.bond} bond comes back if it arrives whole${c.priority ? " and on time" : ""}.${c.bays > 1 ? " Takes the whole flatbed." : ""}${c.due ? ` Due ${fmtTime(c.due)}${c.priority ? ", late and they keep the bond" : ", late pays half"}.` : ""}`;
+        lbl = atQuay() ? "STRAP IT DOWN" : "CLAIM";
+      }
+      h += tabCard({ tf: "con:" + k, mini: `depot|${d.id}|${c.groom ? "g" : c.tour ? "t" : c.rescue ? "r" : ""}`, title, chips, meta, note, warn: why, pay, act: "con:" + k, actLabel: lbl, blocked: !!why });
+    });
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    for (const b of el.querySelectorAll("[data-act^=con]")) b.addEventListener("click", () => takeContract(+b.dataset.act.split(":")[1]));
+    tabMinis(el);
+  }
+});
+
+TABLET.register({
+  id: "map", name: "Map", icon: TICON.map, order: 2,
+  onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoom = this.zoom || 0; },
+  layersOn: { del: true, pins: true, rescue: true, depots: true },
+  render(el) {
+    const L = this.layersOn, ch = (id, t, n) => `<button type="button" class="tml${L[id] ? " on" : ""}" data-tf="lay:${id}" data-lay="${id}"><i class="k ${id}"></i>${t}${n !== undefined ? ` <b>${n}</b>` : ""}</button>`;
+    const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots");
+    // the chart fills the page; the layer chips, the zoom button and the ferry/mail widget float on top of it
+    el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
+      <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}</div>
+        <button type="button" class="tbtn ghost" data-tf="zoom" id="tabZoom">${this.zoom ? "WHOLE MAP" : "AROUND ME"}</button></div>
+      <div class="twid" id="tabWid"></div></div>`;
+    for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
+    $("tabZoom").addEventListener("click", () => { this.zoom = this.zoom ? 0 : 1; TABLET.render(); });
+    this.cv = $("tabMapC"); this.t = 1; this.tick(0); this.widget();
+  },
+  widget() {
+    const el = $("tabWid"); if (!el) return;
+    const f = TABLET.widget.ferry(), m = TABLET.widget.mail(), left = f.at - GS.hour, hh = Math.floor(left), mm = Math.floor((left % 1) * 60);
+    el.innerHTML = `<div class="twr"><span>${f.label}</span><b>${fmtTime(f.at)}</b><i>${left > 0 ? `in ${hh ? hh + " h " : ""}${mm} min` : "now"}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? "pieces" : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value : 0)}</b><i>paid when it sails</i></div>`;
+  },
+  tick(dt) {
+    this.t += dt; if (this.t < 0.2 || !this.cv) return; this.t = 0;
+    if ((this.wt = (this.wt || 0) + 0.2) > 1) { this.wt = 0; this.widget(); }
+    const cv = this.cv, box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, H = box.clientHeight; if (W < 60 || H < 60) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; }
+    const S = Math.min(W, H), sz = this.zoom ? 1800 : WORLD * 0.98 * Math.max(1, H / W * 1.02), sx = sz * W / H;   // the whole peninsula fits; around-me is 1.8 km tall
+    const cx = this.zoom ? clamp(P.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = this.zoom ? clamp(P.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
+    const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, this.zoom && sx > WORLD ? -sx / 2 : cx - sx / 2, cz - sz / 2, sx, sz), span = sz;
+    g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; }, sc = H / span * 10;   // px per 10 m
+    const L = this.layersOn, hot = new Set();
+    if (L.del) for (const j of GS.load) hot.add(j.dest);
+    if (L.pins) for (const j of GS.claims.concat(GS.jobs)) hot.add(j.dest);
+    if (GS.groomJob) for (const p of GS.groomJob.pts) { const [x, y] = w2c(p.x, p.z); g.fillStyle = p.done ? "#2f7a4a" : CT_ACC; g.beginPath(); g.arc(x, y, 2.4, 0, 6.283); g.fill(); }
+    if (L.del) for (const j of GS.load) { const r = CT.routes[j.dest.id]; if (r && (j.from || depot) === depot) tabRoute(g, w2c, r.P); }
+    tabSites(g, w2c, sc, hot);
+    for (const v of LOOKOUTS) { if (v.x === undefined) continue; const [x, y] = w2c(v.x, v.z); g.fillStyle = "#2f8f6a"; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x - 5.5, y + 4); g.lineTo(x + 5.5, y + 4); g.closePath(); g.fill(); if (AUR.v > 0.38 || (GS.tour && GS.tour.view === v) || sc > 1.4) tabLabel(g, v.name, x, y + 16, 12, "#2f6a52", true); }
+    if (L.pins) {
+      for (const j of GS.jobs) { const [x, y] = w2c(j.dest.x, j.dest.z); g.globalAlpha = 0.6; tabPin(g, x, y, CT_ACC, "D", 7); g.globalAlpha = 1; }
+      for (const j of GS.claims) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, j.tour ? "#2f8f6a" : CT_ACC, j.tour ? "A" : "D", 8); }
+      if (GS.claims.length || GS.jobs.length) { const [x, y] = w2c(depot.x, depot.z); tabPin(g, x, y, "#1f4a66", "P", 9); }
+    }
+    if (L.del) { for (const j of GS.load) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, CT_ACC, "D", 10); } if (GS.tour) { const [x, y] = w2c(GS.tour.view.x, GS.tour.view.z); tabPin(g, x, y, "#2f8f6a", "A", 10); } if (GS.groomJob) { const [x, y] = w2c(GS.groomJob.dest.x, GS.groomJob.dest.z); tabPin(g, x, y, "#1f6a8a", "G", 9); } }
+    if (L.rescue) for (const p of TABLET.layerPts("rescue")) { const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
+    if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
+    const [px, py] = w2c(P.x, P.z);
+    g.save(); g.translate(px, py); g.rotate(Math.PI - P.yaw);
+    g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -14); g.lineTo(-10, 10); g.lineTo(10, 10); g.closePath(); g.fill();
+    g.fillStyle = CT_ACC; g.beginPath(); g.moveTo(0, -10); g.lineTo(-6.5, 6.5); g.lineTo(6.5, 6.5); g.closePath(); g.fill(); g.restore();
+    // scale bar
+    const km = this.zoom ? 0.5 : 2, bw = km * 1000 / span * H;
+    g.fillStyle = "rgba(244,239,227,.92)"; g.fillRect(W - bw - 58, H - 30, bw + 48, 20); g.fillStyle = CT_INK; g.fillRect(W - bw - 52, H - 18, bw, 3); g.font = "600 11px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "left"; g.textBaseline = "alphabetic"; g.fillText(km + " KM", W - 48, H - 14);
+    g.restore();
+  }
+});
+// the call-out you're on goes on the map's rescue layer; O5's rescues will add their own
+TABLET.addLayer("rescue", () => GS.rescueJob && typeof RJ !== "undefined" ? RJ.vs.filter(v => !v.freed).map(v => ({ x: v.x, z: v.z, name: v.name + " · stuck", kind: "recovery" })) : []);
+
+TABLET.register({
+  id: "weather", name: "Weather", icon: TICON.weather, order: 3, live: 5,
+  render(el) { el.innerHTML = `<div class="tapp twx">${tabHead("MET · NORDKINN", "Forecast")}<div id="tabWx"></div></div>`; renderWx($("tabWx")); }
+});
+
+TABLET.register({
+  id: "calendar", name: "Calendar", icon: TICON.calendar, order: 4, live: 10,
+  onOpen() { this.view = null; },
+  render(el) {
+    const c = CAL.day(), sy = c.m >= 10 ? c.y : c.y - 1, D0 = Math.round((Date.UTC(sy, 10, 1) - CAL_EPOCH) / 864e5), N = Math.round((Date.UTC(sy + 1, 5, 1) - Date.UTC(sy, 10, 1)) / 864e5);
+    const pnAt = D => CAL.isPolarNight(D * 24 - CAL.off + 12), meltAt = D => CAL.day(D).m === 4;
+    // the season strip: polar night and the melt, months, and today
+    let pn0 = null, pn1 = null; for (let D = D0; D < D0 + N; D++) if (pnAt(D)) { if (pn0 === null) pn0 = D; pn1 = D; }
+    const mD = Math.round((Date.UTC(sy + 1, 4, 1) - CAL_EPOCH) / 864e5), today = c.D, pc = D => ((D - D0) / N * 100).toFixed(2) + "%";
+    const fmtD = D => { const q = CAL.day(D); return `${q.d} ${MON3[q.m]}`; };
+    let strip = `<div class="tstrip">`;
+    if (pn0 !== null) strip += `<div class="tsg pn" style="left:${pc(pn0)};width:calc(${pc(pn1 + 1)} - ${pc(pn0)})"><span>POLAR NIGHT</span></div>`;
+    strip += `<div class="tsg ml" style="left:${pc(mD)};right:0"><span>MELT</span></div>`;
+    for (let m = 0; m < 7; m++) { const D = Math.round((Date.UTC(sy + (m >= 2 ? 1 : 0), (10 + m) % 12, 1) - CAL_EPOCH) / 864e5); strip += `<div class="tsm" style="left:${pc(D)}"><span>${MON3[(10 + m) % 12].toUpperCase()}</span></div>`; }
+    if (today >= D0 && today < D0 + N) strip += `<div class="tsn" style="left:${pc(today + (GS.hour % 24) / 24)}"><b>TODAY</b></div>`;
+    strip += `</div>`;
+    // the month grid
+    const vm = this.view || { y: c.y, m: c.m }, first = new Date(Date.UTC(vm.y, vm.m, 1)), days = new Date(Date.UTC(vm.y, vm.m + 1, 0)).getUTCDate(), lead = (first.getUTCDay() + 6) % 7;
+    let grid = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => `<div class="tcw">${d}</div>`).join("") + "<div></div>".repeat(lead);
+    for (let d = 1; d <= days; d++) {
+      const D = Math.round((Date.UTC(vm.y, vm.m, d) - CAL_EPOCH) / 864e5), inS = D >= D0 && D < D0 + N;
+      grid += `<div class="tcd${D === today ? " today" : ""}${D < today ? " past" : ""}${inS && pnAt(D) ? " pn" : ""}${inS && meltAt(D) ? " ml" : ""}${!inS ? " off" : ""}"><b>${d}</b>${inS && D >= today && D < today + 3 ? `<i class="fdot" title="Steamer calls"></i>` : ""}</div>`;
+    }
+    const canPrev = vm.m !== 10, canNext = vm.m !== 4;
+    // the next sailings: the steamer's two calls a day, with what the forecast thinks of them
+    const fc = WX.forecast(), sail = [];
+    for (let k = 0; k < 3; k++) {
+      const D = today + k, q = CAL.day(D);
+      for (const s of STEAMER.calls) {
+        const at = (D - CAL.dayIndex()) * 24 + Math.floor(GS.hour / 24) * 24 + s.arr; if (at + 3 < GS.hour) continue;
+        const fd = fc.days.find(x => x.D === D), fs = fd && fd.ferry ? fd.ferry.find(x => x.dir === s.dir) : null;
+        sail.push(`<div class="tfr"><span>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : DOW3[q.dow]}</span><b>${fmtTime(s.arr)}–${fmtTime(s.dep)}</b><i>${s.dir}</i>${fs ? chip(fs.state === "delayed" ? "+" + fs.delay + " H" : fs.state.toUpperCase(), fs.state === "cancelled" ? "due" : fs.state === "delayed" ? "heavy" : "ok") : chip(k ? "NO FORECAST" : "SCHEDULED")}</div>`);
+      }
+    }
+    el.innerHTML = `<div class="tapp tcal">${tabHead("THE SEASON · " + sy + "–" + String(sy + 1).slice(2), "Calendar")}
+      <div class="tsub">${CAL.now().long} · ${CAL.season().name}${pn0 !== null ? ` · polar night ${fmtD(pn0)} to ${fmtD(pn1)}` : ""} · melt from 1 May</div>
+      ${strip}
+      <div class="tcal2"><div><div class="tmh"><button type="button" class="tbtn ghost sm"${canPrev ? ' data-tf="cal:prev"' : " disabled"} id="calPrev">‹</button><b>${MONTHS[vm.m].toUpperCase()} ${vm.y}</b><button type="button" class="tbtn ghost sm"${canNext ? ' data-tf="cal:next"' : " disabled"} id="calNext">›</button></div><div class="tcg">${grid}</div>
+        <div class="tleg">${chip("POLAR NIGHT", "polar")}${chip("MELT", "heavy")}<span class="bchip">• STEAMER</span></div></div>
+      <div>${sec("Ferry days", "the coastal steamer at Kjøllefjord")}${sail.join("")}<p class="tnote2">The steamer calls twice a day. Storms can hold her up or cancel a call; the forecast says how likely that is.</p></div></div></div>`;
+    const step = d => { let m = vm.m + d, y = vm.y; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } this.view = { y, m }; TABLET.render(); };
+    $("calPrev").addEventListener("click", () => canPrev && step(-1)); $("calNext").addEventListener("click", () => canNext && step(1));
+  }
+});
+
+TABLET.register({
+  id: "logbook", name: "Logbook", icon: TICON.logbook, order: 6,
+  render(el) { el.innerHTML = `<div class="tapp">${tabHead("YOUR WINTER", "Logbook")}<div class="tempty">${TICON.logbook}<p>Blank pages for now. The next update writes your winter in here: kilometres ridden, trees flattened, time in the air, and how many times you went into the fjord.</p></div></div>`; }
+});
+
+const STORE = [
+  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", icon: TICON.freight, about: "Sign up for Freight school, earn your heavy-haul licence on the school's sleds, then take trailer and flatbed work from anywhere on the peninsula." },
+  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", icon: TICON.rescue, about: "Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." },
+  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", icon: TICON.realestate, about: "Buy a depot cabin. Tourists rent it while you're out, and it keeps a fuel cache topped up for you." }
+];
+TABLET.register({
+  id: "store", name: "App Store", icon: TICON.store, order: 7,
+  render(el) {
+    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work")}<div class="tstore">${STORE.map(s => `<div class="tsto" data-tf="st:${s.id}"><span class="tic">${s.icon}</span><div><div class="tct"><span>${s.name}</span>${chip("COMING SOON")}</div><div class="tcm">${s.by}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn blocked" disabled>GET</button></div>`).join("")}</div><p class="tnote2">Coming with the next update. Contracts keeps the freight, grooming and call-out work going until then.</p></div>`;
+  }
+});
 
 function gameKey(e) {
   if (GS.dead) return;
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
-  if (e.code === "KeyE" && FOOT.on && !GS.boardOpen && !GS.garageOpen) { footAction(); return; }
+  if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { footAction(); return; }
   if (e.code === "KeyE") { if (!e.repeat) horn(); return; }
-  if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
-  if (e.code === "KeyB") { toggleWx(); return; }                 // B for barometer: the forecast
-  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("wx").hidden) toggleWx(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else if (GS.boardOpen) closeBoard(); else toggleSettings(); }
+  if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
+  if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
+  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyF") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
@@ -4612,7 +5112,6 @@ function buildSettings() {
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
   $("godBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); toggleGod(true); });
   $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyF" }); });
-  $("closeBoard").addEventListener("click", closeBoard);
   $("closeMap").addEventListener("click", () => toggleBigMap(false));
   setTouchUI();
   applySettings();
@@ -4620,7 +5119,7 @@ function buildSettings() {
 function toggleSettings(force) {
   const open = force !== undefined ? force : $("settings").hidden;
   $("settings").hidden = !open;
-  if (open) { $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
+  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
 }
 
 /* ---------------- sleds, parts, gear ---------------- */
@@ -5257,7 +5756,7 @@ function renderEngines(body, row, tryOn) {
       on ? "on" : locked ? "locked" : "", () => fitPart("boost", o.id)), { cat: "boost", id: o.id });
   });
 }
-function openGarage() { GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
+function openGarage() { TABLET.close(true); GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
 function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
   [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"]].forEach(([t, n]) => {
@@ -5342,13 +5841,13 @@ function updSteamer() {
   if (prev === null || !started) return;
   if (prev !== "in" && st.s === "in") {
     steamerHorn();
-    const posted = postSteamerFreight(); if (posted && GS.boardOpen) renderBoard();
-    toast(`The ${st.c.dir} steamer is alongside at Kjøllefjord until ${fmtTime(st.c.dep)}.${posted ? " Fresh freight on the board." : ""}`);
+    const posted = postSteamerFreight(); if (posted) { TABLET.refresh(); TABLET.notify({ app: "parcels", title: "Freight off the steamer", body: "A parcel off the boat is posted in Parcels. Pickup at the quay.", ttl: 7 }); }
+    toast(`The ${st.c.dir} steamer is alongside at Kjøllefjord until ${fmtTime(st.c.dep)}.${posted ? " Fresh freight in Parcels." : ""}`);
   }
   if (prev === "in" && st.s !== "in") {
     steamerHorn();
     const n = GS.jobs ? GS.jobs.filter(j => j.steamer).length : 0;
-    if (n) { GS.jobs = GS.jobs.filter(j => !j.steamer); if (GS.boardOpen) renderBoard(); }
+    if (n) { GS.jobs = GS.jobs.filter(j => !j.steamer); GS.claims = GS.claims.filter(j => !j.steamer); TABLET.refresh(); }
     const missed = GS.load.filter(j => j.boat && GS.hour > j.due).length;
     toast(`The steamer's cast off.${missed ? " Your load for the boat missed her: it goes on the next one, at half pay." : n ? " Her freight went into the shed." : ""}`, missed ? "warn" : undefined);
   }
@@ -5844,6 +6343,15 @@ function applyLoadout() {
   V.guards.forEach(m => m.visible = pr.bars === "guards");
   V.riser.visible = pr.bars !== "stock";
   V.mirrors.visible = ex.includes("mirrors");
+  /* the dash tablet sits above the bar clamp, its arm running down to the clamp on the column */
+  {
+    const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ;
+    V.tab.position.set(0, by + 0.13, bz + 0.13);
+    const k = V.tab.localToWorld ? new THREE.Vector3(0, 0, 0.022).applyEuler(V.tab.rotation).add(V.tab.position) : V.tab.position;
+    const a = new THREE.Vector3(0, by - 0.02, bz + 0.02), d = k.clone().sub(a);
+    V.tabArm.position.copy(a); V.tabArm.scale.set(1, d.length(), 1); V.tabArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    V.tabKnob.position.copy(a);
+  }
   /* shield: stands on this hood, sized by the part fitted (or the machine's own habit) */
   const shieldKind = pr.shield !== "low" ? pr.shield : ex.includes("tallshield") ? "tall" : ex.includes("lowshield") ? "low" : "mid";
   V.shield.visible = !V.headHid;
@@ -6025,6 +6533,7 @@ function updGame(dt, spd) {
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0) { GS.lowWarned = true; toast("Fuel low. Stick to packed trail, it burns less.", "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   if (near && spd < 4 && GS.load.some(j => j.dest === near)) deliver(near);
+  if (near && spd < 4 && GS.claims.length) collectClaims(near);
   if (near && spd < 4 && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (near && spd < 4 && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
@@ -6042,7 +6551,7 @@ function updGame(dt, spd) {
     GS.aurT = 0;
     if (!AUR.on && AUR.v > 0.4) { AUR.on = true; if (!GS.tour) toast(`Aurora over the Nordkinn${AUR.v > 0.6 ? ", and a strong one" : ""}. Tourists are queueing at the quay for a ride up to the viewpoints.`, "good"); }
     else if (AUR.on && AUR.v < 0.2) { AUR.on = false; if (GS.tour) toast("The aurora's fading. Your tourists are getting anxious.", "warn"); }
-    if (tourSync() && GS.boardOpen) renderBoard();
+    if (tourSync()) TABLET.refresh();
   }
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
@@ -6103,10 +6612,13 @@ function updGameHud() {
   } else if (pend) {
     $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
+  } else if (GS.claims.length) {
+    const c = GS.claims[0], f = c.from || depot;
+    $("jobTitle").textContent = `Pick up: ${c.tour ? "tourists" : c.cargo}${GS.claims.length > 1 ? "  (+" + (GS.claims.length - 1) + " more)" : ""}`;
+    $("jobSub").textContent = `Waiting at ${f.name} · ${fmtMi(dist)} · stop there to load`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
-  else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
+  else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
-  if (!$("wx").hidden && (WXP.t += 0.066) > 5) { WXP.t = 0; renderWx(); }
   const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
   updCalHud();
@@ -6202,8 +6714,8 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["B", "Weather forecast"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["D-pad right", "Weather forecast"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "God menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage, or back on the tablet"], ["D-pad up", "Dash tablet (d-pad + A inside it)"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["D-pad right", "Weather, on the tablet"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";
@@ -6219,7 +6731,7 @@ function titlePanel(kind) {
       <div class="pbtns"><button type="button" class="pbtn" data-a="back">KEEP MY SAVE</button><button type="button" class="pbtn go" data-a="wipe">START OVER</button></div>`;
   } else if (kind === "howto") {
     const col = (t, list) => `<div><div class="pl">${t}</div>${list.map(([k, a]) => `<div class="pk"><b>${k}</b><span>${a}</span></div>`).join("")}</div>`;
-    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. GARAGE comes up at the top when you're at the shop, and HORN sits beside BRAKE. When your visor ices over, a WIPE button shows up above HOP.</p>`;
+    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. TABLET at the top dips your head to the dash screen for parcels, the map and the weather (you can still steer). GARAGE comes up at the top when you're at the shop, and HORN sits beside BRAKE. When your visor ices over, a WIPE button shows up above HOP.</p>`;
     label = "How to play";
     h = `<div class="ph"><div><div class="pe">KJØLLEFJORD QUAY</div><div class="pt">How to play</div></div>${x}</div>
       <p>When the road over Ifjordfjellet shuts, everything the Nordkinn needs comes off the coastal steamer at the quay and goes out by sled: to Mehamn and Gamvik on the Barents coast, Lebesby and Ifjord down the fjord, the herders' cabins up on the fell, the light out at Slettnes. Fresh powder drags at your sled and burns fuel. Every trail you cut stays packed, fast and cheap, until new snow buries it. The sun barely clears the hills, the nights are long and the storms come straight off the sea. Keep your tank and your body warm enough to make it back.</p>
@@ -6241,7 +6753,7 @@ function titleBack() {
   TT.mode = "menu"; titleSelect(TT.sel, true);
 }
 function newGame() {
-  GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
+  GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.claims = []; GS.contracts = null; GS.groomJob = null; GS.tour = null; rescueAbort();
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -6528,7 +7040,7 @@ function poseFigure(g, sp, step, crouch, dt) {
 function sledSide() { return [Math.cos(P.yaw), -Math.sin(P.yaw)]; }   // the sled's left
 function dismount() {
   if (!started || GS.dead || FOOT.on || HELP.on) return;
-  if (GS.boardOpen || GS.garageOpen || godOpen) return;
+  if (GS.garageOpen || godOpen) return;
   if (Math.hypot(P.vx, P.vz) > 2.2 || !P.gnd || P.wet) { toast("Stop the sled first.", "warn"); return; }
   const [sx, sz] = sledSide(), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
   FOOT.x = P.x + sx * 1.05 - fx * 0.3; FOOT.z = P.z + sz * 1.05 - fz * 0.3; FOOT.y = surf(FOOT.x, FOOT.z); FOOT.yaw = P.yaw; FOOT.sp = 0; FOOT.on = true;
@@ -6752,7 +7264,7 @@ function startDrown() {
   if (HELP.on) return;
   HELP.on = true; HELP.kind = "sea"; HELP.called = false; HELP.phase = "wait"; HELP.t = 0; HELP.fee = helpCost("sea");
   if (FOOT.on) { FOOT.on = false; FOOT.dig = false; wnStow(false); }
-  P.vx = P.vz = P.vy = 0; closeBoard(); toast("Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
+  P.vx = P.vz = P.vy = 0; TABLET.close(); toast("Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
   whump(1);
   for (let k = 0; k < 60; k++) emit(P.x + (Math.random() - 0.5) * 3, SEA + 0.1, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 3 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.6, 1.4);
 }
@@ -7292,7 +7804,7 @@ function wnPrompt() {
 }
 function updWinchHud() {
   const el = $("wnHud"); if (!el) return;
-  const wd = winchDef(), on = !!WN.show && !GS.dead && !showroomOn() && !GS.boardOpen;
+  const wd = winchDef(), on = !!WN.show && !GS.dead && !showroomOn();
   el.hidden = !on; if (!on) return;
   const hooked = WN.state === "hooked" && wd;
   el.classList.toggle("tense", hooked && WN.tens > 0.85);
@@ -7311,6 +7823,7 @@ function frame(t) {
   if (!ready) return;
   readInput(dt);
   rescueTick(dt);
+  TABLET.step(dt);
   if (started) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
   wnVisual(dt);
@@ -7322,8 +7835,8 @@ function frame(t) {
   flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
+  tabDash(dt); TABLET.place();
   renderer.render(scene, camera);
-  if (GS.boardOpen && (BD.tick = !BD.tick)) ctOverlay(t);          // the chart's moving parts, at half rate
   if (!live) { live = true; document.body.classList.add("live"); }
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
@@ -7358,7 +7871,7 @@ const GOD_ITEMS = [
       else { WX.force = { v: 1, until: GS.hour + 3 }; toast("Storm called in for three hours.", "warn"); }
     } },
   { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
-  { id: "jobs", label: "Fresh jobs on the board", do: () => { makeJobs(depot); makeContracts(depot); if (GS.boardOpen) renderBoard(); toast("New work posted at the quay."); } },
+  { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels and Contracts."); } },
   { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
 ];
 function godTeleport(s) {
@@ -7406,7 +7919,7 @@ function godAdjust(d) { const it = GOD_ITEMS[godSel]; if (it.adjust) { it.adjust
 function toggleGod(force) {
   godOpen = force !== undefined ? force : !godOpen;
   $("god").hidden = !godOpen;
-  if (godOpen) renderGod();
+  if (godOpen) { TABLET.close(true); renderGod(); }
 }
 function godPad(gp, dt) {
   const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ay = gp.axes[1] || 0, ax = gp.axes[0] || 0;
@@ -7442,7 +7955,7 @@ function boot() {
   P.y = surf(P.x, P.z);
   recenter(P.x, P.z, true);
   ready = true;
-  loadSettings(); buildSettings(); buildGarageTabs(); boardPaper(); ctFonts();
+  loadSettings(); buildSettings(); buildGarageTabs(); ctFonts(); setTimeout(() => tabChart(), 2500);
   titleReady();
 }
 requestAnimationFrame(frame);

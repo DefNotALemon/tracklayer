@@ -157,81 +157,6 @@
   .btitle{font-family:var(--display);font-weight:900;font-size:34px;line-height:1}
   .bcash{font-family:var(--display);font-weight:800;font-size:28px;color:#6fd08c;font-variant-numeric:tabular-nums}
   .bsec{margin-top:6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--slate)}
-  /* ---- job board: a survey chart of the Nordkinn ---- */
-  #board{position:fixed;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:rgba(5,9,13,.42)}
-  #bSheet{--bink:#1f1a14;--bink2:#2a2119;--bink3:#4a3d30;--bacc:#e2531f;--bpay:#2e6b3a;position:relative;display:grid;grid-template-columns:var(--bcol,440px) auto;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"head map" "list map";height:calc(var(--bmap,640px) + 30px);max-width:100%;max-height:100%;box-sizing:border-box;background-color:#ede6d3;color:var(--bink);border:1px solid var(--bink);box-shadow:inset 0 0 0 4px #ede6d3,inset 0 0 0 5px var(--bink),0 24px 60px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.3);font-family:var(--body);animation:bIn .3s cubic-bezier(.2,.8,.2,1)}
-  @keyframes bIn{from{opacity:0;transform:translateY(14px)}}
-  #bSheet.stack{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;grid-template-areas:"head" "map" "list";height:auto;width:100%;overflow:auto;overscroll-behavior:contain}
-  .bhdw{grid-area:head;padding:22px 16px 0 24px;min-width:0}
-  .bcol{grid-area:list;min-height:0;min-width:0;overflow:hidden;padding:0 16px 14px 24px;display:flex;flex-direction:column}
-  #boardRows{flex:1 1 auto;min-height:92px;overflow:auto;overscroll-behavior:contain;margin-right:-10px;padding-right:10px;scrollbar-width:thin;scrollbar-color:rgba(31,26,20,.35) transparent;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent 100%)}
-  #bSheet.stack #boardRows{overflow:visible;min-height:0;-webkit-mask-image:none;mask-image:none}
-  #bSheet.stack .brow{scroll-margin-top:calc(var(--bmap) + 30px)}
-  #bSheet.stack .bhdw{padding:18px 14px 0 18px}
-  #bSheet.stack .bcol{overflow:visible;padding:0 14px 14px 18px}
-  .bmapw{grid-area:map;padding:15px 15px 15px 0}
-  #bSheet.stack .bmapw{position:sticky;top:0;z-index:1;padding:10px 12px;justify-self:center;background:#ede6d3}
-  .bmapi{position:relative;width:var(--bmap);height:var(--bmap)}
-  .bmapi canvas{position:absolute;left:0;top:0;display:block}
-  #bOv{cursor:pointer}
-  .bhd{display:flex;align-items:flex-start;gap:12px}
-  .bhd>div:first-child{flex:1;min-width:0}
-  .beye{font-weight:600;font-size:11px;letter-spacing:.2em;color:var(--bink3)}
-  .bti{margin-top:6px;font-family:var(--display);font-weight:900;font-size:46px;line-height:.86;letter-spacing:.01em;white-space:nowrap}
-  .bmoney{margin-top:14px;font-family:var(--display);font-weight:800;font-size:28px;color:var(--bpay);font-variant-numeric:tabular-nums}
-  .bx{width:44px;height:44px;flex:none;margin:-10px -12px 0 -6px;font-size:18px;color:var(--bink3);background:none;border:0;cursor:pointer}
-  .bx:hover{color:var(--bink)}
-  .bx:focus-visible{outline:2px solid var(--bink)}
-  .brank{margin-top:8px;font-family:var(--body);font-style:italic;font-weight:500;font-size:19px;line-height:1.2;color:var(--bink2);text-wrap:balance}
-  .brule{flex:none;height:2px;margin:10px 0 2px;border-top:1px solid var(--bink);border-bottom:1px solid var(--bink)}
-  .bsx{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:10px 0 3px;font-weight:600;font-size:11px;letter-spacing:.2em;color:var(--bink3);text-transform:uppercase}
-  .bsx span:last-child{letter-spacing:.02em;text-transform:none;font-family:var(--body);font-style:italic;font-size:15px;font-weight:500;text-align:right}
-  .bnote{font-family:var(--body);font-style:italic;font-weight:500;font-size:16px;line-height:1.25;color:var(--bink3);padding:2px 8px 5px 38px}
-  .brow{display:grid;grid-template-columns:24px minmax(0,1fr) auto;column-gap:10px;row-gap:1px;align-items:center;width:100%;min-height:46px;box-sizing:border-box;padding:5px 8px 5px 4px;margin:0;border:0;border-top:1px solid transparent;border-bottom:1px solid transparent;background:none;text-align:left;font:inherit;color:var(--bink3);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s}
-  .brow.on{background:rgba(226,83,31,.1);border-color:rgba(226,83,31,.38);color:var(--bink)}
-  .brow:focus,.brow:focus-visible{outline:none}   /* the band marks the focused line */
-  .brow .bk{grid-row:1/3;align-self:center;justify-self:center;min-width:14px;padding:0 3px;font-weight:700;font-size:12px;line-height:16px;text-align:center;color:var(--bink);border:1px solid rgba(31,26,20,.5);border-bottom-width:2px;border-radius:2px}
-  .brow .bc{grid-column:2;font-weight:600;font-size:17px;letter-spacing:.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .brow.on .bc{color:var(--bink)}
-  .brow .bm{grid-column:2;font-family:var(--body);font-style:italic;font-weight:500;font-size:16px;line-height:1.2;color:var(--bink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .brow .bp{grid-column:3;grid-row:1/3;font-family:var(--display);font-weight:800;font-size:21px;color:var(--bpay);font-variant-numeric:tabular-nums}
-  .brow .bp small{font-family:var(--body);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--bink3)}
-  .bchip{display:inline-block;margin-left:7px;padding:0 5px;font-weight:700;font-size:9.5px;line-height:14px;letter-spacing:.14em;vertical-align:2px;border:1px solid currentColor;border-radius:2px;color:#7b6a58}
-  .bchip.heavy{color:#8a5a0c}.bchip.priority,.bchip.due{color:#b8321f}.bchip.expedition{color:#5b3fa0}.bchip.grooming{color:#1f6a8a}.bchip.fragile{color:#9a4a22}.bchip.recovery{color:#b8321f}
-  .brow.locked{opacity:.5;cursor:default}
-  .brow.locked .bp{font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.16em;color:var(--bink3)}
-  .brow.locked .bm{white-space:normal}
-  .brow.nofit .bc{color:var(--bink3)}
-  .gs3{color:#2f7a4a}.gs2{color:#8a6412}.gs1{color:#a0522d}
-  .bdet{flex:none;min-height:104px;padding:8px 2px 2px}
-  .bdet .dl{font-weight:600;font-size:11px;line-height:1.35;letter-spacing:.16em;color:var(--bink3);text-transform:uppercase}
-  .bdet p{margin:5px 0 0;font-family:var(--body);font-weight:500;font-size:17px;line-height:1.28;color:var(--bink2)}
-  .bdet p .why{font-style:italic}
-  .bdet p.warn{color:#a3361b;font-style:italic}
-  .bact{display:flex;align-items:center;gap:12px;margin-top:10px}
-  .bgo{min-height:44px;padding:0 18px;font-family:var(--body);font-weight:700;font-size:14px;letter-spacing:.16em;color:#f4efe3;background:var(--bink);border:1px solid var(--bink);border-radius:1px;cursor:pointer}
-  .bgo:hover{background:#3a3027}
-  .bgo.blocked{color:var(--bink);background:transparent}
-  .bgo.blocked:hover{background:rgba(31,26,20,.07)}
-  .bgo:focus{outline:none}.bgo:focus-visible{outline:2px solid var(--bink);outline-offset:3px}
-  .bact kbd,.bfoot2 kbd{font-family:var(--body);font-weight:700;font-size:11px;letter-spacing:.06em;color:var(--bink);border:1px solid rgba(31,26,20,.5);border-bottom-width:2px;border-radius:2px;padding:0 5px}
-  .bfoot2{flex:none;margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 12px;font-weight:600;font-size:11px;letter-spacing:.14em;color:var(--bink3);text-transform:uppercase}
-  .bfoot2 .tp{display:none}
-  body.touch .bfoot2 .kb,body.touch .bact .kb{display:none}
-  body.touch .bfoot2 .tp{display:inline}
-  .bcall{position:absolute;left:0;top:0;padding:3px 7px 4px;background:#f4efe3;border:1px solid #2a2119;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .35s;z-index:2}
-  .bcall.on{opacity:1}
-  .bcall b{display:block;font-weight:600;font-size:12px;line-height:15px;letter-spacing:.08em;font-variant-numeric:tabular-nums;color:var(--bink)}
-  .bcall i{display:block;font-family:var(--body);font-style:italic;font-weight:500;font-size:14px;line-height:15px;color:#3d3024}
-  @media (max-height:520px){
-    .bhdw{padding-top:12px}.beye{display:none}
-    .bti{font-size:30px;margin-top:0}.bmoney{font-size:22px;margin-top:2px}.brank{font-size:15px;margin-top:3px}
-    .brule{margin:6px 0 2px}.bsx{margin-top:6px}
-    .bdet{min-height:0;padding-top:4px}.bdet p:not(.warn){display:none}
-    .bact{margin-top:6px}.bgo{min-height:40px}.bfoot2{padding-top:6px}
-  }
-  #bSheet.stack .beye span{display:none}
-  @media (max-width:1180px){.beye span{display:none}}
   .bfoot{font-size:12px;color:var(--slate);margin-top:4px}
   .bfoot b{color:var(--frost)}
   #garage{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.94)}
@@ -439,15 +364,6 @@
   .ti .ts{font-family:var(--body);font-style:normal;font-weight:500;font-size:calc(16px*var(--ts))}
   #blackMsg{font-family:var(--body);font-style:normal;font-weight:400;font-size:19px;line-height:1.5;color:var(--frost2)}
   #blackMsg b{font-weight:800}
-  /* job-board copy that used the serif, now the one face */
-  .brank{font-style:normal;font-weight:400;font-size:15px;line-height:1.35;color:var(--frost2)}
-  .bsx span:last-child{font-style:normal;font-weight:400;font-size:12px;letter-spacing:.02em}
-  .bnote,.brow .bm{font-style:normal;font-weight:400;font-size:13px}
-  .bdet p{font-size:15px;line-height:1.4}
-  .bdet p .why,.bdet p.warn{font-style:normal}
-  .bcall i{font-style:normal;font-weight:500;font-size:12px}
-  .beye,.bsx,.bdet .dl,.bfoot2{letter-spacing:.1em}
-  .bti{font-weight:800;font-size:40px;line-height:.95}
   /* big display type everywhere uses the same face at its heaviest */
   .tlogo{font-weight:800;letter-spacing:-.01em;line-height:.84}
   .ti .tl{font-weight:700;letter-spacing:.03em}
@@ -487,14 +403,6 @@
   .bchip,#garageBody .tag{display:inline-block;justify-self:start;padding:0 7px;font-family:var(--body);font-weight:700;font-size:10px;line-height:16px;letter-spacing:.08em;border:1px solid currentColor;border-radius:999px;color:#a9b8c5;vertical-align:2px}
   .bchip.heavy{color:#e8b25a}.bchip.priority,.bchip.due{color:#ff7a5a}.bchip.expedition{color:#b9a2f5}.bchip.grooming{color:var(--ice)}.bchip.fragile{color:#f2a27a}
   .brow .bk,.bact kbd,.bfoot2 kbd,.tkeys kbd{font-family:var(--body);color:var(--frost);background:rgba(234,242,248,.06);border:1px solid rgba(234,242,248,.2);border-bottom-width:2px;border-radius:6px}
-  /* the job board: dark sheet, the survey chart as a rounded paper inset */
-  #board{background:rgba(5,9,13,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
-  #bSheet{--bink:var(--frost);--bink2:var(--frost2);--bink3:var(--slate);--bacc:var(--signal);--bpay:var(--pay);background-color:var(--panel);background-image:none!important;color:var(--frost)}
-  #boardRows{scrollbar-color:rgba(234,242,248,.2) transparent}
-  #bSheet.stack .bmapw{background:var(--panel-solid)}
-  .bmapi{border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(234,242,248,.14),0 14px 36px -10px rgba(0,0,0,.55)}
-  .bcall{--bink:#1f1a14;border-radius:6px;border-color:rgba(42,33,25,.5)}
-  .bdet p.warn{color:var(--bad)}
   .gs3{color:var(--pay)}.gs2{color:var(--warm)}.gs1{color:var(--bad)}
   /* HUD bits */
   .toast{border-radius:10px;box-shadow:0 10px 26px -12px rgba(0,0,0,.5)}
@@ -523,33 +431,163 @@
   #summer .sumc{width:min(460px,calc(100% - 32px));text-align:center;display:grid;gap:10px}
   #summer .sumt{font-weight:800;font-size:44px;line-height:1;color:var(--frost);font-variant-numeric:tabular-nums}
   #summer p{font-style:italic;font-weight:500;font-size:15px;line-height:1.45;color:var(--frost2);margin:0}
-  #wx{position:fixed;z-index:5;right:16px;top:50%;transform:translateY(-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:20px;display:grid;gap:10px;background:var(--panel);border:1px solid rgba(234,242,248,.1);border-radius:var(--r-lg);box-shadow:var(--soft),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);color:var(--frost);overscroll-behavior:contain}
-  #wx:not([hidden]){animation:uiIn .34s var(--ease) both}
-  #wx .wxnow{font-size:13px;letter-spacing:.04em;color:var(--frost2)}
-  #wx .wxnow b{font-weight:700;color:var(--frost)}
-  #wx .wxnow p,#wx .wxnote{font-style:italic;font-weight:500;font-size:14px;line-height:1.45;color:var(--frost2);margin:6px 0 0}
-  #wx .wxnote{color:var(--slate);border-top:1px solid var(--rule);padding-top:10px;margin:0}
-  #wx .wxdays{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  #wx .wxd{display:grid;align-content:start;gap:4px;padding:12px;border-radius:var(--r-md);background:rgba(234,242,248,.04);border:1px solid var(--rule);background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(234,242,248,.035) 23px 24px)}
-  #wx .wxd.bad{border-color:rgba(255,122,90,.35)}
-  #wx .wxh{display:flex;align-items:center;gap:6px}
-  #wx .wxdow{font-weight:700;font-size:11px;letter-spacing:.12em;color:var(--signal)}
-  #wx .wxdt{font-size:12px;color:var(--slate);flex:1}
-  #wx .bchip.conf{color:var(--frost2)}
-  #wx .bchip.ok{color:var(--pay)}
-  #wx .wxg{width:46px;height:44px;color:var(--frost2);margin:2px 0}
-  #wx .wxw{font-weight:800;font-size:20px;line-height:1.05}
-  #wx .wxm{font-size:13px;color:var(--frost2);font-variant-numeric:tabular-nums}
-  #wx .wxf{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center;margin-top:4px;padding-top:6px;border-top:1px solid var(--rule);font-size:12px;color:var(--slate);font-variant-numeric:tabular-nums}
-  #wx .wxa{font-style:italic;font-weight:500;font-size:13px;color:#6ff0b8}
-  #wx .wxa b{font-style:normal;font-weight:700}
-  @media (max-width:640px){#wx{right:50%;transform:translate(50%,-50%)}#wx .wxdays{grid-template-columns:1fr}#wx .wxd{grid-template-columns:auto 1fr;column-gap:12px}#wx .wxd>.wxh,#wx .wxd>.wxf,#wx .wxd>.wxa{grid-column:1/-1}#wx .wxg{grid-row:span 3}}
-  @media (prefers-reduced-motion:reduce){#wx{animation:none!important}}
-  /* phones: under the top bar and clear of the riding buttons, so you can still steer and close it */
-  body.touch #wx{top:calc(64px + env(safe-area-inset-top,0px));bottom:auto;right:50%;transform:translateX(50%);max-height:calc(100% - 64px - 168px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:14px;gap:8px}
-  body.touch #wx .btitle{font-size:22px}
-  body.touch #wx .bhead{padding-bottom:8px}
-  @media (max-width:640px) and (orientation:portrait){body.touch #wx{top:calc(212px + env(safe-area-inset-top,0px));max-height:calc(100% - 212px - 300px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:220px}}
+  /* ==== THE DASH TABLET (winter update O2): replaces the job board. First Light panels, ruled lines, italic notes, chips ====
+     #tabS is the screen at a logical size; JS lays it on the 3D dash glass (matrix3d) or centres it as an overlay. */
+  #tab{position:fixed;left:0;top:0;width:0;height:0;z-index:3}
+  #tabS{position:absolute;left:0;top:0;transform-origin:0 0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;color:var(--frost);font-family:var(--body);font-size:15px;line-height:1.3;
+    background:#0f1a24;background-image:repeating-linear-gradient(0deg,rgba(234,242,248,.025) 0 1px,transparent 1px 28px);border:14px solid #07090b;border-radius:calc(var(--tr,24px) + 14px);box-shadow:var(--soft),0 0 0 2px #2a2e34,0 0 0 3px rgba(234,242,248,.12);
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;backface-visibility:hidden}
+  #tabS.dash{border:0;border-radius:var(--tr,32px);box-shadow:none}
+  /* iPad-style: the overlay wears a black glass bezel and an aluminium edge; the dash version is just the display, its corners matching the 3D glass */
+  .tsbar{display:flex;align-items:center;gap:10px;height:40px;flex:none;padding:0 8px 0 6px;border-bottom:1px solid var(--rule);background:rgba(13,24,34,.7);font-size:13px;font-weight:600;letter-spacing:.08em;white-space:nowrap}
+  .tsbtn{width:34px;height:30px;flex:none;border-radius:999px;border:0;background:none;color:var(--frost2);font:inherit;font-size:20px;line-height:1;cursor:pointer}
+  .tsbtn:hover{background:rgba(234,242,248,.08);color:var(--frost)}
+  #tabS:not(.inapp) #tabBack{display:none}
+  #tabS:not(.inapp) #tabTitle{margin-left:8px}
+  #tabTitle{color:var(--signal);font-weight:700;letter-spacing:.12em}
+  .tsfill{flex:1}
+  #tabDate{color:var(--slate)}#tabClock{font-weight:800;font-size:15px;font-variant-numeric:tabular-nums}#tabCash{color:var(--pay);font-weight:700;font-variant-numeric:tabular-nums}
+  #tabS.small #tabDate,#tabS.small #tabPN{display:none}
+  #tabV{position:relative;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(234,242,248,.2) transparent;padding:14px 18px 18px;touch-action:pan-y}
+  #tabS.small #tabV{padding:10px 12px 14px}
+  #tabS .tfoc{outline:2px solid var(--signal);outline-offset:2px}
+  #tabS .tcard.tfoc,#tabS .tsto.tfoc{outline:none;border-color:var(--bandline);background-color:var(--band)}
+  #tabS .bchip{margin-left:0}
+  .bchip.recovery{color:#ff7a5a}
+  /* home */
+  .thero{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+  .tey{font-weight:700;font-size:11px;letter-spacing:.12em;color:var(--signal)}
+  .tbig{font-weight:800;font-size:46px;line-height:.95;margin-top:4px;font-variant-numeric:tabular-nums}
+  .tsml{color:var(--frost2);font-size:14px;margin-top:2px}
+  .tchips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  #tabS .tnote2{font-style:italic;font-weight:500;color:var(--frost2);font-size:14px;line-height:1.45;margin:10px 0}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:10px;margin:8px 0 6px}
+  .ttile{display:grid;justify-items:center;gap:7px;padding:14px 6px 10px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.04);color:var(--frost);font:inherit;cursor:pointer;transition:background-color .2s var(--ease),transform .15s}
+  .ttile:hover{background:rgba(234,242,248,.08)}.ttile:active{transform:scale(.97)}
+  .ttile.locked{opacity:.45}
+  .tic{position:relative;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(180deg,#1d2c39,#142130);border:1px solid rgba(234,242,248,.12);color:var(--ice)}
+  .tic svg{width:28px;height:28px}
+  .ttile[data-app=parcels] .tic{color:#ff8a3a}.ttile[data-app=weather] .tic{color:var(--warm)}.ttile[data-app=calendar] .tic{color:#9ec9ff}.ttile[data-app=contracts] .tic{color:#e8b25a}.ttile[data-app=logbook] .tic{color:var(--frost2)}.ttile[data-app=store] .tic{color:#6ff0b8}
+  .tbdg{position:absolute;top:-6px;right:-9px;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--signal);color:#fff;font-size:11px;font-weight:700;line-height:19px;box-sizing:border-box;box-shadow:0 0 0 2px #0f1a24}
+  .tnm{font-weight:600;font-size:14px;letter-spacing:.03em}
+  .tsec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--rule);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+  .tsec span:last-child{font-style:italic;font-weight:500;text-transform:none;letter-spacing:.02em;font-size:13px;text-align:right}
+  .tlg{display:grid;grid-template-columns:44px auto minmax(0,1fr);gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--rule);font-size:13px}
+  .tlg span{color:var(--slate);font-variant-numeric:tabular-nums}.tlg i{color:var(--frost2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* app pages */
+  .thd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .tti{font-weight:800;font-size:30px;line-height:1.05;margin-top:2px}
+  .tmoney{font-weight:800;font-size:22px;color:var(--pay);font-variant-numeric:tabular-nums}
+  .tsub{margin-top:4px;color:var(--frost2);font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .tcard{display:grid;grid-template-columns:minmax(120px,30%) minmax(0,1fr);gap:12px;padding:10px;margin-bottom:8px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.035);transition:background-color .2s var(--ease),border-color .2s var(--ease)}
+  .tcard>.tcb:only-child{grid-column:1/-1}
+  .tcard.locked{opacity:.5}
+  #tabS.small .tcard{grid-template-columns:minmax(96px,34%) minmax(0,1fr);gap:9px}
+  .tmini{width:100%;height:100%;min-height:96px;border-radius:8px;display:block;box-shadow:0 0 0 1px rgba(234,242,248,.14);background:#2e4b63}
+  .tct{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-weight:700;font-size:17px;line-height:1.2}
+  .tcm{font-size:13px;color:var(--frost2);margin-top:3px}
+  .tcm .gs3{color:var(--pay)}.tcm .gs2{color:var(--warm)}.tcm .gs1,.tcm .gs0{color:var(--slate)}
+  .tcn{font-style:italic;font-weight:500;font-size:13.5px;color:var(--slate);margin-top:4px;line-height:1.4}
+  .tcn .why{color:var(--frost2)}
+  .tcw{font-style:italic;font-weight:500;color:var(--bad);font-size:13px;margin-top:4px}
+  .tca{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+  .tpay{font-weight:800;font-size:20px;color:var(--pay);font-variant-numeric:tabular-nums}
+  .tbtn{min-height:36px;padding:0 16px;border-radius:var(--r-md);font:inherit;font-weight:700;font-size:13px;letter-spacing:.1em;color:#fff;background:linear-gradient(180deg,#ef6128,#d8491a);border:1px solid transparent;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px -8px rgba(255,90,31,.7);transition:filter .2s,transform .12s}
+  .tbtn:hover{filter:brightness(1.1)}.tbtn:active{transform:scale(.97)}
+  .tbtn.ghost{background:rgba(234,242,248,.07);border-color:var(--rule);color:var(--frost);box-shadow:none}
+  .tbtn.blocked,.tbtn[disabled]{background:transparent;color:var(--slate);border-color:var(--rule);box-shadow:none;cursor:default}
+  .tbtn.sm{min-height:30px;padding:0 12px;font-size:17px;letter-spacing:0}
+  /* map */
+  #tabS[data-app=map] #tabV{overflow:hidden}
+  #tabS[data-app=map] #tabV{padding:8px}
+  .tmap{position:relative;height:100%;min-height:0}
+  .tmapc{position:absolute;inset:0;border-radius:calc(var(--tr,24px) - 6px);overflow:hidden;box-shadow:0 0 0 1px rgba(234,242,248,.14);background:#2e4b63}
+  .tmapc canvas{display:block}
+  .tmtop{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+  .tmtop>*{pointer-events:auto}
+  .tlays{display:flex;flex-wrap:wrap;gap:6px}
+  .tmap .tml,.tmap .tbtn.ghost{background:rgba(13,24,34,.82);backdrop-filter:none}
+  .tmap .tml.on{background:rgba(13,24,34,.92)}
+  .tml{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid var(--rule);background:none;color:var(--slate);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .tml b{color:var(--frost)}
+  .tml.on{color:var(--frost);border-color:rgba(234,242,248,.35);background:rgba(234,242,248,.07)}
+  .tml i.k{width:10px;height:10px;border-radius:50%;opacity:.45}.tml.on i.k{opacity:1}
+  .tml i.del{background:var(--signal)}.tml i.pins{background:#7fc8e0}.tml i.rescue{background:#ff3a1a}.tml i.depots{background:#b9a2f5}
+  .twid{position:absolute;left:10px;bottom:10px;display:grid;grid-template-columns:repeat(3,auto);gap:18px;padding:9px 14px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(13,24,34,.86)}
+  #tabS.small .twid{gap:10px;padding:6px 10px}#tabS.small .twr b{font-size:15px}#tabS.small .twr i{display:none}
+  #tabS.small .tlays{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:4px}#tabS.small .tml{padding:3px 8px;font-size:11.5px;white-space:nowrap}
+  #tabS.small .tmap .tbtn{min-height:28px;padding:0 10px;font-size:11px}#tabS.small .tmtop{top:6px;left:6px;right:6px}#tabS.small .twid{left:6px;bottom:6px}
+  .twr{display:grid;gap:1px;min-width:0}.twr span{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}.twr b{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}.twr i{font-size:12px;color:var(--slate);font-weight:500}
+  /* weather (the old forecast panel's cards) */
+  #tabS .twx .wxnow{font-size:13px;letter-spacing:.04em;color:var(--frost2)}
+  #tabS .twx .wxnow b{font-weight:700;color:var(--frost)}
+  #tabS .twx .wxnow p,#tabS .twx .wxnote{font-style:italic;font-weight:500;font-size:14px;line-height:1.45;color:var(--frost2);margin:6px 0 0}
+  #tabS .twx .wxnote{color:var(--slate);border-top:1px solid var(--rule);padding-top:10px;margin:0}
+  #tabS .twx .wxdays{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  #tabS .twx .wxd{display:grid;align-content:start;gap:4px;padding:12px;border-radius:var(--r-md);background:rgba(234,242,248,.04);border:1px solid var(--rule);background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(234,242,248,.035) 23px 24px)}
+  #tabS .twx .wxd.bad{border-color:rgba(255,122,90,.35)}
+  #tabS .twx .wxh{display:flex;align-items:center;gap:6px}
+  #tabS .twx .wxdow{font-weight:700;font-size:11px;letter-spacing:.12em;color:var(--signal)}
+  #tabS .twx .wxdt{font-size:12px;color:var(--slate);flex:1}
+  #tabS .twx .bchip.conf{color:var(--frost2)}
+  #tabS .twx .bchip.ok{color:var(--pay)}
+  #tabS .twx .wxg{width:46px;height:44px;color:var(--frost2);margin:2px 0}
+  #tabS .twx .wxw{font-weight:800;font-size:20px;line-height:1.05}
+  #tabS .twx .wxm{font-size:13px;color:var(--frost2);font-variant-numeric:tabular-nums}
+  #tabS .twx .wxf{display:grid;grid-template-columns:auto 1fr;gap:3px 6px;align-items:center;margin-top:4px;padding-top:6px;border-top:1px solid var(--rule);font-size:12px;color:var(--slate);font-variant-numeric:tabular-nums}
+  #tabS .twx .wxa{font-style:italic;font-weight:500;font-size:13px;color:#6ff0b8}
+  #tabS .twx .wxa b{font-style:normal;font-weight:700}
+  #tabS .twx .wxnow{margin-top:10px}#tabS .twx .wxdays{margin:12px 0}
+  #tabS.small .twx .wxdays,#tabS.port .twx .wxdays{grid-template-columns:1fr}
+  /* calendar */
+  .tstrip{position:relative;height:42px;margin:14px 0 26px;border-radius:8px;background:rgba(234,242,248,.05);border:1px solid var(--rule)}
+  .tsg{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;letter-spacing:.1em;white-space:nowrap}
+  .tsg.pn{background:rgba(80,130,220,.28);color:#9ec9ff}.tsg.ml{background:rgba(255,194,107,.16);color:var(--warm);border-radius:0 7px 7px 0}
+  .tsm{position:absolute;top:0;bottom:-7px;border-left:1px solid rgba(234,242,248,.18)}
+  .tsm span{position:absolute;bottom:-17px;left:3px;font-size:10px;letter-spacing:.08em;color:var(--slate)}
+  .tsn{position:absolute;top:-5px;bottom:-5px;width:2px;margin-left:-1px;background:var(--signal);box-shadow:0 0 8px var(--signal)}
+  .tsn b{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.1em;color:var(--signal)}
+  .tcal2{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+  #tabS.small .tcal2,#tabS.port .tcal2{grid-template-columns:1fr}
+  .tmh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.tmh b{letter-spacing:.1em;font-size:14px}
+  .tcg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .tcw{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--slate);text-align:center;padding:2px 0}
+  .tcd{position:relative;height:30px;border-radius:6px;display:grid;place-items:center;background:rgba(234,242,248,.04);font-variant-numeric:tabular-nums;font-size:13px}
+  .tcd b{font-weight:600}.tcd.pn{background:rgba(80,130,220,.24);color:#cfe2ff}.tcd.ml{background:rgba(255,194,107,.16)}.tcd.past{opacity:.45}.tcd.off{opacity:.2}
+  .tcd.today{box-shadow:inset 0 0 0 2px var(--signal)}.tcd.today b{font-weight:800}
+  .fdot{position:absolute;bottom:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--ice)}
+  .tleg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .tfr{display:grid;grid-template-columns:70px auto minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule);font-size:13px}
+  .tfr b{font-variant-numeric:tabular-nums}.tfr i{color:var(--slate);font-weight:500}
+  .bchip.ok{color:var(--pay)}
+  /* app store and empty pages */
+  .tstore{display:grid;gap:8px;margin-top:12px}
+  .tsto{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.035)}
+  .tsto .tic{color:#6ff0b8}
+  .tempty{display:grid;justify-items:center;gap:8px;padding:36px 20px;text-align:center;color:var(--slate)}
+  .tempty svg{width:54px;height:54px;color:var(--frost2);opacity:.55}
+  .tempty p{font-style:italic;font-weight:500;font-size:15px;max-width:46ch;line-height:1.5;margin:0}
+  /* notifications: a banner on the HUD when the tablet's down, a drop-down on the screen when it's up */
+  .tban,.tnote{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 8px 10px 12px;border-radius:14px;background:var(--panel);border:1px solid rgba(234,242,248,.12);box-shadow:var(--soft);color:var(--frost);font-family:var(--body)}
+  .tban{position:fixed;z-index:6;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;cursor:pointer;backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);animation:tbanIn .35s var(--ease) both}
+  .tnote{position:absolute;z-index:2;top:48px;left:12px;right:12px;background:#142230;animation:tnoteIn .3s var(--ease) both}
+  .tban.alert,.tnote.alert{border-color:rgba(255,90,31,.75);box-shadow:0 0 0 1px rgba(255,90,31,.35),var(--soft)}
+  .tban.good .tni,.tnote.good .tni{color:var(--pay)}.tban.warn .tni,.tnote.warn .tni{color:var(--warm)}.tban.alert .tni,.tnote.alert .tni{color:var(--signal)}
+  @keyframes tbanIn{from{opacity:0;translate:0 -12px}}@keyframes tnoteIn{from{opacity:0;translate:0 -10px}}
+  .tni{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:#1a2a38;color:var(--ice)}.tni svg{width:22px;height:22px}
+  .tne{display:flex;gap:8px;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:var(--signal)}
+  .tnk{margin-left:auto;color:var(--slate);font-weight:600;letter-spacing:.04em}
+  .tnk kbd{font-family:var(--body);font-weight:700;font-size:10px;padding:0 4px;border:1px solid rgba(234,242,248,.25);border-radius:4px;color:var(--frost)}
+  .tnt{font-weight:700;font-size:15px;margin-top:1px}
+  .tnx{font-style:italic;font-weight:500;font-size:13px;color:var(--frost2);margin-top:2px;line-height:1.35}
+  .tna{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .tnc{border:0;background:none;color:var(--slate);font-size:14px;width:28px;height:28px;border-radius:999px;cursor:pointer}.tnc:hover{color:var(--frost);background:rgba(234,242,248,.08)}
+  body.touch .tban{top:calc(10px + env(safe-area-inset-top,0px))}
+  @media (orientation:portrait){body.touch .tban{left:12px;transform:none;width:calc(100% - 120px)}}
+  /* the ride carries on underneath: the HUD steps back while the tablet's up */
+  #speedo,#zone,#mapWrap,#job,#help{transition:opacity .25s var(--ease)}
+  body.tabOn #speedo,body.tabOn #zone,body.tabOn #mapWrap,body.tabOn #job,body.tabOn #help{opacity:.16}
+  @media (prefers-reduced-motion:reduce){.tban,.tnote,.ttile{animation:none!important;transition:none!important}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -578,40 +616,24 @@
   <svg id="arrow" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2 L20 21 L12 16 L4 21 Z" fill="currentColor"/></svg>
   <div><div id="jobTitle">No cargo</div><div id="jobSub">Head back to the quay</div></div>
 </div>
+<div id="tab" hidden>
+  <div id="tabS" role="dialog" aria-label="Dash tablet">
+    <div class="tsbar">
+      <button type="button" class="tsbtn" id="tabBack" data-tf="__back" aria-label="Back to home">‹</button>
+      <span id="tabTitle">HOME</span><span class="tsfill"></span>
+      <span class="bchip polar" id="tabPN" hidden>POLAR NIGHT ×1.5</span>
+      <span id="tabDate">SUN 1 NOV</span><b id="tabClock">09:36</b><span id="tabCash">$0</span>
+      <button type="button" class="tsbtn" id="tabX" data-tf="__x" aria-label="Put the tablet down">✕</button>
+    </div>
+    <div id="tabNote" class="tnote" hidden></div>
+    <div id="tabV"></div>
+  </div>
+</div>
 <div id="toasts" aria-live="polite"></div>
+<div id="tabBan" class="tban" hidden></div>
 <div id="breathFp" aria-hidden="true"></div>
 <div id="glove" aria-hidden="true"><svg viewBox="0 0 120 150"><defs><linearGradient id="gvL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4452"/><stop offset="1" stop-color="#151a21"/></linearGradient></defs><g fill="url(#gvL)" stroke="rgba(234,242,248,.16)" stroke-width="1.5"><rect x="26" y="26" width="15" height="56" rx="7.5"/><rect x="43" y="14" width="15" height="68" rx="7.5"/><rect x="60" y="20" width="15" height="62" rx="7.5"/><rect x="77" y="32" width="14" height="50" rx="7"/><path d="M26 74 C10 70 4 84 12 96 L28 112 L40 100 Z"/><rect x="24" y="60" width="70" height="62" rx="18"/><rect x="20" y="112" width="78" height="36" rx="10"/></g><rect x="20" y="124" width="78" height="7" fill="#ff5a1f" opacity=".85"/></svg></div>
 <div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p>The snow goes, the fjord boats run, and the sleds sit in the shed under a tarp. You keep everything. See you when it freezes.</p></div></div>
-
-<div id="board" hidden>
-  <div id="bSheet" role="dialog" aria-label="Job board, Kjøllefjord quay">
-    <div class="bhdw">
-      <div class="bhd">
-        <div><div class="beye">KJØLLEFJORD QUAY<span> · 70°56’N 27°21’E</span></div><div class="bti">JOB BOARD</div></div>
-        <div class="bmoney" id="boardCash">$0</div>
-        <button id="closeBoard" class="bx" aria-label="Close job board">✕</button>
-      </div>
-      <div class="brank" id="boardRank"></div>
-      <div class="brule"></div>
-    </div>
-    <div class="bcol">
-      <div id="boardRows"></div>
-      <div class="brule"></div>
-      <div class="bdet" id="boardDetail" aria-live="polite"></div>
-      <div class="bfoot2"><span class="kb"><kbd>↑</kbd> <kbd>↓</kbd> choose</span><span class="kb"><kbd>ENTER</kbd> take it</span><span class="kb"><kbd>1</kbd>–<kbd>3</kbd> parcels, <kbd>4</kbd>+ contracts</span><span class="kb"><kbd>Esc</kbd> close</span><span class="tp">Tap a line to plot it, tap again to take it</span></div>
-    </div>
-    <div class="bmapw"><div class="bmapi">
-      <canvas id="bMap" width="700" height="700" role="img" aria-label="Survey chart of the Nordkinn peninsula with the selected route from Kjøllefjord quay"></canvas>
-      <canvas id="bOv" width="700" height="700" aria-hidden="true"></canvas>
-      <div class="bcall" id="bCall" aria-hidden="true"></div>
-    </div></div>
-  </div>
-</div>
-
-<div class="panel" id="wx" hidden role="dialog" aria-label="Weather forecast">
-  <div class="bhead"><div><div class="brand">MET · NORDKINN</div><div class="btitle">Forecast</div></div><button id="closeWx" class="xbtn" aria-label="Close forecast">✕</button></div>
-  <div id="wxBody"></div>
-</div>
 
 <div class="panel" id="settings" hidden>
   <div class="bhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">Settings</div></div><button id="closeSet" class="xbtn" aria-label="Close settings">✕</button></div>
@@ -678,7 +700,8 @@
   <div><b>Z</b>Wipe frost off your visor</div>
   <div><b>Q</b>Get off / on the sled (when bogged)</div>
   <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
-  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">B</b> Forecast</div>
+  <div><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
+  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
   <div><b>Y</b>God menu</div>
 </div>
@@ -694,7 +717,7 @@
   <div id="tTop">
     <button class="tb" data-k="menu" aria-label="Settings">≡</button>
     <button class="tb" data-k="map">MAP</button>
-    <button class="tb" data-k="wx" aria-label="Weather forecast">WX</button>
+    <button class="tb" data-k="tablet" aria-label="Dash tablet">TABLET</button>
     <button class="tb" data-k="view">CAM</button>
     <button class="tb" data-k="reset" aria-label="Reset sled">↺</button>
     <button class="tb" id="tWing" data-k="wings" hidden>WINGS</button>
@@ -735,5 +758,5 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=29"></script>
+<script src="tracklayer.js?v=30"></script>
 </body></html>

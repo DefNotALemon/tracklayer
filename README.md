@@ -25,17 +25,23 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
-- **E** job board (at the quay) or garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
-- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather forecast · **H** hide help
+- **Tab** dash tablet · **E** horn · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
+- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather (on the tablet) · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** job board, garage, or back · **Menu** settings · **View** reset · **D-pad left** wipe visor · **R3** camera · **D-pad right** forecast · **Y** god menu
+  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
 
-The job board is a survey chart of the Nordkinn drawn from the terrain itself. Pick a parcel
-or contract and it plots the line a courier would ride from the quay — round the fjords, easy
-on the climbs, along trail you've already packed — with the distance by trail and the climb.
-**↑ / ↓** (or the stick) to choose, **Enter** (or **A**) to take it, **1**–**8** for a quick pick.
-On a touch screen, tap a line to plot it and tap it again to take it.
+Work comes in on the **dash tablet**, an iPad-style screen on the bars that shows a live map while
+you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it: the world keeps
+running and you can still steer, you just can't see much trail. In third person it opens as a big
+overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
+**Map** (the survey chart with deliveries, pins, rescues and depots, plus the steamer countdown),
+**Weather**, **Calendar**, **Contracts** (heavy freight, priority, expedition, grooming, tours and
+call-outs, for now), **Logbook** and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
+**A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
+Take a job at the quay and it goes straight on the sled; take it anywhere else and it waits at the
+quay for you. Pings on the dash (with a banner when the tablet's down) tell you when something
+comes up.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee.
@@ -56,7 +62,7 @@ three viewpoints (Finnkirka lookout, Stjernevarden, Ifjordfjellet ridge). They p
 strong the lights are when you get there.
 
 Storms are weather fronts that sweep across the map, so the west coast gets hit before the
-quay. **B** (for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
+quay. The tablet's Weather app (or **B**, for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
 confidence figure and are sometimes wrong. It also shows whether the steamer's calls look
 on time, delayed or cancelled.
 
