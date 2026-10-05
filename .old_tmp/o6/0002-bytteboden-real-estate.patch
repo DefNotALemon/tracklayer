@@ -1,0 +1,1473 @@
+From 164c534dff47b785a4d8a3eea0d2955a805f9829 Mon Sep 17 00:00:00 2001
+From: DefNotALemon <dominicalexander615@icloud.com>
+Date: Mon, 5 Oct 2026 10:44:45 -0400
+Subject: [PATCH 2/2] Bytteboden marketplace and Real Estate depots (winter
+ update O6)
+
+Bytteboden, a used-gear marketplace app: engines, whole sleds, hitch
+receivers, trailers, groomers and ice-fishing rods, reels and augers from
+private sellers round the map. Listings come and go one at a time, each
+with its own lifespan. Used gear is 65-90% condition: a little less
+performance and a reusable WEAR look (faded, chipped, a bit of rust,
+scuff decals and a dent). Haggle with sellers who have personalities,
+inspect in person, or get sold a lemon. Engines are no longer sold at the
+garage: haul one back on a trailer and the shop fits it for labour.
+Trailers and groomers need the new hitch receiver. The Workshop tab
+restores condition; the wear stays.
+
+Real Estate: four depot cabins (two herder cabins, two new lakeside ones)
+with weekly rent from tourists, upgrades, a fuel cache with a weekly bill
+and arrears, summer lets through the summer skip, and the Map's Depots
+layer. Scripts ?v=36.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01P63TQRcpqHQKHbWoH9dUwo
+---
+ README.md     |   31 +-
+ icefish.js    |    4 +-
+ index.html    |   27 +-
+ tracklayer.js | 1001 ++++++++++++++++++++++++++++++++++++++++++-------
+ 4 files changed, 921 insertions(+), 142 deletions(-)
+
+diff --git a/README.md b/README.md
+index 6661f55..9db769f 100644
+--- a/README.md
++++ b/README.md
+@@ -37,7 +37,7 @@ running and you can still steer, you just can't see much trail. In third person
+ overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart),
+ **Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
+ **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
+-you've a winch), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
++you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
+ **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
+ Take a job where it's waiting and it goes straight on the sled; take it anywhere else and you
+ claim it, and it loads when you stop at its **P**. Your first six deliveries are round town, picked
+@@ -56,8 +56,30 @@ yard with anything on it) and stay on the course or the instructor fetches you b
+ is four short missions: hook up a trailer and hold a side-hill, drag 300 kg up the big hill, a
+ timed priority run with a fragile load, and a flatbed expedition loop. Pass them all for your
+ **Freight licence**, which opens heavy, priority and expedition freight in the Freight app (your
+-courier rank still decides which). Aurora tours are posted in Parcels. Rescue school's course and
+-the Real Estate listings come with later updates.
++courier rank still decides which). Aurora tours are posted in Parcels. Rescue school's course
++comes with a later update.
++
++**Real Estate** sells depot cabins: two of the herder cabins and two lakeside cabins, Fjellbu and
++Viddastua. Tourists rent a depot on the nights you're not there, paid every Monday; a stove,
++insulation and a sauna raise the rent. Each depot has a fuel cache: its pump fills you free, and
++the bill (a weekly standing charge plus the litres you took) comes out every Monday. Your depots
++show on the Map's Depots layer, and you can warm up in them.
++
++## Bytteboden: buying used
++
++The tablet's marketplace. Private sellers in the villages, cabins and homes list used engines,
++whole sleds, hitch receivers, trailers, groomers and ice-fishing rods, reels and augers. Listings
++come and go one at a time, each lasting a few days. Used gear is cheaper than new and a bit worn,
++at 65–90% condition, and it looks it: faded paint, chips, a little rust, a dent. Condition costs a
++little performance. Haggle in the listing's chat (some sellers are stubborn, some desperate), and
++stop at the seller's to inspect it before you pay, because about one ad in six is worse than it
++says.
++
++The garage doesn't sell engines any more. Buy one on Bytteboden, haul it home on a trailer, and
++the shop fits it for labour. Trailers and groomers hook straight on if your **hitch receiver**
++takes them (the flatbed and wing tiller need the heavy-duty one). Sleds you ride home, and tackle
++goes in your pack. The garage's **Workshop** tab restores condition for a fee, but the wear marks
++stay. Fishing gear can't be restored.
+ 
+ ## The ferry and the mail
+ 
+@@ -109,7 +131,8 @@ there's a summer montage, then it all freezes over again for the next winter.
+ 
+ ## The hitch and bigger work
+ 
+-The garage sells three tow-behind rigs, one on the hitch at a time:
++The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**
++first ($150, or $380 for the heavy-duty one the flatbed and wing tiller want):
+ 
+ - **Groomer drag** — packs a two-metre lane flat and hard; groomed snow takes three
+   times as long to fill back in. Takes grooming contracts.
+diff --git a/icefish.js b/icefish.js
+index 80fab61..4739a4e 100644
+--- a/icefish.js
++++ b/icefish.js
+@@ -360,6 +360,7 @@ function build() {
+     const knob = new T.Mesh(new T.CylinderGeometry(.006, .006, .014, 8), LM(0x15191c)); knob.rotation.z = Math.PI / 2; knob.position.set(.024, .032, 0); spool.add(knob);
+     const foot = new T.Mesh(new T.BoxGeometry(.008, .03, .012), LM(0x2a2f34)); foot.position.y = .028; reel.add(foot); }
+   reel.visible = false; G.main.add(reel); G.reel = reel;
++  if (H.wear) H.wear(reel, Math.min(.7, (1 - condOf("reel", D.kit.reel)) * 1.25), 11, { decals: false, dents: false });   // a used reel looks it (O6)
+   G.cork = new T.Mesh(new T.CylinderGeometry(.011, .012, .16, 10), LM(0xb88a5a)); G.cork.visible = false; G.main.add(G.cork);
+   G.ripples = [];
+   for (let i = 0; i < 3; i++) { const r = new T.Mesh(new T.RingGeometry(.9, 1, 24), U(new T.MeshBasicMaterial({ color: 0xdcecf2, transparent: true, opacity: 0, depthWrite: false, fog: false }))); r.rotation.x = -Math.PI / 2; r.renderOrder = 9; G.under.add(r); G.ripples.push({ m: r, t: i / 3 }); }
+@@ -520,7 +521,7 @@ function makeAuger(a, wear = 0) {
+   g.userData.spin = spin; g.rotation.order = "YXZ";
+   return g;
+ }
+-function dropObj(o) { if (!o) return; o.parent && o.parent.remove(o); const seen = new Set(); o.traverse(c => { if (c.geometry && !seen.has(c.geometry)) { seen.add(c.geometry); c.geometry.dispose(); } if (c.material && !seen.has(c.material)) { seen.add(c.material); c.material.dispose(); } }); }
++function dropObj(o) { if (!o) return; o.parent && o.parent.remove(o); const seen = new Set(); o.traverse(c => { if (c.geometry && !seen.has(c.geometry)) { seen.add(c.geometry); c.geometry.dispose(); } if (c.material && !seen.has(c.material)) { seen.add(c.material); c.material.dispose(); } if (c.userData && c.userData.wear0) c.userData.wear0.dispose(); }); }
+ function equip(id, quiet) {
+   if (!D.own.auger[id]) return;
+   D.kit.auger = id; const a = kitAug(); S.left = a.cap; S.running = false;
+@@ -528,6 +529,7 @@ function equip(id, quiet) {
+   dropObj(G.augerDrill); dropObj(G.augerCarry);
+   const wear = 1 - condOf("auger", id);
+   G.augerDrill = makeAuger(a, wear); G.augerCarry = makeAuger(a, wear); G.augerDrill.visible = false;
++  if (H.wear && wear > 0) for (const o of [G.augerDrill, G.augerCarry]) H.wear(o, Math.min(.6, wear), 5, { maxDecals: 2, dents: false });   // chips and rust from Bytteboden (O6)
+   G.main.add(G.augerDrill); G.main.add(G.augerCarry);
+   if (!quiet) H.save();
+ }
+diff --git a/index.html b/index.html
+index 78b8f6e..f85799e 100644
+--- a/index.html
++++ b/index.html
+@@ -490,7 +490,7 @@
+   .ttile.locked{opacity:.45}
+   .tic{position:relative;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(180deg,#1d2c39,#142130);border:1px solid rgba(234,242,248,.12);color:var(--ice)}
+   .tic svg{width:28px;height:28px}
+-  .ttile[data-app=parcels] .tic{color:#ff8a3a}.ttile[data-app=weather] .tic{color:var(--warm)}.ttile[data-app=calendar] .tic{color:#9ec9ff}.ttile[data-app=contracts] .tic{color:#e8b25a}.ttile[data-app=logbook] .tic{color:var(--frost2)}.ttile[data-app=store] .tic{color:#6ff0b8}
++  .ttile[data-app=parcels] .tic{color:#ff8a3a}.ttile[data-app=weather] .tic{color:var(--warm)}.ttile[data-app=calendar] .tic{color:#9ec9ff}.ttile[data-app=contracts] .tic{color:#e8b25a}.ttile[data-app=logbook] .tic{color:var(--frost2)}.ttile[data-app=store] .tic{color:#6ff0b8}.ttile[data-app=market] .tic{color:#e8b25a}.ttile[data-app=realestate] .tic{color:#c9a8ff}
+   .tbdg{position:absolute;top:-6px;right:-9px;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--signal);color:#fff;font-size:11px;font-weight:700;line-height:19px;box-sizing:border-box;box-shadow:0 0 0 2px #0f1a24}
+   .tnm{font-weight:600;font-size:14px;letter-spacing:.03em}
+   .tsec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid var(--rule);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate)}
+@@ -597,6 +597,27 @@
+   .tempty{display:grid;justify-items:center;gap:8px;padding:36px 20px;text-align:center;color:var(--slate)}
+   .tempty svg{width:54px;height:54px;color:var(--frost2);opacity:.55}
+   .tempty p{font-style:italic;font-weight:500;font-size:15px;max-width:46ch;line-height:1.5;margin:0}
++  /* Bytteboden (O6): listing cards with a photo, the listing page, the seller thread; Real Estate's upgrade rows */
++  .tmkcats{margin:12px 0 2px;flex-wrap:wrap;gap:6px}
++  .tmkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
++  .tmk{display:grid;grid-template-columns:42% minmax(0,1fr);gap:10px;padding:8px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.035);transition:background-color .2s var(--ease),border-color .2s var(--ease)}
++  #tabS .tmk.tfoc{outline:none;border-color:var(--bandline);background-color:var(--band)}
++  .tmkp{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;box-shadow:0 0 0 1px rgba(234,242,248,.14);background:#2e4b63}
++  .tmkp.big{max-width:300px}
++  .tmkb{display:flex;flex-direction:column;gap:3px;min-width:0}
++  .tmkb .tbtn{margin-top:auto;align-self:flex-start;min-height:30px}
++  .tmkr{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.tmkr s{color:var(--slate);font-size:13px}
++  .tmkt{font-weight:700;font-size:15.5px;line-height:1.2}
++  .tmkc{display:flex;flex-wrap:wrap;gap:4px}
++  .tmkd{display:grid;grid-template-columns:minmax(150px,40%) minmax(0,1fr);gap:14px;margin:10px 0 4px}
++  #tabS.port .tmkd,#tabS.small .tmkd{grid-template-columns:1fr}
++  .tmkth{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow:auto;margin:12px 0 8px;padding:10px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(13,24,34,.45)}
++  .tmkm{max-width:78%;padding:7px 11px;border-radius:14px;font-size:14px;line-height:1.35}
++  .tmkm.them{align-self:flex-start;background:rgba(234,242,248,.09);border-bottom-left-radius:4px}
++  .tmkm.me{align-self:flex-end;background:rgba(255,90,31,.22);border-bottom-right-radius:4px}
++  .tmkm.typing{font-style:italic;color:var(--slate);background:none;padding-left:2px}
++  .tmka{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
++  .treup{grid-template-columns:64px minmax(0,1fr) auto}.treup b{color:var(--pay);font-style:normal}.treup .tcn{display:block;margin-top:2px}
+   /* logbook (S4): a field notebook. Two ruled pages round a spine, an orange margin, italic serif figures, a pencilled remark per stat.
+      The serif and the hand are the Logbook's own; everything else on the tablet stays Barlow. */
+   .tlb{--lbserif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif;--lbhand:"Caveat","Bradley Hand","Segoe Print","Comic Sans MS",cursive}
+@@ -814,6 +835,6 @@
+ </div>
+ 
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+-<script src="icefish.js?v=35"></script>
+-<script src="tracklayer.js?v=35"></script>
++<script src="icefish.js?v=36"></script>
++<script src="tracklayer.js?v=36"></script>
+ </body></html>
+diff --git a/tracklayer.js b/tracklayer.js
+index abbda76..4f531ad 100644
+--- a/tracklayer.js
++++ b/tracklayer.js
+@@ -1965,6 +1965,10 @@ function towSnap() {
+   TOW.y = surf(TOW.x, TOW.z); TOW.spd = 0; TOW.yr = 0; TOW.tipT = 0; TOW.ghostT = 1.5; TOW.snagT = 0;
+ }
+ function bigLoads() { return GS.load.filter(j => j.big); }
++// used rigs (O6): a worn trailer rolls a little sooner, and so does one on a tired receiver; a worn groomer pan leaves lumps
++const tipLim = (kind, H) => H.tip - (1 - condOf("hitch:" + kind)) * 0.25 - (1 - condOf("recv:" + (GS.own.parts.recv || "none"))) * 0.08;
++let GROUGH = 0;
++const lumpAt = (ix, iz) => (((Math.imul(ix >> 1, 73856093) ^ Math.imul(iz >> 2, 19349663)) >>> 0) % 997) / 997;
+ function bigHit(pct, why) {
+   const big = bigLoads(); if (!big.length || !started || GS.dead) return;
+   pct *= 1 - ST.armor;                                  // straps, foam and bumpers
+@@ -1987,7 +1991,7 @@ function groomStamp(x, z, fx, fz, w) {
+       const wc = (1 - sstep(hw - 0.3, hw + 0.15, pa)) * (1 - sstep(0.3, 0.55, Math.abs(pl)));
+       if (wc < 0.02) continue;
+       const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+-      const d = lerp(d0, f * 0.13, wc * 0.6);
++      const d = lerp(d0, f * (0.13 + GROUGH * 0.55 * lumpAt(ix, iz)), wc * 0.6);
+       if (wc > 0.5) { if (!c.g) c.g = new Uint8Array(CH * CH); c.g[k] = 1; }
+       if (Math.abs(d - d0) > 1e-4) { c.d[k] = d; writeCell(ix, iz, d0, d, f); }
+     }
+@@ -2083,7 +2087,7 @@ function towStep(dt) {
+   TOW.score = Math.abs(TOW.roll + lat * 0.9) ;
+   if (TOW.score > TOW.maxScore) TOW.maxScore = TOW.score;
+   if (TOW.tipT > 0) TOW.tipT -= dt;
+-  else if (H.tip < 50 && TOW.spd > 3 && TOW.score > H.tip + (cargoKg ? 0 : 0.35) && P.gnd && started) {
++  else if (H.tip < 50 && TOW.spd > 3 && TOW.score > tipLim(kind, H) + (cargoKg ? 0 : 0.35) && P.gnd && started) {
+     TOW.tipT = 2.4; TOW.tipDir = Math.sign(TOW.roll + lat * 0.9) || 1;
+     P.vx *= 0.5; P.vz *= 0.5; P.shake = Math.max(P.shake, 0.6); thud(1); whump(0.7);
+     for (let k = 0; k < 60; k++) emit(tx + (Math.random() - 0.5) * 2, TOW.y + 0.3, tz + (Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 3, 1 + Math.random() * 2.5, (Math.random() - 0.5) * 3, 0.8, 1.2);
+@@ -2094,6 +2098,7 @@ function towStep(dt) {
+   // it leaves its own mark on the snow
+   if (moving && TOW.tipT <= 0) {
+     if (isGroomer(kind)) {
++      GROUGH = 1 - condOf("hitch:" + kind);
+       groomStamp(tx, tz, fx, fz, W);
+       if (GS.groomJob) groomProgress(tx, tz, W);
+     } else {
+@@ -2216,9 +2221,16 @@ function buildTow() {
+     g = mk("dish"); box(g, 0.7, 0.35, 0.7, wood, 0, 0.18, 0); { const d = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 8, 0, Math.PI * 2, 0, 0.9), std(0xdfe5ea, 0.4, 0.2, { side: THREE.DoubleSide })); d.position.set(0, 0.95, 0.2); d.rotation.x = -1.9; d.castShadow = true; g.add(d); } cyl(g, 0.03, 0.6, steel, 0, 0.6, 0); straps(g, 0.7, 0.36, 0.7);
+     g = mk("bigcrate"); box(g, 1.2, 0.95, 2.5, wood, 0, 0.48, 0); for (const zz of [-1.1, 0, 1.1]) box(g, 1.22, 0.97, 0.08, std(0x6b5234, 0.9), 0, 0.48, zz); box(g, 0.5, 0.3, 0.01, std(0xff5a1f, 0.6), 0.2, 0.6, 1.26); for (const zz of [-0.8, 0.8]) box(g, 1.26, 0.02, 0.07, strap, 0, 0.97, zz);
+     g = mk("turbine"); box(g, 1.0, 0.25, 2.4, wood, 0, 0.13, 0); cyl(g, 0.32, 1.2, std(0xeef2f5, 0.35, 0.2), 0, 0.6, 0.3, Math.PI / 2, 0, 0, 16); { const n = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 8), std(0xeef2f5, 0.35, 0.2)); n.position.set(0, 0.6, 0.95); g.add(n); } for (let i = 0; i < 3; i++) box(g, 0.2, 0.05, 1.3, std(0xeef2f5, 0.35, 0.2), -0.3 + i * 0.3, 0.3 + i * 0.05, -0.6); for (const zz of [-0.7, 0.6]) box(g, 1.04, 0.02, 0.07, strap, 0, 0.94, zz);
++    g = mk("engine"); box(g, 0.9, 0.12, 0.8, wood, 0, 0.06, 0); box(g, 0.56, 0.36, 0.5, std(0x30353b, 0.55, 0.35), 0, 0.32, 0);
++    for (const x of [-0.13, 0.13]) box(g, 0.22, 0.16, 0.4, std(0x3c4249, 0.5, 0.4), x, 0.58, 0);
++    cyl(g, 0.13, 0.06, steel, -0.32, 0.32, 0.05, 0, 0, Math.PI / 2, 14); cyl(g, 0.045, 0.5, steel, 0.36, 0.38, -0.05, 0, 0, 0.6, 8); straps(g, 0.6, 0.66, 0.6);
++    g.userData.engineLook = true;
+     return L;
+   };
+   for (const k of ["trailer", "flatbed"]) V2[k].userData.looks = V2[k].userData.slots.map(looks);
++  for (const k of ["trailer", "flatbed"]) { for (const sl of V2[k].userData.slots) sl.userData.noWear = true; if (V2[k].userData.big) V2[k].userData.big.userData.noWear = true; }
++  // a used engine looks used: every engine look on the trailers gets a light wear pass of its own
++  for (const k of ["trailer", "flatbed"]) for (const L of V2[k].userData.looks) if (L.engine) { L.engine.visible = true; WEAR.apply(L.engine, 0.38, 77, { maxDecals: 3, dents: false }); L.engine.visible = false; }
+   V2.flatbed.userData.bigLooks = looks(V2.flatbed.userData.big);
+   // a hitch receiver on the sled's tail, only when something's hooked up
+   V.hitchBar = new THREE.Group(); sledBody.add(V.hitchBar);
+@@ -2228,7 +2240,7 @@ const _hw = new THREE.Vector3(), _hw2 = new THREE.Vector3();
+ function towVisual(dt) {
+   const kind = PV.cat === "hitch" ? PV.id : GS.own.parts.hitch;
+   for (const k in TOW.vis) TOW.vis[k].visible = k === kind;
+-  if (V.hitchBar) { V.hitchBar.visible = !!HITCH[kind]; V.hitchBar.position.z = -(hitchBack(PV.cat === "rack" ? PV.id : GS.own.parts.rack) - 2.1); }
++  if (V.hitchBar) { V.hitchBar.visible = !!HITCH[kind] || (PV.cat === "recv" ? PV.id : GS.own.parts.recv || "none") !== "none"; V.hitchBar.position.z = -(hitchBack(PV.cat === "rack" ? PV.id : GS.own.parts.rack) - 2.1); }
+   const H = HITCH[kind], g = TOW.vis[kind]; if (!H || !g) return;
+   let x = TOW.x, z = TOW.z, yaw = TOW.yaw;
+   if (kind !== TOW.kind) {                                   // a garage preview: hang it straight off the back
+@@ -3748,12 +3760,13 @@ function computeSites() {
+   const gp = flatSpot(depot.x + 34, depot.z + 4, 18);
+   garageSite.x = gp[0]; garageSite.z = gp[1]; garageSite.y = groundAt(gp[0], gp[1]);
+   SPAWN.x = depot.x; SPAWN.z = depot.z + 6; SPAWN.yaw = Math.PI;
+-  computeSchools();
++  computeSchools(); computeRE();
+ }
+ function nearSite(x, z, r) {
+   return SITES.some(s => s.x !== undefined && (Math.hypot(x - s.x, z - s.z) < Math.max(r, s.clear || 0) || Math.hypot(x - s.x + 11, z - s.z) < r))
+     || STATIONS.some(t => t.x !== undefined && Math.hypot(x - t.x, z - t.z) < Math.max(r, 30))
+-    || schoolList().some(s => s.x !== undefined && Math.hypot(x - s.x, z - (s.z - 4)) < Math.max(r, s.clear));
++    || schoolList().some(s => s.x !== undefined && Math.hypot(x - s.x, z - (s.z - 4)) < Math.max(r, s.clear))
++    || RE_CABINS.some(c => c.built && c.x !== undefined && Math.hypot(x - c.x, z - (c.z - 3)) < Math.max(r, c.clear));
+ }
+ 
+ /* ---------------- fuel: gas stations, cabins that sell it, tips (winter update O3, section 6) ----------------
+@@ -3812,6 +3825,7 @@ function nearestFuel() {
+   return b ? { name: b.name, d: bd, price: b.price } : null;
+ }
+ function fuelSpot() {
++  const rc = reFuelSpot(); if (rc) return rc;                // your own depot's cache comes first (Risfjord sells fuel too)
+   for (const t of STATIONS) if (t.x !== undefined && Math.hypot(P.x - t.x, P.z - t.z) < FUEL.reach) return t;
+   const n = GS.near; return n && n.fuelPrice ? n : null;
+ }
+@@ -3820,7 +3834,8 @@ const FS = { spot: null, L: 0, cost: 0, paid: 0, broke: false };
+ function fuelEnd(why) {
+   const sp = FS.spot; if (!sp) return;
+   const owe = Math.round(FS.cost) - FS.paid; if (owe > 0) GS.cash = Math.max(0, GS.cash - owe);
+-  if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `Pulled off the pump: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
++  if (sp.cache) { if (FS.L >= 0.3) toast(`${why === "full" ? "Tank full" : "Pulled off the pump"}: ${FS.L.toFixed(1)} L from ${sp.name}. It goes on Monday's bill (${fuelFmt(RE_FUEL.perL)}).`, "good"); }
++  else if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `Pulled off the pump: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
+   else if (why === "broke" && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. You can't afford a splash of it.`, "warn");
+   FS.broke = why === "broke";
+   FS.spot = null; FS.L = FS.cost = FS.paid = 0; save();
+@@ -3828,7 +3843,8 @@ function fuelEnd(why) {
+ function fuelStep(dt, spd) {
+   const sp = GS.dead || HELP.on || FOOT.on ? null : fuelSpot(), room = GS.cap - GS.fuel;
+   if (sp && spd < 4 && room > 0.02) {
+-    if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
++    if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke && !sp.cache) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
++    if (sp.cache) { const l = Math.min(FUEL.rate * dt, room); GS.fuel += l; FS.L += l; GS.outWarned = GS.lowWarned = false; const o = GS.re.own[sp.cab.id]; if (o) o.L += l; return; }
+     const want = Math.min(FUEL.rate * dt, room), afford = Math.max(0, (GS.cash - (FS.cost - FS.paid)) / sp.fuelPrice), l = Math.min(want, afford);
+     if (l > 0) {
+       GS.fuel += l; FS.L += l; FS.cost += l * sp.fuelPrice; GS.outWarned = GS.lowWarned = false; FS.broke = false;
+@@ -4550,16 +4566,10 @@ function cargoHit(v) {
+ }
+ function deliver(site) {
+   const crates = GS.load.filter(j => j.crate && j.dest === site);
+-  if (crates.length) {
++  if (crates.length) {                                   // Bytteboden buys: engines on the shelf, receivers bolted on
+     GS.load = GS.load.filter(j => !crates.includes(j));
+-    const sd = sledDef();
+-    for (const j of crates) {
+-      const p = j.crate, d = engDef(p.inst.eid);
+-      GS.own.pickups.splice(GS.own.pickups.indexOf(p), 1);
+-      if (isElectric(sd)) { GS.own.shelf.push(p.inst); toast(`The ${d.name} goes on the shelf. Nowhere to put it in a battery sled.`); }
+-      else { fitEngine(p.inst, sd); toast(`The shop drops the ${d.name} into the ${sd.name}: ${Math.round(p.inst.pwr * 100)}% power.`, "good"); }
+-    }
+-    applyLoadout(); save();
++    for (const j of crates) mktDeliver(j);
++    restat(); applyLoadout(); save();
+   }
+   const here = GS.load.filter(j => j.dest === site);
+   if (!here.length) return;
+@@ -4621,7 +4631,7 @@ function blackout(kind) {
+   // a tow, a blackout or the fjord: whatever you were carrying is gone, and so are the bonds on it
+   const lost = cargo ? (tow ? ` The tow crew only takes you and the sled — your ${cargo} stayed out there.` : ` The ${cargo} didn't make it.`) + (bonds ? ` The shippers keep your $${bonds} in bonds.` : "") : "";
+   GS.cash = Math.max(0, GS.cash - fee);
+-  for (const j of GS.load) if (j.crate) j.crate.aboard = false;   // a paid-for engine isn't lost: it goes back to the seller's shed
++  for (const j of GS.load) if (j.crate) j.crate.state = "wait";   // something bought on Bytteboden isn't lost: it goes back to the seller's shed
+   GS.load = [];
+   GS.jobs = []; GS.contracts = null; GS.claims = [];
+   applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
+@@ -4634,19 +4644,31 @@ function blackout(kind) {
+   }, 1200);
+   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
+ }
+-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, fish: GS.fish || null })); } catch (e) { } }
++function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, fish: GS.fish || null, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
+ addEventListener("pagehide", () => { if (started) save(); });
+ document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
+ function load() {
+   GS.own = OWN0();
++  let d0 = null;
+   try {
+-    const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
++    const d = d0 = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
+     if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; GS.fish = d.fish || null; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
+   } catch (e) { }
+-  migrateEngines();
++  migrateEngines(); migrateO6(d0);
+   restat(); GS.fuel = GS.cap;
+ }
++// O6: Bytteboden and the depots. Old garage pickups become Bytteboden buys; anyone already towing gets a receiver free.
++function migrateO6(d) {
++  const o = GS.own; o.cond = o.cond || {}; o.wear = o.wear || {};
++  mktInit(d && d.mkt); reInit(d && d.re);
++  for (const p of o.pickups || []) { const e = engDef(p.inst.eid); if (e) GS.mkt.held.push({ lid: -(GS.mkt.held.length + 1), cat: "engine", item: e.id, site: p.site, seller: p.inst.seller || "the seller", name: e.name, cond: clamp(p.inst.pwr / e.power, 0.6, 1), adv: clamp(p.inst.pwr / e.power, 0.6, 1), lemon: false, insp: true, paid: 0, hrs: p.inst.hrs, seed: 1, state: "wait" }); }
++  o.pickups = [];
++  if (!o.parts.recv || o.parts.recv === "none") {
++    const po = o.partsOwned, heavy = po["hitch:flatbed"] || po["hitch:tiller"], any = heavy || po["hitch:trailer"] || po["hitch:groomer"] || o.parts.hitch !== "none";
++    if (any && !o.recvGift) { const id = heavy || HEAVY_RIG[o.parts.hitch] ? "heavy" : "ball"; po["recv:" + id] = true; o.parts.recv = id; o.recvGift = 1; }
++  }
++}
+ // saves from before engine swaps: the big-bore kit is refunded, the bolt-on turbo becomes the turbo kit
+ function migrateEngines() {
+   const o = GS.own, po = o.partsOwned;
+@@ -6288,7 +6310,7 @@ function storeGet(id) {
+   const s = STORE.find(x => x.id === id); if (!s || s.builtin || GS.apps[id]) return;
+   if (GS.cash < s.price) { toast(`${s.name} costs $${s.price}. You have $${GS.cash}.`, "warn"); return; }
+   GS.cash -= s.price; GS.apps[id] = 1; tabPing("good"); save();
+-  toast(id === "realestate" ? `Real Estate installed. Listings open with the next update.` : `${s.name} installed. Open it to sign up for ${s.name} school.`, "good");
++  toast(id === "realestate" ? `Real Estate installed. Four depot cabins on the books.` : `${s.name} installed. Open it to sign up for ${s.name} school.`, "good");
+   TABLET.render();
+ }
+ TABLET.register({
+@@ -6434,17 +6456,6 @@ TABLET.register({
+   }
+ });
+ 
+-/* ---- Real Estate: installed now, listings with the Marketplace & Real Estate update ---- */
+-TABLET.register({
+-  id: "realestate", name: "Real Estate", icon: TICON.realestate, order: 8,
+-  hidden: () => !GS.apps.realestate,
+-  render(el) {
+-    el.innerHTML = `<div class="tapp">${tabHead("REAL ESTATE · FINNMARK EIENDOM", "Depot cabins", fmtCash(GS.cash))}
+-      ${sec("Listings", "")}<p class="tnote2">No listings yet. Depot cabins go on sale with the next update: buy one through this app, rent it to tourists while you're out, and keep a fuel cache there that's paid for out of your account every week.</p>
+-      <p class="tnote2">Your depots will show on the Map app's Depots layer.</p></div>`;
+-  }
+-});
+-
+ function gameKey(e) {
+   if (GS.dead) return;
+   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
+@@ -6809,6 +6820,14 @@ const PARTS = {
+       { id: "heavy", name: "Heavy-duty winch, 42 m + snatch block", cost: 2600, tier: 2, stats: { winch: 3, burn: 0.04 }, needRescues: 6, note: "Double the line for twice the pull. Reaches into crevasses. Needs a proven recovery record: 6 rescues." }
+     ]
+   },
++  // the receiver on the tail that a rig hooks to (winter update O6): you need one to tow anything at all
++  recv: {
++    label: "Hitch receiver", options: [
++      { id: "none", name: "No hitch receiver", cost: 0, tier: 0, stats: {}, note: "A bare tunnel. Nothing to hook a rig to." },
++      { id: "ball", name: "Bolt-on hitch receiver", cost: 150, tier: 0, stats: {}, note: "A pintle and a pin on the rear bumper. Tows the freight trailer and the groomer drag." },
++      { id: "heavy", name: "Heavy-duty hitch & safety chains", cost: 380, tier: 1, stats: {}, note: "A frame-mounted receiver with chains. Takes anything: the heavy flatbed and the wing tiller too." }
++    ]
++  },
+   hitch: {
+     label: "Hitch — tow-behind", options: [
+       { id: "none", name: "Empty hitch", cost: 0, tier: 0, stats: {}, note: "Nothing dragging behind you." },
+@@ -6819,7 +6838,7 @@ const PARTS = {
+     ]
+   }
+ };
+-const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "cool", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "hitch"];
++const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "cool", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "recv", "hitch"];
+ 
+ // Rider kit. `warm` is insulation — the high country and storms ask for more of it.
+ const GEAR = {
+@@ -6865,21 +6884,22 @@ const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
+ const OWN0 = () => ({
+   sled: "frontier",
+   sleds: ["frontier"],
+-  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none", cool: "none" },
++  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", recv: "none", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none", cool: "none" },
+   partsOwned: {},
+   gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
+   gearOwned: {},
+   engines: {},          // sled id -> swapped-in engine (missing = the one it came with)
+   shelf: [],            // engines you own that aren't in a sled
+-  pickups: []           // engines paid for and waiting at the seller's
++  pickups: [],          // (old saves) engines paid for in the garage classifieds; now Bytteboden's GS.mkt.held
++  cond: {},             // "sled:id" / "hitch:id" / "recv:id" -> condition 0..1 (missing = 1, new)
++  wear: {}              // same keys -> { s: seed, a: amount } for the used look (WEAR); it stays when the garage restores condition
+ });
+ const sledDef = () => SLEDS.find(s => s.id === GS.own.sled) || SLEDS[0];
+ 
+ /* ---------------- engines: what's for sale up and down the coast ---------------- */
+-// Engines get swapped, not upgraded. Every morning the classifieds turn over: a few used motors
+-// sitting in sheds and boathouses round the Nordkinn, and only ever ones that beat what's in your
+-// sled. Have it brought round on the freight sled for a fee, or ride out and strap the crate on
+-// yourself. `power` is the same scale as a sled's own; used ones lose a little to their hours.
++// Engines get swapped, not upgraded. Since O6 they're bought used on Bytteboden (the marketplace app),
++// hauled back on a trailer, and the garage fits them for labour. `power` is the same scale as a sled's
++// own; a used one loses a little to its condition (condMul).
+ const ENGINES = [
+   { id: "fan340", name: "340 fan-cooled single", power: 1, burn: 1.05, price: 250 },
+   { id: "fan440", name: "440 fan-cooled twin", power: 1.2, burn: 1.05, price: 380 },
+@@ -6904,7 +6924,7 @@ function engineOf(sd) {
+   const inst = GS.own && GS.own.engines && GS.own.engines[sd.id], e = inst && engDef(inst.eid);
+   if (e) return { inst, def: e, name: e.name, pwr: inst.pwr, burn: e.burn, turbo: !!e.turbo, stock: false };
+   const s0 = engDef(STOCK_ENGINE[sd.id]);
+-  return { inst: null, def: s0, name: s0 ? s0.name : "Battery pack", pwr: sd.power, burn: 1, turbo: !!(s0 && s0.turbo), stock: true, electric: !s0 };
++  return { inst: null, def: s0, name: s0 ? s0.name : "Battery pack", pwr: sd.power * condMul(condOf("sled:" + sd.id)), burn: 1, turbo: !!(s0 && s0.turbo), stock: true, electric: !s0 };
+ }
+ // can this forced-induction option run on that engine?
+ function boostWhy(sd, id) {
+@@ -6928,33 +6948,6 @@ const WHY = [
+   "Ran the post route on it for two winters. Oil changed every month.",
+   "Traded for a season of stockfish. Doesn't need it."
+ ];
+-const marketDay = () => Math.floor((GS.hour - 6) / 24);           // the listings turn over at 06:00
+-const freightFee = s => round5(40 + Math.hypot(s.x - garageSite.x, s.z - garageSite.z) * 0.04);
+-function makeMarket() {
+-  const sd = sledDef(), cur = engineOf(sd).pwr;
+-  GS.market = { day: marketDay(), base: cur, list: [] };
+-  if (isElectric(sd)) return;
+-  const spots = SITES.filter(s => s.type === "cabin" && s.x !== undefined);
+-  // mostly the next step or two up, now and then a leap; nothing silly for a first-week courier
+-  const pool = ENGINES.filter(e => e.power * 0.95 > cur + 0.05 && e.power <= cur + 1.0)
+-    .map(e => ({ e, k: (e.power - cur) + Math.random() * 0.6 })).sort((a, b) => a.k - b.k).map(x => x.e);
+-  const n = Math.min(pool.length, 3 + (Math.random() < 0.45 ? 1 : 0));
+-  for (let k = 0; k < n; k++) {
+-    const e = pool[k], wear = Math.random(), site = pick(spots);   // wear 0 = barely run, 1 = tired
+-    GS.market.list.push({
+-      eid: e.id, site: site.id, seller: pick(SELLERS), why: pick(WHY),
+-      hrs: Math.round(lerp(30, 950, wear) / 10) * 10,
+-      pwr: +(e.power * (1 - 0.05 * wear)).toFixed(3),
+-      price: round5(e.price * lerp(1.05, 0.72, wear) * (0.9 + Math.random() * 0.2))
+-    });
+-  }
+-}
+-function marketNow() {
+-  const cur = engineOf(sledDef()).pwr, better = () => GS.market.list.filter(l => l.pwr > cur + 0.02);
+-  // new day, a better engine than the listings were picked for, or nothing left worth showing: ask around again
+-  if (!GS.market || GS.market.day !== marketDay() || cur > GS.market.base + 0.01 || !better().length) makeMarket();
+-  return better();
+-}
+ function checkBoost() {
+   const id = GS.own.parts.boost || "none", why = boostWhy(sledDef(), id);
+   if (!why) return;
+@@ -6967,30 +6960,19 @@ function fitEngine(inst, sd) {
+   if (inst) GS.own.engines[sd.id] = inst; else delete GS.own.engines[sd.id];
+   checkBoost(); restat();
+ }
+-function buyEngine(l, collect) {
+-  const sd = sledDef();
+-  if (isElectric(sd)) { toast("The Aurora runs on a battery. No engine goes in there.", "warn"); return; }
+-  const site = SITES.find(s => s.id === l.site), def = engDef(l.eid), fee = collect ? 0 : freightFee(site), cost = l.price + fee;
+-  if (GS.cash < cost) { toast(`That's $${cost}${fee ? ` with $${fee} freight` : ""}. You have $${GS.cash}.`, "warn"); return; }
+-  GS.cash -= cost; GS.market.list.splice(GS.market.list.indexOf(l), 1);
+-  const inst = { eid: l.eid, pwr: l.pwr, hrs: l.hrs, from: site.name, seller: l.seller };
+-  if (collect) {
+-    GS.own.pickups.push({ inst, site: site.id, aboard: false });
+-    toast(`Paid ${l.seller} $${l.price}. The crate's waiting in ${site.name}: stop at the door and it goes on the rack.`, "good");
+-  } else {
+-    fitEngine(inst, sd);
+-    toast(`The ${def.name} came round from ${site.name} on the freight sled. Fitted: ${Math.round(inst.pwr * 100)}% power.`, "good");
+-  }
+-  renderGarage(); save();
+-}
++// the shop's labour for an engine swap (O6): engines come from Bytteboden now, the garage only fits them
++const fitFee = inst => round5(60 + (engDef(inst.eid) ? engDef(inst.eid).price : 500) * 0.05);
+ function shelfSwap(i) {
+   const sd = sledDef(); if (isElectric(sd)) { toast("No engine goes in a battery sled.", "warn"); return; }
+-  const inst = GS.own.shelf.splice(i, 1)[0]; if (!inst) return;
+-  fitEngine(inst, sd); toast(`Swapped the ${engDef(inst.eid).name} into the ${sd.name}.`, "good"); renderGarage(); save();
++  const inst = GS.own.shelf[i]; if (!inst) return;
++  const fee = fitFee(inst); if (GS.cash < fee) { toast(`Fitting it is ${fmtCash(fee)} labour. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++  GS.own.shelf.splice(i, 1); GS.cash -= fee;
++  fitEngine(inst, sd); toast(`The shop swaps the ${engDef(inst.eid).name} into the ${sd.name}: ${Math.round(inst.pwr * 100)}% power, ${fmtCash(fee)} labour.`, "good"); renderGarage(); save();
+ }
+ function refitStock() {
+-  const sd = sledDef(); fitEngine(null, sd);
+-  toast(`Put the ${sd.name}'s own engine back in.`); renderGarage(); save();
++  const sd = sledDef(), fee = fitFee({ eid: STOCK_ENGINE[sd.id] }); if (GS.cash < fee) { toast(`Refitting it is ${fmtCash(fee)} labour. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++  GS.cash -= fee; fitEngine(null, sd);
++  toast(`Put the ${sd.name}'s own engine back in: ${fmtCash(fee)} labour.`); renderGarage(); save();
+ }
+ const shelfValue = inst => round5(engDef(inst.eid).price * 0.45);
+ function shelfSell(i) {
+@@ -6998,20 +6980,6 @@ function shelfSell(i) {
+   const v = shelfValue(inst); GS.cash += v;
+   toast(`Sold the ${engDef(inst.eid).name} to the shop for $${v}.`, "good"); renderGarage(); save();
+ }
+-// ride up to the seller's door slowly and the crate goes on the rack
+-function collectEngine(site) {
+-  const p = GS.own.pickups.find(q => !q.aboard && q.site === site.id); if (!p) return;
+-  const name = engDef(p.inst.eid).name;
+-  if (smallLoads().length >= ST.slots) {
+-    if (gameClock - (p.nagT || -99) > 10) { p.nagT = gameClock; toast(`The ${name} crate needs a spot on the rack. Drop a parcel off first.`, "warn"); }
+-    return;
+-  }
+-  p.aboard = true;
+-  GS.load.push({ dest: garageSite, cargo: name + " (crate)", crate: p, fragile: false, pay: 0, due: null, hits: 0 });
+-  toast(`${p.inst.seller} helps you strap the ${name} on the rack. Take it to Nordkinn Skuter & Service.`, "good");
+-  applyLoadout(); save();
+-}
+-function pendingPickup() { return GS.own.pickups.find(q => !q.aboard); }
+ const burnTxt = b => b < 0.97 ? `${Math.round((1 - b) * 100)}% thriftier` : b > 1.03 ? `${Math.round((b - 1) * 100)}% thirstier` : "average thirst";
+ const sledTier = () => SLEDS.indexOf(sledDef());
+ buildMachines();
+@@ -7061,6 +7029,8 @@ function fitPart(cat, id) {
+   const o = partDef(cat, id), tierOK = sledTier() >= o.tier;
+   const bw = cat === "boost" ? boostWhy(sledDef(), id) : "";
+   if (bw) { toast(bw, "warn"); return; }
++  if (cat === "hitch" && id !== "none" && !recvOk(id)) { toast(`The ${o.name.toLowerCase()} needs ${recvNeed(id)} first (Hitch receiver, above).`, "warn"); return; }
++  if (cat === "recv" && !recvOk(GS.own.parts.hitch, { parts: Object.assign({}, GS.own.parts, { recv: id }) })) { toast(`The ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()} needs ${recvNeed(GS.own.parts.hitch)}. Unhitch it first.`, "warn"); return; }
+   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
+   if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
+   if (o.needRescues && (GS.rescues || 0) < o.needRescues) { toast(`${o.name}: the dealer wants to see ${o.needRescues} rescues first. You have ${GS.rescues || 0}.`, "warn"); return; }
+@@ -7128,6 +7098,8 @@ function renderGarage() {
+     body.appendChild(note);
+   } else if (garageTab === "engines") {
+     renderEngines(body, row, tryOn);
++  } else if (garageTab === "workshop") {
++    renderWorkshop(body);
+   } else if (garageTab === "parts") {
+     PART_ORDER.filter(c => c !== "boost").forEach(cat => {
+       const h = document.createElement("div"); h.className = "bsec"; h.textContent = PARTS[cat].label; body.appendChild(h);
+@@ -7166,42 +7138,30 @@ function actRow(body, title, sub, acts, tag) {
+ function renderEngines(body, row, tryOn) {
+   const sd = sledDef(), eng = engineOf(sd), sec = t => { const h = document.createElement("div"); h.className = "bsec"; h.textContent = t; body.appendChild(h); };
+   const foot = html => { const n = document.createElement("div"); n.className = "bfoot"; n.innerHTML = html; body.appendChild(n); };
+-  const pct = v => Math.round(v * 100) + "%";
++  const pct = v => Math.round(v * 100) + "%", cnd = c => c !== undefined && c < 0.995 ? ` · ${pct(c)} condition` : "";
+   sec(`In the ${sd.name}`);
+   if (eng.electric) {
+     row(eng.name, "Electric drive. No engine swaps and nothing to boost.", "Fitted", "on", () => { });
+   } else {
+-    row(eng.name, `${pct(eng.pwr)} power · ${burnTxt(eng.burn)}${eng.turbo ? " · factory turbo" : ""}${ST.boost ? ` · ${pct(ST.power)} with everything bolted on` : ""}\n${eng.inst ? `${eng.inst.hrs} h on it · bought off ${eng.inst.seller} in ${eng.inst.from}` : "The motor it left the factory with."}`, "Fitted", "on", () => { });
+-    if (!eng.stock) row(`Stock ${engDef(STOCK_ENGINE[sd.id]).name}`, `${pct(sd.power)} power · the ${sd.name}'s own motor, crated in the shop`, "Refit", "", refitStock);
++    row(eng.name, `${pct(eng.pwr)} power · ${burnTxt(eng.burn)}${eng.turbo ? " · factory turbo" : ""}${eng.inst ? cnd(eng.inst.cond) : cnd(condOf("sled:" + sd.id))}${ST.boost ? ` · ${pct(ST.power)} with everything bolted on` : ""}\n${eng.inst ? `${eng.inst.hrs} h on it · bought off ${eng.inst.seller} in ${eng.inst.from}` : "The motor it left the factory with."}`, "Fitted", "on", () => { });
++    if (!eng.stock) { const fee = fitFee({ eid: STOCK_ENGINE[sd.id] }); actRow(body, `Stock ${engDef(STOCK_ENGINE[sd.id]).name}`, `${pct(sd.power * condMul(condOf("sled:" + sd.id)))} power · the ${sd.name}'s own motor, crated in the shop`, [{ label: `Refit $${fee}`, title: "Labour to swap it back in", fn: refitStock }]); }
+   }
+-  // paid for and still out there
+-  for (const p of GS.own.pickups) {
+-    const site = SITES.find(s => s.id === p.site), d = engDef(p.inst.eid);
+-    row(d.name, `${pct(p.inst.pwr)} power · paid for · ${p.aboard ? "on your rack, bring it here" : `waiting at ${p.inst.seller}'s in ${site.name}, ${fmtMi(Math.hypot(site.x - garageSite.x, site.z - garageSite.z))} out`}`, p.aboard ? "Aboard" : "Collect", "locked", null, "PAID");
++  // paid for on Bytteboden and still out at the seller's (or on the trailer)
++  const held = GS.mkt ? GS.mkt.held.filter(h => h.cat === "engine") : [];
++  if (held.length) {
++    sec("Bought on Bytteboden");
++    for (const h of held) { const site = SITES.find(s => s.id === h.site); row(h.name, `${h.insp ? pct(h.cond) : pct(h.adv) + "?"} condition · paid ${fmtCash(h.paid)} · ${h.state === "aboard" ? "on your trailer, bring it here" : `waiting at ${h.seller}'s in ${shortName(site)}, ${fmtMi(Math.hypot(site.x - garageSite.x, site.z - garageSite.z))} out. Bring a trailer.`}`, h.state === "aboard" ? "Aboard" : "Collect", "locked", null, "PAID"); }
+   }
+   if (GS.own.shelf.length) {
+     sec("On the shelf");
+     GS.own.shelf.forEach((inst, i) => {
+       const d = engDef(inst.eid);
+-      actRow(body, d.name, `${pct(inst.pwr)} power · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""} · ${inst.hrs} h`,
+-        [{ label: "Swap in", fn: () => shelfSwap(i), dis: eng.electric }, { label: `Sell $${shelfValue(inst)}`, fn: () => shelfSell(i) }]);
++      actRow(body, d.name, `${pct(inst.pwr)} power${cnd(inst.cond)} · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""} · ${inst.hrs} h`,
++        [{ label: `Fit $${fitFee(inst)}`, title: "Labour to swap it in", fn: () => shelfSwap(i), dis: eng.electric }, { label: `Sell $${shelfValue(inst)}`, fn: () => shelfSell(i) }]);
+     });
+   }
+-  sec("For sale round the Nordkinn");
+-  const list = eng.electric ? [] : marketNow();
+-  if (eng.electric) foot("Nobody up here sells battery packs. The shop sends to Tromsø for those.");
+-  else if (!list.length) foot(`Nothing for sale on the peninsula today that beats the ${eng.name}. New listings every morning at 06:00.`);
+-  else {
+-    list.forEach(l => {
+-      const d = engDef(l.eid), site = SITES.find(s => s.id === l.site), fee = freightFee(site);
+-      const dist = fmtMi(Math.hypot(site.x - garageSite.x, site.z - garageSite.z));
+-      actRow(body, d.name, `${pct(l.pwr)} power (+${Math.round((l.pwr / eng.pwr - 1) * 100)}%) · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""} · ${l.hrs} h\n${l.seller}, ${site.name} · ${dist} out\n“${l.why}”`,
+-        [{ label: `Ship $${l.price + fee}`, title: `$${l.price} + $${fee} on the freight sled, fitted today`, fn: () => buyEngine(l, false) },
+-         { label: `Collect $${l.price}`, title: `Ride to ${site.name} and bring the crate back yourself`, fn: () => buyEngine(l, true) }],
+-        d.turbo ? "TURBO" : "");
+-    });
+-    foot(`Ship it and the freight sled brings it round today, or pay the seller and collect the crate yourself (it takes a spot on the rack). Listings turn over at 06:00.`);
+-  }
++  sec("Buying an engine");
++  foot(eng.electric ? "Nobody up here sells battery packs. The shop sends to Tromsø for those." : "The shop doesn't sell engines any more. Private sellers list used ones on <b>Bytteboden</b> (the tablet). Pay, haul the engine back here on a trailer, and we'll fit it for labour. Worn ones can be restored in the Workshop tab.");
+   sec(PARTS.boost.label);
+   PARTS.boost.options.forEach(o => {
+     const owned = GS.own.partsOwned[ownKey("boost", o.id)] || o.cost === 0, on = (GS.own.parts.boost || "none") === o.id;
+@@ -7211,10 +7171,30 @@ function renderEngines(body, row, tryOn) {
+       on ? "on" : locked ? "locked" : "", () => fitPart("boost", o.id)), { cat: "boost", id: o.id });
+   });
+ }
++// the Workshop (O6): restore a used machine's condition for a fee. The scuffs and the faded paint stay; fishing gear can't be restored.
++function restoreList() {
++  const o = GS.own, out = [];
++  for (const id of o.sleds) { const c = condOf("sled:" + id); if (c < 0.995) { const s = SLEDS.find(x => x.id === id); out.push({ name: s.name, c, fee: round5((1 - c) * Math.max(s.cost, 800) * 0.55), sub: "the chassis, the track and its own motor", fix: () => { o.cond["sled:" + id] = 1; } }); } }
++  const insts = []; for (const k in o.engines) if (o.engines[k]) insts.push([o.engines[k], "in the " + (SLEDS.find(s => s.id === k) || {}).name]); for (const q of o.shelf) insts.push([q, "on the shelf"]);
++  for (const [q, where] of insts) { if (q.cond === undefined || q.cond >= 0.995) continue; const d = engDef(q.eid); out.push({ name: d.name, c: q.cond, fee: round5((1 - q.cond) * d.price * 0.7), sub: `rebuilt top end · ${where}`, fix: () => { q.cond = 1; q.pwr = +(q.base || d.power).toFixed(3); } }); }
++  for (const cat of ["hitch", "recv"]) for (const op of PARTS[cat].options) { const k = cat + ":" + op.id, c = condOf(k); if (op.cost && o.partsOwned[k] && c < 0.995) out.push({ name: op.name, c, fee: round5((1 - c) * op.cost * 0.6), sub: cat === "hitch" ? (op.id === "groomer" || op.id === "tiller" ? "new comb and a flat pan" : "straightened runners, new tongue bushes") : "new pin and bushes", fix: () => { o.cond[k] = 1; } }); }
++  return out;
++}
++function renderWorkshop(body) {
++  const foot = html => { const n = document.createElement("div"); n.className = "bfoot"; n.innerHTML = html; body.appendChild(n); };
++  const h = document.createElement("div"); h.className = "bsec"; h.textContent = "Restore condition"; body.appendChild(h);
++  const list = restoreList();
++  if (!list.length) foot("Everything you own is in good order. Used gear from Bytteboden comes in at 65–90%: bring it here to put it right.");
++  for (const r of list) actRow(body, r.name, `${Math.round(r.c * 100)}% condition → 100% · ${r.sub}`, [{ label: `Restore $${r.fee}`, fn: () => {
++    if (GS.cash < r.fee) { toast(`That's ${fmtCash(r.fee)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++    GS.cash -= r.fee; r.fix(); restat(); renderGarage(); save(); toast(`${r.name} restored to full condition. The scuffs stay: it's had a life.`, "good");
++  } }]);
++  foot("Restoring buys back the performance. It doesn't repaint anything: the wear marks on used machines are there for good. Ice-fishing tackle can't be restored.");
++}
+ function openGarage() { TABLET.close(true); GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
+ function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
+ function buildGarageTabs() {
+-  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"]].forEach(([t, n]) => {
++  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"]].forEach(([t, n]) => {
+     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
+     b.addEventListener("click", () => { garageTab = t; renderGarage(); });
+     $("garageTabs").appendChild(b);
+@@ -7222,6 +7202,753 @@ function buildGarageTabs() {
+   $("closeGarage").addEventListener("click", closeGarage);
+ }
+ 
++/* ---------------- wear: a used look for anything (winter update O6, the Marketplace) ----------------
++   WEAR.apply(root, amt 0..1, seed, opt) gives any model a second-hand look without a second model:
++   - every lit material under `root` is swapped for a clone with a small shader patch (WEAR_GLSL): the paint fades
++     and goes blotchy, chips through to primer or dark metal here and there, picks up grime, and metal (and greyish
++     paint) grows rust spots; the finish goes rougher. All of it is object-space noise, so it sits still on a moving sled.
++   - a few decal-style scuff marks (scratches, a scrape, chips, a rust streak) are raycast onto the outside of the model
++   - one or two dents are pushed into the biggest panel (a cloned geometry; the original is kept).
++   amt 0 (or WEAR.remove) restores everything. Subtrees with userData.noWear are left alone (a trailer's cargo).
++   The clones follow their source's colour every frame, so a livery repaint still shows through the wear.
++   amt is what wearAmt(condition) gives: 65% condition is about 0.44, 90% about 0.12. Keep it subtle: used, not junk. */
++const WEAR_GLSL = {
++  head: `
++uniform float uWear; uniform float uRust; uniform vec3 uWSeed; uniform vec3 uChipCol;
++varying vec3 vWP;
++float wh3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
++float wn3(vec3 x) {
++  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
++  return mix(mix(mix(wh3(i), wh3(i + vec3(1, 0, 0)), f.x), mix(wh3(i + vec3(0, 1, 0)), wh3(i + vec3(1, 1, 0)), f.x), f.y),
++             mix(mix(wh3(i + vec3(0, 0, 1)), wh3(i + vec3(1, 0, 1)), f.x), mix(wh3(i + vec3(0, 1, 1)), wh3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
++}`,
++  color: `
++  vec3 wp = vWP + uWSeed;
++  float wFade = wn3(wp * 2.2), wGrime = wn3(wp * 37.0), wChipN = wn3(wp * 19.0) * 0.6 + wn3(wp * 47.0) * 0.4;
++  float wL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
++  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(wL) * 1.04 + 0.02, uWear * (0.16 + 0.36 * wFade));       // sun-faded, a little blotchy
++  diffuseColor.rgb *= 1.0 - uWear * 0.16 * wGrime;                                                      // grime in the grain
++  float wChip = smoothstep(0.85 - uWear * 0.1, 0.87 - uWear * 0.1, wChipN);
++  diffuseColor.rgb = mix(diffuseColor.rgb, uChipCol * (0.85 + 0.3 * wGrime), wChip * 0.85);             // small paint chips
++  float wRust = smoothstep(0.8 - uWear * 0.12, 0.88 - uWear * 0.12, wn3(wp * 23.0 + 3.3) * 0.7 + wn3(wp * 6.0) * 0.3) * uRust * min(1.0, uWear * 2.5);
++  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.43, 0.22, 0.1) * (0.75 + 0.5 * wGrime), wRust * 0.7);   // a bit of rust`,
++  rough: `
++  roughnessFactor = clamp(roughnessFactor + uWear * 0.18 + wRust * 0.3 + wChip * 0.1, 0.0, 1.0);`,
++  metal: `
++  metalnessFactor *= 1.0 - wRust * 0.9;`
++};
++const WEAR = (() => {
++  const patch = sh => {
++    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWP;").replace("#include <begin_vertex>", "#include <begin_vertex>\nvWP = position;");
++    let f = sh.fragmentShader.replace("#include <common>", "#include <common>\n" + WEAR_GLSL.head).replace("#include <color_fragment>", "#include <color_fragment>\n" + WEAR_GLSL.color);
++    if (f.includes("#include <roughnessmap_fragment>")) f = f.replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n" + WEAR_GLSL.rough);
++    if (f.includes("#include <metalnessmap_fragment>")) f = f.replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n" + WEAR_GLSL.metal);
++    sh.fragmentShader = f;
++  };
++  const lit = m => m && (m.isMeshStandardMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial) && !m.transparent;
++  function wornMat(src, amt, seed) {
++    const m = src.clone(), hsl = {}; src.color.getHSL(hsl);
++    // metal rusts; grey and black paint shows a little; bright paint chips to primer, dark parts to bare steel
++    const rust = src.metalness > 0.3 ? 1 : hsl.s < 0.18 ? 0.55 : 0.25;
++    const u = { uWear: { value: amt }, uRust: { value: rust }, uWSeed: { value: new THREE.Vector3(seed * 3.1 % 97, seed * 7.3 % 89, seed * 1.7 % 83) },
++      uChipCol: { value: new THREE.Color(hsl.l > 0.35 ? 0x8a8e90 : 0x5e6468) } };
++    m.onBeforeCompile = sh => { Object.assign(sh.uniforms, u); patch(sh); };
++    m.customProgramCacheKey = () => "wear1";
++    m.userData = { wearU: u };
++    return m;
++  }
++  function syncW() { const w = this.material, s = this.userData.wear0; if (w && s && w !== s) { w.color.copy(s.color); if (w.emissive && s.emissive) w.emissive.copy(s.emissive); } }
++  // the scuff atlas: scratches, a scrape, a chip cluster, a rust streak (2 x 2 on one canvas)
++  let decalMats = null;
++  function atlas() {
++    if (decalMats) return decalMats;
++    const cv = document.createElement("canvas"); cv.width = cv.height = 256; const g = cv.getContext("2d"), r = mulberry32(4242);
++    g.lineCap = "round";
++    for (let i = 0; i < 9; i++) { const a = -0.5 + r() * 0.35, x = 14 + r() * 80, y = 20 + r() * 90, L = 30 + r() * 60; g.strokeStyle = `rgba(${200 + r() * 40},${200 + r() * 40},${205 + r() * 40},${0.35 + r() * 0.35})`; g.lineWidth = 0.6 + r() * 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }
++    { const gr = g.createRadialGradient(192, 64, 4, 192, 64, 54); gr.addColorStop(0, "rgba(70,62,52,.55)"); gr.addColorStop(1, "rgba(70,62,52,0)"); g.fillStyle = gr; g.fillRect(128, 0, 128, 128);
++      for (let i = 0; i < 22; i++) { g.strokeStyle = `rgba(40,36,30,${0.2 + r() * 0.3})`; g.lineWidth = 1 + r() * 2; const y = 30 + r() * 70; g.beginPath(); g.moveTo(150 + r() * 10, y); g.lineTo(230 - r() * 10, y + (r() - 0.5) * 8); g.stroke(); } }
++    for (let i = 0; i < 14; i++) { const x = 20 + r() * 88, y = 150 + r() * 88, s = 2 + r() * 7; g.fillStyle = r() < 0.5 ? "rgba(132,136,138,.9)" : "rgba(52,56,60,.9)"; g.beginPath(); for (let k = 0; k < 6; k++) { const a = k / 6 * 6.283, q = s * (0.5 + r() * 0.7); g[k ? "lineTo" : "moveTo"](x + Math.cos(a) * q, y + Math.sin(a) * q); } g.closePath(); g.fill(); }
++    for (let i = 0; i < 7; i++) { const x = 170 + r() * 44, gr = g.createLinearGradient(0, 140, 0, 250); gr.addColorStop(0, "rgba(120,58,22,.75)"); gr.addColorStop(1, "rgba(120,58,22,0)"); g.fillStyle = gr; g.fillRect(x, 140 + r() * 20, 2 + r() * 5, 60 + r() * 50); }
++    { const gr = g.createRadialGradient(192, 150, 2, 192, 150, 26); gr.addColorStop(0, "rgba(110,52,20,.85)"); gr.addColorStop(1, "rgba(110,52,20,0)"); g.fillStyle = gr; g.fillRect(150, 128, 90, 60); }
++    const base = new THREE.CanvasTexture(cv);
++    decalMats = [[0, 0.5], [0.5, 0.5], [0, 0], [0.5, 0]].map(([u, v]) => {
++      const t = base.clone(); t.needsUpdate = true; t.repeat.set(0.5, 0.5); t.offset.set(u, v);
++      return new THREE.MeshLambertMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
++    });
++    return decalMats;
++  }
++  const plane = new THREE.PlaneGeometry(1, 1), rc = new THREE.Raycaster(), _v = new THREE.Vector3(), _n = new THREE.Vector3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
++  const shown = (o, root) => { for (let q = o; q && q !== root; q = q.parent) if (!q.visible) return false; return true; };
++  function meshesOf(root) {
++    const out = [];
++    (function walk(o) { if (o.userData.noWear || o.userData.wearDecal) return; if (o.isMesh && !o.isInstancedMesh && lit(o.material)) out.push(o); for (const c of o.children) walk(c); })(root);
++    return out;
++  }
++  function decals(root, meshes, amt, rnd, opt) {
++    const vis = meshes.filter(m => shown(m, root)); if (!vis.length) return;
++    root.updateMatrixWorld(true);
++    const box = new THREE.Box3(); for (const m of vis) box.expandByObject(m);
++    box.getCenter(_c); box.getSize(_s); const diag = _s.length(); if (!(diag > 0.05)) return;
++    const n = Math.min(opt.maxDecals || 6, Math.round(2 + amt * 9)), mats = atlas(), sz = clamp(diag / 3, 0.35, 1.4);
++    let made = 0;
++    for (let t = 0; t < n * 8 && made < n; t++) {
++      const a = rnd() * 6.283, y = -0.15 + rnd() * 0.75, h = Math.sqrt(1 - y * y), dir = _v.set(Math.cos(a) * h, y, Math.sin(a) * h);
++      rc.set(_n.copy(_c).addScaledVector(dir, diag), dir.clone().negate()); rc.far = diag * 2;
++      const hit = rc.intersectObjects(vis, false)[0]; if (!hit || !hit.face) continue;
++      const nw = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
++      if (nw.dot(dir) < 0.35) continue;
++      const k = (rnd() * (amt > 0.3 ? 4 : 3)) | 0;                       // rust streaks only on the tireder ones
++      const d = new THREE.Mesh(plane, mats[k]); d.userData.wearDecal = true; d.castShadow = false; d.renderOrder = 2;
++      d.position.copy(hit.point).addScaledVector(nw, 0.004); d.lookAt(_n.copy(hit.point).add(nw)); d.rotateZ(rnd() * 6.283);
++      d.scale.setScalar((0.07 + rnd() * 0.1) * sz * (k === 1 ? 1.4 : 1)); d.updateMatrix();
++      root.attach(d); root.userData.wearDecals.push(d); made++;
++    }
++  }
++  function dent(root, meshes, amt, rnd) {
++    let best = null, bs = 0;
++    for (const m of meshes) { const g = m.geometry; if (!g || !g.attributes.position || g.attributes.position.count < 24) continue; if (!g.boundingSphere) g.computeBoundingSphere(); const s = g.boundingSphere.radius * m.getWorldScale(_s).x; if (s > bs) { bs = s; best = m; } }
++    if (!best) return;
++    const g0 = best.geometry, g = g0.clone(); if (!g.attributes.normal) g.computeVertexNormals();
++    const P = g.attributes.position, N = g.attributes.normal, R = g0.boundingSphere.radius * 0.22;
++    for (let k = 0; k < (amt > 0.3 ? 2 : 1); k++) {
++      const i = (rnd() * P.count) | 0, cx = P.getX(i), cy = P.getY(i), cz = P.getZ(i), depth = R * (0.07 + 0.08 * Math.min(1, amt * 2));
++      for (let j = 0; j < P.count; j++) {
++        const d = Math.hypot(P.getX(j) - cx, P.getY(j) - cy, P.getZ(j) - cz); if (d >= R) continue;
++        const f = (1 - d / R) ** 2 * depth;
++        P.setXYZ(j, P.getX(j) - N.getX(j) * f, P.getY(j) - N.getY(j) * f, P.getZ(j) - N.getZ(j) * f);
++      }
++    }
++    P.needsUpdate = true; g.computeVertexNormals();
++    best.userData.geo0 = g0; best.geometry = g; root.userData.wearDent = best;
++  }
++  function remove(root) {
++    if (!root || !root.userData.wearKey) return;
++    root.traverse(o => { if (o.userData.wear0) { o.material = o.userData.wear0; delete o.userData.wear0; delete o.onBeforeRender; } });
++    for (const d of root.userData.wearDecals || []) if (d.parent) d.parent.remove(d);
++    const dm = root.userData.wearDent; if (dm && dm.userData.geo0) { dm.geometry.dispose(); dm.geometry = dm.userData.geo0; delete dm.userData.geo0; }
++    for (const m of root.userData.wearMats || []) m.dispose();
++    root.userData.wearKey = null; root.userData.wearDecals = []; root.userData.wearMats = []; root.userData.wearDent = null;
++  }
++  function apply(root, amt, seed = 1, opt = {}) {
++    if (!root) return;
++    amt = clamp(+amt || 0, 0, 1);
++    const key = amt > 0.005 ? amt.toFixed(3) + ":" + seed : null;
++    if ((root.userData.wearKey || null) === key) return;
++    remove(root); if (!key) return;
++    const rnd = mulberry32((seed * 2654435761) | 0), meshes = meshesOf(root), cache = new Map();
++    root.userData.wearKey = key; root.userData.wearDecals = [];
++    for (const m of meshes) {
++      const src = m.material; let w = cache.get(src);
++      if (!w) { w = wornMat(src, amt, 1 + rnd() * 50); cache.set(src, w); }
++      m.userData.wear0 = src; m.material = w; m.onBeforeRender = syncW;
++    }
++    root.userData.wearMats = [...cache.values()];
++    if (opt.decals !== false) decals(root, meshes, amt, rnd, opt);
++    if (opt.dents !== false && amt > 0.12) dent(root, meshes, amt, rnd);
++  }
++  return { apply, remove };
++})();
++// condition 0..1 → how hard the wear look goes on, and → power (an engine at 65% keeps about 91%)
++const wearAmt = c => clamp((1 - c) * 1.25, 0, 0.7);
++const condMul = c => 1 - (1 - clamp(c, 0, 1)) * 0.25;
++// what you own, even while a school sled is under you
++const myOwn = () => SCHOOL.saved || GS.own;
++const condOf = (key, own = GS.own) => { const v = own && own.cond && own.cond[key]; return typeof v === "number" ? v : 1; };
++const pctC = c => Math.round(c * 100) + "%";
++// keep the wear on whatever's shown: the machines (one per sled model) and the tow rigs
++function wearSync() {
++  if (!V.machines) return;
++  const w = (GS.own && GS.own.wear) || {};
++  for (const id in V.machines) { const q = w["sled:" + id]; WEAR.apply(V.machines[id], q ? q.a : 0, q ? q.s : 1); }
++  for (const k in TOW.vis) { const q = w["hitch:" + k]; WEAR.apply(TOW.vis[k], q ? q.a : 0, q ? q.s : 1, { maxDecals: 5 }); }
++}
++
++/* ---------------- Bytteboden: the marketplace app (winter update O6, phase 5) ----------------
++   A parody of a classifieds marketplace: private sellers in the villages, cabins and homes list used gear. Each listing
++   has its own lifespan (2-5 game days) and new ones trickle in one at a time off the game clock (GS.mkt.next), so the
++   list never turns over all at once. Categories: engines, whole sleds, hitch receivers, trailers, grooming machines and
++   ice-fishing rods, reels and augers (off icefish.js's tables).
++   - Used is cheaper than new and SLIGHTLY worn: a condition (65-90%) that costs a little performance (condMul for
++     engines and sleds, a lower tip limit for trailers, a rougher pan for groomers, icefish's own eff() for tackle) and
++     the WEAR look on the model.
++   - Haggling: offer 70/80/90% or pay the asking price. Sellers have a personality (SELLER_P): a hidden floor, how far
++     they'll come down and how much patience they've got. Lowball one and they stop answering.
++   - Lemons: about 1 in 6 is worse than the ad says. Stop at the seller's to INSPECT before you pay, or find out when
++     you collect it.
++   - Collecting (MKT.collect, stopped at the seller's): engines go on a trailer as a big load back to the garage (which
++     shelves them; fitting is labour); hitch receivers go on the rack to the garage; trailers and groomers hook straight
++     on if you have a receiver that'll take them; sleds are ridden away (the seller runs your old one back to the
++     garage); rods, reels and augers go in your pack.
++   Saved as `mkt` ({ list, held, seq, next, last }). */
++const MKT_CATS = [
++  { id: "all", name: "All" },
++  { id: "engine", name: "Engines", w: 3 },
++  { id: "sled", name: "Sleds", w: 1.5 },
++  { id: "recv", name: "Hitches", w: 0.8 },
++  { id: "trailer", name: "Trailers", w: 1 },
++  { id: "groomer", name: "Groomers", w: 0.8 },
++  { id: "fish", name: "Ice fishing", w: 2 }
++];
++const SELLER_P = {
++  stubborn: { ask: 1.08, floor: 0.95, pat: 1, tag: "FIRM", w: 0.24 },
++  fair: { ask: 1.0, floor: 0.87, pat: 2, tag: "", w: 0.36 },
++  haggler: { ask: 1.15, floor: 0.8, pat: 3, tag: "OBO", w: 0.2 },
++  desperate: { ask: 0.93, floor: 0.72, pat: 3, tag: "MUST GO", w: 0.2 }
++};
++const MKT_NAMES = SELLERS.concat(["Aslak", "Inga", "Hallvard", "Rune", "Gunhild", "Oddvar", "Tove", "Ánde", "Liv Karin", "Jon Mikkel", "Hilde", "Steinar"]);
++const MKT_WHY = {
++  engine: WHY,
++  sled: ["Bought a side-by-side. The wife says one machine is enough.", "Runs great, just never use it since the knee op.", "Been the post sled for three winters. Serviced every autumn.", "Moving to Tromsø. Can't take it on the bus.", "Dad's old sled. He'd want it ridden, not looked at.", "Upgraded. This one still starts first pull, mostly.", "Hauled firewood with it. Seat's been re-stitched."],
++  recv: ["Off my old Skandic. Pin and clip included.", "Came off a sled I parted out. Threads are good.", "Spare. Bought two by mistake.", "Took it off when I sold the trailer."],
++  trailer: ["Hauled fish crates on it all last winter. Straps included.", "Too big for what I need now.", "Runners re-welded last year. Tracks straight.", "Selling with the sled gone. No use for it.", "Moved the cabin stuff in. Job done."],
++  groomer: ["Did the lag's trails with it for years. They bought a proper one.", "Grooms fine. Takes some muscle to drag.", "My uncle's. He's 86 now and says he's retired.", "Comb's missing two teeth. Still leaves corduroy."],
++  fish: ["Upgraded. This did me fine for years.", "Selling my late father's ice gear. He'd want it used.", "Bought it, used it twice, it's not for me.", "Spare from the hytte. Clearing out.", "Fished Røyevatnet with it every Easter."]
++};
++const MKT_TELL = {
++  engine: ["Compression's low on one cylinder.", "There's a knock under load you can feel through the boards.", "It's been run lean. The piston's scored.", "Blue smoke at idle, and it's been mixed with the wrong oil."],
++  sled: ["The frame's cracked under the seat and welded badly.", "The motor sounds like a bag of spanners.", "Track lugs are half gone and the bogies are seized.", "It's been through the lake ice. Everything's corroded."],
++  recv: ["The pin hole's wallowed out oval.", "The mounting plate's cracked behind the weld."],
++  trailer: ["One runner's bent and it crabs sideways.", "The tongue's been welded back together.", "The hitch eye's worn thin."],
++  groomer: ["The pan's warped and the comb's half gone.", "The frame's cracked and bodged with fence wire."],
++  fish: ["It's been dropped. Everything about it is a bit off.", "The bearings are full of grit.", "The blades are chipped and dull."]
++};
++const MKT_SAY = {
++  stubborn: { ok: p => `Fine. ${p}. Not a krone less.`, counter: p => `${p}. It's worth every øre.`, insult: () => "Not for that. Don't message me again.", last: p => `${p}. That's final.`, insp0: () => "Look all you like. It's as the ad says.", insp1: p => `...Alright. It's been sitting. ${p}, and that's the last I'll drop.` },
++  fair: { ok: p => `Deal at ${p}. Come by whenever.`, counter: p => `Meet me at ${p}?`, insult: () => "That's a bit low, sorry. Good luck with your search.", last: p => `Can't go under ${p}, sorry.`, insp0: () => "Have a good look. Kettle's on if you want coffee.", insp1: p => `You're right, I didn't notice that. Call it ${p}?` },
++  haggler: { ok: p => `Ha! You drive a hard bargain. ${p}, done.`, counter: p => `${p}, and I'll throw in a cup of coffee.`, insult: () => "You're joking. Come back when you're serious.", last: p => `${p}. My final, final offer.`, insp0: () => "See? Clean as a whistle.", insp1: p => `Ah. Well. Everything's negotiable. ${p}?` },
++  desperate: { ok: p => `Yes! ${p} is fine, honestly. When can you come?`, counter: p => `Could you do ${p}? I need it gone this week.`, insult: () => "Please... I can't go that low. I'll find someone else.", last: p => `${p} is the very lowest. Please.`, insp0: () => "It runs, I promise. Please take it.", insp1: p => `I'm sorry. I needed the money. ${p}?` }
++};
++const MKT_GEAR = { rods: "rod", reels: "reel", augers: "auger" };
++const mktFishDef = item => { const [t, id] = item.split(":"); const T = window.TLFish && window.TLFish.GEAR[t]; return T ? T.find(g => g.id === id) : null; };
++const mktHasFish = item => { const [t, id] = item.split(":"); const f = GS.fish && GS.fish.own && GS.fish.own[MKT_GEAR[t]]; return !!(f && f[id]); };
++// does the receiver you have take this rig? Light rigs (trailer, drag) on any receiver; the flatbed and wing tiller need the heavy one.
++const HEAVY_RIG = { flatbed: true, tiller: true };
++function recvOk(rig, own = GS.own) { if (!HITCH[rig]) return true; const r = own.parts.recv || "none"; return r === "heavy" || (r === "ball" && !HEAVY_RIG[rig]); }
++const recvNeed = rig => HEAVY_RIG[rig] ? "the heavy-duty hitch" : "a hitch receiver";
++
++// what a listing is: name, what it'd cost new, a stats line at a given condition
++function mktInfo(l, c = l.adv) {
++  const pct = v => Math.round(v * 100) + "%";
++  if (l.cat === "engine") { const d = engDef(l.item); return { name: d.name, newP: round5(d.price * 1.3), stat: `${pct(d.power * condMul(c))} power · ${burnTxt(d.burn)}${d.turbo ? " · factory turbo" : ""}`, pwr: d.power * condMul(c), kind: "engine" }; }
++  if (l.cat === "sled") { const s = SLEDS.find(x => x.id === l.item); return { name: s.name, newP: Math.max(s.cost, 400), stat: `${s.year} · ${pct(s.power * condMul(c))} power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`, pwr: s.power * condMul(c), kind: "sled", sd: s }; }
++  if (l.cat === "recv") { const o = partDef("recv", l.item); return { name: o.name, newP: o.cost, stat: o.id === "heavy" ? "takes the flatbed and the wing tiller too" : "takes the freight trailer and the groomer drag", kind: "recv" }; }
++  if (l.cat === "trailer" || l.cat === "groomer") { const o = partDef("hitch", l.item); return { name: o.name, newP: o.cost, stat: l.cat === "trailer" ? `${o.stats.bays} big load${o.stats.bays > 1 ? "s" : ""} · tips ${c < 0.8 ? "a touch sooner" : "about like new"}` : `${l.item === "tiller" ? "5.8 m wings" : "2.4 m pan"} · ${c < 0.8 ? "leaves it a bit lumpy" : "leaves good corduroy"}`, kind: l.item }; }
++  const g = mktFishDef(l.item) || { name: "?", price: 10 }, t = l.item.split(":")[0];
++  return { name: t === "augers" && !/auger/i.test(g.name) ? g.name + " auger" : g.name, newP: g.price, stat: t === "augers" ? `${Math.round(g.dia / 2.5)}″ hole · ${c < 0.8 ? "drills a bit slower" : "drills near new"}${g.start === "pull" ? (c < 0.8 ? " · fussy to start" : " · starts fine") : ""}` : t === "reels" ? `${c < 0.8 ? "drag slips a little" : "smooth drag"}` : `${c < 0.8 ? "tip's a little tired" : "tip's lively"}`, kind: t };
++}
++// who's selling and where: anywhere people live, not the quay or the garage
++const mktSites = () => SITES.filter(s => s.x !== undefined && (s.type === "cabin" || s.type === "home" || s.type === "relay"));
++// the candidates in a category that you don't already own
++function mktPool(cat) {
++  const o = myOwn(), cur = engineOf(SLEDS.find(s => s.id === o.sled) || SLEDS[0]).pwr;
++  if (cat === "engine") return ENGINES.map(e => ({ item: e.id, w: Math.exp(-(((e.power - cur - 0.25) / 0.55) ** 2)) + 0.12 }));
++  if (cat === "sled") return SLEDS.filter(s => s.id !== "frontier" && !o.sleds.includes(s.id) && s.need <= GS.delivered + 14).map(s => ({ item: s.id, w: 1 }));
++  if (cat === "recv") return PARTS.recv.options.filter(x => x.id !== "none" && !o.partsOwned["recv:" + x.id]).map(x => ({ item: x.id, w: 1 }));
++  if (cat === "trailer") return ["trailer", "flatbed"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "trailer" ? 1.4 : 1 }));
++  if (cat === "groomer") return ["groomer", "tiller"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "groomer" ? 1.4 : 1 }));
++  if (cat === "fish") { if (!window.TLFish) return []; const out = []; for (const t of ["rods", "reels", "augers"]) for (const g of window.TLFish.GEAR[t]) if (g.tier > 1 && !mktHasFish(t + ":" + g.id)) out.push({ item: t + ":" + g.id, w: t === "augers" ? 1.2 : 1 }); return out; }
++  return [];
++}
++const mktRound = v => v < 100 ? Math.max(5, Math.round(v)) : round5(v);
++function mktMake(now, age = 0) {
++  const cats = MKT_CATS.filter(c => c.w).map(c => ({ c, pool: mktPool(c.id) })).filter(x => x.pool.length).map(x => ({ w: x.c.w, c: x.c, pool: x.pool }));
++  if (!cats.length) return null;
++  const pc = wpick(cats), cat = pc.c.id;
++  // don't list the same thing twice at once (engines can turn up twice, but rarely)
++  const listed = new Set(GS.mkt.list.filter(q => q.cat === cat).map(q => q.item)), pool = pc.pool.map(p => listed.has(p.item) ? Object.assign({}, p, { w: cat === "engine" ? p.w * 0.25 : 0 }) : p).filter(p => p.w > 0);
++  if (!pool.length) return null;
++  const it = wpick(pool);
++  const lemon = Math.random() < 0.16, adv = 0.65 + Math.random() * 0.25, real = lemon ? clamp(adv - 0.2 - Math.random() * 0.16, 0.42, 0.6) : adv;
++  const pers = lemon && Math.random() < 0.5 ? pick(["desperate", "haggler"]) : wpick(Object.entries(SELLER_P).map(([k, v]) => ({ k, w: v.w }))).k;
++  const S = SELLER_P[pers], l = { id: ++GS.mkt.seq, cat, item: it.item, pers, lemon, adv: +adv.toFixed(3), real: +real.toFixed(3) };
++  const newP = mktInfo(l).newP, ask = mktRound(newP * (0.38 + 0.42 * adv) * (0.92 + Math.random() * 0.16) * S.ask);
++  return Object.assign(l, {
++    site: pick(mktSites()).id, seller: pick(MKT_NAMES), t0: now - age, life: 48 + Math.random() * 72,
++    ask, ask0: ask, floor: Math.round(ask * S.floor), pat: S.pat, thread: [], deal: null, insp: false, mute: false,
++    why: pick(MKT_WHY[cat]), tell: pick(MKT_TELL[cat]), hrs: cat === "engine" || cat === "sled" ? Math.round(lerp(60, 1400, 1 - adv) / 10) * 10 : 0, seed: (Math.random() * 1e6) | 0
++  });
++}
++// a fresh board: about ten listings of all ages, so they won't all expire together
++function mktReseed(now) {
++  GS.mkt.list = GS.mkt.list.filter(l => l.deal && now < l.t0 + l.life);
++  while (GS.mkt.list.length < 10) { const l = mktMake(now, Math.random() * 60); if (!l) break; if (now < l.t0 + l.life) GS.mkt.list.push(l); }
++  GS.mkt.next = now + 1 + Math.random() * 4;
++}
++const MKT = { view: null, cat: "all", typing: {}, nagT: 0, tickT: 0, guide: null, pingT: -99 };
++function mktInit(d) {
++  GS.mkt = d && typeof d === "object" ? Object.assign({ list: [], held: [], seq: 0, next: 0, last: null }, d) : { list: [], held: [], seq: 0, next: 0, last: null };
++  GS.mkt.list = (GS.mkt.list || []).filter(l => l && MKT_CATS.some(c => c.id === l.cat));
++  for (const h of GS.mkt.held) h.state = "wait";                 // nothing's on the trailer after a reload: it waits at the seller's again
++  MKT.view = null; MKT.guide = null;
++}
++// every frame from updGame, but it only looks every half second
++function mktTick(dt) {
++  if (!GS.mkt) mktInit(null);
++  if ((MKT.tickT += dt) < 0.5) return; MKT.tickT = 0;
++  const now = CAL.abs(), M = GS.mkt;
++  if (M.last === null || now - M.last > 36 || now < M.last) mktReseed(now);       // a new game, an old save, or the summer skip
++  M.last = now;
++  const gone = M.list.filter(l => now > l.t0 + l.life);
++  if (gone.length) {
++    M.list = M.list.filter(l => !gone.includes(l));
++    for (const l of gone) { if (MKT.guide === l.site && !M.list.some(q => q.site === l.site)) MKT.guide = null; if (MKT.view === l.id || l.deal) { toast(`Bytteboden: ${l.seller}'s ${mktInfo(l).name} sold to someone else.`, "warn"); if (MKT.view === l.id) MKT.view = null; } }
++    TABLET.refresh("market");
++  }
++  if (now >= M.next) {
++    const n = M.list.length;
++    if (n < 13) { const l = mktMake(now); if (l) { M.list.push(l); mktPing(l); TABLET.refresh("market"); } }
++    M.next = now + (1.5 + Math.random() * 6) * (n < 7 ? 0.5 : n > 11 ? 1.8 : 1);
++  }
++}
++// a ping now and then for something worth a look: an engine that beats yours, or anything cheap
++function mktPing(l) {
++  if (!started || GS.hour - MKT.pingT < 5) return;
++  const inf = mktInfo(l), cur = engineOf(sledDef()).pwr;
++  if ((l.cat === "engine" && inf.pwr > cur + 0.08) || l.ask < inf.newP * 0.5) {
++    MKT.pingT = GS.hour;
++    TABLET.notify({ app: "market", title: `Bytteboden · ${inf.name}`, body: `${fmtCash(l.ask)} · ${l.seller} in ${shortName(mktSite(l))}${l.cat === "engine" ? ` · ${Math.round(inf.pwr * 100)}% power` : ""}`, ttl: 7 });
++  }
++}
++const mktSite = l => SITES.find(s => s.id === l.site) || depot;
++const mktLeft = l => l.t0 + l.life - CAL.abs();
++const mktHere = l => GS.near && GS.near.id === l.site && Math.hypot(P.vx, P.vz) < 4 && !FOOT.on;
++const mktPrice = l => l.deal || l.ask;
++const mktVisible = l => mktPool(l.cat).some(p => p.item === l.item);       // hide what you've bought elsewhere since
++
++/* ---- haggling ---- */
++function mktSay(l, me, t) { l.thread.push({ me, t }); if (l.thread.length > 14) l.thread.shift(); }
++function mktOffer(l, frac) {
++  if (SCHOOL.on) { toast("You're on a school course. Bytteboden can wait.", "warn"); return; }
++  if (l.mute || l.deal || MKT.typing[l.id]) return;
++  const amt = mktRound(l.ask * frac), S = SELLER_P[l.pers], say = MKT_SAY[l.pers];
++  mktSay(l, true, `Would you take ${fmtCash(amt)}?`);
++  MKT.typing[l.id] = true; TABLET.refresh("market");
++  setTimeout(() => {
++    delete MKT.typing[l.id];
++    if (!GS.mkt.list.includes(l)) return;
++    if (amt >= l.floor) { l.deal = amt; mktSay(l, false, say.ok(fmtCash(amt))); }
++    else if (amt < l.floor * 0.8 && l.pers === "stubborn" || amt < l.floor * 0.7) {
++      l.pat -= 2; if (l.pat <= 0) { l.mute = true; mktSay(l, false, say.insult()); } else { l.ask = Math.max(l.floor, mktRound(l.ask * 0.98)); mktSay(l, false, say.counter(fmtCash(l.ask))); }
++    } else {
++      l.pat -= 1;
++      // how far they come down: stubborn barely, desperate most of the way to you
++      const k = { stubborn: 0.15, fair: 0.45, haggler: 0.5, desperate: 0.65 }[l.pers];
++      l.ask = Math.max(l.floor, mktRound(l.ask - (l.ask - amt) * k));
++      if (l.pat <= 0) { l.mute = true; mktSay(l, false, say.last(fmtCash(l.ask))); }
++      else mktSay(l, false, say.counter(fmtCash(l.ask)));
++    }
++    tabPing("note"); TABLET.refresh("market"); save();
++  }, 900 + Math.random() * 1400);
++}
++// in person, before you pay: the truth about it
++function mktInspect(l) {
++  if (!mktHere(l)) { toast(`Stop at ${l.seller}'s in ${shortName(mktSite(l))} to look it over.`, "warn"); return; }
++  if (l.insp) return;
++  l.insp = true; const say = MKT_SAY[l.pers];
++  if (l.lemon) {
++    l.ask = mktRound(l.ask * 0.85); l.floor = Math.round(l.floor * 0.78); l.pat = Math.max(l.pat, 0) + 1; l.mute = false; if (l.deal) l.deal = Math.min(l.deal, l.ask);
++    mktSay(l, true, `${l.tell} The ad said ${pctC(l.adv)}. This is more like ${pctC(l.real)}.`);
++    mktSay(l, false, say.insp1(fmtCash(l.ask)));
++    toast(`Not what the ad said: ${l.tell} About ${pctC(l.real)} condition, not ${pctC(l.adv)}.`, "warn");
++  } else { mktSay(l, false, say.insp0()); toast(`You look it over: ${pctC(l.real)} condition, as advertised.`, "good"); }
++  TABLET.refresh("market"); save();
++}
++function mktPay(l) {
++  if (SCHOOL.on) { toast("You're on a school course. Bytteboden can wait.", "warn"); return; }
++  const p = mktPrice(l), inf = mktInfo(l, l.real);
++  if (GS.cash < p) { toast(`That's ${fmtCash(p)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++  GS.cash -= p; GS.mkt.list = GS.mkt.list.filter(q => q !== l);
++  const h = { lid: l.id, cat: l.cat, item: l.item, site: l.site, seller: l.seller, name: inf.name, cond: l.real, adv: l.adv, lemon: l.lemon, insp: l.insp, tell: l.tell, paid: p, hrs: l.hrs, seed: l.seed, state: "wait" };
++  GS.mkt.held.push(h); if (MKT.view === l.id) MKT.view = null; if (MKT.guide === l.site) MKT.guide = null;
++  const here = mktHere(l);
++  toast(here ? `Paid ${l.seller} ${fmtCash(p)}.` : `Sent ${l.seller} ${fmtCash(p)}. ${mktHowTo(h)}`, "good");
++  tabPing("good"); save();
++  if (here) mktCollect(GS.near);
++  TABLET.refresh("market");
++}
++const mktHowTo = h => h.cat === "engine" ? `Bring a trailer with a free bay to ${shortName(mktSite(h))} and it comes back to the garage as a load.`
++  : h.cat === "recv" ? `It's waiting in ${shortName(mktSite(h))}: it rides home on the rack.`
++  : h.cat === "sled" ? `It's in ${h.seller}'s shed in ${shortName(mktSite(h))}. Ride over and ride it home.`
++  : h.cat === "fish" ? `Pick it up in ${shortName(mktSite(h))}: it goes in your pack.`
++  : `It's waiting in ${shortName(mktSite(h))}: hook it up and tow it away. Needs ${recvNeed(h.item)}.`;
++// why you can't take it away right now ("" = you can)
++function heldWhy(h) {
++  if (SCHOOL.on) return "You're on a school course.";
++  if (h.cat === "engine") { const r = GS.own.parts.hitch; if (r !== "trailer" && r !== "flatbed") return "Needs a trailer or flatbed on the hitch."; if (ST.bays - baysUsed() < 1) return "Your trailer's full."; return ""; }
++  if (h.cat === "recv") return smallLoads().length >= ST.slots ? "Needs a free spot on the rack." : "";
++  if (h.cat === "trailer" || h.cat === "groomer") { if (!recvOk(h.item)) return `Needs ${recvNeed(h.item)} on the sled first (garage, Parts).`; if (GS.own.parts.hitch !== "none") return `Your hitch is taken by the ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()}. Leave it at the garage first.`; return ""; }
++  return "";
++}
++function mktReveal(h) {
++  if (!h.lemon || h.insp) return;
++  h.insp = true;
++  setTimeout(() => { toast(`Not what the ad said. ${h.tell} It's ${pctC(h.cond)}, not ${pctC(h.adv)}.`, "bad"); TABLET.notify({ app: "market", kind: "warn", title: `${h.seller} sold you a lemon`, body: `${h.name}: ${pctC(h.cond)} condition, not the ${pctC(h.adv)} in the ad. Inspect before you pay next time.`, ttl: 9 }); }, 1600);
++}
++// stopped at a seller's: take away whatever you've paid for there
++function mktCollect(site) {
++  if (!GS.mkt || !site) return;
++  for (const h of GS.mkt.held.slice()) {
++    if (h.state !== "wait" || h.site !== site.id) continue;
++    const why = heldWhy(h);
++    if (why) { if (gameClock - MKT.nagT > 10) { MKT.nagT = gameClock; toast(`${h.seller}: "${h.name}'s ready when you are." ${why}`, "warn"); } continue; }
++    const o = GS.own, a = { s: h.seed || 1, a: wearAmt(h.cond) };
++    o.cond = o.cond || {}; o.wear = o.wear || {};
++    if (h.cat === "engine") {
++      GS.load.push({ big: true, bays: 1, kg: 70 + Math.round(engDef(h.item).power * 30), look: "engine", cargo: h.name, dest: garageSite, cond: 100, hits: 0, pay: 0, fragile: false, crate: h });
++      h.state = "aboard"; toast(`${h.seller} helps you strap the ${h.name} down on the trailer. Take it to Nordkinn Skuter & Service.`, "good");
++    } else if (h.cat === "recv") {
++      GS.load.push({ dest: garageSite, cargo: h.name, crate: h, fragile: false, pay: 0, due: null, hits: 0 });
++      h.state = "aboard"; toast(`The ${h.name.toLowerCase()} goes on the rack. The garage will bolt it on.`, "good");
++    } else if (h.cat === "trailer" || h.cat === "groomer") {
++      const k = "hitch:" + h.item; o.partsOwned[k] = true; o.cond[k] = h.cond; o.wear[k] = a; o.parts.hitch = h.item; TOW.kind = null;
++      GS.mkt.held = GS.mkt.held.filter(q => q !== h); restat();
++      toast(`You hook up ${h.seller}'s ${h.name.toLowerCase()}. It's yours: ${pctC(h.cond)} condition.`, "good");
++    } else if (h.cat === "sled") {
++      const s = SLEDS.find(x => x.id === h.item), old = sledDef();
++      o.sleds.push(s.id); o.sled = s.id; o.cond["sled:" + s.id] = h.cond; o.wear["sled:" + s.id] = a;
++      GS.mkt.held = GS.mkt.held.filter(q => q !== h); checkBoost(); restat(); applySettings();
++      toast(`You ride off on the ${s.name}. ${h.seller} runs your ${old.name} back to the garage for you.`, "good");
++    } else if (h.cat === "fish") {
++      const [t, id] = h.item.split(":"), c1 = MKT_GEAR[t];
++      if (GS.fish && GS.fish.own && GS.fish.own[c1]) GS.fish.own[c1][id] = { c: +h.cond.toFixed(3) };
++      GS.mkt.held = GS.mkt.held.filter(q => q !== h);
++      toast(`The ${h.name.toLowerCase()} goes in your pack: ${pctC(h.cond)}. Pick it in the sled's tackle box when you fish.`, "good");
++    }
++    mktReveal(h); applyLoadout(); save(); TABLET.refresh("market");
++  }
++}
++// at the garage: engines go on the shelf, receivers get bolted on
++function mktDeliver(j) {
++  const h = j.crate, o = GS.own; GS.mkt.held = GS.mkt.held.filter(q => q !== h);
++  o.cond = o.cond || {}; o.wear = o.wear || {};
++  if (h.cat === "engine") {
++    const d = engDef(h.item), cond = clamp(h.cond - (100 - (j.cond === undefined ? 100 : j.cond)) / 100 * 0.35, 0.3, 1);
++    const inst = { eid: h.item, base: d.power, cond: +cond.toFixed(3), pwr: +(d.power * condMul(cond)).toFixed(3), hrs: h.hrs || 300, from: shortName(mktSite(h)), seller: h.seller, wear: { s: h.seed || 1, a: wearAmt(cond) } };
++    o.shelf.push(inst);
++    toast(`The ${d.name} is on the shelf${cond < h.cond - 0.01 ? `, a bit worse for the trip (${pctC(cond)})` : ""}. Fit it in the garage's Engines tab: ${fmtCash(fitFee(inst))} labour.`, "good");
++  } else if (h.cat === "recv") {
++    const k = "recv:" + h.item, cur = o.parts.recv || "none"; o.partsOwned[k] = true; o.cond[k] = h.cond;
++    if (cur === "none" || (cur === "ball" && h.item === "heavy")) { o.parts.recv = h.item; toast(`The shop bolts on the ${h.name.toLowerCase()}. No charge for that one.`, "good"); }
++    else toast(`The ${h.name.toLowerCase()} goes on the shelf in the garage (Parts).`, "good");
++  }
++}
++// where the arrow goes when you're empty-handed: something paid for that you can collect, or a listing you asked it to guide you to
++function pendingPickup() {
++  if (!GS.mkt) return null;
++  const h = GS.mkt.held.find(q => q.state === "wait" && !heldWhy(q));
++  if (h) return h;
++  if (MKT.guide) { const l = GS.mkt.list.find(q => q.site === MKT.guide); if (l) return { site: l.site, name: mktInfo(l).name, seller: l.seller, guide: true }; MKT.guide = null; }
++  return null;
++}
++
++/* ---- the "photo": a little snapshot of the thing on a snowy porch, drawn once per listing ---- */
++const MKT_PIC = new Map();
++function mktPic(l) {
++  const k = l.id + ":" + (l.insp ? 1 : 0); if (MKT_PIC.has(k)) return MKT_PIC.get(k);
++  if (MKT_PIC.size > 60) MKT_PIC.clear();
++  const W = 240, H = 180, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d"), r = mulberry32(l.seed || 7);
++  // the setting: a shed wall and snow, or the porch, slightly off level like a phone photo
++  g.save(); g.translate(W / 2, H / 2); g.rotate((r() - 0.5) * 0.06); g.translate(-W / 2, -H / 2);
++  const wall = ["#6b3b2a", "#5b4a3a", "#3f4a52", "#7a6a55", "#8a3528"][(r() * 5) | 0];
++  g.fillStyle = wall; g.fillRect(-10, -10, W + 20, H * 0.62);
++  g.strokeStyle = "rgba(0,0,0,.22)"; g.lineWidth = 2; for (let x = -10; x < W + 10; x += 16 + r() * 4) { g.beginPath(); g.moveTo(x, -10); g.lineTo(x, H * 0.62); g.stroke(); }
++  if (r() < 0.6) { g.fillStyle = "rgba(255,214,150,.55)"; g.fillRect(W * (0.6 + r() * 0.2), 18, 40, 28); g.strokeStyle = "#e9e4d8"; g.lineWidth = 3; g.strokeRect(W * 0.6 + 0, 18, 40, 28); }
++  const sg = g.createLinearGradient(0, H * 0.55, 0, H); sg.addColorStop(0, "#dfe7ee"); sg.addColorStop(1, "#b9c6d2"); g.fillStyle = sg; g.fillRect(-10, H * 0.58, W + 20, H);
++  const inf = mktInfo(l), cx = W / 2, cy = H * 0.68;
++  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
++  if (l.cat === "engine") {
++    R(cx - 58, cy + 6, 116, 12, "#7a5a3a"); R(cx - 46, cy - 40, 92, 48, "#30353b"); R(cx - 40, cy - 56, 36, 18, "#3c4249"); R(cx + 4, cy - 56, 36, 18, "#3c4249");
++    for (let i = 0; i < 5; i++) R(cx - 40, cy - 52 + i * 3.4, 80, 1.4, "rgba(255,255,255,.12)");
++    g.fillStyle = "#8d99a6"; g.beginPath(); g.arc(cx - 52, cy - 16, 14, 0, 6.283); g.fill(); g.fillStyle = "#30353b"; g.beginPath(); g.arc(cx - 52, cy - 16, 5, 0, 6.283); g.fill();
++    g.strokeStyle = "#9aa3ab"; g.lineWidth = 6; g.beginPath(); g.moveTo(cx + 40, cy - 30); g.quadraticCurveTo(cx + 66, cy - 30, cx + 64, cy); g.stroke();
++    if (engDef(l.item).turbo) { g.fillStyle = "#b8bec4"; g.beginPath(); g.arc(cx + 30, cy - 62, 11, 0, 6.283); g.fill(); }
++  } else if (l.cat === "sled") {
++    // side view, nose to the left: skis, the track under the tunnel, the hood, the seat, the windshield
++    const lv = inf.sd.livery, gy = cy + 8;
++    g.fillStyle = "#1c2126"; g.beginPath(); g.moveTo(cx - 30, gy - 14); g.lineTo(cx + 92, gy - 14); g.lineTo(cx + 98, gy - 2); g.lineTo(cx + 88, gy + 6); g.lineTo(cx - 20, gy + 6); g.closePath(); g.fill();        // track
++    for (let i = 0; i < 12; i++) R(cx - 20 + i * 9.5, gy + 2, 4, 4, "#0d1014");
++    R(cx - 104, gy + 4, 70, 4, "#3a4048"); g.strokeStyle = "#3a4048"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 104, gy + 6); g.quadraticCurveTo(cx - 118, gy + 4, cx - 112, gy - 6); g.stroke();   // ski
++    R(cx - 66, gy - 12, 5, 18, "#2a2f34");                                                                   // spindle
++    g.fillStyle = lv.panel; g.beginPath(); g.moveTo(cx - 100, gy - 4); g.lineTo(cx - 10, gy - 10); g.lineTo(cx - 10, gy - 2); g.lineTo(cx - 92, gy + 2); g.closePath(); g.fill();   // belly pan
++    g.fillStyle = lv.body; g.beginPath(); g.moveTo(cx - 100, gy - 4); g.quadraticCurveTo(cx - 96, gy - 40, cx - 44, gy - 46); g.lineTo(cx - 4, gy - 44); g.lineTo(cx - 6, gy - 10); g.closePath(); g.fill();   // hood
++    g.fillStyle = lv.trim; g.beginPath(); g.moveTo(cx - 96, gy - 14); g.lineTo(cx - 8, gy - 20); g.lineTo(cx - 8, gy - 16); g.lineTo(cx - 97, gy - 10); g.closePath(); g.fill();       // stripe
++    R(cx - 96, gy - 30, 10, 8, "#f6f2d8");                                                                  // headlight
++    g.fillStyle = "rgba(190,225,255,.55)"; g.beginPath(); g.moveTo(cx - 40, gy - 46); g.lineTo(cx - 26, gy - 70); g.lineTo(cx - 14, gy - 68); g.lineTo(cx - 18, gy - 45); g.closePath(); g.fill();   // windshield
++    R(cx - 16, gy - 62, 4, 18, "#2a2f34"); R(cx - 24, gy - 64, 18, 4, "#2a2f34");                           // bars
++    g.fillStyle = lv.seat; g.beginPath(); g.moveTo(cx - 4, gy - 26); g.lineTo(cx + 74, gy - 26); g.quadraticCurveTo(cx + 84, gy - 26, cx + 84, gy - 16); g.lineTo(cx - 4, gy - 16); g.closePath(); g.fill();   // seat
++    R(cx - 4, gy - 16, 96, 4, lv.panel);                                                                    // tunnel
++  } else if (l.cat === "recv") {
++    R(cx - 50, cy - 8, 100, 18, "#3a4048"); R(cx + 30, cy - 18, 26, 38, "#3a4048"); g.fillStyle = "#9aa3ab"; g.beginPath(); g.arc(cx - 50, cy + 1, 12, 0, 6.283); g.fill(); R(cx - 6, cy - 4, 8, 10, "#111");
++  } else if (l.cat === "trailer") {
++    const fb = l.item === "flatbed";
++    R(cx - 90, cy + 2, 170, 6, "#8d99a6"); R(cx - 88, cy - (fb ? 14 : 34), 160, fb ? 14 : 36, fb ? "#6b7480" : "#27313c");
++    if (fb) for (let i = 0; i < 4; i++) R(cx - 84 + i * 50, cy - 40, 4, 28, "#8d99a6");
++    g.strokeStyle = "#8d99a6"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx + 72, cy - 6); g.lineTo(cx + 108, cy - 2); g.stroke();
++  } else if (l.cat === "groomer") {
++    const t = l.item === "tiller", col = t ? "#b8261c" : "#e0a820";
++    R(cx - 90, cy - 4, 160, 12, col); R(cx - 84, cy - (t ? 36 : 18), 148, t ? 32 : 14, col);
++    for (let i = 0; i < 14; i++) R(cx - 86 + i * 11, cy + 8, 5, 8, "#15191e");
++    if (t) { g.fillStyle = "#6a3a00"; g.fillRect(cx - 20, cy - 46, 10, 10); }
++    g.strokeStyle = "#8d99a6"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx + 70, cy - 10); g.lineTo(cx + 108, cy - 4); g.stroke();
++  } else {
++    const t = l.item.split(":")[0];
++    if (t === "augers") { g.strokeStyle = "#9aa3ab"; g.lineWidth = 10; g.beginPath(); g.moveTo(cx, cy - 74); g.lineTo(cx, cy + 10); g.stroke(); for (let i = 0; i < 6; i++) { g.strokeStyle = "#c4ccd3"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 12, cy - 30 + i * 7); g.lineTo(cx + 12, cy - 26 + i * 7); g.stroke(); } R(cx - 26, cy - 92, 52, 26, mktFishDef(l.item) && mktFishDef(l.item).start === "pull" ? "#c23a22" : "#2a6a9a"); }
++    else if (t === "reels") { g.fillStyle = "#2a2f34"; g.beginPath(); g.arc(cx, cy - 26, 32, 0, 6.283); g.fill(); g.fillStyle = "#b8c2c8"; g.beginPath(); g.arc(cx, cy - 26, 22, 0, 6.283); g.fill(); R(cx + 14, cy - 34, 30, 6, "#15191c"); }
++    else { g.strokeStyle = "#2d2d2d"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 80, cy + 4); g.lineTo(cx + 90, cy - 40); g.stroke(); R(cx - 84, cy - 4, 40, 12, "#b88a5a"); g.fillStyle = "#c9d0d6"; g.beginPath(); g.arc(cx - 34, cy - 6, 9, 0, 6.283); g.fill(); }
++  }
++  // wear specks, a little blur of grain, and the phone's flash glare
++  const wa = wearAmt(l.insp ? l.real : l.adv);
++  for (let i = 0; i < 40 * wa; i++) { g.fillStyle = r() < 0.5 ? "rgba(120,60,25,.5)" : "rgba(230,230,230,.45)"; g.fillRect(cx - 80 + r() * 160, cy - 60 + r() * 70, 1 + r() * 3, 1 + r() * 2); }
++  g.restore();
++  const gl = g.createRadialGradient(W * 0.3, H * 0.25, 4, W * 0.3, H * 0.25, W * 0.5); gl.addColorStop(0, "rgba(255,255,255,.18)"); gl.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gl; g.fillRect(0, 0, W, H);
++  const id = g.getImageData(0, 0, W, H), px = id.data; for (let i = 0; i < px.length; i += 4) { const n = (r() - 0.5) * 18; px[i] += n; px[i + 1] += n; px[i + 2] += n; } g.putImageData(id, 0, 0);
++  const url = cv.toDataURL("image/jpeg", 0.72); MKT_PIC.set(k, url); return url;
++}
++
++/* ---- the app ---- */
++TICON.market = svgI(`<path d="M3.5 9.5 5 4.5h14l1.5 5"/><path d="M3.5 9.5a2.8 2.8 0 0 0 5.6 0 2.9 2.9 0 0 0 5.8 0 2.8 2.8 0 0 0 5.6 0"/><path d="M5 12v7.5h14V12M10 19.5v-4.5h4v4.5"/>`);
++function mktCardHtml(l, i) {
++  const inf = mktInfo(l, l.insp ? l.real : l.adv), site = mktSite(l), left = mktLeft(l), S = SELLER_P[l.pers];
++  const chips = chip(pctC(l.insp ? l.real : l.adv), l.insp && l.lemon ? "due" : "") + (S.tag ? chip(S.tag, l.pers === "desperate" ? "ok" : "") : "") + (l.deal ? chip("DEAL " + fmtCash(l.deal), "ok") : "") + (l.insp ? chip(l.lemon ? "INSPECTED · WORSE" : "INSPECTED", l.lemon ? "due" : "ok") : "") + (left < 12 ? chip("ENDS IN " + Math.max(1, Math.round(left)) + " H", "due") : "");
++  return `<div class="tmk" data-tf="mk:${l.id}"><img class="tmkp" alt="" src="${mktPic(l)}"><div class="tmkb"><div class="tmkr"><b class="tpay">${fmtCash(mktPrice(l))}</b>${l.ask < l.ask0 && !l.deal ? `<s>${fmtCash(l.ask0)}</s>` : ""}</div><div class="tmkt">${tabEsc(inf.name)}</div><div class="tcm">${tabEsc(inf.stat)}</div><div class="tmkc">${chips}</div><div class="tcm">${tabEsc(l.seller)} · ${tabEsc(shortName(site))} · ${fmtMi(Math.hypot(site.x - P.x, site.z - P.z))}</div><button type="button" class="tbtn ghost" data-mk="${l.id}">OPEN</button></div></div>`;
++}
++function mktHeldHtml(h) {
++  const site = mktSite(h), why = h.state === "aboard" ? "" : heldWhy(h);
++  const st = h.state === "aboard" ? "On the way to the garage" : why ? why : mktHere({ site: h.site }) ? "Stopped here: loading…" : `Ready. Stop at ${h.seller}'s in ${shortName(site)}.`;
++  return tabCard({ tf: "mh:" + h.lid, mini: `depot|${h.site}`, title: h.name, chips: chip("PAID " + fmtCash(h.paid), "ok") + chip(h.insp ? pctC(h.cond) : pctC(h.adv) + "?", h.insp && h.lemon ? "due" : "") + (h.state === "aboard" ? chip("ABOARD", "due") : ""), meta: `${tabEsc(h.seller)} · ${tabEsc(shortName(site))} · ${fmtMi(Math.hypot(site.x - P.x, site.z - P.z))} from you`, note: tabEsc(st) });
++}
++function mktDetail(el, l) {
++  const inf = mktInfo(l, l.insp ? l.real : l.adv), advI = mktInfo(l, l.adv), site = mktSite(l), here = mktHere(l), S = SELLER_P[l.pers];
++  const cur = l.cat === "engine" ? engineOf(sledDef()).pwr : 0, typing = MKT.typing[l.id];
++  let h = `<button type="button" class="tml" data-tf="mkback" data-mkback="1">‹ All listings</button>`;
++  h += `<div class="tmkd"><img class="tmkp big" alt="" src="${mktPic(l)}"><div>
++    <div class="tey">${tabEsc(MKT_CATS.find(c => c.id === l.cat).name.toUpperCase())} · LISTED ${Math.max(0, Math.round((CAL.abs() - l.t0) / 24))} DAY${Math.round((CAL.abs() - l.t0) / 24) === 1 ? "" : "S"} AGO</div>
++    <div class="tti" style="font-size:24px">${tabEsc(inf.name)}</div>
++    <div class="tmkr"><b class="tpay" style="font-size:26px">${fmtCash(mktPrice(l))}</b>${l.ask < l.ask0 && !l.deal ? `<s>${fmtCash(l.ask0)}</s>` : ""}<span class="tcm">new ≈ ${fmtCash(inf.newP)}</span></div>
++    <div class="tcm">Advertised: ${pctC(l.adv)} condition · ${tabEsc(advI.stat)}${l.hrs ? ` · ${l.hrs} h` : ""}</div>
++    ${l.insp ? `<div class="tcm" style="color:${l.lemon ? "var(--bad)" : "var(--pay)"}">Inspected: ${pctC(l.real)} condition · ${tabEsc(inf.stat)}</div>` : `<div class="tcn">Only the ad's word for it. Stop at the seller's to look it over before you pay.</div>`}
++    ${l.cat === "engine" ? `<div class="tcm">Yours now: ${Math.round(cur * 100)}% power in the ${tabEsc(sledDef().name)}.</div>` : ""}
++    <div class="tcm">${tabEsc(l.seller)} · ${tabEsc(site.name)} · ${fmtMi(Math.hypot(site.x - P.x, site.z - P.z))} from you · ${Math.max(1, Math.round(mktLeft(l)))} h left${S.tag ? " · " + chip(S.tag) : ""}</div>
++  </div></div>`;
++  h += `<div class="tmkth"><div class="tmkm them">${tabEsc(l.why)}</div>${l.thread.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${tabEsc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${tabEsc(l.seller)} is typing…</div>` : ""}</div>`;
++  const offers = [0.7, 0.8, 0.9].map(f => `<button type="button" class="tbtn ghost" data-tf="mko:${f}" data-mko="${f}"${l.mute || l.deal || typing ? " disabled" : ""}>OFFER ${fmtCash(mktRound(l.ask * f))}</button>`).join("");
++  const why = l.cat === "engine" ? (isElectric(sledDef()) ? "No engine goes in the Aurora; it'll sit on the shelf." : "") : "";
++  h += `<div class="tmka">${offers}</div>`;
++  h += `<div class="tmka"><button type="button" class="tbtn" data-tf="mkpay" data-mkpay="1">${here ? "PAY" : "SEND"} ${fmtCash(mktPrice(l))}${l.deal ? " (DEAL)" : ""}</button>
++    <button type="button" class="tbtn ghost" data-tf="mkins" data-mkins="1"${l.insp || !here ? " disabled" : ""}>${l.insp ? "INSPECTED" : here ? "INSPECT IT" : "INSPECT (IN PERSON)"}</button>
++    <button type="button" class="tbtn ghost" data-tf="mkgo" data-mkgo="1">${MKT.guide === l.site ? "STOP GUIDING" : "GUIDE ME THERE"}</button></div>`;
++  h += `<p class="tnote2">${l.mute ? `${tabEsc(l.seller)} has stopped answering offers. The asking price still stands. ` : ""}${tabEsc(mktHowTo({ cat: l.cat, item: l.item, site: l.site, seller: l.seller }))}${why ? " " + why : ""} Paying from here sends the money now; you only see it for real when you collect.</p>`;
++  el.innerHTML = `<div class="tapp">${h}</div>`;
++  el.querySelector("[data-mkback]").addEventListener("click", () => { MKT.view = null; TABLET.render(); });
++  for (const b of el.querySelectorAll("[data-mko]")) b.addEventListener("click", () => mktOffer(l, +b.dataset.mko));
++  el.querySelector("[data-mkpay]").addEventListener("click", () => mktPay(l));
++  el.querySelector("[data-mkins]").addEventListener("click", () => mktInspect(l));
++  el.querySelector("[data-mkgo]").addEventListener("click", () => { MKT.guide = MKT.guide === l.site ? null : l.site; TABLET.render(); });
++  const th = el.querySelector(".tmkth"); if (th) th.scrollTop = th.scrollHeight;
++}
++TABLET.register({
++  id: "market", name: "Bytteboden", icon: TICON.market, order: 5.7, live: 4,
++  badge: () => GS.mkt ? (GS.mkt.held.filter(h => h.state === "wait").length || "") : "",
++  onOpen() { if (!GS.mkt) mktInit(null); },
++  render(el) {
++    const l = MKT.view && GS.mkt.list.find(q => q.id === MKT.view);
++    if (l) { mktDetail(el, l); return; }
++    MKT.view = null;
++    let h = tabHead("BYTTEBODEN · KJØP, SALG, BYTTE · NORDKINN", "Bytteboden", fmtCash(GS.cash));
++    h += `<div class="tsub">Used gear from private sellers round the peninsula · ${HITCH_ON[GS.own.parts.hitch]}${ST.bays ? ` · ${ST.bays - baysUsed()} free bay${ST.bays - baysUsed() === 1 ? "" : "s"}` : ""} · receiver: ${GS.own.parts.recv === "heavy" ? "heavy-duty" : GS.own.parts.recv === "ball" ? "light" : "none"}</div>`;
++    const held = GS.mkt.held;
++    if (held.length) { h += sec("Paid for · waiting", "collect in person"); for (const q of held) h += mktHeldHtml(q); }
++    h += `<div class="tlays tmkcats">${MKT_CATS.map(c => { const n = c.id === "all" ? GS.mkt.list.filter(mktVisible).length : GS.mkt.list.filter(q => q.cat === c.id && mktVisible(q)).length; return `<button type="button" class="tml${MKT.cat === c.id ? " on" : ""}" data-tf="mkc:${c.id}" data-mkc="${c.id}">${c.name} <b>${n}</b></button>`; }).join("")}</div>`;
++    const list = GS.mkt.list.filter(q => (MKT.cat === "all" || q.cat === MKT.cat) && mktVisible(q)).sort((a, b) => (b.t0 - a.t0));
++    h += sec(MKT.cat === "all" ? "Near you and further out" : MKT_CATS.find(c => c.id === MKT.cat).name, `${list.length} listed · new ones come in all day`);
++    h += list.length ? `<div class="tmkg">${list.map(mktCardHtml).join("")}</div>` : `<p class="tnote2">Nothing in this category right now. Check back in a few hours.</p>`;
++    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. The ad isn't always the truth: look before you pay.</p>`;
++    el.innerHTML = `<div class="tapp">${h}</div>`;
++    for (const b of el.querySelectorAll("[data-mkc]")) b.addEventListener("click", () => { MKT.cat = b.dataset.mkc; TABLET.render(); });
++    for (const b of el.querySelectorAll("[data-mk]")) b.addEventListener("click", () => { MKT.view = +b.dataset.mk; $("tabV").scrollTop = 0; TABLET.render(); });
++    tabMinis(el);
++  }
++});
++
++/* ---------------- Real Estate: depot cabins (winter update O6, phase 5) ----------------
++   Bought through the Real Estate app (a $50 App Store download; no office, no school). Two of the existing herder cabins
++   and two new lakeside cabins built for it (Fjellbu and Viddastua, off SITES so no parcels go there).
++   - Rent: every night you're not there (more than RE.away m off at midnight) tourists may take it: occupancy is about
++     55%, more in polar night and with upgrades. The nights add up and are paid every Monday (CAL.onDayChange).
++   - Upgrades (sauna, insulation, a better stove) raise the nightly rent and the occupancy.
++   - Fuel cache: a tank and pump by each cabin you own. It fills your tank free at the pump; every Monday the bill comes
++     out of your money: a standing charge plus every litre you took that week. It never runs out. If the bill can't be
++     paid it goes into arrears and the fuel boat won't fill the cache until you pay (Real Estate app).
++   - The summer skip settles summer lets and the standing charges through SEASON.addBill.
++   - Owned depots go on the Map app's Depots layer, and you warm up at them like at any cabin.
++   Saved as `re` ({ own: { id: { up, acc, nights, L, since } }, arrears, last }). */
++const RE_CABINS = [
++  { id: "sandfjord", site: "sandfjord", name: "Sandfjorddalen herder cabin", price: 3800, rent: 42, blurb: "A turf-roofed herder's cabin in the valley, two bunks and a stove. Reindeer at the window in the morning." },
++  { id: "risfjord", site: "risfjord", name: "Risfjord herder cabin", price: 4400, rent: 46, blurb: "Out on the east side over Risfjorden, with a jerry-can rack already on the porch. Long views of the fjord." },
++  { id: "fjellbu", lake: 8, name: "Fjellbu", price: 5600, rent: 55, paint: "red", blurb: "A red lakeside hytte on the southern fell: ice fishing off the doorstep, and dark enough for the aurora." },
++  { id: "viddastua", lake: 9, name: "Viddastua", price: 6800, rent: 62, paint: "yellow", blurb: "The plateau lodge: sleeps six, a long table, the lake below and nothing at all to the south." }
++];
++const RE_UPS = [
++  { id: "stove", name: "Soapstone stove", cost: 700, rent: 10, occ: 0.04, note: "Holds the heat all night. Guests stop writing about the cold." },
++  { id: "insul", name: "Insulation & triple glazing", cost: 950, rent: 12, occ: 0.06, note: "Warm in a storm. Books up through the dark months." },
++  { id: "sauna", name: "Wood-fired sauna", cost: 2200, rent: 24, occ: 0.08, note: "A sauna hut on the shore, and a hole in the ice to jump in. The tourists' favourite thing in Finnmark." }
++];
++const RE_FUEL = { perL: 1.95, standing: 35 };
++const RE = { away: 120, here: null, sync: 0 };
++const reCab = id => RE_CABINS.find(c => c.id === id);
++const reOwned = () => RE_CABINS.filter(c => GS.re && GS.re.own[c.id]);
++const reNight = c => { const o = GS.re.own[c.id] || { up: {} }; return c.rent + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.rent : 0), 0); };
++const reOcc = c => { const o = GS.re.own[c.id] || { up: {} }; return clamp(0.52 + (CAL.isPolarNight() ? 0.12 : 0) + (AUR.v > 0.35 ? 0.06 : 0) + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.occ : 0), 0), 0.15, 0.95); };
++function reInit(d) {
++  GS.re = d && typeof d === "object" ? { own: Object.assign({}, d.own || {}), arrears: +d.arrears || 0, last: Array.isArray(d.last) ? d.last.slice(0, 4) : [] } : { own: {}, arrears: 0, last: [] };
++  for (const id in GS.re.own) { if (!reCab(id)) { delete GS.re.own[id]; continue; } GS.re.own[id] = Object.assign({ up: {}, acc: 0, nights: 0, rented: 0, L: 0 }, GS.re.own[id]); }
++  reSync();
++}
++// where they are: the herder cabins are the sites themselves; the new ones go on a flat spot by their lake
++function computeRE() {
++  for (const c of RE_CABINS) {
++    if (c.site) { const s = SITES.find(q => q.id === c.site); c.s = s; c.x = s.x; c.z = s.z; c.y = s.y; continue; }
++    const L = LAKES[c.lake], a = c.lake === 8 ? 0 : -Math.PI / 2, p = flatSpot(L.x + Math.cos(a) * (L.r + 40), L.z + Math.sin(a) * (L.r + 40), 70);
++    c.x = p[0]; c.z = p[1]; c.y = groundAt(c.x, c.z); c.built = true; c.clear = 34;
++  }
++}
++const reNearCab = (x = P.x, z = P.z, r = 24) => RE_CABINS.find(c => c.x !== undefined && Math.hypot(x - c.x, z - c.z) < r) || null;
++function reSignTex(c, sold) {
++  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128; const g = cv.getContext("2d");
++  g.fillStyle = sold ? "#13202b" : "#f2efe6"; g.fillRect(0, 0, 256, 128); g.fillStyle = sold ? "#7fc8e0" : "#c23a22"; g.fillRect(0, 0, 256, 16);
++  g.fillStyle = sold ? "#f2efe6" : "#1a1a1a"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "700 34px 'Barlow Semi Condensed', sans-serif";
++  g.fillText(sold ? "DEPOT" : "TIL SALGS", 128, 56); g.font = "600 17px 'Barlow Semi Condensed', sans-serif"; g.fillStyle = sold ? "#7fc8e0" : "#c23a22";
++  g.fillText(sold ? "fuel cache · private" : "FINNMARK EIENDOM · " + fmtCash(c.price), 128, 96);
++  return new THREE.CanvasTexture(cv);
++}
++function buildRE() {
++  const K = KIT, steel = K.L(0x8d99a6), green = K.L(0x2f5a3a), amber = K.L(0xd98a14), red = K.L(0xa8392a), dark = K.L(0x1d2228);
++  for (const c of RE_CABINS) {
++    if (c.x === undefined) continue;
++    if (c.built) {                                               // the new cabins: a hytte, a woodshed, a lamp
++      K.house(c.x, c.z - 6, 8, 6.5, 3.1, 0.2, K[c.paint] || K.red, true);
++      K.house(c.x + 7.5, c.z - 8, 3.4, 2.6, 2.1, 0.2, K.wood, false);
++      K.lamp(c.x - 5, c.z - 1);
++    }
++    // the yard kit, offset to the side of the cabin: a for-sale sign, and (once it's yours) a fuel cache, a pump and a sauna
++    const bx = c.x + (c.built ? -7 : -9), bz = c.z + (c.built ? 3 : 6), g = new THREE.Group(); g.position.set(bx, groundAt(bx, bz) - 0.1, bz); scene.add(g);
++    const sign = new THREE.Group(); g.add(sign);
++    K.bx(sign, 0.1, 1.9, 0.1, K.woodD, -0.7, 0.95, 0); K.bx(sign, 0.1, 1.9, 0.1, K.woodD, 0.7, 0.95, 0);
++    const sm = new THREE.MeshBasicMaterial({ map: reSignTex(c, false) }); const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), sm); sp.position.set(0, 1.55, 0.07); sign.add(sp);
++    const cache = new THREE.Group(); g.add(cache); cache.position.set(3.2, 0, -0.5);
++    K.put(cache, new THREE.CylinderGeometry(0.75, 0.75, 2.6, 14), green, 0, 1.15, 0).rotation.z = Math.PI / 2;
++    for (const sx of [-0.9, 0.9]) K.bx(cache, 0.14, 0.45, 1.2, steel, sx, 0.22, 0);
++    K.bx(cache, 0.5, 1.3, 0.4, red, 1.8, 0.65, 0.6); K.bx(cache, 0.36, 0.3, 0.06, amber, 1.8, 1.05, 0.83); K.bx(cache, 0.08, 0.5, 0.08, dark, 2.1, 0.8, 0.8);
++    const sauna = new THREE.Group(); g.add(sauna); sauna.position.set(-4.5, 0, -6);
++    K.bx(sauna, 2.6, 2.1, 2.2, K.woodD, 0, 1.05, 0); K.bx(sauna, 3.0, 0.25, 2.6, K.snowM, 0, 2.25, 0); K.bx(sauna, 0.2, 0.9, 0.2, K.stone, 0.7, 2.6, 0.5); K.bx(sauna, 0.6, 1.5, 0.08, K.doorM, 0, 0.75, 1.11);
++    addOb({ x: bx + 3.2, z: bz - 0.5, r: 1.4, top: 1e9 });
++    c.vis = { sign, sm, cache, sauna, g };
++    if (!c.built) c.pumpAt = { x: bx + 3.2, z: bz - 0.5 }; else c.pumpAt = { x: bx + 3.2, z: bz - 0.5 };
++  }
++  reSync();
++}
++// show what's owned: the sign comes down (well, turns into a DEPOT board), the cache goes up, the sauna if you built one
++function reSync() {
++  for (const c of RE_CABINS) {
++    if (!c.vis) continue;
++    const o = GS.re && GS.re.own[c.id], k = o ? "own" + (o.up.sauna ? "s" : "") : "sale";
++    if (c.vis.k === k) continue; c.vis.k = k;
++    c.vis.cache.visible = !!o; c.vis.sauna.visible = !!(o && o.up.sauna);
++    c.vis.sm.map.dispose(); c.vis.sm.map = reSignTex(c, !!o); c.vis.sm.needsUpdate = true;
++  }
++}
++// the fuel cache's pump, for fuelSpot()
++function reFuelSpot() {
++  const c = reNearCab(P.x, P.z, 26); if (!c || !GS.re || !GS.re.own[c.id] || GS.re.arrears > 0) return null;
++  return c.pump || (c.pump = { name: `${shortName(c)} fuel cache`, fuelPrice: 0, cache: true, cab: c });
++}
++function reBuy(id) {
++  const c = reCab(id); if (!c || GS.re.own[id]) return;
++  if (SCHOOL.on) { toast("Finish the school course first.", "warn"); return; }
++  if (GS.cash < c.price) { toast(`${c.name} is ${fmtCash(c.price)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++  GS.cash -= c.price; GS.re.own[id] = { up: {}, acc: 0, nights: 0, rented: 0, L: 0, since: CAL.dayIndex() };
++  reSync(); tabPing("good"); save(); TABLET.render();
++  toast(`${c.name} is yours. The fuel boat fills the cache this week; tourists start booking tonight.`, "good");
++}
++function reUpgrade(id, uid) {
++  const c = reCab(id), o = GS.re.own[id], u = RE_UPS.find(x => x.id === uid); if (!c || !o || !u || o.up[uid]) return;
++  if (GS.cash < u.cost) { toast(`${u.name} is ${fmtCash(u.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
++  GS.cash -= u.cost; o.up[uid] = 1; reSync(); save(); TABLET.render();
++  toast(`${u.name} at ${shortName(c)}: +${fmtCash(u.rent)} a night from now on.`, "good");
++}
++function rePayArrears() {
++  const a = GS.re.arrears; if (!a) return;
++  const p = Math.min(a, GS.cash); GS.cash -= p; GS.re.arrears -= p; save(); TABLET.render();
++  toast(GS.re.arrears ? `Paid ${fmtCash(p)} toward the fuel bill. ${fmtCash(GS.re.arrears)} still owing.` : `Fuel bill paid. The boat will fill the cache again.`, GS.re.arrears ? "warn" : "good");
++}
++// midnight: who stayed, and on Mondays the statement
++CAL.onDayChange((n, prev) => {
++  if (!GS.re || prev === null) return;
++  const own = reOwned(); if (!own.length) return;
++  for (const c of own) {
++    const o = GS.re.own[c.id];
++    if (Math.hypot(P.x - c.x, P.z - c.z) > RE.away && Math.random() < reOcc(c)) { o.acc += reNight(c); o.rented++; }
++    o.nights++;
++  }
++  if (n.dow !== 1) return;
++  // the week's statement: rent in, the fuel cache out (standing charge + litres), arrears first
++  let rent = 0, bill = 0, L = 0, nights = 0, rented = 0;
++  for (const c of own) { const o = GS.re.own[c.id]; rent += o.acc; L += o.L; bill += RE_FUEL.standing + o.L * RE_FUEL.perL; nights += o.nights; rented += o.rented; o.acc = 0; o.L = 0; o.nights = 0; o.rented = 0; }
++  rent = Math.round(rent); bill = Math.round(bill);
++  GS.cash += rent;
++  const owe = bill + GS.re.arrears, paid = Math.min(owe, GS.cash); GS.cash -= paid; GS.re.arrears = owe - paid;
++  GS.re.last.unshift({ d: n.label, rent, bill, L: Math.round(L), rented, nights, arrears: GS.re.arrears }); GS.re.last = GS.re.last.slice(0, 4);
++  save(); TABLET.refresh("realestate");
++  setTimeout(() => TABLET.notify({ app: "realestate", kind: GS.re.arrears ? "warn" : "good", title: `Depots · week to ${n.label}`, body: `Rent +${fmtCash(rent)} (${rented} of ${nights} nights let) · fuel cache −${fmtCash(bill)} (${Math.round(L)} L)${GS.re.arrears ? ` · ${fmtCash(GS.re.arrears)} unpaid: the cache is shut till you pay` : ""}`, ttl: 9 }), 4200);
++});
++// over the summer: summer lets in, standing charges out (O7's hook)
++SEASON.addBill({ name: "Depot cabins: summer lets", perWeek: () => reOwned().reduce((a, c) => a + reNight(c) * 7 * 0.5, 0) });
++SEASON.addBill({ name: "Fuel caches: standing charge", perWeek: () => -reOwned().length * RE_FUEL.standing });
++TABLET.addLayer("depots", () => reOwned().map(c => ({ x: c.x, z: c.z, name: shortName(c).toUpperCase(), kind: "depot" })));
++
++TABLET.register({
++  id: "realestate", name: "Real Estate", icon: TICON.realestate, order: 8, live: 10,
++  hidden: () => !GS.apps.realestate,
++  badge: () => GS.re && GS.re.arrears ? "!" : "",
++  render(el) {
++    const own = reOwned(), sale = RE_CABINS.filter(c => !GS.re.own[c.id] && c.x !== undefined);
++    const wkRent = own.reduce((a, c) => a + reNight(c) * 7 * reOcc(c), 0), wkL = own.reduce((a, c) => a + GS.re.own[c.id].L, 0);
++    let h = tabHead("REAL ESTATE · FINNMARK EIENDOM", "Depot cabins", fmtCash(GS.cash));
++    h += `<div class="tsub">${own.length ? `${own.length} depot${own.length > 1 ? "s" : ""} · rent about ${fmtCash(wkRent)} a week · fuel cache ${fmtCash(own.length * RE_FUEL.standing)} a week + ${fuelFmt(RE_FUEL.perL)}` : "No depots yet"}${GS.re.arrears ? " " + chip("ARREARS " + fmtCash(GS.re.arrears), "due") : ""}</div>`;
++    TABLET.miniDest = {};
++    const mini = c => { const k = c.site || "re_" + c.id; if (!c.site) TABLET.miniDest[k] = { id: k, x: c.x, z: c.z, y: c.y, name: c.name }; return `depot|${k}`; };
++    if (GS.re.arrears) h += tabCard({ tf: "rearr", title: "Fuel bill owing", chips: chip("CACHE SHUT", "due"), meta: `The fuel boat won't fill the caches until it's paid.`, pay: fmtCash(GS.re.arrears), act: "rearr", actLabel: "PAY IT" });
++    if (own.length) {
++      h += sec("Your depots", "rent paid Mondays");
++      for (const c of own) {
++        const o = GS.re.own[c.id], ups = RE_UPS.filter(u => o.up[u.id]);
++        h += tabCard({ tf: "reo:" + c.id, mini: mini(c), title: shortName(c), chips: chip("FUEL CACHE", "ok") + ups.map(u => chip(u.id === "insul" ? "INSULATED" : u.id.toUpperCase())).join(""),
++          meta: `${fmtCash(reNight(c))} a night · about ${Math.round(reOcc(c) * 100)}% let · ${fmtMi(Math.hypot(c.x - P.x, c.z - P.z))} from you`,
++          note: `This week: ${o.rented} of ${o.nights} nights let, ${fmtCash(o.acc)} in rent; ${o.L.toFixed(0)} L out of the cache (${fmtCash(RE_FUEL.standing + o.L * RE_FUEL.perL)} on Monday's bill).${Math.hypot(c.x - P.x, c.z - P.z) < RE.away ? " You're here, so nobody's renting it tonight." : ""}` });
++        const todo = RE_UPS.filter(u => !o.up[u.id]);
++        if (todo.length) h += `<div class="tsml2">${todo.map(u => `<div class="tsm2 treup" data-tf="reu:${c.id}:${u.id}"><b>+${fmtCash(u.rent)}</b><span>${tabEsc(u.name)} <i class="tcn">${tabEsc(u.note)}</i></span><button type="button" class="tbtn ghost${GS.cash < u.cost ? " blocked" : ""}" data-reu="${c.id}:${u.id}">${fmtCash(u.cost)}</button></div>`).join("")}</div>`;
++      }
++    }
++    if (GS.re.last.length) {
++      h += sec("Statements", "");
++      h += `<div class="tsml2">${GS.re.last.map(s => `<div class="tsm2"><b>${tabEsc(s.d)}</b><span>Rent +${fmtCash(s.rent)} · ${s.rented}/${s.nights} nights · cache −${fmtCash(s.bill)} (${s.L} L)</span>${s.arrears ? chip("OWING " + fmtCash(s.arrears), "due") : chip("PAID", "ok")}</div>`).join("")}</div>`;
++    }
++    h += sec("For sale", sale.length ? "no agent, no fees" : "");
++    if (!sale.length) h += `<p class="tnote2">You own every depot on the books. Finnmark Eiendom will be in touch if anything comes up.</p>`;
++    for (const c of sale) {
++      h += tabCard({ tf: "res:" + c.id, mini: mini(c), title: c.name, chips: chip(c.built ? "LAKESIDE" : "HERDER CABIN") + chip(fmtCash(c.rent) + "/NIGHT"),
++        meta: `${fmtMi(Math.hypot(c.x - P.x, c.z - P.z))} from you · rents about ${fmtCash(c.rent * 7 * 0.55)} a week bare`, note: `${tabEsc(c.blurb)} Comes with a fuel cache: fill up free at its pump, the bill comes out every Monday.`,
++        pay: fmtCash(c.price), act: "rebuy:" + c.id, actLabel: "BUY IT", blocked: GS.cash < c.price });
++    }
++    h += `<p class="tnote2">Tourists take a depot on nights you're not there (stay over and it's yours that night). Upgrades raise the rent and how often it's let. The cache never runs dry; you pay for what you take, plus ${fmtCash(RE_FUEL.standing)} a week to keep the tank there.</p>`;
++    el.innerHTML = `<div class="tapp">${h}</div>`;
++    for (const b of el.querySelectorAll("[data-act^=rebuy]")) b.addEventListener("click", () => reBuy(b.dataset.act.split(":")[1]));
++    for (const b of el.querySelectorAll("[data-act=rearr]")) b.addEventListener("click", rePayArrears);
++    for (const b of el.querySelectorAll("[data-reu]")) b.addEventListener("click", () => { const [a, u] = b.dataset.reu.split(":"); reUpgrade(a, u); });
++    tabMinis(el);
++  }
++});
++
+ /* ---------------- Kjøllefjord ---------------- */
+ let steamer = null, QUAY = null;
+ /* ---- the coastal ferry's timetable ----
+@@ -7670,7 +8397,7 @@ function initFishing() {
+   FISH = window.TLFish.init({
+     THREE, scene, renderer, camera, P, GS, CAL, keys, FOOT, TABLET, GFX, LAKES, SITES, depot, hemi, sun, sunDir,
+     mats: { jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot },
+-    fishSites: FISHSITES, toast, save, surf, groundAt, bioAt, isSea, isWater, iceThin, fbm, dayFactor, payMul, bumpDelivered, mailVisit,
++    fishSites: FISHSITES, toast, save, wear: (o, a, s, opt) => WEAR.apply(o, a, s, opt), surf, groundAt, bioAt, isSea, isWater, iceThin, fbm, dayFactor, payMul, bumpDelivered, mailVisit,
+     started: () => started, touch: () => TC.on, showroom: showroomOn, settings: () => gameKey({ code: "Escape" }),
+     onStart() { camState.init = false; TABLET.close(true); toggleBigMap(false); },
+     onStop() { camState.init = false; camState.yaw = P.yaw; }
+@@ -8105,6 +8832,7 @@ function applyLoadout() {
+   if (V.headHid) { V.headAll.forEach(m => m.visible = false); V.furCollar.visible = false; }
+   else V.neck.visible = true;
+   poseRider();
++  wearSync();
+ }
+ 
+ /* ---------------- other riders out on the trail ---------------- */
+@@ -8215,6 +8943,9 @@ function updGame(dt, spd) {
+   let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
+   if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near.fuelPrice ? `${near.name}. Warm stove inside, and jerry cans on the porch: fuel at ${fuelFmt(near.fuelPrice)}.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
+   GS.near = near;
++  // your own depot cabins (O6) warm you like any cabin; the new lakeside ones aren't in SITES
++  const reC = reNearCab(P.x, P.z, 22), reHome = reC && GS.re && GS.re.own[reC.id] ? reC : null;
++  if (reHome !== RE.here) { RE.here = reHome; if (reHome) toast(`${shortName(reHome)}: your depot. ${reHome.built ? "Warm stove inside. " : ""}The fuel cache pump fills you free; it goes on Monday's bill.`); }
+   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
+   const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
+   if (elev > 0.5 && ST.warm < 7 && !GS.kitWarned) { GS.kitWarned = true; toast("You're under-dressed for the open fell. The garage sells warmer kit.", "warn"); }
+@@ -8222,9 +8953,9 @@ function updGame(dt, spd) {
+   const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
+   if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
+   GS.camping = camping;
+-  if (near && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
++  if ((near || RE.here) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
+-  else if (!near) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
++  else if (!near && !RE.here) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
+   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
+   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
+   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
+@@ -8239,8 +8970,8 @@ function updGame(dt, spd) {
+   if (work && near === depot && GS.mail.length) mailHandIn();
+   mailTick(dt); updMailHud(dt);
+   if (FISH) FISH.tick(dt, near, spd);
+-  if (work && GS.own.pickups.length) collectEngine(near);
+-  if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
++  mktTick(dt);
++  if (work && GS.mkt && GS.mkt.held.length) mktCollect(near);
+   if (work && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
+   if (GS.tour && spd < 5 && Math.hypot(P.x - GS.tour.view.x, P.z - GS.tour.view.z) < 26) tourArrive();
+   // the job board has no key for now (the tablet replaces it), so tourists simply climb on when you stop at
+@@ -8322,8 +9053,8 @@ function updGameHud() {
+     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
+     $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${Math.round(g.pay * payMul())} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}`;
+   } else if (pend) {
+-    $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
+-    $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
++    $("jobTitle").textContent = pend.guide ? `Bytteboden: ${pend.name}` : `Collect: ${pend.name}`;
++    $("jobSub").textContent = pend.guide ? `${pend.seller} in ${shortName(tgt)} · ${fmtMi(dist)} · stop at the door to look it over` : `Paid for · ${pend.seller} in ${shortName(tgt)} · ${fmtMi(dist)}`;
+   } else if (GS.claims.length) {
+     const c = GS.claims[0], f = c.from || depot;
+     $("jobTitle").textContent = `Pick up: ${c.tour ? "tourists" : c.cargo}${GS.claims.length > 1 ? "  (+" + (GS.claims.length - 1) + " more)" : ""}`;
+@@ -8470,6 +9201,7 @@ function newGame() {
+   Object.assign(LOG, LOG0());
+   GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
+   if (SCHOOL.on) schoolEnd("quiet"); GS.apps = {}; GS.lic = {}; GS.signed = {}; GS.sdone = {}; SCHOOL.guide = null;
++  mktInit(null); reInit(null);
+   if (FISH) { FISH.abort(); FISH.setData(null); }                       // starter tackle: hand auger, short rod, plastic reel, 4 lb mono, maggots
+   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
+   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
+@@ -9594,6 +10326,7 @@ const GOD_ITEMS = [
+     } },
+   { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
+   { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels, Freight and Trail Crew."); } },
++  { id: "mkt", label: "Bytteboden: new listings", sub: "reshuffle the marketplace", do: () => { GS.mkt.list = []; mktReseed(CAL.abs()); TABLET.refresh("market"); save(); toast("Bytteboden: a fresh batch of listings."); } },
+   { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted."); } },
+   { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
+ ];
+@@ -9670,7 +10403,7 @@ addEventListener("keydown", e => {
+ function boot() {
+   genWorld(); computeSites(); placeQuay(); computeStations(); computeFuelCabins(); meltBuild();
+   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
+-  buildFar(); buildProps(); buildSites(); buildSchools(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
++  buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
+   buildNpcs(); buildWalker(); buildWinchGear();
+   buildFishShops(); initFishing();
+   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
+-- 
+2.43.0
+
