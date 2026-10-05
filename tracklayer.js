@@ -3217,17 +3217,18 @@ headlight.position.set(0, 0.6, 1.3); headlight.target.position.set(0, -1.2, 14);
 sledBody.add(headlight, headlight.target);
 
 const C_STORMDAY = new THREE.Color(0xaab5c1), C_STORMNIGHT = new THREE.Color(0x1b2331), _c1 = new THREE.Color(), _c2 = new THREE.Color();
-// Real sky geometry for Kjøllefjord (71°N) in late winter: the sun rises in the south-east around
-// eight, crawls to about 10° at noon, sets south-west around four, then takes hours sliding through
-// sunset, civil, nautical and astronomical twilight. The moon runs its own track and phase (a
+// Real sky geometry for Kjøllefjord (70.9°N) through the season: the declination follows the date, so on
+// 1 November the sun manages ~4° at noon, from ~20 Nov to ~22 Jan it never rises (polar night: a dim blue
+// civil twilight around noon, dark otherwise), by March it's 18° and the day is twelve hours, and from
+// mid-May it never sets. Below the horizon it slides through civil, nautical and astronomical twilight. The moon runs its own track and phase (a
 // lunar month is ~29 game days), so some nights are bright blue moonlight and some are black.
-const R2D = 180 / Math.PI, LAT = 71 / R2D, SDEC = -9 / R2D, MDEC = 16 / R2D;
+const R2D = 180 / Math.PI, LAT = 70.9 / R2D, MDEC = 16 / R2D;   // the sun's declination comes from the calendar: CAL.dec()
 const _sunV = new THREE.Vector3(), _moonV = new THREE.Vector3(), POLE = new THREE.Vector3(0, Math.sin(LAT), -Math.cos(LAT));
 function skyDir(ha, dec, out) {                       // hour angle + declination -> world dir (x east, y up, -z north)
   const cd = Math.cos(dec), cl = Math.cos(LAT), sl = Math.sin(LAT);
   return out.set(-cd * Math.sin(ha), sl * Math.sin(dec) + cl * cd * Math.cos(ha), -(cl * Math.sin(dec) - sl * cd * Math.cos(ha)));
 }
-function sunEl(h) { return Math.asin(clamp(skyDir((h - 12) / 12 * Math.PI, SDEC, _sunV).y, -1, 1)) * R2D; }   // degrees
+function sunEl(h) { return Math.asin(clamp(skyDir((h - 12) / 12 * Math.PI, CAL.dec(), _sunV).y, -1, 1)) * R2D; }   // degrees
 function dayFactor() { return sstep(-7, 3, sunEl(GS.hour % 24)); }
 // sun elevation (deg): zenith, mid-sky, horizon toward the sun, horizon away, fog, hemi sky, hemi strength, sun glow
 const SKYK = [
@@ -3238,7 +3239,8 @@ const SKYK = [
   [-2, [.13, .20, .42], [.38, .38, .56], [.95, .52, .34], [.58, .44, .60], [.42, .40, .50], [.52, .52, .70], .38, [.9, .42, .2]],
   [1, [.20, .30, .54], [.52, .54, .68], [1.0, .66, .42], [.74, .64, .74], [.62, .58, .64], [.70, .68, .78], .48, [1.1, .55, .28]],
   [5, [.27, .41, .66], [.58, .66, .80], [.95, .82, .70], [.82, .80, .84], [.74, .77, .82], [.72, .80, .90], .56, [.9, .62, .38]],
-  [12, [.30, .46, .70], [.60, .72, .86], [.86, .85, .86], [.86, .85, .86], [.77, .83, .89], [.74, .83, .93], .62, [.6, .43, .27]]
+  [12, [.30, .46, .70], [.60, .72, .86], [.86, .85, .86], [.86, .85, .86], [.77, .83, .89], [.74, .83, .93], .62, [.6, .43, .27]],
+  [28, [.25, .43, .74], [.55, .71, .90], [.82, .87, .93], [.82, .87, .93], [.76, .84, .92], [.76, .85, .95], .68, [.4, .32, .22]]   // spring sun, higher than winter ever gets
 ];
 const SUNK = [[-2, [1, .42, .22]], [1, [1, .55, .32]], [4, [1, .72, .5]], [10, [1, .86, .72]]];
 function keyAt(K, e, i, out) {
@@ -3251,7 +3253,7 @@ const C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.35, 0.8
 function updSky() {
   const H = GS.hour, h = H % 24, st = GS.storm, u = sky.material.uniforms;
   // sun
-  skyDir((h - 12) / 12 * Math.PI, SDEC, _sunV); const e = Math.asin(clamp(_sunV.y, -1, 1)) * R2D;
+  skyDir((h - 12) / 12 * Math.PI, CAL.dec(), _sunV); const e = Math.asin(clamp(_sunV.y, -1, 1)) * R2D;
   // moon: runs ~50 min later every day, so its phase and rise time drift through the month
   const lag = (H / 24 * 12.19 + 25) % 360 / R2D, illum = 0.5 * (1 + Math.cos(lag));
   skyDir((h - 12) / 12 * Math.PI + Math.PI - lag, MDEC, _moonV); const me = Math.asin(clamp(_moonV.y, -1, 1)) * R2D;
@@ -3497,6 +3499,7 @@ function finishGroom(site) {
   const wf = g.pts.length ? g.pts.filter(q => q.wide).length / g.pts.length : 0;
   if (wf >= 0.6) { p *= 1 + 0.35 * wf; notes.push("wide trail bonus"); }
   if (g.due && GS.hour > g.due) { p *= 0.5; notes.push("late"); }
+  if (payMul() > 1) { p *= payMul(); notes.push("polar night ×1.5"); }
   p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered();
   toast(`Trail groomed to ${site.name}: +$${p} (${Math.round(fr * 100)}% of the line${notes.length ? ", " + notes.join(", ") : ""}).`, "good");
   updGroom(); save();
@@ -3547,6 +3550,7 @@ function deliver(site) {
       if (j.priority) { p *= 0.3; bondBack = false; note("too late"); }
       else { p *= 0.5; note(j.boat ? "missed the boat" : "late"); }
     } else if (j.boat) note("made the boat");
+    if (payMul() > 1 && p > 0) { p *= payMul(); note("polar night ×1.5"); }
     if (j.bond) { if (bondBack) p += j.bond; else lost += j.bond; }
     total += Math.round(p); bumpDelivered();
   }
@@ -3960,7 +3964,7 @@ function renderBoard() {
   const sm = smallLoads(), bg = bigLoads(), box = $("boardRows");
   $("boardCash").textContent = fmtCash(GS.cash);
   const rk = rankOf(GS.delivered), nx = RANKS[RANKS.indexOf(rk) + 1];
-  $("boardRank").textContent = `${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}`;
+  $("boardRank").innerHTML = `${rk.name} · ${GS.delivered} delivered${nx ? ` · ${nx.name} at ${nx.at}` : ""}${CAL.isPolarNight() ? ` <span class="bchip polar" title="Every payout is half again while the sun stays down">POLAR NIGHT ×1.5</span>` : ""}`;
   box.innerHTML = ""; BD.rows = [];
   const sec = (a, b) => { const d = document.createElement("div"); d.className = "bsx"; d.innerHTML = `<span>${a}</span><span>${b || ""}</span>`; box.appendChild(d); };
   const note = t => { const d = document.createElement("div"); d.className = "bnote"; d.textContent = t; box.appendChild(d); };
@@ -3970,7 +3974,7 @@ function renderBoard() {
   GS.jobs.forEach((j, k) => box.appendChild(boardRow({
     kind: "job", k, key: k + 1, obj: j, dest: j.dest, title: j.cargo,
     chips: (j.steamer ? `<span class="bchip due">OFF THE STEAMER</span>` : "") + (j.local && !j.steamer ? `<span class="bchip">NEAR TOWN</span>` : "") + (j.fragile ? `<span class="bchip fragile">FRAGILE</span>` : "") + (j.due ? `<span class="bchip due">DUE ${fmtTime(j.due)}</span>` : ""),
-    pay: fmtCash(j.pay), meta: `to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km · ${gTag(j.dest)}`
+    pay: fmtCash(j.pay * payMul()), meta: `to ${shortName(j.dest)} · ${routeKm(j.dest).toFixed(1)} km · ${gTag(j.dest)}`
   })));
   sec("Contracts", HITCH_ON[GS.own.parts.hitch] + (ST.bays ? ` · ${baysUsed()}/${ST.bays}` : ""));
   if (bg.length) note("On the trailer: " + bg.map(j => `${j.cargo.toLowerCase()} (${Math.round(j.cond)}%)`).join(", ") + ".");
@@ -3983,7 +3987,7 @@ function renderBoard() {
     box.appendChild(boardRow({
       kind: "con", k, key: n++, obj: c, dest: c.dest, title: c.cargo, cls: fits ? "" : "nofit",
       chips: `<span class="bchip ${tag}">${tag.toUpperCase()}</span>` + (c.rescue ? c.comps.map(x => `<span class="bchip ${x === "short" || x === "hurt" ? "due" : ""}">${({ storm: "STORM", night: "NIGHT", hurt: "HURT", short: "COLD", two: "TWO STUCK" })[x]}</span>`).join("") : "") + (c.due ? `<span class="bchip due">${c.rescue ? "CLOCK" : "DUE"} ${fmtTime(c.due)}</span>` : ""),
-      pay: fmtCash(c.pay),
+      pay: fmtCash(c.pay * payMul()),
       meta: c.rescue ? `${routeKm(c.dest).toFixed(1)} km by trail · ${["", "hand", "electric", "heavy"][c.needTier]} winch or better · ${TRAPS[c.trap].lvl >= 6 ? "hard" : TRAPS[c.trap].lvl >= 3 ? "tricky" : "easy"}` : c.groom ? `${(Math.hypot(c.dest.x - depot.x, c.dest.z - depot.z) / 1000).toFixed(1)} km of line to ${shortName(c.dest)} · ${gTag(c.dest)}` : `to ${shortName(c.dest)} · ${routeKm(c.dest).toFixed(1)} km · ${c.kg} kg${c.fragile ? " · fragile" : ""}`
     }));
   });
@@ -4005,7 +4009,7 @@ function boardDetail(r) {
     head = `To ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m`;
     lines.push(`${groomSay(g)}${j.fragile ? ` Fragile: each hard knock costs ${ST.care ? "7.5" : "15"}% of the pay.` : ""}${j.due ? ` Due ${fmtTime(j.due)}, late pays half.` : ""}`);
     if (smallLoads().length >= ST.slots) { warn = ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`; blocked = true; }
-    act = `LOAD IT · ${fmtCash(j.pay)}`;
+    act = `LOAD IT · ${fmtCash(j.pay * payMul())}`;
   } else if (r.kind === "con") {
     const c = r.obj, hitch = GS.own.parts.hitch;
     if (c.rescue) {
@@ -4014,13 +4018,13 @@ function boardDetail(r) {
       lines.push(`Clock: ${fmtTime(c.due)}. Park on the rim, get off, walk the line out and hook on, strap your sled back to a tree and reel them out. Pays for getting them clear, more for being fast and gentle. About ${c.reach} m of line to do it in one pull.`);
       if (ST.winch < c.needTier) { warn = `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.`; blocked = true; }
       else if (GS.rescueJob) { warn = "Finish the call you're on first."; blocked = true; }
-      act = `TAKE THE CALL · ${fmtCash(c.pay)}`;
+      act = `TAKE THE CALL · ${fmtCash(c.pay * payMul())}`;
     } else if (c.groom) {
       head = `Groom the line to ${shortName(d)} · ${(Math.hypot(d.x - depot.x, d.z - depot.z) / 1000).toFixed(1)} km · climb ${climbOf(d)} m`;
       lines.push(`Drag a groomer down the straight line from the quay and leave it set hard. Pays for how much of it you groom, more for a clean line, and more again if the wing tiller lays it wide. Due ${fmtTime(c.due)}.`);
       if (!isGroomer(hitch)) { warn = "That's grooming work. You need a groomer drag on the hitch: the garage sells them."; blocked = true; }
       else if (GS.groomJob) { warn = "Finish the line you're grooming first."; blocked = true; }
-      act = `TAKE THE LINE · ${fmtCash(c.pay)}`;
+      act = `TAKE THE LINE · ${fmtCash(c.pay * payMul())}`;
     } else {
       head = `To ${shortName(d)} · ≈ ${km} km by trail · climb ${climbOf(d)} m · ${c.kg} kg`;
       if (c.why) lines.push(`<span class="why">${esc(c.why)}</span>`);
@@ -4029,7 +4033,7 @@ function boardDetail(r) {
       if (!okHitch) { warn = `Needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`; blocked = true; }
       else if (baysUsed() + c.bays > ST.bays) { warn = ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded."; blocked = true; }
       else if (GS.cash < c.bond) { warn = `The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`; blocked = true; }
-      act = `STRAP IT DOWN · ${fmtCash(c.pay)}`;
+      act = `STRAP IT DOWN · ${fmtCash(c.pay * payMul())}`;
     }
   } else if (r.kind === "garage") {
     head = "Across the road, big roll door";
@@ -5803,16 +5807,16 @@ function updGameHud() {
   if (rjv) {
     const c = GS.rescueJob, left = c.due - GS.hour, n = RJ.vs.filter(v => !v.freed).length;
     $("jobTitle").textContent = `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`;
-    $("jobSub").textContent = `${fmtMi(rjv.d)} · $${c.pay} · ${left > 0 ? `clock runs out ${fmtTime(c.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}`;
+    $("jobSub").textContent = `${fmtMi(rjv.d)} · $${Math.round(c.pay * payMul())} · ${left > 0 ? `clock runs out ${fmtTime(c.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}`;
   } else if (GS.load.length) {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
     const g = groom[tgt.id];
-    $("jobSub").textContent = `${fmtMi(dist)} · $${j.pay}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · steamer sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · steamer sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
-    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${g.pay} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}`;
+    $("jobSub").textContent = `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${Math.round(g.pay * payMul())} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}`;
   } else if (pend) {
     $("jobTitle").textContent = `Collect: ${engDef(pend.inst.eid).name}`;
     $("jobSub").textContent = `Paid for · ${pend.inst.seller} in ${tgt.name} · ${fmtMi(dist)}`;
@@ -6893,6 +6897,7 @@ function rjPay() {
   if (left > total * 0.5) { pay *= 1.15; notes.push("fast"); }
   if (!RJ.hurt && !RJ.blown && RJ.stall < 2.5) { pay *= 1.15; notes.push("clean recovery"); }
   if (RJ.hurt) { pay *= 0.6; notes.push("somebody was hurt"); }
+  if (payMul() > 1) { pay *= payMul(); notes.push("polar night ×1.5"); }
   pay = Math.round(pay) + round5(tip);
   GS.cash += pay;
   const before = rrank(GS.rescues || 0); GS.rescues = (GS.rescues || 0) + 1; const after = rrank(GS.rescues);
