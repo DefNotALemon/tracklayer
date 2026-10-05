@@ -1266,20 +1266,21 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
   V.hips = new THREE.Group(); ub.add(V.hips);
   V.hipParts = [ball(0.17, pantsMat, 0, 0.0, 0.03, V.hips, 1.0, 0.65, 1.0)];
   for (const sx of [-1, 1]) V.hipParts.push(ball(0.125, pantsMat, sx * 0.085, -0.035, -0.07, V.hips, 0.95, 0.84, 1.0));
+  V.fpHide = [];                                  // upper-body pieces that sit around the first-person eye: hidden there, or the near plane slices them open
   V.torso = box(0.36, 0.38, 0.25, jacketMat, 0, 0.22, 0.0, 0, 0, 0, ub);
   V.chest = ball(0.22, jacketMat, 0, 0.36, 0.03, ub, 1.0, 0.75, 0.85);
-  ball(0.14, jacketMat, 0, 0.47, 0.0, ub, 1.0, 0.6, 0.9);                                                   // collar
+  V.fpHide.push(V.torso, V.chest, ball(0.14, jacketMat, 0, 0.47, 0.0, ub, 1.0, 0.6, 0.9));                                                   // collar
   V.furCollar = ball(0.17, fur, 0, 0.48, -0.02, ub, 1.15, 0.5, 1.05);
-  box(0.22, 0.26, 0.11, packMat, 0, 0.26, -0.18, 0, 0, 0, ub);                                              // small pack
-  box(0.24, 0.05, 0.12, packMat, 0, 0.4, -0.18, 0, 0, 0, ub);
+  V.fpHide.push(box(0.22, 0.26, 0.11, packMat, 0, 0.26, -0.18, 0, 0, 0, ub),                                // small pack
+    box(0.24, 0.05, 0.12, packMat, 0, 0.4, -0.18, 0, 0, 0, ub));
   styleParts.sleeves = [];
   V.arms = []; V.shoulder = [];
-  { const sg = new THREE.CylinderGeometry(0.095, 0.095, 0.4, 12); sg.rotateZ(Math.PI / 2); put(new THREE.Mesh(sg, jacketMat), 0, 0.39, 0.02, 0, 0, 0, ub); }   // shoulder line across the top of the jacket
+  { const sg = new THREE.CylinderGeometry(0.095, 0.095, 0.4, 12); sg.rotateZ(Math.PI / 2); V.fpHide.push(put(new THREE.Mesh(sg, jacketMat), 0, 0.39, 0.02, 0, 0, 0, ub)); }   // shoulder line across the top of the jacket
   for (const sx of [-1, 1]) {
-    ball(0.1, jacketMat, sx * 0.2, 0.39, 0.02, ub, 1, 1, 1);                                              // rounded shoulder cap the sleeve grows from
+    V.fpHide.push(ball(0.1, jacketMat, sx * 0.2, 0.39, 0.02, ub, 1, 1, 1));                                              // rounded shoulder cap the sleeve grows from
     V.shoulder.push(new THREE.Vector3(sx * 0.2, 0.39, 0.03));
     const ua = limbDyn(0.075, 0.065, jacketMat, ub), fa = limbDyn(0.065, 0.055, jacketMat, ub);
-    V.arms.push(ua, fa);
+    V.arms.push(ua, fa); V.fpHide.push(ua);                                                              // upper arm (and its band) goes with the shoulder
     const band = box(0.19, 0.06, 0.19, riderTrimMat, 0, 0, 0.2, 0, 0, 0, ua); styleParts.sleeves.push(band);   // sleeve band, rides the upper arm
     const rb = box(0.17, 0.05, 0.17, reflect, 0, 0, 0.16, 0, 0, 0, fa); V.reflect.push(rb);                      // forearm band
   }
@@ -1345,7 +1346,8 @@ function ik2(root, tip, l1, l2, pole, out) {
   return out.copy(root).addScaledVector(_ikd, a).addScaledVector(_ikp, h);
 }
 const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _pJ = new THREE.Vector3(), _pP = new THREE.Vector3(), _pT = new THREE.Vector3();
-const RIDER = { thigh: 0.44, shin: 0.43, upper: 0.3, fore: 0.29, hipX: 0.14, pitch: 0.4, legR: 0.105 };   // arm lengths are in ub space (× RIDER_SCALE)
+const CLIMB = { v: 0, stand: 0 };   // 0..1 how hard the sled is going up a steep face: rider stands, nose lifts, chase cam rises
+const RIDER = { thigh: 0.44, shin: 0.43, upper: 0.3, fore: 0.29, hipX: 0.14, pitch: 0.4, legR: 0.105, baseY: 0, lift: -1, legLift: 0, standH: 0.4 };   // arm lengths are in ub space (× RIDER_SCALE)
 // how far a ball of radius r at p sinks into the machine's hood or seat (0 = clear)
 // top of a [z, y] outline at z (the highest crossing); off either end, the nearest end's height
 function hoodTopAt(pts, z) {
@@ -1368,6 +1370,7 @@ function poseRider() {
   const ud = mc.userData, hip = ud.hip;
   rider.position.set(0, 0, 0);
   ub.position.set(0, ud.seatTop + 0.2 * 0.7 * RIDER_SCALE + 0.012, hip.z);   // hips sit on the cushion (and its piping), not in it
+  RIDER.baseY = ub.position.y;
   // choose the torso pitch: lean forward until both grips are comfortably inside arm's reach
   barPivot.updateWorldMatrix(true, false);
   let pitch = 0.25, reach = RIDER.upper + RIDER.fore;
@@ -1407,23 +1410,50 @@ function poseRider() {
     }
   }
   ud.footwell.forEach(m => m.visible = best.well);
+  RIDER.legFit = best; RIDER.legLift = -1; RIDER.lift = -1;
+  poseLegs(CLIMB.stand);
+  poseArms();
+}
+// hips and knees for a given stand height (0 = seated). The boots stay on the boards; the hips rise and the knees fold forward.
+const _lq = new THREE.Vector3();
+function poseLegs(lift) {
+  const best = RIDER.legFit; if (!best || !V.legs) return;
+  RIDER.legLift = lift;
+  const mc = V.machineOf(PV.sled || GS.own.sled), ud = mc.userData, hip = ud.hip;
   for (const [i, sx] of [-1, 1].entries()) {
     const footX = best.fx, footZ = best.fz;
-    _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005, hip.z + 0.06); _pB.set(sx * (footX + 0.025), 0.53, footZ - 0.03);
-    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP.copy(best.pole).multiply(q.set(sx, 1, 1)), _pJ);
+    _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005 + lift, hip.z + 0.06 - lift * 0.25); _pB.set(sx * (footX + 0.025), 0.53, footZ - 0.03);
+    ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP.copy(best.pole).multiply(_lq.set(sx, 1, 1)), _pJ);
     V.legs[i * 2].userData.set(_pA, _pJ); V.legs[i * 2 + 1].userData.set(_pJ, _pB);
     V.kneePads[i].position.copy(_pJ).add(_pT.set(0, 0.02, 0.07)); aimZ(V.kneePads[i], _pJ, _pT.set(_pB.x, _pB.y - 0.4, _pB.z + 0.5));
     V.reflect[i].position.copy(_pJ).lerp(_pB, 0.55); aimZ(V.reflect[i], V.reflect[i].position, _pB);
     V.footPlain[i].position.set(sx * footX, 0.45, footZ); V.boots[i].position.set(sx * footX, 0.5, footZ - 0.01); V.bootCuff[i].position.set(sx * footX, 0.62, footZ - 0.04);
   }
-  RIDER.legFit = best;
-  poseArms();
 }
+
 // every frame: arms reach the grips wherever the bars have turned, torso rolls into the turn
 function poseArms() {
   if (!V.arms || !V.machineOf) return;
-  const steer = barPivot.rotation.y;
-  ub.rotation.set(RIDER.pitch, steer * 0.18, -steer * 0.28);
+  const steer = barPivot.rotation.y, st = CLIMB.stand;
+  let pitch = RIDER.pitch;
+  if (st > 0.002) {
+    // standing over the bars: hips rise, legs straighten, torso leans over until the grips are back in reach
+    if (Math.abs(st - RIDER.legLift) > 0.002) poseLegs(st);
+    RIDER.lift = st;
+    ub.position.y = RIDER.baseY + st; ub.position.z = V.machineOf(PV.sled || GS.own.sled).userData.hip.z - st * 0.25;
+    barPivot.updateWorldMatrix(true, false);
+    const reach = (RIDER.upper + RIDER.fore) * 0.97; let lo = RIDER.pitch, hi = RIDER.pitch + 1.0;
+    for (let n = 0; n < 7; n++) {
+      const mid = (lo + hi) / 2; ub.rotation.set(mid, 0, 0); ub.updateWorldMatrix(true, false);
+      _pT.copy(V.wrist[1]); barPivot.localToWorld(_pT); ub.worldToLocal(_pT);
+      if (_pT.distanceTo(V.shoulder[1]) < reach) hi = mid; else lo = mid;
+    }
+    pitch = hi; if (V.head) V.head.g.rotation.x = -pitch * 0.55;   // eyes up the hill, not at the bars
+  } else if (RIDER.lift !== 0) {
+    RIDER.lift = 0; if (RIDER.legLift !== 0) poseLegs(0);
+    ub.position.y = RIDER.baseY; ub.position.z = V.machineOf(PV.sled || GS.own.sled).userData.hip.z; if (V.head) V.head.g.rotation.x = -RIDER.pitch;
+  }
+  ub.rotation.set(pitch, steer * 0.18, -steer * 0.28);
   barPivot.updateWorldMatrix(true, false); ub.updateWorldMatrix(true, false);
   for (const [i, sx] of [-1, 1].entries()) {
     _pT.copy(V.wrist[i]); barPivot.localToWorld(_pT); ub.worldToLocal(_pT);
@@ -2965,20 +2995,25 @@ function angLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI
 function updVisuals(dt) {
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const spd = Math.hypot(P.vx, P.vz);
-  let pT, rT;
+  let pT, rT, gr = 0;
   if (P.gnd) {
     const hF = rideSurf(P.x + fx * 1.3, P.z + fz * 1.3), hR = rideSurf(P.x - fx * 1.2, P.z - fz * 1.2);
     const hL = rideSurf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = rideSurf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
     pT = Math.atan2(hF - hR, 2.5) + (P.wet ? 0.07 + P.sink * 0.5 : 0) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
-    rT = Math.atan2(hL - hRt, 1.2);
+    rT = Math.atan2(hL - hRt, 1.2); gr = (hF - hR) / 2.5;
   } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.35 + P.airP; rT = P.airR; }
   const whT = P.wh * (0.52 + Math.sin(performance.now() * 0.0061) * 0.05 + Math.sin(performance.now() * 0.017) * 0.02);
   P.whVis += (whT - P.whVis) * (1 - Math.exp(-(whT > P.whVis ? 6 : 9) * dt));
-  pT += P.whVis + BOG.sink * 0.3;
+  // going up a steep face: stand on the pegs and lift the nose, so you (and the camera) can see over the crest
+  const cT = P.gnd && !P.wet && !FOOT.on && GS.fuel > 0 && !GS.dead ? sstep(0.16, 0.46, gr) * clamp((spd - 1.5) / 3, 0, 1) : 0;
+  CLIMB.v += (cT - CLIMB.v) * (1 - Math.exp(-(cT > CLIMB.v ? 3.2 : 2.2) * dt));
+  CLIMB.stand = CLIMB.v * RIDER.standH;
+  const cl = CLIMB.v * 0.26;
+  pT += P.whVis + cl + BOG.sink * 0.3;
   const k = 1 - Math.exp(-(P.gnd ? 12 : 3) * dt);
   P.pitch += (pT - P.pitch) * k; P.roll += (rT - P.roll) * k;
   const lean = input.steer * (0.1 + input.lean * 0.1) * clamp(spd / 15, 0, 1);
-  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis)) - BOG.sink, P.z);
+  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis + cl)) - BOG.sink, P.z);
   sledRoot.rotation.set(-P.pitch, P.yaw, P.roll);
   sledBody.rotation.z += (lean - sledBody.rotation.z) * (1 - Math.exp(-8 * dt));
   const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
@@ -3007,7 +3042,7 @@ function updVisuals(dt) {
   if (view.fp) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
     sledRoot.updateMatrixWorld();
-    const eye = sledRoot.localToWorld(_camEye.set(0, 1.66, -0.14));
+    const eye = sledRoot.localToWorld(_camEye.set(0, 1.66 + CLIMB.stand * 0.7, -0.14));
     if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.fpBob = 0; camState.fpEyeY = eye.y; camState.init = true; }
     // the head sits exactly where the rider's head is — no smoothing along the ground, or
     // speed drags the camera back into the seat. Only vertical jolts are cushioned.
@@ -3026,12 +3061,12 @@ function updVisuals(dt) {
     // towing: back the chase cam off so the rig behind you is in the shot
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
-    const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4, FZp - cfz * (view.d + td));
+    const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1, FZp - cfz * (view.d + td));
     want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
-    look = _camAim.set(FXp + cfx * 4, FYp + 1.1, FZp + cfz * 4);
+    look = _camAim.set(FXp + cfx * (4 + CLIMB.v * 4), FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * (4 + CLIMB.v * 4));
   }
   P.shake *= Math.exp(-4 * dt);
   const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
@@ -3909,7 +3944,9 @@ function fuelTip(j, chance, lo, hi) {
 
 /* ---------------- building kit: shared by the villages and the town ---------------- */
 const KIT = (() => {
-  const L = c => new THREE.MeshLambertMaterial({ color: c });
+  // per-pixel (Standard at roughness 1 is the same diffuse as Lambert): r128's Lambert lights per vertex, and a box wall has four,
+  // so a house the beam was shining on stayed dark unless a corner happened to sit inside the cone
+  const L = c => new THREE.MeshStandardMaterial({ color: c, roughness: 1, metalness: 0 });
   const K = {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
@@ -4179,7 +4216,7 @@ const stars = new THREE.Points(starGeo, new THREE.ShaderMaterial({
     gl_FragColor = vec4(vec3(0.92, 0.95, 1.0) * f * vA * uOp, 1.0); }`
 }));
 stars.frustumCulled = false; scene.add(stars);
-const headlight = new THREE.SpotLight(0xfff0d0, 0.4, 80, 0.55, 0.55, 1.1);
+const headlight = new THREE.SpotLight(0xffd596, 0.4, 80, 0.55, 0.55, 1.1);
 headlight.position.set(0, 0.6, 1.3); headlight.target.position.set(0, -1.2, 14);
 sledBody.add(headlight, headlight.target);
 
@@ -5256,7 +5293,8 @@ const TABLET = {
     let w, h;
     if (dash) {
       const t = tabTarget(); const hf = 2 * Math.atan(Math.tan(t.fov / 2 * TD2R) * (W / H));
-      w = clamp(Math.round(t.angW / hf * W), 560, 1000); h = Math.round(w / (TABHW.W / TABHW.H));
+      const mnW = W >= 1100 ? 800 : W >= 700 ? 720 : 560;   // a bigger logical screen = more room per card = smaller type on the glass, so nothing runs out of its box
+      w = clamp(Math.round(t.angW / hf * W), mnW, 1000); h = Math.round(w / (TABHW.W / TABHW.H));
     } else {
       // on a phone, keep clear of the riding buttons (they stay live on top): measure them rather than guess
       let top = 24, bot = 24, L = 24, R = 24;
@@ -5271,7 +5309,7 @@ const TABLET = {
       if (W > H && h < w / 2.2) w = Math.round(h * 2.2);
       this.ox = Math.round(L + (W - L - R - w) / 2); this.oy = Math.round(top + (H - top - bot - h) / 2);
     }
-    this.w = Math.round(w); this.h = Math.round(h);
+    this.w = Math.round(w); this.h = Math.round(h); this.lastQ = null;
     s.style.width = this.w + "px"; s.style.height = this.h + "px";
     s.style.setProperty("--tr", (dash ? Math.round(TABHW.R / TABHW.W * this.w) : 24) + "px");   // the display's rounded corners, same as the 3D glass
     s.classList.toggle("port", this.h > this.w); s.classList.toggle("dash", dash); s.classList.toggle("small", this.w < 640);
@@ -5300,8 +5338,10 @@ const TABLET = {
     if (wrap.hidden) return;
     if (this.mode === "dash") {
       const q = tabCorners(); if (!q) { el.style.opacity = 0; return; }
-      el.style.transform = tabHomography(this.w, this.h, q);
-      el.style.opacity = clamp((this.e - 0.5) / 0.4, 0, 1).toFixed(3);
+      // once the dip has settled the glass is nearly still: skip sub-pixel changes so the browser isn't re-rasterising the text every frame
+      const L = this.lastQ, still = this.e >= 0.999 && L && L.length === 8 && !q.some((v, i) => Math.abs(v - L[i]) > 0.25);
+      if (!still) { el.style.transform = tabHomography(this.w, this.h, q); this.lastQ = q.slice(); }
+      const op = clamp((this.e - 0.5) / 0.4, 0, 1).toFixed(3); if (el.style.opacity !== op) el.style.opacity = op;
     } else {
       const k = 0.94 + 0.06 * this.e;
       el.style.transform = `translate(${this.ox + this.w * (1 - k) / 2}px,${this.oy + this.h * (1 - k) / 2 + (1 - this.e) * 14}px) scale(${k})`;
@@ -5325,8 +5365,9 @@ function tabTarget() {
   V.tabScr.getWorldPosition(_tC);
   _tU.set(0, 1, 0).transformDirection(sledRoot.matrixWorld);
   _tF.set(Math.sin(P.yaw), 0, Math.cos(P.yaw));
-  sledRoot.updateMatrixWorld(); _tE.set(0, 1.66, -0.14); sledRoot.localToWorld(_tE);                 // the rider's eye, as in updVisuals
-  _tE.addScaledVector(_tF, 0.1).addScaledVector(_tU, -0.07);                                        // lean in and drop the head a little
+  // the rider's eye (0, 1.66, -0.14 as in updVisuals), leaned in 10 cm and dropped 7 cm: all in the sled's own space, so the glass sits
+  // still in the view however the sled pitches and rolls (before, the lean used the world yaw and nudged the screen on every bump)
+  sledRoot.updateMatrixWorld(); _tE.set(0, 1.59, -0.04); sledRoot.localToWorld(_tE);
   const d = Math.max(0.3, _tE.distanceTo(_tC)), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d), asp = innerWidth / innerHeight;
   const fv = Math.max(angH / 0.62, 2 * Math.atan(Math.tan(angW / 0.9 / 2) / asp));           // ~62% of the height (the tilt makes the near edge loom), or 90% of the width on an upright phone
   return { fov: clamp(fv * R2D, 12, 70), angW, angH, d };
@@ -5352,11 +5393,29 @@ function tabCorners() {
   return out;
 }
 // CSS matrix3d that maps the w x h screen onto the quad (TL, TR, BR, BL)
+const TAB_FLAT = /Firefox\//.test(navigator.userAgent) || /[?&]flat\b/.test(location.search);   // ?flat forces it for testing
 function tabHomography(w, h, q) {
   const [x0, y0, x1, y1, x2, y2, x3, y3] = q;
   const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3, den = dx1 * dy2 - dx2 * dy1;
   const g = den ? (sx * dy2 - dx2 * sy) / den : 0, hh = den ? (dx1 * sy - sx * dy1) / den : 0;
   const a = x1 - x0 + g * x1, b = x3 - x0 + hh * x3, d = y1 - y0 + g * y1, e = y3 - y0 + hh * y3;
+  // Firefox draws small text on a matrix3d with perspective as dust (glyphs go missing while the transform moves). The tilt is gentle, so there it gets
+  // the best flat fit instead: axes from the quad's opposite edges averaged, centred on the quad's centre, so the leftover error is split evenly
+  if (TAB_FLAT) {
+    let ux = ((x1 - x0) + (x2 - x3)) / 2 / w, uy = ((y1 - y0) + (y2 - y3)) / 2 / w, vx = ((x3 - x0) + (x2 - x1)) / 2 / h, vy = ((y3 - y0) + (y2 - y1)) / 2 / h;
+    const cx = (x0 + x1 + x2 + x3) / 4, cy = (y0 + y1 + y2 + y3) / 4;
+    // a flat fit can't follow the glass's slight taper, so grow it just enough that the glass's four corners all sit inside the screen: nothing of the 3D glass shows round the edges
+    const det = ux * vy - uy * vx;
+    if (Math.abs(det) > 1e-9) {
+      let k = 1;
+      for (const [px, py] of [[x0, y0], [x1, y1], [x2, y2], [x3, y3]]) {
+        const dx = px - cx, dy = py - cy, a = (vy * dx - vx * dy) / det, b = (-uy * dx + ux * dy) / det;   // the corner in the screen's own pixels, from its centre
+        k = Math.max(k, Math.abs(a) / (w / 2), Math.abs(b) / (h / 2));
+      }
+      k = Math.min(k, 1.05); ux *= k; uy *= k; vx *= k; vy *= k;
+    }
+    return "matrix(" + [ux, uy, vx, vy, cx - ux * w / 2 - vx * h / 2, cy - uy * w / 2 - vy * h / 2].map(v => +v.toFixed(5)).join(",") + ")";
+  }
   const m = [a / w, d / w, 0, g / w, b / h, e / h, 0, hh / h, 0, 0, 1, 0, x0, y0, 0, 1];
   return "matrix3d(" + m.map(v => +v.toFixed(7)).join(",") + ")";
 }
@@ -6574,9 +6633,9 @@ function applySettings() {
   const db = $("decalBtns"); if (db) [...db.children].forEach(b => b.classList.toggle("on", b.dataset.s === SET.decal));
   if (styleParts.stripe) {
     const st = SET.style;
-    styleParts.stripe.visible = st === "racer";
-    styleParts.back.visible = st === "twotone" || st === "hivis";
-    styleParts.chestPanel.visible = st === "twotone" || st === "hivis";
+    styleParts.stripe.visible = st === "racer" && !V.headHid;
+    styleParts.back.visible = (st === "twotone" || st === "hivis") && !V.headHid;
+    styleParts.chestPanel.visible = (st === "twotone" || st === "hivis") && !V.headHid;
     styleParts.sleeves.forEach(m => m.visible = st === "racer" || st === "hivis");
   }
   for (const [k, id] of [["jacket", "jacketSw"], ["trim", "trimSw"], ["pants", "pantsSw"], ["helmet", "helmetSw"]]) {
@@ -8894,6 +8953,12 @@ function applyLoadout() {
   V.heatBand.forEach(m => m.visible = gr.gloves === "heated");
   if (V.headHid) { V.headAll.forEach(m => m.visible = false); V.furCollar.visible = false; }
   else V.neck.visible = true;
+  // first person: the eye is right over the shoulders (more so on the low, forward-leaning fast sleds, and the lens widens with speed),
+  // so the near plane cut the jacket, shoulders and upper arms open and showed their inner layers. Hide them, and draw the sleeves
+  // and gloves two-sided so a forearm cut by the near plane reads as solid cloth, not a hollow shell.
+  V.fpHide.forEach(o => o.visible = !V.headHid);
+  for (const m of [styleParts.stripe, styleParts.back, styleParts.chestPanel]) if (V.headHid) m.visible = false;
+  for (const m of [jacketMat, M.glove]) { const sd = V.headHid ? THREE.DoubleSide : THREE.FrontSide; if (m.side !== sd) { m.side = sd; m.needsUpdate = true; } }
   poseRider();
   wearSync();
 }

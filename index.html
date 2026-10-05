@@ -644,6 +644,19 @@
   #tabS.small .tlr,#tabS.port .tlr{grid-template-columns:78px minmax(0,1fr);min-height:64px}#tabS.small .tlr::before,#tabS.port .tlr::before{left:78px}
   #tabS.small .tlv b,#tabS.port .tlv b{font-size:24px}#tabS.small .tlv b.txt,#tabS.port .tlv b.txt{font-size:16px}
   #tabS.small .tlm,#tabS.port .tlm{font-size:18px}
+  /* ---- fit pass: nothing may spill out of the screen or get shaved by its rounded corners ---- */
+  /* inset the whole display by 0.3 x the corner radius (the point where a rectangle's corner meets the arc), and never let it scroll by itself */
+  #tabS{padding:calc(var(--tr,24px)*.3);overflow:hidden;overflow:clip;overflow-wrap:anywhere}
+  #tabS.dash{will-change:transform}
+  #tabS .tsbar{border-radius:calc(var(--r-md,10px))}
+  #tabV{overscroll-behavior:contain;scroll-padding:10px}
+  /* big type: line boxes tall enough that the ink isn't cut by its own box (Barlow's ascenders/descenders sit outside a line-height of 1) */
+  .tti{line-height:1.2}.tbig{line-height:1.08}.tlv b{line-height:1.15}.tlv b.txt{line-height:1.15}.wxw{line-height:1.2}.tmoney,.tpay{line-height:1.2}
+  .tlm{line-height:1.15}.twr b{line-height:1.2}
+  /* text that can't shrink must still be allowed to: every grid/flex child may go narrower than its content */
+  .tcard>*,.tsto>*,.tlt,.tlv,.tcb,.thd>*,.thero>*,.tca>*,.tct>*,.tsub>*,.twr{min-width:0}
+  .tct,.tcn,.tcm,.tsub,.tnx,.tnt{overflow-wrap:anywhere}
+  .tbtn{max-width:100%}
   /* notifications: a banner on the HUD when the tablet's down, a drop-down on the screen when it's up */
   .tban,.tnote{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 8px 10px 12px;border-radius:14px;background:var(--panel);border:1px solid rgba(234,242,248,.12);box-shadow:var(--soft);color:var(--frost);font-family:var(--body)}
   .tban{position:fixed;z-index:6;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;cursor:pointer;backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);animation:tbanIn .35s var(--ease) both}
@@ -837,5 +850,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=38"></script>
-<script src="tracklayer.js?v=38"></script>
+<script src="tracklayer.js?v=41"></script>
 </body></html>
