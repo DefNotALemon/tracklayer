@@ -56,8 +56,25 @@ yard with anything on it) and stay on the course or the instructor fetches you b
 is four short missions: hook up a trailer and hold a side-hill, drag 300 kg up the big hill, a
 timed priority run with a fragile load, and a flatbed expedition loop. Pass them all for your
 **Freight licence**, which opens heavy, priority and expedition freight in the Freight app (your
-courier rank still decides which). Aurora tours are posted in Parcels. Rescue school's course and
-the Real Estate listings come with later updates.
+courier rank still decides which). Aurora tours are posted in Parcels. Real Estate listings come
+with a later update.
+
+## Search and rescue
+
+Rescue school is four missions round the Nordkinn Redning base: **search** for a lost hiker (fly the
+expanding-square pattern on the Map, find the boot prints and the dropped glove, and the search
+circle shrinks), **rescue** a rider stranded on a slope too steep to ride (Q off, walk up, **E** to
+help them, and they ride pillion), **tow** a bogged sled (winch it out, **E** at their sled to rig a
+tow rope, haul it home), and **save** a hypothermic casualty in the **rescue toboggan** (a new hitch,
+issued with the licence). Every casualty has a survival clock: their warmth, draining with the same
+night, storm and height that chill you. It drains slower on your pillion and much slower in the
+toboggan, and your stove or thermos warms them. Stop at any warm place to hand them over.
+
+Licensed, go **on duty** in the Rescue app. Nearby callouts ping the dash with 30 seconds to accept,
+more often in storms and a little more in polar night. Accepted calls go on the Map's rescue layer
+with their clock (a search shows the area, never the person). Saves pay and build **reputation**,
+which brings better-paid calls further out; a lost casualty or a handed-over call costs reputation,
+and so does letting pings go two or more in a row. Volunteer winch recoveries stay in Trail Crew.
 
 ## The ferry and the mail
 

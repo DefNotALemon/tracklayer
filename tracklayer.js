@@ -1860,8 +1860,13 @@ const MASS = 280; let G = 32.4;
 // The Logbook tablet app's tallies (winter update S4). Saved in the save as `log`; deliveries, rescues, the
 // date and days survived come from GS and the calendar. m = metres ridden, air = seconds in real jumps,
 // jump = longest single jump (s), mail = pieces of post handed in at the quay (mailHandIn).
-const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0 });
+const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0, sar: 0, sarLost: 0 });   // sar / sarLost: rescue callouts saved and lost (O5)
 const LOG = LOG0();
+// search and rescue (O5): duty, reputation and the record are saved; the rest is the live case (see the SAR block near the end)
+var SAR = {
+  duty: false, rep: 10, miss: 0, n: 0, lost: 0, ign: 0,
+  cur: null, ping: null, coolT: -999, rollT: false, pill: null, foot: null, prints: null, glove: null, rope: null, seq: 0, odT: 0
+};
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0 };
 function resetSled() {
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
@@ -1944,7 +1949,8 @@ const HITCH = {
   groomer: { len: 2.0, r: 1.2, mass: 95, w: 2.4, tip: 99 },
   tiller: { len: 2.5, r: 1.3, mass: 240, w: 2.6, wide: 5.8, tip: 99 },
   trailer: { len: 2.75, r: 0.8, mass: 70, w: 1.05, tip: 0.8 },
-  flatbed: { len: 3.2, r: 0.95, mass: 125, w: 1.35, tip: 0.95 }
+  flatbed: { len: 3.2, r: 0.95, mass: 125, w: 1.35, tip: 0.95 },
+  akja: { len: 2.3, r: 0.7, mass: 38, w: 0.85, tip: 0.85 }          // the rescue toboggan (O5): a patient in a bag, on rigid poles
 };
 const isGroomer = k => k === "groomer" || k === "tiller";
 const TOW = { wing: 0, wingOn: false, kind: null, x: 0, z: 0, y: 0, yaw: 0, spd: 0, yr: 0, roll: 0, mass: 0, drag: 0, tipT: 0, tipDir: 1, hitT: 0, score: 0, maxScore: 0, vis: {}, vkind: null, pitchV: 0, rollV: 0 };
@@ -2067,7 +2073,7 @@ function towStep(dt) {
   const hL = rideSurf(tx + lx * hw, tz + lz * hw), hR = rideSurf(tx - lx * hw, tz - lz * hw);
   TOW.roll = Math.atan2(hL - hR, W);
   // load: what's aboard, and what the snow asks of it
-  const cargoKg = bigLoads().reduce((a, j) => a + j.kg, 0);
+  const cargoKg = bigLoads().reduce((a, j) => a + j.kg, 0) + (kind === "akja" ? sarPatientKg() : 0);
   TOW.mass = H.mass + cargoKg;
   let loose = 0;                                            // sample across its width, not just down your own track
   for (const o of [-0.7, 0, 0.7]) {
@@ -2088,8 +2094,9 @@ function towStep(dt) {
     P.vx *= 0.5; P.vz *= 0.5; P.shake = Math.max(P.shake, 0.6); thud(1); whump(0.7);
     for (let k = 0; k < 60; k++) emit(tx + (Math.random() - 0.5) * 2, TOW.y + 0.3, tz + (Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 3, 1 + Math.random() * 2.5, (Math.random() - 0.5) * 3, 0.8, 1.2);
     if (cargoKg) bigHit(22 + TOW.spd, "Trailer rolled!");
-    else toast("Trailer rolled. Empty, luckily.", "warn");
-    setTimeout(() => { if (TOW.tipT <= 0.2 && started && !GS.dead) toast("You heave the trailer back onto its runners."); }, 2500);
+    else if (kind !== "akja") toast("Trailer rolled. Empty, luckily.", "warn");
+    else if (!sarPatientKg()) toast("Toboggan rolled. Empty, luckily.", "warn");     // with someone in it, the rescue code says so
+    setTimeout(() => { if (TOW.tipT <= 0.2 && started && !GS.dead) toast(kind === "akja" ? "You flip the toboggan back onto its keels." : "You heave the trailer back onto its runners."); }, 2500);
   }
   // it leaves its own mark on the snow
   if (moving && TOW.tipT <= 0) {
@@ -2201,6 +2208,22 @@ function buildTow() {
     g.userData.slots = [s0, s1]; g.userData.big = sBig;
     V2.flatbed = g; }
 
+  // rescue toboggan (akja): a red fibreglass hull on two keels, rigid pulling poles, a casualty bag strapped in
+  { const g = new THREE.Group(); g.visible = false; scene.add(g);
+    const hull = std(0xc8261c, 0.35, 0.15), bag = std(0xe06a1a, 0.8), blue2 = std(0x26476e, 0.7);
+    box(g, 0.78, 0.06, 2.0, hull, 0, 0.1, 0);                                  // floor
+    for (const s of [-1, 1]) box(g, 0.06, 0.26, 2.0, hull, s * 0.39, 0.22, 0, 0, 0, s * 0.18);   // flared sides
+    box(g, 0.78, 0.26, 0.06, hull, 0, 0.22, -1.0); box(g, 0.74, 0.3, 0.5, hull, 0, 0.2, 1.08, 0.7);   // tail, upturned bow
+    for (const s of [-1, 1]) box(g, 0.05, 0.05, 1.9, dark, s * 0.22, 0.04, 0);                // keels
+    for (const s of [-1, 1]) box(g, 0.03, 0.03, 1.9, white, s * 0.42, 0.36, 0);               // grab lines
+    tongue(g, 1.25, 0.3, 0.7);
+    const pat = new THREE.Group(); pat.visible = false; g.add(pat);
+    box(pat, 0.56, 0.24, 1.6, bag, 0, 0.27, -0.05);                            // the bag
+    for (const zz of [-0.5, 0.15, 0.6]) box(pat, 0.6, 0.03, 0.06, strap, 0, 0.4, zz);
+    { const hd = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), blue2); hd.position.set(0, 0.36, 0.78); hd.castShadow = true; pat.add(hd); }
+    g.userData.patient = pat;
+    V2.akja = g; }
+
   // what a big load looks like, strapped down. One of each per slot, shown as needed.
   const looks = parent => {
     const L = {}, mk = k => { const g = new THREE.Group(); g.visible = false; parent.add(g); L[k] = g; return g; };
@@ -2255,6 +2278,7 @@ function towVisual(dt) {
     const on = TOW.wingOn || (w > 0.02 && w < 0.98), lit = on && Math.sin(performance.now() / 110) > 0;
     g.userData.beacons[0].material.emissiveIntensity = lit ? 2.6 : on ? 0.4 : 0.9;
   }
+  if (g.userData.patient) g.userData.patient.visible = kind === TOW.kind && sarPatientKg() > 0;
   // stretch the tongue to the ball on the sled
   const tg = g.userData.tongue, arm = g.userData.arm;
   sledRoot.updateMatrixWorld(); g.updateMatrixWorld();
@@ -2636,6 +2660,7 @@ function physStep(dt) {
   } else if (P.gnd) { P.airT = 0; P.airPeak = 0; }
   collide(fx, fz);
   towStep(dt);
+  sarTowStep(dt);                                     // a dead sled on a tow rope (rescue callouts)
   P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt; LOG.m += Math.hypot(vx, vz) * dt;
 }
 
@@ -2794,6 +2819,14 @@ function drawMap() {
     mctx.fillStyle = "#ff3a1a"; mctx.beginPath(); mctx.arc(sx, sz, edge ? 3.6 : 5.2, 0, 6.283); mctx.fill();
     mctx.strokeStyle = "#ff3a1a"; mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.008) * 2.4, 0, 6.283); mctx.stroke();
   }
+  for (const p of sarPts()) {                    // a rescue case: the search area, the casualty, or where you're taking them
+    const dx = (p.x - P.x) * M2DISP, dz = (p.z - P.z) * M2DISP; let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false; const d = Math.hypot(ux, uz);
+    if (d > R - 12) { const f = (R - 12) / d; ux *= f; uz *= f; edge = true; }
+    const sx = R + ux, sz = R + uz;
+    if (p.area && !edge) { mctx.strokeStyle = "rgba(255,58,26,.7)"; mctx.lineWidth = 2; mctx.setLineDash([5, 4]); mctx.beginPath(); mctx.arc(sx, sz, Math.max(8, p.area * M2DISP), 0, 6.283); mctx.stroke(); mctx.setLineDash([]); continue; }
+    mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.arc(sx, sz, 7.5, 0, 6.283); mctx.fill();
+    mctx.fillStyle = p.kind === "sarw" ? "#7fc8e0" : "#ff3a1a"; mctx.beginPath(); mctx.arc(sx, sz, edge ? 3.6 : 5.2, 0, 6.283); mctx.fill();
+  }
   for (const n of NPCS) {                        // other riders, if they're within the dial
     const dx = (n.x - P.x) * M2DISP, dz = (n.z - P.z) * M2DISP;
     const ux = dx * cy - dz * sy, uz = dx * sy + dz * cy;
@@ -2887,6 +2920,14 @@ function drawBigMap() {
     g.strokeStyle = "#ff3a1a"; g.lineWidth = 3; g.beginPath(); g.arc(vx, vz, 16 + Math.sin(performance.now() * 0.008) * 3, 0, 6.283); g.stroke();
     g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const nm = v.name + " · stuck", w = g.measureText(nm).width + 10;
     g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 14, w, 20); g.fillStyle = "#ff6a4a"; g.fillText(nm, vx, vz + 29);
+    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
+  }
+  for (const p of sarPts()) {                    // a rescue case: the search area, the casualty, or where you're taking them
+    const [vx, vz] = w2(p.x, p.z);
+    if (p.area) { const [ex] = w2(p.x + p.area, p.z); g.strokeStyle = "#ff3a1a"; g.lineWidth = 2.5; g.setLineDash([8, 6]); g.beginPath(); g.arc(vx, vz, Math.max(10, Math.abs(ex - vx)), 0, 6.283); g.stroke(); g.setLineDash([]); }
+    else { g.fillStyle = "#0d1822"; g.beginPath(); g.arc(vx, vz, 10, 0, 6.283); g.fill(); g.fillStyle = p.kind === "sarw" ? "#7fc8e0" : "#ff3a1a"; g.beginPath(); g.arc(vx, vz, 6.5, 0, 6.283); g.fill(); }
+    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(p.name).width + 10;
+    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 14, w, 20); g.fillStyle = "#ff6a4a"; g.fillText(p.name, vx, vz + 29);
     g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
   }
   const [px, pz] = w2(P.x, P.z);
@@ -3522,6 +3563,7 @@ function summerCard(c, days, bill) {
 }
 function seasonTurn(c, days) {
   if (SCHOOL.on) schoolEnd("quiet");                 // nobody runs a course through the summer
+  sarAbort("quiet");
   const bill = SEASON.settle(days);
   meltRefreeze();
   // the sled spent the summer in the shed at the quay: back there, full tank, warm
@@ -4471,12 +4513,12 @@ function acceptJob(k) {
   if (GS.near && GS.near !== depot) mailVisit(GS.near);
   TABLET.refresh(); applyLoadout(); save();
 }
-const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed" };
+const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed", akja: "the rescue toboggan" };
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
   if (c.tour) { acceptTour(c); return; }
   if (c.rescue) {
-    if (GS.rescueJob) { toast("Finish the call you're on first.", "warn"); return; }
+    if (GS.rescueJob || SAR.cur) { toast("Finish the call you're on first.", "warn"); return; }
     if (ST.winch < c.needTier) { toast(`That call needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.`, "warn"); return; }
     GS.contracts.splice(k, 1); TABLET.close(); rescueStart(c); save(); return;
   }
@@ -4613,7 +4655,7 @@ function deliver(site) {
 function blackout(kind) {
   if (GS.dead) return;
   if (SCHOOL.on) { schoolBlackout(kind); return; }
-  GS.dead = true; TABLET.close(); if (FISH) FISH.abort(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
+  GS.dead = true; TABLET.close(); if (FISH) FISH.abort(); sarAbort("blackout"); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
   if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town with the rescue crew. No fare."), 4200); }
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
@@ -4634,14 +4676,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.sar && typeof d.sar === "object") { SAR.duty = !!d.sar.duty; SAR.rep = isFinite(+d.sar.rep) ? clamp(+d.sar.rep, 0, 100) : 10; SAR.n = d.sar.n | 0; SAR.lost = d.sar.lost | 0; SAR.ign = d.sar.ign | 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -4965,7 +5007,7 @@ function ctFonts() {
 /* chart helpers shared by the tablet's Map, Parcels, Freight and Trail Crew apps */
 const shortName = s => s.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "");
 const fmtCash = v => "$" + Math.round(v).toLocaleString("en-US");
-const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch" };
+const HITCH_ON = { none: "Nothing on the hitch", groomer: "Groomer drag on the hitch", tiller: "Wing tiller on the hitch", trailer: "Freight trailer on the hitch", flatbed: "Heavy flatbed on the hitch", akja: "Rescue toboggan on the hitch" };
 const gsCls = g => "gs" + (g > 0.8 ? 3 : g > 0.45 ? 2 : g > 0.15 ? 1 : 0);
 const groomSay = g => g > 0.8 ? "Packed trail most of the way." : g > 0.45 ? "About half of it is packed trail." : g > 0.15 ? "Mostly unbroken snow." : "Unbroken snow the whole way.";
 const routeKm = d => { const r = CT.routes[d.id]; return r ? r.L / 1000 : Math.hypot(d.x - depot.x, d.z - depot.z) / 1000; };
@@ -5443,7 +5485,7 @@ function takeParcel(k) {
 function contractBlock(c) {
   const hitch = GS.own.parts.hitch;
   if (c.tour) return GS.tour || GS.claims.some(x => x.tour) ? "You've already got tourists booked." : "";
-  if (c.rescue) return ST.winch < c.needTier ? `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.` : GS.rescueJob ? "Finish the call you're on first." : "";
+  if (c.rescue) return ST.winch < c.needTier ? `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.` : GS.rescueJob || SAR.cur ? "Finish the call you're on first." : "";
   if (c.groom) return !isGroomer(hitch) ? "That's grooming work. You need a groomer drag on the hitch: the garage sells them." : GS.groomJob ? "Finish the line you're grooming first." : "";
   if (c.big && !licensed("freight")) return "Needs your Freight licence. Sign up for Freight school above.";
   if (SCHOOL.on) return "Finish (or quit) the course first.";
@@ -5677,7 +5719,8 @@ TABLET.register({
       for (const f of new Set(GS.claims.concat(GS.jobs).map(j => j.from || depot))) { const [x, y] = w2c(f.x, f.z); tabPin(g, x, y, "#1f4a66", "P", 9); }
     }
     if (L.del) { for (const j of GS.load) { const [x, y] = w2c(j.dest.x, j.dest.z); tabPin(g, x, y, CT_ACC, "D", 10); } if (GS.tour) { const [x, y] = w2c(GS.tour.view.x, GS.tour.view.z); tabPin(g, x, y, "#2f8f6a", "A", 10); } if (GS.groomJob) { const [x, y] = w2c(GS.groomJob.dest.x, GS.groomJob.dest.z); tabPin(g, x, y, "#1f6a8a", "G", 9); } }
-    if (L.rescue) for (const p of TABLET.layerPts("rescue")) { const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
+    if (L.rescue) for (const p of TABLET.layerPts("rescue")) if (p.area) tabSarArea(g, w2c, p, H / span);
+    if (L.rescue) for (const p of TABLET.layerPts("rescue")) { if (p.area || p.kind === "ping") { const [x, y] = w2c(p.x, p.z); if (p.kind === "ping") { g.globalAlpha = 0.5 + 0.5 * Math.sin(performance.now() * 0.01); tabPin(g, x, y, "#b8321f", "?", 9); g.globalAlpha = 1; } tabLabel(g, p.name, x, y + (p.area ? 0 : 14), 12, "#b8321f"); continue; } const [x, y] = w2c(p.x, p.z); g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.beginPath(); g.arc(x, y - 19, 13 + Math.sin(performance.now() * 0.008) * 2, 0, 6.283); g.stroke(); tabPin(g, x, y, "#b8321f", "!", 10); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#b8321f"); }
     if (L.fuel) for (const p of TABLET.layerPts("fuel")) tabFuel(g, w2c, p, sc);
     for (const p of TABLET.layerPts("schools")) {
       const [x, y] = w2c(p.x, p.z);
@@ -5695,6 +5738,19 @@ TABLET.register({
     g.restore();
   }
 });
+// a rescue search on the chart: the area (dashed ring), the expanding-square legs still to fly, the clues found
+function tabSarArea(g, w2c, p, pxm) {
+  const [x, y] = w2c(p.x, p.z), r = p.area * pxm;
+  g.save(); g.fillStyle = "rgba(184,50,31,.08)"; g.strokeStyle = "#b8321f"; g.lineWidth = 2; g.setLineDash([6, 5]);
+  g.beginPath(); g.arc(x, y, Math.max(6, r), 0, 6.283); g.fill(); g.stroke(); g.setLineDash([]);
+  if (p.legs && p.legs.length) {
+    g.strokeStyle = "rgba(184,50,31,.75)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y);
+    p.legs.forEach(q => { const [a, b] = w2c(q.x, q.z); g.lineTo(a, b); }); g.stroke();
+    const n = p.legs[p.li]; if (n) { const [a, b] = w2c(n.x, n.z); g.fillStyle = CT_ACC; g.beginPath(); g.arc(a, b, 5, 0, 6.283); g.fill(); }
+  }
+  for (const c of p.clues || []) { const [a, b] = w2c(c.x, c.z); g.fillStyle = "#b8321f"; g.beginPath(); g.arc(a, b, 3.5, 0, 6.283); g.fill(); }
+  g.restore();
+}
 // the melt on the chart: bare ground and open lakes, then every place's line from the quay coloured by whether it
 // still holds (ink), is melting out (orange, dashed) or is closed (red, crossed out at the far end)
 const ROUTE_COL = { open: "#2f5a46", melting: "#d0731f", closed: "#b8321f" };
@@ -5810,8 +5866,9 @@ function lbRows() {
       [1, "Nothing's gone out yet. The boat's in."], [5, "Learning the roads, mostly by getting lost."], [20, "People have started waving from the windows."],
       [60, "The quay stopped asking where you were going."], [I, "Half the peninsula has your tracks on their step."]]) },
     { k: "mail", label: "Mail delivered", v: lbFmt(ml), u: ml === 1 ? "piece" : "pieces", m: ml > 0 ? lbPick(ml, [[20, "Letters, lottery tickets and one very small parcel."], [I, "The post office is thinking about a medal."]]) : "No sack yet. The ferry update brings the post." },
-    { k: "resc", label: "Rescues", v: lbFmt(rs), u: rs === 1 ? "rescue" : "rescues", m: lbPick(rs, [
-      [1, "Nobody's needed pulling out yet."], [2, "One. They owe you a coffee."], [6, "Word's getting round that you stop."], [I, "The Red Cross has stopped calling you the new one."]]) },
+    { k: "resc", label: "Rescues", chip: licensed("rescue") ? sarRank(SAR.rep).name : "", v: lbFmt(rs), u: rs === 1 ? "rescue" : "rescues", m: lbPick(rs, [
+      [1, "Nobody's needed pulling out yet."], [2, "One. They owe you a coffee."], [6, "Word's getting round that you stop."], [I, "The Red Cross has stopped calling you the new one."]]) +
+      (LOG.sar ? ` ${lbFmt(LOG.sar)} on callouts, ${lbFmt(Math.max(0, rs - LOG.sar))} winched out${LOG.sarLost ? `; ${lbFmt(LOG.sarLost)} went to the helicopter` : ""}.` : "") },
     { k: "days", label: "Days survived", v: lbFmt(days), u: days === 1 ? "day" : "days", m: lbPick(days, [
       [1, "Day one. Still here."], [7, "Not even a week. It's early."], [30, "Learning when to turn back."], [100, "The winter's getting used to you."], [I, "Longer than most of the herders' dogs would bet on."]]) },
     { k: "season", label: "Season · " + se.name, v: summer ? String(c.y) : sy + "–" + String(sy + 1).slice(2), u: summer ? "summer" : "winter", txt: true,
@@ -5938,7 +5995,7 @@ function schoolTrailerMesh(x, z, yaw) {
 function parkSnapshot(x, z, yaw) {
   const snap = sledBody.clone(true);
   // the rider and the dash tablet aren't parked with it, and its lights would light the yard twice
-  const skip = [V.rider, V.tab].map(o => sledBody.children.indexOf(o)).filter(i => i >= 0).map(i => snap.children[i]);
+  const skip = [V.rider, V.tab, SAR.pill].map(o => sledBody.children.indexOf(o)).filter(i => i >= 0).map(i => snap.children[i]);
   const lights = []; snap.traverse(o => { if (o.isLight) lights.push(o); });
   for (const o of skip.concat(lights)) if (o && o.parent) o.parent.remove(o);
   snap.position.set(0, 0, 0);
@@ -5977,6 +6034,7 @@ function schoolCanStart(sc) {
   if (SCHOOL.here !== sc) return `The course starts at ${sc.name}.`;
   if (GS.tour) return "Get your tourists up the hill first.";
   if (GS.rescueJob) return "Finish the call-out you're on first.";
+  if (SAR.cur) return "Finish your rescue callout first.";
   if (FOOT.on) return "Get back on your sled first.";
   return "";
 }
@@ -5997,6 +6055,7 @@ function schoolOwn(hitch) {
   const o = OWN0(); o.sled = SCHOOL_SLED; o.sleds = [SCHOOL_SLED];
   Object.assign(o.parts, SCHOOL_PARTS, { hitch: hitch || "none" });
   o.gear = Object.assign({}, (SCHOOL.saved || GS.own).gear);
+  if (SCHOOL.sc && SCHOOL.sc.id === "rescue") o.parts.winch = "elec";          // the rescue school's sled carries an electric winch
   return o;
 }
 function schoolHitch(kind) {
@@ -6044,13 +6103,14 @@ function schoolEnd(how) {
   const sc = SCHOOL.sc;
   if (SCHOOL.m && SCHOOL.m.cleanup && SCHOOL.ctx) SCHOOL.m.cleanup(SCHOOL.ctx);
   GS.own = SCHOOL.saved; GS.load = SCHOOL.savedLoad || []; SCHOOL.saved = null; SCHOOL.savedLoad = null;
+  if (how === "licence" && sc.id === "rescue") { GS.own.partsOwned[ownKey("hitch", "akja")] = true; SAR.rep = Math.max(SAR.rep, 10); }
   SCHOOL.on = false; SCHOOL.m = null; SCHOOL.ctx = null; SCHOOL.phase = null;
   restat(); GS.fuel = Math.min(GS.cap, Math.max(SCHOOL.savedFuel, GS.cap * 0.5)); applyLoadout();
   const p = SCHOOL.park; unpark();
   if (p) schoolPut(p.x, p.z, p.yaw);
   if (SCHOOL.beacon) SCHOOL.beacon.visible = false;
   TABLET.refresh(); save();
-  if (how === "licence") TABLET.notify({ app: sc.id, title: `${sc.licence} granted`, body: sc.id === "freight" ? "Trailer and flatbed work is open in the Freight app, as far as your rank goes." : "You're licensed. Go on duty in the Rescue app.", kind: "good", ttl: 10 });
+  if (how === "licence") TABLET.notify({ app: sc.id, title: `${sc.licence} granted`, body: sc.id === "freight" ? "Trailer and flatbed work is open in the Freight app, as far as your rank goes." : "You're licensed, and the base has issued you a rescue toboggan (it's in the garage). Go on duty in the Rescue app.", kind: "good", ttl: 10 });
   else if (how === "quit") toast(`You hand the key back. Your ${schoolDone(sc.id).length}/${sc.missions.length} passed missions are on file.`);
 }
 // blacking out, or going in, on the course: the school fishes you out, no fees, and you go again
@@ -6124,7 +6184,11 @@ function schoolLock(dt) {
   }
 }
 function schoolTarget() {
-  if (SCHOOL.on) { const c = SCHOOL.ctx; if (SCHOOL.phase === "run" && c && c.pts[c.wi]) return c.pts[c.wi]; return yardStart(SCHOOL.sc); }
+  if (SCHOOL.on) {
+    const c = SCHOOL.ctx;
+    if (SCHOOL.phase === "run" && SAR.cur && SAR.cur.school && !SAR.cur.res) return sarTarget(SAR.cur);   // a rescue mission: the case leads
+    if (SCHOOL.phase === "run" && c && c.pts[c.wi]) return c.pts[c.wi]; return yardStart(SCHOOL.sc);
+  }
   if (SCHOOL.guide && SCHOOLS[SCHOOL.guide]) return SCHOOLS[SCHOOL.guide];
   return null;
 }
@@ -6418,21 +6482,7 @@ TABLET.register({
   }
 });
 
-/* ---- Rescue: the school (O5 writes its missions and the on-duty career) ---- */
-TABLET.register({
-  id: "rescue", name: "Rescue", icon: TICON.rescue, order: 7,
-  hidden: () => !GS.apps.rescue,
-  render(el) {
-    const sc = SCHOOLS.rescue, lic = licensed("rescue");
-    let h = tabHead("RESCUE · NORDKINN REDNING", "Rescue", fmtCash(GS.cash));
-    h += `<div class="tsub">${lic ? chip("RESCUE LICENCE", "ok") + " " : ""}${GS.rescues || 0} rescue${GS.rescues === 1 ? "" : "s"} on file · ${(RRANKS || []).reduce((r, x) => (GS.rescues || 0) >= x.at ? x : r, RRANKS[0]).name}</div>`;
-    h += schoolCard(sc);
-    h += sec("On duty", "");
-    h += `<p class="tnote2">${lic ? "The duty roster and dash callouts come with the rescue update." : "Once you're licensed you'll go on duty here, and callouts will ping the dash."} Until then, volunteer recovery call-outs are posted in Trail Crew.</p>`;
-    el.innerHTML = `<div class="tapp">${h}</div>`;
-    schoolBind(el, sc);
-  }
-});
+/* ---- Rescue: the app is registered with the search-and-rescue block (O5), near the end of the file ---- */
 
 /* ---- Real Estate: installed now, listings with the Marketplace & Real Estate update ---- */
 TABLET.register({
@@ -6815,7 +6865,8 @@ const PARTS = {
       { id: "groomer", name: "Tow-behind groomer drag", cost: 700, tier: 1, stats: { burn: 0.1, groom: 1 }, note: "Steel pan and a corduroy comb. Leaves a trail two metres wide, flat and set hard, that the snow takes three times as long to bury. Takes grooming contracts." },
       { id: "tiller", name: "Wing tiller groomer", cost: 1850, tier: 2, stats: { burn: 0.16, groom: 1 }, note: "A heavy tractor-style tiller: spinning drum, finisher mat and hydraulic wings. Press G (pad LB) and the wings slide out to lay a trail almost six metres wide. Wide lines pay a bonus on grooming contracts. Heavy to drag, and the wings catch trees." },
       { id: "trailer", name: "Freight sled trailer", cost: 900, tier: 1, stats: { burn: 0.06, bays: 1 }, note: "Poly tub on steel runners with ratchet straps. One big load: stoves, freezers, generators, solar kits. Tips if you corner it hard." },
-      { id: "flatbed", name: "Heavy flatbed trailer", cost: 2400, tier: 2, stats: { burn: 0.1, bays: 2 }, note: "Twin-ski steel flatbed with stake sides. Two big loads, or one expedition load for Slettnes. Sits lower, harder to roll." }
+      { id: "flatbed", name: "Heavy flatbed trailer", cost: 2400, tier: 2, stats: { burn: 0.1, bays: 2 }, note: "Twin-ski steel flatbed with stake sides. Two big loads, or one expedition load for Slettnes. Sits lower, harder to roll." },
+      { id: "akja", name: "Rescue toboggan (akja)", cost: 650, tier: 0, stats: { burn: 0.02 }, needLic: "rescue", note: "A red fibreglass akja on rigid poles, with a casualty bag and straps. Carries a cold casualty lying down, out of the wind. Issued free with the Rescue licence. Rolls if you corner it hard." }
     ]
   }
 };
@@ -7063,6 +7114,7 @@ function fitPart(cat, id) {
   if (bw) { toast(bw, "warn"); return; }
   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
   if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
+  if (o.needLic && !licensed(o.needLic)) { toast(`${o.name}: Nordkinn Redning only sells these to licensed rescue crews.`, "warn"); return; }
   if (o.needRescues && (GS.rescues || 0) < o.needRescues) { toast(`${o.name}: the dealer wants to see ${o.needRescues} rescues first. You have ${GS.rescues || 0}.`, "warn"); return; }
   if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= o.cost; GS.own.partsOwned[ownKey(cat, id)] = true; GS.own.parts[cat] = id; restat();
@@ -7134,7 +7186,7 @@ function renderGarage() {
       PARTS[cat].options.forEach(o => {
         const owned = GS.own.partsOwned[ownKey(cat, o.id)] || o.cost === 0, on = GS.own.parts[cat] === o.id, locked = !owned && sledTier() < o.tier;
         tryOn(row(o.name, [statLine(o), o.note].filter(Boolean).join(" · "),
-          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : o.needRescues && (GS.rescues || 0) < o.needRescues ? `${o.needRescues} recoveries` : "$" + o.cost,
+          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : o.needLic && !licensed(o.needLic) ? "Rescue licence" : o.needRescues && (GS.rescues || 0) < o.needRescues ? `${o.needRescues} recoveries` : "$" + o.cost,
           on ? "on" : locked ? "locked" : "", () => fitPart(cat, o.id)), { cat, id: o.id });
       });
     });
@@ -8233,6 +8285,7 @@ function updGame(dt, spd) {
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   schoolTick(dt, spd);
+  sarTick(dt, spd);
   const work = near && spd < 4 && !SCHOOL.on;           // on a school course your own loads are parked in the yard
   if (work && GS.load.some(j => j.dest === near)) deliver(near);
   if (work && GS.claims.length) collectClaims(near);
@@ -8246,7 +8299,7 @@ function updGame(dt, spd) {
   // the job board has no key for now (the tablet replaces it), so tourists simply climb on when you stop at
   // the quay while an aurora is up; once per visit
   if (near !== depot) GS.tourHere = false;
-  else if (!GS.tour && !GS.tourHere && spd < 4 && AUR.v > 0.38 && !GS.dead && !SCHOOL.on) {
+  else if (!GS.tour && !GS.tourHere && spd < 4 && AUR.v > 0.38 && !GS.dead && !SCHOOL.on && !SAR.cur) {
     GS.tourHere = true; const v = pick(LOOKOUTS);
     acceptTour({ dest: v, pax: pick(TOUR_PAX), pay: tourBase(v) });
   }
@@ -8285,18 +8338,20 @@ function groomTarget() {
 }
 function updGameHud() {
   let tgt = depot;
-  const rjv = GS.rescueJob ? rjNearest(P.x, P.z) : null;
-  if (rjv) tgt = rjv.v;
+  const sarT = SAR.cur && !SAR.cur.school && !SAR.cur.res ? sarTarget(SAR.cur) : null;
+  const rjv = !sarT && GS.rescueJob ? rjNearest(P.x, P.z) : null;
+  if (sarT) tgt = sarT;
+  else if (rjv) tgt = rjv.v;
   else if (GS.tour) tgt = GS.tour.view;
   else if (GS.load.length) {
     let best = 1e9;
     for (const j of GS.load) { const d = Math.hypot(j.dest.x - P.x, j.dest.z - P.z); if (d < best) { best = d; tgt = j.dest; } }
   } else if (GS.groomJob) tgt = groomTarget();
-  const pend = !rjv && !GS.tour && !GS.load.length && !GS.groomJob && pendingPickup();
+  const pend = !sarT && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && pendingPickup();
   if (pend) tgt = SITES.find(s => s.id === pend.site) || tgt;
-  else if (!rjv && !GS.tour && !GS.load.length && !GS.groomJob && GS.claims.length) { let bd = 1e9; for (const j of GS.claims) { const f = j.from || depot, d = Math.hypot(f.x - P.x, f.z - P.z); if (d < bd) { bd = d; tgt = f; } } }
+  else if (!sarT && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && GS.claims.length) { let bd = 1e9; for (const j of GS.claims) { const f = j.from || depot, d = Math.hypot(f.x - P.x, f.z - P.z); if (d < bd) { bd = d; tgt = f; } } }
   // the licence schools: on a course the arrow follows the checkpoints; signed up, it takes you to the yard when you're not carrying anything
-  const stg = schoolTarget(), sGuide = !SCHOOL.on && stg && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && !pend && !GS.claims.length;
+  const stg = schoolTarget(), sGuide = !SCHOOL.on && stg && !sarT && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && !pend && !GS.claims.length;
   if (SCHOOL.on || sGuide) tgt = stg;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
@@ -8304,6 +8359,7 @@ function updGameHud() {
   $("arrow").style.color = GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
   if (SCHOOL.on) schoolHud(tgt);
   else if (sGuide) { $("jobTitle").textContent = `To ${tgt.name}`; $("jobSub").textContent = `${tgt.short} · ${fmtMi(dist)} · stop in the yard to start`; }
+  else if (sarT) { const hd = sarHud(SAR.cur, tgt); $("jobTitle").textContent = hd.title; $("jobSub").textContent = hd.sub; }
   else if (rjv) {
     const c = GS.rescueJob, left = c.due - GS.hour, n = RJ.vs.filter(v => !v.freed).length;
     $("jobTitle").textContent = `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`;
@@ -8334,7 +8390,7 @@ function updGameHud() {
   const sh = steamerAt(GS.hour), shN = steamerNextCall(GS.hour, "arr"), shTxt = sh.s === "in" ? `Ferry in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Ferry sailing" : sh.s === "arriving" ? "Ferry arriving" : shN ? `Ferry ${fmtTime(shN.arr)}${shN.state === "delayed" ? " (late)" : ""}` : "No ferry";
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
   updCalHud();
-  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
+  $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind === "akja" ? "rescue toboggan" : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
   $("warmFill").style.width = clamp(GS.warmth, 0, 100).toFixed(1) + "%"; $("warmV").textContent = Math.round(Math.max(0, GS.warmth)) + "%";
@@ -8471,6 +8527,7 @@ function newGame() {
   GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
   if (SCHOOL.on) schoolEnd("quiet"); GS.apps = {}; GS.lic = {}; GS.signed = {}; GS.sdone = {}; SCHOOL.guide = null;
   if (FISH) { FISH.abort(); FISH.setData(null); }                       // starter tackle: hand auger, short rod, plastic reel, 4 lb mono, maggots
+  sarAbort("quiet"); Object.assign(SAR, { duty: false, rep: 10, miss: 0, n: 0, lost: 0, ign: 0 });
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -8861,7 +8918,8 @@ const anchorPt = a => [a.x, surf(a.x, a.z) + 0.5, a.z];
 function footAction() {
   if (!FOOT.on) return;
   const wd = winchDef(), near = () => Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6;
-  // recovery calls take the line first
+  // a rescue case first (helping someone up, loading the toboggan, rigging a tow), then recovery calls take the line
+  if (sarFootAction()) return;
   if (typeof rescueFootAction === "function" && rescueFootAction()) return;
   if (WN.state === "hooked" && WN.mode === "self") {
     const a = WN.anchor; if (a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8) { WN.state = "out"; WN.anchor = null; if (strapM) strapM.visible = false; toast("Strap off. The line runs out behind you."); return; }
@@ -9401,6 +9459,7 @@ function rjFreed(v) {
   v.freed = true; v.hooked = false; v.left = 0;
   if (WN.tgt === v) { WN.state = "out"; WN.tgt = null; WN.tie = null; WN.pullV = null; if (WN.tieCab) WN.tieCab.hide(); }
   crack(0.4); for (let k = 0; k < 40; k++) emit(v.x, v.g.position.y + 0.4, v.z, (Math.random() - 0.5) * 6, 2 + Math.random() * 3, (Math.random() - 0.5) * 6, 1.6, 1.2);
+  if (GS.rescueJob && GS.rescueJob.sar) { sarFreed(v); return; }   // a rescue case: it gets towed, not paid here
   toast(`${v.name} is clear. "${pick(R_THANKS[v.vk.id])}"`, "good");
   if (RJ.vs.every(q => q.freed)) rjPay();
 }
@@ -9460,7 +9519,7 @@ function rjTick(dt) {
     const near = Math.hypot(P.x - v.x, P.z - v.z) < 90 && !v.freed;
     poseFigure(fig, v.left > 0 && !v.vk.sled ? 1.6 : 0, v.step || 0, 0, dt);
     const U = fig.userData; if (near) { U.arms[0].rotation.x = -2.6 + Math.sin(v.wave) * 0.4; U.arms[1].rotation.x = -2.6 + Math.cos(v.wave * 1.1) * 0.4; }
-    v.g.visible = v.vk.sled && !far; fig.visible = !far; if (v.vk.sled && v.left > 1.2) fig.visible = false;
+    v.g.visible = v.vk.sled && !far; fig.visible = !far && !v.towed; if (v.vk.sled && v.left > 1.2) fig.visible = false;
     // the flare: a column over the spot so you can find it in the dark or a whiteout
     v.col.visible = !v.freed && !v.gone; v.col.position.set(v.fx + 1.5, y + 22, v.fz); v.col.material.opacity = (0.25 + 0.2 * Math.sin(gameClock * 3)) * (0.5 + 0.5 * (1 - dayFactor()) + 0.4 * GS.storm);
     if (!v.freed && !far && Math.random() < dt * 4) emit(v.fx + 1.5, y + 0.3, v.fz, 0, 2, 0, 0.3, 1.6);
@@ -9506,7 +9565,8 @@ function wnPrompt() {
   } else if (FOOT.on) {
     show = true;
     const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.0;
-    if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
+    if (sarPrompt()) h = sarPrompt();
+    else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
       h = `Hold SPACE to reel${wd && wd.block ? " · X at the strap: double the line" : ""}${close ? " · E: unhook" : ""} · Q: get on`;
@@ -9517,6 +9577,7 @@ function wnPrompt() {
     else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : "Walk back to the sled and press Q");
   } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
+  else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
   else if (FISH && !FISH.on) { const fh = FISH.hint(); if (fh) { show = true; h = fh; } }
   if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
@@ -9532,6 +9593,678 @@ function updWinchHud() {
   $("wnGauge").hidden = !hooked;
   if (hooked) { $("wnTens").style.width = clamp(WN.tens * 100, 0, 100).toFixed(0) + "%"; $("wnRead").textContent = `${lbf(WN.need).toLocaleString("en-US")} / ${lbf(WN.cap).toLocaleString("en-US")} lb${WN.dbl ? " · doubled" : ""}${WN.hold ? ` · sled ${WN.slip > 0.05 ? "slipping" : "holding"}` : ""}`; }
 }
+
+/* ---------------- search and rescue: the Rescue school's missions and the on-duty career (winter update O5) ----------------
+   One engine, SAR, runs a "case": a person somewhere out there, how they got there, and a survival clock. The
+   Rescue school's four missions are cases built round the yard; on duty, callouts are cases built round you.
+
+   The clock is the victim's own core warmth, 100 → 0. It drains with the same cold your rider feels (night, storm,
+   height: sarAmb), measured where THEY are, scaled so that at the conditions when the case opened it lasts T0 real
+   seconds. A storm rolling over them shortens it live. Where they are changes the rate:
+     out there ×1 · pillion behind you ×0.6 · strapped in the rescue toboggan ×0.25 ·
+     your stove or thermos lit and you stopped with them: they WARM (+0.8 × your camp rate) ·
+     you stopped at any warm place (a site, the rescue base, a school yard) with them aboard: SAVED.
+   Zero and the Sea King from Banak lifts them off: no pay, reputation lost (or, at school, run it again).
+
+   Kinds:  search  a lost hiker in the birch. Last-known point, an expanding-square search pattern, a line of boot
+                   prints and a dropped glove that each shrink the search circle. Within ~30 m you find them.
+           rescue  a rider stranded on a steep slope. Ride up, or walk up (Q) and E: they lean on you back to the sled.
+           tow     a sled bogged or ditched. The existing recovery code (RJ) runs the winch job; when it comes free
+                   you rig a tow rope (E at their sled) and haul the dead sled to a cabin, the rider pillion.
+           save    a hypothermia case. Only the rescue toboggan (hitch "akja") will do: stop by them, or walk up and E,
+                   and they're bagged and strapped in. Roll the toboggan and they lose a quarter of their time. */
+const SAR_KINDS = {
+  search: { name: "Search", chip: "SEARCH", base: 170, work: 240, slack: 1.75, back: 0.6, who: "hiker" },
+  rescue: { name: "Rescue", chip: "RESCUE", base: 135, work: 90, slack: 1.8, back: 0.6, who: "rider" },
+  tow: { name: "Tow", chip: "TOW · HITCH", base: 160, work: 210, slack: 1.9, back: 0.6, who: "rider" },
+  save: { name: "Save", chip: "SAVE · COLD", base: 190, work: 45, slack: 1.5, back: 0.25, who: "casualty" }
+};
+// reputation 0..100: what dispatch thinks of you. Higher pays more, and sends you further and harder.
+const SAR_RANKS = [
+  { at: 0, name: "Probationer" }, { at: 15, name: "Crew member" }, { at: 35, name: "Team leader" }, { at: 60, name: "Duty officer" }, { at: 85, name: "Rescue coordinator" }
+];
+const sarRank = r => SAR_RANKS.reduce((a, x) => r >= x.at ? x : a, SAR_RANKS[0]);
+const SAR_RATE = { pillion: 0.6, tow: 0.6, akja: 0.25 };
+const SAR_PAX = 80;                                       // kg of person on the seat or in the toboggan
+// SAR itself is declared up with LOG, because load() runs before this block
+const sarLic = () => licensed("rescue");
+const sarAboard = c => c && (c.v.state === "pillion" || c.v.state === "tow" || c.v.state === "akja");
+function sarPatientKg() { return SAR.cur && SAR.cur.v.state === "akja" ? SAR_PAX : 0; }
+// how cold it is where they are (the rider's own formula, without your kit)
+function sarAmb(x, z) {
+  const night = 1 - dayFactor(), elev = clamp((groundAt(x, z) - 110) / 220, 0, 1);
+  return 0.3 + 0.35 * night + 0.9 * clamp(WX.at(x, z), 0, 1.2) + 0.35 * elev;
+}
+// the nearest place that's warm: a village, cabin, home, the quay, or the rescue base
+function sarWarmest(x, z) {
+  let b = null, bd = 1e9;
+  for (const s of SITES) { if (s.x === undefined) continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s; } }
+  const rb = SCHOOLS.rescue; if (rb.x !== undefined) { const d = Math.hypot(rb.x - x, rb.z - z); if (d < bd) { bd = d; b = { name: rb.name, x: rb.x, z: rb.z + 6, base: true }; } }
+  return { s: b, d: bd };
+}
+const sarCabin = (x, z) => { let b = null, bd = 1e9; for (const s of SITES) { if (s.x === undefined || s.type === "shop") continue; const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s; } } return { s: b, d: bd }; };
+const sarCard = (x0, z0, x1, z1) => { const b = (Math.atan2(x1 - x0, z1 - z0) * 180 / Math.PI + 360) % 360; return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(b / 45) % 8]; };
+const sarLeft = c => { const r = sarRateNow(c); return r > 0 ? c.v.core / r : Infinity; };
+const fmtMS = s => !isFinite(s) ? "warming" : Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+
+/* -- finding places for them in the terrain -- */
+const sarLand = (x, z) => Math.abs(x) < HALF - 400 && Math.abs(z) < HALF - 400 && bioAt(x, z) !== 3 && bioAt(x, z) !== 1;
+const sarClearOfSites = (x, z, R) => { for (const s of SITES) if (s.x !== undefined && Math.hypot(s.x - x, s.z - z) < R) return false; for (const s of schoolList()) if (s.x !== undefined && Math.hypot(s.x - x, s.z - z) < R) return false; return true; };
+function sarRing(cx, cz, rMin, rMax, ok, tries = 2500) {
+  for (let i = 0; i < tries; i++) {
+    const a = Math.random() * 6.283, d = rMin + Math.random() * (rMax - rMin), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+    if (ok(x, z)) return { x, z };
+  }
+  return null;
+}
+// in the birch: a forest cell with trees round it, gentle enough to walk
+const sarForestOk = (x, z) => sarLand(x, z) && bioAt(x, z) === 2 && slopeAt(x, z, 5) < 0.4 && treesIn(x, z, 14).length >= 3 && sarClearOfSites(x, z, 120);
+const sarTreesOk = (x, z) => sarLand(x, z) && slopeAt(x, z, 5) < 0.4 && treesIn(x, z, 18).length >= 2 && sarClearOfSites(x, z, 120);
+// steep: a slope a sled won't idle up, but a person can walk
+const sarSteepOk = (x, z) => { if (!sarLand(x, z) || !sarClearOfSites(x, z, 120)) return false; const s = slopeAt(x, z, 5); return s > 0.42 && s < 0.72; };
+// out on the open fell: wind, nothing to shelter behind
+const sarOpenOk = (x, z) => sarLand(x, z) && bioAt(x, z) === 0 && slopeAt(x, z, 5) < 0.3 && sarClearOfSites(x, z, 200);
+function sarTowSite(cx, cz, rMin, rMax) {
+  for (let i = 0; i < 3000; i++) {
+    const a = Math.random() * 6.283, d = rMin + Math.random() * (rMax - rMin), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+    if (!sarClearOfSites(x, z, 100)) continue;
+    const s = trapProbe(i % 3 ? "bog" : "ditch", x, z); if (s) return s;
+  }
+  return null;
+}
+// the search: hiker H, last-known point L, a line of prints toward H and a glove near it
+function sarPlanSearch(hx, hz, offMin, offMax) {
+  let L = null, tracks = null, glove = null;
+  for (let i = 0; i < 60 && !L; i++) { const a = Math.random() * 6.283, d = offMin + Math.random() * (offMax - offMin), x = hx + Math.cos(a) * d, z = hz + Math.sin(a) * d; if (sarLand(x, z) && slopeAt(x, z, 5) < 0.5) L = { x, z }; }
+  if (!L) L = { x: hx + offMin, z: hz };
+  const dL = Math.hypot(L.x - hx, L.z - hz), ux = (L.x - hx) / dL, uz = (L.z - hz) / dL;
+  // the prints start part way from L toward H, wander a little, and stop 12 m short of them
+  for (let i = 0; i < 30 && !tracks; i++) {
+    const t0 = 0.45 + Math.random() * 0.2, a = (Math.random() - 0.5) * 1.2, ca = Math.cos(a), sa = Math.sin(a), dx = ux * ca - uz * sa, dz = ux * sa + uz * ca;
+    const sx = hx + dx * dL * t0, sz = hz + dz * dL * t0; if (!sarLand(sx, sz)) continue;
+    const pts = [], n = Math.max(6, Math.round((dL * t0 - 12) / 0.75)), wob = Math.random() * 6;
+    for (let k = 0; k <= n; k++) { const f = k / n, px = lerp(sx, hx + dx * 12, f), pz = lerp(sz, hz + dz * 12, f), w = Math.sin(f * 7 + wob) * 2.2; pts.push({ x: px - dz * w, z: pz + dx * w }); }
+    tracks = { pts, x: sx, z: sz };
+  }
+  for (let i = 0; i < 40 && !glove; i++) { const a = Math.random() * 6.283, d = 40 + Math.random() * 30, x = hx + Math.cos(a) * d, z = hz + Math.sin(a) * d; if (sarLand(x, z)) glove = { x, z }; }
+  if (!glove) glove = { x: hx + 45, z: hz };
+  return { L, R: Math.ceil(dL + 55), tracks, glove };
+}
+// an expanding square from the centre: legs d, d, 2d, 2d, 3d, 3d ... turning right each time
+function sarPattern(cx, cz, d, max) {
+  const out = [], dirs = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+  let x = cx, z = cz;
+  for (let i = 0; i < 14; i++) { const L = d * (1 + (i >> 1)); x += dirs[i % 4][0] * L; z += dirs[i % 4][1] * L; if (Math.hypot(x - cx, z - cz) > max * 1.45) break; out.push({ x, z }); }
+  return out;
+}
+
+/* -- the people: one figure (reused), a crashed sled for the rescue kind, prints and a glove for the search -- */
+function sarFigure() {
+  if (SAR.foot) return SAR.foot;
+  const kit = { jacket: std(0xd0441e, 0.8), pants: std(0x2a3340, 0.85), trim: std(0xe8eef4, 0.5), helmet: std(0x3a5a7a, 0.6), visor: std(0x1a2027, 0.3), glove: std(0x1a1d22, 0.9), boot: std(0x3a2a1a, 0.9), skin: std(0xd9a27e, 0.8) };
+  const fig = makeFigure(kit); fig.visible = false; scene.add(fig);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 44, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.4, depthWrite: false, fog: false }));
+  col.visible = false; scene.add(col);
+  const sled = npcSledMesh(0x2a7ad0, 0x2b3d5c, true); sled.visible = false; scene.add(sled);
+  // a lamp: a hiker's headtorch, so you can spot them at night once you're close
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff2c0 })); lamp.position.set(0, 1.72, 0.14); fig.add(lamp);
+  SAR.foot = { fig, col, sled, lamp, kit }; return SAR.foot;
+}
+function sarPillion() {
+  if (SAR.pill) return SAR.pill;
+  const f = sarFigure(), fig = makeFigure(f.kit); fig.visible = false; sledBody.add(fig);
+  SAR.pill = fig; return fig;
+}
+function sarPrints() {
+  if (SAR.prints) return SAR.prints;
+  const g = new THREE.PlaneGeometry(0.15, 0.3); g.rotateX(-Math.PI / 2);
+  const m = new THREE.MeshBasicMaterial({ color: 0x5a6a80, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  const im = new THREE.InstancedMesh(g, m, 320); im.count = 0; im.frustumCulled = false; scene.add(im);
+  const gl = new THREE.Group(), red = std(0xc81e1e, 0.85);
+  { const a = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.04, 0.2), red); a.position.y = 0.02; gl.add(a); const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.09), red); b.position.set(0.07, 0.02, 0.06); b.rotation.y = -0.6; gl.add(b); }
+  gl.visible = false; scene.add(gl);
+  SAR.prints = im; SAR.glove = gl; return im;
+}
+function sarPlacePrints(pts) {
+  const im = sarPrints(), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), Pp = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  let n = 0;
+  for (let i = 0; i + 1 < pts.length && n < 320; i++) {
+    const a = pts[i], b = pts[i + 1], yaw = Math.atan2(b.x - a.x, b.z - a.z), side = (i & 1) ? 0.13 : -0.13, lx = Math.cos(yaw), lz = -Math.sin(yaw);
+    const x = a.x + lx * side, z = a.z + lz * side; Q.setFromAxisAngle(up, yaw); Pp.set(x, surf(x, z) + 0.04, z);
+    im.setMatrixAt(n++, M4.compose(Pp, Q, S));
+  }
+  im.count = n; im.instanceMatrix.needsUpdate = true;
+}
+function sarHideProps() {
+  if (SAR.foot) { SAR.foot.fig.visible = false; SAR.foot.col.visible = false; SAR.foot.sled.visible = false; }
+  if (SAR.prints) SAR.prints.count = 0; if (SAR.glove) SAR.glove.visible = false;
+  if (SAR.pill) SAR.pill.visible = false; if (SAR.rope) SAR.rope.visible = false;
+}
+
+/* -- building a case -- */
+const SAR_HIKERS = ["day hiker", "cross-country skier", "photographer after the aurora", "ptarmigan hunter", "birdwatcher"];
+// kind, where it's built round (cx, cz) and how far out; returns the case without anything in the world yet, or null
+function sarMake(kind, o) {
+  const K = SAR_KINDS[kind], name = pick(R_NAMES), c = { id: ++SAR.seq, kind, school: !!o.school, name, v: null, s: null, res: null };
+  let at = null;
+  if (kind === "search") {
+    at = sarRing(o.cx, o.cz, o.rMin, o.rMax, sarForestOk) || sarRing(o.cx, o.cz, o.rMin, o.rMax, sarTreesOk);
+    if (!at) return null;
+    const pl = sarPlanSearch(at.x, at.z, o.school ? 80 : 110, o.school ? 130 : 210);
+    c.s = { L: pl.L, tracks: pl.tracks, glove: pl.glove, area: { x: pl.L.x, z: pl.L.z, r: pl.R }, pat: null, pi: 0, clue: { tracks: false, glove: false }, heard: false };
+    c.who = pick(SAR_HIKERS);
+  } else if (kind === "rescue") {
+    at = sarRing(o.cx, o.cz, o.rMin, o.rMax, sarSteepOk); if (!at) return null; c.who = "rider";
+  } else if (kind === "save") {
+    at = sarRing(o.cx, o.cz, o.rMin, o.rMax, sarOpenOk) || sarRing(o.cx, o.cz, o.rMin, o.rMax, (x, z) => sarLand(x, z) && slopeAt(x, z, 5) < 0.35 && sarClearOfSites(x, z, 150));
+    if (!at) return null; c.who = pick(["walker", "herder", "skier", "ice fisherman"]);
+  } else if (kind === "tow") {
+    const site = sarTowSite(o.cx, o.cz, o.rMin, o.rMax); if (!site) return null;
+    at = { x: site.x, z: site.z }; c.site = site; c.who = "rider";
+    const vk = VICTIMS[0], pull = vk.mass * GR * (TRAPS[site.kind].mu + site.slope * 1.1), reach = site.dist * 0.7 + 3.5;
+    c.needTier = pull > WINCH[2].pull * 0.85 || reach > WINCH[2].len - 0.6 ? 3 : pull > WINCH[1].pull * 0.8 || reach > WINCH[1].len - 0.6 ? 2 : 1;
+    if (!o.school && ST.winch < c.needTier) return null;
+  }
+  c.x = at.x; c.z = at.z;
+  const from = { x: o.fx === undefined ? o.cx : o.fx, z: o.fz === undefined ? o.cz : o.fz }, out = Math.hypot(c.x - from.x, c.z - from.z);
+  const w = kind === "tow" ? sarCabin(c.x, c.z) : sarWarmest(c.x, c.z), back = o.school ? Math.hypot(c.x - o.cx, c.z - o.cz) : w.d;
+  c.near = nearestSiteName(c.x, c.z); c.dest = w.s; c.out = out; c.back = back;
+  const rep = SAR.rep, slack = o.school ? K.slack * 1.15 : K.slack * (1.12 - rep / 100 * 0.3);
+  c.T0 = Math.round(o.T0 || (out / 11 + K.work + K.back * back / (kind === "tow" ? 7 : 10)) * slack);
+  c.pay = o.school ? 0 : round5((K.base + 70 * out / 1000 + 30 * back / 1000) * (1 + rep / 125));
+  const dir = sarCard(sarWarmest(c.x, c.z).s.x, sarWarmest(c.x, c.z).s.z, c.x, c.z);
+  c.why = kind === "search" ? `${name}, a ${c.who}, hasn't come back. Last seen heading into the woods ${dir} of ${c.near}.`
+    : kind === "rescue" ? `${name} rolled their sled on a steep slope near ${c.near} and can't get it back up. Cold, a bit banged up.`
+    : kind === "tow" ? `${name}'s sled is ${TRAPS[c.site.kind].say} near ${c.near}, and the track's done for. Winch it out and tow it to ${c.dest ? shortName(c.dest) : "a cabin"}.`
+    : `Someone found ${name}, a ${c.who}, on the open fell near ${c.near}: hypothermic, barely talking. Toboggan, and somewhere warm, fast.`;
+  return c;
+}
+// the four school missions use the same thing with their spots fixed by the plan
+function sarSchoolCase(kind, plan) {
+  const c = { id: ++SAR.seq, kind, school: true, name: plan.name, who: kind === "search" ? "hiker" : kind === "save" ? "casualty" : "rider", x: plan.x, z: plan.z, s: null, res: null, near: "the base", T0: plan.T0, pay: 0 };
+  if (kind === "search") c.s = { L: plan.L, tracks: plan.tracks, glove: plan.glove, area: { x: plan.L.x, z: plan.L.z, r: plan.R }, pat: null, pi: 0, clue: { tracks: false, glove: false }, heard: false };
+  if (kind === "tow") { c.site = plan.site; c.needTier = 1; }
+  c.dest = { name: SCHOOLS.rescue.name, x: SCHOOLS.rescue.x, z: SCHOOLS.rescue.z + 6, base: true };
+  return c;
+}
+// put them in the world
+function sarOpen(c) {
+  sarHideProps();
+  const f = sarFigure(), yaw = Math.random() * 6.283;
+  c.v = { state: "waiting", core: 100, x: c.x, z: c.z, yaw, step: 0, wave: 0, boardT: 0, loadT: 0 };
+  c.amb0 = Math.max(0.3, sarAmb(c.x, c.z)); c.ambN = c.amb0; c.ambT = 0; c.t = 0; c.warmT = 0;
+  if (c.kind === "search") {
+    c.v.state = "lost";
+    const s = c.s; s.pat = sarPattern(s.area.x, s.area.z, 60, s.area.r); s.pi = 0;
+    if (s.tracks) sarPlacePrints(s.tracks.pts);
+    sarPrints(); SAR.glove.position.set(s.glove.x, surf(s.glove.x, s.glove.z) + 0.01, s.glove.z); SAR.glove.rotation.y = Math.random() * 6; SAR.glove.visible = true;
+    f.fig.visible = true; f.lamp.visible = true;
+  } else if (c.kind === "rescue") {
+    f.fig.visible = true; f.lamp.visible = false; f.sled.visible = true;
+    const gx = (groundAt(c.x + 3, c.z) - groundAt(c.x - 3, c.z)) / 6, gz = (groundAt(c.x, c.z + 3) - groundAt(c.x, c.z - 3)) / 6;
+    c.sledYaw = Math.atan2(gx, gz) + Math.PI / 2;           // across the fall line, rolled onto its side
+    f.sled.position.set(c.x, surf(c.x, c.z) + 0.15, c.z); f.sled.rotation.set(0, c.sledYaw, 1.25, "YXZ");
+    c.v.x = c.x + Math.cos(c.sledYaw) * 2.2; c.v.z = c.z - Math.sin(c.sledYaw) * 2.2;
+    f.col.visible = true;
+  } else if (c.kind === "save") {
+    f.fig.visible = true; f.lamp.visible = false; f.col.visible = true;
+  } else if (c.kind === "tow") {
+    c.v.state = "stuck"; f.fig.visible = false;
+    sarRjStart(c);
+  }
+  SAR.cur = c; SAR.rollT = false;
+}
+// the tow kind runs the old recovery job for the winching part (rjTick, rescueReel, the prompts); the case owns the clock
+function sarRjStart(c) {
+  const vk = VICTIMS[0], dest = { id: "sar" + c.id, type: "sos", x: c.x, z: c.z, y: c.site.g0, name: c.name };
+  const rj = { rescue: true, sar: c.id, dest, cargo: `Rescue: ${c.name}`, why: c.why, pay: 0, due: GS.hour + 1e6, need: "winch", needTier: c.needTier, reach: Math.round(c.site.dist * 0.7 + 3.5), comps: [], names: [c.name], vics: [{ site: c.site, vk }], trap: c.site.kind };
+  rjBuildPool(); for (const p of RJ.pool) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; }
+  GS.rescueJob = rj; RJ.on = true; RJ.hurt = 0; RJ.blown = 0; RJ.stall = 0; RJ.t0 = GS.hour; RJ.ended = null;
+  RJ.vs = rj.vics.map((_, i) => rjSpawn(rj, i));
+  c.rj = rj;
+}
+// called by rjFreed when the sled that came free belongs to a rescue case
+function sarFreed(v) {
+  const c = SAR.cur; if (!c || c.kind !== "tow") return;
+  c.v.state = "rig"; c.rv = v;
+  toast(`${c.name}'s sled is out. The track's in pieces: walk to it and press E to rig the tow rope to your hitch.`, "good");
+}
+function sarRig() {
+  const c = SAR.cur, v = c.rv; if (!v) return;
+  const [hx, hz] = sarTowAnchor(), L = 7;
+  v.x = hx - Math.sin(P.yaw) * L; v.z = hz - Math.cos(P.yaw) * L; v.yaw = P.yaw; v.towed = true;
+  if (WN.mode === "rescue" && WN.state !== "stowed") wnStow(true);
+  c.v.state = "tow"; c.v.x = P.x; c.v.z = P.z;
+  toast(`Rope rigged. ${c.name} climbs on behind you. Tow it to ${c.dest ? shortName(c.dest) : "a cabin"}: steady, it drags.`, "good");
+}
+// where the tow rope ties on: your hitch, or the back of whatever's already on it
+function sarTowAnchor() {
+  if (TOW.kind && HITCH[TOW.kind]) { const H = HITCH[TOW.kind], b = H.len * 0.9; return [TOW.x - Math.sin(TOW.yaw) * b, TOW.z - Math.cos(TOW.yaw) * b]; }
+  return hitchPt();
+}
+// every physics step while towing: the dead sled follows on a 7 m rope, drags, and snags on trees
+function sarTowStep(dt) {
+  const c = SAR.cur; if (!c || c.v.state !== "tow" || !c.rv) return;
+  const v = c.rv, [ax, az] = sarTowAnchor(), L = 7;
+  let dx = ax - v.x, dz = az - v.z, d = Math.hypot(dx, dz) || 1;
+  const x0 = v.x, z0 = v.z;
+  if (d > L) { v.x = ax - dx / d * L; v.z = az - dz / d * L; }
+  // trees and rocks: push it out, and it bites
+  let snag = 0;
+  const gxi = Math.floor((v.x + HALF) / OBC), gzi = Math.floor((v.z + HALF) / OBC);
+  for (let j = gzi - 1; j <= gzi + 1; j++) for (let i = gxi - 1; i <= gxi + 1; i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) { if (o.parked) continue; const ox = v.x - o.x, oz = v.z - o.z, rr = o.r + 0.8, o2 = ox * ox + oz * oz; if (o2 < rr * rr && o2 > 1e-6) { const od = Math.sqrt(o2); v.x = o.x + ox / od * rr; v.z = o.z + oz / od * rr; snag = 1; } }
+  }
+  const sp = Math.hypot(v.x - x0, v.z - z0) / dt; c.towSp = sp;
+  if (sp > 0.3) v.yaw = angLerp(v.yaw, Math.atan2(ax - v.x, az - v.z), 1 - Math.exp(-4 * dt));
+  const taut = d > L - 0.05 ? 1 : 0;
+  TOW.drag += taut * (clamp(sp / 5, 0.25, 1) * (260 + 1.15 * v.mass) + 4.5 * sp * sp + snag * 1900);   // a dead sled on a rope bucks and ploughs: fast gets expensive
+  TOW.mass += taut * v.mass * 0.55;
+  if (snag && sp > 3 && gameClock - (c.snagT || -9) > 4) { c.snagT = gameClock; thud(0.4); toast(`${c.name}'s sled snagged a tree. Ease off and pull it round.`, "warn"); }
+}
+
+/* -- the clock -- */
+function sarRateNow(c) {
+  const st = c.v.state, base = 100 / c.T0 * (c.ambN / c.amb0), mul = SAR_RATE[st] || 1;
+  const withYou = sarAboard(c) || Math.hypot(c.v.x - P.x, c.v.z - P.z) < 6;
+  if (GS.camping && withYou) return -0.8 * Math.max(0.6, ST.camp) * (1 - 0.5 * GS.storm);   // your stove or thermos does them good too
+  if (sarAboard(c) && sarWarmHere(c)) return -2;
+  return base * mul;
+}
+// a warm place you're stopped at: any site (cabin, village, home, the quay), the rescue base, or for school, the yard
+function sarWarmHere(c) {
+  if (c.school) return atYard(SCHOOLS.rescue);
+  if (c.kind === "tow") return !!GS.near && GS.near.type !== "shop";
+  return !!GS.near || SCHOOL.here === SCHOOLS.rescue;
+}
+function sarTick(dt, spd) {
+  sarDispatch(dt);
+  const c = SAR.cur; if (!c || c.res) { sarVisual(dt); return; }
+  c.t += dt;
+  c.ambT += dt; if (c.ambT > 0.5) { c.ambT = 0; const at = sarAboard(c) ? P : c.v; c.ambN = Math.max(0.25, sarAmb(at.x, at.z)); }
+  const v = c.v, dP = Math.hypot(v.x - P.x, v.z - P.z), dF = FOOT.on ? Math.hypot(v.x - FOOT.x, v.z - FOOT.z) : 1e9;
+  // the clock
+  v.core = Math.min(100, v.core - sarRateNow(c) * dt);
+  if (!c.warn && v.core < 25) { c.warn = true; toast(`${c.name} is fading. ${fmtMS(sarLeft(c))} left, roughly.`, "bad"); }
+  if (v.core <= 0) { sarEnd(false, c.school ? `${c.name} would not have made it.` : `Too late for us. The Sea King from Banak lifted ${c.name} off; they'll pull through, no thanks to us.`); return; }
+  // the toboggan rolled with them in it
+  if (v.state === "akja") {
+    if (TOW.tipT > 2 && !SAR.rollT) { SAR.rollT = true; v.core *= 0.75; toast(`The toboggan rolled with ${c.name} in it! They've lost a quarter of what they had left. Steady.`, "bad"); }
+    else if (TOW.tipT <= 0) SAR.rollT = false;
+    if (GS.own.parts.hitch !== "akja") { v.state = "waiting"; v.x = P.x + 2; v.z = P.z; toast(`${c.name} is back on the snow. The toboggan's off the hitch.`, "warn"); }
+  }
+  // the search: clues, the pattern, the whistle, then finding them
+  if (v.state === "lost") {
+    const s = c.s, me = FOOT.on ? FOOT : P;
+    if (s.tracks && !s.clue.tracks) for (let i = 0; i < s.tracks.pts.length; i += 3) { const q = s.tracks.pts[i]; if (Math.hypot(q.x - me.x, q.z - me.z) < 9) { sarClue(c, "tracks"); break; } }
+    if (!s.clue.glove && Math.hypot(s.glove.x - me.x, s.glove.z - me.z) < 12) sarClue(c, "glove");
+    const wp = s.pat[s.pi]; if (wp && Math.hypot(wp.x - me.x, wp.z - me.z) < 28) { s.pi++; if (s.pi >= s.pat.length) { s.pat = sarPattern(s.area.x, s.area.z, 45, s.area.r + 60); s.pi = 0; toast("Pattern done. Dispatch widens it: round again, bigger."); } }
+    const dH = Math.min(dP, dF), see = 32 * (1 - 0.35 * clamp(GS.storm, 0, 1)) * (dayFactor() < 0.3 ? 0.85 : 1);
+    if (!s.heard && dH < 75) { s.heard = true; toast(`A whistle, three short blasts, somewhere to the ${sarCard(me.x, me.z, v.x, v.z)}.`, "warn"); }
+    if (dH < see) { v.state = "waiting"; whump(0.2); toast(`Found! ${c.name} is under the trees, shaking and very glad to see you. ${FOOT.on ? "E to help them up." : "Stop beside them."}`, "good"); }
+  }
+  // picking them up: stop beside them on the sled, or walk up and press E (sarFootAction)
+  if (v.state === "waiting" && !FOOT.on && dP < 7.5 && spd < 1.5) {
+    if (c.kind === "save") {
+      if (GS.own.parts.hitch === "akja" && Math.hypot(TOW.x - v.x, TOW.z - v.z) < 9) { v.state = "loading"; v.loadT = 0; toast(`Hold still. Bagging ${c.name} and strapping them into the toboggan.`); }
+      else if (gameClock - (c.nagT || -9) > 6) { c.nagT = gameClock; toast(GS.own.parts.hitch === "akja" ? "Swing the toboggan in beside them." : `${c.name} can't hold on pillion like this. It's a job for the rescue toboggan.`, "warn"); }
+    } else { v.boardT += dt; if (v.boardT > 1) sarBoard(c); }
+  } else if (v.state === "waiting") v.boardT = 0;
+  if (v.state === "loading") {
+    v.loadT += dt;
+    if (!FOOT.on && spd > 2) { v.state = "waiting"; toast("You moved off. They're not strapped in yet!", "warn"); }
+    else if (v.loadT > 3.5) { v.state = "akja"; toast(`${c.name} is in the bag and strapped down. Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`, "good"); }
+  }
+  if (v.state === "follow") {
+    const tx = FOOT.on ? FOOT.x : P.x, tz = FOOT.on ? FOOT.z : P.z, d = Math.hypot(tx - v.x, tz - v.z);
+    const sp = d > 2.2 ? Math.min(1.7, d - 1.4) : 0;
+    if (sp > 0) { v.x += (tx - v.x) / d * sp * dt; v.z += (tz - v.z) / d * sp * dt; v.yaw = Math.atan2(tx - v.x, tz - v.z); v.step += sp * dt * 3.6; }
+    v.sp = sp;
+    if (!FOOT.on && Math.hypot(v.x - P.x, v.z - P.z) < 4.5) sarBoard(c);
+  }
+  if (sarAboard(c)) { v.x = P.x; v.z = P.z; }
+  // delivered
+  if (sarAboard(c) && !FOOT.on && spd < 3 && sarWarmHere(c)) {
+    c.warmT += dt; if (c.warmT > 0.8) { sarEnd(true); return; }
+  } else c.warmT = 0;
+  sarVisual(dt);
+}
+function sarBoard(c) {
+  c.v.state = "pillion"; c.v.boardT = 0;
+  toast(`${c.name} climbs on behind you and grabs hold. Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`, "good");
+}
+function sarClue(c, k) {
+  const s = c.s; s.clue[k] = true;
+  const ox = (Math.random() - 0.5) * 50, oz = (Math.random() - 0.5) * 50;
+  if (k === "tracks") { s.area = { x: c.v.x + ox * 0.8, z: c.v.z + oz * 0.8, r: s.clue.glove ? 55 : 80 }; toast(`Boot prints, fresh, one person, heading ${sarCard(s.tracks.pts[0].x, s.tracks.pts[0].z, c.v.x, c.v.z)}. Search area narrowed.`, "good"); }
+  else { s.area = { x: s.glove.x, z: s.glove.z, r: s.clue.tracks ? 55 : 78 }; toast(`A red glove in the snow, still a little warm inside. ${c.name} is close: within 80 m.`, "good"); }
+  s.pat = sarPattern(s.area.x, s.area.z, 28, s.area.r); s.pi = 0;
+}
+// how it ends. School cases just record it; the course runner passes or fails the mission and cleans up.
+function sarEnd(ok, why) {
+  const c = SAR.cur; if (!c || c.res) return;
+  c.res = ok ? "pass" : "fail"; c.why2 = why || "";
+  if (c.school) { if (ok) toast(`${c.name} is inside and thawing. Instructor: "That'll do."`, "good"); return; }
+  const left = c.v.core;
+  if (ok) {
+    const pay = Math.round(c.pay * (0.85 + 0.35 * left / 100) * payMul()), dr = Math.round(4 + 4 * left / 100);
+    GS.cash += pay; SAR.n++; LOG.sar = (LOG.sar || 0) + 1;
+    const before = rrank(GS.rescues || 0); GS.rescues = (GS.rescues || 0) + 1; const after = rrank(GS.rescues);
+    const r0 = sarRank(SAR.rep); SAR.rep = clamp(SAR.rep + dr, 0, 100); const r1 = sarRank(SAR.rep);
+    toast(`${c.name} is safe and thawing out${GS.near ? " at " + shortName(GS.near) : ""}. +$${pay}${payMul() > 1 ? " (polar night ×1.5)" : ""} · reputation +${dr} (${Math.round(SAR.rep)}).`, "good");
+    if (r1 !== r0) setTimeout(() => toast(`Dispatch has you down as ${r1.name} now. Better calls, better money.`, "good"), 2400);
+    else if (after !== before) setTimeout(() => toast(`New rescue rank: ${after.name}. ${after.opens || ""}`, "good"), 2400);
+  } else {
+    SAR.lost++; LOG.sarLost = (LOG.sarLost || 0) + 1; SAR.rep = clamp(SAR.rep - 6, 0, 100);
+    toast(`${why} Reputation −6 (${Math.round(SAR.rep)}).`, "bad");
+  }
+  sarClear(); save(); TABLET.refresh("rescue");
+}
+// take everything back out of the world
+function sarClear() {
+  const c = SAR.cur;
+  if (c && c.rj && GS.rescueJob === c.rj) rescueAbort();
+  if (c && c.rv) c.rv.towed = false;
+  sarHideProps(); SAR.cur = null; SAR.coolT = gameClock;
+}
+// blackout, a new game, the summer: the case goes to someone else
+function sarAbort(why) {
+  if (SAR.ping && SAR.ping.n) SAR.ping.n.dismiss(); SAR.ping = null;
+  const c = SAR.cur; if (!c || c.school) return;
+  if (why === "blackout") { SAR.lost++; LOG.sarLost = (LOG.sarLost || 0) + 1; SAR.rep = clamp(SAR.rep - 6, 0, 100); setTimeout(() => toast(`The Red Cross crew took ${c.name} in with you. Reputation −6.`, "bad"), 4600); }
+  sarClear();
+}
+function sarHandOver() {
+  const c = SAR.cur; if (!c || c.school) return;
+  SAR.rep = clamp(SAR.rep - 4, 0, 100); SAR.lost++;
+  toast(`You hand ${c.name} over to the next crew. Reputation −4 (${Math.round(SAR.rep)}).`, "warn");
+  sarClear(); save(); TABLET.refresh("rescue");
+}
+
+/* -- on duty: dispatch -- */
+// storm over you (or close by) and polar night raise the odds; one ping at a time, 30 s to answer it
+function sarStormNear() { let s = WX.at(P.x, P.z); for (const [dx, dz] of [[1500, 0], [-1500, 0], [0, 1500], [0, -1500]]) s = Math.max(s, WX.at(P.x + dx, P.z + dz) * 0.8); return clamp(s, 0, 1.2); }
+function sarOdds() { return (1 / 210) * (1 + 2 * sarStormNear()) * (CAL.isPolarNight() ? 1.25 : 1); }   // per real second
+const sarPerHour = () => 1 - Math.pow(1 - sarOdds(), GAMEHOUR);
+function sarBusy() { return !!(SAR.cur || SCHOOL.on || GS.tour || GS.rescueJob || GS.dead || HELP.on || (typeof SEASON !== "undefined" && SEASON.card)); }
+function sarDispatch(dt) {
+  if (!SAR.duty || !sarLic() || SAR.ping || sarBusy() || gameClock - SAR.coolT < 40) return;
+  SAR.odT += dt; if (SAR.odT < 1) return;
+  const p = 1 - Math.pow(1 - sarOdds(), SAR.odT); SAR.odT = 0;
+  if (Math.random() < p) sarOffer();
+}
+function sarOffer(force) {
+  const pool = [{ k: "search", w: 3 }, { k: "rescue", w: 3 }];
+  if (ST.winch >= 1) pool.push({ k: "tow", w: 2.5 });
+  if (GS.own.parts.hitch === "akja") pool.push({ k: "save", w: 3 });
+  if (force && pool.some(q => q.k === force)) { for (const q of pool) q.w = q.k === force ? 1 : 0; }
+  const rMax = 1500 + SAR.rep * 11;
+  let c = null;
+  for (let t = 0; t < 4 && !c; t++) { const k = wpick(pool).k; c = sarMake(k, { cx: P.x, cz: P.z, rMin: 600, rMax }); }
+  if (!c) return null;
+  const K = SAR_KINDS[c.kind], km = (c.out / 1000).toFixed(1), dir = sarCard(P.x, P.z, c.x, c.z), cx = c.kind === "search" ? c.s.L : c;
+  const n = TABLET.notify({ app: "rescue", kind: "alert", ttl: 30,
+    title: `CALLOUT · ${K.name.toUpperCase()} · ${km} km ${dir}`,
+    body: `${c.why} About ${fmtMS(c.T0)} of survival time. ~${fmtCash(c.pay * payMul())}.${c.kind === "tow" ? ` Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.` : ""}`,
+    actions: [{ label: "ACCEPT", do: () => sarAccept(c) }, { label: "Decline", do: () => sarMiss(c, true) }],
+    onExpire: () => sarMiss(c, false) });
+  SAR.ping = { c, n, x: cx.x, z: cx.z, t0: gameClock };
+  return c;
+}
+function sarMiss(c, declined) {
+  if (!SAR.ping || SAR.ping.c !== c) return;
+  SAR.ping = null; SAR.miss++; SAR.ign++; SAR.coolT = gameClock - 15;
+  if (SAR.miss >= 2) { SAR.rep = clamp(SAR.rep - 2, 0, 100); toast(`Dispatch: "That's ${SAR.miss} in a row from you." Another crew takes it. Reputation −2 (${Math.round(SAR.rep)}).`, "warn"); }
+  else toast(declined ? "Declined. Another crew's taking it." : "No answer. Another crew's taking it.");
+  save(); TABLET.refresh("rescue");
+}
+function sarAccept(c) {
+  if (!SAR.ping || SAR.ping.c !== c) return;
+  if (sarBusy()) { toast(GS.tour ? "Not with tourists on the back. Another crew's taking it." : "You're tied up. Another crew's taking it.", "warn"); SAR.ping = null; SAR.coolT = gameClock; return; }
+  SAR.ping = null; SAR.miss = 0;
+  sarOpen(c);
+  toast(`Accepted. ${c.why}`, "warn");
+  setTimeout(() => { if (SAR.cur === c) toast(c.kind === "search" ? "The search area and the pattern are on the Map. Follow the arrow round the legs, and watch for prints or anything they've dropped."
+    : c.kind === "tow" ? "Park on the rim, Q off, walk the line out and hook on (E), tie back to a tree, hold SPACE to reel."
+    : c.kind === "save" ? "Toboggan on the hitch: stop right beside them, or walk up and press E." : "If it's too steep to ride, stop below, Q off, walk up and press E."); }, 2400);
+  save(); TABLET.refresh("rescue");
+}
+function sarSetDuty(on) {
+  if (on && !sarLic()) { toast("You need your Rescue licence first.", "warn"); return; }
+  SAR.duty = !!on; SAR.miss = 0; SAR.coolT = gameClock - 20;
+  toast(on ? "On duty. Callouts will ping the dash: 30 seconds to take one." : "Off duty. Dispatch won't call you.", on ? "good" : undefined);
+  save(); TABLET.refresh("rescue");
+}
+
+/* -- on foot: E, and the prompts -- */
+function sarFootAction() {
+  const c = SAR.cur; if (!c || c.res) return false;
+  const v = c.v, dF = Math.hypot(v.x - FOOT.x, v.z - FOOT.z);
+  if (v.state === "rig" && c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4) { sarRig(); return true; }
+  if (v.state !== "waiting" || dF > 2.8) return false;
+  if (c.kind === "save") {
+    if (GS.own.parts.hitch !== "akja") { toast(`${c.name} needs the rescue toboggan. They can't sit a sled like this.`, "warn"); return true; }
+    if (Math.hypot(TOW.x - v.x, TOW.z - v.z) > 12) { toast("Bring the toboggan closer (within 12 m) and try again.", "warn"); return true; }
+    v.state = "loading"; v.loadT = 0; toast(`You get ${c.name} into the bag and drag them to the toboggan.`); return true;
+  }
+  v.state = "follow"; toast(`${c.name} gets an arm round your shoulders. Walk them back to the sled.`); return true;
+}
+function sarPrompt() {
+  const c = SAR.cur; if (!c || c.res || !FOOT.on) return "";
+  const v = c.v, dF = Math.hypot(v.x - FOOT.x, v.z - FOOT.z);
+  if (v.state === "rig") return c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4 ? "E: rig the tow rope to your hitch" : `Walk to ${c.name}'s sled and rig the tow rope (E)`;
+  if (v.state === "waiting" && dF < 2.8) return c.kind === "save" ? "E: bag them and load the toboggan" : `E: help ${c.name} up`;
+  if (v.state === "waiting" && dF < 25) return `Walk up to ${c.name} and press E`;
+  if (v.state === "follow") return "Walk back to the sled: they're with you. Q to get on.";
+  if (v.state === "loading") return `Loading the toboggan… ${Math.min(100, Math.round(v.loadT / 3.5 * 100))}%`;
+  if (v.state === "lost") return "Searching on foot. Watch for prints.";
+  return "";
+}
+function sarRideHint() {
+  const c = SAR.cur; if (!c || c.res || FOOT.on) return "";
+  const v = c.v, d = Math.hypot(v.x - P.x, v.z - P.z);
+  if (v.state === "waiting" && d < 80) return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? `Stop with the toboggan beside ${c.name}` : `${c.name} needs the rescue toboggan`) : `Stop beside ${c.name}, or Q off and walk up (E)`;
+  if (v.state === "loading") return `Hold still: loading ${Math.min(100, Math.round(v.loadT / 3.5 * 100))}%`;
+  if (v.state === "rig") return `Q off and rig the tow rope at ${c.name}'s sled (E)`;
+  return "";
+}
+
+/* -- where the arrow points, and the HUD lines -- */
+function sarTarget(c) {
+  const v = c.v;
+  if (v.state === "lost") { const w = c.s.pat[c.s.pi]; return w ? { x: w.x, z: w.z } : { x: c.s.area.x, z: c.s.area.z }; }
+  if (v.state === "stuck" || v.state === "rig") { const r = c.rv || (RJ.vs && RJ.vs[0]); return r ? { x: r.x, z: r.z } : { x: c.x, z: c.z }; }
+  if (sarAboard(c)) {
+    if (c.school) return { x: SCHOOLS.rescue.x, z: SCHOOLS.rescue.z + 6 };
+    if (gameClock - (c.dT || -9) > 1) { c.dT = gameClock; c.dest = (c.kind === "tow" ? sarCabin(P.x, P.z) : sarWarmest(P.x, P.z)).s; }
+    return c.dest || depot;
+  }
+  return { x: v.x, z: v.z };
+}
+function sarStatus(c) {
+  const v = c.v, s = c.s;
+  switch (v.state) {
+    case "lost": return `search leg ${s.pi + 1}/${s.pat.length} · clues ${(s.clue.tracks ? 1 : 0) + (s.clue.glove ? 1 : 0)}/2`;
+    case "waiting": return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? "toboggan beside them" : "needs the toboggan") : "stop beside them, or walk up (E)";
+    case "loading": return "loading the toboggan";
+    case "follow": return "walk them to the sled";
+    case "stuck": return "winch them out";
+    case "rig": return "rig the tow rope (E at their sled)";
+    case "tow": return `tow it to ${c.dest ? shortName(c.dest) : "a cabin"}`;
+    default: return c.school ? "back to the yard" : `somewhere warm: ${c.dest ? shortName(c.dest) : "a cabin"}`;
+  }
+}
+const sarClock = c => { const r = sarRateNow(c); return r < 0 ? "warming" : fmtMS(c.v.core / r) + " survival"; };
+function sarHud(c, tgt) {
+  const d = Math.hypot(tgt.x - P.x, tgt.z - P.z), K = SAR_KINDS[c.kind];
+  return { title: `${K.name} → ${c.name} (${c.who})${c.v.state === "tow" ? " + their sled" : ""}`, sub: `${sarStatus(c)} · ${fmtMi(d)} · ${sarClock(c)}${c.pay ? " · ~$" + Math.round(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : ""}` };
+}
+// the Map's rescue layer and the minimaps: the search area (never the hiker), the casualty once known, a ping waiting
+function sarPts() {
+  const out = [], c = SAR.cur;
+  if (c && !c.res) {
+    const lab = `${c.name} · ${sarClock(c)}`;
+    if (c.v.state === "lost") out.push({ x: c.s.area.x, z: c.s.area.z, name: "Search area · " + sarClock(c), kind: "sar", area: c.s.area.r, legs: c.s.pat, li: c.s.pi, clues: [c.s.clue.tracks && c.s.tracks ? c.s.tracks : null, c.s.clue.glove ? c.s.glove : null].filter(Boolean) });
+    else if (c.v.state !== "stuck" && !sarAboard(c)) out.push({ x: c.v.x, z: c.v.z, name: lab, kind: "sar" });
+    else if (sarAboard(c)) { const t = sarTarget(c); out.push({ x: t.x, z: t.z, name: (t.name ? shortName(t) : "Warm") + " · " + sarClock(c), kind: "sarw" }); }
+  }
+  if (SAR.ping) out.push({ x: SAR.ping.x, z: SAR.ping.z, name: "Callout?", kind: "ping" });
+  return out;
+}
+
+/* -- every frame: the person, the passenger behind you, the rope -- */
+function sarVisual(dt) {
+  const c = SAR.cur, f = SAR.foot;
+  const pill = SAR.pill, aboard = c && !c.res && (c.v.state === "pillion" || c.v.state === "tow");
+  if (aboard || pill) { const p = sarPillion(); p.visible = !!aboard; if (aboard) sarPosePillion(p); }
+  if (SAR.rope) SAR.rope.visible = false;
+  if (!c || c.res || !f) return;
+  const v = c.v, fig = f.fig;
+  fig.visible = !sarAboard(c) && v.state !== "stuck" && v.state !== "rig" && Math.hypot(v.x - P.x, v.z - P.z) < 500;
+  if (v.state === "rig") fig.visible = false;
+  if (fig.visible) {
+    const y = surf(v.x, v.z), U = fig.userData;
+    if (c.kind === "save" && (v.state === "waiting" || v.state === "loading")) {
+      fig.position.set(v.x, y + 0.16, v.z); fig.rotation.set(-Math.PI / 2, v.yaw, 0, "YXZ"); poseFigure(fig, 0, 0, 0, dt);
+      if (v.state === "loading" && v.loadT > 3.2) fig.visible = false;
+    } else {
+      fig.rotation.set(0, 0, 0, "YXZ");
+      fig.position.set(v.x, y - 0.04, v.z);
+      if (v.state === "follow") { fig.rotation.y = v.yaw; poseFigure(fig, v.sp || 0, v.step, 0.15, dt); }
+      else {
+        fig.rotation.y = Math.atan2(P.x - v.x, P.z - v.z);
+        poseFigure(fig, 0, 0, v.state === "lost" ? 0.25 : 0, dt);
+        v.wave += dt * 5;
+        if (v.state === "waiting" && Math.hypot(v.x - P.x, v.z - P.z) < 90) { U.arms[0].rotation.x = -2.6 + Math.sin(v.wave) * 0.4; U.arms[1].rotation.x = -2.6 + Math.cos(v.wave * 1.1) * 0.4; }
+      }
+    }
+  }
+  f.lamp.visible = c.kind === "search" && dayFactor() < 0.5;
+  // the flare a bystander set: a red column, brighter at night and in a storm
+  if (f.col.visible) { const y = surf(c.x, c.z); f.col.position.set(c.x + 3, y + 22, c.z); f.col.material.opacity = (0.25 + 0.2 * Math.sin(gameClock * 3)) * (0.5 + 0.5 * (1 - dayFactor()) + 0.4 * GS.storm); if (sarAboard(c) || v.state === "follow") f.col.visible = false; }
+  // the tow rope
+  if (v.state === "tow" && c.rv) {
+    if (!SAR.rope) { const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]); SAR.rope = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffb020 })); SAR.rope.frustumCulled = false; scene.add(SAR.rope); }
+    const [ax, az] = sarTowAnchor(), r = c.rv, a = SAR.rope.geometry.attributes.position;
+    a.setXYZ(0, ax, rideSurf(ax, az) + 0.35, az); a.setXYZ(1, r.x + Math.sin(r.yaw) * 1.3, rideSurf(r.x, r.z) + 0.4, r.z + Math.cos(r.yaw) * 1.3); a.needsUpdate = true;
+    SAR.rope.visible = true;
+  }
+}
+// sat on the back of the seat, arms round your waist
+function sarPosePillion(p) {
+  const mc = V.machineOf ? V.machineOf(GS.own.sled) : null, ud = mc && mc.userData; if (!ud) return;
+  const z = Math.max(ud.zBack + 0.22, ud.hip.z - 0.5), top = ud.seatTopAt ? ud.seatTopAt(clamp(z, ud.zBack, 0.05)) : ud.seatTop;
+  p.position.set(0, top + 0.1 - 0.93 + 0.12, z); p.rotation.set(0, 0, 0);
+  const U = p.userData; for (const l of U.legs) { l.rotation.x = -1.35; l.rotation.z = 0; }
+  U.legs[0].rotation.z = 0.25; U.legs[1].rotation.z = -0.25;
+  U.torso.rotation.x = 0.3; U.torso.position.y = 0.93;
+  U.arms[0].rotation.x = -1.1; U.arms[1].rotation.x = -1.1; U.arms[0].rotation.z = 0.35; U.arms[1].rotation.z = -0.35;
+}
+
+/* -- the Rescue school's course: four cases round the Nordkinn Redning base -- */
+function sarSchoolSpot(sc, rMin, rMax, ok) {
+  return sarRing(sc.x, sc.z, rMin, rMax, ok, 4000) || sarRing(sc.x, sc.z, rMin, rMax + 250, (x, z) => sarLand(x, z) && slopeAt(x, z, 5) < 0.45, 4000) || { x: sc.x + rMin, z: sc.z };
+}
+function sarSchoolMission(id, kind, def) {
+  SCHOOL.addMission("rescue", Object.assign({
+    id, kind: def.chip,
+    setup(ctx) { ctx.c = sarSchoolCase(kind, ctx.plan); sarOpen(ctx.c); },
+    tick(dt, ctx) {
+      const c = ctx.c; if (!c) return "hold";
+      if (c.res === "fail") return { fail: c.why2 || `${c.name} would not have made it.` };
+      if (c.res === "pass") { ctx.wi = ctx.pts.length; return null; }
+      return "hold";
+    },
+    hud(ctx) { const c = ctx.c; return c && !c.res ? `${sarStatus(c)} · ${sarClock(c)}` : ""; },
+    cleanup(ctx) { if (SAR.cur && SAR.cur === ctx.c) sarClear(); ctx.c = null; }
+  }, def));
+}
+const sarYardPt = (sc, label) => ({ x: sc.x, z: sc.z + 6, r: 18, stop: true, label });
+sarSchoolMission("search", "search", {
+  name: "Find the lost hiker", chip: "SEARCH",
+  brief: "Marit from the base has gone walkabout in the woods. Ride to the last-known point, fly the search pattern on the Map, read the clues (prints, anything dropped), and bring her back to the yard before she gets too cold.",
+  hitch: "none",
+  plan(sc) {
+    const at = sarSchoolSpot(sc, 230, 480, sarForestOk), pl = sarPlanSearch(at.x, at.z, 80, 120), d = Math.hypot(at.x - sc.x, at.z - sc.z);
+    return { name: "Marit", x: at.x, z: at.z, L: pl.L, R: pl.R, tracks: pl.tracks, glove: pl.glove, T0: Math.round(560 + d / 11 * 1.6),
+      pts: [{ x: pl.L.x, z: pl.L.z, r: 200, label: "Out to the last-known point" }, sarYardPt(sc, "Bring her back to the yard")] };
+  }
+});
+sarSchoolMission("slope", "rescue", {
+  name: "Rider stranded on a steep slope", chip: "RESCUE · SLOPE",
+  brief: "Tor has rolled his sled on a slope too steep to idle up. Reach him (stop below, Q off, walk up and press E if you have to), get him on behind you and back to the yard.",
+  hitch: "none",
+  plan(sc) {
+    const at = sarSchoolSpot(sc, 180, 520, sarSteepOk), d = Math.hypot(at.x - sc.x, at.z - sc.z);
+    return { name: "Tor", x: at.x, z: at.z, T0: Math.round(280 + 2.4 * d / 10), pts: [{ x: at.x, z: at.z, r: 14, label: "Reach the rider" }, sarYardPt(sc, "Bring him back to the yard")] };
+  }
+});
+sarSchoolMission("tow", "tow", {
+  name: "Winch it out, tow it home", chip: "TOW · HITCH",
+  brief: "Siri's sled is bogged out past the cones with a dead track. Winch it out with the school sled's electric winch, rig a tow rope (E at her sled), and haul it back to the yard with Siri on behind you.",
+  hitch: "none",
+  plan(sc) {
+    let site = sarTowSite(sc.x, sc.z, 170, 460) || sarTowSite(sc.x, sc.z, 170, 750);
+    if (!site) { const p = sarSchoolSpot(sc, 200, 400, (x, z) => sarLand(x, z) && slopeAt(x, z, 5) < 0.2); site = { kind: "bog", x: p.x, z: p.z, g0: groundAt(p.x, p.z), ex: (sc.x - p.x) / Math.hypot(sc.x - p.x, sc.z - p.z), ez: (sc.z - p.z) / Math.hypot(sc.x - p.x, sc.z - p.z), dist: 4.6, slope: 0, hollow: 1.6 }; }
+    return { name: "Siri", x: site.x, z: site.z, site, T0: 900, pts: [{ x: site.x, z: site.z, r: 30, label: "The stuck sled" }, sarYardPt(sc, "Tow it back to the yard")] };
+  }
+});
+sarSchoolMission("save", "save", {
+  name: "Cold casualty: the toboggan run", chip: "SAVE · COLD",
+  brief: "Ole is down on the open fell, hypothermic, on a short clock. The school sled has the rescue toboggan on: stop with it beside him (or walk up and press E), then get him back to the warm before his time runs out. Roll the toboggan and it costs him.",
+  hitch: "akja",
+  plan(sc) {
+    const at = sarSchoolSpot(sc, 300, 620, sarOpenOk), d = Math.hypot(at.x - sc.x, at.z - sc.z);
+    return { name: "Ole", x: at.x, z: at.z, T0: Math.round(130 + 2.1 * d / 10), pts: [{ x: at.x, z: at.z, r: 12, label: "Reach the casualty" }, sarYardPt(sc, "Get him to the warm: the yard")] };
+  }
+});
+
+/* -- the Rescue app: the school, then the duty roster -- */
+TABLET.register({
+  id: "rescue", name: "Rescue", icon: TICON.rescue, order: 7, live: 1,
+  hidden: () => !GS.apps.rescue,
+  badge: () => SAR.ping ? "!" : SAR.cur && !SAR.cur.school ? "1" : SCHOOL.on && SCHOOL.sc === SCHOOLS.rescue ? "!" : "",
+  render(el) {
+    const sc = SCHOOLS.rescue, lic = licensed("rescue"), rk = sarRank(SAR.rep), nx = SAR_RANKS[SAR_RANKS.indexOf(rk) + 1];
+    let h = tabHead("RESCUE · NORDKINN REDNING", "Rescue", fmtCash(GS.cash));
+    h += `<div class="tsub">${lic ? chip("RESCUE LICENCE", "ok") + " " : ""}${lic ? `${rk.name} · reputation ${Math.round(SAR.rep)}/100${nx ? ` · ${nx.name} at ${nx.at}` : ""}` : `${GS.rescues || 0} recoveries on file`}</div>`;
+    if (!lic) { h += schoolCard(sc); h += sec("On duty", ""); h += `<p class="tnote2">Pass the school's four missions and you'll go on duty here: callouts ping the dash, and you've 30 seconds to take one. Until then, volunteer winch recoveries are posted in Trail Crew.</p>`; }
+    else {
+      const sd = sarStormNear(), ph = sarPerHour();
+      h += sec("Duty", SAR.duty ? "on duty" : "off duty");
+      h += tabCard({ tf: "duty", title: SAR.duty ? "You're on duty" : "Off duty", chips: SAR.duty ? chip("ON DUTY", "ok") : chip("OFF"),
+        meta: `Dispatch odds ≈ ${Math.round(ph * 100)}% a game hour${sd > 0.3 ? " · storm close by, calls up" : ""}${CAL.isPolarNight() ? " · polar night, calls up a little" : ""}`,
+        note: SAR.duty ? "Callouts ping the dash. You've 30 seconds to accept, then it goes to another crew. Let two in a row go and dispatch notices: reputation −2 each." : "Go on duty and nearby emergencies ping the dash: searches, stranded riders, tows and cold casualties, sent from where you are.",
+        act: "sar:duty", actLabel: SAR.duty ? "GO OFF DUTY" : "GO ON DUTY" });
+      if (SAR.ping) { const c = SAR.ping.c, left = Math.max(0, 30 - (gameClock - SAR.ping.t0));
+        h += sec("Incoming", `${Math.ceil(left)} s to answer`);
+        h += tabCard({ tf: "sping", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + chip(`${fmtMS(c.T0)} SURVIVAL`, "due"),
+          meta: `${(c.out / 1000).toFixed(1)} km ${sarCard(P.x, P.z, SAR.ping.x, SAR.ping.z)} · near ${tabEsc(c.near)}`, note: `<span class="why">${tabEsc(c.why)}</span>`, pay: "~" + fmtCash(c.pay * payMul()), act: "sar:acc", actLabel: "ACCEPT" }); }
+      const c = SAR.cur;
+      if (c && !c.school) {
+        h += sec("Callout", sarClock(c));
+        h += tabCard({ tf: "scur", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + chip(sarClock(c).toUpperCase(), "due"),
+          meta: `${sarStatus(c)} · ${fmtMi(Math.hypot(sarTarget(c).x - P.x, sarTarget(c).z - P.z))} to go`, note: `<span class="why">${tabEsc(c.why)}</span> It's on the Map's rescue layer${c.kind === "search" ? " as a search area with the pattern, not a pin: you have to find them" : ""}.`,
+          pay: "~" + fmtCash(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()), act: "sar:hand", actLabel: "HAND IT OVER" });
+      }
+      h += sec("Kit", "");
+      h += `<p class="tnote2">${GS.own.parts.hitch === "akja" ? chip("TOBOGGAN ON", "ok") + " Cold casualties can come your way." : GS.own.partsOwned[ownKey("hitch", "akja")] ? "Your rescue toboggan is at the garage. Hitch it and dispatch will send you cold casualties too." : "No rescue toboggan: the garage sells one, and dispatch won't send you cold casualties without it."} ${ST.winch ? "Winch fitted: tows can come your way." : "No winch: no tows."}</p>`;
+      h += sec("Record", "");
+      h += `<p class="tnote2">${SAR.n} saved · ${SAR.lost} lost or handed over · ${SAR.ign} pings let go${SAR.miss ? ` (${SAR.miss} in a row)` : ""}. Saves pay more the higher your reputation (×${(1 + SAR.rep / 125).toFixed(2)} now) and go further out. A save adds 4 to 8 reputation, a lost one costs 6, handing over costs 4.</p>`;
+      h += `<p class="tnote2">Volunteer winch recoveries are still posted in Trail Crew.</p>`;
+    }
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    if (!lic) schoolBind(el, sc);
+    for (const b of el.querySelectorAll("[data-act^=sar]")) b.addEventListener("click", () => {
+      const a = b.dataset.act.split(":")[1];
+      if (a === "duty") sarSetDuty(!SAR.duty);
+      else if (a === "acc" && SAR.ping) { const n = SAR.ping.n, c = SAR.ping.c; if (n) n.dismiss(); sarAccept(c); }
+      else if (a === "hand") sarHandOver();
+    });
+  }
+});
+TABLET.addLayer("rescue", sarPts);
 
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
@@ -9594,7 +10327,8 @@ const GOD_ITEMS = [
     } },
   { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
   { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels, Freight and Trail Crew."); } },
-  { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted."); } },
+  { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.own.partsOwned[ownKey("hitch", "akja")] = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted, and the rescue toboggan."); } },
+  { id: "sar", label: "Rescue callout now", sub: "on duty, licensed", do: () => { if (!licensed("rescue")) { toast("Grant the licences first.", "warn"); return; } if (SAR.cur || SAR.ping) { toast("Already on one.", "warn"); return; } SAR.duty = true; if (!sarOffer()) toast("No spot found for a callout here.", "warn"); } },
   { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
 ];
 function godTeleport(s) {
