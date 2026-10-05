@@ -5361,6 +5361,15 @@ function tabHomography(w, h, q) {
   return "matrix3d(" + m.map(v => +v.toFixed(7)).join(",") + ")";
 }
 
+// first person gets the dash tablet, every other view (third person, on foot) gets the HUD minimap, never both
+let tvFP = null;
+function tabView_sync() {
+  const fp = !!(VIEWS[camMode].fp && !FOOT.on);
+  if (V.tab) V.tab.visible = fp;
+  if (fp === tvFP) return;
+  tvFP = fp; document.body.classList.toggle("fpv", fp);
+}
+
 // the dash screen when you're not looking at it: a live heading-up map, the clock, and a strip for pings
 function tabDash(dt) {
   const fp = VIEWS[camMode].fp && !FOOT.on;
@@ -11024,7 +11033,7 @@ function frame(t) {
   flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
-  tabDash(dt); TABLET.place();
+  tabView_sync(); tabDash(dt); TABLET.place();
   if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }
 }
