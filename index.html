@@ -371,6 +371,9 @@
     body.touch #zone .brand{font-size:10px}
     body.touch #zone .name{font-size:15px}
     body.touch #zone .elev{font-size:10px}
+    body.touch #zone .ctime{font-size:15px}
+    body.touch #zone .cdate{font-size:10px}
+    body.touch #zone .cal{padding-bottom:3px}
     body.touch #job{padding:6px 10px;gap:8px;max-width:min(420px,calc(100% - 32px))}
     body.touch #arrow{width:22px;height:22px}
     body.touch #jobTitle{font-size:14px}
@@ -504,12 +507,30 @@
   @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(19px*var(--ts))}.tpanel .pt{font-size:26px}}
   @media (max-height:520px){.btitle{font-size:26px}.bti{font-size:28px}}
   @media (prefers-reduced-motion:reduce){#settings,#garage,#god,#bSheet,.tpanel,#bigmap,#board{animation:none!important}}
+  /* ==== CALENDAR + WEATHER (winter update, phase 1) ==== */
+  #zone .cal{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:5px;margin-bottom:3px;border-bottom:1px solid var(--rule)}
+  #zone .cdate{font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--signal);white-space:nowrap}
+  #zone .cdate i{font-style:italic;font-weight:500;letter-spacing:.02em;color:var(--slate)}
+  #zone .ctime{font-weight:800;font-size:20px;line-height:1;font-variant-numeric:tabular-nums;color:var(--frost)}
+  #zone .cchips{display:flex;gap:5px;flex-wrap:wrap}
+  #zone .cchips:not(:has(.cchip:not([hidden]))){display:none}
+  .cchip,.bchip.polar,.bchip.aurora{display:inline-block;padding:0 7px;font-family:var(--body);font-weight:700;font-size:10px;line-height:16px;letter-spacing:.08em;border:1px solid currentColor;border-radius:999px;white-space:nowrap}
+  .cchip.pn,.bchip.polar{color:#9ec9ff;background:rgba(80,130,220,.14)}
+  .cchip.au,.bchip.aurora{color:#6ff0b8;background:rgba(60,220,150,.12)}
+  #summer{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,#1d3242,#0b141c 70%);transition:opacity .7s var(--ease)}
+  #summer[hidden],.cchip[hidden]{display:none}
+  #summer.out{opacity:0}
+  #summer .sumc{width:min(460px,calc(100% - 32px));text-align:center;display:grid;gap:10px}
+  #summer .sumt{font-weight:800;font-size:44px;line-height:1;color:var(--frost);font-variant-numeric:tabular-nums}
+  #summer p{font-style:italic;font-weight:500;font-size:15px;line-height:1.45;color:var(--frost2);margin:0}
 </style>
 
 <canvas id="gl"></canvas>
 
 <div class="hud panel" id="zone" hidden>
   <div class="brand">TRACKLAYER</div>
+  <div class="cal" id="cal"><span class="cdate"><b id="calDate">SUN 1 NOV</b> <i id="calYear">2026</i></span><span class="ctime" id="calTime">09:36</span></div>
+  <div class="cchips"><span class="cchip pn" id="calPN" hidden>POLAR NIGHT ×1.5</span><span class="cchip au" id="calAU" hidden>AURORA</span></div>
   <div class="name" id="zoneName">BACKCOUNTRY</div>
   <div class="elev" id="elev">Elev 0 m</div>
   <div class="elev" id="clock">07:24 · Clear · $0</div>
@@ -533,6 +554,7 @@
 <div id="toasts" aria-live="polite"></div>
 <div id="breathFp" aria-hidden="true"></div>
 <div id="glove" aria-hidden="true"><svg viewBox="0 0 120 150"><defs><linearGradient id="gvL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a4452"/><stop offset="1" stop-color="#151a21"/></linearGradient></defs><g fill="url(#gvL)" stroke="rgba(234,242,248,.16)" stroke-width="1.5"><rect x="26" y="26" width="15" height="56" rx="7.5"/><rect x="43" y="14" width="15" height="68" rx="7.5"/><rect x="60" y="20" width="15" height="62" rx="7.5"/><rect x="77" y="32" width="14" height="50" rx="7"/><path d="M26 74 C10 70 4 84 12 96 L28 112 L40 100 Z"/><rect x="24" y="60" width="70" height="62" rx="18"/><rect x="20" y="112" width="78" height="36" rx="10"/></g><rect x="20" y="124" width="78" height="7" fill="#ff5a1f" opacity=".85"/></svg></div>
+<div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p>The snow goes, the fjord boats run, and the sleds sit in the shed under a tarp. You keep everything. See you when it freezes.</p></div></div>
 
 <div id="board" hidden>
   <div id="bSheet" role="dialog" aria-label="Job board, Kjøllefjord quay">
@@ -674,11 +696,11 @@
   <div class="tkeys" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd>Choose</span><span><kbd>Enter</kbd>Select</span><span><kbd>Esc</kbd>Back</span><span>Gamepad works too</span></div>
   <div class="tsun" aria-hidden="true">
     <svg viewBox="0 0 118 40"><line x1="2" y1="34" x2="116" y2="34" stroke="rgba(234,242,248,.35)" stroke-width="1"/><path d="M 10 34 Q 59 12 108 34" fill="none" stroke="rgba(234,242,248,.55)" stroke-width="1.5" stroke-dasharray="3 3"/><circle id="tSunG" cx="27" cy="26.5" r="9" fill="rgba(255,194,107,.22)"/><circle id="tSunD" cx="27" cy="26.5" r="4.5" fill="#ffc26b"/></svg>
-    <div><b id="tClock">09:36 · CLEAR</b><span>SUN UP 08:36 · DOWN 15:48</span></div>
+    <div><b id="tClock">09:36 · CLEAR</b><span id="tSun">SUN UP 08:36 · DOWN 15:48</span></div>
   </div>
   <div class="tpanel" id="tPanel" role="dialog" hidden></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="tracklayer.js?v=28"></script>
+<script src="tracklayer.js?v=29"></script>
 </body></html>

@@ -2840,13 +2840,101 @@ function updHud(spd) {
 }
 
 /* ---------------- courier survival layer ---------------- */
-const GAMEHOUR = 30;                       // real seconds per in-game hour (a full day is 12 minutes)
+const GAMEHOUR = 50;                       // real seconds per in-game hour (a full day is 20 minutes)
 const GS = {
   cash: 0, fuel: 18, cap: 18, warmth: 100, hour: 9.6, load: [], jobs: [], delivered: 0, rescues: 0, rescueJob: null,
   storm: 0, stormT: 170, stormPhase: "calm", warned: false, boardOpen: false, garageOpen: false, dead: false, near: null, own: null, kitWarned: false,
   outWarned: false, coldWarned: false, lowWarned: false, smokeT: 0, fadeT: 0
 };
 const GOD = { fuel: false, warm: false, turbo: false, lowg: false, freeze: false };
+
+/* ---------------- calendar, aurora and weather (winter systems update, phase 1) ----------------
+   One game day is 20 real minutes. GS.hour is still the running game-hour counter (09:36 on day one is
+   9.6), so GS.hour % 24 is always the time of day and everything keyed off it (the steamer, the classifieds,
+   job deadlines) keeps working. The calendar date is 1 November 2026 + GS.hour + CAL.off: the summer skip
+   adds whole days to CAL.off instead of touching the clock. Dates are real (weekdays, leap years); the
+   clock is local solar time, so noon is when the sun is highest. */
+const CAL_EPOCH = Date.UTC(2026, 10, 1), CAL_LAT = 70.9;
+const MON3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DOW3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const SEASONS = {
+  early: { id: "early", name: "Early winter" }, deep: { id: "deep", name: "Polar night" }, late: { id: "late", name: "Late winter" },
+  spring: { id: "spring", name: "Spring" }, melt: { id: "melt", name: "Melt" }, summer: { id: "summer", name: "Summer" }
+};
+const CAL = {
+  off: 0, lastDay: null, cbs: [], dc: null, skipping: false,
+  abs(H = GS.hour) { return H + this.off; },                       // calendar hours since 1 Nov 2026 00:00
+  dayIndex(H = GS.hour) { return Math.floor(this.abs(H) / 24); },
+  // the date part, cached per calendar day: this is called a few times a frame
+  day(D = this.dayIndex()) {
+    const c = this.dc && this.dc.D === D ? this.dc : null; if (c) return c;
+    const dt = new Date(CAL_EPOCH + D * 864e5), y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+    const doy = (Date.UTC(y, m, d) - Date.UTC(y, 0, 1)) / 864e5;
+    return (this.dc = { D, y, m, d, dow: dt.getUTCDay(), doy });
+  },
+  now(H = GS.hour) { const c = this.day(this.dayIndex(H)), h = ((H % 24) + 24) % 24; return { y: c.y, m: c.m, d: c.d, dow: c.dow, doy: c.doy, day: c.D, h, time: fmtTime(h), label: `${DOW3[c.dow]} ${c.d} ${MON3[c.m]}`, long: `${DOW3[c.dow]} ${c.d} ${MONTHS[c.m]} ${c.y}` }; },
+  // solar declination (radians) for the date and time
+  dec(H = GS.hour) { const c = this.day(this.dayIndex(H)), f = (((H % 24) + 24) % 24) / 24; return -23.44 / R2D * Math.cos(2 * Math.PI * (c.doy + f + 10) / 365.24); },
+  noonEl(H = GS.hour) { return 90 - CAL_LAT + this.dec(Math.floor(H / 24) * 24 + 12) * R2D; },
+  midnightEl(H = GS.hour) { return CAL_LAT - 90 - this.dec(Math.floor(H / 24) * 24) * R2D; },
+  // no sunrise at all today (the sun's centre stays below the refracted horizon at noon): ~21 Nov - 21 Jan
+  isPolarNight(H = GS.hour) { return this.noonEl(H) < -0.83; },
+  isMidnightSun(H = GS.hour) { return this.midnightEl(H) > -0.83; },
+  sunTimes(H = GS.hour) {
+    const d = this.dec(Math.floor(H / 24) * 24 + 12), L = CAL_LAT / R2D;
+    const ch = (Math.sin(-0.83 / R2D) - Math.sin(L) * Math.sin(d)) / (Math.cos(L) * Math.cos(d));
+    if (ch >= 1) return { polar: true }; if (ch <= -1) return { midnight: true };
+    const h0 = Math.acos(ch) * 12 / Math.PI; return { up: 12 - h0, down: 12 + h0, len: 2 * h0 };
+  },
+  season(H = GS.hour) {
+    const m = this.day(this.dayIndex(H)).m;
+    if (m >= 5 && m <= 9) return SEASONS.summer;
+    if (this.isPolarNight(H)) return SEASONS.deep;
+    return m === 10 || m === 11 ? SEASONS.early : m <= 2 ? SEASONS.late : m === 3 ? SEASONS.spring : SEASONS.melt;
+  },
+  onDayChange(cb) { this.cbs.push(cb); return cb; },
+  // called every frame from updGame: fires the day-change hooks and runs the summer skip
+  tick() {
+    const D = this.dayIndex();
+    if (this.lastDay === null) { this.lastDay = D; return; }
+    if (D === this.lastDay) return;
+    const prev = this.lastDay; this.lastDay = D;
+    const n = this.now();
+    if (n.m >= 5 && n.m <= 9 && !this.skipping) { this.summerSkip(); return; }
+    for (const cb of this.cbs) { try { cb(n, prev); } catch (e) { console.error(e); } }
+  },
+  // Jun-Oct: placeholder fast-forward (O7 builds the melt and the refreeze). Jumps the calendar to the
+  // next 1 November at the same time of day, keeping everything you own.
+  summerSkip() {
+    const c = this.day(), from = Date.UTC(c.y, c.m, c.d), to = Date.UTC(c.y, 10, 1), days = Math.round((to - from) / 864e5);
+    this.skipping = true; summerCard(c, days);
+    this.off += days * 24; this.lastDay = this.dayIndex(); this.skipping = false;
+    const n = this.now();
+    for (const cb of this.cbs) { try { cb(n, null); } catch (e) { console.error(e); } }
+    save();
+  },
+  // god menu: jump to a date in this season (keeps the time of day)
+  jumpTo(m, d) {
+    const c = this.day(), sy = c.m >= 10 ? c.y : c.y - 1, ty = m >= 10 ? sy : sy + 1;
+    const Dt = Math.round((Date.UTC(ty, m, d) - CAL_EPOCH) / 864e5);
+    this.off += (Dt - c.D) * 24; this.lastDay = null; this.tick(); this.lastDay = this.dayIndex() - 1; this.tick();
+  }
+};
+const payMul = () => CAL.isPolarNight() ? 1.5 : 1;
+function summerCard(c, days) {
+  const el = $("summer"); if (!el) return;
+  const t0 = Date.UTC(c.y, c.m, c.d), lbl = $("sumDate");
+  el.hidden = false; el.classList.remove("out");
+  let k = 0; const N = 46;
+  const step = () => {
+    const dt = new Date(t0 + Math.round(days * k / N) * 864e5);
+    lbl.textContent = `${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
+    if (k++ < N) setTimeout(step, 22 + 60 * Math.pow(k / N, 3)); else setTimeout(() => { el.classList.add("out"); setTimeout(() => el.hidden = true, 700); }, 1900);
+  };
+  step();
+}
+
 // Kjøllefjord is the hub: freight comes off the coastal steamer at the quay and goes out across the
 // Nordkinn by sled, because the road over Ifjordfjellet is shut half the winter.
 const SITES = [
@@ -3501,12 +3589,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off })); } catch (e) { } }
+addEventListener("pagehide", () => { if (started) save(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -5640,6 +5730,8 @@ function updGame(dt, spd) {
   if (GS.dead) return;
   godTick(dt);
   GS.hour += dt / GAMEHOUR; gameClock += dt;
+  CAL.tick();
+  GS.saveT = (GS.saveT || 0) + dt; if (GS.saveT > 15) { GS.saveT = 0; save(); }
   GS.stormT -= dt;
   if (GS.stormPhase === "calm" && GS.stormT < 45 && !GS.warned) { GS.warned = true; toast("Storm moving in. It'll get cold and hard to see.", "warn"); }
   if (GS.stormT <= 0) {
@@ -5728,7 +5820,8 @@ function updGameHud() {
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `Head back to the quay · ${fmtMi(dist)}`; }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : "Clear";
   const sh = steamerAt(GS.hour), shTxt = sh.s === "in" ? `Steamer in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Steamer sailing" : sh.s === "arriving" ? "Steamer arriving" : `Steamer ${fmtTime(steamerNext(GS.hour, "arr"))}`;
-  $("clock").textContent = `${fmtTime(GS.hour)} · ${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
+  $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
+  updCalHud();
   $("rig").textContent = `${sledDef().name}${TOW.kind ? " + " + (TOW.kind === "groomer" ? "groomer" : TOW.kind === "tiller" ? (TOW.wing > 0.5 ? "wing tiller (wide)" : "wing tiller") : TOW.kind) : ""} · kit ${ST.warm.toFixed(1)}`;
   $("fuelFill").style.width = (GS.fuel / GS.cap * 100).toFixed(1) + "%"; $("fuelV").textContent = GS.fuel.toFixed(1) + " L";
   $("fuelFill").classList.toggle("low", GS.fuel < GS.cap * 0.2);
@@ -5737,6 +5830,17 @@ function updGameHud() {
   $("heatFill").style.width = clamp((HEAT.t - 30) / (HEAT_LIMP + 3 - 30) * 100, 2, 100).toFixed(1) + "%"; $("heatV").textContent = HEAT.limp ? "LIMP" : Math.round(HEAT.t) + "°C";
   $("heatFill").classList.toggle("hot", HEAT.t >= HEAT_WARN && !HEAT.limp); $("heatFill").classList.toggle("low", HEAT.limp);
 }
+
+// the date-and-time block at the top of the HUD panel; only touches the DOM when something changes
+const CALHUD = { k: "" };
+function updCalHud() {
+  const n = CAL.now(), pn = CAL.isPolarNight(), k = n.label + n.time + pn + (typeof AUR !== "undefined" ? AUR.word(AUR.v) : "");
+  if (k === CALHUD.k) return; CALHUD.k = k;
+  $("calDate").textContent = n.label.toUpperCase(); $("calYear").textContent = n.y; $("calTime").textContent = n.time;
+  $("calPN").hidden = !pn;
+  if (typeof AUR !== "undefined") { const a = AUR.v > 0.3; $("calAU").hidden = !a; if (a) $("calAU").textContent = "AURORA · " + AUR.word(AUR.v).toUpperCase(); }
+}
+const fmtSun = () => { const s = CAL.sunTimes(); return s.polar ? "POLAR NIGHT · NO SUNRISE" : s.midnight ? "MIDNIGHT SUN" : `SUN UP ${fmtTime(s.up)} · DOWN ${fmtTime(s.down)}`; };
 
 /* ---------------- title screen: First Light ---------------- */
 // The menu sits over the live world: the sled parked at the quay in the low morning sun and the
@@ -5850,6 +5954,7 @@ function titleBack() {
 }
 function newGame() {
   GS.cash = 0; GS.delivered = 0; GS.rescues = 0; GS.own = OWN0(); GS.load = []; GS.jobs = []; GS.contracts = null; GS.groomJob = null; rescueAbort();
+  GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
 }
@@ -5860,10 +5965,11 @@ function titleWipe() {
   setTimeout(() => { titleRender(); titleBack(); }, 1700);
 }
 function titleReady() {
-  const h = GS.hour % 24, ph = clamp((h - 8.6) / 7.2, 0, 1);
-  $("tClock").textContent = `${fmtTime(h)} · ${GS.stormPhase === "storm" ? "STORM" : "CLEAR"}`;
+  const h = GS.hour % 24, st = CAL.sunTimes(), ph = st.up !== undefined ? clamp((h - st.up) / st.len, 0, 1) : 0.5;
+  $("tClock").textContent = `${CAL.now().label.toUpperCase()} · ${fmtTime(h)} · ${GS.stormPhase === "storm" ? "STORM" : "CLEAR"}`;
+  $("tSun").textContent = fmtSun();
   const bx = (1 - ph) * (1 - ph) * 10 + 2 * (1 - ph) * ph * 59 + ph * ph * 108, by = (1 - ph) * (1 - ph) * 34 + 2 * (1 - ph) * ph * 12 + ph * ph * 34;
-  for (const id of ["tSunG", "tSunD"]) { $(id).setAttribute("cx", bx.toFixed(1)); $(id).setAttribute("cy", by.toFixed(1)); }
+  for (const id of ["tSunG", "tSunD"]) { $(id).setAttribute("cx", bx.toFixed(1)); $(id).setAttribute("cy", st.polar ? "40" : by.toFixed(1)); $(id).style.opacity = st.polar ? 0.35 : 1; }
   $("title").classList.remove("boot"); TT.mode = "menu";
   titleRender(); titleLayout(); titleSelect(TT.sel, !TC.on);
 }
@@ -6934,6 +7040,8 @@ function frame(t) {
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
 /* ---------------- god menu (gamepad Y, or the ` key) ---------------- */
+const GOD_DATES = [[10, 1, "1 Nov"], [10, 20, "20 Nov"], [11, 21, "21 Dec (midwinter)"], [0, 21, "21 Jan"], [1, 15, "15 Feb"], [2, 20, "20 Mar"], [3, 25, "25 Apr"], [4, 31, "31 May (summer skip)"]];
+let godDate = 0;
 let godOpen = false, godSel = 0, godTp = 0, padGodA = false, padGodB = false, padGodNav = 0, godNavT = 0;
 const GOD_ITEMS = [
   { id: "fuel", label: "Infinite fuel", toggle: true },
@@ -6954,6 +7062,8 @@ const GOD_ITEMS = [
       save(); toast("The whole garage is yours. Fit it at Nordkinn Skuter & Service.", "good");
     } },
   { id: "time", label: "Skip 3 hours", sub: () => fmtTime(GS.hour), do: () => { GS.hour += 3; } },
+  { id: "day", label: "Skip a day", sub: () => CAL.now().label, do: () => { GS.hour += 24; } },
+  { id: "date", label: "Jump to date", sub: () => "◀ " + GOD_DATES[godDate][2] + " ▶", adjust: d => { godDate = (godDate + d + GOD_DATES.length) % GOD_DATES.length; }, do: () => { const g = GOD_DATES[godDate]; CAL.jumpTo(g[0], g[1]); toast(`It's ${CAL.now().long}.`); } },
   { id: "storm", label: "Weather", sub: () => GS.stormPhase === "storm" ? "Storm · A to clear" : "Clear · A for a storm", do: () => {
       if (GS.stormPhase === "storm") { GS.stormPhase = "calm"; GS.stormT = 400; GS.warned = false; toast("Sky's clearing."); }
       else { GS.stormPhase = "storm"; GS.stormT = 150; GS.warned = true; toast("Storm called in.", "warn"); }
