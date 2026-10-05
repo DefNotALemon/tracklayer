@@ -545,6 +545,11 @@
   #wx .wxa b{font-style:normal;font-weight:700}
   @media (max-width:640px){#wx{right:50%;transform:translate(50%,-50%)}#wx .wxdays{grid-template-columns:1fr}#wx .wxd{grid-template-columns:auto 1fr;column-gap:12px}#wx .wxd>.wxh,#wx .wxd>.wxf,#wx .wxd>.wxa{grid-column:1/-1}#wx .wxg{grid-row:span 3}}
   @media (prefers-reduced-motion:reduce){#wx{animation:none!important}}
+  /* phones: under the top bar and clear of the riding buttons, so you can still steer and close it */
+  body.touch #wx{top:calc(64px + env(safe-area-inset-top,0px));bottom:auto;right:50%;transform:translateX(50%);max-height:calc(100% - 64px - 168px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:14px;gap:8px}
+  body.touch #wx .btitle{font-size:22px}
+  body.touch #wx .bhead{padding-bottom:8px}
+  @media (max-width:640px) and (orientation:portrait){body.touch #wx{top:calc(212px + env(safe-area-inset-top,0px));max-height:calc(100% - 212px - 300px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:220px}}
 </style>
 
 <canvas id="gl"></canvas>

@@ -26,9 +26,9 @@ arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
 - **E** job board (at the quay) or garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
-- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **H** hide help
+- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather forecast · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** job board, garage, or back · **Menu** settings · **View** reset · **D-pad left** wipe visor · **R3** camera · **Y** god menu
+  **B** job board, garage, or back · **Menu** settings · **View** reset · **D-pad left** wipe visor · **R3** camera · **D-pad right** forecast · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
 
 The job board is a survey chart of the Nordkinn drawn from the terrain itself. Pick a parcel
@@ -38,9 +38,27 @@ on the climbs, along trail you've already packed — with the distance by trail 
 On a touch screen, tap a line to plot it and tap it again to take it.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
-and the Red Cross sled drags you home, minus the cargo and a fee. The winter sun is up for
-a few hours around midday and never gets high; the rest is twilight, stars and the aurora.
+and the Red Cross sled drags you home, minus the cargo and a fee.
 Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress saves in your browser.
+
+## The calendar, the dark and the weather
+
+A game day is 20 real minutes, and the calendar is real: a new game starts on 1 November and
+the season runs to the end of May (summer is skipped for now, and you come back on 1 November
+with everything you own). Daylight follows Kjøllefjord's 70.9°N. In early November the sun
+barely clears the horizon at noon. From about 20 November to 22 January it doesn't rise at
+all: there's a blue twilight around noon and dark the rest of the time, and **every job pays
+×1.5**. By March the days are twelve hours, and from mid-May the sun never sets.
+
+Auroras come more often and burn brighter in the polar night. A strong one lights the snow
+green enough to ride by. While one is up, tourists queue at the quay for a ride to one of
+three viewpoints (Finnkirka lookout, Stjernevarden, Ifjordfjellet ridge). They pay by how
+strong the lights are when you get there.
+
+Storms are weather fronts that sweep across the map, so the west coast gets hit before the
+quay. **B** (for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
+confidence figure and are sometimes wrong. It also shows whether the steamer's calls look
+on time, delayed or cancelled.
 
 ## The hitch and bigger work
 

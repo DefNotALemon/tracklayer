@@ -2990,7 +2990,7 @@ const WX = {
     return v;
   },
   // the steamer's call at game hour H: what the weather at the quay does to it (O3 hooks the boat to this)
-  ferryState(i) { return i > 0.85 ? { state: "cancelled", delay: 0 } : i > 0.55 ? { state: "delayed", delay: Math.max(1, Math.round((i - 0.5) * 6)) } : { state: "on time", delay: 0 }; },
+  ferryState(i) { return i > 0.85 ? { state: "cancelled", delay: 0 } : i > 0.5 ? { state: "delayed", delay: Math.max(1, Math.round((i - 0.4) * 6)) } : { state: "on time", delay: 0 }; },
   ferry(H) { const i = this.at(depot.x, depot.z, H); return Object.assign({ i }, this.ferryState(i)); },
   label(p) { return p < 0.2 ? "Clear" : p < 0.42 ? "Snow showers" : p < 0.7 ? "Storm" : "Severe storm"; },
   temp(m) { return [-11, -11, -8, -3, 2, 8, 11, 10, 6, 1, -4, -8][m]; },
