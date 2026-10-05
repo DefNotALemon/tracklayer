@@ -8532,7 +8532,7 @@ const SIGNS = [];
 const DOG = {
   g: null, rig: null, head: null, jaw: null, tail: null, legs: null,
   x: 0, z: 0, y: 0, yaw: 0, vx: 0, vz: 0, pitch: 0, home: { x: 0, z: 0 }, state: "idle", t: 0,
-  act: "stand", actT: 2, tgt: null, faceY: 0, stop: null, side: 1, keepSide: 1, armed: true, watchT: 0, sit: 0, sniff: 0, phase: 0,
+  act: "stand", actT: 2, tgt: null, faceY: 0, stop: null, side: 1, keepSide: 1, armed: true, watchT: 0, sit: 0, sniff: 0, hop: 0, u: 0,
   bark: 0, burst: 0, burstT: 0, nextBark: 0, lastVi: 0, farewell: 0, probe: 0, sideT: 0, stall: 0, px: 0, pz: 0, stuck: 0, jit: 0, jx: 0, jz: 0, placed: false
 };
 const dAng = (a, b) => ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -8635,7 +8635,7 @@ function buildDog() {
 }
 function dogReset() {
   const D = DOG; D.x = D.home.x; D.z = D.home.z; D.vx = D.vz = 0; D.state = "idle"; D.act = "stand"; D.actT = 1.5; D.tgt = null; D.stop = null;
-  D.sit = 0; D.burst = 0; D.bark = 0; D.armed = true; D.placed = false; D.stuck = 0; D.jit = 0;
+  D.sit = 0; D.hop = 0; D.u = 0; D.burst = 0; D.bark = 0; D.armed = true; D.placed = false; D.stuck = 0; D.jit = 0;
   D.yaw = Math.atan2(depot.x - D.x, depot.z - D.z); D.faceY = D.yaw;
 }
 
@@ -8834,21 +8834,33 @@ function dogTick(dt) {
   D.sniff += (sniffT - D.sniff) * Math.min(1, dt * 4);
   const ty = sp > 0.5 ? Math.atan2(D.vx, D.vz) : faceYaw !== null ? faceYaw : D.yaw;
   D.yaw += dAng(D.yaw, ty) * Math.min(1, dt * (sp > 1 ? 9 : 4));
-  if (sp > 0.12) D.phase += dt * Math.PI * 2 * (0.7 + sp * 0.46);
-  const gal = sstep(5.5, 8, sp), amp = lerp(0.32, 0.85, clamp(sp / 9, 0, 1)) * clamp(sp / 0.8, 0, 1), ph = D.phase, L = D.legs;
-  const sw = [Math.sin(ph), Math.sin(ph + Math.PI * (1 - gal)), Math.sin(ph + Math.PI * (1 - gal) - 0.9 * gal), Math.sin(ph - 0.9 * gal)];   // trot -> bound as it speeds up
-  L[0].rotation.x = sw[0] * amp * (1 - D.sit); L[1].rotation.x = sw[1] * amp * (1 - D.sit);
-  L[2].rotation.x = lerp(sw[2] * amp, -1.35, D.sit); L[3].rotation.x = lerp(sw[3] * amp, -1.35, D.sit);
+  // deep snow: it can't run, it bounds. Each leap arcs up and over, plunges belly-deep on landing in a puff of powder, and pushes off again
+  const hp0 = sp > 0.35 ? clamp(0.35 + sp / 9, 0.4, 1) : 0, L = D.legs;
+  D.hop += (hp0 - D.hop) * Math.min(1, dt * 8);
+  const hp = D.hop, AIR = 0.62, prevU = D.u;
+  if (sp > 0.35) D.u = (D.u + dt * sp / (0.9 + sp * 0.2)) % 1;           // leap length grows with speed: ~1.2 m at a walk, ~2.8 m flat out
+  const u = D.u, inAir = u < AIR, ai = inAir ? u / AIR : 0, gv = inAir ? 0 : (u - AIR) / (1 - AIR), ease = x => x * x * (3 - 2 * x);
+  const lift = inAir ? (0.1 + 0.26 * hp) * hp * 4 * ai * (1 - ai) : 0;
+  const plunge = inAir ? 0 : (0.08 + 0.07 * hp) * Math.sin(Math.PI * gv) * hp;
+  if (hp > 0.2 && ds < 130) {
+    const puff = (n, k) => { const y0 = surf(D.x, D.z); for (let i = 0; i < n; i++) emit(D.x + (Math.random() - 0.5) * 0.5, y0 + 0.1, D.z + (Math.random() - 0.5) * 0.5, D.vx * 0.2, 1.2 + Math.random() * 1.6 * k, D.vz * 0.2, 1.6 * k, 1.1); };
+    if (prevU < AIR && u >= AIR) puff(7, 1); else if (u < prevU) puff(3, 0.6);        // the landing throws a lot up, the push-off a little
+  }
+  const fa = (inAir ? lerp(0.55, -0.9, ease(ai)) : lerp(-0.7, 0.55, gv)) * hp, ra = (inAir ? lerp(0.9, -0.75, ease(ai)) : lerp(-0.75, 0.9, gv)) * hp;   // forelegs reach forward, hind legs drive back
+  L[0].rotation.x = fa * (1 - D.sit); L[1].rotation.x = (fa + 0.08 * hp) * (1 - D.sit);
+  L[2].rotation.x = lerp(ra, -1.35, D.sit); L[3].rotation.x = lerp(ra - 0.08 * hp, -1.35, D.sit);
   L[2].position.y = L[3].position.y = lerp(0.30, 0.13, D.sit);
-  D.rig.position.y = 0.30 + (sp > 0.3 ? Math.abs(Math.sin(ph)) * 0.018 * clamp(sp / 4, 0, 1.5) : Math.sin(D.t * 2.2) * 0.003);
-  D.rig.rotation.x = -0.62 * D.sit + Math.sin(ph) * 0.07 * gal;
-  D.head.rotation.x = 0.42 * D.sit + 0.55 * D.sniff - 0.3 * D.bark - 0.08 + Math.sin(ph) * 0.05 * clamp(sp / 4, 0, 1);
+  const bp = (inAir ? lerp(-0.3, 0.3, ai) : lerp(0.3, -0.3, gv)) * hp;           // nose up on take-off, down on landing
+  D.rig.position.y = 0.30 + (hp < 0.05 ? Math.sin(D.t * 2.2) * 0.003 : 0);
+  D.rig.rotation.x = -0.62 * D.sit + bp;
+  D.head.rotation.x = 0.42 * D.sit + 0.55 * D.sniff - 0.3 * D.bark - 0.08 - bp * 0.7;
   D.jaw.rotation.x = 0.55 * D.bark + (sp > 6 ? 0.14 : 0);
   D.tail.rotation.z = Math.sin(D.t * (9 + sp)) * 0.3 * wag;
   const gy = surf(D.x, D.z) - 0.015; D.y = D.placed && Math.abs(gy - D.y) < 2 ? D.y + (gy - D.y) * Math.min(1, dt * 14) : gy;
   const sy = Math.sin(D.yaw), cy = Math.cos(D.yaw), hF = surf(D.x + sy * 0.4, D.z + cy * 0.4), hR = surf(D.x - sy * 0.4, D.z - cy * 0.4);
   D.pitch += (-Math.atan2(hF - hR, 0.8) - D.pitch) * Math.min(1, dt * 10);
-  D.g.position.set(D.x, D.y, D.z); D.g.rotation.set(D.pitch, D.yaw, 0, "YXZ");
+  const wade = clamp(surf(D.x, D.z) - groundAt(D.x, D.z), 0, 0.3) * 0.45 * hp;           // belly-deep powder drags it down even between leaps
+  D.g.position.set(D.x, D.y + lift - plunge - wade, D.z); D.g.rotation.set(D.pitch, D.yaw, 0, "YXZ");
 }
 
 /* what you own, on the sled and on the rider */
