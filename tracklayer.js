@@ -1123,13 +1123,9 @@ function roundRect(w, h, r) {
 {
   const T = new THREE.Group(); sledBody.add(T); V.tab = T; T.rotation.x = TABHW.tilt;
   const W = TABHW.W, H = TABHW.H, bz = 0.009;                                                      // bz: the bezel round the glass
-  // the body: a thin slab with rounded corners and softened edges, space-grey aluminium
-  const body = new THREE.ExtrudeGeometry(roundRect(W + bz * 2, H + bz * 2, TABHW.R + bz), { depth: 0.008, bevelEnabled: true, bevelThickness: 0.0025, bevelSize: 0.0025, bevelSegments: 3, curveSegments: 10 });
-  body.translate(0, 0, -0.004);
-  const bm = put(new THREE.Mesh(body, std(0x2a2e34, 0.38, 0.55)), 0, 0, 0, 0, 0, 0, T);
-  // the black glass border on the front face, so the screen reads as a display under one sheet of glass
-  const front = new THREE.Mesh(new THREE.ShapeGeometry(roundRect(W + bz * 1.6, H + bz * 1.6, TABHW.R + bz * 0.8), 10), std(0x07090b, 0.12, 0.2));
-  front.rotation.y = Math.PI; front.position.z = -0.0068; T.add(front);
+  // no bezel: the glass is the whole front. From behind it reads as a plain dark panel, so the tablet still has a back in the chase view.
+  const back = new THREE.Mesh(new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), std(0x1b1e22, 0.5, 0.4));
+  back.position.z = -0.0068; T.add(back);
   box(0.06, 0.06, 0.01, M.alu, 0, 0, 0.012, 0, 0, 0, T);                                            // the mount plate on its back
   ball(0.016, M.dark, 0, 0, 0.022, T);
   const c = document.createElement("canvas"); c.width = 320; c.height = 205;
@@ -5363,22 +5359,18 @@ const _tC = new THREE.Vector3(), _tN = new THREE.Vector3(), _tU = new THREE.Vect
 function tabTarget() {
   V.tabScr.updateWorldMatrix(true, false);
   V.tabScr.getWorldPosition(_tC);
-  _tU.set(0, 1, 0).transformDirection(sledRoot.matrixWorld);
-  _tF.set(Math.sin(P.yaw), 0, Math.cos(P.yaw));
-  // the rider's eye (0, 1.66, -0.14 as in updVisuals), leaned in 10 cm and dropped 7 cm: all in the sled's own space, so the glass sits
-  // still in the view however the sled pitches and rolls (before, the lean used the world yaw and nudged the screen on every bump)
+  // how far to sit: as far from the glass as the rider's leaned-in eye is (the eye, 10 cm forward and 7 cm down, in the sled's own space)
   sledRoot.updateMatrixWorld(); _tE.set(0, 1.59, -0.04); sledRoot.localToWorld(_tE);
   const d = Math.max(0.3, _tE.distanceTo(_tC)), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d), asp = innerWidth / innerHeight;
-  const fv = Math.max(angH / 0.62, 2 * Math.atan(Math.tan(angW / 0.9 / 2) / asp));           // ~62% of the height (the tilt makes the near edge loom), or 90% of the width on an upright phone
+  // the camera goes on the glass's normal at that distance and looks straight down it: the glass is then an exact rectangle in the view,
+  // so the DOM screen can sit flush on it with no frame, and the whole rig is rigid to the sled (the glass is still however the sled pitches or rolls)
+  _tE.copy(_tC).addScaledVector(_tZ, d);
+  const fv = Math.max(angH / 0.62, 2 * Math.atan(Math.tan(angW / 0.9 / 2) / asp));           // ~62% of the height, or 90% of the width on an upright phone
   return { fov: clamp(fv * R2D, 12, 70), angW, angH, d };
 }
 function tabCamFP() {
   const t = tabTarget(); TABLET.fovT = t.fov;
-  _tD.copy(_tC).sub(_tE).normalize();
-  _tR.crossVectors(_tD, _tU).normalize(); const up = new THREE.Vector3().crossVectors(_tR, _tD);
-  const a = 0.1 * t.fov * TD2R;                                     // aim a touch above the screen so a strip of trail stays in view
-  const aim = _tD.clone().multiplyScalar(Math.cos(a)).addScaledVector(up, Math.sin(a));
-  _tM.lookAt(_tE, _tE.clone().add(aim), up); _tQ.setFromRotationMatrix(_tM);
+  _tM.makeBasis(_tX, _tY, _tZ); _tQ.setFromRotationMatrix(_tM);                                   // camera right/up = glass right/up, looking along -normal
   camera.position.lerp(_tE, TABLET.e); camera.quaternion.slerp(_tQ, TABLET.e);
 }
 const _tv = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _tc = new THREE.Vector3();
@@ -5430,8 +5422,10 @@ function tabView_sync() {
 }
 
 // the dash screen when you're not looking at it: a live heading-up map, the clock, and a strip for pings
+const _tX = new THREE.Vector3(), _tY = new THREE.Vector3(), _tZ = new THREE.Vector3();
 function tabDash(dt) {
   const fp = VIEWS[camMode].fp && !FOOT.on;
+  V.tabScr.matrixWorld.extractBasis(_tX, _tY, _tZ); _tX.normalize(); _tY.normalize(); _tZ.normalize();   // the glass's right, up and outward normal
   TABLET.dashT += dt; if (TABLET.dashT < (fp ? 0.1 : 0.5) || (fp && TABLET.e > 0.95)) return;
   TABLET.dashT = 0;
   const c = V.tabCv, g = c.getContext("2d"), W = c.width, H = c.height, top = 22;

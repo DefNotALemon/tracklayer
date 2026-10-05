@@ -459,7 +459,7 @@
      #tabS is the screen at a logical size; JS lays it on the 3D dash glass (matrix3d) or centres it as an overlay. */
   #tab{position:fixed;left:0;top:0;width:0;height:0;z-index:3}
   #tabS{position:absolute;left:0;top:0;transform-origin:0 0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;color:var(--frost);font-family:var(--body);font-size:15px;line-height:1.3;
-    background:#0f1a24;background-image:repeating-linear-gradient(0deg,rgba(234,242,248,.025) 0 1px,transparent 1px 28px);border:14px solid #07090b;border-radius:calc(var(--tr,24px) + 14px);box-shadow:var(--soft),0 0 0 2px #2a2e34,0 0 0 3px rgba(234,242,248,.12);
+    background:#0f1a24;background-image:repeating-linear-gradient(0deg,rgba(234,242,248,.025) 0 1px,transparent 1px 28px);border:0;border-radius:var(--tr,24px);box-shadow:var(--soft);
     user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;backface-visibility:hidden}
   #tabS.dash{border:0;border-radius:var(--tr,32px);box-shadow:none}
   /* iPad-style: the overlay wears a black glass bezel and an aluminium edge; the dash version is just the display, its corners matching the 3D glass */
@@ -850,5 +850,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=38"></script>
-<script src="tracklayer.js?v=41"></script>
+<script src="tracklayer.js?v=42"></script>
 </body></html>
