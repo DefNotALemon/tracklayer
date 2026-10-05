@@ -1,6 +1,6 @@
 # Tracklayer
 
-A snowmobile courier-survival game that runs in the browser. No build step: `index.html` holds the page and styles, `tracklayer.js` holds the game code.
+A snowmobile courier-survival game that runs in the browser. No build step: `index.html` holds the page and styles, `tracklayer.js` holds the game code, `icefish.js` the ice fishing.
 
 It is set on the Nordkinn peninsula in Finnmark, Norway's far north. You run freight off
 the coastal ferry at Kjøllefjord quay and out across eight kilometres of bare plateau,
@@ -25,10 +25,10 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
-- **Tab** dash tablet · **E** horn · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
+- **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
 - **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather (on the tablet) · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn · **R3** camera · **D-pad right** weather · **Y** god menu
+  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
 
 Work comes in on the **dash tablet**, an iPad-style screen on the bars that shows a live map while
@@ -131,6 +131,25 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 Big loads pay by condition. Hits, snags and rollovers wear it down, and below 30% the
 village refuses it. The bond is paid up front and refunded on delivery. You lose it if the
 load is refused, if a priority run is late, or if you black out.
+
+## Ice fishing
+
+Every frozen lake up on the plateau can be fished: sixteen of them, each with its own name, depth
+chart and mix of the seven Finnmark species (char, trout, grayling, whitefish, burbot, perch, pike).
+Stop the sled by the ice and press **E** (pad **L3**, touch **FISH**) to get off. Walk out with **A / D**
+and **W / S**. Hold **Space** to drill, then sit at the hole. **↓** lets line out and **Space** jigs; set
+the hook on the bite, and hold **↑** to reel while the tension's under red. **B** opens the tackle box at
+the hole, **Q** stands you up, and **E** at the sled changes augers, rods, reels, line and bait or packs
+you up. Pad: stick walks, **A** acts and jigs, **LT / RT** let out and reel, **X** tackle, **B** back,
+**LB** pack up at the sled.
+
+The day follows the real light. In polar night you fish by headlamp and the glow jig shines brightest.
+Ice thickens through the winter and goes soft in the spring; under 12 cm the lake is off limits.
+The catch keeps in the cooler on the sled (10 fish) for about two days, then loses value. Sell it at the
+**fish buyer** on the quay pier, or take **FRESH FISH** orders from Parcels to homes and cabins for more.
+Rods, reels, line, augers and bait come from **Nordkinn Fisk & Friluft**, the tackle shop by the quay
+(stop there and press **E**). The Logbook keeps your catch, kilos and personal bests.
+The fishing code is `icefish.js`.
 
 ## Running it
 

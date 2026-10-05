@@ -455,6 +455,7 @@ function markTrail(x, z, faint) {
 
 /* ---------------- boot ---------------- */
 let far, capMesh, treeMesh, pineCells = [], cargoMesh = null, started = false, ready = false;
+let FISH = null, FISHSITES = {};                                       // ice fishing (icefish.js) and where its shop and buyer stand
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
 
@@ -1710,6 +1711,7 @@ addEventListener("keydown", e => {
   if (e.repeat) return;
   keys.add(e.code);
   if (!started) return;
+  if (FISH && (FISH.on || FISH.panelOpen()) && FISH.key(e)) return;      // out on the ice, or in the tackle shop / at the fish buyer
   if (e.code === "Space" && !FOOT.on) input.hop = true;
   if (e.code === "KeyR") resetSled();
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
@@ -1717,7 +1719,7 @@ addEventListener("keydown", e => {
   if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
   gameKey(e);
 });
-addEventListener("keyup", e => keys.delete(e.code));
+addEventListener("keyup", e => { keys.delete(e.code); if (FISH) FISH.keyup(e); });
 addEventListener("blur", () => keys.clear());
 // Android exposes some phone hardware (fingerprint readers, the touch panel itself) as "gamepads"
 // with a non-standard mapping, and touching the screen can press their buttons, which read as Y
@@ -1746,7 +1748,7 @@ function updTouch() {
   if (!TC.on) return;
   const modal = GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden || godOpen || GS.dead;
   $("touch").classList.toggle("modal", modal);
-  const lbl = GS.near === garageSite ? "GARAGE" : null;
+  const lbl = GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
   const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
   const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
@@ -1772,7 +1774,7 @@ function updTouch() {
       else if (k === "map") toggleBigMap();
       else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
-      else if (k === "garage") gameKey({ code: "KeyT" });
+      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FISH) FISH.ctx(); }
       else if (k === "horn") horn();
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
@@ -1808,6 +1810,15 @@ function readInput(dt) {
   WN.held = keys.has("Space") || !!TC.reel; WN.padReel = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
+    if (FISH && started && (FISH.on || FISH.panelOpen())) {                // on the ice (or in the shop): the fishing pad map
+      const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod) toggleGod(); padGod = y;
+      if (godOpen) { godPad(gp, dt); break; }
+      if (FISH.on) TABLET.pad(gp, dt);
+      const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && FISH.on && !TABLET.open && !FISH.panelOpen()) TABLET.toggle(true); padTab = du;
+      const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
+      if (!TABLET.open) FISH.pad(gp, dt);
+      break;
+    }
     const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) analog = ax;
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
@@ -1828,7 +1839,7 @@ function readInput(dt) {
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
-    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) horn(); padHorn = l3;
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started && !(FISH && FISH.ctx())) horn(); padHorn = l3;   // L3 is E: fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
@@ -1837,6 +1848,7 @@ function readInput(dt) {
   if (!started) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
   FOOT.fwd = 0; FOOT.turn = 0;
   if (FOOT.on) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider
+  if (FISH && FISH.blocking()) { FOOT.fwd = FOOT.turn = 0; thr = brk = lean = wh = 0; st = 0; analog = null; }                        // fishing, or in the shop: the sled stays parked
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
   input.thr = thr; input.brk = brk; input.lean = lean;
   if (analog !== null) input.steer = analog;
@@ -2933,7 +2945,8 @@ function updVisuals(dt) {
   // camera
   const view = FOOT.on && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
   const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
-  const FXp = FOOT.on ? FOOT.x : P.x, FYp = FOOT.on ? FOOT.y : P.y, FZp = FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, or the rider on foot
+  const fishing = FISH && FISH.on;
+  const FXp = fishing ? FISH.wx : FOOT.on ? FOOT.x : P.x, FYp = fishing ? FISH.wy : FOOT.on ? FOOT.y : P.y, FZp = fishing ? FISH.wz : FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, or the rider on foot
   camState.yaw = angLerp(camState.yaw, FOOT.on ? FOOT.yaw : angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-(FOOT.on ? 2.2 : 3.5) * dt));
   const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
   let look = null;
@@ -4600,7 +4613,7 @@ function deliver(site) {
 function blackout(kind) {
   if (GS.dead) return;
   if (SCHOOL.on) { schoolBlackout(kind); return; }
-  GS.dead = true; TABLET.close(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
+  GS.dead = true; TABLET.close(); if (FISH) FISH.abort(); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
   if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town with the rescue crew. No fare."), 4200); }
   const tow = kind === "tow", wet = kind === "sea", fee = Math.round((tow ? 100 : wet ? 140 : 60) * (1 - (ST ? ST.rescue : 0)));
   const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
@@ -4621,14 +4634,14 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
   GS.own = OWN0();
   try {
     const d = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   migrateEngines();
@@ -5029,7 +5042,7 @@ const TABLET = {
     ferry() { const f = ferryInfo(); return { label: f.st.s === "in" ? "Ferry sails" : "Next sailing", at: f.at, left: f.left, call: f.c, state: f.c ? f.c.state : null, cancelled: f.cancelled, alongside: f.st.s === "in" }; },
     mail() { return GS.mail.length ? Object.assign({ count: mailCount(), value: mailValue(), batches: GS.mail.length }, mailRisk()) : null; }
   },
-  can() { return started && !GS.dead && !GS.garageOpen && !godOpen && $("settings").hidden && !TT.on; },
+  can() { return started && !GS.dead && !GS.garageOpen && !godOpen && $("settings").hidden && !TT.on && !(FISH && FISH.panelOpen()); },
   toggle(force, appId) {
     if (force === undefined && appId !== undefined && this.open && this.app !== appId) { this.go(appId); return; }   // B while the tablet's up on another app: go to Weather
     const want = force === undefined ? !this.open : force;
@@ -5199,7 +5212,7 @@ const TABLET = {
     s.classList.toggle("port", this.h > this.w); s.classList.toggle("dash", dash); s.classList.toggle("small", this.w < 640);
     this.render();
   },
-  modeNow() { return VIEWS[camMode].fp && !FOOT.on && !showroomOn() ? "dash" : "overlay"; },
+  modeNow() { return VIEWS[camMode].fp && !FOOT.on && !(FISH && FISH.on) && !showroomOn() ? "dash" : "overlay"; },
   // before the camera: ease the dip in or out (0.3 s, smoothstep), and keep the mode in step with the view
   step(dt) {
     if (this.open && !this.can()) this.close(true);
@@ -5587,6 +5600,7 @@ TABLET.register({
     aboard.forEach((j, i) => { h += tabCard({ tf: "ab:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `to ${shortName(j.dest)} · ${fmtMi(Math.hypot(j.dest.x - P.x, j.dest.z - P.z))} from you${j.hits ? " · knocked about" : ""}`, pay: payTxt(j) }); });
     const cl = GS.claims.filter(j => !j.big && !j.tour);
     if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((j, i) => { h += tabCard({ tf: "cl:" + i, mini: `${(j.from || depot).id}|${j.dest.id}`, title: j.cargo, chips: parcelChips(j), meta: `pick up at ${(j.from || depot).name} (${fmtMi(Math.hypot((j.from || depot).x - P.x, (j.from || depot).z - P.z))} from you), then to ${shortName(j.dest)} · ${jobKm(j).toFixed(1)} km`, pay: payTxt(j) }); }); }
+    if (FISH) h += FISH.parcelsHtml({ sec, tabCard, chip, fmtCash, fmtTime, esc: tabEsc });           // fresh-fish orders from the homes and cabins
     h += sec("Posted", roaming() ? "claim it, ride to the P, it loads; at the P it loads straight on" : atQuay() ? "you're at the pickup: it loads straight on" : "claim now, pick up at the quay");
     if (!GS.jobs.length) h += `<p class="tnote2">${MELT.k > 0.5 ? "Nothing posted. With the snow going, folk are waiting for the boat instead." : "No parcels posted. Check back after the next boat."}</p>`;
     else if (MELT.kq > 0 && meltWork() < 0.85) h += `<p class="tnote2">The melt's on: less work, and only where the trail still holds. Melting trails pay a little extra.</p>`;
@@ -5612,6 +5626,7 @@ TABLET.register({
     el.innerHTML = `<div class="tapp">${h}</div>`;
     for (const b of el.querySelectorAll("[data-act^=take]")) b.addEventListener("click", () => takeParcel(+b.dataset.act.split(":")[1]));
     conBind(el);
+    if (FISH) FISH.parcelsBind(el);
   }
 });
 
@@ -5813,7 +5828,8 @@ TABLET.register({
     el.innerHTML = `<div class="tapp tlb">${tabHead("YOUR WINTER", "Logbook")}
       <p class="tlnote">Kept in pencil, on the back of a freight manifest. The figures are true. The remarks are the sled's.</p>
       <div class="tlk"><section class="tlp"><h3 class="tlh">The ride<span>OUT ON THE SNOW</span></h3>${ride.map(row).join("")}</section>
-      <section class="tlp"><h3 class="tlh">The work<span>BACK AT THE QUAY</span></h3>${work.map(row).join("")}</section></div></div>`;
+      <section class="tlp"><h3 class="tlh">The work<span>BACK AT THE QUAY</span></h3>${work.map(row).join("")}</section></div>
+      ${FISH ? FISH.logbookHtml({ esc: tabEsc, fmtCash }) : ""}</div>`;
   }
 });
 
@@ -6433,8 +6449,8 @@ function gameKey(e) {
   if (GS.dead) return;
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
-  if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { footAction(); return; }
-  if (e.code === "KeyE") { if (!e.repeat) horn(); return; }
+  if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; footAction(); return; }
+  if (e.code === "KeyE") { if (!e.repeat && !(FISH && FISH.ctx())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
@@ -7582,6 +7598,87 @@ function buildTown() {
   }
 }
 
+/* ---------------- ice fishing: the tackle shop, the fish buyer, and the bridge to icefish.js ---------------- */
+// a painted board with lettering, for the shop fronts
+function signTex(t1, t2, bg, fg, w = 512, h = 160) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
+  g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.globalAlpha = .55; g.lineWidth = 6; g.strokeRect(10, 10, w - 20, h - 20); g.globalAlpha = 1;
+  g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = `800 ${Math.round(h * .36)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t1, w / 2, t2 ? h * .4 : h / 2);
+  if (t2) { g.font = `600 ${Math.round(h * .17)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t2, w / 2, h * .75); }
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+}
+function obNear(x, z, R) {
+  for (let j = Math.floor((z - R + HALF) / OBC); j <= Math.floor((z + R + HALF) / OBC); j++) for (let i = Math.floor((x - R + HALF) / OBC); i <= Math.floor((x + R + HALF) / OBC); i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) if (Math.hypot(o.x - x, o.z - z) < R + (o.r || 0)) return true;
+  }
+  return false;
+}
+// Nordkinn Fisk & Friluft: a small painted-timber tackle shop on the shore road by the quay, and the fiskemottak
+// (the fish buyer) on the pier. Both open with E (pad L3, touch SHOP / SELL) when you stop by them, on the sled or on foot.
+function buildFishShops() {
+  const { bx, put, L, snowM, woodD, metal, glowM, white } = KIT, d0 = depot;
+  const qa = QUAY ? QUAY.qa : Math.PI, dirx = Math.cos(qa), dirz = Math.sin(qa), ax = -dirz, az = dirx;
+  let best = null, bs = 1e9;
+  for (const along of [-28, 28, -36, 36, -20, 20, -46, 46, -58, 58]) for (const out of [8, 0, 16, -8, 24, -16]) {
+    const x = d0.x + dirx * out + ax * along, z = d0.z + dirz * out + az * along;
+    if ([[0, 0], [9, 0], [-9, 0], [0, 9], [0, -9]].some(([a, b]) => isSea(x + a, z + b))) continue;
+    if (slopeAt(x, z, 5) > 0.2 || obNear(x, z, 9) || Math.hypot(x - d0.x, z - d0.z) < 30 || Math.hypot(x - garageSite.x, z - garageSite.z) < 24) continue;
+    const sc = Math.abs(along) * 1.0 + Math.abs(out - 6) * 0.7; if (sc < bs) { bs = sc; best = [x, z]; }
+  }
+  if (best) {
+    const [x, z] = best, ry = Math.atan2(d0.x - x, d0.z - z);            // the door faces the quay road
+    const g = KIT.house(x, z, 7.5, 6, 3.0, ry, L(0x8a2f22));
+    bx(g, 7.9, 0.12, 1.8, woodD, 0, 2.55, 3.85); bx(g, 8.1, 0.2, 2.0, snowM, 0, 2.7, 3.9);           // porch roof
+    for (const sx of [-3.6, 3.6]) bx(g, 0.14, 2.55, 0.14, woodD, sx, 1.27, 4.7);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.15), new THREE.MeshBasicMaterial({ map: signTex("FISK & FRILUFT", "NORDKINN · TACKLE · BAIT · AUGERS", "#efe7d6", "#7a2418") }));
+    sign.position.set(0, 3.45, 3.02); g.add(sign);
+    for (let i = 0; i < 5; i++) { const r = put(g, new THREE.CylinderGeometry(0.012, 0.02, 0.75, 5), L(i % 2 ? 0x1a1d20 : 0x3e5a2c), 2.6 + i * 0.13, 0.45, 3.35); r.rotation.x = -0.18; }   // ice rods by the door
+    const aug = new THREE.Group(); aug.position.set(-2.8, 0, 3.6); aug.rotation.z = 0.12; g.add(aug);
+    put(aug, new THREE.CylinderGeometry(0.03, 0.03, 1.3, 8), metal, 0, 0.55, 0); put(aug, new THREE.BoxGeometry(0.3, 0.22, 0.26), L(0xc23a22), 0, 1.25, 0);
+    put(aug, new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6), metal, 0, 1.3, 0.16).rotation.z = Math.PI / 2;
+    const pulk = bx(g, 0.7, 0.28, 1.6, L(0x2b6d8f), -1.6, 0.16, 4.1); pulk.rotation.y = 0.3;               // an ice-fishing pulk
+    bx(g, 0.72, 0.06, 1.62, snowM, -1.6, 0.33, 4.1).rotation.y = 0.3;
+    // the flag on its pole
+    const fx = 4.6, fz = 3.4; put(g, new THREE.CylinderGeometry(0.05, 0.06, 7, 8), white, fx, 3.5, fz);
+    const fc = document.createElement("canvas"); fc.width = 110; fc.height = 80; const fg = fc.getContext("2d");
+    fg.fillStyle = "#ba0c2f"; fg.fillRect(0, 0, 110, 80); fg.fillStyle = "#fff"; fg.fillRect(30, 0, 20, 80); fg.fillRect(0, 30, 110, 20); fg.fillStyle = "#00205b"; fg.fillRect(35, 0, 10, 80); fg.fillRect(0, 35, 110, 10);
+    const ft = new THREE.CanvasTexture(fc); ft.encoding = THREE.sRGBEncoding;
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1, 6, 1), new THREE.MeshLambertMaterial({ map: ft, side: THREE.DoubleSide })); flag.position.set(fx + 0.78, 6.4, fz); g.add(flag);
+    const dx = Math.sin(ry), dz = Math.cos(ry);
+    FISHSITES.shop = { x: x + dx * 7, z: z + dz * 7, name: "Nordkinn Fisk & Friluft" };
+  }
+  if (QUAY) {
+    // the fish buyer's shed on the pier: white boards, a blue door, a scale and a stack of fish boxes
+    const { qx, qz, qy } = QUAY, Q = new THREE.Group(); Q.position.set(qx, 0, qz); Q.rotation.y = -qa; scene.add(Q);
+    const u0 = 1, v0 = 13;
+    bx(Q, 5, 2.8, 6.4, white, u0, qy + 1.4, v0); bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0);
+    bx(Q, 0.1, 2.0, 1.2, L(0x2d4f74), u0 + 2.55, qy + 1.0, v0 - 1.6); bx(Q, 0.1, 0.9, 1.6, glowM, u0 + 2.55, qy + 1.7, v0 + 1.4);
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex("FISKEMOTTAK", "FISH BOUGHT · FERSK FISK", "#1f3f5f", "#f2efe6") }));
+    sg.position.set(u0 + 2.62, qy + 3.4, v0); sg.rotation.y = Math.PI / 2; Q.add(sg);
+    for (let i = 0; i < 6; i++) bx(Q, 0.9, 0.32, 0.6, L(i % 3 === 1 ? 0xe07a28 : 0x2b6fa8), u0 + 3.6 + (i % 2) * 0.95, qy + 0.16 + Math.floor(i / 2) * 0.33, v0 + 2.6);
+    put(Q, new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), metal, u0 + 3.4, qy + 0.6, v0 - 3.0); bx(Q, 0.6, 0.06, 0.6, metal, u0 + 3.4, qy + 1.22, v0 - 3.0);
+    const w = (u, v) => [qx + u * Math.cos(-qa) + v * Math.sin(-qa), qz - u * Math.sin(-qa) + v * Math.cos(-qa)];
+    for (let u = -1; u <= 3; u += 2) for (let v = v0 - 2.5; v <= v0 + 2.5; v += 2.5) { const [ox, oz] = w(u0 + u - 1, v); addOb({ x: ox, z: oz, r: 1.4, top: 1e9 }); }
+    const [ox, oz] = w(u0 + 4, v0 + 2.6); addOb({ x: ox, z: oz, r: 0.9, top: 1e9 });
+    const [bx0, bz0] = w(u0 + 7, v0); FISHSITES.buyer = { x: bx0, z: bz0, name: "Fiskemottak" };
+  }
+}
+function initFishing() {
+  if (!window.TLFish || !window.TLFish.init) return;
+  FISH = window.TLFish.init({
+    THREE, scene, renderer, camera, P, GS, CAL, keys, FOOT, TABLET, GFX, LAKES, SITES, depot, hemi, sun, sunDir,
+    mats: { jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot },
+    fishSites: FISHSITES, toast, save, surf, groundAt, bioAt, isSea, isWater, iceThin, fbm, dayFactor, payMul, bumpDelivered, mailVisit,
+    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, showroom: showroomOn, settings: () => gameKey({ code: "Escape" }),
+    onStart() { camState.init = false; TABLET.close(true); toggleBigMap(false); },
+    onStop() { camState.init = false; camState.yaw = P.yaw; }
+  });
+  // the spring melt (O7) thins every lake's ice as it goes: the drill sees it too
+  if (FISH) window.TLFish.ice.melt = (lake, date, cm) => MELT.kq > 0 ? Math.round(cm * (1 - 0.7 * MELT.kq)) : cm;
+}
+
 /* ---------------- the town dog ---------------- */
 /* A scruffy spitz who lives by the quay. Come within ~25 m and it runs alongside you, barking, as far as the town
    sign at the edge of Kjøllefjord, where it gives up, sits, watches you leave and trots home.
@@ -8101,6 +8198,7 @@ function updGame(dt, spd) {
   if (GS.dead) return;
   godTick(dt);
   GS.hour += dt / GAMEHOUR; gameClock += dt;
+  if (FISH && FISH.paused()) GS.hour -= dt / GAMEHOUR;               // a fishing card or the tackle shop is open: the clock waits
   CAL.tick();
   GS.saveT = (GS.saveT || 0) + dt; if (GS.saveT > 15) { GS.saveT = 0; save(); }
   // weather: the fronts over where you are right now (WX), with a look an hour ahead for the warning
@@ -8126,7 +8224,7 @@ function updGame(dt, spd) {
   GS.camping = camping;
   if (near && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
-  else if (!near) GS.warmth -= cold * dt;
+  else if (!near) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
@@ -8140,6 +8238,7 @@ function updGame(dt, spd) {
   if (work && GS.claims.length) collectClaims(near);
   if (work && near === depot && GS.mail.length) mailHandIn();
   mailTick(dt); updMailHud(dt);
+  if (FISH) FISH.tick(dt, near, spd);
   if (work && GS.own.pickups.length) collectEngine(near);
   if (GS.market && GS.market.day !== marketDay() && !isElectric(sledDef())) { makeMarket(); if (marketNow().length) toast("New engines in the classifieds. The garage has the list.", undefined); }
   if (work && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
@@ -8162,7 +8261,7 @@ function updGame(dt, spd) {
   // beacons stand over places you're carrying a package for; empty-handed, one beacon points you home to the quay
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   const clSites = !GS.load.length && GS.claims.length ? new Set(GS.claims.map(j => j.from || depot)) : null;
-  for (const s of SITES) if (s.beacon) s.beacon.visible = SCHOOL.on || SCHOOL.guide ? false : GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0));
+  for (const s of SITES) if (s.beacon) s.beacon.visible = (SCHOOL.on || SCHOOL.guide ? false : GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0))) || !!(FISH && !SCHOOL.on && FISH.beacon(s));
   const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt); updSteamer(dt);
 
@@ -8371,6 +8470,7 @@ function newGame() {
   Object.assign(LOG, LOG0());
   GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
   if (SCHOOL.on) schoolEnd("quiet"); GS.apps = {}; GS.lic = {}; GS.signed = {}; GS.sdone = {}; SCHOOL.guide = null;
+  if (FISH) { FISH.abort(); FISH.setData(null); }                       // starter tackle: hand auger, short rod, plastic reel, 4 lb mono, maggots
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
   restat(); GS.fuel = GS.cap; applySettings(); save();
@@ -9392,7 +9492,7 @@ function rescueTick(dt) {
       if (BOG.dig >= 1) { FOOT.dig = false; freeBog("dug"); }
     }
   } else if (FOOT.g) FOOT.g.visible = false;
-  if (rider) rider.visible = !FOOT.on;
+  if (rider) rider.visible = !FOOT.on && !(FISH && FISH.on);
   wnUpdate(dt);
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
@@ -9414,10 +9514,11 @@ function wnPrompt() {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
       h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
-    else h = near ? "Q: get on the sled" : "Walk back to the sled and press Q";
+    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : "Walk back to the sled and press Q");
   } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
+  else if (FISH && !FISH.on) { const fh = FISH.hint(); if (fh) { show = true; h = fh; } }
   if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
   WN.hint = h; WN.show = show;
 }
@@ -9445,6 +9546,7 @@ function frame(t) {
   TABLET.step(dt);
   if (started && !SEASON.card) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
+  if (FISH && FISH.on) FISH.frame(dt);                                  // out on the ice: the walker, rod, line and the side-view camera
   wnVisual(dt);
   dogTick(dt);
   if (started && !SEASON.card) updGame(dt, spd); else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
@@ -9456,7 +9558,7 @@ function frame(t) {
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
   tabDash(dt); TABLET.place();
-  renderer.render(scene, camera);
+  if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
@@ -9496,6 +9598,7 @@ const GOD_ITEMS = [
   { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
 ];
 function godTeleport(s) {
+  if (FISH) FISH.abort();
   let x, z, yaw;
   if (s === depot) { x = SPAWN.x; z = SPAWN.z; yaw = SPAWN.yaw; }
   else {
@@ -9569,6 +9672,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
+  buildFishShops(); initFishing();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);
