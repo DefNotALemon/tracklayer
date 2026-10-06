@@ -198,6 +198,7 @@
   .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--line)}
   @media (min-width:900px){body.showroom #garage,body.showroom #settings{left:auto;right:16px;transform:translateY(-50%);width:min(520px,44vw)}}
   body.fpv #mapWrap{display:none}
+  body.tabdip #mapWrap{display:none}   /* the tablet is up on the glass: its own maps are the only ones on screen */
   body.showroom #zone,body.showroom #speedo,body.showroom #mapWrap,body.showroom #help,body.showroom #job{visibility:hidden}
   #srHint{position:fixed;z-index:4;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--frost);background:rgba(13,24,34,.7);border:1px solid var(--line);border-radius:4px;padding:6px 10px;pointer-events:none}
   #srHint b{color:var(--signal)}
@@ -916,5 +917,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=44"></script>
+<script src="tracklayer.js?v=45"></script>
 </body></html>

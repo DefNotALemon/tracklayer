@@ -913,6 +913,7 @@ function buildMachine(sd) {
   ud.boardX = boardX; ud.zBack = zBack; ud.tw = tw; ud.tl = tl;
   const H = hoodProfile(s), hp = H.pts, w = s.w, HB = 0.05;   // HB: the hood shell's bevel, which pushes its skin out by that much
   ud.barY = s.barY; ud.barZ = s.barZ || 0.34;
+  ud.hoodY = z => crownY(hp, z) + HB;                 // the hood's top at z (sled space), for things that sit over it
 
   /* tunnel: an aluminium extrusion with a top deck in the panel colour */
   box(tw, 0.2, tl, M.alu, 0, 0.46, 0.4 - tl / 2, 0, 0, 0, m);
@@ -1109,9 +1110,9 @@ for (const s of [-1, 1]) box(0.04, 0.16, 0.04, M.dark, s * 0.2, 0.1, -0.04, -0.4
   const bead = new THREE.CylinderGeometry(0.44, 0.452, 0.035, 18, 1, true, -1.0, 2.0); bead.translate(0, 0.0175, -0.44);
   V.paneBead = put(new THREE.Mesh(bead, sledTrimMat), 0, 0, 0, 0, 0, 0, sh); V.paneBead.castShadow = false;
 }
-// the dash tablet: a rugged 10-inch screen in a rubber cradle on a RAM-style arm off the bar clamp. Idle, it
-// shows a live heading-up map (a small CanvasTexture, see TABLET.dash); dip your head to it (Tab) and the
-// tablet OS is laid exactly over this glass. Built facing -z (the rider) and tilted back toward the eyes.
+// the dash tablet: a 10-inch screen on a short RAM-style arm off the steering column, under the bars. Idle, it
+// shows a live heading-up map in first person and its home screen in the other views (a small CanvasTexture, see
+// tabDash); dip your head to it (Tab) and the tablet OS is laid exactly over this glass. Every sled has one.
 const TABHW = { W: 0.22, H: 0.1408, R: 0.012, tilt: 0.55 };
 // a rounded rectangle, for the iPad-style frame and the glass inside it
 function roundRect(w, h, r) {
@@ -1120,23 +1121,35 @@ function roundRect(w, h, r) {
   s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
   return s;
 }
-{
-  const T = new THREE.Group(); sledBody.add(T); V.tab = T; T.rotation.x = TABHW.tilt;
-  const W = TABHW.W, H = TABHW.H, bz = 0.009;                                                      // bz: the bezel round the glass
-  // no bezel: the glass is the whole front. From behind it reads as a plain dark panel, so the tablet still has a back in the chase view.
-  const back = new THREE.Mesh(new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), std(0x1b1e22, 0.5, 0.4));
-  back.position.z = -0.0068; T.add(back);
+// shared by every tablet in the world: the glass (its UVs spread over a canvas), the dark back, the back's paint
+const TAB_GEO = (() => {
+  const W = TABHW.W, H = TABHW.H, sg = new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), uv = sg.attributes.uv, ps = sg.attributes.position;
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, ps.getX(k) / W + 0.5, ps.getY(k) / H + 0.5);
+  return { glass: sg, back: new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), backMat: std(0x1b1e22, 0.5, 0.4) };
+})();
+// one tablet, built facing -z (the rider) and tilted back by the caller. No bezel: the glass is the whole front, and from
+// ahead it reads as a plain dark panel. The mount ball sits 22 mm behind the glass, where the arm meets it.
+function tabletProp(parent, scrMat) {
+  const T = new THREE.Group(); parent.add(T); T.rotation.x = TABHW.tilt;
+  const back = new THREE.Mesh(TAB_GEO.back, TAB_GEO.backMat); back.position.z = -0.0068; T.add(back);
   box(0.06, 0.06, 0.01, M.alu, 0, 0, 0.012, 0, 0, 0, T);                                            // the mount plate on its back
   ball(0.016, M.dark, 0, 0, 0.022, T);
+  const scr = new THREE.Mesh(TAB_GEO.glass, scrMat); scr.rotation.y = Math.PI; scr.position.z = -0.0072; T.add(scr);
+  return { T, scr };
+}
+// the other sleds' tablets all show one shared home screen (see tabIdle); it's redrawn once a game minute, and only while one is in view
+const TAB_IDLE = (() => {
+  const c = document.createElement("canvas"); c.width = 224; c.height = 143;
+  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+  return { c, tex, mat: new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }), k: "" };
+})();
+const TAB_PROPS = [];   // every tablet that isn't yours: other riders, crews, stuck sleds, your own sled parked in a school yard
+{
   const c = document.createElement("canvas"); c.width = 320; c.height = 205;
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
-  // the display: the same rounded rectangle, its UVs spread over the canvas
-  const sg = new THREE.ShapeGeometry(roundRect(W, H, TABHW.R), 10), uv = sg.attributes.uv, ps = sg.attributes.position;
-  for (let k = 0; k < uv.count; k++) uv.setXY(k, ps.getX(k) / W + 0.5, ps.getY(k) / H + 0.5);
-  const scr = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }));
-  scr.rotation.y = Math.PI; scr.position.z = -0.0072; T.add(scr);
-  V.tabScr = scr; V.tabCv = c; V.tabTex = tex;
-  // the arm, from the bar clamp up to the ball: one tube re-aimed by applyLoadout for each machine's bar height
+  const p = tabletProp(sledBody, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }));
+  V.tab = p.T; V.tabScr = p.scr; V.tabCv = c; V.tabTex = tex;
+  // the arm, from the column to the ball on the tablet's back: one tube re-aimed by applyLoadout for each machine
   const ag = new THREE.CylinderGeometry(0.012, 0.014, 1, 8); ag.translate(0, 0.5, 0);
   V.tabArm = put(new THREE.Mesh(ag, M.dark), 0, 0, 0); V.tabKnob = ball(0.02, M.dark, 0, 0, 0);
 }
@@ -3122,22 +3135,25 @@ function updVisuals(dt) {
     camState.fpPitch += (pT - camState.fpPitch) * (1 - Math.exp(-7 * dt));
     camState.fpRoll += (rT - camState.fpRoll) * (1 - Math.exp(-5 * dt));
     camera.rotation.set(camState.fpPitch, camState.fpYaw, camState.fpRoll);
-    if (TABLET.e > 0.001 && TABLET.mode === "dash") tabCamFP();          // the dip onto the dash tablet
+    if (TABLET.e > 0.001 && TABLET.mode === "dash") tabCam();            // the dip onto the dash tablet
   } else {
     // towing: back the chase cam off so the rig behind you is in the shot
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
     const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1, FZp - cfz * (view.d + td));
+    if (camState.cp && camState.cpOn) camera.position.copy(camState.cp);   // the over-the-shoulder dip moved the camera last frame: start from the chase cam's own spot
     want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
     look = _camAim.set(FXp + cfx * (4 + CLIMB.v * 4), FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * (4 + CLIMB.v * 4));
+    camState.cp = (camState.cp || new THREE.Vector3()).copy(camera.position); camState.cpOn = false;
   }
   P.shake *= Math.exp(-4 * dt);
   const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
   camera.position.x += (Math.random() - 0.5) * sh; camera.position.y += (Math.random() - 0.5) * sh;
   if (look) camera.lookAt(look);
+  if (look && TABLET.e > 0.001 && TABLET.mode === "dash" && !TCAM.launch && started) { camState.cpOn = true; tabCam(); }   // over the shoulder onto the tablet
   if (showroomOn()) {
     if (!SR.on) { SR.on = true; SR.a = P.yaw + 0.9; document.body.classList.add("showroom"); $("srHint").hidden = false; }
     if (!SR.drag) SR.a += dt * 0.28;
@@ -3152,7 +3168,7 @@ function updVisuals(dt) {
     camera.lookAt(ox - fz2 * push, P.y + 0.85, oz + fx2 * push);
     if (Math.abs(camera.fov - 50) > 0.05) { camera.fov = 50; camera.updateProjectionMatrix(); }
   } else if (SR.on) { SR.on = false; camState.init = false; document.body.classList.remove("showroom"); $("srHint").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
-  const fov = view.f + Math.min(16, spd * 0.4), dip = TABLET.e > 0.001 && TABLET.mode === "dash" && view.fp;
+  const fov = view.f + Math.min(16, spd * 0.4), dip = TABLET.e > 0.001 && TABLET.mode === "dash";
   // the base lens eases with speed as before; dipping to the tablet narrows it so the screen fills the view
   let fb = dip && camState.fovB !== undefined ? camState.fovB : camera.fov;
   if (Math.abs(fb - fov) > 0.05) fb += (fov - fb) * (1 - Math.exp(-3 * dt));
@@ -5178,10 +5194,11 @@ function ctSled(g, x, y, ang, alpha, u) {
   g.restore();
 }
 /* ---------------- the dash tablet: OS, apps and notifications (winter update O2) ----------------
-   The tablet replaces the job board. It's a screen on the dash (see TABHW / V.tab): idle it shows a live
-   heading-up map; Tab (pad d-pad up, touch TABLET) dips the first-person camera onto it over ~0.3 s while the
-   world keeps running. The OS itself is DOM (#tab / #tabS), laid over the 3D glass every frame with a CSS
-   matrix3d homography so taps and clicks land where they look. In third person (and on foot) it's a big
+   The tablet replaces the job board. It's a screen under the bars (see TABHW / V.tab), and every sled has one: idle it
+   shows a live heading-up map in first person and its home screen in the chase views. Tab (pad d-pad up, touch TABLET)
+   dips the camera onto it over ~0.3 s while the world keeps running: first person leans in, the chase views swing over
+   the rider's right shoulder. The OS itself is DOM (#tab / #tabS), laid over the 3D glass every frame with a CSS
+   matrix3d homography so taps and clicks land where they look. On foot, fishing or in the showroom it's a big
    overlay instead.
 
    Adding an app:  TABLET.register({ id, name, icon, order, locked, hidden(), badge(), render(el), onOpen(), onClose(), tick(dt), live })
@@ -5354,7 +5371,7 @@ const TABLET = {
   },
   /* ---- layout: logical screen size, then where it goes on the page each frame ---- */
   layout() {
-    const dash = this.modeNow() === "dash"; this.mode = dash ? "dash" : "overlay";
+    const dash = this.modeNow() === "dash"; this.mode = dash ? "dash" : "overlay"; this.layK = this.viewK();
     const W = innerWidth, H = innerHeight, s = $("tabS");
     let w, h;
     if (dash) {
@@ -5381,11 +5398,14 @@ const TABLET = {
     s.classList.toggle("port", this.h > this.w); s.classList.toggle("dash", dash); s.classList.toggle("small", this.w < 640);
     this.render();
   },
-  modeNow() { return VIEWS[camMode].fp && !FOOT.on && !(FISH && FISH.on) && !showroomOn() ? "dash" : "overlay"; },
+  // riding, in any view, the OS goes on the real glass under the bars (first person leans in, the chase views swing over the
+  // rider's shoulder); on foot, fishing or in the showroom it's the big centred overlay
+  modeNow() { return !FOOT.on && !(FISH && FISH.on) && !showroomOn() ? "dash" : "overlay"; },
+  viewK() { return this.modeNow() + (VIEWS[camMode].fp ? "f" : "t"); },
   // before the camera: ease the dip in or out (0.3 s, smoothstep), and keep the mode in step with the view
   step(dt) {
     if (this.open && !this.can()) this.close(true);
-    if (this.open && this.modeNow() !== this.mode) { this.layout(); }
+    if (this.open && this.viewK() !== this.layK) { this.layout(); }    // the view changed under it: a new pose, so a new logical size
     this.z = clamp(this.z + (this.open ? dt : -dt) / 0.3, 0, 1);
     this.e = this.z * this.z * (3 - 2 * this.z);
     if (!this.open && this.z === 0 && !$("tab").hidden) { $("tab").hidden = true; this.updBanner(); }
@@ -5431,18 +5451,30 @@ function tabTarget() {
   V.tabScr.updateWorldMatrix(true, false);
   V.tabScr.matrixWorld.extractBasis(_tX, _tY, _tZ); _tX.normalize(); _tY.normalize(); _tZ.normalize();   // the glass's right, up and outward normal
   V.tabScr.getWorldPosition(_tC);
+  sledRoot.updateMatrixWorld();
+  const asp = innerWidth / innerHeight;
+  if (!VIEWS[camMode].fp) {
+    // over the rider's right shoulder, riding with the sled, looking down at the glass with its up kept up. The pose is rigid to
+    // the sled, so the glass holds still on screen however the sled pitches or rolls; the rider's shoulder and helmet frame it
+    _tE.set(-0.25, 1.68 + CLIMB.stand * 0.7, -0.08); sledRoot.localToWorld(_tE);
+    _tM.lookAt(_tE, _tC, _tY); _tQ.setFromRotationMatrix(_tM);
+    const d = _tE.distanceTo(_tC), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d);
+    const fv = Math.max(angH / 0.55, 2 * Math.atan(Math.tan(angW / 0.84 / 2) / asp));          // ~55% of the height, or 84% of the width on an upright phone
+    return { fov: clamp(fv * R2D, 12, 70), angW, angH, d };
+  }
   // how far to sit: as far from the glass as the rider's leaned-in eye is (the eye, 10 cm forward and 7 cm down, in the sled's own space)
-  sledRoot.updateMatrixWorld(); _tE.set(0, 1.59, -0.04); sledRoot.localToWorld(_tE);
-  const d = Math.max(0.3, _tE.distanceTo(_tC)), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d), asp = innerWidth / innerHeight;
+  _tE.set(0, 1.59, -0.04); sledRoot.localToWorld(_tE);
+  const d = Math.max(0.3, _tE.distanceTo(_tC)), angH = 2 * Math.atan(TABHW.H / 2 / d), angW = 2 * Math.atan(TABHW.W / 2 / d);
   // the camera goes on the glass's normal at that distance and looks straight down it: the glass is then an exact rectangle in the view,
   // so the DOM screen can sit flush on it with no frame, and the whole rig is rigid to the sled (the glass is still however the sled pitches or rolls)
   _tE.copy(_tC).addScaledVector(_tZ, d);
+  _tM.makeBasis(_tX, _tY, _tZ); _tQ.setFromRotationMatrix(_tM);                                   // camera right/up = glass right/up, looking along -normal
   const fv = Math.max(angH / 0.62, 2 * Math.atan(Math.tan(angW / 0.9 / 2) / asp));           // ~62% of the height, or 90% of the width on an upright phone
   return { fov: clamp(fv * R2D, 12, 70), angW, angH, d };
 }
-function tabCamFP() {
+// blend whatever the view's camera is toward the tablet pose by the dip's ease
+function tabCam() {
   const t = tabTarget(); TABLET.fovT = t.fov;
-  _tM.makeBasis(_tX, _tY, _tZ); _tQ.setFromRotationMatrix(_tM);                                   // camera right/up = glass right/up, looking along -normal
   camera.position.lerp(_tE, TABLET.e); camera.quaternion.slerp(_tQ, TABLET.e);
 }
 const _tv = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], _tc = new THREE.Vector3();
@@ -5484,20 +5516,107 @@ function tabHomography(w, h, q) {
   return "matrix3d(" + m.map(v => +v.toFixed(7)).join(",") + ")";
 }
 
-// first person gets the dash tablet, every other view (third person, on foot) gets the HUD minimap, never both
-let tvFP = null;
+// first person gets the dash tablet's map, every other view (third person, on foot) gets the HUD minimap, never both.
+// The tablet itself is on the sled in every view: in the others its screen shows the home screen, not a map (tabHomeFace)
+let tvFP = null, tvDip = null;
 function tabView_sync() {
-  const fp = !!(VIEWS[camMode].fp && !FOOT.on);
-  if (V.tab) V.tab.visible = fp;
+  const fp = !!(VIEWS[camMode].fp && !FOOT.on), dip = TABLET.open && TABLET.mode === "dash";
+  tabCull();
+  if (dip !== tvDip) { tvDip = dip; document.body.classList.toggle("tabdip", dip); }
   if (fp === tvFP) return;
-  tvFP = fp; document.body.classList.toggle("fpv", fp);
+  tvFP = fp; document.body.classList.toggle("fpv", fp); TABLET.dashT = 1;   // repaint the dash face for the new view straight away
+}
+// Every sled carries a tablet, and each is drawn only while it's inside the camera's view and close enough to read
+// (TAB_FAR): past that it's a couple of pixels. Its screen is only repainted while it's drawn.
+const TAB_FAR = 45;
+const _tfr = new THREE.Frustum(), _tpm = new THREE.Matrix4(), _tsp = new THREE.Sphere(new THREE.Vector3(), 0.14);
+function tabSeen(T) {
+  for (let o = T.parent; o; o = o.parent) if (!o.visible) return false;        // its sled isn't out
+  T.getWorldPosition(_tsp.center);
+  return _tsp.center.distanceToSquared(camera.position) < TAB_FAR * TAB_FAR && _tfr.intersectsSphere(_tsp);
+}
+function tabCull() {
+  camera.updateMatrixWorld(); _tpm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _tfr.setFromProjectionMatrix(_tpm);
+  V.tab.visible = tabSeen(V.tab);
+  let any = false;
+  for (const T of TAB_PROPS) { const on = tabSeen(T); T.visible = on; if (on) any = true; }
+  if (any) tabIdle();
+}
+// the app icons' colours, the same pairs as the home screen's CSS (.sbi[data-app=...])
+const TAB_HUE = { parcels: ["#ff8a3a", "#d8491a"], map: ["#4aa8de", "#1f6a9c"], weather: ["#7cc7ff", "#3b7fd1"], calendar: ["#8aa6ff", "#5a64d6"], logbook: ["#cdb88c", "#8a6f3c"],
+  store: ["#4fd1a5", "#1f8f6a"], freight: ["#eab75f", "#b7791f"], crew: ["#62d68c", "#2c8a53"], market: ["#e88ad9", "#a23c98"], realestate: ["#b390f2", "#6a45b8"], rescue: ["#ff6f5a", "#b8321f"] };
+// A home screen painted onto a dash canvas: the night wallpaper, a status strip, the clock, the icon grid and the dock.
+// o: { time, date, apps: [{ id, badge, locked }], dock: [ids], strip: { text, col, right, rcol }, line, hint }
+function tabHomeFace(c, o) {
+  const g = c.getContext("2d"), W = c.width, H = c.height, u = W / 320;      // u: one dash-canvas pixel at this size
+  g.save();
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0b1d2e"); bg.addColorStop(1, "#050b12"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const glow = (x, y, rx, ry, col) => { g.save(); g.translate(x, y); g.scale(1, ry / rx); const r = g.createRadialGradient(0, 0, 0, 0, 0, rx); r.addColorStop(0, col); r.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = r; g.fillRect(-rx, -rx, rx * 2, rx * 2); g.restore(); };
+  const au = 0.45 + clamp(AUR.v || 0, 0, 1) * 0.55;
+  glow(W * 0.3, H * 0.2, W * 0.42, H * 0.1, `rgba(60,220,168,${(0.42 * au).toFixed(2)})`); glow(W * 0.72, H * 0.15, W * 0.36, H * 0.08, `rgba(122,107,255,${(0.42 * au).toFixed(2)})`);
+  g.fillStyle = "#dff3ff"; for (let i = 0; i < 26; i++) { g.globalAlpha = 0.25 + (i % 5) * 0.1; g.fillRect((i * 137.5) % W, (i * 71.3) % (H * 0.5), u * (1 + (i % 2)), u * (1 + (i % 2))); }
+  g.globalAlpha = 1;
+  for (const [y, amp, ph, col] of [[0.84, 0.05, 0.4, "#0c1a28"], [0.9, 0.04, 2.1, "#08111b"]]) {
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, H);
+    for (let x = 0; x <= W; x += 8 * u) g.lineTo(x, H * y - Math.max(0, Math.sin(x / (W / 9) + ph)) * H * amp);
+    g.lineTo(W, H); g.closePath(); g.fill();
+  }
+  // status strip
+  const top = Math.round(20 * u), st = o.strip || {};
+  g.fillStyle = st.bg || "rgba(5,11,18,.55)"; g.fillRect(0, 0, W, top);
+  g.textBaseline = "middle"; g.font = `600 ${Math.round(12 * u)}px 'Barlow Semi Condensed', sans-serif`;
+  g.textAlign = "left"; g.fillStyle = st.col || "#eaf2f8"; g.fillText(st.text || "NORDKINN", 7 * u, top / 2 + u);
+  if (st.right) { g.textAlign = "right"; g.fillStyle = st.rcol || "#6fd08c"; g.fillText(st.right, W - 7 * u, top / 2 + u); }
+  // the clock and the date
+  g.textAlign = "left"; g.fillStyle = "#f3f8fb"; g.font = `700 ${Math.round(34 * u)}px 'Barlow Semi Condensed', sans-serif`; g.fillText(o.time, 12 * u, top + 24 * u);
+  g.font = `500 ${Math.round(11 * u)}px 'Barlow Semi Condensed', sans-serif`; g.fillStyle = "rgba(234,242,248,.75)"; g.fillText(o.date, 13 * u, top + 46 * u);
+  if (o.line) { g.textAlign = "right"; g.font = `italic 500 ${Math.round(11 * u)}px 'Barlow Semi Condensed', sans-serif`; g.fillStyle = "#ffb27a"; g.fillText(o.line, W - 10 * u, top + 46 * u); }
+  // icons: a 6 x 2 grid, then the dock
+  const sq = (x, y, s, id, locked, badge) => {
+    const h = TAB_HUE[id] || ["#8a99a8", "#4a5866"], gr = g.createLinearGradient(x, y, x, y + s); gr.addColorStop(0, h[0]); gr.addColorStop(1, h[1]);
+    g.globalAlpha = locked ? 0.4 : 1; g.fillStyle = gr; g.beginPath(); g.moveTo(x + s * 0.24, y); g.arcTo(x + s, y, x + s, y + s, s * 0.24); g.arcTo(x + s, y + s, x, y + s, s * 0.24); g.arcTo(x, y + s, x, y, s * 0.24); g.arcTo(x, y, x + s, y, s * 0.24); g.closePath(); g.fill();
+    g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(x + s * 0.32, y + s * 0.44, s * 0.36, s * 0.12);     // a glyph-ish bar, too small to read at dash size anyway
+    g.globalAlpha = 1;
+    if (badge) { g.fillStyle = "#ff3a2a"; g.beginPath(); g.arc(x + s * 0.92, y + s * 0.08, s * 0.2, 0, 6.283); g.fill(); }
+  };
+  const cols = 6, s0 = 26 * u, gx = (W - cols * s0) / (cols + 1), gy0 = top + 58 * u;
+  o.apps.slice(0, 12).forEach((a, i) => sq(gx + (i % cols) * (s0 + gx), gy0 + Math.floor(i / cols) * (s0 + 10 * u), s0, a.id, a.locked, a.badge));
+  const dk = o.dock, ds = 22 * u, dw = dk.length * ds + (dk.length + 1) * 8 * u, dx = (W - dw) / 2, dy = H - ds - 13 * u;
+  g.fillStyle = "rgba(220,235,245,.16)"; g.beginPath(); g.moveTo(dx + 9 * u, dy - 5 * u); g.arcTo(dx + dw, dy - 5 * u, dx + dw, dy + ds + 5 * u, 9 * u); g.arcTo(dx + dw, dy + ds + 5 * u, dx, dy + ds + 5 * u, 9 * u); g.arcTo(dx, dy + ds + 5 * u, dx, dy - 5 * u, 9 * u); g.arcTo(dx, dy - 5 * u, dx + dw, dy - 5 * u, 9 * u); g.closePath(); g.fill();
+  dk.forEach((d, i) => sq(dx + 8 * u + i * (ds + 8 * u), dy, ds, d.id, false, d.badge));
+  if (o.hint) { g.textAlign = "left"; g.font = `italic 500 ${Math.round(10 * u)}px 'Barlow Semi Condensed', sans-serif`; g.fillStyle = "rgba(234,242,248,.5)"; g.fillText(o.hint, 6 * u, H - 8 * u); }
+  g.restore();
+}
+// the shared home screen on everyone else's tablet: the clock moves, nothing else does, so repaint once a game minute
+function tabIdle() {
+  const n = CAL.now(), k = n.time + (Math.round(clamp(AUR.v || 0, 0, 1) * 4));
+  if (k === TAB_IDLE.k) return; TAB_IDLE.k = k;
+  const ids = ["parcels", "map", "weather", "calendar", "freight", "crew", "rescue", "market", "realestate", "logbook", "store"];
+  tabHomeFace(TAB_IDLE.c, { time: n.time, date: n.label, apps: ids.map(id => ({ id })), dock: ["parcels", "map", "weather"].map(id => ({ id })) });
+  TAB_IDLE.tex.needsUpdate = true;
+}
+// your own tablet's home screen, for the views where it isn't the map: your apps, badges and dock, pings on the strip
+function tabDashHome() {
+  const T = TABLET, n = CAL.now(), ping = T.live, blink = ping && Math.floor(performance.now() / 400) % 2 === 0;
+  const vis = T.apps.filter(a => !(a.hidden && a.hidden())), bd = a => { try { return a.badge ? !!a.badge() : false; } catch (e) { return false; } };
+  const dock = TAB_DOCK.filter(id => T.byId[id] && !(T.byId[id].hidden && T.byId[id].hidden())).map(id => ({ id, badge: bd(T.byId[id]) }));
+  const aboard = smallLoads().length, claimed = claimSmall();
+  tabHomeFace(V.tabCv, {
+    time: n.time, date: n.label, apps: vis.map(a => ({ id: a.id, locked: !!a.locked, badge: bd(a) })), dock,
+    line: aboard || claimed ? `${aboard} aboard${claimed ? ` · ${claimed} claimed` : ""}` : "",
+    strip: ping ? { text: (ping.title || "").toUpperCase().slice(0, 34), bg: blink ? "#ff5a1f" : "#3a1a0e" } : { text: "NORDKINN", right: fmtCash(GS.cash) },
+    hint: TC.on ? "TABLET" : "Tab"
+  });
+  V.tabTex.needsUpdate = true;
 }
 
 // the dash screen when you're not looking at it: a live heading-up map, the clock, and a strip for pings
 function tabDash(dt) {
   const fp = VIEWS[camMode].fp && !FOOT.on;
-  TABLET.dashT += dt; if (TABLET.dashT < (fp ? 0.1 : 0.5) || (fp && TABLET.e > 0.95)) return;
+  TABLET.dashT += dt; if (TABLET.dashT < (fp ? 0.1 : 0.5) || (TABLET.mode === "dash" && TABLET.e > 0.95)) return;
+  if (!V.tab.visible) return;                                            // out of view: nothing to paint for
   TABLET.dashT = 0;
+  if (!fp) { tabDashHome(); return; }                                    // third person, on foot: the home screen, not a second map
   const c = V.tabCv, g = c.getContext("2d"), W = c.width, H = c.height, top = 22;
   g.save();
   g.fillStyle = "#0d1822"; g.fillRect(0, 0, W, H);
@@ -6269,19 +6388,23 @@ function schoolTrailerMesh(x, z, yaw) {
 /* ---- your own sled, parked in the yard while you're on the course ---- */
 function parkSnapshot(x, z, yaw) {
   const snap = sledBody.clone(true);
-  // the rider and the dash tablet aren't parked with it, and its lights would light the yard twice
-  const skip = [V.rider, V.tab, SAR.pill].map(o => sledBody.children.indexOf(o)).filter(i => i >= 0).map(i => snap.children[i]);
+  // the rider isn't parked with it, and its lights would light the yard twice. The dash tablet stays, showing the shared home screen
+  const tabC = snap.children[sledBody.children.indexOf(V.tab)], si = V.tab.children.indexOf(V.tabScr);
+  const skip = [V.rider, SAR.pill].map(o => sledBody.children.indexOf(o)).filter(i => i >= 0).map(i => snap.children[i]);
   const lights = []; snap.traverse(o => { if (o.isLight) lights.push(o); });
   for (const o of skip.concat(lights)) if (o && o.parent) o.parent.remove(o);
   snap.position.set(0, 0, 0);
   snap.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
-  const g = new THREE.Group(); g.add(snap); g.position.set(x, rideSurf(x, z), z); g.rotation.y = yaw; scene.add(g);
+  const tab = tabC || null;
+  if (tab) { tab.children[si].material = TAB_IDLE.mat.clone(); tab.visible = false; TAB_PROPS.push(tab); }
+  const g = new THREE.Group(); g.add(snap); g.userData.tab = tab; g.position.set(x, rideSurf(x, z), z); g.rotation.y = yaw; scene.add(g);
   addOb({ x, z, r: 0.9, top: rideSurf(x, z) + 1.1, parked: true });
   return g;
 }
 function unpark() {
   const g = SCHOOL.parked; if (!g) return;
   scene.remove(g); g.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); });
+  { const i = TAB_PROPS.indexOf(g.userData.tab); if (i >= 0) TAB_PROPS.splice(i, 1); }
   SCHOOL.parked = null;
   // and take its collision post back out of the grid
   const p = SCHOOL.park, k = Math.floor((p.z + HALF) / OBC) * OBW + Math.floor((p.x + HALF) / OBC), a = obGrid.get(k);
@@ -9086,13 +9209,20 @@ function applyLoadout() {
   V.guards.forEach(m => m.visible = pr.bars === "guards");
   V.riser.visible = pr.bars !== "stock";
   V.mirrors.visible = ex.includes("mirrors");
-  /* the dash tablet sits above the bar clamp, its arm running down to the clamp on the column */
+  /* the dash tablet sits under the bars on the rider's side of the column, tipped up to the rider's eye, its arm running forward to the column */
   {
-    const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ;
-    V.tab.position.set(0, by + 0.13, bz + 0.13);
-    const k = V.tab.localToWorld ? new THREE.Vector3(0, 0, 0.022).applyEuler(V.tab.rotation).add(V.tab.position) : V.tab.position;
-    const a = new THREE.Vector3(0, by - 0.02, bz + 0.02), d = k.clone().sub(a);
-    V.tabArm.position.copy(a); V.tabArm.scale.set(1, d.length(), 1); V.tabArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ, hH = TABHW.H / 2, cz = bz - 0.085;
+    let cy = by - 0.11, tilt = TABHW.tilt;
+    for (let i = 0; i < 4; i++) {                    // settle: face the eye (0, 1.66, -0.14), keep the top edge under the bar, the bottom edge off the hood
+      tilt = Math.atan2(1.66 - cy, cz + 0.14);
+      const hv = hH * Math.cos(tilt), zb = cz - hH * Math.sin(tilt);
+      cy = Math.max(by - 0.045 - hv, ud.hoodY(zb) + 0.02 + hv);
+    }
+    V.tab.position.set(0, cy, cz); V.tab.rotation.x = tilt;
+    const k = new THREE.Vector3(0, 0, 0.022).applyEuler(V.tab.rotation).add(V.tab.position);
+    const t = clamp((k.y - ud.columnBase) / Math.max(0.05, ud.barY - 0.06 - ud.columnBase), 0, 1);
+    const a = new THREE.Vector3(0, k.y, lerp(ud.columnZ, bz, t)), d = k.clone().sub(a);   // the column at the ball's height (a riser above the stock clamp)
+    V.tabArm.position.copy(a); V.tabArm.scale.set(1, Math.max(0.01, d.length()), 1); V.tabArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
     V.tabKnob.position.copy(a);
   }
   /* shield: stands on this hood, sized by the part fitted (or the machine's own habit) */
@@ -9183,6 +9313,9 @@ function npcSledMesh(bodyHex, suitHex, noRider) {
     add(new THREE.SphereGeometry(0.19, 10, 8), helm, 0, 1.7, -0.42);
   }
   add(new THREE.BoxGeometry(0.2, 0.06, 0.04), std(0xff2a1a, 0.4), 0, 0.68, -1.5);   // tail light
+  // a dash tablet under the bars, like yours, showing the shared home screen (tabCull draws it only while it's in view)
+  const tp = tabletProp(g, TAB_IDLE.mat); tp.T.position.set(0, 1.25, 0.235); tp.T.rotation.x = 0.6; TAB_PROPS.push(tp.T);
+  add(new THREE.CylinderGeometry(0.011, 0.011, 0.07, 6), dark, 0, 1.262, 0.29, Math.PI / 2);   // its arm, forward to the column
   return g;
 }
 function buildNpcs() {
