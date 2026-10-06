@@ -81,6 +81,21 @@ with their clock (a search shows the area, never the person). Saves pay and buil
 which brings better-paid calls further out; a lost casualty or a handed-over call costs reputation,
 and so does letting pings go two or more in a row. Volunteer winch recoveries stay in Trail Crew.
 
+Some callouts are **hospital runs** (the HOSPITAL chip): every cold casualty, most hurt riders and the
+odd hiker who took a fall. A cabin stove only slows their clock; they're saved when you stop at
+**Kjøllefjord helsesenter**, the health centre on the edge of town (the blue **H** on the maps). These
+pay a bit more.
+
+## Crashes and the health centre
+
+Hit a trunk, a rock or a wall hard enough (about 30 mph into it), land a big drop too hard, or come
+down badly crooked at speed, and you come off the sled. The rider flies with the speed the sled had:
+real gravity, air drag, snow that soaks up the bounce, powder that grabs and hardpack that lets you
+skid, and trees you can hit on the way. Every impact adds up. Get away with it and you get up where
+you landed and walk back to the sled (Q to get on). Overdo it and you wake up in the health centre a
+few hours later with a bill; the Red Cross brings the sled in and parks it out front, but any freight
+is gone, the same as a blackout. Big enough sleds still mow birches down rather than crash into them.
+
 ## Bytteboden: buying used
 
 The tablet's marketplace. Private sellers in the villages, cabins and homes list used engines,

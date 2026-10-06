@@ -1969,7 +1969,7 @@ const MASS = 280; let G = 32.4;
 // The Logbook tablet app's tallies (winter update S4). Saved in the save as `log`; deliveries, rescues, the
 // date and days survived come from GS and the calendar. m = metres ridden, air = seconds in real jumps,
 // jump = longest single jump (s), mail = pieces of post handed in at the quay (mailHandIn).
-const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0, sar: 0, sarLost: 0 });   // sar / sarLost: rescue callouts saved and lost (O5)
+const LOG0 = () => ({ m: 0, trees: 0, air: 0, jump: 0, fjord: 0, mail: 0, sar: 0, sarLost: 0, crashes: 0, hosp: 0 });   // sar / sarLost: rescue callouts saved and lost (O5)
 const LOG = LOG0();
 // search and rescue (O5): duty, reputation and the record are saved; the rest is the live case (see the SAR block near the end)
 var SAR = {
@@ -1978,6 +1978,7 @@ var SAR = {
 };
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0 };
 function resetSled() {
+  if (CRASH.on) return;                               // no resetting your way out of a crash (or the hospital)
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
   if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; wnStow(false); }
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
@@ -2525,6 +2526,7 @@ function collide(fx, fz) {
         const vn = P.vx * nx + P.vz * nz;
         if (vn < 0) {
           const hitV = -vn, tx = -nz, tz = nx;
+          if (hitV > (o.tree !== undefined ? CRASH_AT.tree : CRASH_AT.hard) && !o.ship) crashEject(o.tree !== undefined ? "tree" : "hard", P.vx, P.vy, P.vz, o.tree !== undefined ? o : null);
           let vt = P.vx * tx + P.vz * tz;
           if (o.tree !== undefined) {
             // glance off: drop the into-trunk speed, keep rolling past beside it
@@ -2585,7 +2587,15 @@ function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
   }
 }
 function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
+// a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
+  if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
+  const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
+  input.thr = input.brk = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false;
+  try { physCore(dt); } finally { input.thr = th; input.brk = br; input.steer = st; input.lean = ln; input.wheelie = wh; }
+  crashStep(dt);
+}
+function physCore(dt) {
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const wl0 = wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;   // the sea, or a lake the melt has opened
@@ -2759,6 +2769,8 @@ function physStep(dt) {
     // forgiving touchdown: the sled snaps straight to the slope, the rider bleeds a little speed
     P.yr *= 0.3;
     if (P.vy < sv) P.vy = sv;
+    const vLand = Math.hypot(vx, vz);
+    if (!sea && ((att > 1.05 && vLand > CRASH_AT.roll) || impact > CRASH_AT.land)) crashEject("land", vx, 0, vz, null);
     if (att > 0.8) {
       const bite = Math.min(0.3, 0.08 + att * 0.18);
       vx *= 1 - bite; vz *= 1 - bite; P.vx = vx; P.vz = vz;
@@ -2932,6 +2944,11 @@ function drawMap() {
     else mctx.fillRect(sx - 4 + hm, sz - 4 + hm, 8 - 2 * hm, 8 - 2 * hm);
     if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
+  if (HOSP.built) {                              // the health centre: a blue H, on the rim while you've a casualty for it
+    const dx = (HOSP.door.x - P.x) * M2DISP, dz = (HOSP.door.z - P.z) * M2DISP; let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy; const d = Math.hypot(ux, uz);
+    const need = SAR.cur && !SAR.cur.res && SAR.cur.hosp;
+    if (d <= R - 12 || need) { if (d > R - 12) { const f = (R - 12) / d; ux *= f; uz *= f; } hospMapPin(mctx, R + ux, R + uz, 5.5); }
+  }
   if (GS.rescueJob) for (const v of RJ.vs) {     // the people you're going to get out
     if (v.freed) continue;
     const dx = (v.x - P.x) * M2DISP, dz = (v.z - P.z) * M2DISP; let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false; const d = Math.hypot(ux, uz);
@@ -3014,6 +3031,11 @@ function drawBigMap() {
       g.fillText(lab, sx, sz + 46);
       g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
     }
+  }
+  if (HOSP.built) {                                               // the health centre, labelled when you've a casualty for it
+    const [hx, hz] = w2(HOSP.door.x, HOSP.door.z), need = SAR.cur && !SAR.cur.res && SAR.cur.hosp;
+    hospMapPin(g, hx, hz, 7);
+    if (need) { g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText("Helsesenter").width + 10; g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(hx - w / 2, hz - 32, w, 20); g.fillStyle = "#7fb4ec"; g.fillText("Helsesenter", hx, hz - 17); g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; }
   }
   for (const v of LOOKOUTS) {                                     // aurora viewpoints: a small teal triangle, named when you're taking a tour there
     if (v.x === undefined) continue;
@@ -3111,11 +3133,13 @@ function updVisuals(dt) {
   const rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
   // camera
-  const view = FOOT.on && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
+  const view = (FOOT.on || CRASH.on) && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
   const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
   const fishing = FISH && FISH.on;
-  const FXp = fishing ? FISH.wx : FOOT.on ? FOOT.x : P.x, FYp = fishing ? FISH.wy : FOOT.on ? FOOT.y : P.y, FZp = fishing ? FISH.wz : FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, or the rider on foot
-  camState.yaw = angLerp(camState.yaw, FOOT.on ? FOOT.yaw : angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-(FOOT.on ? 2.2 : 3.5) * dt));
+  const cr = CRASH.on;                                                   // thrown off: the camera goes with the body
+  const FXp = fishing ? FISH.wx : cr ? CRASH.x : FOOT.on ? FOOT.x : P.x, FYp = fishing ? FISH.wy : cr ? CRASH.y - 0.7 : FOOT.on ? FOOT.y : P.y, FZp = fishing ? FISH.wz : cr ? CRASH.z : FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, the rider on foot, or the rider in the air
+  if (cr) { const bs = Math.hypot(CRASH.vx, CRASH.vz); if (bs > 2) camState.yaw = angLerp(camState.yaw, Math.atan2(CRASH.vx, CRASH.vz), 1 - Math.exp(-1.2 * dt)); }
+  else camState.yaw = angLerp(camState.yaw, FOOT.on ? FOOT.yaw : angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-(FOOT.on ? 2.2 : 3.5) * dt));
   const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
   let look = null;
   if (view.fp) {
@@ -4797,7 +4821,7 @@ function blackout(kind) {
   GS.load = [];
   GS.jobs = []; GS.contracts = null; GS.claims = [];
   applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
-  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? (P.wl !== SEA ? "<b>THROUGH THE ICE</b>The Red Cross crew got a line on you from the shore. The sled came up on a winch, eventually. The lake kept everything else." : "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else.") : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
+  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? (P.wl !== SEA ? "<b>THROUGH THE ICE</b>The Red Cross crew got a line on you from the shore. The sled came up on a winch, eventually. The lake kept everything else." : "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else.") : kind === "crash" ? "<b>KNOCKED OUT</b>You came off hard. The Red Cross crew scraped you out of the snow and drove you back to the quay." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
@@ -4806,7 +4830,7 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
@@ -5875,6 +5899,7 @@ function tabSites(g, w2c, scale, hot) {
     const nm = s === depot ? "KJØLLEFJORD QUAY" : (CT_LBL[s.id] ? CT_LBL[s.id].t : s.name);
     if (!home || hz || scale > 1.4) tabLabel(g, home ? s.name : nm, x, y - 10, home ? 12 : 13, hz ? CT_ACC : "#2a2119", home);
   }
+  if (HOSP.built) { const [x, y] = w2c(HOSP.door.x, HOSP.door.z); hospMapPin(g, x, y, scale > 1.4 ? 6 : 4.5); if (scale > 1.4 || (SAR.cur && !SAR.cur.res && SAR.cur.hosp)) tabLabel(g, "HELSESENTER", x, y + 16, 12, "#1f4a66", true); }
 }
 function tabRoute(g, w2c, P, col = CT_ACC) {
   if (!P || P.length < 2) return;
@@ -6251,7 +6276,8 @@ function lbRows() {
       [60, "Long enough to look around. Not long enough to plan the landing."], [300, "Whole minutes of your life spent not touching anything."], [I, "Technically more aeroplane than snowmobile."]]) },
     { k: "jump", label: "Longest jump", v: jp.toFixed(1), u: "sec", m: lbPick(jp, [
       [0.1, "No proper jump yet. Find a lip."], [1, "A hop with ambitions."], [2, "Long enough to reconsider things."],
-      [3.5, "Your stomach caught up somewhere around the landing."], [I, "Somebody at the quay saw that. They're still telling it."]]) },
+      [3.5, "Your stomach caught up somewhere around the landing."], [I, "Somebody at the quay saw that. They're still telling it."]]) +
+      (LOG.crashes ? ` Thrown off ${lbFmt(LOG.crashes)} time${LOG.crashes === 1 ? "" : "s"}${LOG.hosp ? `, ${lbFmt(LOG.hosp)} ending in the helsesenter` : ""}.` : "") },
     { k: "fjord", label: "Times in the fjord", v: lbFmt(fj), u: fj === 1 ? "time" : "times", m: lbPick(fj, [
       [1, "Dry as a bone. The fish are disappointed."], [2, "Once. The fishing boat remembers."], [4, "The fishing boat knows your name by now."], [I, "You and the fjord have an arrangement."]]) }
   ];
@@ -6515,7 +6541,7 @@ function schoolEnd(how) {
 function schoolBlackout(kind) {
   schoolUnhelp();
   GS.warmth = 80; heatCool();
-  schoolFail(kind === "sea" ? "Straight into the water." : "You froze up out there.");
+  schoolFail(kind === "sea" ? "Straight into the water." : kind === "crash" ? "You came off at speed. The instructor's calling it." : "You froze up out there.");
 }
 
 function schoolUnhelp() {
@@ -9410,9 +9436,10 @@ function updGame(dt, spd) {
   const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
   if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
   GS.camping = camping;
-  if ((near || RE.here) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+  const hospWarm = hospHere(P.x, P.z, 22) && !FOOT.on || hospHere(FOOT.x, FOOT.z, 22) && FOOT.on;
+  if ((near || RE.here || hospWarm) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
-  else if (!near && !RE.here) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
+  else if (!near && !RE.here && !hospWarm) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
@@ -9960,7 +9987,7 @@ function poseFigure(g, sp, step, crouch, dt) {
 }
 function sledSide() { return [Math.cos(P.yaw), -Math.sin(P.yaw)]; }   // the sled's left
 function dismount() {
-  if (!started || GS.dead || FOOT.on || HELP.on) return;
+  if (!started || GS.dead || FOOT.on || HELP.on || CRASH.on) return;
   if (GS.garageOpen || godOpen) return;
   if (Math.hypot(P.vx, P.vz) > 2.2 || !P.gnd || P.wet) { toast("Stop the sled first.", "warn"); return; }
   const [sx, sz] = sledSide(), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
@@ -10697,8 +10724,8 @@ function rescueTick(dt) {
       BOG.dig += rate * dt; if (Math.random() < dt * 12) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.2, P.z + (Math.random() - 0.5) * 2, 0, 2, 0, 1.5, 0.8);
       if (BOG.dig >= 1) { FOOT.dig = false; freeBog("dug"); }
     }
-  } else if (FOOT.g) FOOT.g.visible = false;
-  if (rider) rider.visible = !FOOT.on && !(FISH && FISH.on);
+  } else if (FOOT.g && !CRASH.on) FOOT.g.visible = false;
+  if (rider) rider.visible = !FOOT.on && !CRASH.on && !(FISH && FISH.on);
   wnUpdate(dt);
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
@@ -10913,17 +10940,22 @@ function sarMake(kind, o) {
     if (!o.school && ST.winch < c.needTier) return null;
   }
   c.x = at.x; c.z = at.z;
+  // some of them need a doctor, not a stove: the cold casualty always, a hurt rider often, a lost hiker now and then
+  const hs = hospSite();
+  c.hosp = !!hs && !o.school && (kind === "save" || (kind === "rescue" && Math.random() < 0.6) || (kind === "search" && Math.random() < 0.3));
   const from = { x: o.fx === undefined ? o.cx : o.fx, z: o.fz === undefined ? o.cz : o.fz }, out = Math.hypot(c.x - from.x, c.z - from.z);
-  const w = kind === "tow" ? sarCabin(c.x, c.z) : sarWarmest(c.x, c.z), back = o.school ? Math.hypot(c.x - o.cx, c.z - o.cz) : w.d;
+  const w = c.hosp ? { s: hs, d: Math.hypot(hs.x - c.x, hs.z - c.z) } : kind === "tow" ? sarCabin(c.x, c.z) : sarWarmest(c.x, c.z), back = o.school ? Math.hypot(c.x - o.cx, c.z - o.cz) : w.d;
   c.near = nearestSiteName(c.x, c.z); c.dest = w.s; c.out = out; c.back = back;
   const rep = SAR.rep, slack = o.school ? K.slack * 1.15 : K.slack * (1.12 - rep / 100 * 0.3);
   c.T0 = Math.round(o.T0 || (out / 11 + K.work + K.back * back / (kind === "tow" ? 7 : 10)) * slack);
-  c.pay = o.school ? 0 : round5((K.base + 70 * out / 1000 + 30 * back / 1000) * (1 + rep / 125));
+  c.pay = o.school ? 0 : round5((K.base + 70 * out / 1000 + 30 * back / 1000) * (1 + rep / 125) * (c.hosp ? 1.15 : 1));
   const dir = sarCard(sarWarmest(c.x, c.z).s.x, sarWarmest(c.x, c.z).s.z, c.x, c.z);
   c.why = kind === "search" ? `${name}, a ${c.who}, hasn't come back. Last seen heading into the woods ${dir} of ${c.near}.`
     : kind === "rescue" ? `${name} rolled their sled on a steep slope near ${c.near} and can't get it back up. Cold, a bit banged up.`
     : kind === "tow" ? `${name}'s sled is ${TRAPS[c.site.kind].say} near ${c.near}, and the track's done for. Winch it out and tow it to ${c.dest ? shortName(c.dest) : "a cabin"}.`
-    : `Someone found ${name}, a ${c.who}, on the open fell near ${c.near}: hypothermic, barely talking. Toboggan, and somewhere warm, fast.`;
+    : `Someone found ${name}, a ${c.who}, on the open fell near ${c.near}: hypothermic, barely talking. Toboggan, and ${c.hosp ? "the health centre in Kjøllefjord" : "somewhere warm"}, fast.`;
+  if (c.hosp && kind === "rescue") c.why = c.why.replace("Cold, a bit banged up.", "Cold, and a leg that won't take weight: they need the health centre in Kjøllefjord.");
+  if (c.hosp && kind === "search") c.why += " They phoned in a bad fall before the battery died: once you find them, it's the health centre, not a cabin.";
   return c;
 }
 // the four school missions use the same thing with their spots fixed by the plan
@@ -11017,11 +11049,13 @@ function sarRateNow(c) {
   const withYou = sarAboard(c) || Math.hypot(c.v.x - P.x, c.v.z - P.z) < 6;
   if (GS.camping && withYou) return -0.8 * Math.max(0.6, ST.camp) * (1 - 0.5 * GS.storm);   // your stove or thermos does them good too
   if (sarAboard(c) && sarWarmHere(c)) return -2;
+  if (c.hosp && sarAboard(c) && GS.near) return base * 0.2;                // a cabin stove slows it right down, but they need the doctor
   return base * mul;
 }
 // a warm place you're stopped at: any site (cabin, village, home, the quay), the rescue base, or for school, the yard
 function sarWarmHere(c) {
   if (c.school) return atYard(SCHOOLS.rescue);
+  if (c.hosp) return hospHere();
   if (c.kind === "tow") return !!GS.near && GS.near.type !== "shop";
   return !!GS.near || SCHOOL.here === SCHOOLS.rescue;
 }
@@ -11061,7 +11095,7 @@ function sarTick(dt, spd) {
   if (v.state === "loading") {
     v.loadT += dt;
     if (!FOOT.on && spd > 2) { v.state = "waiting"; toast("You moved off. They're not strapped in yet!", "warn"); }
-    else if (v.loadT > 3.5) { v.state = "akja"; toast(`${c.name} is in the bag and strapped down. Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`, "good"); }
+    else if (v.loadT > 3.5) { v.state = "akja"; toast(`${c.name} is in the bag and strapped down. ${c.hosp ? "The health centre in Kjøllefjord: steady, but quick." : `Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`}`, "good"); }
   }
   if (v.state === "follow") {
     const tx = FOOT.on ? FOOT.x : P.x, tz = FOOT.on ? FOOT.z : P.z, d = Math.hypot(tx - v.x, tz - v.z);
@@ -11079,7 +11113,7 @@ function sarTick(dt, spd) {
 }
 function sarBoard(c) {
   c.v.state = "pillion"; c.v.boardT = 0;
-  toast(`${c.name} climbs on behind you and grabs hold. Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`, "good");
+  toast(`${c.name} climbs on behind you and grabs hold. ${c.hosp ? "Get them to the health centre in Kjøllefjord: the blue H on the Map." : `Get them somewhere warm.${c.dest && !c.school ? " Nearest: " + shortName(c.dest) + "." : ""}`}`, "good");
 }
 function sarClue(c, k) {
   const s = c.s; s.clue[k] = true;
@@ -11099,7 +11133,7 @@ function sarEnd(ok, why) {
     GS.cash += pay; SAR.n++; LOG.sar = (LOG.sar || 0) + 1;
     const before = rrank(GS.rescues || 0); GS.rescues = (GS.rescues || 0) + 1; const after = rrank(GS.rescues);
     const r0 = sarRank(SAR.rep); SAR.rep = clamp(SAR.rep + dr, 0, 100); const r1 = sarRank(SAR.rep);
-    toast(`${c.name} is safe and thawing out${GS.near ? " at " + shortName(GS.near) : ""}. +$${pay}${payMul() > 1 ? " (polar night ×1.5)" : ""} · reputation +${dr} (${Math.round(SAR.rep)}).`, "good");
+    toast(`${c.name} is ${c.hosp ? "through the doors of the helsesenter, with a nurse already on them" : "safe and thawing out" + (GS.near ? " at " + shortName(GS.near) : "")}. +$${pay}${payMul() > 1 ? " (polar night ×1.5)" : ""} · reputation +${dr} (${Math.round(SAR.rep)}).`, "good");
     if (r1 !== r0) setTimeout(() => toast(`Dispatch has you down as ${r1.name} now. Better calls, better money.`, "good"), 2400);
     else if (after !== before) setTimeout(() => toast(`New rescue rank: ${after.name}. ${after.opens || ""}`, "good"), 2400);
   } else {
@@ -11119,6 +11153,7 @@ function sarClear() {
 function sarAbort(why) {
   if (SAR.ping && SAR.ping.n) SAR.ping.n.dismiss(); SAR.ping = null;
   const c = SAR.cur; if (!c || c.school) return;
+  if (why === "hosp") { SAR.lost++; LOG.sarLost = (LOG.sarLost || 0) + 1; SAR.rep = clamp(SAR.rep - 6, 0, 100); setTimeout(() => toast(`${c.name} came in on the same ambulance as you. Another crew finished the job. Reputation −6.`, "bad"), 4600); }
   if (why === "blackout") { SAR.lost++; LOG.sarLost = (LOG.sarLost || 0) + 1; SAR.rep = clamp(SAR.rep - 6, 0, 100); setTimeout(() => toast(`The Red Cross crew took ${c.name} in with you. Reputation −6.`, "bad"), 4600); }
   sarClear();
 }
@@ -11153,7 +11188,7 @@ function sarOffer(force) {
   const K = SAR_KINDS[c.kind], km = (c.out / 1000).toFixed(1), dir = sarCard(P.x, P.z, c.x, c.z), cx = c.kind === "search" ? c.s.L : c;
   const n = TABLET.notify({ app: "rescue", kind: "alert", ttl: 30,
     title: `CALLOUT · ${K.name.toUpperCase()} · ${km} km ${dir}`,
-    body: `${c.why} About ${fmtMS(c.T0)} of survival time. ~${fmtCash(c.pay * payMul())}.${c.kind === "tow" ? ` Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.` : ""}`,
+    body: `${c.why} About ${fmtMS(c.T0)} of survival time.${c.hosp ? " Hospital run." : ""} ~${fmtCash(c.pay * payMul())}.${c.kind === "tow" ? ` Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better.` : ""}`,
     actions: [{ label: "ACCEPT", do: () => sarAccept(c) }, { label: "Decline", do: () => sarMiss(c, true) }],
     onExpire: () => sarMiss(c, false) });
   SAR.ping = { c, n, x: cx.x, z: cx.z, t0: gameClock };
@@ -11224,6 +11259,7 @@ function sarTarget(c) {
   if (v.state === "stuck" || v.state === "rig") { const r = c.rv || (RJ.vs && RJ.vs[0]); return r ? { x: r.x, z: r.z } : { x: c.x, z: c.z }; }
   if (sarAboard(c)) {
     if (c.school) return { x: SCHOOLS.rescue.x, z: SCHOOLS.rescue.z + 6 };
+    if (c.hosp) return c.dest;
     if (gameClock - (c.dT || -9) > 1) { c.dT = gameClock; c.dest = (c.kind === "tow" ? sarCabin(P.x, P.z) : sarWarmest(P.x, P.z)).s; }
     return c.dest || depot;
   }
@@ -11239,7 +11275,7 @@ function sarStatus(c) {
     case "stuck": return "winch them out";
     case "rig": return "rig the tow rope (E at their sled)";
     case "tow": return `tow it to ${c.dest ? shortName(c.dest) : "a cabin"}`;
-    default: return c.school ? "back to the yard" : `somewhere warm: ${c.dest ? shortName(c.dest) : "a cabin"}`;
+    default: return c.school ? "back to the yard" : c.hosp ? "to the helsesenter in Kjøllefjord" : `somewhere warm: ${c.dest ? shortName(c.dest) : "a cabin"}`;
   }
 }
 const sarClock = c => { const r = sarRateNow(c); return r < 0 ? "warming" : fmtMS(c.v.core / r) + " survival"; };
@@ -11386,12 +11422,12 @@ TABLET.register({
         act: "sar:duty", actLabel: SAR.duty ? "GO OFF DUTY" : "GO ON DUTY" });
       if (SAR.ping) { const c = SAR.ping.c, left = Math.max(0, 30 - (gameClock - SAR.ping.t0));
         h += sec("Incoming", `${Math.ceil(left)} s to answer`);
-        h += tabCard({ tf: "sping", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + chip(`${fmtMS(c.T0)} SURVIVAL`, "due"),
+        h += tabCard({ tf: "sping", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + (c.hosp ? chip("HOSPITAL", "fragile") : "") + chip(`${fmtMS(c.T0)} SURVIVAL`, "due"),
           meta: `${(c.out / 1000).toFixed(1)} km ${sarCard(P.x, P.z, SAR.ping.x, SAR.ping.z)} · near ${tabEsc(c.near)}`, note: `<span class="why">${tabEsc(c.why)}</span>`, pay: "~" + fmtCash(c.pay * payMul()), act: "sar:acc", actLabel: "ACCEPT" }); }
       const c = SAR.cur;
       if (c && !c.school) {
         h += sec("Callout", sarClock(c));
-        h += tabCard({ tf: "scur", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + chip(sarClock(c).toUpperCase(), "due"),
+        h += tabCard({ tf: "scur", title: `${SAR_KINDS[c.kind].name}: ${c.name}, ${c.who}`, chips: chip(SAR_KINDS[c.kind].chip, "recovery") + (c.hosp ? chip("HOSPITAL", "fragile") : "") + chip(sarClock(c).toUpperCase(), "due"),
           meta: `${sarStatus(c)} · ${fmtMi(Math.hypot(sarTarget(c).x - P.x, sarTarget(c).z - P.z))} to go`, note: `<span class="why">${tabEsc(c.why)}</span> It's on the Map's rescue layer${c.kind === "search" ? " as a search area with the pattern, not a pin: you have to find them" : ""}.`,
           pay: "~" + fmtCash(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()), act: "sar:hand", actLabel: "HAND IT OVER" });
       }
@@ -11413,6 +11449,300 @@ TABLET.register({
 });
 TABLET.addLayer("rescue", sarPts);
 
+/* ---------------- the health centre and crashes: come off the sled at speed ----------------
+   Kjøllefjord helsesenter stands on the edge of town, with an ambulance bay and a helipad on the snow. Two things
+   end up there: rescue casualties who need a doctor rather than a stove (c.hosp, see sarMake), and you, if you come
+   off the sled hard enough.
+
+   A crash is physics, not a dice roll. Hit a trunk, a rock or a wall fast enough, or land a big drop too hard or
+   badly crooked, and the rider leaves the seat with the speed the sled had: a body with gravity, air drag, a snow
+   surface it bounces off and slides across (powder grabs, hardpack lets you skid), trees and walls it can hit.
+   Every impact on the way adds injury: how hard you hit the ground (into-the-snow speed past ~7.5 m/s), how fast
+   you were going along it the first time down, and anything solid you met. Below CRASH_HOSP you lie there a
+   moment, get up, and walk back to the sled (Q to get on). At or above it the screen goes dark and you wake up in
+   the health centre a few hours later with a bill; the Red Cross brings the sled in and parks it out front. */
+const HOSP = { x: 0, z: 0, door: null, park: null, built: false, name: "Kjøllefjord helsesenter" };
+const CRASH_AT = { tree: 14, hard: 12, land: 20, roll: 15 };   // m/s into the thing before you come off (≈31, 27, 45 mph; a crooked landing over 34 mph)
+const CRASH_HOSP = 8;                                            // injury that puts you in the health centre
+const CRASH = { on: false, st: "", x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0, wx: 0, wz: 0, inj: 0, t: 0, t2: 0, still: 0, gnd: false, skip: null, why: "", spd: 0, bounce: 0, lastHit: -9, cool: 0, lie: 0, solid: 0 };
+const hospSite = () => HOSP.built ? { id: "hosp", name: HOSP.name, x: HOSP.door.x, z: HOSP.door.z, hosp: true } : null;
+const hospHere = (x = P.x, z = P.z, r = 18) => HOSP.built && Math.hypot(x - HOSP.door.x, z - HOSP.door.z) < r;
+
+function hospSignTex() {
+  const c = document.createElement("canvas"); c.width = 128; c.height = 128; const g = c.getContext("2d");
+  g.fillStyle = "#1f5aa8"; g.fillRect(0, 0, 128, 128); g.strokeStyle = "#fff"; g.lineWidth = 6; g.strokeRect(8, 8, 112, 112);
+  g.fillStyle = "#fff"; g.font = "800 92px 'Barlow Semi Condensed', Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("H", 64, 70);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+}
+function padTex() {
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
+  g.clearRect(0, 0, 256, 256); g.strokeStyle = "#e8b81f"; g.lineWidth = 14; g.beginPath(); g.arc(128, 128, 112, 0, 6.283); g.stroke();
+  g.fillStyle = "#e8b81f"; g.font = "800 150px 'Barlow Semi Condensed', Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("H", 128, 138);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+}
+function buildHospital() {
+  const { bx, put, L, snowM, metal, glowM, white, concrete } = KIT, d0 = depot;
+  // a flat lot near town, clear of the houses, the shops and the water, with room for the pad beside it
+  let best = null, bs = 1e9;
+  for (let k = 0; k < 900; k++) {
+    const a = k * 2.399, r = 75 + (k / 900) * 130, x = d0.x + Math.cos(a) * r, z = d0.z + Math.sin(a) * r;
+    if (Math.abs(x) > HALF - 200 || Math.abs(z) > HALF - 200) continue;
+    let wet = false; for (const [u, v] of [[0, 0], [14, 0], [-14, 0], [0, 14], [0, -14], [24, 0], [-24, 0], [0, 24], [0, -24]]) if (isSea(x + u, z + v) || isWater(x + u, z + v)) { wet = true; break; }
+    if (wet || bioAt(x, z) === 1) continue;
+    const sl = slopeAt(x, z, 8) + slopeAt(x + 16, z, 6) * 0.5 + slopeAt(x - 16, z, 6) * 0.5;
+    if (sl > 0.32 || obNear(x, z, 26) || Math.hypot(x - garageSite.x, z - garageSite.z) < 45) continue;
+    if (schoolList().some(s => s.x !== undefined && Math.hypot(s.x - x, s.z - z) < 70)) continue;
+    const sc = sl * 120 + r * 0.25; if (sc < bs) { bs = sc; best = [x, z]; }
+  }
+  if (!best) return;
+  const [x, z] = best, ry = Math.atan2(d0.x - x, d0.z - z);      // the entrance faces town
+  const dx = Math.sin(ry), dz = Math.cos(ry), ax = Math.cos(ry), az = -Math.sin(ry);   // front, and along the front
+  const W = 18, D = 11, Hh = 6.6, y0 = Math.min(groundAt(x - ax * 9, z - az * 9), groundAt(x + ax * 9, z + az * 9), groundAt(x + dx * 5, z + dz * 5), groundAt(x, z)) - 0.2;
+  const g = new THREE.Group(); g.position.set(x, y0, z); g.rotation.y = ry; scene.add(g);
+  const panel = L(0xe9ebe8), band = L(0x2d6fb0), glass = L(0x1d2a36), trim = L(0x9aa3ab);
+  bx(g, W, Hh + 3, D, panel, 0, Hh / 2 - 1.5, 0);                                  // two storeys on a plinth that hides the slope
+  bx(g, W + 0.4, 0.35, D + 0.4, trim, 0, Hh + 0.1, 0); bx(g, W + 0.5, 0.35, D + 0.5, snowM, 0, Hh + 0.42, 0);
+  bx(g, W + 0.06, 0.45, D + 0.06, band, 0, 3.25, 0);                               // the blue band between the floors
+  for (let u = -7.5; u <= 7.6; u += 2.5) for (const yy of [1.7, 4.8]) { if (yy < 3 && Math.abs(u) < 3) continue; bx(g, 1.5, 1.1, 0.08, glowM, u, yy, D / 2 + 0.04); bx(g, 1.5, 1.1, 0.08, glowM, u, yy, -D / 2 - 0.04); }
+  for (let v = -3.5; v <= 3.6; v += 2.5) for (const yy of [1.7, 4.8]) for (const sd of [-1, 1]) bx(g, 0.08, 1.1, 1.5, glowM, sd * (W / 2 + 0.04), yy, v);
+  bx(g, 4.8, 2.6, 0.12, glass, 0, 1.3, D / 2 + 0.06); bx(g, 2.2, 2.3, 0.14, glowM, 0, 1.2, D / 2 + 0.08);   // the glass entrance, lit
+  bx(g, 6.4, 0.3, 3.2, trim, 0, 2.95, D / 2 + 1.6); bx(g, 6.6, 0.25, 3.4, snowM, 0, 3.22, D / 2 + 1.6);       // its canopy
+  for (const sx of [-3, 3]) bx(g, 0.18, 2.9, 0.18, metal, sx, 1.45, D / 2 + 3.1);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 1.4), new THREE.MeshBasicMaterial({ map: signTex("HELSESENTER", "KJØLLEFJORD · LEGEVAKT · AMBULANSE", "#f4f6f7", "#1f4f8f") }));
+  sign.position.set(-3.6, 5.9, D / 2 + 0.07); g.add(sign);
+  const hT = hospSignTex();
+  for (const [sx, sz, rr] of [[6.6, D / 2 + 0.07, 0], [W / 2 + 0.07, 2, Math.PI / 2], [-W / 2 - 0.07, 2, -Math.PI / 2]]) { const h = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ map: hT })); h.position.set(sx, 5.6, sz); h.rotation.y = rr; g.add(h); }
+  // the ambulance bay on the left end: a canopy, and a white ambulance with its blue stripe, nose out
+  bx(g, 5, 0.3, 7, trim, -W / 2 - 2.6, 3.6, 0.5); bx(g, 5.2, 0.25, 7.2, snowM, -W / 2 - 2.6, 3.88, 0.5);
+  for (const v of [-2.8, 3.8]) bx(g, 0.2, 3.6, 0.2, metal, -W / 2 - 4.9, 1.8, v);
+  const amb = new THREE.Group(); amb.position.set(-W / 2 - 2.6, 0, 0.6); g.add(amb);
+  bx(amb, 2.2, 2.3, 4.2, white, 0, 1.55, -0.4); bx(amb, 2.2, 1.5, 1.6, white, 0, 1.15, 2.4);
+  bx(amb, 2.24, 0.32, 5.8, band, 0, 1.25, 0.4); bx(amb, 2.0, 0.7, 0.06, glass, 0, 1.7, 3.22);
+  bx(amb, 1.6, 0.18, 0.4, L(0x3a8cff), 0, 2.78, 1.4).material = new THREE.MeshBasicMaterial({ color: 0x5aa0ff });
+  for (const [u, v] of [[-1, 2.2], [1, 2.2], [-1, -1.6], [1, -1.6]]) put(amb, new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), L(0x15181b), u * 1.05, 0.42, v).rotation.z = Math.PI / 2;
+  // obstacles: the building, the canopy posts and the ambulance
+  for (let u = -W / 2 + 1.2; u <= W / 2 - 1.1; u += 2.1) for (let v = -D / 2 + 1.2; v <= D / 2 - 1.1; v += 2.1) addOb({ x: x + ax * u + dx * v, z: z + az * u + dz * v, r: 1.5, top: 1e9 });
+  for (const sx of [-3, 3]) addOb({ x: x + ax * sx + dx * (D / 2 + 3.1), z: z + az * sx + dz * (D / 2 + 3.1), r: 0.25, top: 1e9 });
+  for (const v of [-1.4, 0.6, 2.6]) addOb({ x: x + ax * (-W / 2 - 2.6) + dx * v, z: z + az * (-W / 2 - 2.6) + dz * v, r: 1.25, top: 1e9 });
+  for (const v of [-2.8, 3.8]) addOb({ x: x + ax * (-W / 2 - 4.9) + dx * v, z: z + az * (-W / 2 - 4.9) + dz * v, r: 0.25, top: 1e9 });
+  // the helipad on the snow off the right end, and a windsock
+  const px = x + ax * (W / 2 + 15) + dx * 2, pz = z + az * (W / 2 + 15) + dz * 2;
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(6.5, 40), new THREE.MeshBasicMaterial({ map: padTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  pad.rotation.x = -Math.PI / 2; pad.rotation.z = ry; pad.position.set(px, surf(px, pz) + 0.06, pz); scene.add(pad); HOSP.pad = pad;
+  { const sx = px + ax * 8, sz = pz + az * 8, sg = new THREE.Group(); sg.position.set(sx, groundAt(sx, sz) - 0.2, sz); scene.add(sg);
+    put(sg, new THREE.CylinderGeometry(0.06, 0.08, 5, 8), metal, 0, 2.5, 0);
+    const sock = put(sg, new THREE.ConeGeometry(0.32, 1.8, 10, 1, true), L(0xe8642a), 0.9, 4.8, 0); sock.rotation.z = Math.PI / 2; HOSP.sock = sg;
+    addOb({ x: sx, z: sz, r: 0.2, top: 1e9 }); }
+  KIT.lamp(x + dx * (D / 2 + 7) + ax * 6, z + dz * (D / 2 + 7) + az * 6); KIT.lamp(x + dx * (D / 2 + 7) - ax * 6, z + dz * (D / 2 + 7) - az * 6);
+  HOSP.x = x; HOSP.z = z; HOSP.ry = ry;
+  HOSP.door = { x: x + dx * (D / 2 + 4.4), z: z + dz * (D / 2 + 4.4), yaw: ry };                 // you walk out under the canopy, facing town
+  HOSP.park = { x: x + dx * (D / 2 + 6.6) + ax * 2.2, z: z + dz * (D / 2 + 6.6) + az * 2.2, yaw: ry + Math.PI / 2 };   // and the sled's parked just out front
+  HOSP.built = true;
+}
+// the H on the minimap / big map / tablet charts
+function hospMapPin(g, sx, sz, s) {
+  g.fillStyle = "#0d1822"; g.fillRect(sx - s - 2, sz - s - 2, 2 * s + 4, 2 * s + 4);
+  g.fillStyle = "#2d6fb0"; g.fillRect(sx - s, sz - s, 2 * s, 2 * s);
+  g.fillStyle = "#fff"; const w = Math.max(1.4, s * 0.32);
+  g.fillRect(sx - s * 0.55, sz - s * 0.6, w, s * 1.2); g.fillRect(sx + s * 0.55 - w, sz - s * 0.6, w, s * 1.2); g.fillRect(sx - s * 0.55, sz - w / 2, s * 1.1, w);
+}
+
+/* ---- the crash itself ---- */
+function crashOk() {
+  return started && !GS.dead && !CRASH.on && !FOOT.on && !HELP.on && !BOG.on && !WN.pullV && CRASH.cool <= 0 && !GS.garageOpen && !godOpen
+    && !(FISH && FISH.on) && !(typeof SEASON !== "undefined" && SEASON.card) && !TCAM.launch && !showroomOn();
+}
+// throw the rider off with the sled's velocity. skip: the trunk you hit, ignored for a moment so you sail past it
+function crashEject(why, vx, vy, vz, skip) {
+  if (!crashOk()) return false;
+  const C = CRASH, spd = Math.hypot(vx, vz), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  C.on = true; C.st = "fly"; C.t = 0; C.t2 = 0; C.still = 0; C.inj = 0; C.why = why; C.spd = spd; C.skip = skip || null; C.bounce = 0; C.lastHit = -9; C.solid = 0;
+  C.x = P.x - fx * 0.1; C.z = P.z - fz * 0.1; C.y = P.y + 1.05;
+  C.vx = vx * 0.94; C.vz = vz * 0.94; C.vy = Math.max(vy, 0) * 0.6 + 2.0 + spd * 0.2;
+  C.ry = Math.atan2(vx, vz); C.rx = 0; C.rz = 0;
+  C.wx = spd * (0.3 + Math.random() * 0.15); C.wz = (Math.random() - 0.5) * spd * 0.22;   // head over heels, with a twist
+  TABLET.close(true); camState.init = false;
+  P.shake = 1; thud(1); cargoHit(spd * 0.9);
+  for (let k = 0; k < 40; k++) emit(P.x, P.y + 0.6, P.z, vx * 0.3 + (Math.random() - 0.5) * 4, 1 + Math.random() * 3, vz * 0.3 + (Math.random() - 0.5) * 4, 1.4, 1);
+  const c = SAR.cur;
+  if (c && !c.res && c.v && c.v.state === "pillion") setTimeout(() => { if (SAR.cur === c) toast(`${c.name} somehow stayed on the seat. Shaken, still aboard.`, "warn"); }, 1600);
+  return true;
+}
+function crashCancel() {
+  if (!CRASH.on) return;
+  CRASH.on = false; CRASH.st = ""; crashPoseReset(); if (FOOT.g && !FOOT.on) FOOT.g.visible = false;
+}
+function crashPoseReset() {
+  if (!FOOT.g) return; const U = FOOT.g.userData;
+  for (const a of U.arms) a.rotation.set(0, 0, 0); for (const f of U.fore) f.rotation.set(0, 0, 0); for (const l of U.legs) l.rotation.set(0, 0, 0);
+  U.torso.rotation.set(0, 0, 0); U.torso.position.y = 0.93; FOOT.g.rotation.set(0, FOOT.yaw, 0, "XYZ");
+}
+// the snow, the ground, the trees: one physics step for the flying, bouncing, sliding body
+function crashStep(dt) {
+  const C = CRASH; if (!C.on) return;
+  if (HELP.on || GS.dead) { crashCancel(); return; }
+  C.t += dt; C.cool = 0;
+  if (C.st === "fly") {
+    C.vy -= G * dt;
+    const sp3 = Math.hypot(C.vx, C.vy, C.vz), kd = Math.exp(-0.0055 * sp3 * dt);       // a body in a riding suit: about 0.4 v² of drag
+    C.vx *= kd; C.vy *= kd; C.vz *= kd;
+    C.x += C.vx * dt; C.y += C.vy * dt; C.z += C.vz * dt;
+    const lim = HALF - 24; C.x = clamp(C.x, -lim, lim); C.z = clamp(C.z, -lim, lim);
+    // into the water: the fjord, or a lake the melt opened
+    const wl = wlvAt(C.x, C.z);
+    if (wl !== null && C.y < wl + 0.25) { crashSplash(); return; }
+    // the ground
+    const R = 0.28, hs = surf(C.x, C.z);
+    C.gnd = C.y < hs + R + 0.02;
+    if (C.y < hs + R) {
+      const e = 0.6, gx = (surf(C.x + e, C.z) - surf(C.x - e, C.z)) / (2 * e), gz = (surf(C.x, C.z + e) - surf(C.x, C.z - e)) / (2 * e);
+      const nl = Math.hypot(gx, 1, gz), nx = -gx / nl, ny = 1 / nl, nz = -gz / nl;
+      C.y = hs + R;
+      const vn = -(C.vx * nx + C.vy * ny + C.vz * nz);                                  // speed into the snow
+      if (vn > 0) {
+        const tx = C.vx + nx * vn, ty = C.vy + ny * vn, tz = C.vz + nz * vn, vt = Math.hypot(tx, ty, tz);
+        if (vn > 3.2 && C.t - C.lastHit > 0.12) {
+          const hurt = Math.max(0, vn - 7.5) + (C.bounce === 0 ? Math.max(0, vt - 12) * 0.3 : Math.max(0, vt - 18) * 0.12);
+          C.inj += hurt; C.lastHit = C.t; C.bounce++;
+          crater(C.x, C.z, Math.min(0.4, 0.06 + vn * 0.025));
+          for (let k = 0; k < 14 + vn * 3; k++) emit(C.x, C.y, C.z, tx * 0.25 + (Math.random() - 0.5) * 4, 1 + Math.random() * vn * 0.35, tz * 0.25 + (Math.random() - 0.5) * 4, 1.4, 1.1);
+          thud(Math.min(1, 0.25 + vn / 14)); P.shake = Math.max(P.shake, Math.min(0.9, vn / 14));
+        }
+        const rest = vn > 4 ? 0.22 : 0;                                                  // snow soaks most of it up
+        C.vx += nx * vn * (1 + rest); C.vy += ny * vn * (1 + rest); C.vz += nz * vn * (1 + rest);
+      }
+      // sliding and tumbling along: powder grabs a body, hardpack and ice let it skid
+      const ix = Math.round((C.x + HALF) / CELL), iz = Math.round((C.z + HALF) / CELL), d = depthAt(ix, iz), f = freshAt(ix, iz);
+      const pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1, ice = bioAt(C.x, C.z) === 1 && f < 0.12;
+      const mu = ice ? 0.12 : lerp(0.85, 0.32, pack), sp = Math.hypot(C.vx, C.vz);
+      if (sp > 1e-3) { const dv = Math.min(sp, (mu * G * ny + (ice ? 0.004 : 0.018) * sp * sp) * dt); C.vx -= C.vx / sp * dv; C.vz -= C.vz / sp * dv; }
+      if (sp > 3 && Math.random() < dt * 30) emit(C.x, C.y - 0.1, C.z, C.vx * 0.3, 0.8 + Math.random() * 1.5, C.vz * 0.3, 0.9, 0.8);
+      if (sp > 2 && Math.random() < dt * 14) crater(C.x, C.z, 0.05);                // a body-shaped furrow
+    }
+    // trees, rocks, walls
+    const gx0 = Math.floor((C.x + HALF) / OBC), gz0 = Math.floor((C.z + HALF) / OBC);
+    for (let j = gz0 - 1; j <= gz0 + 1; j++) for (let i = gx0 - 1; i <= gx0 + 1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.log || o.down || o.parked || C.y - 0.28 > o.top) continue;
+        if (o === C.skip && C.t < 0.35) continue;
+        const dx = C.x - o.x, dz = C.z - o.z, rr = o.r + 0.3, d2 = dx * dx + dz * dz;
+        if (d2 >= rr * rr || d2 < 1e-6) continue;
+        const dd = Math.sqrt(d2), nx = dx / dd, nz = dz / dd;
+        C.x = o.x + nx * rr; C.z = o.z + nz * rr;
+        const vn = -(C.vx * nx + C.vz * nz);
+        if (vn > 0) {
+          const tree = o.tree !== undefined;
+          if (vn > 2 && C.t - C.lastHit > 0.08) {
+            C.inj += tree ? Math.max(0, vn - 5) * 1.3 : Math.max(0, vn - 6) * 1.2; C.lastHit = C.t; C.solid++;
+            thud(Math.min(1, 0.3 + vn / 12)); P.shake = Math.max(P.shake, Math.min(1, vn / 10));
+            if (tree) { wobble(o, 0.05 + vn * 0.012, -dx, -dz); if (o.snowy) dropSnow(o, vn > 6); }
+          }
+          C.vx += nx * vn * 1.15; C.vz += nz * vn * 1.15; C.vx *= 0.7; C.vz *= 0.7;
+        }
+      }
+    }
+    // the tumble: free spin in the air, rolling along with the slide on the snow
+    if (!C.gnd) { C.rx += C.wx * dt; C.rz += C.wz * dt; }
+    else {
+      const sp = Math.hypot(C.vx, C.vz);
+      C.wx += (sp / 0.4 * 0.55 - C.wx) * (1 - Math.exp(-5 * dt)); C.wz *= Math.exp(-6 * dt);
+      C.rx += C.wx * dt; C.rz += C.wz * dt;
+      if (sp > 1.5) C.ry = angLerp(C.ry, Math.atan2(C.vx, C.vz), 1 - Math.exp(-3 * dt));
+    }
+    // come to rest
+    if (C.gnd && Math.hypot(C.vx, C.vy, C.vz) < 0.8) C.still += dt; else C.still = 0;
+    if (C.still > 0.3 || C.t > 9) {
+      C.st = "down"; C.t2 = 0; C.vx = C.vy = C.vz = 0;
+      const T = Math.PI * 2, r = ((C.rx % T) + T) % T;                                 // landed on your front or your back
+      if (r < Math.PI) { C.lie = Math.PI / 2; C.rx = r; } else { C.lie = -Math.PI / 2; C.rx = r - T; }
+      C.rz = ((C.rz % T) + T + Math.PI) % T - Math.PI;
+    }
+  } else if (C.st === "down") {
+    C.t2 += dt;
+    const k = 1 - Math.exp(-6 * dt); C.rx += (C.lie - C.rx) * k; C.rz += (0 - C.rz) * k;
+    C.y += (surf(C.x, C.z) + 0.16 - C.y) * k;
+    const sledSp = Math.hypot(P.vx, P.vz);
+    if (C.t2 > 1.5 && (sledSp < 1.2 || C.t2 > 5)) {
+      if (C.inj >= CRASH_HOSP) { crashHospital(); return; }
+      C.st = "up"; C.t2 = 0; C.lie0 = C.rx;
+    }
+  } else if (C.st === "up") {
+    C.t2 += dt;
+    const u = clamp(C.t2 / 0.9, 0, 1), e = u * u * (3 - 2 * u);
+    C.rx = lerp(C.lie0, 0, e); C.rz = 0; C.y = surf(C.x, C.z) + lerp(0.16, 1.0, e);
+    C.ry = angLerp(C.ry, Math.atan2(P.x - C.x, P.z - C.z), 1 - Math.exp(-4 * dt));
+    if (u >= 1) crashGetUp();
+  }
+}
+// back on your feet where you stopped: walk back to the sled
+function crashGetUp() {
+  const C = CRASH;
+  FOOT.x = C.x; FOOT.z = C.z; FOOT.y = surf(C.x, C.z); FOOT.yaw = Math.atan2(P.x - C.x, P.z - C.z); FOOT.sp = 0; FOOT.dig = false;
+  C.on = false; C.st = ""; C.cool = 1.5; crashPoseReset();
+  FOOT.on = true; P.vx = P.vz = 0;
+  const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
+  const line = C.inj < 1.5 ? `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
+  toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${TC.on ? "tap Q" : "press Q"} to get on.`, C.inj < 4.5 ? "warn" : "bad");
+  LOG.crashes = (LOG.crashes || 0) + 1;
+}
+// into the water mid-crash: the existing fjord/through-the-ice blackout takes it from here
+function crashSplash() {
+  const C = CRASH;
+  for (let k = 0; k < 50; k++) emit(C.x, (wlvAt(C.x, C.z) || SEA) + 0.1, C.z, C.vx * 0.2 + (Math.random() - 0.5) * 6, 2 + Math.random() * 5, C.vz * 0.2 + (Math.random() - 0.5) * 6, 1.5, 1.2);
+  thud(0.8); C.on = false; C.st = ""; crashPoseReset(); if (FOOT.g) FOOT.g.visible = false;
+  P.wl = wlvAt(C.x, C.z) || SEA; blackout("sea");
+}
+// too hard: lights out, and you wake up in the health centre
+function crashHospital() {
+  const C = CRASH, inj = C.inj, mph = Math.round(C.spd * 2.237);
+  C.on = false; C.st = ""; crashPoseReset(); if (FOOT.g) FOOT.g.visible = false;
+  LOG.crashes = (LOG.crashes || 0) + 1; LOG.hosp = (LOG.hosp || 0) + 1;
+  if (SCHOOL.on || !HOSP.built) { blackout("crash"); return; }
+  GS.dead = true; TABLET.close(); if (FISH) FISH.abort(); sarAbort("hosp"); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
+  if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town in the ambulance. No fare, and a story to tell."), 4200); }
+  const fee = Math.round(Math.min(420, 180 + 18 * (inj - CRASH_HOSP)) * (1 - (ST ? ST.rescue : 0)) / 5) * 5, hrs = clamp(Math.round(2 + inj * 0.15), 2, 6);
+  const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
+  const bonds = GS.load.reduce((a, j) => a + (j.bond || 0), 0);
+  const lost = cargo ? ` The ${cargo} didn't survive the trip.` + (bonds ? ` The shippers keep your $${bonds} in bonds.` : "") : "";
+  GS.cash = Math.max(0, GS.cash - fee);
+  for (const j of GS.load) if (j.crate) j.crate.state = "wait";
+  GS.load = []; GS.jobs = []; GS.contracts = null; GS.claims = [];
+  applyLoadout();
+  const how = C.solid ? "met something solid on the way down" : C.why === "land" ? "landed it on your head instead of the skis" : "flew a long way";
+  $("blackMsg").innerHTML = `<b>KJØLLEFJORD HELSESENTER</b>You came off at ${mph} mph, ${how}, and woke up ${hrs} hours later with a drip in your arm and a nurse telling you how lucky you are. The Red Cross crew brought the sled in.<span>−$${fee} for the stitches and the scan.${lost}</span>`;
+  $("black").hidden = false;
+  setTimeout(() => {
+    GS.hour += hrs;
+    const pk = HOSP.park, dr = HOSP.door;
+    P.x = pk.x; P.z = pk.z; P.yaw = pk.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.pitch = P.roll = 0; P.y = surf(P.x, P.z) + 0.3; P.safe = { x: pk.x, z: pk.z, yaw: pk.yaw };
+    FOOT.x = dr.x; FOOT.z = dr.z; FOOT.y = surf(dr.x, dr.z); FOOT.yaw = Math.atan2(pk.x - dr.x, pk.z - dr.z); FOOT.sp = 0; FOOT.on = true;
+    recenter(P.x, P.z, false); camState.init = false; camState.yaw = FOOT.yaw; towSnap();
+    GS.warmth = 90; GS.fuel = Math.max(GS.fuel, GS.cap * 0.5); heatCool(); GS.outWarned = GS.coldWarned = GS.lowWarned = false;
+  }, 1200);
+  setTimeout(() => { $("black").hidden = true; GS.dead = false; CRASH.cool = 3; save(); toast(`Discharged. Your sled's parked out front: ${TC.on ? "tap Q" : "Q"} to get on, and maybe a bit slower this time.`, "warn"); }, 4200);
+}
+// the body: the walker figure, tumbling about its middle
+const _crE = new THREE.Euler(0, 0, 0, "YXZ"), _crV = new THREE.Vector3();
+function crashVisual(dt) {
+  const C = CRASH; if (!C.on || !FOOT.g) return;
+  const g = FOOT.g, U = g.userData, t = C.t;
+  g.visible = true;
+  _crE.set(C.rx, C.ry, C.rz, "YXZ"); g.rotation.copy(_crE);
+  _crV.set(0, 1.0, 0).applyEuler(_crE);
+  g.position.set(C.x - _crV.x, C.y - _crV.y, C.z - _crV.z);
+  const air = C.st === "fly" && !C.gnd, limp = C.st === "down", s = Math.sin(t * 11), s2 = Math.sin(t * 13 + 1.3);
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? -1 : 1, a = U.arms[i], l = U.legs[i];
+    if (air) { a.rotation.set(-2.2 + s * 0.9 * sd, 0, sd * (0.9 + s2 * 0.4)); l.rotation.set(0.5 * s * sd, 0, sd * 0.35); }
+    else if (limp) { a.rotation.set(-0.3, 0, sd * 0.8); l.rotation.set(0.1 * sd, 0, sd * 0.18); }
+    else if (C.st === "up") { const u = clamp(C.t2 / 0.9, 0, 1); a.rotation.set(lerp(-0.9, 0, u), 0, sd * lerp(0.6, 0, u)); l.rotation.set(lerp(-1.2, 0, u) * (i ? 0.2 : 1), 0, 0); }
+    else { a.rotation.set(-1.2 + s * 0.5, 0, sd * 0.7); l.rotation.set(0.3 * s * sd, 0, sd * 0.2); }
+    U.fore[i].rotation.set(air ? -0.6 : limp ? -0.2 : 0, 0, 0);
+  }
+  U.torso.rotation.x = air ? 0.25 : 0; U.torso.position.y = 0.93;
+}
+
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
 let last = performance.now(), acc = 0, live = false;
@@ -11426,6 +11756,7 @@ function frame(t) {
   TABLET.step(dt);
   if (started && !SEASON.card) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
+  crashVisual(dt);
   if (FISH && FISH.on) FISH.frame(dt);                                  // out on the ice: the walker, rod, line and the side-view camera
   wnVisual(dt);
   dogTick(dt);
@@ -11554,7 +11885,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
-  buildFishShops(); initFishing();
+  buildFishShops(); buildHospital(); initFishing();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);
