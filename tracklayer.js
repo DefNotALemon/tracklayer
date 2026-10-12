@@ -4762,14 +4762,11 @@ function bumpDelivered() {
 function applyUpg() { restat(); }
 function cargoHit(v) {
   if (!GS.load.length || v < 6 + ST.soak + ST.armor * 4) return;
-  const small = smallLoads();
-  small.forEach(j => j.hits++);
+  const frag = smallLoads().filter(j => j.fragile);   // sturdy parcels shrug off any knock; only the fragile ones keep count
+  frag.forEach(j => j.hits++);
   if (bigLoads().length) bigHit(clamp((v - 6 - ST.soak) * 2.2, 3, 22), "Load bounced on the trailer.");
-  if (!small.length) return;
-  const frag = small.some(j => j.fragile);
-  toast(frag
-    ? `Cargo rattled. Fragile pay −${ST.care ? "7.5" : "15"}% a hit.`
-    : "Cargo took a knock. They won't be topping off your tank.", "warn");
+  if (!frag.length) return;
+  toast(`Cargo rattled. Fragile pay −${ST.care ? "7.5" : "15"}% a hit.`, "warn");
 }
 function deliver(site) {
   const crates = GS.load.filter(j => j.crate && j.dest === site);
@@ -4788,7 +4785,7 @@ function deliver(site) {
     if (j.big) {
       if (j.cond < 30) { p = 0; bondBack = false; note("refused, too damaged"); clean = false; }
       else if (j.cond < 99) { p *= j.cond / 100; note(Math.round(j.cond) + "% condition"); if (j.cond < 80) clean = false; }
-    } else if (j.hits) { if (j.fragile) p *= Math.max(0.3, 1 - (ST.care ? 0.075 : 0.15) * j.hits); note("damaged"); clean = false; }
+    } else if (j.hits && (j.fragile || j.soaked)) { if (j.fragile) p *= Math.max(0.3, 1 - (ST.care ? 0.075 : 0.15) * j.hits); note(j.fragile ? "damaged" : "soaked"); clean = false; }
     if (j.due && GS.hour > j.due) {
       if (j.priority) { p *= 0.3; bondBack = false; note("too late"); }
       else { p *= 0.5; note(j.boat ? "missed the boat" : "late"); }
@@ -5989,7 +5986,7 @@ function pbLegs(r) {
 function pbRows() {
   const slots = [], posted = [], full = () => smallLoads().length + claimSmall() >= ST.slots;
   for (const j of smallLoads()) slots.push({ kind: "ab", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: null, to: j.dest, pay: payTxt(j), sub: `to ${shortName(j.dest)}`,
-    meta: `to ${tabEsc(shortName(j.dest))} · ${fmtMi(pbKm(j.dest, P))} from you${j.hits ? " · knocked about" : ""}`, note: pbNote(j) });
+    meta: `to ${tabEsc(shortName(j.dest))} · ${fmtMi(pbKm(j.dest, P))} from you${j.hits && (j.fragile || j.soaked) ? (j.fragile ? " · knocked about" : " · soaked") : ""}`, note: pbNote(j) });
   for (const j of GS.claims.filter(c => !c.big && !c.tour)) { const f = j.from || depot; slots.push({ kind: "cl", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} → ${shortName(j.dest)}`,
     meta: `pick up at ${tabEsc(f.name)} (${fmtMi(pbKm(f, P))} from you), then ${jobKm(j).toFixed(1)} km to ${tabEsc(shortName(j.dest))}`, note: pbNote(j) }); }
   GS.jobs.forEach(j => {
@@ -10317,7 +10314,7 @@ function helpDone() {
     const r = HELP.rs, sx = Math.sin(r.userData.yaw), sz = Math.cos(r.userData.yaw);
     P.safe = { x: P.x, z: P.z, yaw: P.yaw }; towSnap();
     GS.warmth = Math.max(GS.warmth, 25); BOG.immune = 6;
-    let wet = 0; for (const j of GS.load) { if (j.big) { j.cond = Math.max(0, j.cond - 40 * (j.fragile ? 1.3 : 1) * (1 - ST.armor)); wet++; } else { j.hits = (j.hits || 0) + 2; wet++; } }
+    let wet = 0; for (const j of GS.load) { if (j.big) { j.cond = Math.max(0, j.cond - 40 * (j.fragile ? 1.3 : 1) * (1 - ST.armor)); wet++; } else { j.hits = (j.hits || 0) + 2; j.soaked = true; wet++; } }
     toast(`Winched out of the ${P.wl !== SEA ? "lake" : "fjord"}: −$${fee}.${wet ? " Everything aboard is soaked and worth less." : ""}`, "warn");
     HELP.cab.hide(); HELP.phase = "leave"; HELP.t = 0; HELP.on = false; HELP.called = true;
     r.userData.yaw = Math.atan2(sx, sz);
