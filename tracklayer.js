@@ -218,6 +218,10 @@ function surf(x, z) {
   return groundAt(x, z) + a + (b - a) * tx + (c - a) * tz + (a - b - c + d) * tx * tz;
 }
 const smoothSurf = (x, z) => groundAt(x, z) + sampleG(freshG, x, z) * 0.4;
+// every sled runs SPEED_K faster flat out: more push at speed and less air drag, the low-speed pull left alone
+const SPEED_K = 1.42;
+// arcade bounce: the sled rebounds off landings and pops off crests, and the body bobs on a soft, springy suspension
+const BOUNCE = { land: 0.42, landMax: 6.5, pop: 0.55, hop: 8.2, k: 170, c: 8.5 };
 // Open water. Carry enough speed and a sled planes across the fjord like a skipped stone: the track
 // throws water back hard enough to hold the whole machine up. Drop under planing speed and it
 // settles in, the drag climbs, it settles further. Pin it and you can claw back up; let off and it's gone.
@@ -1976,7 +1980,7 @@ var SAR = {
   duty: false, rep: 10, miss: 0, n: 0, lost: 0, ign: 0,
   cur: null, ping: null, coolT: -999, rollT: false, pill: null, foot: null, prints: null, glove: null, rope: null, seq: 0, odT: 0
 };
-const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0 };
+const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0, comp: 0, lastSv: 0, sY: 0, sV: 0 };
 function resetSled() {
   if (CRASH.on) return;                               // no resetting your way out of a crash (or the hospital)
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
@@ -2636,8 +2640,9 @@ function physCore(dt) {
   P.wh = clamp(P.wh + (whOn ? 2.4 : -3.2) * dt, 0, 1);
   if (P.wh > 0.7 && gnd) { P.whRun += Math.abs(vf) * dt; if (P.whRun > P.whBest) P.whBest = P.whRun; }
   else if (P.wh < 0.2) P.whRun = 0;
-  const tgt = -input.steer * (1.7 + input.lean * 0.75) * lerp(1, 0.32, P.wh) * spf * (vf < -0.3 ? -1 : 1);
-  if (gnd) P.yr += (tgt - P.yr) * (1 - Math.exp(-7 * dt));
+  const zip = ST.zip || 1;
+  const tgt = -input.steer * (1.7 + input.lean * 0.75) * Math.sqrt(zip) * lerp(1, 0.32, P.wh) * spf * (vf < -0.3 ? -1 : 1);
+  if (gnd) P.yr += (tgt - P.yr) * (1 - Math.exp(-7 * zip * dt));
   else P.yr *= Math.exp(-1.5 * dt);                                   // no steering in the air, spin just bleeds off
   const dyaw = P.yr * dt; P.yaw += dyaw;
   if (gnd) {
@@ -2656,15 +2661,16 @@ function physCore(dt) {
     // worst. The stock Frontier holds about 15 mph up the steepest faces.
     const up = Math.max(0, gx * fx + gz * fz), steep = sstep(0.1, 0.85, up);     // uphill grade under the skis
     const hill = M * G * up / (1 + g2);                                         // what the climb takes
-    const grunt = Math.max(3600 * PWR * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * PWR * M);
-    const pw = 47000 * PWR * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
+    const punch = lerp(zip, 1, clamp(Math.abs(vf) / 25, 0, 1));                 // a quick chassis jumps off the line
+    const grunt = Math.max(3600 * PWR * punch * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * PWR * M);
+    const pw = 47000 * PWR * SPEED_K * punch * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
     // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
-    const Fs = P.drag + TOW.drag + rolling + (0.9 + 1.6 * slush) * sp * sp + (wet ? (2.2 + 9 * P.sink) * sp * sp + 3000 * P.sink : 0);
+    const Fs = P.drag + TOW.drag + rolling + (0.9 + 1.6 * slush) / (SPEED_K * SPEED_K) * sp * sp + (wet ? (2.2 + 9 * P.sink) * sp * sp + 3000 * P.sink : 0);
     if (sp > 0.01) { const dv = Math.min(sp, Fs / M * dt); vx -= vx / sp * dv; vz -= vz / sp * dv; }
     const grip = (wet ? 1.6 + ST.grip * 0.2 : lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh)) * (1 - 0.35 * slush);
     // ruts: a packed trail is a groove, and the sled settles into it unless you steer out
@@ -2727,7 +2733,7 @@ function physCore(dt) {
       if (Math.random() < 0.3) emit(P.x - fx * 1.6, P.y + 0.3, P.z - fz * 1.6, -fx * 3 + (Math.random() - 0.5) * 4, 3 + Math.random() * 3, -fz * 3 + (Math.random() - 0.5) * 4, 1.5, 1);
     }
   }
-  if (gnd && input.hop && !FOOT.on && !BOG.on) { P.vy = (vx * gx + vz * gz) + 6.5; P.y += 0.14; }
+  if (gnd && input.hop && !FOOT.on && !BOG.on) { P.vy = (vx * gx + vz * gz) + BOUNCE.hop; P.y += 0.14; P.sV -= 1.2; }
   input.hop = false;
   if (P.airT > 0.12) {
     // no stick control in the air: the sled carries whatever kick the lip gave it,
@@ -2757,6 +2763,13 @@ function physCore(dt) {
     vx -= gx / gm * cut; vz -= gz / gm * cut; P.vx = vx; P.vz = vz;
     sv = vx * gx + vz * gz;
   }
+  // arcade bounce: the terrain shoving the skis up loads the springs, and when it falls away over a crest they kick back
+  if (gnd && !wet && !FOOT.on && !BOG.on) {
+    const dsv = sv - P.lastSv;
+    if (dsv > 0) { P.comp = Math.min(6, P.comp + dsv); P.sV -= dsv * 0.12; }
+    else if (dsv < -0.4 && P.comp > 0.8 && Math.hypot(vx, vz) > 4) { P.vy = Math.max(P.vy, sv) + P.comp * BOUNCE.pop; P.y += 0.02; P.comp = 0; }
+  }
+  P.comp *= Math.exp(-5 * dt); P.lastSv = sv;
   if (P.y <= hs2) { P.y = hs2; if (P.vy < sv) P.vy = sv; }
   else { P.airT += dt; P.airPeak = Math.max(P.airPeak, P.y - hs2); }
   const wasAir = P.airT, peak = P.airPeak;
@@ -2792,6 +2805,14 @@ function physCore(dt) {
     }
     P.airPV = P.airRV = 0; P.airP *= 0.25; P.airR *= 0.25; P.launched = 0; P.airT = 0; P.airPeak = 0;
   } else if (P.gnd) { P.airT = 0; P.airPeak = 0; }
+  // the rebound: any real touchdown springs the sled back up a little, and the body squats on its springs
+  if (P.gnd && wasAir > 0.08 && impact > 2 && !sea && !CRASH.on) {
+    const att = Math.abs(P.airP) + Math.abs(P.airR) * 1.25;
+    if (att < 0.8) { P.vy = Math.max(P.vy, sv + Math.min(BOUNCE.landMax, (impact - 1.5) * BOUNCE.land)); P.y += 0.02; P.gnd = false; }
+    P.sV -= Math.min(4.5, impact * 0.32);
+  }
+  // the visual suspension: a soft, underdamped spring the body rides on
+  P.sV += (-BOUNCE.k * P.sY - BOUNCE.c * P.sV) * dt; P.sY = clamp(P.sY + P.sV * dt, -0.28, 0.2);
   collide(fx, fz);
   towStep(dt);
   sarTowStep(dt);                                     // a dead sled on a tow rope (rescue callouts)
@@ -3114,8 +3135,8 @@ function updVisuals(dt) {
   const k = 1 - Math.exp(-(P.gnd ? 12 : 3) * dt);
   P.pitch += (pT - P.pitch) * k; P.roll += (rT - P.roll) * k;
   const lean = input.steer * (0.1 + input.lean * 0.1) * clamp(spd / 15, 0, 1);
-  sledRoot.position.set(P.x, P.y + 1.5 * Math.sin(Math.max(0, P.whVis + cl)) - BOG.sink, P.z);
-  sledRoot.rotation.set(-P.pitch, P.yaw, P.roll);
+  sledRoot.position.set(P.x, P.y + P.sY + 1.5 * Math.sin(Math.max(0, P.whVis + cl)) - BOG.sink, P.z);
+  sledRoot.rotation.set(-P.pitch - clamp(P.sV * 0.025, -0.08, 0.08), P.yaw, P.roll);
   sledBody.rotation.z += (lean - sledBody.rotation.z) * (1 - Math.exp(-8 * dt));
   const skiT = -input.steer * 0.36, kS = 1 - Math.exp(-14 * dt);
   for (const pv of skiPivots) pv.rotation.y += (skiT - pv.rotation.y) * kS;
@@ -7048,7 +7069,7 @@ const SLEDS = [
     id: "frontier", name: "Frontier 340", year: "1970", cost: 0, need: 0,
     era: "Bogie-wheel era — think Ski-Doo Olympique or Arctic Cat Panther",
     blurb: "Fan-cooled single, bogie wheels, a bench seat and a chrome hoop bumper. It starts. Most of the time.",
-    power: 1, fuel: 16, drag: 1.25, grip: -0.6, trackLen: 1.0,
+    power: 1, fuel: 16, drag: 1.05, grip: 0.5, trackLen: 1.0, zip: 1.6,   // light and eager: punches off the line and turns in sharp
     livery: { body: "#f0bd2a", panel: "#1c1c1c", trim: "#c8102e", seat: "#1a1a1a", name: "Olympic yellow over black, red pinstripe" },
     shape: { style: "round", w: 0.78, hoodL: 1.22, zPeak: 0.42, round: 0.62, yTop: 0.86, yPeak: 0.94, yNose: 0.7, yBelly: 0.36, pan: 0.56, tunnelW: 0.56, tunnelL: 1.85, tailRound: true, chrome: true, seat: "bench", barY: 1.1, barZ: 0.3, lamp: "round", bumper: "hoop", skis: "steel", susp: "leaf", gauges: "round", shieldFrame: true, bogies: true, exhaust: -1, trackW: 0.86, extras: [] }
   },
@@ -7444,7 +7465,7 @@ const ownKey = (cat, id) => cat + ":" + id;
 function stats() {
   const sd = sledDef();
   const eng = engineOf(sd);
-  const st = { boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0, cool: 0 };
+  const st = { zip: sd.zip || 1, boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0, cool: 0 };
   for (const cat of PART_ORDER) {
     if (cat === "boost" && boostWhy(sd, GS.own.parts.boost || "none")) continue;
     const o = partDef(cat, GS.own.parts[cat]).stats || {};
