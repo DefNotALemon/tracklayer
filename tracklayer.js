@@ -1775,7 +1775,7 @@ function puffWorld(ci, ex, foot) {
     BR.sp.push({ s, age: 1, life: 1, vx: 0, vy: 0, vz: 0, size: 1, peak: 0 });
   }
   let fx, fz;
-  if (foot) { fx = Math.sin(FOOT.yaw); fz = Math.cos(FOOT.yaw); _bm.set(FOOT.x + fx * 0.22, FOOT.y + 1.58, FOOT.z + fz * 0.22); }
+  if (foot) { fx = Math.sin(FOOT.yaw); fz = Math.cos(FOOT.yaw); _bm.set(FOOT.x + fx * 0.38, FOOT.y + 1.64, FOOT.z + fz * 0.38); }
   else { fx = Math.sin(P.yaw); fz = Math.cos(P.yaw); V.head.g.updateWorldMatrix(true, false); V.head.g.localToWorld(_bm.set(0, -0.03, 0.26)); }
   const n = 1 + (ci > 0.4) + (ci > 0.75) + (ex > 0.7), tint = 0.5 + 0.5 * dayFactor();
   const vx0 = foot ? 0 : P.vx * 0.18, vz0 = foot ? 0 : P.vz * 0.18, wx = windU.uWind.value.x * 0.5, wz = windU.uWind.value.y * 0.5;
@@ -9964,7 +9964,7 @@ function bogStep(dt, spd, thrE, fr) {
 }
 
 /* ---- on foot ---- */
-const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0 };
+const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0 };
 function makeFigure(m) {
   const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = [];
   const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
@@ -9985,9 +9985,101 @@ function makeFigure(m) {
   }
   return g;
 }
+// the player on foot: a plain, soft figure (pills and balls in the kit's flat colours), knees jointed so it can haul each boot up out of the snow
+const capsule = (r, len, mat, parent, y0 = 0) => {   // a capsule hanging down from y0: top cap centre at y0, bottom cap centre at y0 - len
+  const g = new THREE.Group(); g.position.y = y0; parent.add(g);
+  put(new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 16), mat), 0, -len / 2, 0, 0, 0, 0, g);
+  put(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat), 0, 0, 0, 0, 0, 0, g);
+  put(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat), 0, -len, 0, 0, 0, 0, g);
+  return g;
+};
+function makeWalker(m) {
+  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = []; U.shins = [];
+  const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
+  const body = capsule(0.2, 0.3, m.jacket, torso, 0.5); body.scale.set(1, 1, 0.84);                    // the parka: one rounded body
+  put(new THREE.Mesh(new THREE.CylinderGeometry(0.207, 0.207, 0.07, 16), m.trim), 0, -0.36, 0, 0, 0, 0, body);   // hem band
+  put(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.07, 16), m.trim), 0, 0.15, 0, 0, 0, 0, body);      // collar
+  const head = new THREE.Group(); head.position.set(0, 0.83, 0); torso.add(head); U.head = head;
+  ball(0.155, m.helmet, 0, 0, 0, head, 1, 1.02, 1.05);
+  ball(0.15, m.visor, 0, 0.015, 0.045, head, 1, 0.42, 0.85);                                                      // goggle band across the front
+  for (const s of [-1, 1]) {
+    const a = new THREE.Group(); a.rotation.order = "YXZ"; a.position.set(s * 0.25, 0.53, 0); torso.add(a);
+    capsule(0.068, 0.22, m.jacket, a);
+    const fa = new THREE.Group(); fa.position.y = -0.25; a.add(fa);
+    capsule(0.062, 0.17, m.jacket, fa); ball(0.078, m.glove, 0, -0.24, 0.01, fa, 0.9, 1.05, 1);                    // forearm, mitt
+    U.arms.push(a); U.fore.push(fa);
+    const l = new THREE.Group(); l.position.set(s * 0.1, 0.93, 0); g.add(l);
+    capsule(0.098, 0.36, m.pants, l);
+    const sh = new THREE.Group(); sh.position.y = -0.42; l.add(sh);
+    capsule(0.088, 0.3, m.pants, sh); ball(0.105, m.boot, 0, -0.44, 0.05, sh, 0.95, 0.62, 1.45);                       // shin, boot
+    U.legs.push(l); U.shins.push(sh);
+  }
+  return g;
+}
 function buildWalker() {
-  FOOT.g = makeFigure({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot, skin: M.skin });
+  FOOT.g = makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot });
   FOOT.g.visible = false; scene.add(FOOT.g);
+}
+// one leg's trip through a stride, u in 0..1 → [hip, knee]. 0-0.5 swing: the boot is stuck, the knee yanks it up out of
+// the snow, the thigh hauls it high and reaches long; 0.5-1 stance: planted, the body is driven over it and it pushes back
+const _leg = [0, 0];
+function strideLeg(u, st) {
+  if (u < 0.5) {
+    const s = u / 0.5, lift = Math.pow(Math.sin(Math.PI * s), 1.2);
+    _leg[0] = lerp(0.45, -0.55, sstep(0, 1, s)) - lift * 0.75 * st;
+    _leg[1] = 0.12 + Math.sin(Math.PI * Math.pow(s, 1.15)) * (1.0 + 0.7 * st);
+  } else {
+    const s = (u - 0.5) / 0.5;
+    _leg[0] = lerp(-0.55, 0.45, s);
+    _leg[1] = 0.1 + 0.22 * Math.sin(Math.PI * s) * st;
+  }
+  return _leg;
+}
+const frac = x => x - Math.floor(x);
+function poseWalker(g, dt) {
+  const F = FOOT, U = g.userData, st = F.strain, cr = F.crouch, t = gameClock;
+  const amt = clamp(Math.max(Math.abs(F.sp) / 0.9, Math.abs(F.turn) * 0.45), 0, 1) * (1 - cr);
+  const uA = frac(F.step / (Math.PI * 2)), v = frac(uA * 2), side = Math.sin(uA * Math.PI * 2);   // side > 0: weight on the right leg
+  const breath = Math.sin(t * (2.2 + 3.2 * F.tired)) * (0.012 + 0.02 * F.tired);
+  // legs: the stride, faded to a tired stand, folded into a squat to dig
+  for (let i = 0; i < 2; i++) {
+    const [hp, kn] = strideLeg(frac(uA + i * 0.5), st);
+    const ih = 0.04 + 0.12 * F.tired, ik = 0.08 + 0.22 * F.tired;
+    U.legs[i].rotation.set(lerp(lerp(ih, hp, amt), -0.95, cr), 0, (i ? 1 : -1) * 0.03);
+    U.shins[i].rotation.x = lerp(lerp(ik, kn, amt), 1.7, cr);
+  }
+  // arms: big wading pumps, elbows bent, out wide for balance; slack and low when standing; reaching down to dig
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, other = strideLeg(frac(uA + (1 - i) * 0.5), st)[0];
+    const wx = other * 1.05 - 0.3 * st, wf = -(0.45 + 0.45 * st) - 0.45 * Math.max(0, -other);
+    const ix = -0.15 - 0.35 * F.tired + breath, ifr = -0.2 - 0.3 * F.tired;
+    const dg = Math.sin(t * 5.5) * 0.45;
+    U.arms[i].rotation.set(lerp(lerp(ix, wx, amt), -1.0 + dg, cr), 0, sd * lerp(lerp(0.1, 0.16 + 0.22 * st, amt), 0.15, cr));
+    U.fore[i].rotation.set(lerp(lerp(ifr, wf, amt), -0.6 - dg * 0.5, cr), 0, 0);
+  }
+  // body: bent into it, lunging after each plant, rolling onto the loaded leg, shoulders twisting against the hips
+  const lunge = Math.sin(Math.PI * v), pitch = lerp(0.08 + 0.32 * F.tired + breath * 2, 0.24 + 0.24 * st + 0.14 * st * lunge, amt);
+  U.torso.rotation.set(lerp(pitch, 0.75, cr), -side * 0.16 * st * amt, -side * 0.11 * st * amt, "XYZ");
+  U.torso.position.y = 0.93 - cr * 0.1 + breath * (1 - amt);
+  U.head.rotation.x = -U.torso.rotation.x * 0.55;
+  g.rotation.set(0, F.yaw, -side * 0.05 * st * amt, "YXZ");
+  // the hips ride low as each boot drops in, then heave up as the body is driven over it; squatting drops them
+  if (WIPE.w > 0.001) {                                                // wiping the visor with the left arm: lift, bend the elbow, sweep across the goggles
+    const w = WIPE.w, a = U.arms[1], f = U.fore[1];
+    a.rotation.x = lerp(a.rotation.x, -1.2, w);
+    a.rotation.y = lerp(0, Math.asin(clamp((-WIPE.px / 1.2 * 0.2 - 0.25) / 0.34, -0.97, 0.97)), w);
+    a.rotation.z = lerp(a.rotation.z, 0, w);
+    f.rotation.x = lerp(f.rotation.x, -1.6 - WIPE.py * 0.25, w);
+  }
+  return -(0.03 + 0.04 * st) * Math.cos(Math.PI * 2 * v) * amt - 0.04 * st * amt - cr * 0.31;
+}
+// a boot crunching down into snow
+function snowStep(v) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = buf; s.playbackRate.value = 0.7 + Math.random() * 0.25; f.type = "bandpass"; f.frequency.value = 700 + Math.random() * 300; f.Q.value = 0.8;
+  g.gain.setValueAtTime(0.0001, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.5 * v, AC.currentTime + 0.03); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.32);
+  s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime + 0.36);
 }
 function poseFigure(g, sp, step, crouch, dt) {
   const U = g.userData, amt = clamp(Math.abs(sp) / 2.4, 0, 1), sw = Math.sin(step) * 0.75 * amt;
@@ -10029,9 +10121,13 @@ function footStep(dt) {
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   const wade = lerp(0.42, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
-  const tgt = F.dig ? 0 : F.fwd > 0 ? 3.0 * wade * F.fwd : F.fwd < 0 ? 1.8 * wade * F.fwd : 0;
-  F.sp += (tgt - F.sp) * (1 - Math.exp(-7 * dt));
-  let nx = F.x + fx * F.sp * dt, nz = F.z + fz * F.sp * dt;
+  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.7 * wade * F.fwd : F.fwd < 0 ? 1.5 * wade * F.fwd : 0;
+  F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
+  // every step is a fight: how deep it is decides how hard, and the body only really moves while a leg is driving
+  F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
+  const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
+  const mv = F.sp * surge;
+  let nx = F.x + fx * mv * dt, nz = F.z + fz * mv * dt;
   // trees, rocks and buildings
   const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
   for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
@@ -10054,11 +10150,24 @@ function footStep(dt) {
   const lim = HALF - 24; F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
-  F.step += Math.abs(F.sp) * dt * 2.3;
+  // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
+  F.step += (mv * 3.1 + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
-  if (Math.abs(F.sp) > 0.8 && d > 0.3 && Math.random() < dt * 14) emit(F.x - fx * 0.3, F.y + 0.3, F.z - fz * 0.3, -fx * F.sp * 0.3, 0.8 + Math.random(), -fz * F.sp * 0.3, 0.9, 0.7);
-  const g = F.g; g.visible = true; g.position.set(F.x, F.y, F.z); g.rotation.y = F.yaw;
-  poseFigure(g, F.sp, F.step, F.crouch, dt);
+  F.tired = clamp(F.tired + (Math.abs(F.sp) > 0.4 ? 0.07 * F.strain : -0.05) * dt, 0, 1);
+  // a boot goes in at each half-cycle: puff of snow round it and a crunch
+  const half = Math.floor(F.step / Math.PI);
+  if (half !== F.half) {
+    if (Math.abs(F.sp) > 0.25) {
+      const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.1, lz = -Math.sin(F.yaw) * sd * 0.1, px = F.x + fx * 0.5 + lx, pz = F.z + fz * 0.5 + lz;
+      for (let k = 0; k < 3 + d * 8; k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
+      snowStep(0.35 + 0.45 * F.strain);
+    }
+    F.half = half;
+  }
+  if (Math.abs(F.sp) > 0.5 && d > 0.25 && Math.random() < dt * 8) emit(F.x - fx * 0.2, F.y + 0.35, F.z - fz * 0.2, -fx * 0.3, 0.9 + Math.random(), -fz * 0.3, 0.6, 0.6);   // clumps flung off the boot pulling out
+  const g = F.g; g.visible = true;
+  const bob = poseWalker(g, dt);
+  g.position.set(F.x, F.y + bob, F.z);
 }
 
 /* ---- the winch: line, strap and pull ---- */
@@ -11593,6 +11702,7 @@ function crashCancel() {
 function crashPoseReset() {
   if (!FOOT.g) return; const U = FOOT.g.userData;
   for (const a of U.arms) a.rotation.set(0, 0, 0); for (const f of U.fore) f.rotation.set(0, 0, 0); for (const l of U.legs) l.rotation.set(0, 0, 0);
+  if (U.shins) for (const k of U.shins) k.rotation.set(0, 0, 0); if (U.head) U.head.rotation.set(0, 0, 0);
   U.torso.rotation.set(0, 0, 0); U.torso.position.y = 0.93; FOOT.g.rotation.set(0, FOOT.yaw, 0, "XYZ");
 }
 // the snow, the ground, the trees: one physics step for the flying, bouncing, sliding body
@@ -11757,8 +11867,9 @@ function crashVisual(dt) {
     else if (C.st === "up") { const u = clamp(C.t2 / 0.9, 0, 1); a.rotation.set(lerp(-0.9, 0, u), 0, sd * lerp(0.6, 0, u)); l.rotation.set(lerp(-1.2, 0, u) * (i ? 0.2 : 1), 0, 0); }
     else { a.rotation.set(-1.2 + s * 0.5, 0, sd * 0.7); l.rotation.set(0.3 * s * sd, 0, sd * 0.2); }
     U.fore[i].rotation.set(air ? -0.6 : limp ? -0.2 : 0, 0, 0);
+    if (U.shins) U.shins[i].rotation.set(air ? 0.5 + 0.3 * s2 * sd : limp ? 0.15 : C.st === "up" ? lerp(1.4, 0, clamp(C.t2 / 0.9, 0, 1)) * (i ? 0.3 : 1) : 0.3, 0, 0);
   }
-  U.torso.rotation.x = air ? 0.25 : 0; U.torso.position.y = 0.93;
+  U.torso.rotation.set(air ? 0.25 : 0, 0, 0); U.torso.position.y = 0.93; if (U.head) U.head.rotation.set(0, 0, 0);
 }
 
 /* ---------------- loop ---------------- */
