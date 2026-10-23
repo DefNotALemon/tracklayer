@@ -769,10 +769,61 @@ sledRoot.rotation.order = "YXZ";
 /* ---- shared materials and mesh helpers ---- */
 const std = (c, r = 0.6, m = 0.05, extra) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: m }, extra || {}));
 const M = {};
-bodyMat = std(0xf0bd2a, 0.35, 0.2); panelMat = std(0x1c1c1c, 0.55, 0.1); sledTrimMat = std(0xc8102e, 0.4, 0.15);
+/* Sled finish. Two additions give the machines a wet, well-defined gloss under the low arctic sun:
+   - a tiny procedural sky cube as scene.environment: pale zenith, bright horizon band, dark snow
+     field. Glossy paint needs something to mirror; without it a low roughness just goes grey.
+   - a shared wear canvas (grit speckle, hairline scratches, salt bloom) bound as roughnessMap and
+     bumpMap on the livery materials. It multiplies the roughness rather than replacing it and is
+     cloned along with the material by the WEAR system, so used machines keep it under their fade. */
+const sledEnvCube = (() => {
+  const face = (top, horizon, bottom) => {
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 64);
+    gr.addColorStop(0, top); gr.addColorStop(0.58, horizon); gr.addColorStop(1, bottom);
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
+  };
+  const sky = () => face("#dfe9f4", "#f4f7fb", "#9fb0c2");
+  const tex = new THREE.CubeTexture([sky(), sky(), face("#eef4fb", "#f6f9fc", "#dfe9f4"), face("#39424c", "#2c333b", "#20262d"), sky(), sky()]);
+  tex.needsUpdate = true; return tex;
+})();
+const sledWearTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 256, g = c.getContext("2d");
+  g.fillStyle = "#b4b4b4"; g.fillRect(0, 0, 256, 256);                     // base: paint kept glossy
+  const rnd = mulberry32(4242);
+  for (let i = 0; i < 5200; i++) {                                          // grit: sand-blasted speckle
+    const v = 120 + rnd() * 120 | 0;
+    g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(rnd() * 256 | 0, rnd() * 256 | 0, 1, 1);
+  }
+  for (let i = 0; i < 46; i++) {                                            // hairline scratches, rougher than the paint
+    const x = rnd() * 256, y = rnd() * 256, a = rnd() * Math.PI, l = 6 + rnd() * 42;
+    g.strokeStyle = `rgba(235,235,235,${0.25 + rnd() * 0.45})`; g.lineWidth = rnd() < 0.25 ? 2 : 1;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  for (let i = 0; i < 12; i++) {                                            // salt bloom / snow scuff patches
+    const x = rnd() * 256, y = rnd() * 256, r = 14 + rnd() * 36;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, "rgba(225,225,225,0.5)"); gr.addColorStop(1, "rgba(225,225,225,0)");
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 260; i++) {                                           // polished-through bright flecks (shinier than the paint)
+    const v = 60 + rnd() * 40 | 0;
+    g.fillStyle = `rgba(${v},${v},${v},0.7)`; g.fillRect(rnd() * 256 | 0, rnd() * 256 | 0, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+})();
+// glossier paint than before (roughness 0.35/0.55/0.4 → 0.16/0.3/0.2, more metal in the clearcoat);
+// the wear map modulates it per texel
+bodyMat = std(0xf0bd2a, 0.16, 0.35); panelMat = std(0x1c1c1c, 0.3, 0.25); sledTrimMat = std(0xc8102e, 0.2, 0.3);
+for (const lm of [bodyMat, panelMat, sledTrimMat]) {
+  lm.roughnessMap = sledWearTex; lm.bumpMap = sledWearTex; lm.bumpScale = 0.004;
+  lm.envMap = sledEnvCube; lm.envMapIntensity = 1.3;
+}
 jacketMat = std(0x1d3f6e, 0.75); riderTrimMat = std(0xeef2f5, 0.7); pantsMat = std(0x232a33, 0.85);
 M.dark = std(0x1a2027, 0.8); M.black = std(0x0c0f12, 0.95); M.rubber = std(0x14181d, 0.98);
-M.alu = std(0xb9c2cb, 0.45, 0.6); M.steel = std(0x9aa6b2, 0.32, 0.7); M.chrome = std(0xd8e0e8, 0.15, 0.9);
+M.alu = std(0xb9c2cb, 0.32, 0.7); M.steel = std(0x9aa6b2, 0.24, 0.8); M.chrome = std(0xd8e0e8, 0.08, 1.0);
+for (const hm of [M.alu, M.steel, M.chrome]) { hm.envMap = sledEnvCube; hm.envMapIntensity = 1.15; }   // hardware that mirrors the sky reads sharper
 M.glove = std(0x11161c, 0.85); M.skin = std(0xc98a63, 0.85); M.boot = std(0x15191f, 0.9);
 M.glass = std(0xbfe0f2, 0.05, 0.05, { transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
 M.tint = std(0x2a3a48, 0.05, 0.1, { transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
