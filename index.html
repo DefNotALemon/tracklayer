@@ -760,7 +760,7 @@
 </div>
 
 <div class="hud panel" id="speedo" hidden>
-  <div class="row"><div id="spd">0</div><div class="unit">MPH</div></div>
+  <div class="row"><div id="spd">0</div><div class="unit">MPH</div><div class="unit" id="gearV" style="margin-left:auto;letter-spacing:.18em"></div></div>
   <div id="state"><span class="pill" id="pill" data-s="POWDER">POWDER</span><span id="bonus"></span></div>
   <div id="drag"><div id="dragFill"></div></div>
   <div id="dragLbl"><span>Snow drag</span><span id="dragN">0 N</span></div>
@@ -812,7 +812,7 @@
   <div class="bsec">Camera</div>
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
   <div class="bsec">Controls</div>
-  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (F)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
+  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
   <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the full map.</div>
 </div>
 
@@ -850,11 +850,12 @@
   <div><b>Shift</b>Lean into turn</div>
   <div><b>Space</b>Hop</div>
   <div><b>Ctrl</b>Wheelie</div>
-  <div><b>R</b>Reset sled</div>
+  <div><b>R / F</b>Gear up / down (manual sleds)</div>
+  <div><b>N</b>Reset sled</div>
   <div><b>E</b>Horn · stopped by a frozen lake: get off and fish · at the tackle shop or fish buyer: open it</div>
   <div><b>T</b>Garage</div>
   <div><b>G</b>Tiller wings in / out</div>
-  <div><b>F</b>Call a rescue sled (fjord dunking or empty tank)</div>
+  <div><b>P</b>Call a rescue sled (fjord dunking or empty tank)</div>
   <div><b>Z</b>Wipe frost off your visor</div>
   <div><b>Q</b>Get off / on the sled (when bogged)</div>
   <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
@@ -864,7 +865,7 @@
   <div><b>Y</b>God menu</div>
 </div>
 
-<div class="hud panel" id="flip" hidden>STUCK? PRESS R</div>
+<div class="hud panel" id="flip" hidden>STUCK? PRESS N</div>
 
 <div class="hud panel" id="wnHud" hidden>
   <div id="wnHint"></div>

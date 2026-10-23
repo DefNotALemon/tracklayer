@@ -1826,7 +1826,9 @@ addEventListener("keydown", e => {
   if (!started) return;
   if (FISH && (FISH.on || FISH.panelOpen()) && FISH.key(e)) return;      // out on the ice, or in the tackle shop / at the fish buyer
   if (e.code === "Space" && !FOOT.on) input.hop = true;
-  if (e.code === "KeyR") resetSled();
+  if (e.code === "KeyN") resetSled();
+  if (e.code === "KeyR") shiftKey(1);
+  if (e.code === "KeyF") shiftKey(-1);
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
   if (e.code === "KeyM") toggleBigMap();
   if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
@@ -1892,7 +1894,7 @@ function updTouch() {
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
       else if (k === "x") gameKey({ code: "KeyX" });
-      else if (k === "help") gameKey({ code: "KeyF" });
+      else if (k === "help") gameKey({ code: "KeyP" });
       else if (k === "wipe") wipeVisor();
     });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
@@ -1960,7 +1962,7 @@ function readInput(dt) {
   }
   if (!started) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
   FOOT.fwd = 0; FOOT.turn = 0;
-  if (FOOT.on) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider
+  if (FOOT.on && !(typeof MNT !== "undefined" && MNT.on) && !(typeof DMT !== "undefined" && DMT.on)) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider (locked out mid-mount)
   if (FISH && FISH.blocking()) { FOOT.fwd = FOOT.turn = 0; thr = brk = lean = wh = 0; st = 0; analog = null; }                        // fishing, or in the shop: the sled stays parked
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
   input.thr = thr; input.brk = brk; input.lean = lean;
@@ -1982,9 +1984,9 @@ var SAR = {
 };
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0, comp: 0, lastSv: 0, sY: 0, sV: 0 };
 function resetSled() {
-  if (CRASH.on) return;                               // no resetting your way out of a crash (or the hospital)
-  if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press F to call it.", "warn"); return; }
-  if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; wnStow(false); }
+  if (CRASH.on) return;                               // no resetting your way out of a crash
+  if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press P to call it.", "warn"); return; }
+  if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false); }
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
   P.sink = 0; P.wet = false; P.y = rideSurf(P.x, P.z) + 0.4; P.stuckT = 0; towSnap();
@@ -2591,6 +2593,59 @@ function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
   }
 }
 function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
+/* ---------------- gearbox ---------------- */
+// Sleds come in three transmissions. The old ones are manual: R slots up a gear, F back down,
+// and past the top of a gear the power just falls away. Newer sleds shift themselves, but you
+// still feel every change — a pause, a lurch, the note dropping. The newest chassis and the
+// electrics are stepless: one smooth pull from a standstill to flat out.
+// Touch controls have no shift keys, so a manual sled rides as an automatic on phones.
+const GB = { gear: 1, n: 1, vTop: 0, mul: 1, shiftT: 0, hintT: 0, told: "" };
+const gbCount = sd => sd.trans === "manual" || sd.trans === "auto" ? sd.gears || 4 : 1;
+function gbReset() { GB.gear = 1; GB.n = gbCount(sledDef()); GB.vTop = 0; GB.shiftT = 0; GB.mul = 1; GB.hintT = 0; }
+const gbTop = g => GB.vTop * Math.pow(g / GB.n, 0.85);
+function gbShift(d, quiet) {
+  const g = clamp(GB.gear + d, 1, GB.n); if (g === GB.gear) return false;
+  GB.gear = g; GB.shiftT = sledDef().trans === "auto" ? 0.34 : 0.22;
+  P.shake = Math.max(P.shake, quiet ? 0.055 : 0.03);          // you feel it slot in, the automatic most of all
+  thud(quiet ? 0.14 : 0.08);
+  return true;
+}
+function shiftKey(d) {
+  if (FOOT.on || GS.dead) return;
+  const sd = sledDef();
+  if (sd.trans !== "manual" || TC.on) {
+    if (GB.told !== sd.id) {
+      GB.told = sd.id;
+      toast(sd.trans === "manual" ? "No shift keys on the touch controls — it's shifting itself." :
+        sd.trans === "auto" ? `The ${sd.name} shifts itself. You'll feel every one.` : "Stepless drive — one smooth pull, no gears at all.");
+    }
+    return;
+  }
+  gbShift(d, false);
+}
+function gbStep(dt, vf, thrE) {
+  const sd = sledDef();
+  GB.n = gbCount(sd);
+  GB.mul = 1;
+  if (GB.n === 1) return;
+  if (GB.gear > GB.n) GB.gear = GB.n;
+  const spd = Math.abs(vf);
+  if (!GB.vTop) GB.vTop = 23 * (0.7 + 0.5 * ST.power);        // a first guess; it learns the real top speed below
+  if (GB.gear === GB.n && spd > GB.vTop) GB.vTop = spd;       // whatever top gear actually reaches is the yardstick
+  const auto = sd.trans === "auto" || TC.on;                  // phones get an automatic either way
+  if (auto) {
+    if (GB.gear < GB.n && thrE > 0.2 && spd > gbTop(GB.gear) * 0.96) gbShift(1, true);
+    else if (GB.gear > 1 && spd < gbTop(GB.gear - 1) * 0.72) gbShift(-1, true);
+  }
+  const top = gbTop(GB.gear), over = spd / top;
+  let m = lerp(1.32, 1.0, (GB.gear - 1) / Math.max(1, GB.n - 1));   // the low gears are the pulling gears
+  if (over > 1) {                                                 // past the redline the power falls away
+    m *= Math.max(0.14, 1 - (over - 1) * 6);
+    if (!auto && thrE > 0 && GB.gear < GB.n && (GB.hintT -= dt) <= 0) { GB.hintT = 4; toast("Top of the gear — R to shift up.", "warn"); }
+  }
+  if (GB.shiftT > 0) { GB.shiftT -= dt; m *= 0.45; }              // the dead beat between gears
+  GB.mul = m;
+}
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
@@ -2665,7 +2720,8 @@ function physCore(dt) {
     const grunt = Math.max(3600 * PWR * punch * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * PWR * M);
     const pw = 47000 * PWR * SPEED_K * punch * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
-    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
+    gbStep(dt, vf, thrE);
+    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * GB.mul * (1 - 0.9 * P.rock);
     if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
@@ -2687,6 +2743,20 @@ function physCore(dt) {
         vx -= lx * pull * dt; vz -= lz * pull * dt;
         // and the skis drop into the groove, gently swinging the nose to follow it (fades out while you steer)
         P.yr -= fall * rut * 3.2 * (1 - Math.abs(input.steer) * 0.9) * clamp(sp0 / 8, 0, 1) * dt * (vf < -0.3 ? -1 : 1);
+        // a well-run trail steers you round its bends: read where the groove's bottom lies a few
+        // metres ahead and let the skis track to it, like a horse following the road. Lifting the
+        // bars (steering), riding the brake or a wheelie all hand the sled back to you.
+        if (Math.abs(vf) > 1.5) {
+          const look = 3 + sp0 * 0.45, px = P.x + fx * look, pz = P.z + fz * look, o2 = 2.0;
+          const bl = surf(px + lx * o2, pz + lz * o2), br = surf(px - lx * o2, pz - lz * o2), bc = surf(px, pz);
+          const hi2 = Math.max(bl, br, bc), dL = hi2 - bl, dC = hi2 - bc, dR = hi2 - br, dSum = dL + dC + dR;
+          if (dSum > 0.06) {                                   // a groove ahead worth following
+            const off = (dL - dR) * o2 / dSum;                 // where its bottom sits, across the probe
+            const desYaw = Math.atan2(px + lx * off - P.x, pz + lz * off - P.z);
+            const hands = (1 - Math.abs(input.steer) * 0.9) * (1 - input.brk * 0.7) * (1 - P.wh);
+            P.yr += clamp(dAng(P.yaw, desYaw), -1, 1) * rut * 2.6 * hands * clamp(sp0 / 8, 0, 1) * dt;
+          }
+        }
       }
     }
     const gripR = grip * (1 + rut * 0.6);
@@ -3150,8 +3220,12 @@ function updVisuals(dt) {
   { const hid = VIEWS[camMode].fp && !showroomOn(); if (hid !== V.headHid) { V.headHid = hid; applyLoadout(); } }
   sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
   towVisual(dt);
-  // engine rpm
-  const rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
+  // engine rpm: a geared sled revs out through its band and drops a beat between gears
+  let rpmT;
+  if (GB.n > 1) {
+    const lo = GB.gear > 1 ? gbTop(GB.gear - 1) : 0, hi = Math.max(gbTop(GB.gear) - lo, 1);
+    rpmT = clamp(0.16 + clamp((spd - lo) / hi, 0, 1) * 0.7 + input.thr * 0.14 + (GB.shiftT > 0 ? -0.22 : 0) + (input.thr && !P.gnd ? 0.2 : 0), 0, 1.05);
+  } else rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
   // camera
   const view = (FOOT.on || CRASH.on) && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
@@ -3238,6 +3312,8 @@ function updVisuals(dt) {
 }
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
+  const gv = $("gearV"), gt = GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
+  if (gv && gv.textContent !== gt) gv.textContent = gt;
   const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
   $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
@@ -6928,6 +7004,8 @@ TABLET.register({
 
 function gameKey(e) {
   if (GS.dead) return;
+  if (typeof MNT !== "undefined" && MNT.on) return;                                        // busy climbing onto the sled: no foot actions mid-mount
+  if (typeof DMT !== "undefined" && DMT.on) return;                                        // nor mid-climb-off
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
   if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; footAction(); return; }
@@ -6936,7 +7014,7 @@ function gameKey(e) {
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
-  if (e.code === "KeyF") callForHelp();
+  if (e.code === "KeyP") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
 }
 
@@ -7047,7 +7125,7 @@ function buildSettings() {
   tb.textContent = TL[SET.touch];
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
   $("godBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); toggleGod(true); });
-  $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyF" }); });
+  $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyP" }); });
   $("closeMap").addEventListener("click", () => toggleBigMap(false));
   setTouchUI();
   applySettings();
@@ -10101,18 +10179,100 @@ function dismount() {
   if (GS.garageOpen || godOpen) return;
   if (Math.hypot(P.vx, P.vz) > 2.2 || !P.gnd || P.wet) { toast("Stop the sled first.", "warn"); return; }
   const [sx, sz] = sledSide(), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
-  FOOT.x = P.x + sx * 1.05 - fx * 0.3; FOOT.z = P.z + sz * 1.05 - fz * 0.3; FOOT.y = surf(FOOT.x, FOOT.z); FOOT.yaw = P.yaw; FOOT.sp = 0; FOOT.on = true;
+  // start the climb-off: the walker takes over on the seat and DMT drives it out and down (dismountTick)
+  DMT.on = true; DMT.t = 0; DMT.stepped = false;
+  DMT.x1 = P.x + sx * 1.05 - fx * 0.3; DMT.z1 = P.z + sz * 1.05 - fz * 0.3; DMT.y1 = surf(DMT.x1, DMT.z1);
+  FOOT.x = P.x - fx * 0.05; FOOT.z = P.z - fz * 0.05; FOOT.y = P.y + 0.38; FOOT.yaw = P.yaw;
+  FOOT.sp = FOOT.fwd = FOOT.turn = 0; FOOT.dig = false; FOOT.crouch = 1; FOOT.on = true;
   P.vx = P.vz = 0; camState.init = false;
   if (winchDef()) WN.state = "out";
 }
 function mount() {
-  if (!FOOT.on) return;
+  if (!FOOT.on || MNT.on || DMT.on) return;
+  if (FISH && FISH.on) return;
   if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > 3.6) { toast("Get back to the sled first.", "warn"); return; }
-  FOOT.on = false; FOOT.dig = false; wnStow(true); camState.init = false; camState.yaw = P.yaw;
+  // start the climb-on: MNT drives the walker up, over and into the seat (mountTick), then finishMount swaps to the rider
+  MNT.on = true; MNT.t = 0; MNT.stepped = false;
+  MNT.x0 = FOOT.x; MNT.y0 = FOOT.y; MNT.z0 = FOOT.z; MNT.yaw0 = FOOT.yaw;
+  FOOT.fwd = FOOT.turn = FOOT.sp = 0; FOOT.dig = false;
+  wnStow(true); snowStep(0.6);
+}
+/* -- the climb-on: one second of theatre between walking and riding -- */
+const MNT = { on: false, t: 0, dur: 1.25, x0: 0, y0: 0, z0: 0, yaw0: 0, stepped: false };
+function mountTick(dt) {
+  MNT.t += dt;
+  const k = clamp(MNT.t / MNT.dur, 0, 1), e = _sm(k);
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  const tx = P.x - fx * 0.05, tz = P.z - fz * 0.05, ty = P.y + 0.38;              // boots end on the running boards
+  const arc = Math.sin(Math.PI * Math.min(1, k * 1.12)) * 0.5;                  // up and over the seat
+  FOOT.x = lerp(MNT.x0, tx, e); FOOT.z = lerp(MNT.z0, tz, e);
+  FOOT.y = lerp(MNT.y0, ty, e) + arc;
+  FOOT.yaw = angLerp(MNT.yaw0, P.yaw, clamp(k * 1.8, 0, 1));
+  FOOT.sp = 0; FOOT.turn = 0;
+  FOOT.crouch = _sm(clamp((k - 0.35) / 0.6, 0, 1));                             // sink into the seat through the back half
+  FOOT.strain = 0.4; FOOT.step = 0;
+  const g = FOOT.g, U = g.userData;
+  g.visible = true;
+  const bob = poseWalker(g, dt);
+  g.position.set(FOOT.x, FOOT.y + bob, FOOT.z);
+  const sw = Math.sin(Math.PI * clamp((k - 0.15) / 0.55, 0, 1));                // the far leg swings over the seat
+  U.legs[1].rotation.x = lerp(U.legs[1].rotation.x, -1.75, sw * (1 - FOOT.crouch));
+  U.legs[1].rotation.z = -1.05 * sw * (1 - FOOT.crouch);                        // ...and across, over the saddle
+  U.shins[1].rotation.x = lerp(U.shins[1].rotation.x, 1.9, sw);
+  const gr = _sm(clamp((k - 0.55) / 0.4, 0, 1));                                // hands come forward to the grips
+  for (let i = 0; i < 2; i++) {
+    U.arms[i].rotation.set(lerp(U.arms[i].rotation.x, -0.95, gr), 0, (i ? 1 : -1) * lerp(0.15, 0.06, gr));
+    U.fore[i].rotation.x = lerp(U.fore[i].rotation.x, -0.55, gr);
+  }
+  U.head.rotation.x = -U.torso.rotation.x * 0.55;
+  if (!MNT.stepped && k > 0.45) { MNT.stepped = true; snowStep(0.5); }
+  if (k >= 1) finishMount();
+}
+function finishMount() {
+  MNT.on = false; FOOT.on = false; FOOT.dig = false; FOOT.crouch = 0;
+  if (FOOT.g) FOOT.g.visible = false;
+  thud(0.25);
+  camState.init = false; camState.yaw = P.yaw;
+}
+/* -- the climb-off: the mirror of the mount, seat to snow over about a second -- */
+const DMT = { on: false, t: 0, dur: 1.15, x1: 0, y1: 0, z1: 0, stepped: false };
+function dismountTick(dt) {
+  DMT.t += dt;
+  const k = clamp(DMT.t / DMT.dur, 0, 1), e = _sm(k);
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  const sx0 = P.x - fx * 0.05, sz0 = P.z - fz * 0.05, sy0 = P.y + 0.38;            // the seat, where the rider hands over
+  const arc = Math.sin(Math.PI * Math.min(1, k * 1.25)) * 0.35;                  // up over the seat edge, then down to the snow
+  FOOT.x = lerp(sx0, DMT.x1, e); FOOT.z = lerp(sz0, DMT.z1, e);
+  FOOT.y = lerp(sy0, DMT.y1, e) + arc;
+  FOOT.yaw = P.yaw;
+  FOOT.sp = 0; FOOT.turn = 0;
+  FOOT.crouch = 1 - _sm(clamp((k - 0.3) / 0.6, 0, 1));                           // sat deep at first, rising out of the saddle
+  FOOT.strain = 0.4; FOOT.step = 0;
+  const g = FOOT.g, U = g.userData;
+  g.visible = true;
+  const bob = poseWalker(g, dt);
+  g.position.set(FOOT.x, FOOT.y + bob, FOOT.z);
+  const sw = Math.sin(Math.PI * clamp((k - 0.02) / 0.5, 0, 1));                  // the far leg swings back over the seat first
+  U.legs[1].rotation.x = lerp(U.legs[1].rotation.x, -1.75, sw * (0.35 + 0.65 * FOOT.crouch));
+  U.legs[1].rotation.z = -1.05 * sw * (0.35 + 0.65 * FOOT.crouch);
+  U.shins[1].rotation.x = lerp(U.shins[1].rotation.x, 1.9, sw);
+  const gr = 1 - _sm(clamp((k - 0.12) / 0.42, 0, 1));                            // hands hold the grips, then let go
+  if (gr > 0.001) for (let i = 0; i < 2; i++) {
+    U.arms[i].rotation.set(lerp(U.arms[i].rotation.x, -0.95, gr), 0, (i ? 1 : -1) * lerp(0.15, 0.06, gr));
+    U.fore[i].rotation.x = lerp(U.fore[i].rotation.x, -0.55, gr);
+  }
+  U.head.rotation.x = -U.torso.rotation.x * 0.55;
+  if (!DMT.stepped && k > 0.82) { DMT.stepped = true; snowStep(0.6); }
+  if (k >= 1) finishDismount();
+}
+function finishDismount() {
+  DMT.on = false; FOOT.crouch = 0;
+  thud(0.2);
+  camState.init = false;
 }
 function clearRecovery() {
   BOG.on = false; BOG.acc = 0; BOG.immune = 4; BOG.sink = 0;
-  FOOT.on = false; FOOT.dig = false; wnStow(false);
+  FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false);
   if (typeof HELP !== "undefined" && HELP.on) helpEnd(true);
 }
 function footStep(dt) {
@@ -10340,7 +10500,7 @@ function startDrown() {
   if (HELP.on) return;
   HELP.on = true; HELP.kind = "sea"; HELP.called = false; HELP.phase = "wait"; HELP.t = 0; HELP.fee = helpCost("sea");
   LOG.fjord++;                                                             // one dunking, however it ends (winched out, or blacked out first)
-  if (FOOT.on) { FOOT.on = false; FOOT.dig = false; wnStow(false); }
+  if (FOOT.on) { FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false); }
   const lake = P.wl !== SEA;
   P.vx = P.vz = P.vy = 0; TABLET.close(); toast(lake ? "Through the ice! Press F to call for help: every second in that meltwater costs you warmth." : "Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
   whump(1);
@@ -10843,7 +11003,9 @@ function rjWalls(nx, nz, r) {
 function rescueTick(dt) {
   if (!started) return;
   helpTick(dt); rjTick(dt);
-  if (FOOT.on && !GS.dead) {
+  if (FOOT.on && !GS.dead && MNT.on) { mountTick(dt); }
+  else if (FOOT.on && !GS.dead && DMT.on) { dismountTick(dt); }
+  else if (FOOT.on && !GS.dead) {
     FOOT.dig = FOOT.dig && BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.2;
     footStep(dt);
     if (FOOT.dig && BOG.on) {
@@ -11585,12 +11747,11 @@ TABLET.addLayer("rescue", sarPts);
    badly crooked, and the rider leaves the seat with the speed the sled had: a body with gravity, air drag, a snow
    surface it bounces off and slides across (powder grabs, hardpack lets you skid), trees and walls it can hit.
    Every impact on the way adds injury: how hard you hit the ground (into-the-snow speed past ~7.5 m/s), how fast
-   you were going along it the first time down, and anything solid you met. Below CRASH_HOSP you lie there a
-   moment, get up, and walk back to the sled (Q to get on). At or above it the screen goes dark and you wake up in
-   the health centre a few hours later with a bill; the Red Cross brings the sled in and parks it out front. */
+   you were going along it the first time down, and anything solid you met. However hard it is, you lie there a
+   moment, get up, and walk back to the sled (Q to get on). The health centre is only for rescue casualties
+   who need a doctor, not for you. */
 const HOSP = { x: 0, z: 0, door: null, park: null, built: false, name: "Kjøllefjord helsesenter" };
-const CRASH_AT = { tree: 14, hard: 12, land: 20, roll: 15 };   // m/s into the thing before you come off (≈31, 27, 45 mph; a crooked landing over 34 mph)
-const CRASH_HOSP = 8;                                            // injury that puts you in the health centre
+const CRASH_AT = { tree: 31.3, hard: 31.3, land: 31.3, roll: 31.3 };   // m/s into the thing before you come off (70 mph across the board: trees, rock, landings, crooked or not)
 const CRASH = { on: false, st: "", x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0, wx: 0, wz: 0, inj: 0, t: 0, t2: 0, still: 0, gnd: false, skip: null, why: "", spd: 0, bounce: 0, lastHit: -9, cool: 0, lie: 0, solid: 0 };
 const hospSite = () => HOSP.built ? { id: "hosp", name: HOSP.name, x: HOSP.door.x, z: HOSP.door.z, hosp: true } : null;
 const hospHere = (x = P.x, z = P.z, r = 18) => HOSP.built && Math.hypot(x - HOSP.door.x, z - HOSP.door.z) < r;
@@ -11792,7 +11953,6 @@ function crashStep(dt) {
     C.y += (surf(C.x, C.z) + 0.16 - C.y) * k;
     const sledSp = Math.hypot(P.vx, P.vz);
     if (C.t2 > 1.5 && (sledSp < 1.2 || C.t2 > 5)) {
-      if (C.inj >= CRASH_HOSP) { crashHospital(); return; }
       C.st = "up"; C.t2 = 0; C.lie0 = C.rx;
     }
   } else if (C.st === "up") {
@@ -11821,35 +11981,7 @@ function crashSplash() {
   thud(0.8); C.on = false; C.st = ""; crashPoseReset(); if (FOOT.g) FOOT.g.visible = false;
   P.wl = wlvAt(C.x, C.z) || SEA; blackout("sea");
 }
-// too hard: lights out, and you wake up in the health centre
-function crashHospital() {
-  const C = CRASH, inj = C.inj, mph = Math.round(C.spd * 2.237);
-  C.on = false; C.st = ""; crashPoseReset(); if (FOOT.g) FOOT.g.visible = false;
-  LOG.crashes = (LOG.crashes || 0) + 1; LOG.hosp = (LOG.hosp || 0) + 1;
-  if (SCHOOL.on || !HOSP.built) { blackout("crash"); return; }
-  GS.dead = true; TABLET.close(); if (FISH) FISH.abort(); sarAbort("hosp"); clearRecovery(); if (typeof rescueAbort === "function") rescueAbort();
-  if (GS.tour) { GS.tour = null; setTimeout(() => toast("Your tourists got a lift back to town in the ambulance. No fare, and a story to tell."), 4200); }
-  const fee = Math.round(Math.min(420, 180 + 18 * (inj - CRASH_HOSP)) * (1 - (ST ? ST.rescue : 0)) / 5) * 5, hrs = clamp(Math.round(2 + inj * 0.15), 2, 6);
-  const cargo = GS.load.length ? (GS.load.length > 1 ? GS.load.length + " loads" : GS.load[0].cargo.toLowerCase()) : "";
-  const bonds = GS.load.reduce((a, j) => a + (j.bond || 0), 0);
-  const lost = cargo ? ` The ${cargo} didn't survive the trip.` + (bonds ? ` The shippers keep your $${bonds} in bonds.` : "") : "";
-  GS.cash = Math.max(0, GS.cash - fee);
-  for (const j of GS.load) if (j.crate) j.crate.state = "wait";
-  GS.load = []; GS.jobs = []; GS.contracts = null; GS.claims = [];
-  applyLoadout();
-  const how = C.solid ? "met something solid on the way down" : C.why === "land" ? "landed it on your head instead of the skis" : "flew a long way";
-  $("blackMsg").innerHTML = `<b>KJØLLEFJORD HELSESENTER</b>You came off at ${mph} mph, ${how}, and woke up ${hrs} hours later with a drip in your arm and a nurse telling you how lucky you are. The Red Cross crew brought the sled in.<span>−$${fee} for the stitches and the scan.${lost}</span>`;
-  $("black").hidden = false;
-  setTimeout(() => {
-    GS.hour += hrs;
-    const pk = HOSP.park, dr = HOSP.door;
-    P.x = pk.x; P.z = pk.z; P.yaw = pk.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.pitch = P.roll = 0; P.y = surf(P.x, P.z) + 0.3; P.safe = { x: pk.x, z: pk.z, yaw: pk.yaw };
-    FOOT.x = dr.x; FOOT.z = dr.z; FOOT.y = surf(dr.x, dr.z); FOOT.yaw = Math.atan2(pk.x - dr.x, pk.z - dr.z); FOOT.sp = 0; FOOT.on = true;
-    recenter(P.x, P.z, false); camState.init = false; camState.yaw = FOOT.yaw; towSnap();
-    GS.warmth = 90; GS.fuel = Math.max(GS.fuel, GS.cap * 0.5); heatCool(); GS.outWarned = GS.coldWarned = GS.lowWarned = false;
-  }, 1200);
-  setTimeout(() => { $("black").hidden = true; GS.dead = false; CRASH.cool = 3; save(); toast(`Discharged. Your sled's parked out front: ${TC.on ? "tap Q" : "Q"} to get on, and maybe a bit slower this time.`, "warn"); }, 4200);
-}
+
 // the body: the walker figure, tumbling about its middle
 const _crE = new THREE.Euler(0, 0, 0, "YXZ"), _crV = new THREE.Vector3();
 function crashVisual(dt) {
@@ -11937,7 +12069,7 @@ const GOD_ITEMS = [
   { id: "mkt", label: "Bytteboden: new listings", sub: "reshuffle the marketplace", do: () => { GS.mkt.list = []; mktReseed(CAL.abs()); TABLET.refresh("market"); save(); toast("Bytteboden: a fresh batch of listings."); } },
   { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.own.partsOwned[ownKey("hitch", "akja")] = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted, and the rescue toboggan."); } },
   { id: "sar", label: "Rescue callout now", sub: "on duty, licensed", do: () => { if (!licensed("rescue")) { toast("Grant the licences first.", "warn"); return; } if (SAR.cur || SAR.ping) { toast("Already on one.", "warn"); return; } SAR.duty = true; if (!sarOffer()) toast("No spot found for a callout here.", "warn"); } },
-  { id: "reset", label: "Reset sled", sub: "Also pad Back / R", do: () => resetSled() }
+  { id: "reset", label: "Reset sled", sub: "Also pad Back / N", do: () => resetSled() }
 ];
 function godTeleport(s) {
   if (FISH) FISH.abort();
