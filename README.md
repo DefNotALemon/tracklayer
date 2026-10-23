@@ -24,7 +24,7 @@ The title menu sits over the live world: your sled parked at the quay in the low
 Continue (or Ride, first time), New game, Garage, Settings, How to play and Credits; the
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
-- **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie
+- **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
 - **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather (on the tablet) · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
@@ -99,7 +99,8 @@ is gone, the same as a blackout. Big enough sleds still mow birches down rather 
 ## Bytteboden: buying used
 
 The tablet's marketplace. Private sellers in the villages, cabins and homes list used engines,
-whole sleds, hitch receivers, trailers, groomers and ice-fishing rods, reels and augers. Listings
+whole sleds, hitch receivers, trailers, groomers, ice-fishing rods, reels and augers, and
+cross-country skis. Listings
 come and go one at a time, each lasting a few days. Used gear is cheaper than new and a bit worn,
 at 65–90% condition, and it looks it: faded paint, chips, a little rust, a dent. Condition costs a
 little performance. Haggle in the listing's chat (some sellers are stubborn, some desperate), and
@@ -111,6 +112,17 @@ the shop fits it for labour. Trailers and groomers hook straight on if your **hi
 takes them (the flatbed and wing tiller need the heavy-duty one). Sleds you ride home, and tackle
 goes in your pack. The garage's **Workshop** tab restores condition for a fee, but the wear marks
 stay. Fishing gear can't be restored.
+
+### Cross-country skis
+
+Three kinds turn up on Bytteboden: **Turski** touring skis (the all-rounder), **Fjellski** backcountry
+skis (wide, steel edges, they float in powder) and **Skøyteski** skate skis (fastest on a packed
+trail, they sink in fresh snow). Collect them and they ride strapped along the right of your sled's
+tunnel, poles with them. **Q** off the sled and you're on them instead of wading: **W** kicks, **A / D**
+steer, let go to glide, **S** ploughs. They're slow to get going (the first few kicks barely move
+you) but they build to two or three times walking pace on packed snow, run downhill on their own
+and glide a long way. Your sled tracks are the fast lanes, and the skis leave grooves of their own.
+Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving.
 
 ## The ferry and the mail
 

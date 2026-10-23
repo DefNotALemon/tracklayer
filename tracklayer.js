@@ -787,7 +787,7 @@ const sledEnvCube = (() => {
   tex.needsUpdate = true; return tex;
 })();
 const sledWearTex = (() => {
-  const c = document.createElement("canvas"); c.width = c.height = 256, g = c.getContext("2d");
+  const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
   g.fillStyle = "#b4b4b4"; g.fillRect(0, 0, 256, 256);                     // base: paint kept glossy
   const rnd = mulberry32(4242);
   for (let i = 0; i < 5200; i++) {                                          // grit: sand-blasted speckle
@@ -7976,6 +7976,8 @@ function wearSync() {
      they'll come down and how much patience they've got. Lowball one and they stop answering.
    - Lemons: about 1 in 6 is worse than the ad says. Stop at the seller's to INSPECT before you pay, or find out when
      you collect it.
+   - Cross-country skis (cat "ski", XC_SKIS): strapped along the tunnel when you collect them; Q off the sled and you're
+     on them (see the skis block by the walker).
    - Collecting (MKT.collect, stopped at the seller's): engines go on a trailer as a big load back to the garage (which
      shelves them; fitting is labour); hitch receivers go on the rack to the garage; trailers and groomers hook straight
      on if you have a receiver that'll take them; sleds are ridden away (the seller runs your old one back to the
@@ -7988,7 +7990,8 @@ const MKT_CATS = [
   { id: "recv", name: "Hitches", w: 0.8 },
   { id: "trailer", name: "Trailers", w: 1 },
   { id: "groomer", name: "Groomers", w: 0.8 },
-  { id: "fish", name: "Ice fishing", w: 2 }
+  { id: "fish", name: "Ice fishing", w: 2 },
+  { id: "ski", name: "Skis", w: 1.2 }
 ];
 const SELLER_P = {
   stubborn: { ask: 1.08, floor: 0.95, pat: 1, tag: "FIRM", w: 0.24 },
@@ -8003,6 +8006,7 @@ const MKT_WHY = {
   recv: ["Off my old Skandic. Pin and clip included.", "Came off a sled I parted out. Threads are good.", "Spare. Bought two by mistake.", "Took it off when I sold the trailer."],
   trailer: ["Hauled fish crates on it all last winter. Straps included.", "Too big for what I need now.", "Runners re-welded last year. Tracks straight.", "Selling with the sled gone. No use for it.", "Moved the cabin stuff in. Job done."],
   groomer: ["Did the lag's trails with it for years. They bought a proper one.", "Grooms fine. Takes some muscle to drag.", "My uncle's. He's 86 now and says he's retired.", "Comb's missing two teeth. Still leaves corduroy."],
+  ski: ["Skied the Gamvik trail every Easter on these. Knees say no now.", "Bought skate skis, these just stand in the hall.", "Waxed in the autumn, never used. Poles included.", "The kids outgrew skiing, apparently. Poles included.", "Carried them on the sled to the cabin for years. Strap included."],
   fish: ["Upgraded. This did me fine for years.", "Selling my late father's ice gear. He'd want it used.", "Bought it, used it twice, it's not for me.", "Spare from the hytte. Clearing out.", "Fished Røyevatnet with it every Easter."]
 };
 const MKT_TELL = {
@@ -8011,6 +8015,7 @@ const MKT_TELL = {
   recv: ["The pin hole's wallowed out oval.", "The mounting plate's cracked behind the weld."],
   trailer: ["One runner's bent and it crabs sideways.", "The tongue's been welded back together.", "The hitch eye's worn thin."],
   groomer: ["The pan's warped and the comb's half gone.", "The frame's cracked and bodged with fence wire."],
+  ski: ["The base is gouged down to the core under the binding.", "One ski's lost its camber; it drags flat on the snow.", "The fishscale's worn smooth: they slip back on every kick."],
   fish: ["It's been dropped. Everything about it is a bit off.", "The bearings are full of grit.", "The blades are chipped and dull."]
 };
 const MKT_SAY = {
@@ -8035,6 +8040,7 @@ function mktInfo(l, c = l.adv) {
   if (l.cat === "sled") { const s = SLEDS.find(x => x.id === l.item); return { name: s.name, newP: Math.max(s.cost, 400), stat: `${s.year} · ${pct(s.power * condMul(c))} power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`, pwr: s.power * condMul(c), kind: "sled", sd: s }; }
   if (l.cat === "recv") { const o = partDef("recv", l.item); return { name: o.name, newP: o.cost, stat: o.id === "heavy" ? "takes the flatbed and the wing tiller too" : "takes the freight trailer and the groomer drag", kind: "recv" }; }
   if (l.cat === "trailer" || l.cat === "groomer") { const o = partDef("hitch", l.item); return { name: o.name, newP: o.cost, stat: l.cat === "trailer" ? `${o.stats.bays} big load${o.stats.bays > 1 ? "s" : ""} · tips ${c < 0.8 ? "a touch sooner" : "about like new"}` : `${l.item === "tiller" ? "5.8 m wings" : "2.4 m pan"} · ${c < 0.8 ? "leaves it a bit lumpy" : "leaves good corduroy"}`, kind: l.item }; }
+  if (l.cat === "ski") { const k = xcDef(l.item); return { name: k.name, newP: k.price, stat: `${k.note} · ${c < 0.8 ? "base wants a wax" : "glides near new"}`, kind: "ski" }; }
   const g = mktFishDef(l.item) || { name: "?", price: 10 }, t = l.item.split(":")[0];
   return { name: t === "augers" && !/auger/i.test(g.name) ? g.name + " auger" : g.name, newP: g.price, stat: t === "augers" ? `${Math.round(g.dia / 2.5)}″ hole · ${c < 0.8 ? "drills a bit slower" : "drills near new"}${g.start === "pull" ? (c < 0.8 ? " · fussy to start" : " · starts fine") : ""}` : t === "reels" ? `${c < 0.8 ? "drag slips a little" : "smooth drag"}` : `${c < 0.8 ? "tip's a little tired" : "tip's lively"}`, kind: t };
 }
@@ -8048,6 +8054,7 @@ function mktPool(cat) {
   if (cat === "recv") return PARTS.recv.options.filter(x => x.id !== "none" && !o.partsOwned["recv:" + x.id]).map(x => ({ item: x.id, w: 1 }));
   if (cat === "trailer") return ["trailer", "flatbed"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "trailer" ? 1.4 : 1 }));
   if (cat === "groomer") return ["groomer", "tiller"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "groomer" ? 1.4 : 1 }));
+  if (cat === "ski") return XC_SKIS.filter(k => !(o.xc && o.xc.id === k.id)).map(k => ({ item: k.id, w: o.xc ? 0.5 : 1.6 }));
   if (cat === "fish") { if (!window.TLFish) return []; const out = []; for (const t of ["rods", "reels", "augers"]) for (const g of window.TLFish.GEAR[t]) if (g.tier > 1 && !mktHasFish(t + ":" + g.id)) out.push({ item: t + ":" + g.id, w: t === "augers" ? 1.2 : 1 }); return out; }
   return [];
 }
@@ -8172,6 +8179,7 @@ const mktHowTo = h => h.cat === "engine" ? `Bring a trailer with a free bay to $
   : h.cat === "recv" ? `It's waiting in ${shortName(mktSite(h))}: it rides home on the rack.`
   : h.cat === "sled" ? `It's in ${h.seller}'s shed in ${shortName(mktSite(h))}. Ride over and ride it home.`
   : h.cat === "fish" ? `Pick it up in ${shortName(mktSite(h))}: it goes in your pack.`
+  : h.cat === "ski" ? `Pick them up in ${shortName(mktSite(h))}: they strap along the side of your sled.`
   : `It's waiting in ${shortName(mktSite(h))}: hook it up and tow it away. Needs ${recvNeed(h.item)}.`;
 // why you can't take it away right now ("" = you can)
 function heldWhy(h) {
@@ -8210,6 +8218,11 @@ function mktCollect(site) {
       o.sleds.push(s.id); o.sled = s.id; o.cond["sled:" + s.id] = h.cond; o.wear["sled:" + s.id] = a;
       GS.mkt.held = GS.mkt.held.filter(q => q !== h); checkBoost(); restat(); applySettings();
       toast(`You ride off on the ${s.name}. ${h.seller} runs your ${old.name} back to the garage for you.`, "good");
+    } else if (h.cat === "ski") {
+      const k = xcDef(h.item), old = o.xc && xcDef(o.xc.id);
+      o.xc = { id: k.id, cond: +h.cond.toFixed(3) };
+      GS.mkt.held = GS.mkt.held.filter(q => q !== h); xcLook();
+      toast(`${h.seller} helps you strap the ${k.name.toLowerCase()} along the tunnel${old ? `; your old ${old.name.toLowerCase()} stay in ${shortName(mktSite(h))}` : ""}. ${pctC(h.cond)} condition. Q off the sled and you're on them.`, "good");
     } else if (h.cat === "fish") {
       const [t, id] = h.item.split(":"), c1 = MKT_GEAR[t];
       if (GS.fish && GS.fish.own && GS.fish.own[c1]) GS.fish.own[c1][id] = { c: +h.cond.toFixed(3) };
@@ -8292,6 +8305,15 @@ function mktPic(l) {
     for (let i = 0; i < 14; i++) R(cx - 86 + i * 11, cy + 8, 5, 8, "#15191e");
     if (t) { g.fillStyle = "#6a3a00"; g.fillRect(cx - 20, cy - 46, 10, 10); }
     g.strokeStyle = "#8d99a6"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx + 70, cy - 10); g.lineTo(cx + 108, cy - 4); g.stroke();
+  } else if (l.cat === "ski") {
+    const k = xcDef(l.item), col = "#" + k.col.toString(16).padStart(6, "0");
+    for (const [dx, a] of [[-18, -0.16], [4, -0.12]]) {
+      g.save(); g.translate(cx + dx, cy + 10); g.rotate(a);
+      g.fillStyle = col; g.fillRect(-6, -150, 12, 156); g.fillStyle = "rgba(255,255,255,.35)"; g.fillRect(-2, -146, 3, 148);
+      g.beginPath(); g.moveTo(-6, -150); g.quadraticCurveTo(0, -170, 9, -162); g.lineTo(6, -150); g.closePath(); g.fillStyle = col; g.fill();
+      g.fillStyle = "#1c1f24"; g.fillRect(-7, -74, 14, 14); g.restore();
+    }
+    for (const dx of [30, 42]) { g.strokeStyle = "#2a2d31"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx + dx, cy + 8); g.lineTo(cx + dx - 14, cy - 118); g.stroke(); g.strokeStyle = "#8a9096"; g.lineWidth = 2; g.beginPath(); g.ellipse(cx + dx - 1, cy - 2, 8, 3, 0, 0, 6.283); g.stroke(); R(cx + dx - 18, cy - 130, 7, 14, "#15181b"); }
   } else {
     const t = l.item.split(":")[0];
     if (t === "augers") { g.strokeStyle = "#9aa3ab"; g.lineWidth = 10; g.beginPath(); g.moveTo(cx, cy - 74); g.lineTo(cx, cy + 10); g.stroke(); for (let i = 0; i < 6; i++) { g.strokeStyle = "#c4ccd3"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 12, cy - 30 + i * 7); g.lineTo(cx + 12, cy - 26 + i * 7); g.stroke(); } R(cx - 26, cy - 92, 52, 26, mktFishDef(l.item) && mktFishDef(l.item).start === "pull" ? "#c23a22" : "#2a6a9a"); }
@@ -8364,7 +8386,7 @@ TABLET.register({
     const list = GS.mkt.list.filter(q => (MKT.cat === "all" || q.cat === MKT.cat) && mktVisible(q)).sort((a, b) => (b.t0 - a.t0));
     h += sec(MKT.cat === "all" ? "Near you and further out" : MKT_CATS.find(c => c.id === MKT.cat).name, `${list.length} listed · new ones come in all day`);
     h += list.length ? `<div class="tmkg">${list.map(mktCardHtml).join("")}</div>` : `<p class="tnote2">Nothing in this category right now. Check back in a few hours.</p>`;
-    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. The ad isn't always the truth: look before you pay.</p>`;
+    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. Skis strap to the sled. The ad isn't always the truth: look before you pay.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     for (const b of el.querySelectorAll("[data-mkc]")) b.addEventListener("click", () => { MKT.cat = b.dataset.mkc; TABLET.render(); });
     for (const b of el.querySelectorAll("[data-mk]")) b.addEventListener("click", () => { MKT.view = +b.dataset.mk; $("tabV").scrollTop = 0; TABLET.render(); });
@@ -9431,6 +9453,7 @@ function applyLoadout() {
   cargoMesh.position.z = ud.zBack + 1.5 + 0.06;      // parcels sit on the tail whatever the tunnel length
   V.rackBox.visible = pr.rack === "box" && nSmall > 0;
   V.rackBox.position.z = ud.zBack + 1.5 + 0.1;
+  if (V.xcRack) xcLook();
   /* rider kit */
   for (const k of ["helmet", "beanie", "mask", "heated"]) (V.head[k] || []).forEach(m => m.visible = false);
   (V.head[gr.head] || V.head.helmet).forEach(m => m.visible = true);
@@ -10093,7 +10116,44 @@ function bogStep(dt, spd, thrE, fr) {
 }
 
 /* ---- on foot ---- */
-const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0 };
+const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0,
+  ski: false, kickW: 0, moveW: 0, plow: 0, tuck: 0, trk: 0, bumpT: 0, grade: 0 };
+/* ---------------- cross-country skis (Bytteboden, cat "ski") ----------------
+   Bought used off Bytteboden and strapped along the right of the tunnel (V.xcRack). Q off the sled with a pair aboard and
+   you're on them instead of wading: W kicks (diagonal stride with poles), S ploughs, A / D steer.
+   - Slow take-off: the first kicks barely move you (0.5 m/s² from a stand), it builds as you get going (≈1.8 m/s² at
+     3 m/s), and tops out at the pair's top speed on packed snow (6-9 m/s against 2.7 on foot). Fresh powder pulls the
+     top speed down unless they float (fjellski). Downhill they run on their own (up to 16 m/s); uphill the kick gives out.
+   - Let go of W and they glide: a slow bleed of speed, not a stop.
+   - Gliding back on is quick: Q gets you on from 6 m off (3.6 on foot) and at any speed; no stopping, no walking round.
+   - They leave two grooves in the snow, which pack it a little for the next run out.
+   Saved in GS.own.xc = { id, cond } (null: none). Condition (the base) costs a little glide. */
+const XC_SKIS = [
+  { id: "tur", name: "Turski touring skis", price: 190, glide: 1.0, float: 0.6, top: 7.2, col: 0xc8322a, note: "waxless fishscale · all-rounder" },
+  { id: "fjell", name: "Fjellski backcountry skis", price: 340, glide: 0.88, float: 1.0, top: 6.4, col: 0x2a5d8f, note: "wide, steel edges · float in powder" },
+  { id: "skoyte", name: "Skøyteski skate skis", price: 280, glide: 1.18, float: 0.3, top: 8.8, col: 0xe8e4da, note: "fastest on packed trail · sink in powder" }
+];
+const xcDef = id => XC_SKIS.find(k => k.id === id) || XC_SKIS[0];
+const xcOwn = () => GS.own && GS.own.xc && XC_SKIS.some(k => k.id === GS.own.xc.id) ? GS.own.xc : null;
+const XC_MAT = std(0xc8322a, 0.35, 0.1);
+let xcTold = false;
+function xcLook() { const o = xcOwn(); if (o) XC_MAT.color.setHex(xcDef(o.id).col); }
+// one ski (tip forward, +z) with its binding, origin at the boot sole
+function xcSki(parent) {
+  const g = new THREE.Group(); parent.add(g);
+  box(0.062, 0.018, 1.72, XC_MAT, 0, -0.01, 0.12, 0, 0, 0, g);
+  box(0.06, 0.016, 0.24, XC_MAT, 0, 0.03, 1.07, -0.42, 0, 0, g);              // the tip turns up
+  box(0.07, 0.03, 0.14, M.dark, 0, 0.012, 0.02, 0, 0, 0, g);                  // binding
+  return g;
+}
+// a pole hanging from the grip: shaft, basket, strap
+function xcPole(parent) {
+  const g = new THREE.Group(); parent.add(g);
+  cyl(0.011, 0.008, 1.3, M.dark, 0, -0.6, 0, 0, 0, 0, g, 6);
+  cyl(0.02, 0.02, 0.13, M.black || M.dark, 0, 0.02, 0, 0, 0, 0, g, 8);
+  cyl(0.05, 0.05, 0.012, M.dark, 0, -1.16, 0, 0, 0, 0, g, 10);
+  return g;
+}
 function makeFigure(m) {
   const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = [];
   const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
@@ -10148,6 +10208,17 @@ function makeWalker(m) {
 function buildWalker() {
   FOOT.g = makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot });
   FOOT.g.visible = false; scene.add(FOOT.g);
+  const U = FOOT.g.userData; U.skis = []; U.poles = [];
+  for (let i = 0; i < 2; i++) {
+    const sk = new THREE.Group(); sk.position.set(0, -0.505, 0.0); sk.rotation.order = "XYZ"; U.shins[i].add(sk); xcSki(sk); sk.visible = false; U.skis.push(sk);
+    const pl = new THREE.Group(); pl.position.set(0, -0.25, 0.01); U.fore[i].add(pl); xcPole(pl); pl.visible = false; U.poles.push(pl);
+  }
+  // the pair strapped along the right of the tunnel, poles with them (placed per machine in applyLoadout)
+  const R = V.xcRack = new THREE.Group(); sledBody.add(R); R.visible = false;
+  for (const dx of [0, -0.022]) { const k = new THREE.Group(); k.position.x = dx; k.rotation.z = Math.PI / 2; R.add(k); xcSki(k); }   // on edge, bindings and tips out
+  for (const dy of [0.05, 0.075]) { const pg = new THREE.Group(); pg.position.set(-0.03, dy, 0.55); pg.rotation.x = Math.PI / 2 + 0.03; R.add(pg); xcPole(pg); }   // poles along the top, grips forward
+  for (const dz of [-0.45, 0.45]) box(0.08, 0.15, 0.045, std(0x1c1f24, 0.8), -0.012, 0.01, dz, 0, 0, 0, R);   // straps
+  xcLook();
 }
 // one leg's trip through a stride, u in 0..1 → [hip, knee]. 0-0.5 swing: the boot is stuck, the knee yanks it up out of
 // the snow, the thigh hauls it high and reaches long; 0.5-1 stance: planted, the body is driven over it and it pushes back
@@ -10167,6 +10238,7 @@ function strideLeg(u, st) {
 const frac = x => x - Math.floor(x);
 function poseWalker(g, dt) {
   const F = FOOT, U = g.userData, st = F.strain, cr = F.crouch, t = gameClock;
+  if (U.skis) for (let i = 0; i < 2; i++) { U.skis[i].visible = false; U.poles[i].visible = false; }
   const amt = clamp(Math.max(Math.abs(F.sp) / 0.9, Math.abs(F.turn) * 0.45), 0, 1) * (1 - cr);
   const uA = frac(F.step / (Math.PI * 2)), v = frac(uA * 2), side = Math.sin(uA * Math.PI * 2);   // side > 0: weight on the right leg
   const breath = Math.sin(t * (2.2 + 3.2 * F.tired)) * (0.012 + 0.02 * F.tired);
@@ -10202,6 +10274,45 @@ function poseWalker(g, dt) {
   }
   return -(0.03 + 0.04 * st) * Math.cos(Math.PI * 2 * v) * amt - 0.04 * st * amt - cr * 0.31;
 }
+// the skier: idle on the poles, the diagonal stride (kick, glide, opposite pole plants), the tuck on a run, the plough.
+// Skis stay flat on the snow (counter-rotated against hip and knee); the body drops so the lower ski touches.
+function poseSkier(g, dt) {
+  const F = FOOT, U = g.userData, kw = F.kickW, mw = F.moveW, tk = F.tuck, pw = F.plow, cr = F.crouch, t = gameClock;
+  const uA = frac(F.step / (Math.PI * 2)), breath = Math.sin(t * (2 + 3 * F.tired)) * (0.01 + 0.02 * F.tired);
+  const hips = [0, 0], knees = [0, 0];
+  for (let i = 0; i < 2; i++) {
+    const u = frac(uA + i * 0.5);
+    let hS, kS;
+    if (u < 0.55) { const s = u / 0.55; hS = lerp(-0.42, 0.48, Math.pow(s, 1.4)); kS = 0.3 - 0.2 * sstep(0.55, 1, s); }   // glide on it, then kick it back
+    else { const s = (u - 0.55) / 0.45; hS = lerp(0.48, -0.42, sstep(0, 1, s)); kS = 0.12 + 0.32 * Math.sin(Math.PI * s); }  // swing it through
+    const hG = -0.06 - 0.5 * tk, kG = 0.28 + 0.75 * tk, hI = 0.02, kI = 0.08 + 0.1 * F.tired;
+    hips[i] = lerp(lerp(lerp(hI, hG, mw), hS, kw), -0.95, cr); knees[i] = lerp(lerp(lerp(kI, kG, mw), kS, kw), 1.7, cr);
+    const sd = i ? 1 : -1;
+    U.legs[i].rotation.set(hips[i], 0, sd * (0.03 + 0.1 * pw));
+    U.shins[i].rotation.x = knees[i];
+    const sk = U.skis[i]; sk.visible = true; sk.rotation.set(-(hips[i] + knees[i]), -sd * 0.3 * pw, 0);
+  }
+  // torso: bent into the kick, folded down in the tuck
+  const pitch = lerp(lerp(0.08 + 0.2 * F.tired + breath * 2, 0.22 + 0.55 * tk, mw), 0.3 + 0.06 * Math.sin(uA * Math.PI * 4), kw);
+  U.torso.rotation.set(lerp(pitch, 0.75, cr), 0, 0, "XYZ"); U.torso.position.y = 0.93 - cr * 0.1 + breath * (1 - mw);
+  U.head.rotation.x = -U.torso.rotation.x * 0.7;
+  // arms and poles: each arm reaches forward with the opposite leg and drives back; tucked, the poles go under the arms
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, ho = hips[1 - i], back = clamp((ho + 0.42) / 0.9, 0, 1);
+    const aS = lerp(-0.95, 0.75, back), fS = lerp(-0.4, -0.08, back), pS = lerp(0.32, 1.1, back);
+    const aG = -0.5 - 0.25 * tk, fG = -0.75 - 0.4 * tk, pG = lerp(0.9, 1.4, tk), aI = -0.18, fI = -0.3, pI = 0.12;
+    const ax = lerp(lerp(lerp(aI, aG, mw), aS, kw), -1.0, cr), fxr = lerp(lerp(lerp(fI, fG, mw), fS, kw), -0.6, cr);
+    U.arms[i].rotation.set(ax, 0, sd * lerp(0.14, 0.1, kw));
+    U.fore[i].rotation.set(fxr, 0, 0);
+    const pl = U.poles[i]; pl.visible = true;
+    pl.rotation.set(lerp(lerp(lerp(pI, pG, mw), pS, kw), 0.4, cr) - (U.torso.rotation.x + ax + fxr), 0, -sd * 0.05);
+  }
+  if (WIPE.w > 0.001) { const w = WIPE.w, a = U.arms[1], f = U.fore[1]; a.rotation.x = lerp(a.rotation.x, -1.2, w); f.rotation.x = lerp(f.rotation.x, -1.6 - WIPE.py * 0.25, w); }
+  g.rotation.set(0, F.yaw, -F.turn * 0.12 * clamp(F.sp / 6, 0, 1), "YXZ");              // lean into the turn at speed
+  // drop the body until the lower ski sits on the snow
+  let low = 9; for (let i = 0; i < 2; i++) low = Math.min(low, 0.93 - 0.42 * Math.cos(hips[i]) - 0.505 * Math.cos(hips[i] + knees[i]));
+  return -low + 0.04 - cr * 0.31 * (1 - kw);                                       // a touch proud of the snow so the skis read
+}
 // a boot crunching down into snow
 function snowStep(v) {
   if (!audio) return;
@@ -10236,14 +10347,17 @@ function dismount() {
   FOOT.x = P.x - fx * 0.05; FOOT.z = P.z - fz * 0.05; FOOT.y = P.y + 0.38; FOOT.yaw = P.yaw;
   FOOT.sp = FOOT.fwd = FOOT.turn = 0; FOOT.dig = false; FOOT.crouch = 1; FOOT.on = true;
   P.vx = P.vz = 0; camState.init = false;
+  FOOT.ski = !!xcOwn(); FOOT.kickW = FOOT.moveW = FOOT.plow = FOOT.tuck = 0;
+  if (FOOT.ski) { xcLook(); if (!xcTold) { xcTold = true; toast(`Skis on. ${TC.on ? "Push the stick" : "W"} to kick: slow to get going, then they run. Let go and glide, ${TC.on ? "pull back" : "S"} to plough. Glide back to the sled and ${TC.on ? "tap Q" : "Q"} gets you straight on.`); } }
   if (winchDef()) WN.state = "out";
 }
 function mount() {
   if (!FOOT.on || MNT.on || DMT.on) return;
   if (FISH && FISH.on) return;
-  if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > 3.6) { toast("Get back to the sled first.", "warn"); return; }
-  // start the climb-on: MNT drives the walker up, over and into the seat (mountTick), then finishMount swaps to the rider
-  MNT.on = true; MNT.t = 0; MNT.stepped = false;
+  if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > (FOOT.ski ? 6 : 3.6)) { toast(FOOT.ski ? "Glide in closer to the sled." : "Get back to the sled first.", "warn"); return; }
+  // start the climb-on: MNT drives the walker up, over and into the seat (mountTick), then finishMount swaps to the rider.
+  // Off skis it's quick: click out, they go back on the rack, and you're on in about half the time.
+  MNT.on = true; MNT.t = 0; MNT.stepped = false; MNT.dur = FOOT.ski ? 0.6 : 1.25; FOOT.ski = false;
   MNT.x0 = FOOT.x; MNT.y0 = FOOT.y; MNT.z0 = FOOT.z; MNT.yaw0 = FOOT.yaw;
   FOOT.fwd = FOOT.turn = FOOT.sp = 0; FOOT.dig = false;
   wnStow(true); snowStep(0.6);
@@ -10326,8 +10440,97 @@ function clearRecovery() {
   FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false);
   if (typeof HELP !== "undefined" && HELP.on) helpEnd(true);
 }
+// two shallow grooves under the skis: a light press, nothing like a sled's track
+function xcGroove(x, z, fx, fz) {
+  const lx = fz, lz = -fx;
+  for (const sd of [-0.11, 0.11]) {
+    const ix = Math.round((x + lx * sd + HALF) / CELL), iz = Math.round((z + lz * sd + HALF) / CELL);
+    if (ix < 0 || iz < 0 || ix >= FN || iz >= FN) continue;
+    const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+    const tg = Math.max(f * 0.45, d0 - 0.05);
+    if (tg < d0 - 0.002) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
+  }
+}
+// trees, rocks, buildings, rescue machines and the sled: push the walker out; true if anything pushed
+function footBlock(F, nx, nz) {
+  let hit = false;
+  const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
+  for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) {
+      if (o.log || o.down) continue;
+      const dx = nx - o.x, dz = nz - o.z, rr = o.r + 0.36, d2 = dx * dx + dz * dz;
+      if (d2 < rr * rr && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = o.x + dx / dd * rr; nz = o.z + dz / dd * rr; hit = true; }
+    }
+  }
+  const w = rjWalls(nx, nz, 0.36); if (w[0] !== nx || w[1] !== nz) hit = true; [nx, nz] = w;
+  { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; hit = true; } }
+  return [nx, nz, hit];
+}
+function skiStep(dt) {
+  const F = FOOT, own = xcOwn() || { id: "tur", cond: 1 }, K = xcDef(own.id);
+  const glide = K.glide * (0.82 + 0.18 * clamp((own.cond - 0.4) / 0.5, 0, 1));
+  F.yaw += -F.turn * 2.2 / (1 + Math.abs(F.sp) * 0.16) * dt;                        // the faster you run the wider you turn
+  const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
+  const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
+  const soft = (1 - pack) * sstep(0.04, 0.45, d), bog = soft * (1 - 0.75 * K.float), bare = d < 0.03 && f < 0.05;
+  const top = bare ? 1.4 : K.top * glide * (1 - 0.6 * bog);
+  // the slope along the skis: downhill runs, uphill the kick gives out
+  const gr = (surf(F.x + fx * 0.7, F.z + fz * 0.7) - surf(F.x - fx * 0.7, F.z - fz * 0.7)) / 1.4;
+  F.grade += (gr - F.grade) * (1 - Math.exp(-6 * dt));
+  const kick = F.fwd > 0.05 && !F.dig, brake = F.fwd < -0.05;
+  let sp = F.sp, a = -9.8 * F.grade / Math.sqrt(1 + F.grade * F.grade) * 0.9;
+  if (kick) {
+    // the fishscale grips on each kick, so a gentle climb mostly costs top speed; a steep one takes it all
+    if (F.grade > 0) a *= lerp(0.12, 1, sstep(0.08, 0.45, F.grade));
+    // a slow take-off: the first strides barely move you, then each kick carries you further
+    const up = 1 - clamp(F.grade / 0.32, 0, 0.85);
+    const push = lerp(0.5, 2.2, sstep(0, 2.5, sp)) * F.fwd * (1 + 0.45 * Math.sin(F.step * 2));
+    a += push * clamp(1 - sp / Math.max(0.6, top * up), -0.5, 1);
+  }
+  // glide: a slow bleed; deep fresh snow drags harder the faster you push through it; the plough bites hard
+  const fr = (0.16 + (bare ? 2.5 : 0)) / glide + 0.2 * bog * Math.max(0, sp) + 0.008 * sp * sp + (brake ? 2.6 : 0);
+  if (sp > 0) sp = Math.max(0, sp + (a - fr) * dt);
+  else sp += a * dt;
+  if (brake && sp < 0.3) sp = Math.max(-0.7, sp - 1.2 * dt);                          // stood still, S shuffles you back
+  if (!brake && sp < 0 && F.grade > -0.06) sp = Math.min(0, sp + 2 * dt);               // the fishscale grips: no sliding back
+  { const crawl = 0.85 * F.fwd * (1 - sstep(0.3, 0.55, F.grade)); if (kick && sp < crawl) sp = Math.max(sp, Math.min(crawl, Math.max(F.sp, 0) + 0.6 * dt)); }   // never stuck: a herringbone crawl up anything you could walk up
+  sp = clamp(sp, -1.2, 16);
+  let nx = F.x + fx * sp * dt, nz = F.z + fz * sp * dt, hit;
+  [nx, nz, hit] = footBlock(F, nx, nz);
+  F.bumpT = Math.max(0, F.bumpT - dt);
+  if (hit && Math.abs(sp) > 3.5) { if (F.bumpT <= 0) { thud(Math.min(0.6, sp * 0.05)); emit(nx, F.y + 0.6, nz, 0, 1.2, 0, 1, 0.7); if (sp > 7) toast("Into the birch. Ow.", "warn"); F.bumpT = 1.2; } sp *= 0.3; }
+  if (isSea(nx, nz)) { nx = F.x; nz = F.z; sp = 0; }
+  if (WN.state === "out") {
+    const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
+    if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; sp = Math.min(sp, 1); } else WN.tight = false;
+  }
+  const lim = HALF - 24, moved = Math.hypot(nx - F.x, nz - F.z); F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim); F.sp = sp;
+  F.sink = 0.07 * soft * (1 - 0.6 * K.float);
+  F.y = surf(F.x, F.z) - F.sink;
+  // the pose's clocks: a stride cycle per kick, quicker as you get going; gliding holds it
+  F.kickW += ((kick ? 1 : 0) - F.kickW) * (1 - Math.exp(-6 * dt));
+  F.moveW += (sstep(0.25, 1.2, Math.abs(sp)) - F.moveW) * (1 - Math.exp(-5 * dt));
+  F.plow += ((brake && sp > 0.4 ? 1 : 0) - F.plow) * (1 - Math.exp(-8 * dt));
+  F.tuck += ((kick ? 0 : sstep(4.5, 10, sp)) - F.tuck) * (1 - Math.exp(-3 * dt));
+  if (kick) F.step += Math.PI * 2 / lerp(1.35, 0.85, clamp(sp / 7, 0, 1)) * dt * F.fwd;
+  else if (Math.abs(sp) < 0.3 && Math.abs(F.turn) > 0.1) F.step += Math.abs(F.turn) * 2.4 * dt;
+  F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
+  F.tired = clamp(F.tired + (kick ? 0.03 : -0.06) * dt, 0, 1); F.strain = 0.55;
+  const half = Math.floor(F.step / Math.PI);
+  if (half !== F.half) {                                                              // each kick: a scuff of snow off the kicking ski
+    if (kick && Math.abs(sp) > 0.15) { const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.11, lz = -Math.sin(F.yaw) * sd * 0.11; for (let k = 0; k < 2 + soft * 6; k++) emit(F.x - fx * 0.4 + lx, F.y + 0.05, F.z - fz * 0.4 + lz, -fx * 0.5, 0.4 + Math.random() * 0.5, -fz * 0.5, 0.5, 0.5); snowStep(0.16 + 0.2 * soft); }
+    F.half = half;
+  }
+  if (sp > 2 && soft > 0.2 && Math.random() < dt * sp * 1.5) emit(F.x + fx * 0.9, F.y + 0.08, F.z + fz * 0.9, fx * sp * 0.3, 0.5 + Math.random() * 0.5, fz * sp * 0.3, 0.5, 0.5);   // powder off the tips
+  F.trk += moved; if (F.trk > 0.3) { F.trk = 0; xcGroove(F.x, F.z, fx, fz); }
+  const g = F.g; g.visible = true;
+  const bob = poseSkier(g, dt);
+  g.position.set(F.x, F.y + bob, F.z);
+}
 function footStep(dt) {
   const F = FOOT;
+  if (F.ski) { skiStep(dt); return; }
   F.yaw += -F.turn * 2.2 * dt;
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
@@ -11066,6 +11269,7 @@ function rescueTick(dt) {
     }
   } else if (FOOT.g && !CRASH.on) FOOT.g.visible = false;
   if (rider) rider.visible = !FOOT.on && !CRASH.on && !(FISH && FISH.on);
+  if (V.xcRack) { V.xcRack.visible = !!xcOwn() && !(FOOT.on && FOOT.ski && !DMT.on) && !SCHOOL.on; if (V.xcRack.visible && V.machineOf) { const ud = V.machineOf(((PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef()).id).userData; V.xcRack.position.set(-(ud.tw / 2 + 0.06), 0.68, ud.zBack + 0.93); } }
   wnUpdate(dt);
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
@@ -11078,7 +11282,7 @@ function wnPrompt() {
     h = HELP.called ? `RESCUE SLED INBOUND · ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : "IN THE WATER · F: CALL FOR HELP";
   } else if (FOOT.on) {
     show = true;
-    const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.0;
+    const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);
     if (sarPrompt()) h = sarPrompt();
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
@@ -11088,7 +11292,7 @@ function wnPrompt() {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
       h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
-    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : "Walk back to the sled and press Q");
+    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · glide back to the sled and press Q` : "Walk back to the sled and press Q");
   } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
@@ -12019,7 +12223,7 @@ function crashGetUp() {
   const C = CRASH;
   FOOT.x = C.x; FOOT.z = C.z; FOOT.y = surf(C.x, C.z); FOOT.yaw = Math.atan2(P.x - C.x, P.z - C.z); FOOT.sp = 0; FOOT.dig = false;
   C.on = false; C.st = ""; C.cool = 1.5; crashPoseReset();
-  FOOT.on = true; P.vx = P.vz = 0;
+  FOOT.on = true; FOOT.ski = false; P.vx = P.vz = 0;
   const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
   const line = C.inj < 1.5 ? `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
   toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${TC.on ? "tap Q" : "press Q"} to get on.`, C.inj < 4.5 ? "warn" : "bad");
@@ -12032,7 +12236,6 @@ function crashSplash() {
   thud(0.8); C.on = false; C.st = ""; crashPoseReset(); if (FOOT.g) FOOT.g.visible = false;
   P.wl = wlvAt(C.x, C.z) || SEA; blackout("sea");
 }
-
 // the body: the walker figure, tumbling about its middle
 const _crE = new THREE.Euler(0, 0, 0, "YXZ"), _crV = new THREE.Vector3();
 function crashVisual(dt) {
