@@ -7469,6 +7469,13 @@ const PARTS = {
       { id: "hid", name: "Light bar & ditch floods", cost: 420, tier: 3, look: "bar", stats: { light: 2.5 }, note: "Turns the polar night into a car park." }
     ]
   },
+  // the tether (kill cord): a short rope from the bars to your belt. Tied on, a crash only throws you as far as the rope (tetherOn)
+  tether: {
+    label: "Tether", options: [
+      { id: "rope", name: "Tether rope", cost: 0, tier: 0, stats: {}, note: "A short rope from the bars to your belt. Come off and you only go a couple of feet: it snaps tight, pulls the kill cord and you land next to the sled." },
+      { id: "none", name: "Untied", cost: 0, tier: 0, stats: {}, note: "Nothing holding you on. Come off and you go wherever the speed takes you." }
+    ]
+  },
   guard: {
     label: "Load protection", options: [
       { id: "none", name: "Bungee cords", cost: 0, tier: 0, stats: {}, note: "They mostly hold." },
@@ -7524,7 +7531,7 @@ const PARTS = {
     ]
   }
 };
-const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "cool", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "guard", "lights", "survival", "recovery", "winch", "recv", "hitch"];
+const PART_ORDER = ["track", "skis", "clutch", "boost", "can", "cool", "susp", "bars", "grips", "shield", "tank", "tankL", "tankR", "rack", "tether", "guard", "lights", "survival", "recovery", "winch", "recv", "hitch"];
 
 // Rider kit. `warm` is insulation — the high country and storms ask for more of it.
 const GEAR = {
@@ -7570,7 +7577,7 @@ const GEAR_ORDER = ["head", "jacket", "pants", "boots", "gloves"];
 const OWN0 = () => ({
   sled: "frontier",
   sleds: ["frontier"],
-  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", recv: "none", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none", cool: "none" },
+  parts: { track: "stock", skis: "stock", clutch: "stock", boost: "none", can: "stock", susp: "stock", bars: "stock", shield: "low", tank: "stock", tankL: "none", tankR: "none", rack: "stock", lights: "stock", recv: "none", hitch: "none", grips: "stock", guard: "none", survival: "none", recovery: "none", winch: "none", cool: "none", tether: "rope" },
   partsOwned: {},
   gear: { head: "beanie", jacket: "shell", pants: "bib", boots: "pac", gloves: "leather" },
   gearOwned: {},
@@ -12261,6 +12268,7 @@ function crashEject(why, vx, vy, vz, skip) {
   C.vx = vx * 0.94; C.vz = vz * 0.94; C.vy = Math.max(vy, 0) * 0.6 + 2.0 + spd * 0.2;
   C.ry = Math.atan2(vx, vz); C.rx = 0; C.rz = 0;
   C.wx = spd * (0.3 + Math.random() * 0.15); C.wz = (Math.random() - 0.5) * spd * 0.22;   // head over heels, with a twist
+  C.tied = tetherOn(); C.taut = 0; ROPE.clip = C.tied;
   TABLET.close(true); camState.init = false;
   P.shake = 1; thud(1); cargoHit(spd * 0.9);
   for (let k = 0; k < 40; k++) emit(P.x, P.y + 0.6, P.z, vx * 0.3 + (Math.random() - 0.5) * 4, 1 + Math.random() * 3, vz * 0.3 + (Math.random() - 0.5) * 4, 1.4, 1);
@@ -12343,6 +12351,7 @@ function crashStep(dt) {
         }
       }
     }
+    if (C.tied) tetherPull(dt, true);
     // the tumble: free spin in the air, rolling along with the slide on the snow
     if (!C.gnd) { C.rx += C.wx * dt; C.rz += C.wz * dt; }
     else {
@@ -12363,6 +12372,7 @@ function crashStep(dt) {
     C.t2 += dt;
     const k = 1 - Math.exp(-6 * dt); C.rx += (C.lie - C.rx) * k; C.rz += (0 - C.rz) * k;
     C.y += (surf(C.x, C.z) + 0.16 - C.y) * k;
+    if (C.tied) tetherPull(dt, false);                                                 // a sled still sliding drags you along by the rope
     const sledSp = Math.hypot(P.vx, P.vz);
     if (C.t2 > 1.5 && (sledSp < 1.2 || C.t2 > 5)) {
       C.st = "up"; C.t2 = 0; C.lie0 = C.rx;
@@ -12382,11 +12392,79 @@ function crashGetUp() {
   C.on = false; C.st = ""; C.cool = 1.5; crashPoseReset();
   FOOT.on = true; FOOT.ski = false; P.vx = P.vz = 0;
   const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
-  const line = C.inj < 1.5 ? `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
-  toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${TC.on ? "tap Q" : "press Q"} to get on.`, C.inj < 4.5 ? "warn" : "bad");
+  const line = C.inj < 1.5 ? C.tied ? `Came off at ${mph} mph and nothing hurts.` : `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
+  if (C.tied) toast(`${line} The tether caught you and pulled the kill cord: the sled's right beside you. ${TC.on ? "Tap Q" : "Press Q"} to get back on.`, C.inj < 4.5 ? "warn" : "bad");
+  else toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${TC.on ? "tap Q" : "press Q"} to get on.`, C.inj < 4.5 ? "warn" : "bad");
   LOG.crashes = (LOG.crashes || 0) + 1;
 }
 // into the water mid-crash: the existing fjord/through-the-ice blackout takes it from here
+/* ---- the tether ----
+   A rope from the kill switch at the bars to the rider's belt (PARTS.tether, tied on by default). When a crash throws you, the rope
+   stops you ROPE.L from the bars: it snaps tight (a jolt, not a fall), kills the engine and the sled's slide drags you with it.
+   It stays clipped on while you get up and walk back, and comes undone if you walk off past the rope's length. Drawn by ropeTick. */
+const ROPE = { L: 1.4, clip: false, mesh: null, pts: null };
+function tetherOn() { return ((GS.own && GS.own.parts && GS.own.parts.tether) || "rope") !== "none"; }
+// the anchor: the kill switch on the bars, in world space from the sled's physics state
+function ropeAnchor(out) {
+  const az = 0.15; out.x = P.x + Math.sin(P.yaw) * az; out.y = P.y + 0.95; out.z = P.z + Math.cos(P.yaw) * az; return out;
+}
+const _ra = { x: 0, y: 0, z: 0 };
+function tetherPull(dt, fly) {
+  const C = CRASH, A = ropeAnchor(_ra);
+  let dx = C.x - A.x, dy = C.y - A.y, dz = C.z - A.z; const d = Math.hypot(dx, dy, dz);
+  ropeOffSled();
+  if (d <= ROPE.L || d < 1e-4) return;
+  dx /= d; dy /= d; dz /= d;
+  C.x = A.x + dx * ROPE.L; C.y = Math.max(A.y + dy * ROPE.L, surf(C.x, C.z) + (fly ? 0.28 : 0.16)); C.z = A.z + dz * ROPE.L;
+  if (!fly) return;
+  // relative to the sled, the outward part of the body's speed goes: some into the sled (it's ~3x heavier), the rest into the snow
+  const vr = (C.vx - P.vx) * dx + (C.vy - (P.vy || 0)) * dy + (C.vz - P.vz) * dz;
+  if (vr <= 0) return;
+  C.vx -= dx * vr * 1.05; C.vy -= dy * vr * 1.05; C.vz -= dz * vr * 1.05;
+  P.vx += dx * vr * 0.25; P.vz += dz * vr * 0.25;
+  if (vr > 2 && C.t - C.taut > 0.25) {                                    // the rope snapping tight: a jolt to the belt
+    C.taut = C.t; C.inj += Math.max(0, vr - 12) * 0.12;
+    thud(Math.min(0.8, 0.2 + vr / 20)); P.shake = Math.max(P.shake, Math.min(0.7, vr / 18));
+    C.wx *= 0.6; C.wz *= 0.6;
+  }
+  P.rpm = Math.min(P.rpm, 0);                                              // the kill cord's out: the engine dies
+}
+// held this close, the body can end up where the sled is: slide it out to the side of the hull instead
+function ropeOffSled() {
+  const C = CRASH; if (C.y > P.y + 1.1) return;
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), rx = C.x - P.x, rz = C.z - P.z;
+  const lz = rx * fx + rz * fz, lx = rx * fz - rz * fx;                     // along the sled, and across it
+  if (lz < -2.7 || lz > 1.5 || Math.abs(lx) > 0.8) return;
+  const nx = (lx < 0 ? -1 : 1) * 0.8;
+  C.x = P.x + fx * lz + fz * nx; C.z = P.z + fz * lz - fx * nx;
+}
+// draw the rope from the bars to the rider's belt, sagging when slack
+function ropeTick() {
+  const C = CRASH, tied = C.on ? C.tied : (ROPE.clip && FOOT.on && !(FISH && FISH.on));
+  if (!C.on && ROPE.clip && (!FOOT.on || !tetherOn())) ROPE.clip = false;   // back on the sled (or untied): coiled away
+  if (!tied || !FOOT.g) { if (ROPE.mesh) ROPE.mesh.visible = false; return; }
+  const A = sledRoot.localToWorld(new THREE.Vector3(0, 0.95, 0.15));
+  let bx, by, bz;
+  if (C.on) { bx = C.x; by = C.y - 0.05; bz = C.z; }
+  else {
+    bx = FOOT.x; by = FOOT.y + 0.95; bz = FOOT.z;
+    if (Math.hypot(bx - A.x, bz - A.z) > ROPE.L + 0.6) { ROPE.clip = false; if (ROPE.mesh) ROPE.mesh.visible = false; toast("You unclip the tether from your belt."); return; }
+  }
+  const d = Math.hypot(bx - A.x, by - A.y, bz - A.z), sag = Math.max(0, ROPE.L - d) * 0.6 + 0.03;
+  if (!ROPE.mesh) {
+    ROPE.pts = []; for (let i = 0; i <= 14; i++) ROPE.pts.push(new THREE.Vector3());
+    ROPE.mat = std(0xe8642a, 0.8);
+    ROPE.mesh = new THREE.Mesh(new THREE.BufferGeometry(), ROPE.mat); ROPE.mesh.castShadow = true; ROPE.mesh.frustumCulled = false; scene.add(ROPE.mesh);
+  }
+  for (let i = 0; i <= 14; i++) {
+    const u = i / 14, pt = ROPE.pts[i];
+    pt.set(A.x + (bx - A.x) * u, A.y + (by - A.y) * u - sag * 4 * u * (1 - u), A.z + (bz - A.z) * u);
+    const fl = surf(pt.x, pt.z) + 0.02; if (pt.y < fl) pt.y = fl;                      // lies on the snow, not through it
+  }
+  ROPE.mesh.geometry.dispose();
+  ROPE.mesh.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ROPE.pts), 20, 0.016, 5, false);
+  ROPE.mesh.visible = true;
+}
 function crashSplash() {
   const C = CRASH;
   for (let k = 0; k < 50; k++) emit(C.x, (wlvAt(C.x, C.z) || SEA) + 0.1, C.z, C.vx * 0.2 + (Math.random() - 0.5) * 6, 2 + Math.random() * 5, C.vz * 0.2 + (Math.random() - 0.5) * 6, 1.5, 1.2);
@@ -12429,6 +12507,7 @@ function frame(t) {
   if (started && !SEASON.card) { acc += dt; let n = 0; while (acc >= H && n < 8) { physStep(H); acc -= H; n++; } if (n === 8) acc = 0; }
   const spd = updVisuals(dt);
   crashVisual(dt);
+  ropeTick();
   if (FISH && FISH.on) FISH.frame(dt);                                  // out on the ice: the walker, rod, line and the side-view camera
   wnVisual(dt);
   dogTick(dt);

@@ -101,6 +101,12 @@ you landed and walk back to the sled (Q to get on). Overdo it and you wake up in
 few hours later with a bill; the Red Cross brings the sled in and parks it out front, but any freight
 is gone, the same as a blackout. Big enough sleds still mow birches down rather than crash into them.
 
+Every sled comes with a **tether**: a short orange rope from the kill switch on the bars to your
+belt. Come off with it tied on and you only go a couple of feet: the rope snaps tight, pulls the
+kill cord so the engine dies, and you land right next to the sled (if it's still sliding, it drags
+you along). Get up, press Q, and you're back on. The rope stays clipped on while you stand there
+and comes undone if you walk off. Untie it in the garage (Parts, Tether) if you'd rather fly.
+
 ## Bytteboden: buying used
 
 The tablet's marketplace. Private sellers in the villages, cabins and homes list used engines,
