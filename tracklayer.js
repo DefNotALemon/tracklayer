@@ -1192,17 +1192,57 @@ function tabletProp(parent, scrMat) {
   const scr = new THREE.Mesh(TAB_GEO.glass, scrMat); scr.rotation.y = Math.PI; scr.position.z = -0.0072; T.add(scr);
   return { T, scr };
 }
+// the screen in the world's light. Every tablet's glass goes through the same filter as the rest of the frame (the renderer's ACES
+// tone curve and exposure, the fog), and takes a little of the light it sits in: a cast from the sky and the sun on it (warm at
+// sunset, blue in polar night, green under a strong aurora), auto-brightness that turns it down in the dark, and a faint veil of
+// daylight off the glass that lifts its blacks. updScreenGrade() sets it from updSky's lights every frame; the DOM tablet laid over
+// the glass gets the same chain as an SVG filter (#tabGrade in index.html), so the screen keeps its look as you dip onto it.
+const TSG = { tint: new THREE.Color(1, 1, 1), veil: new THREE.Color(0, 0, 0), key: "", on: null };
+TSG.u = { uTint: { value: TSG.tint }, uVeil: { value: TSG.veil } };
+function screenMat(tex) {
+  const m = new THREE.MeshBasicMaterial({ map: tex });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uTint = TSG.u.uTint; sh.uniforms.uVeil = TSG.u.uVeil;
+    sh.fragmentShader = "uniform vec3 uTint;\nuniform vec3 uVeil;\n" + sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n\tdiffuseColor.rgb = diffuseColor.rgb * uTint + uVeil;");
+  };
+  return m;
+}
+const ACES_IN = [[0.59719, 0.35458, 0.04823], [0.07600, 0.90834, 0.01566], [0.02840, 0.13383, 0.83777]];   // three's ACESFilmicToneMapping, row by row
+const ACES_OUT = [[1.60475, -0.53108, -0.07367], [-0.10208, 1.10813, -0.00605], [-0.00327, -0.07276, 1.07602]];
+const acesFit = v => (v * (v + 0.0245786) - 0.000090537) / (v * (0.983729 * v + 0.4329510) + 0.238081);
+function updScreenGrade() {
+  // the light on the dash: the sky fill, and some of the key light (the glass is tipped up toward the sky)
+  const r = hemi.color.r * hemi.intensity + sun.color.r * sun.intensity * 0.3, g = hemi.color.g * hemi.intensity + sun.color.g * sun.intensity * 0.3,
+    b = hemi.color.b * hemi.intensity + sun.color.b * sun.intensity * 0.3;
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b, mx = Math.max(r, g, b, 1e-4);
+  const k = lerp(0.62, 1, sstep(0.05, 0.85, L)), cast = 0.32, vl = 0.02 * sstep(0.1, 1, L);
+  TSG.tint.setRGB(lerp(1, r / mx, cast) * k, lerp(1, g / mx, cast) * k, lerp(1, b / mx, cast) * k);
+  TSG.veil.setRGB(r * vl, g * vl, b * vl);
+  // the DOM screen: rewrite the filter only when the grade has moved
+  const E = renderer.toneMappingExposure, key = [TSG.tint.r, TSG.tint.g, TSG.tint.b, TSG.veil.r, TSG.veil.g, TSG.veil.b, E].map(v => v.toFixed(3)).join(",");
+  if (key === TSG.key) return; TSG.key = key;
+  const fin = document.getElementById("tgIn"); if (!fin) return;
+  if (!TSG.on) {                                                   // once: the ACES curve as a table (input scaled by 1/2 so it fits 0..1) and the output matrix
+    const tv = []; for (let i = 0; i <= 127; i++) tv.push(Math.max(0, acesFit(i / 127 * 2)).toFixed(5));
+    for (const f of document.querySelectorAll("#tabGrade feFuncR, #tabGrade feFuncG, #tabGrade feFuncB")) { f.setAttribute("type", "table"); f.setAttribute("tableValues", tv.join(" ")); }
+    document.getElementById("tgOut").setAttribute("values", ACES_OUT.map(row => row.join(" ") + " 0 0").join(" ") + " 0 0 0 1 0");
+    TSG.on = true;
+  }
+  const s = 0.5 * E / 0.6, tc = [TSG.tint.r, TSG.tint.g, TSG.tint.b], vc = [TSG.veil.r, TSG.veil.g, TSG.veil.b], rows = [];
+  for (let i = 0; i < 3; i++) { const R = ACES_IN[i]; rows.push([R[0] * tc[0] * s, R[1] * tc[1] * s, R[2] * tc[2] * s, 0, (R[0] * vc[0] + R[1] * vc[1] + R[2] * vc[2]) * s].map(v => +v.toFixed(5)).join(" ")); }
+  fin.setAttribute("values", rows.join(" ") + " 0 0 0 1 0");
+}
 // the other sleds' tablets all show one shared home screen (see tabIdle); it's redrawn once a game minute, and only while one is in view
 const TAB_IDLE = (() => {
   const c = document.createElement("canvas"); c.width = 224; c.height = 143;
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
-  return { c, tex, mat: new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }), k: "" };
+  return { c, tex, mat: screenMat(tex), k: "" };
 })();
 const TAB_PROPS = [];   // every tablet that isn't yours: other riders, crews, stuck sleds, your own sled parked in a school yard
 {
   const c = document.createElement("canvas"); c.width = 320; c.height = 205;
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
-  const p = tabletProp(sledBody, new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, fog: false }));
+  const p = tabletProp(sledBody, screenMat(tex));
   V.tab = p.T; V.tabScr = p.scr; V.tabCv = c; V.tabTex = tex;
   // the arm, from the column to the ball on the tablet's back: one tube re-aimed by applyLoadout for each machine
   const ag = new THREE.CylinderGeometry(0.012, 0.014, 1, 8); ag.translate(0, 0.5, 0);
@@ -2650,13 +2690,24 @@ function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.
 // still feel every change — a pause, a lurch, the note dropping. The newest chassis and the
 // electrics are stepless: one smooth pull from a standstill to flat out.
 // Touch controls have no shift keys, so a manual sled rides as an automatic on phones.
-const GB = { gear: 1, n: 1, vTop: 0, mul: 1, shiftT: 0, hintT: 0, told: "" };
+// Reverse, on every sled: F at a standstill (in first, on a manual) drops it into R and the
+// throttle backs you up, slow and low-geared; R puts it back in forward. Both only go in
+// stopped: try it rolling and the box just grinds. GB.gear 0 is reverse.
+const GB = { gear: 1, n: 1, vTop: 0, mul: 1, dir: 1, shiftT: 0, hintT: 0, told: "" };
+const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops out ~9 mph; "stopped" is under ~2 mph
+const gbStill = () => Math.abs(P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)) < GB_STILL;
 const gbCount = sd => sd.trans === "manual" || sd.trans === "auto" ? sd.gears || 4 : 1;
-function gbReset() { GB.gear = 1; GB.n = gbCount(sledDef()); GB.vTop = 0; GB.shiftT = 0; GB.mul = 1; GB.hintT = 0; }
+function gbReset() { GB.gear = 1; GB.dir = 1; GB.n = gbCount(sledDef()); GB.vTop = 0; GB.shiftT = 0; GB.mul = 1; GB.hintT = 0; }
 const gbTop = g => GB.vTop * Math.pow(g / GB.n, 0.85);
 function gbShift(d, quiet) {
-  const g = clamp(GB.gear + d, 1, GB.n); if (g === GB.gear) return false;
-  GB.gear = g; GB.shiftT = sledDef().trans === "auto" ? 0.34 : 0.22;
+  const g = clamp(GB.gear + d, quiet ? 1 : 0, GB.n); if (g === GB.gear) return false;   // only a hand on the lever finds reverse
+  if ((g === 0 || GB.gear === 0) && !gbStill()) {              // in or out of reverse while rolling: it grinds
+    P.shake = Math.max(P.shake, 0.04); thud(0.1);
+    toast(g === 0 ? "Stop first, then F for reverse." : "Stop first, then R for forward.", "warn");
+    return false;
+  }
+  if (g === 0) toast("Reverse: throttle backs you up. R for forward.");
+  GB.gear = g; GB.dir = g === 0 ? -1 : 1; GB.shiftT = sledDef().trans === "auto" ? 0.34 : 0.22;
   P.shake = Math.max(P.shake, quiet ? 0.055 : 0.03);          // you feel it slot in, the automatic most of all
   thud(quiet ? 0.14 : 0.08);
   return true;
@@ -2664,6 +2715,8 @@ function gbShift(d, quiet) {
 function shiftKey(d) {
   if (FOOT.on || GS.dead) return;
   const sd = sledDef();
+  // the reverse lever works on everything; only a manual has forward gears to pick by hand
+  if (GB.gear === 0 || (d < 0 && GB.gear === 1)) { gbShift(d, false); return; }
   if (sd.trans !== "manual" || TC.on) {
     if (GB.told !== sd.id) {
       GB.told = sd.id;
@@ -2678,12 +2731,19 @@ function gbStep(dt, vf, thrE) {
   const sd = sledDef();
   GB.n = gbCount(sd);
   GB.mul = 1;
+  GB.dir = GB.gear === 0 ? -1 : 1;
+  if (GB.gear === 0) {                                         // reverse: one short, pulling gear backwards
+    const over = Math.max(0, -vf) / GB_REV_TOP;
+    let m = 1.25 * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1);
+    if (GB.shiftT > 0) { GB.shiftT -= dt; m *= 0.45; }
+    GB.mul = m; return;
+  }
   if (GB.n === 1) return;
   if (GB.gear > GB.n) GB.gear = GB.n;
+  const auto = sd.trans === "auto" || TC.on;                  // phones get an automatic either way
   const spd = Math.abs(vf);
   if (!GB.vTop) GB.vTop = 23 * (0.7 + 0.5 * ST.power);        // a first guess; it learns the real top speed below
   if (GB.gear === GB.n && spd > GB.vTop) GB.vTop = spd;       // whatever top gear actually reaches is the yardstick
-  const auto = sd.trans === "auto" || TC.on;                  // phones get an automatic either way
   if (auto) {
     if (GB.gear < GB.n && thrE > 0.2 && spd > gbTop(GB.gear) * 0.96) gbShift(1, true);
     else if (GB.gear > 1 && spd < gbTop(GB.gear - 1) * 0.72) gbShift(-1, true);
@@ -2772,8 +2832,11 @@ function physCore(dt) {
     const pw = 47000 * PWR * SPEED_K * punch * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     gbStep(dt, vf, thrE);
-    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * GB.mul * (1 - 0.9 * P.rock);
-    if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
+    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * GB.mul * GB.dir * (1 - 0.9 * P.rock);
+    if (input.brk > 0) {
+      if (GB.dir < 0) F += (vf < -0.6 ? 4200 : vf < 0 ? 1100 : 0) * input.brk;   // in reverse the brake just holds you
+      else F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
+    }
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
     // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
@@ -3274,7 +3337,7 @@ function updVisuals(dt) {
   // engine rpm: a geared sled revs out through its band and drops a beat between gears
   let rpmT;
   if (GB.n > 1) {
-    const lo = GB.gear > 1 ? gbTop(GB.gear - 1) : 0, hi = Math.max(gbTop(GB.gear) - lo, 1);
+    const lo = GB.gear > 1 ? gbTop(GB.gear - 1) : 0, hi = GB.gear === 0 ? GB_REV_TOP : Math.max(gbTop(GB.gear) - lo, 1);
     rpmT = clamp(0.16 + clamp((spd - lo) / hi, 0, 1) * 0.7 + input.thr * 0.14 + (GB.shiftT > 0 ? -0.22 : 0) + (input.thr && !P.gnd ? 0.2 : 0), 0, 1.05);
   } else rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
@@ -3363,7 +3426,7 @@ function updVisuals(dt) {
 }
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
-  const gv = $("gearV"), gt = GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
+  const gv = $("gearV"), gt = GB.gear === 0 ? "REVERSE" : GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
   if (gv && gv.textContent !== gt) gv.textContent = gt;
   const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
@@ -4543,6 +4606,7 @@ function updSky() {
   const df = sstep(-7, 3, e);
   headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, df) * ST.light : 0;
   headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
+  updScreenGrade();                                  // the tablets' screens take the same light and grade
 }
 
 /* snowfall fills old tracks back in */
@@ -9404,19 +9468,42 @@ function applyLoadout() {
   V.guards.forEach(m => m.visible = pr.bars === "guards");
   V.riser.visible = pr.bars !== "stock";
   V.mirrors.visible = ex.includes("mirrors");
-  /* the dash tablet sits under the bars on the rider's side of the column, tipped up to the rider's eye, its arm running forward to the column */
+  /* the dash tablet sits under the bars on the rider's side of the column, tipped up to the rider's eye, its arm running forward to the column.
+     The column stands on the hood, never on the tablet: the tablet backs off toward the rider until the column clears its back (mount ball
+     and all) and passes its top edge with a gap, so from the seat and the chase views the column is seen to run on down past it to the hood */
   {
-    const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ, hH = TABHW.H / 2, cz = bz - 0.085;
-    let cy = by - 0.11, tilt = TABHW.tilt;
-    for (let i = 0; i < 4; i++) {                    // settle: face the eye (0, 1.66, -0.14), keep the top edge under the bar, the bottom edge off the hood
-      tilt = Math.atan2(1.66 - cy, cz + 0.14);
-      const hv = hH * Math.cos(tilt), zb = cz - hH * Math.sin(tilt);
-      cy = Math.max(by - 0.045 - hv, ud.hoodY(zb) + 0.02 + hv);
-    }
+    const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ, hH = TABHW.H / 2;
+    const cb = [ud.columnBase, ud.columnZ], ct = [ud.barY - 0.06, ud.barZ];   // the column's foot and its top (sled y, z)
+    let cz = bz - 0.085, cy = by - 0.11, tilt = TABHW.tilt;
+    const settle = () => {
+      for (let i = 0; i < 4; i++) {                  // face the eye (0, 1.66, -0.14), keep the top edge under the bar, the bottom edge off the hood
+        tilt = Math.atan2(1.66 - cy, cz + 0.14);
+        const hv = hH * Math.cos(tilt), zb = cz - hH * Math.sin(tilt);
+        cy = Math.max(by - 0.045 - hv, ud.hoodY(zb) + 0.02 + hv);
+      }
+    };
+    // the column's worst clearance in the tablet's own frame (y up the glass, z out of its back): 4.5 cm behind the glass where it
+    // crosses the tablet (the mount ball stands 3.8 cm proud), 2 cm where it runs past the top edge; < 0 means it touches
+    const clearance = () => {
+      const c = Math.cos(tilt), s = Math.sin(tilt); let worst = 9;
+      for (let i = 0; i <= 24; i++) {
+        const k = i / 24, y = lerp(cb[0], ct[0], k) - cy, z = lerp(cb[1], ct[1], k) - cz, r = 0.05 - 0.015 * k;
+        const ly = y * c + z * s, lz = -y * s + z * c;
+        if (Math.abs(ly) > hH + 0.06 + r) continue;
+        worst = Math.min(worst, lz - r - (Math.abs(ly) <= hH + r ? 0.045 : 0.02));
+      }
+      return worst;
+    };
+    settle();
+    for (let n = 0; n < 16 && clearance() < 0; n++) { cz -= 0.01; settle(); }
+    V.tabClear = clearance();
     V.tab.position.set(0, cy, cz); V.tab.rotation.x = tilt;
     const k = new THREE.Vector3(0, 0, 0.022).applyEuler(V.tab.rotation).add(V.tab.position);
-    const t = clamp((k.y - ud.columnBase) / Math.max(0.05, ud.barY - 0.06 - ud.columnBase), 0, 1);
-    const a = new THREE.Vector3(0, k.y, lerp(ud.columnZ, bz, t)), d = k.clone().sub(a);   // the column at the ball's height (a riser above the stock clamp)
+    let exY = ct[0];                                 // where the column comes up out of the hood: the arm meets it above that, never inside the hood
+    for (let i = 0; i <= 40; i++) { const f = i / 40, y = lerp(cb[0], ct[0], f); if (y > ud.hoodY(lerp(cb[1], ct[1], f)) + 0.01) { exY = y; break; } }
+    const ay = Math.max(k.y, Math.min(exY + 0.03, by - 0.07));
+    const t = clamp((ay - ud.columnBase) / Math.max(0.05, ud.barY - 0.06 - ud.columnBase), 0, 1);
+    const a = new THREE.Vector3(0, ay, lerp(ud.columnZ, bz, t)), d = k.clone().sub(a);   // the column at the ball's height (a riser above the stock clamp)
     V.tabArm.position.copy(a); V.tabArm.scale.set(1, Math.max(0.01, d.length()), 1); V.tabArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
     V.tabKnob.position.copy(a);
   }
@@ -10451,6 +10538,39 @@ function xcGroove(x, z, fx, fz) {
     if (tg < d0 - 0.002) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
   }
 }
+/* ---------------- the walker's path ----------------
+   Wading through on foot cuts a trench: the shins plough a narrow lane about half a metre wide,
+   and every step drives a boot hole into the bottom of it. Walk the same line again and it packs
+   down further (never below about a third of the snowpack), so the path you broke is the easy way
+   home: footStep reads the packing and you wade faster in it. Lives in the snow cells like every
+   other track, so it saves and melts with them; the minimap shows it as a faint trail. */
+function footPath(x, z, fx, fz) {
+  const lx = fz, lz = -fx, R = 0.45;
+  for (let iz = Math.max(0, Math.floor((z - R + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((z + R + HALF) / CELL)); iz++) {
+    const wz = iz * CELL - HALF - z;
+    for (let ix = Math.max(0, Math.floor((x - R + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((x + R + HALF) / CELL)); ix++) {
+      const wx = ix * CELL - HALF - x, pl = wx * fx + wz * fz;
+      if (Math.abs(pl) > 0.3) continue;
+      const w = 1 - sstep(0.1, 0.34, Math.abs(wx * lx + wz * lz));
+      if (w < 0.02) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+      if (f < 0.04) continue;
+      let tg = lerp(f, f * 0.5, w);                                     // the first pass: a lane broken to half depth
+      if (d0 <= tg + 0.01) tg = Math.max(f * 0.32, d0 - 0.035 * w);    // walked again: it packs down further
+      if (tg < d0 - 0.002) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
+    }
+  }
+  markTrail(x, z, true);
+}
+// a boot driven into the snow: the cell under it punched down hard
+function bootHole(x, z) {
+  const ix = Math.round((x + HALF) / CELL), iz = Math.round((z + HALF) / CELL);
+  if (ix < 0 || iz < 0 || ix >= FN || iz >= FN) return;
+  const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
+  if (f < 0.04) return;
+  const tg = Math.max(f * 0.22, Math.min(d0, f * 0.5) - 0.06);
+  if (tg < d0 - 0.002) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
+}
 // trees, rocks, buildings, rescue machines and the sled: push the walker out; true if anything pushed
 function footBlock(F, nx, nz) {
   let hit = false;
@@ -10561,7 +10681,8 @@ function footStep(dt) {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
     if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; } else WN.tight = false;
   }
-  const lim = HALF - 24; F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
+  const lim = HALF - 24, moved = Math.hypot(nx - F.x, nz - F.z); F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
+  F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x, F.z, fx, fz); }    // the trench behind you
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
@@ -10574,6 +10695,7 @@ function footStep(dt) {
     if (Math.abs(F.sp) > 0.25) {
       const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.1, lz = -Math.sin(F.yaw) * sd * 0.1, px = F.x + fx * 0.5 + lx, pz = F.z + fz * 0.5 + lz;
       for (let k = 0; k < 3 + d * 8; k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
+      bootHole(px, pz);
       snowStep(0.35 + 0.45 * F.strain);
     }
     F.half = half;

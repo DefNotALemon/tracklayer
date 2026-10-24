@@ -459,7 +459,7 @@
   #tab{position:fixed;left:0;top:0;width:0;height:0;z-index:3}
   #tabS{position:absolute;left:0;top:0;transform-origin:0 0;display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;color:var(--frost);font-family:var(--body);font-size:15px;line-height:1.3;
     background:#0f1a24;background-image:repeating-linear-gradient(0deg,rgba(234,242,248,.025) 0 1px,transparent 1px 28px);border:0;border-radius:var(--tr,24px);box-shadow:var(--soft);
-    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;backface-visibility:hidden}
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;backface-visibility:hidden;filter:url(#tabGrade)}
   #tabS.dash{border:0;border-radius:var(--tr,32px);box-shadow:none}
   /* iPad-style: the overlay wears a black glass bezel and an aluminium edge; the dash version is just the display, its corners matching the 3D glass */
   .tsbar{display:flex;align-items:center;gap:10px;height:40px;flex:none;padding:0 8px 0 6px;border-bottom:1px solid var(--rule);background:rgba(13,24,34,.7);font-size:13px;font-weight:600;letter-spacing:.08em;white-space:nowrap}
@@ -773,6 +773,13 @@
   <svg id="arrow" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2 L20 21 L12 16 L4 21 Z" fill="currentColor"/></svg>
   <div><div id="jobTitle">No cargo</div><div id="jobSub">Head back to the quay</div></div>
 </div>
+<!-- the world's grade for the DOM tablet screen (filled by updScreenGrade in tracklayer.js): the light's tint and veil and
+     the renderer's exposure in, three's ACES tone curve as a table, its output matrix out; worked in linear light like the 3D glass -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="tabGrade" x="0" y="0" width="1" height="1" color-interpolation-filters="linearRGB">
+  <feColorMatrix id="tgIn" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/>
+  <feComponentTransfer><feFuncR type="identity"/><feFuncG type="identity"/><feFuncB type="identity"/></feComponentTransfer>
+  <feColorMatrix id="tgOut" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/>
+</filter></svg>
 <div id="tab" hidden>
   <div id="tabS" role="dialog" aria-label="Dash tablet">
     <div class="tsbar">
@@ -850,7 +857,7 @@
   <div><b>Shift</b>Lean into turn</div>
   <div><b>Space</b>Hop</div>
   <div><b>Ctrl</b>Wheelie</div>
-  <div><b>R / F</b>Gear up / down (manual sleds)</div>
+  <div><b>R / F</b>Gear up / down (manual sleds) · F when stopped: reverse, R: forward</div>
   <div><b>N</b>Reset sled</div>
   <div><b>E</b>Horn · stopped by a frozen lake: get off and fish · at the tackle shop or fish buyer: open it</div>
   <div><b>T</b>Garage</div>
@@ -918,5 +925,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=50"></script>
+<script src="tracklayer.js?v=51"></script>
 </body></html>
