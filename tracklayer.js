@@ -10545,13 +10545,13 @@ function xcGroove(x, z, fx, fz) {
    home: footStep reads the packing and you wade faster in it. Lives in the snow cells like every
    other track, so it saves and melts with them; the minimap shows it as a faint trail. */
 function footPath(x, z, fx, fz) {
-  const lx = fz, lz = -fx, R = 0.45;
+  const lx = fz, lz = -fx, R = 0.55;
   for (let iz = Math.max(0, Math.floor((z - R + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((z + R + HALF) / CELL)); iz++) {
     const wz = iz * CELL - HALF - z;
     for (let ix = Math.max(0, Math.floor((x - R + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((x + R + HALF) / CELL)); ix++) {
       const wx = ix * CELL - HALF - x, pl = wx * fx + wz * fz;
       if (Math.abs(pl) > 0.3) continue;
-      const w = 1 - sstep(0.1, 0.34, Math.abs(wx * lx + wz * lz));
+      const w = 1 - sstep(0.16, 0.42, Math.abs(wx * lx + wz * lz));
       if (w < 0.02) continue;
       const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
       if (f < 0.04) continue;
@@ -10682,7 +10682,7 @@ function footStep(dt) {
     if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; } else WN.tight = false;
   }
   const lim = HALF - 24, moved = Math.hypot(nx - F.x, nz - F.z); F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
-  F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x, F.z, fx, fz); }    // the trench behind you
+  F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x - fx * 0.5, F.z - fz * 0.5, fx, fz); }    // the trench behind you (not under you: fresh snow stays hard going)
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
@@ -10695,7 +10695,7 @@ function footStep(dt) {
     if (Math.abs(F.sp) > 0.25) {
       const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.1, lz = -Math.sin(F.yaw) * sd * 0.1, px = F.x + fx * 0.5 + lx, pz = F.z + fz * 0.5 + lz;
       for (let k = 0; k < 3 + d * 8; k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
-      bootHole(px, pz);
+      bootHole(F.x - fx * 0.45 + lx, F.z - fz * 0.45 + lz);         // the trailing boot pulls out and leaves its hole
       snowStep(0.35 + 0.45 * F.strain);
     }
     F.half = half;

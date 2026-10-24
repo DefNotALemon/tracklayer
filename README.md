@@ -125,6 +125,10 @@ you) but they build to two or three times walking pace on packed snow, run downh
 and glide a long way. Your sled tracks are the fast lanes, and the skis leave grooves of their own.
 Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving.
 
+On foot without skis you break trail: every step leaves a boot hole and your legs plough a
+trench about half a metre wide behind you. It shows on the minimap, and walking back along it
+is nearly twice as quick as wading fresh powder; the more you use it, the harder it packs.
+
 ## The ferry and the mail
 
 The coastal ferry calls at Kjøllefjord twice a day: **northbound** alongside 08:15, sails 09:30, and
