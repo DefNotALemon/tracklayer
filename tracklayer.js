@@ -775,16 +775,23 @@ const M = {};
    - a shared wear canvas (grit speckle, hairline scratches, salt bloom) bound as roughnessMap and
      bumpMap on the livery materials. It multiplies the roughness rather than replacing it and is
      cloned along with the material by the WEAR system, so used machines keep it under their fade. */
+// The cube is painted as daylight and then dimmed with the light (updSledEnv, from updSky): it's an unlit texture, so left
+// at noon brightness the paint, trim and hardware that mirror it glowed at night while the rest of the sled went dark.
 const sledEnvCube = (() => {
-  const face = (top, horizon, bottom) => {
-    const c = document.createElement("canvas"); c.width = c.height = 64;
-    const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 64);
-    gr.addColorStop(0, top); gr.addColorStop(0.58, horizon); gr.addColorStop(1, bottom);
-    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
+  const FACES = [["#dfe9f4", "#f4f7fb", "#9fb0c2"], ["#dfe9f4", "#f4f7fb", "#9fb0c2"], ["#eef4fb", "#f6f9fc", "#dfe9f4"],
+    ["#39424c", "#2c333b", "#20262d"], ["#dfe9f4", "#f4f7fb", "#9fb0c2"], ["#dfe9f4", "#f4f7fb", "#9fb0c2"]].map(f => f.map(h => new THREE.Color(h)));
+  const cvs = FACES.map(() => { const c = document.createElement("canvas"); c.width = c.height = 64; return c; });
+  const css = (c, t) => `rgb(${Math.round(255 * clamp(c.r * t.r, 0, 1))},${Math.round(255 * clamp(c.g * t.g, 0, 1))},${Math.round(255 * clamp(c.b * t.b, 0, 1))})`;
+  const tex = new THREE.CubeTexture(cvs);
+  tex.paint = t => {                                               // t: the light, ~1,1,1 at noon
+    cvs.forEach((c, i) => {
+      const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 64), [top, hor, bot] = FACES[i];
+      gr.addColorStop(0, css(top, t)); gr.addColorStop(0.58, css(hor, t)); gr.addColorStop(1, css(bot, t));
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    });
+    tex.needsUpdate = true;
   };
-  const sky = () => face("#dfe9f4", "#f4f7fb", "#9fb0c2");
-  const tex = new THREE.CubeTexture([sky(), sky(), face("#eef4fb", "#f6f9fc", "#dfe9f4"), face("#39424c", "#2c333b", "#20262d"), sky(), sky()]);
-  tex.needsUpdate = true; return tex;
+  tex.paint({ r: 1, g: 1, b: 1 }); return tex;
 })();
 const sledWearTex = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
@@ -4607,6 +4614,21 @@ function updSky() {
   headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, df) * ST.light : 0;
   headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
   updScreenGrade();                                  // the tablets' screens take the same light and grade
+  updSledEnv();
+}
+// the sleds' reflections take the same light as everything else: the sky fill plus some of the key light, ~1 at noon,
+// a few per cent on a moonless night, warm at sunset, green under an aurora. Repainted only when it has moved.
+// Brightness follows the light's luminance (full by a sunny ~0.7, so daytime looks as it always did); its colour only
+// leans the reflection a third of the way toward the light's tint.
+const SENV = { key: "", t: { r: 1, g: 1, b: 1 } };
+function updSledEnv() {
+  const t = SENV.t, q = v => Math.round(v * 200) / 200;
+  const r = hemi.color.r * hemi.intensity + sun.color.r * sun.intensity * 0.3, g = hemi.color.g * hemi.intensity + sun.color.g * sun.intensity * 0.3,
+    b = hemi.color.b * hemi.intensity + sun.color.b * sun.intensity * 0.3;
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b, mx = Math.max(r, g, b, 1e-4), k = Math.min(1, L / 0.62);
+  t.r = q(lerp(1, r / mx, 0.33) * k); t.g = q(lerp(1, g / mx, 0.33) * k); t.b = q(lerp(1, b / mx, 0.33) * k);
+  const key = t.r + "," + t.g + "," + t.b; if (key === SENV.key) return; SENV.key = key;
+  sledEnvCube.paint(t);
 }
 
 /* snowfall fills old tracks back in */
