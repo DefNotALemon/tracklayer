@@ -1165,7 +1165,7 @@ for (const s of [-1, 1]) box(0.04, 0.16, 0.04, M.dark, s * 0.2, 0.1, -0.04, -0.4
   const bead = new THREE.CylinderGeometry(0.44, 0.452, 0.035, 18, 1, true, -1.0, 2.0); bead.translate(0, 0.0175, -0.44);
   V.paneBead = put(new THREE.Mesh(bead, sledTrimMat), 0, 0, 0, 0, 0, 0, sh); V.paneBead.castShadow = false;
 }
-// the dash tablet: a 10-inch screen on a short RAM-style arm off the steering column, under the bars. Idle, it
+// the dash tablet: a 10-inch screen on a short stalk off the hood, under the bars on the rider's side of the column. Idle, it
 // shows a live heading-up map in first person and its home screen in the other views (a small CanvasTexture, see
 // tabDash); dip your head to it (Tab) and the tablet OS is laid exactly over this glass. Every sled has one.
 const TABHW = { W: 0.22, H: 0.1408, R: 0.012, tilt: 0.55 };
@@ -1244,7 +1244,7 @@ const TAB_PROPS = [];   // every tablet that isn't yours: other riders, crews, s
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
   const p = tabletProp(sledBody, screenMat(tex));
   V.tab = p.T; V.tabScr = p.scr; V.tabCv = c; V.tabTex = tex;
-  // the arm, from the column to the ball on the tablet's back: one tube re-aimed by applyLoadout for each machine
+  // the stalk, from the hood up to the ball on the tablet's back: one tube re-aimed by applyLoadout for each machine
   const ag = new THREE.CylinderGeometry(0.012, 0.014, 1, 8); ag.translate(0, 0.5, 0);
   V.tabArm = put(new THREE.Mesh(ag, M.dark), 0, 0, 0); V.tabKnob = ball(0.02, M.dark, 0, 0, 0);
 }
@@ -9460,50 +9460,63 @@ function applyLoadout() {
   V.carbide.forEach(m => m.visible = pr.skis === "carbide");
   /* bars, column, gauges */
   barPivot.position.set(0, ud.barY + (pr.bars === "stock" ? 0 : 0.12), ud.barZ);
-  {
-    const dy = ud.barY - 0.06 - ud.columnBase, dz = ud.barZ - ud.columnZ;   // the column always ends at the stock clamp height; a riser fills the rest
-    V.column.position.set(0, ud.columnBase, ud.columnZ); V.column.rotation.x = Math.atan2(dz, dy); V.column.scale.y = Math.max(0.2, Math.hypot(dy, dz));
-    V.columnFoot.position.set(0, ud.columnBase + 0.02, ud.columnZ);
-  }
   V.guards.forEach(m => m.visible = pr.bars === "guards");
   V.riser.visible = pr.bars !== "stock";
   V.mirrors.visible = ex.includes("mirrors");
-  /* the dash tablet sits under the bars on the rider's side of the column, tipped up to the rider's eye, its arm running forward to the column.
-     The column stands on the hood, never on the tablet: the tablet backs off toward the rider until the column clears its back (mount ball
-     and all) and passes its top edge with a gap, so from the seat and the chase views the column is seen to run on down past it to the hood */
+  /* the dash tablet sits under the bars on the rider's side of the column, tipped up to the rider's eye, on a short stalk off the hood.
+     The column stands on the hood, never on the tablet. Like a real steering post it rakes forward from the bar clamp down into the hood, and
+     its foot goes as far forward as it takes for (a) the column to clear the tablet's back (mount ball and all) and pass its top edge with a
+     gap, and (b) the spot where it comes up out of the hood to show above the tablet's top edge from the seat, so you see it stand on the
+     hood. The tablet backs off toward the rider only as far as the bar clamp needs; on the tall-barred sleds, where no sane rake shows the
+     column's foot over the tablet, the tablet drops (and backs off) instead. Its stalk runs down into the hood behind the glass. */
   {
     const by = ud.barY + (pr.bars === "stock" ? 0 : 0.12), bz = ud.barZ, hH = TABHW.H / 2;
-    const cb = [ud.columnBase, ud.columnZ], ct = [ud.barY - 0.06, ud.barZ];   // the column's foot and its top (sled y, z)
-    let cz = bz - 0.085, cy = by - 0.11, tilt = TABHW.tilt;
+    const ct = [ud.barY - 0.06, ud.barZ], cb = [ud.columnBase, ud.columnZ];   // the column's top (the stock clamp; a riser fills the rest) and its foot (sled y, z)
+    let cz = bz - 0.085, cy = by - 0.11, tilt = TABHW.tilt, drop = 0;
     const settle = () => {
       for (let i = 0; i < 4; i++) {                  // face the eye (0, 1.66, -0.14), keep the top edge under the bar, the bottom edge off the hood
         tilt = Math.atan2(1.66 - cy, cz + 0.14);
         const hv = hH * Math.cos(tilt), zb = cz - hH * Math.sin(tilt);
-        cy = Math.max(by - 0.045 - hv, ud.hoodY(zb) + 0.02 + hv);
+        cy = Math.max(by - 0.045 - hv - drop, ud.hoodY(zb) + 0.02 + hv);
       }
     };
-    // the column's worst clearance in the tablet's own frame (y up the glass, z out of its back): 4.5 cm behind the glass where it
-    // crosses the tablet (the mount ball stands 3.8 cm proud), 2 cm where it runs past the top edge; < 0 means it touches
-    const clearance = () => {
+    // the worst gap (m) between the steering parts and the tablet: the column from its foot up to the stock clamp, and the bar clamp
+    // (a riser's posts in the same place) hanging 12 cm under the bar. Each is a capsule round its axis; the tablet, in its own frame
+    // (y up the glass, z out of its back), is the slab from the glass to the mount ball. < 0 means they touch.
+    const clearance = (col = true, clamp = true) => {
       const c = Math.cos(tilt), s = Math.sin(tilt); let worst = 9;
-      for (let i = 0; i <= 24; i++) {
-        const k = i / 24, y = lerp(cb[0], ct[0], k) - cy, z = lerp(cb[1], ct[1], k) - cz, r = 0.05 - 0.015 * k;
-        const ly = y * c + z * s, lz = -y * s + z * c;
-        if (Math.abs(ly) > hH + 0.06 + r) continue;
-        worst = Math.min(worst, lz - r - (Math.abs(ly) <= hH + r ? 0.045 : 0.02));
-      }
+      const at = (y, z, r) => {
+        y -= cy; z -= cz; const ly = y * c + z * s, lz = -y * s + z * c;
+        const dy = Math.max(Math.abs(ly) - hH, 0), dz = Math.max(-0.008 - lz, 0, lz - 0.04);
+        worst = Math.min(worst, Math.hypot(dy, dz) - r - 0.012);
+      };
+      if (col) for (let i = 0; i <= 24; i++) { const k = i / 24; at(lerp(cb[0], ct[0], k), lerp(cb[1], ct[1], k), 0.05 - 0.015 * k); }
+      if (clamp) for (let i = 0; i <= 6; i++) at(by - 0.12 + i * 0.02, bz, 0.036);
       return worst;
     };
+    const exitAt = () => {                           // where the column comes up out of the hood
+      for (let i = 0; i <= 60; i++) { const f = i / 60, y = lerp(cb[0], ct[0], f), z = lerp(cb[1], ct[1], f); if (y > ud.hoodY(z) + 0.01) return [y, z]; }
+      return ct;
+    };
+    const down = (y, z) => Math.atan2(1.66 - y, z + 0.14);   // how far below level the seat's eye looks to see a point
+    const shows = () => { const e = exitAt(); return down(e[0], e[1]) + 0.05 <= down(cy + hH * Math.cos(tilt), cz + hH * Math.sin(tilt)); };
     settle();
-    for (let n = 0; n < 16 && clearance() < 0; n++) { cz -= 0.01; settle(); }
-    V.tabClear = clearance();
+    for (let n = 0; n < 8 && clearance(false, true) < 0; n++) { cz -= 0.01; settle(); }   // the bar clamp first: only backing off clears it
+    // the foot: the first spot that clears the tablet, then up to 20 cm more rake if that's what it takes to show it on the hood
+    let f0 = ud.columnZ; while (f0 < bz + 0.42) { cb[1] = f0; if (clearance(true, false) >= 0) break; f0 += 0.02; }
+    let fz = f0; for (; fz <= f0 + 0.2; fz += 0.02) { cb[1] = fz; if (clearance(true, false) >= 0 && shows()) break; }
+    // the tall-barred sleds hold the tablet too high for any sane rake: there it drops (and, off the hood, backs off) until the column shows
+    if (fz > f0 + 0.2) { cb[1] = f0; for (let n = 0; n < 30 && !shows(); n++) { const y0 = cy; drop += 0.01; settle(); if (cy > y0 - 0.002) { cz -= 0.01; settle(); } } }
+    for (let n = 0; n < 8 && clearance() < 0; n++) { cz -= 0.01; settle(); }
+    V.tabClear = clearance(); V.colShows = shows();
+    const dy = ct[0] - cb[0], dz = ct[1] - cb[1];
+    V.column.position.set(0, cb[0], cb[1]); V.column.rotation.x = Math.atan2(dz, dy); V.column.scale.y = Math.max(0.2, Math.hypot(dy, dz));
+    V.columnFoot.position.set(0, cb[0] + 0.02, cb[1]);
     V.tab.position.set(0, cy, cz); V.tab.rotation.x = tilt;
     const k = new THREE.Vector3(0, 0, 0.022).applyEuler(V.tab.rotation).add(V.tab.position);
-    let exY = ct[0];                                 // where the column comes up out of the hood: the arm meets it above that, never inside the hood
-    for (let i = 0; i <= 40; i++) { const f = i / 40, y = lerp(cb[0], ct[0], f); if (y > ud.hoodY(lerp(cb[1], ct[1], f)) + 0.01) { exY = y; break; } }
-    const ay = Math.max(k.y, Math.min(exY + 0.03, by - 0.07));
-    const t = clamp((ay - ud.columnBase) / Math.max(0.05, ud.barY - 0.06 - ud.columnBase), 0, 1);
-    const a = new THREE.Vector3(0, ay, lerp(ud.columnZ, bz, t)), d = k.clone().sub(a);   // the column at the ball's height (a riser above the stock clamp)
+    // its stalk drops forward from the ball into the hood, out of sight behind the glass from the seat: if it ran to the column it
+    // would line up with it from the eye and the column would look planted on the tablet again
+    const sz = k.z + 0.05, a = new THREE.Vector3(0, ud.hoodY(sz) - 0.01, sz), d = k.clone().sub(a);
     V.tabArm.position.copy(a); V.tabArm.scale.set(1, Math.max(0.01, d.length()), 1); V.tabArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
     V.tabKnob.position.copy(a);
   }
@@ -9598,7 +9611,7 @@ function npcSledMesh(bodyHex, suitHex, noRider) {
   add(new THREE.BoxGeometry(0.2, 0.06, 0.04), std(0xff2a1a, 0.4), 0, 0.68, -1.5);   // tail light
   // a dash tablet under the bars, like yours, showing the shared home screen (tabCull draws it only while it's in view)
   const tp = tabletProp(g, TAB_IDLE.mat); tp.T.position.set(0, 1.25, 0.235); tp.T.rotation.x = 0.6; TAB_PROPS.push(tp.T);
-  add(new THREE.CylinderGeometry(0.011, 0.011, 0.07, 6), dark, 0, 1.262, 0.29, Math.PI / 2);   // its arm, forward to the column
+  add(new THREE.CylinderGeometry(0.011, 0.013, 0.215, 6), dark, 0, 1.134, 0.277, -0.223);   // its stalk, down into the hood (not to the column)
   return g;
 }
 function buildNpcs() {
