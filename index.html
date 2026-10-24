@@ -218,13 +218,6 @@
   #godList .row em{font-style:normal;font-size:13px;color:var(--slate)}
   #godList .row .val{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.12em;color:var(--slate);border:1px solid var(--line);border-radius:3px;padding:2px 8px}
   #godList .row.on .val{color:var(--ink);background:#ffc26b;border-color:#ffc26b}
-  #bigmap{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;background:rgba(9,16,24,.93);backdrop-filter:blur(3px);overflow:auto}
-  @media (max-height:560px){#bigmapC,.bmhead{width:min(62vh,calc(100vw - 32px))}#bigmapC{height:min(62vh,calc(100vw - 32px))}#bigmap{justify-content:flex-start}}
-  #bigmapC{width:min(76vh,calc(100vw - 32px));height:min(76vh,calc(100vw - 32px));border-radius:8px;border:1px solid var(--line)}
-  .bmhead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;width:min(76vh,calc(100vw - 32px));flex-wrap:wrap}
-  .bmlegend{display:flex;gap:14px;font-size:13px;color:var(--slate);flex-wrap:wrap}
-  .bmlegend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
-  .bmlegend .depot{background:#7fc8e0}.bmlegend .cab{background:#eaf2f8}.bmlegend .job{background:#ff5a1f;border-radius:50%}.bmlegend .tr{background:#ff5a1f;height:3px;width:16px;vertical-align:3px}.bmlegend .gm{background:#ff8a3a;border-radius:50%}
   #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
   @keyframes fadein{from{opacity:0}}
   #blackMsg{max-width:44ch;text-align:center;font-size:18px;line-height:1.5;display:grid;gap:10px}
@@ -342,7 +335,7 @@
     --serif:var(--body);--rule:rgba(234,242,248,.14);--band:rgba(255,90,31,.14);--bandline:rgba(255,90,31,.5);
     --r-lg:16px;--r-md:10px;--r-sm:7px;--ease:cubic-bezier(.2,.8,.2,1);--soft:0 30px 80px -20px rgba(0,0,0,.6),0 8px 24px -8px rgba(0,0,0,.35)}
   html,body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
-  #boardRows,#garage,#settings,#god,.tpanel,#bigmap{scroll-behavior:smooth;overscroll-behavior:contain}
+  #boardRows,#garage,#settings,#god,.tpanel{scroll-behavior:smooth;overscroll-behavior:contain}
   /* surface: soft glass, rounded, no hard frames */
   #settings,#garage,#god,.tpanel,#bSheet{background:var(--panel);border:1px solid rgba(234,242,248,.1);border-radius:var(--r-lg);box-shadow:var(--soft),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15)}
   #settings,#garage,#god{padding:22px}
@@ -350,11 +343,11 @@
   #mapWrap{border-radius:18px}
   /* panels ease in (the individual `scale` property stacks on each panel's own centring transform) */
   #settings:not([hidden]),#garage:not([hidden]),#god:not([hidden]),#bSheet,.tpanel{animation:uiIn .34s var(--ease) both}
-  #bigmap:not([hidden]),#board:not([hidden]){animation:uiFade .28s ease both}
+  #board:not([hidden]){animation:uiFade .28s ease both}
   @keyframes uiIn{from{opacity:0;scale:.965;translate:0 8px}}
   @keyframes uiFade{from{opacity:0}}
   /* header: eyebrow, title, one soft hairline */
-  .bhead,.tpanel .ph,.bmhead{padding-bottom:14px;margin-bottom:6px;border-bottom:1px solid var(--rule)}
+  .bhead,.tpanel .ph{padding-bottom:14px;margin-bottom:6px;border-bottom:1px solid var(--rule)}
   .brand,.tpanel .pe{font-family:var(--body);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--signal)}
   #god .brand{color:var(--signal)}
   #god{border-color:rgba(234,242,248,.1)}
@@ -367,7 +360,7 @@
   #settings label,.tpanel .pl{font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
   /* notes and sub-lines: same face, lighter weight */
   #garageBody .row em,#godList .row em{font-family:var(--body);font-style:normal;font-weight:400;font-size:14px;line-height:1.35;color:var(--frost2)}
-  .bfoot,#settings .hint,.tpanel p.pnote,.bmlegend{font-family:var(--body);font-style:normal;font-weight:400;font-size:14px;line-height:1.45;color:var(--slate)}
+  .bfoot,#settings .hint,.tpanel p.pnote{font-family:var(--body);font-style:normal;font-weight:400;font-size:14px;line-height:1.45;color:var(--slate)}
   .bfoot b,#settings .hint b{font-family:var(--body);font-style:normal;font-weight:700;letter-spacing:.04em;color:var(--frost)}
   #jobSub{font-family:var(--body);font-style:normal;font-weight:400;font-size:13px;color:var(--frost2)}
   .ti .ts{font-family:var(--body);font-style:normal;font-weight:500;font-size:calc(16px*var(--ts))}
@@ -418,12 +411,11 @@
   .pill{border-radius:999px}
   .gauge .bar,#drag{border-radius:999px}
   #fuelFill,#warmFill,#heatFill,#dragFill{border-radius:999px;transition:width .35s var(--ease),background-color .3s}
-  #bigmapC{border-radius:16px;box-shadow:var(--soft)}
   .tb{transition:background-color .15s,transform .12s var(--ease)}
   .tb.on{transform:scale(.94)}
   @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(19px*var(--ts))}.tpanel .pt{font-size:26px}}
   @media (max-height:520px){.btitle{font-size:26px}.bti{font-size:28px}}
-  @media (prefers-reduced-motion:reduce){#settings,#garage,#god,#bSheet,.tpanel,#bigmap,#board{animation:none!important}}
+  @media (prefers-reduced-motion:reduce){#settings,#garage,#god,#bSheet,.tpanel,#board{animation:none!important}}
   /* ==== CALENDAR + WEATHER (winter update, phase 1) ==== */
   #zone .cal{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:5px;margin-bottom:3px;border-bottom:1px solid var(--rule)}
   #zone .cdate{font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--signal);white-space:nowrap}
@@ -820,7 +812,7 @@
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
   <div class="bsec">Controls</div>
   <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
-  <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the full map.</div>
+  <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
 </div>
 
 <div class="panel" id="god" hidden>
@@ -830,11 +822,6 @@
 </div>
 
 <div id="srHint" hidden>Showroom · <b>hover</b> a row to try it on · <b>drag</b> to spin</div>
-<div id="bigmap" hidden>
-  <div class="bmhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">The Nordkinn</div></div><button id="closeMap" class="xbtn" style="order:3" aria-label="Close map">✕</button><div class="bmlegend"><span><i class="k depot"></i>Quay</span><span><i class="k cab"></i>Village / cabin</span><span><i class="k job"></i>Your drop</span><span><i class="k tr"></i>Your trail</span><span><i class="k gm"></i>To groom</span></div></div>
-  <canvas id="bigmapC" width="1100" height="1100"></canvas>
-  <div class="bfoot"><b>M</b> or <b>Esc</b> closes. The sled keeps rolling while this is open.</div>
-</div>
 
 <div class="panel" id="garage" hidden>
   <div class="bhead"><div><div class="brand">NORDKINN SKUTER &amp; SERVICE</div><div class="btitle">Garage</div></div><div style="display:flex;gap:12px;align-items:center"><div class="bcash" id="garageCash">$0</div><button id="closeGarage" class="xbtn" aria-label="Close garage">✕</button></div></div>
@@ -925,5 +912,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=56"></script>
+<script src="tracklayer.js?v=57"></script>
 </body></html>

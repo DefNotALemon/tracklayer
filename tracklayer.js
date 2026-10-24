@@ -1836,7 +1836,7 @@ function visorMesh() {
   return VZ.mesh = m;
 }
 function wipeVisor() {
-  if (!started || GS.dead || GS.garageOpen || godOpen || !$("settings").hidden || !$("bigmap").hidden) return;
+  if (!started || GS.dead || GS.garageOpen || godOpen || !$("settings").hidden) return;
   if (VZ.sweep >= 0 || VZ.level < 0.04) return;       // nothing to wipe, or the glove is already on the visor
   VZ.sweep = 0; VZ.hold = 0;
 }
@@ -1928,7 +1928,7 @@ addEventListener("keydown", e => {
   if (e.code === "KeyR") shiftKey(1);
   if (e.code === "KeyF") shiftKey(-1);
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
-  if (e.code === "KeyM") toggleBigMap();
+  if (e.code === "KeyM") TABLET.toggle(undefined, "map");   // M: the tablet up on its Map app (switches to Map from another app; on Map it puts the tablet away)
   if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
   gameKey(e);
 });
@@ -1959,7 +1959,7 @@ function setTouchUI() {
 }
 function updTouch() {
   if (!TC.on) return;
-  const modal = GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden || godOpen || GS.dead;
+  const modal = GS.garageOpen || !$("settings").hidden || godOpen || GS.dead;
   $("touch").classList.toggle("modal", modal);
   const lbl = GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
@@ -1984,7 +1984,7 @@ function updTouch() {
       if (k === "hop") { if (!GS.dead && !FOOT.on) input.hop = true; }
       else if (k === "reset") resetSled();
       else if (k === "view") cycleView();
-      else if (k === "map") toggleBigMap();
+      else if (k === "map") TABLET.toggle(undefined, "map");
       else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FISH) FISH.ctx(); }
@@ -2042,7 +2042,7 @@ function readInput(dt) {
     const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
-    if (bb && !padB && started && !godOpen && !GS.dead && !TABLET.open) gameKey({ code: GS.garageOpen || !$("settings").hidden || !$("bigmap").hidden ? "Escape" : "KeyT" });   // with the tablet up, B is its back button (TABLET.pad)
+    if (bb && !padB && started && !godOpen && !GS.dead && !TABLET.open) gameKey({ code: GS.garageOpen || !$("settings").hidden ? "Escape" : "KeyT" });   // with the tablet up, B is its back button (TABLET.pad)
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
@@ -3054,7 +3054,7 @@ function whump(v) {
 // no gameplay effect, no NPC or wildlife reaction, no score. That is on purpose, so keep it that way.
 // It sits well above the engine (whose fundamental is 40-180 Hz) so it cuts through without ducking anything.
 let hornBus = null;
-function hornOk() { return started && !GS.dead && !FOOT.on && !GS.garageOpen && !godOpen && $("settings").hidden && $("bigmap").hidden; }
+function hornOk() { return started && !GS.dead && !FOOT.on && !GS.garageOpen && !godOpen && $("settings").hidden; }
 function horn() {
   if (!audio || !hornOk()) return;
   const { AC, master } = audio, t = AC.currentTime;
@@ -3203,96 +3203,6 @@ function drawMap() {
     mctx.strokeStyle = !rk ? "rgba(127,200,224,.75)" : rk.fine || rk.lose ? "#ff3a1a" : "#ff8a3a"; mctx.lineWidth = 5; mctx.lineCap = "round";
     mctx.beginPath(); mctx.arc(R, R, R - 3, -Math.PI / 2, -Math.PI / 2 + fr * 6.283); mctx.stroke(); mctx.lineCap = "butt";
   }
-}
-function toggleBigMap(force) {
-  const open = force !== undefined ? force : $("bigmap").hidden;
-  $("bigmap").hidden = !open;
-  if (open) { TABLET.close(); toggleSettings(false); drawBigMap(); }
-}
-function drawBigMap() {
-  const c = $("bigmapC"), g = c.getContext("2d"), N = c.width, k = N / MB;
-  g.fillStyle = "#0d1822"; g.fillRect(0, 0, N, N);
-  g.imageSmoothingEnabled = true;
-  g.drawImage(mapBg, 0, 0, N, N); if (MELT.ovOn && MELT.kq > 0) g.drawImage(MELT.ov, 0, 0, N, N); g.drawImage(mapTrail, 0, 0, N, N);
-  const w2 = (x, z) => [(x + HALF) * M2SRC * k, (z + HALF) * M2SRC * k];
-  if (GS.groomJob) for (const p of GS.groomJob.pts) { const [gx, gz] = w2(p.x, p.z); g.fillStyle = "#0d1822"; g.beginPath(); g.arc(gx, gz, 5.5, 0, 6.283); g.fill(); g.fillStyle = p.done ? "#6fd08c" : "#ff8a3a"; g.beginPath(); g.arc(gx, gz, 3.8, 0, 6.283); g.fill(); }
-  g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center";
-  for (const s of SITES) {
-    if (s.type === "shop") continue;                          // the garage is across the road from the quay; one label will do
-    const [sx, sz] = w2(s.x, s.z), tg = GS.load.some(j => j.dest === s) || (GS.groomJob && GS.groomJob.dest === s);
-    if (s.type === "home") {                                  // the homes round town: a small square, and a name once you're headed there
-      g.fillStyle = "#0d1822"; g.fillRect(sx - 5, sz - 5, 10, 10); g.fillStyle = "#eaf2f8"; g.fillRect(sx - 3, sz - 3, 6, 6);
-      if (tg) {
-        g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 13, 0, 6.283); g.stroke();
-        g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(s.name).width + 10;
-        g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(sx - w / 2, sz + 10, w, 20); g.fillStyle = "#ff5a1f"; g.fillText(s.name, sx, sz + 25);
-        g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-      }
-      continue;
-    }
-    g.fillStyle = "#0d1822"; g.fillRect(sx - 8, sz - 8, 16, 16);
-    g.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8"; g.fillRect(sx - 5, sz - 5, 10, 10);
-    if (tg) { g.strokeStyle = "#ff5a1f"; g.lineWidth = 3.5; g.beginPath(); g.arc(sx, sz, 16, 0, 6.283); g.stroke(); }
-    g.fillStyle = "rgba(13,24,34,.75)"; const w = g.measureText(s.name).width + 12;
-    g.fillRect(sx - w / 2, sz + 12, w, 22);
-    g.fillStyle = tg ? "#ff5a1f" : "#eaf2f8"; g.fillText(s.name, sx, sz + 28);
-    if (s !== depot && groom[s.id] !== undefined) {
-      const lab = groomLabel(groom[s.id]);
-      g.font = "500 14px 'Barlow Semi Condensed', sans-serif";
-      g.fillStyle = groom[s.id] > 0.8 ? "#6fd08c" : groom[s.id] > 0.45 ? "#ffc26b" : "#9fb0bf";
-      g.fillText(lab, sx, sz + 46);
-      g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-    }
-  }
-  if (HOSP.built) {                                               // the health centre, labelled when you've a casualty for it
-    const [hx, hz] = w2(HOSP.door.x, HOSP.door.z), need = SAR.cur && !SAR.cur.res && SAR.cur.hosp;
-    hospMapPin(g, hx, hz, 7);
-    if (need) { g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText("Helsesenter").width + 10; g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(hx - w / 2, hz - 32, w, 20); g.fillStyle = "#7fb4ec"; g.fillText("Helsesenter", hx, hz - 17); g.font = "500 17px 'Barlow Semi Condensed', sans-serif"; }
-  }
-  for (const v of LOOKOUTS) {                                     // aurora viewpoints: a small teal triangle, named when you're taking a tour there
-    if (v.x === undefined) continue;
-    const [vx, vz] = w2(v.x, v.z), tg = GS.tour && GS.tour.view === v;
-    g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(vx, vz - 10); g.lineTo(vx - 9, vz + 7); g.lineTo(vx + 9, vz + 7); g.closePath(); g.fill();
-    g.fillStyle = "#6ff0b8"; g.beginPath(); g.moveTo(vx, vz - 6); g.lineTo(vx - 5.5, vz + 4.5); g.lineTo(vx + 5.5, vz + 4.5); g.closePath(); g.fill();
-    if (tg || AUR.v > 0.38) {
-      if (tg) { g.strokeStyle = "#6ff0b8"; g.lineWidth = 3.5; g.beginPath(); g.arc(vx, vz, 16, 0, 6.283); g.stroke(); }
-      g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(v.name).width + 10;
-      g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 11, w, 20); g.fillStyle = "#6ff0b8"; g.fillText(v.name, vx, vz + 26);
-      g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-    }
-  }
-  for (const p of TABLET.layerPts("schools")) {                  // licence schools you've signed up for, and a course's checkpoints
-    const [qx, qz] = w2(p.x, p.z);
-    if (p.kind === "cp") { g.fillStyle = "#0d1822"; g.beginPath(); g.arc(qx, qz, p.next ? 9 : 7, 0, 6.283); g.fill(); g.fillStyle = p.next ? "#ff8a3a" : "#7fc8e0"; g.beginPath(); g.arc(qx, qz, p.next ? 6 : 4.5, 0, 6.283); g.fill(); continue; }
-    g.fillStyle = "#0d1822"; g.fillRect(qx - 8, qz - 8, 16, 16); g.fillStyle = p.col; g.fillRect(qx - 5, qz - 5, 10, 10);
-    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(p.name).width + 10;
-    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(qx - w / 2, qz + 12, w, 20); g.fillStyle = p.col; g.fillText(p.name, qx, qz + 27);
-    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-  }
-  if (GS.rescueJob) for (const v of RJ.vs) {
-    if (v.freed) continue;
-    const [vx, vz] = w2(v.x, v.z);
-    g.fillStyle = "#0d1822"; g.beginPath(); g.arc(vx, vz, 10, 0, 6.283); g.fill(); g.fillStyle = "#ff3a1a"; g.beginPath(); g.arc(vx, vz, 6.5, 0, 6.283); g.fill();
-    g.strokeStyle = "#ff3a1a"; g.lineWidth = 3; g.beginPath(); g.arc(vx, vz, 16 + Math.sin(performance.now() * 0.008) * 3, 0, 6.283); g.stroke();
-    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const nm = v.name + " · stuck", w = g.measureText(nm).width + 10;
-    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 14, w, 20); g.fillStyle = "#ff6a4a"; g.fillText(nm, vx, vz + 29);
-    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-  }
-  for (const p of sarPts()) {                    // a rescue case: the search area, the casualty, or where you're taking them
-    const [vx, vz] = w2(p.x, p.z);
-    if (p.area) { const [ex] = w2(p.x + p.area, p.z); g.strokeStyle = "#ff3a1a"; g.lineWidth = 2.5; g.setLineDash([8, 6]); g.beginPath(); g.arc(vx, vz, Math.max(10, Math.abs(ex - vx)), 0, 6.283); g.stroke(); g.setLineDash([]); }
-    else { g.fillStyle = "#0d1822"; g.beginPath(); g.arc(vx, vz, 10, 0, 6.283); g.fill(); g.fillStyle = p.kind === "sarw" ? "#7fc8e0" : "#ff3a1a"; g.beginPath(); g.arc(vx, vz, 6.5, 0, 6.283); g.fill(); }
-    g.font = "500 15px 'Barlow Semi Condensed', sans-serif"; const w = g.measureText(p.name).width + 10;
-    g.fillStyle = "rgba(13,24,34,.75)"; g.fillRect(vx - w / 2, vz + 14, w, 20); g.fillStyle = "#ff6a4a"; g.fillText(p.name, vx, vz + 29);
-    g.font = "500 17px 'Barlow Semi Condensed', sans-serif";
-  }
-  const [px, pz] = w2(P.x, P.z);
-  g.save(); g.translate(px, pz); g.rotate(Math.PI - P.yaw);   // north-up map: the arrow itself turns
-  g.fillStyle = "#0d1822"; g.beginPath(); g.moveTo(0, -20); g.lineTo(-13, 13); g.lineTo(13, 13); g.closePath(); g.fill();
-  g.fillStyle = "#ff5a1f"; g.beginPath(); g.moveTo(0, -15); g.lineTo(-9, 9); g.lineTo(9, 9); g.closePath(); g.fill();
-  g.restore();
-  g.fillStyle = "rgba(234,242,248,.6)"; g.textAlign = "left";
-  g.fillText("N", 14, 28); g.fillText(Math.round(WORLD / 1000 * 10) / 10 + " km across", 14, N - 14);
 }
 function markMap() {
   const px = (P.x + HALF) * M2SRC, pz = (P.z + HALF) * M2SRC;
@@ -5488,7 +5398,6 @@ const TABLET = {
     const want = force === undefined ? !this.open : force;
     if (want && !this.can()) return;
     if (want) {
-      toggleBigMap(false);
       if (!this.open && appId === undefined && this.live && this.live.app) appId = this.live.app;   // a ping on the dash: open where it points
       if (!this.open) { this.open = true; $("tab").hidden = false; document.body.classList.add("tabOn"); tabWork(); this.layout(); tabPing("open"); }
       if (appId !== undefined) this.go(appId); else this.render();
@@ -7149,7 +7058,7 @@ function gameKey(e) {
   if (e.code === "KeyE") { if (!e.repeat && !(FISH && FISH.ctx())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
-  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (!$("bigmap").hidden) toggleBigMap(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
+  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyP") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
@@ -7263,7 +7172,6 @@ function buildSettings() {
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
   $("godBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); toggleGod(true); });
   $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyP" }); });
-  $("closeMap").addEventListener("click", () => toggleBigMap(false));
   setTouchUI();
   applySettings();
 }
@@ -9116,7 +9024,7 @@ function initFishing() {
     mats: { jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot },
     fishSites: FISHSITES, toast, save, wear: (o, a, s, opt) => WEAR.apply(o, a, s, opt), surf, groundAt, bioAt, isSea, isWater, iceThin, fbm, dayFactor, payMul, bumpDelivered, mailVisit,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, showroom: showroomOn, settings: () => gameKey({ code: "Escape" }),
-    onStart() { camState.init = false; TABLET.close(true); toggleBigMap(false); },
+    onStart() { camState.init = false; TABLET.close(true); },
     onStop() { camState.init = false; camState.yaw = P.yaw; }
   });
   // the spring melt (O7) thins every lake's ice as it goes: the drill sees it too
@@ -12246,7 +12154,7 @@ function buildHospital() {
   HOSP.park = { x: x + dx * (D / 2 + 6.6) + ax * 2.2, z: z + dz * (D / 2 + 6.6) + az * 2.2, yaw: ry + Math.PI / 2 };   // and the sled's parked just out front
   HOSP.built = true;
 }
-// the H on the minimap / big map / tablet charts
+// the H on the minimap / tablet charts
 function hospMapPin(g, sx, sz, s) {
   g.fillStyle = "#0d1822"; g.fillRect(sx - s - 2, sz - s - 2, 2 * s + 4, 2 * s + 4);
   g.fillStyle = "#2d6fb0"; g.fillRect(sx - s, sz - s, 2 * s, 2 * s);
@@ -12518,7 +12426,7 @@ function frame(t) {
   if (started) { updAudio(spd); markMap(); }
   flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
-  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); if (!$("bigmap").hidden) drawBigMap(); } }
+  hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); } }
   tabView_sync(); tabDash(dt); TABLET.place();
   if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }

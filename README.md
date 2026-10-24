@@ -27,7 +27,7 @@ arrow keys and Enter, the mouse, a tap or a gamepad all work.
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **R / F** gear up / down on a manual sled · **F** when stopped puts any sled in **reverse** (the throttle backs you up, about 9 mph tops; the brake holds it), **R** puts it back in forward. Either one while rolling just grinds.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
-- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather (on the tablet) · **H** hide help
+- **V** cycle camera (chase, close, first person, drone) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
   **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
