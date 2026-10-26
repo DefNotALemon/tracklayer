@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:15 — Fuel pumps get a readable LCD readout (G3) — d588af0
+Triage 0062: v126 verified (103 calls, dark glass by day, glow at night); F1 (pump display a flat grey panel) taken this
+pass; F2 harness-only (g3_glow ferry target frames the tackle shop), F3 no issue. Pumps used KIT.glowM, now a per-station
+`signMat(pumpDisplayTex(fuelPrice), 0.85)`: grey-green LCD with dark segment digits (last sale, litres, $/L) and faint
+unlit 8s, emissive faded in by houseWinTick. First try with a [dark×4, disp×2] material array cost +20 draw calls
+(538 → 558); now one material with the box's edge UVs pinned to the bezel corner: 538 → 538. `g3_stations.mjs` gained a
+1.5 m `disp` view: imgstats local nov_disp 3.98 → 4.64, night_disp 3.99 → 4.41, nov_pump 4.89 → 5.21. Vision (b71/cmp.jpg):
+digits read at noon and 4 m, backlit pale panel at night, not mirrored, no z-fight. smoke exit 0, page errors none (66.7
+mph, powder 1.53, trench 2.21). README; v127. Next: station pool strength vs lamp pools, red-house fascia tint.
+
 ## 2026-10-26 16:05 — Church, ferry and pump glass dark by day (G3) — 16d1d77
 Triage 0061: v124 lamp pools verified (508 calls); F3 (pool fainter from 9 m than 22 m, foreshortening) noted as low in
 the buildings item; F4 already fixed by v125. Took the last K.glowM users: church windows, ferry windows/portholes, fuel
