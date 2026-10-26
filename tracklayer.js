@@ -11582,9 +11582,16 @@ function shoreSlide(F, nx, nz) {
   for (let k = 0; k < 12; k++) { const b = k * Math.PI / 6, cx = Math.sin(b), cz = Math.cos(b); if (isSea(F.x + cx * 1.5, F.z + cz * 1.5)) { sx += cx; sz += cz; } }
   const sl = Math.hypot(sx, sz); if (sl < 1e-6) return null;
   sx /= sl; sz /= sl;
-  const into = (nx - F.x) * sx + (nz - F.z) * sz; if (into <= 0) return null;
-  const ax = nx - into * sx, az = nz - into * sz;
-  return isSea(ax, az) ? null : [ax, az];
+  const into = (nx - F.x) * sx + (nz - F.z) * sz;
+  const ax = nx - Math.max(0, into) * sx, az = nz - Math.max(0, into) * sz;
+  if (!isSea(ax, az)) return [ax, az];
+  // the sea mask is a staircase of 4 m cells, so on a diagonal shore the local wall (a riser) can be square to the
+  // averaged normal and the slid spot is wet too: then slide along the grid axes instead, keeping whichever dry
+  // x-only / z-only part of the step carries you furthest the way you were going
+  const dx = nx - F.x, dz = nz - F.z; let best = null, bv = 0;
+  if (!isSea(nx, F.z) && dx * dx > bv) { best = [nx, F.z]; bv = dx * dx; }
+  if (!isSea(F.x, nz) && dz * dz > bv) best = [F.x, nz];
+  return best;
 }
 function footStep(dt) {
   const F = FOOT;
