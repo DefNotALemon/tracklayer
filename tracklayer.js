@@ -4498,7 +4498,7 @@ function lampHeadMat() {
 function houseWinTick(day, st) {
   const n = 1 - day * (1 - 0.6 * st);
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
-  if (stationPool.m) stationPool.m.opacity = 0.45 * n;
+  if (stationPool.m) stationPool.m.opacity = 0.6 * n;
   if (lampPools.at && lampPools.at.length) lampPools();
   if (lampPools.m) lampPools.m.opacity = 0.5 * n;
   const hm = lampHeadMat.m;
@@ -4857,7 +4857,7 @@ function stationPool() {
   const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
   gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.45, "rgba(255,255,255,0.75)"); gr.addColorStop(0.8, "rgba(255,255,255,0.18)"); gr.addColorStop(1, "rgba(255,255,255,0)");
   g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-  const m = stationPool.m = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const m = stationPool.m = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xe0601a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   m.onBeforeCompile = s => {
     s.fragmentShader = s.fragmentShader.replace("#include <fog_fragment>", `#ifdef USE_FOG
       #ifdef FOG_EXP2
