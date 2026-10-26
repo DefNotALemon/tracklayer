@@ -30,6 +30,8 @@ Since v89 (g1_lanesob.mjs): lanes routed round obstacles; lanes crossing an obst
 (was stuck against the pier freight shed at 32 m).
 Since v96 (g1_jog.mjs): Shift jog. 20 m powder 1.48 → **1.79 m/s**, trench 2.32 → **3.04**; plowed lane 3.7–3.8 m/s,
 blown after 17 s / 58 m, then walks ~2.1 until breath is back (30 s: 85 m vs 71 walking).
+Since v111 (g1_turn.mjs): held A/D pivot ramps 2.2 → 3.6 rad/s over 0.12–0.45 s: 180° on the spot **1.45 → 0.99 s**,
+facing a door 90° off while walking 0.72 → 0.54 s; a 70 ms tap still ~8.4°.
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -159,10 +161,16 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       across 3.21 → 2.94) because shaded land loses its N·L/drift relief and the hemi fill + haze swamp the rest. Don't
       retry cast shadows as the lever; patch kept at scratch tlloop/b53/hillshadow_v110_experiment.patch. New
       `scenarios/g3_felltop.mjs` (80 m up over the highest spot near SPAWN) for vista work.
+      b55 re-look (02_back_nov_away, vision): the near/mid field is well shaped (lee shadows, dunes); only the band past
+      ~400 m is a pale wash, and a front-lit anti-sun view under a 4° sun is flat in reality too (the pink Belt of Venus
+      band is already there). Diminishing returns: only take this again with a concrete, additive idea.
 - [ ] G3 (low, playtest, follow-up to v109 lake skin): `g3_lake.mjs` + `lakestats.py`. Unchecked: the lakes at night /
       polar-night twilight / aurora (ice streaks go through the normal lit path, should be fine), in a storm, during the
       melt (open water from the shore must still win over the streaks), and at rider height whether the near patch → far
       hand-over ~45 m out shows as a faint light band (b52 `01_nov_low` had one soft band; unclear if it's the seam).
+      Report 0047 (`g3_lake_conditions.mjs`): night and a strong aurora keep the streaks (std 25/38, aurora 57/36); storm
+      washes it flat (3.4/7.4) like all terrain, by design. Still open: melt, and the 45 m seam: `LAKES[].r` isn't the real
+      ice mask, so confirm footing (walk on from the shore vantage, check `P.ice`) before placing the camera.
 - [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
       rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
       as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
@@ -190,11 +198,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
-- [ ] G3/G1 (low, follow-up to v110 camera wall clip): `g3_camwall.mjs` covers K.house doors only (8/8 → 0/8). Other
-      buildings (depot/quay sheds, garage, shops, cabins, church) keep circle footprints, which can stop short of their
-      walls, so the camera may still end up just inside them: extend the `box` field to those builders if a playtest finds
-      one. On foot at a door the camera sits 0.6 m back and the helmet fills the frame centre; a shoulder offset may read
-      better.
+- [ ] G3/G1 (very low, follow-up to v110): report 0048 closed the other-buildings worry (garage + quay shed 0/2 clips foot
+      and sled; church/shops/cabins are K.house with `.box`). Only left: on foot at a door the camera sits 0.6 m back and
+      the helmet fills the frame centre; a shoulder offset may read better.
+- [ ] G1 (low, follow-up to v111 turn ramp): pivot is the same in deep powder and on hard pack; a playtest should say
+      whether turning on the spot feels right at a door with the camera following (stills of a 90° turn at a K.house
+      door), and whether gamepad/touch stick steering (same ramp, |turn| > 0.1) feels twitchy.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -213,4 +222,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 46
+Last triaged report: 48

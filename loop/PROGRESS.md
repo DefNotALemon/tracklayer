@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 13:05 — Quicker pivot on foot when you hold A/D (G1) — 60bac72
+Triage 0047 (lake at night/aurora keeps its streaks; storm flat like all terrain, by design: dropped; 45 m seam test
+inconclusive because `LAKES[].r` isn't the ice mask: hint noted on the lake item) and 0048 (garage + quay shed 0/2 camera
+clips; church/shops/cabins are K.house with `.box`): camwall item downgraded to the shoulder-offset idea only. Skipped the
+top G3 daylight item after a re-look (b55/before 02_back_nov_away: only the >400 m front-lit anti-sun band is flat, which
+is physical; noted as diminishing returns) and took an untouched G1 direction from the goals: steering feel on foot.
+`footStep` turned at a flat 2.2 rad/s; now a held A/D ramps to 3.6 rad/s over 0.12–0.45 s (`F.turnT`, `F.turnK`), taps
+unchanged, and the on-the-spot step cadence scales with it. New `scenarios/g1_turn.mjs`: 180° on the spot **1.45 → 0.99
+game-s**, facing a door 90° off while walking 0.72 → 0.54 s (arrival 15 m unchanged ~9.2 s, walking dominates), 70 ms tap
+8.4° → 8.9° avg (frame-pacing jitter 6.3–10.5; ramp starts after 0.12 s so taps are the same code path). Vision
+(b55/turn_after.jpg): mid-turn pose stepping, nothing broken. smoke exit 0, page errors none (powder 1.53, trench 2.22,
+66.7 mph). README on-foot para; v111. Next: playtest the turn at a door / with a stick (new low item); G2 hand-paced
+first-5-min.
+
 ## 2026-10-26 12:50 — Chase camera stays out of the house behind you (G3/G1) — 0e665a2
 Triage 0046: F1 (time-to-Woodsman 3.6 game-min with auto-nav, 3–4× under target) noted on the first-5-min item, no
 retune until a real-pace run (the Woodsman also needs 4 deliveries); F2 "static white streak in the sky" is the
