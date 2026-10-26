@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 14:55 — Signs stop glowing at midnight (G3) — 15aa68a
+Triage 0056: v119 site facades verified (calls 553, local contrast within 0.3, night glass right); F5 (blank grey panel
+by the depot, no "Nordkinn Skuter & Service" name board) added to the buildings item; F7 stale toast = harness artifact.
+Took the signs slice. New `scenarios/g3_signs.mjs` (helsesenter board + H box, Fisk & Friluft, Fiskemottak, a school
+sign, fuel pylon, fuel cabin board, helipad; square-on at noon/16:00/22:00) + `tools/playtest/signstat.py` (sign luma
+vs frame). Before, every sign was MeshBasic: night = noon brightness (shop 188 → 184, hosp 193 → 190, school 132 → 126
+while the frame fell 170 → 78). New `signMat(tex, glow)`: Lambert (scene-lit) with the picture as emissive map, glow
+faded in by `houseWinTick` (n = 1 − day·(1 − 0.6·storm)). Glow: H boxes 0.6, fuel pylon 0.55, helsesenter 0.45, shop
+0.35, fish buyer 0.25, school 0.2, helipad 0.12; fuel cabin boards and for-sale signs unlit. School sign texture now
+sRGB. Night sign/frame ratio: school 1.54 → 0.50, fuel cabin 1.03 → 0.19, fish buyer 1.24 → 0.72, pylon 1.06 → 0.83,
+hosp 2.42 → 2.17, shop 2.63 → 2.25 (the lit ones still read as lit). Noon: painted boards now shade with their wall
+(pylon 82 → 44, school 132 → 76). Vision (b64/before.jpg vs after.jpg): night signs sit in the scene, lit ones glow
+softly, nothing black/broken; fuel pylon's yellow band reads dull on its shaded side at noon (real). smoke exit 0, page
+errors none (67.9 mph, powder 1.53, trench 2.24). README; v120. Next: depot/garage name board (0056 F5), fuel stations.
+
 ## 2026-10-26 14:40 — Depot, village shops, cabins and fell homes get facades (G3) — 04eac4f
 Triage 0055: v118 hospital verified (numbers reproduce within 0.03, calls 530, night glass right); nothing new to build.
 Took the next buildings slice. New `scenarios/g3_sites.mjs` (depot, Mehamn shop, Sandfjord herder cabin, Strandbu,
