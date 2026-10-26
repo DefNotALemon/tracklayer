@@ -5114,7 +5114,7 @@ function deliver(site) {
   if (crates.length) {                                   // Bytteboden buys: engines on the shelf, receivers bolted on
     GS.load = GS.load.filter(j => !crates.includes(j));
     for (const j of crates) mktDeliver(j);
-    restat(); applyLoadout(); save();
+    restat(); applyLoadout(); save(); TABLET.refresh();
   }
   const here = GS.load.filter(j => j.dest === site);
   if (!here.length) return;
@@ -5158,12 +5158,12 @@ function deliver(site) {
       const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) * 1.3 / 5) * 5, due: boatDue(site), boat: true, hits: 0 };
       setTimeout(() => {
         if (GS.dead || smallLoads().length >= ST.slots) return;   // the boxes came off; the backhaul goes on once they've handed it over
-        GS.load.push(back); applyLoadout(); save();
+        GS.load.push(back); applyLoadout(); save(); TABLET.refresh();
         toast(`${clean ? "They topped off your tank and handed" : "They look over the dents, then hand"} you ${back.cargo.toLowerCase()} for the boat. She sails at ${fmtTime(back.due)}.`);
       }, 1400);
     } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
   }
-  applyLoadout(); save();
+  applyLoadout(); save(); TABLET.refresh();             // an open Parcels/Home page redraws: rack, count, ABOARD row, cash
 }
 function blackout(kind) {
   if (GS.dead) return;
