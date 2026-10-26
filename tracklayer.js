@@ -3468,6 +3468,18 @@ function updVisuals(dt) {
   }
   return spd;
 }
+/* HUD location badge: inside Kjøllefjord (TOWN_R of the quay, the garage counts as town) it names the town; within a
+   village's, cabin's, home's or school's cleared yard (+10 m) it names that place; elsewhere the biome line decides. */
+function placeBadge(x, z) {
+  if (depot.x === undefined) return "";
+  if (Math.hypot(x - depot.x, z - depot.z) < TOWN_R || (garageSite.x !== undefined && Math.hypot(x - garageSite.x, z - garageSite.z) < 40)) return "KJØLLEFJORD";
+  for (const s of SITES) {
+    if (s.type === "depot" || s.type === "shop" || s.x === undefined) continue;
+    if (Math.hypot(x - s.x, z - s.z) < (s.clear || 30) + 10) return shortName(s).toUpperCase();
+  }
+  for (const k in SCHOOLS) { const s = SCHOOLS[k]; if (s.x !== undefined && Math.hypot(x - s.x, z - s.z) < s.clear + 14) return s.sign; }
+  return "";
+}
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
   const gv = $("gearV"), gt = GB.gear === 0 ? "REVERSE" : GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
@@ -3477,8 +3489,9 @@ function updHud(spd) {
   $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? (yardAt(P.x, P.z) > 0.5 ? "Plowed yard" : "On your tracks") : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
-  const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
-  $("zoneName").textContent = b === 3 ? "OPEN WATER" : b === 1 ? "FROZEN LAKE" : (h > 120 ? "HIGH COUNTRY" : (b === 2 ? "BOREAL FOREST" : "OPEN BACKCOUNTRY"));
+  const zx = FOOT.on ? FOOT.x : P.x, zz = FOOT.on ? FOOT.z : P.z;   // where YOU are, on the sled or on foot
+  const b = bioAt(zx, zz), h = groundAt(zx, zz), zn = b === 3 ? "OPEN WATER" : b === 1 ? "FROZEN LAKE" : (placeBadge(zx, zz) || (h > 120 ? "HIGH COUNTRY" : (b === 2 ? "BOREAL FOREST" : "OPEN BACKCOUNTRY")));
+  if ($("zoneName").textContent !== zn) $("zoneName").textContent = zn;
   $("elev").textContent = "Elev " + Math.round(h * 3 + 180) + " m";
   $("dist").textContent = (P.dist / 1000).toFixed(1) + " km";
 }

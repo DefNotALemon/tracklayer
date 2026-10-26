@@ -33,6 +33,9 @@ arrow keys and Enter, the mouse, a tap or a gamepad all work.
   **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
 
+The panel at the top left names where you are, on the sled or on foot: **Kjøllefjord** anywhere in town (the quay,
+the garage, the shore road), a village, cabin, home or school by name when you're in its yard, and otherwise the
+country itself (open backcountry, boreal forest, high country, a frozen lake, open water).
 Work comes in on the **dash tablet**, an iPad-style screen on the bars that shows a live map while
 you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it: the world keeps
 running and you can still steer, you just can't see much trail. In third person it opens as a big
