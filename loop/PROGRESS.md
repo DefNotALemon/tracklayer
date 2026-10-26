@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 04:25 — Walls slide you along instead of wedging you (G1) — 3567c2b
+No new reports (last 13). Took the wall-stall item over daylight slice 4: G1 had no landing since v64 and it's
+friction a player hits at every door. Cause: house walls are a grid of r 1.35 discs 1.9 m apart, so the walker's
+per-disc push-out left a 0.29 m notch between discs (trap for any approach within ~35° of square) and round-post
+corners (a 20° approach stopped dead where the corner disc's normal faced the walk). `footStep` now sums the normals of
+every disc within a probe 0.3 m wider than the body, takes the into-the-wall part off the step, and pushes out along
+that one normal; discs tagged `ax` (building yaw: `KIT.house`, depot buildings, garage) snap their normal to the
+nearest face, so walls act flat. Per-disc push kept as fallback. New `scenarios/g1_wallslide.mjs` (6 game-s holding W
+from 7.5 m off the shore-road house wall): 20° off square **3.9 m moved / 1.4 m along the wall → 10.2 / 5.4** (slides
+and rounds the corner); 0° stops square (sideways drift −0.55 → 0.00 m); 35/50/65° and a lone tree unchanged; never
+inside a disc. `g1_yards.mjs` "shore-rd old aim" **0.58 → 1.64 m/s** (10 m in 14.1 → 6.1 s); other rows unchanged.
+smoke.mjs exit 0, page errors none (powder 1.44, trench 2.22, 6 s ride 65.2 mph). Not visual, no stills. README walking
+paragraph; v73. Follow-up: tag the remaining disc-grid buildings with `ax`. Next: daylight slice 4.
+
 ## 2026-10-26 04:00 — Rank-up nag gone once the rig is hitched (G2) — 7fb1d8a
 Triage 0013: F1 real bug in v70 — `rankOpens()` returned the raw `RANKS[].opens` (still ending "You'll want a groomer on
 the hitch.") when the rig was already fitted, so a rider who had just hitched a groomer was told to go get one. Took it

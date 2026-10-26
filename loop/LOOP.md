@@ -124,9 +124,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (playtester owns: extend `g2_first5min.mjs`). Low (0007 F2): Tab opens Home, not Parcels, on a new save.
 - [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
       as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
-- [ ] G1: Walking into a house wall at an angle stalls instead of sliding along it: `g1_yards.mjs` row "shore-rd old
-      aim" (12 m out at yaw −1.2 toward the house middle) covers <10 m in 14 s = **0.58 m/s** (0012 re-confirmed). Check the
-      `footStep` obstacle push (house walls are a grid of r 1.35 discs) for a tangential slide; measure that row.
+- [ ] G1 (low, follow-up to v73 wall slide): the flat-face slide only knows the yaw of `KIT.house` walls, the depot
+      buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
+      vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
+      rerun `g1_wallslide.mjs` pointed at one.
 - [ ] G1 (follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road
       (only discs round each building and the depot→quay lane are plowed now), and whether village yards
       should join up; measure a door-to-door walk with `g1_yards.mjs`.
