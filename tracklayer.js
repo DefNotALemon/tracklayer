@@ -378,7 +378,11 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
       // strong nights: the corona, faint rays converging overhead
       c += vec3(0.1, 0.62, 0.38) * smoothstep(0.9, 1.6, uAurora) * smoothstep(0.55, 0.95, h) * rays * (0.6 + 0.4 * sin(az * 9.0 + uTime * 0.3)) * 0.22 * (1.0 - uStorm);
       if (d.y < 0.0) c = uFog;
-      c = mix(c, uFog, clamp(uStorm*0.9 + (1.0 - smoothstep(0.0,0.06,h))*0.45, 0.0, 1.0));
+      // below the horizon the dome is pure fog colour (it meets the fully hazed far ground); above it the haze used
+      // to drop straight to 45%, which drew a hard pale line along the horizon. It now eases from 100% to the old
+      // 45% curve over the first ~3 degrees, so far land, haze and sky blend without a seam.
+      float hz = max((1.0 - smoothstep(0.0,0.06,h))*0.45, 1.0 - smoothstep(0.0,0.05,h));
+      c = mix(c, uFog, clamp(uStorm*0.9 + hz, 0.0, 1.0));
       gl_FragColor = vec4(c,1.0); }`
 }));
 sky.renderOrder = -1; scene.add(sky);
