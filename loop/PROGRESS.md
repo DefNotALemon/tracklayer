@@ -7,6 +7,15 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:45 — Skis feel the real slope, not their own groove (G1) — 61b5e51
+No new reports (last 20). G1 was due (last 5 landings G3/G2/G3/G3/G3); took the low skiStep-grade item. `skiStep`
+read the grade off `surf`, so the groove the skis cut 0.7 m behind read as a climb. Now it reads the undisturbed snow
+top (`groundAt + sampleG(freshG)`, keeps drifts, ignores grooves). New `scenarios/g1_ski.mjs` (Turski, fresh powder):
+flat felt grade **0.036 → 0.004** (ground 0.003), avg **2.26 → 2.51 m/s** over 10 s; downhill felt −0.152 → −0.173
+(ground −0.19), 4.95 → 5.13 m/s; across 0.012 → −0.028 (ground −0.03), 2.17 → 2.41; uphill unchanged 0.78.
+smoke.mjs exit 0, page errors none (powder 1.44, trench 2.20, 6 s ride 65.2 mph). Still 01_flat judged: skier fine.
+README skis paragraph; v80. Next: G2 is due (late-sled gear/jobs item) or daylight slice 8.
+
 ## 2026-10-26 05:40 — Low sun warms the snow (G3) — 75c52d6
 No new reports at start; 0020 arrived during the pass (verify v78: reproduces 0/0/1/1; G1 quay walk) and was triaged
 after landing: F1 (pack 0.08 / 0.58 m at -1250,-420) merged into the shore-road lanes item; F2 (quay 2.32 vs 2.71 m/s
