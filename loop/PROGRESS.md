@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 13:15 — Over-the-shoulder view on foot with a wall behind you (G3/G1) — 0d66edf
+No new reports (last triaged 48). Took the v110 follow-up: with a house right behind you the chase camera sits ~0.6 m back
+and the helmet filled the middle of the screen (vision on b56/before.jpg: 6/6 frames mostly helmet). Now, on foot only,
+when `camState.wallK` < 0.6 the camera slides up to 0.42 m over the right shoulder (`camState.shK`, eased 6/s; render-only,
+undone at the start of the next frame so it can't pile up through the lerp; the slid spot is re-run through camWallClip;
+aim shifted 45% of the slide; cleared in first person). New `scenarios/g3_camshoulder.mjs` (8 town doors, rider facing
+out): head NDC x **0.00 → −0.47** (left third), head y −0.03 → 0.00, cam→head 0.63 → 0.72 m, inside a building 0/8 → 0/8.
+Vision (b56/after.jpg): road, houses and fells readable past the helmet, natural over-the-shoulder, no clipping. smoke exit
+0, page errors none (powder 1.56, trench 2.23, 67 mph). README V-key line; v112. Next: playtest walking away/turning with the
+slide on (item updated); G2 hand-paced first-5-min.
+
 ## 2026-10-26 13:05 — Quicker pivot on foot when you hold A/D (G1) — 60bac72
 Triage 0047 (lake at night/aurora keeps its streaks; storm flat like all terrain, by design: dropped; 45 m seam test
 inconclusive because `LAKES[].r` isn't the ice mask: hint noted on the lake item) and 0048 (garage + quay shed 0/2 camera

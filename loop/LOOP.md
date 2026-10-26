@@ -198,9 +198,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
-- [ ] G3/G1 (very low, follow-up to v110): report 0048 closed the other-buildings worry (garage + quay shed 0/2 clips foot
-      and sled; church/shops/cabins are K.house with `.box`). Only left: on foot at a door the camera sits 0.6 m back and
-      the helmet fills the frame centre; a shoulder offset may read better.
+- [ ] G3/G1 (low, playtest, follow-up to v112 shoulder slide): `g3_camshoulder.mjs` covers standing still at doors. Unchecked:
+      walking away from a door (does the slide ease out smoothly as the camera backs off, no swing?), turning on the spot
+      at a door with the slide on, and narrow gaps between two houses (second camWallClip on the slid spot).
 - [ ] G1 (low, follow-up to v111 turn ramp): pivot is the same in deep powder and on hard pack; a playtest should say
       whether turning on the spot feels right at a door with the camera following (stills of a 90° turn at a K.house
       door), and whether gamepad/touch stick steering (same ramp, |turn| > 0.1) feels twitchy.
