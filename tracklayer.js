@@ -4955,8 +4955,11 @@ function rigNeed(id) {
 // rank-up text: what the rank opens, plus what you still need for it on the machine you ride now
 function rankOpens(r) {
   const rig = r.at === RANKS[1].at ? "groomer" : r.at === RANKS[2].at ? "trailer" : null;
-  if (!rig || (rig === "groomer" ? isGroomer(GS.own.parts.hitch) : GS.own.parts.hitch === "trailer" || GS.own.parts.hitch === "flatbed")) return r.opens || "";
-  return `${r.opens.replace(/ (You'll want a groomer on the hitch|Needs a trailer)\.$/, "")} ${rigNeed(rig)}`;
+  if (!rig) return r.opens || "";
+  // the RANKS text carries a generic "you'll want …" nag; drop it always, then say what's still missing (if anything)
+  const base = (r.opens || "").replace(/ (You'll want a groomer on the hitch|Needs a trailer)\.$/, "");
+  const have = rig === "groomer" ? isGroomer(GS.own.parts.hitch) : GS.own.parts.hitch === "trailer" || GS.own.parts.hitch === "flatbed";
+  return have ? base : `${base} ${rigNeed(rig)}`;
 }
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
