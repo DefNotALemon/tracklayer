@@ -4476,7 +4476,17 @@ function houseUV(geo, w, d, off) {
   uv.needsUpdate = true;
 }
 function houseWinMat() { return houseWinMat.m || (houseWinMat.m = new THREE.MeshBasicMaterial({ color: 0xffc26b })); }
+// painted signs (shop boards, the Helsesenter and its H signs, fuel price boards, school signs, the helipad) take the
+// scene's light like any other surface; they used to be MeshBasic, as bright at midnight as at noon. A sign made with
+// `glow` > 0 is backlit or floodlit after dusk: its own picture as emissive, faded in by houseWinTick with the windows.
+function signMat(tex, glow = 0, opt) {
+  const m = new THREE.MeshLambertMaterial(Object.assign({ map: tex }, opt || {}));
+  if (glow > 0) { m.emissiveMap = tex; m.emissive.setScalar(0); m.userData.glow = glow; (signMat.lit || (signMat.lit = [])).push(m); }
+  return m;
+}
 function houseWinTick(day, st) {
+  const n = 1 - day * (1 - 0.6 * st);
+  if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
@@ -4802,7 +4812,7 @@ function buildStations() {
       ob(px, 0, 0.85);
     }
     // the price pylon on the side the traffic comes from: the same panel facing both ways
-    const sign = new THREE.MeshBasicMaterial({ map: fuelSignTex(t.fuelPrice) });
+    const sign = signMat(fuelSignTex(t.fuelPrice), 0.55);   // a backlit price panel
     bx(0.3, 6.4, 0.3, navy, 10.6, 3.4, 6.2); bx(0.2, 2.2, 2.4, [sign, sign, amber, amber, amber, amber], 10.6, 6.6, 6.2); ob(10.6, 6.2, 0.4);
     // the kiosk: a small painted shop at the back with its windows lit
     const [kx, kz] = W(-8, 0), k = KIT.house(kx, kz, 7, 5, 2.7, t.ry, KIT.yellow, true);
@@ -4828,7 +4838,7 @@ function buildFuelCabins() {
     for (const [px, py, pz] of [[-0.55, 0.45, -0.25], [0, 0.45, -0.25], [0.55, 0.45, -0.25], [-0.3, 0.45, 0.28], [0.3, 0.45, 0.28], [0, 0.99, -0.25], [-0.55, 0.99, -0.25]]) {
       bx(0.42, 0.52, 0.22, redM, px, py, pz); bx(0.16, 0.07, 0.2, dark, px + 0.08, py + 0.3, pz);
     }
-    const sign = new THREE.MeshBasicMaterial({ map: fuelSignTex(s.fuelPrice) });
+    const sign = signMat(fuelSignTex(s.fuelPrice));         // painted, unlit
     bx(0.12, 2.1, 0.12, woodD, 1.2, 1.05, 0.2); bx(1.1, 0.96, 0.08, [amber, amber, amber, amber, sign, sign], 1.2, 2.1, 0.2);
     addOb({ x, z, r: 1.0, top: 1e9 });
   }
@@ -7052,7 +7062,7 @@ function schoolSign(s) {
   g.fillStyle = "#13202b"; g.fillRect(0, 0, 512, 192); g.fillStyle = s.col; g.fillRect(0, 0, 512, 22); g.fillRect(0, 170, 512, 22);
   g.fillStyle = "#f2efe6"; g.font = "700 64px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(s.sign, 256, 84);
   g.font = "600 26px 'Barlow Semi Condensed', sans-serif"; g.fillStyle = s.col; g.fillText(s.sub, 256, 138);
-  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; return new THREE.MeshBasicMaterial({ map: t });
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; t.encoding = THREE.sRGBEncoding; return signMat(t, 0.2);
 }
 function buildSchools() {
   const K = KIT, cone = new THREE.MeshLambertMaterial({ color: 0xff6a1f }), band = new THREE.MeshLambertMaterial({ color: 0xf2f5f8 });
@@ -9055,7 +9065,7 @@ function buildRE() {
     const bx = c.x + (c.built ? -7 : -9), bz = c.z + (c.built ? 3 : 6), g = new THREE.Group(); g.position.set(bx, groundAt(bx, bz) - 0.1, bz); scene.add(g);
     const sign = new THREE.Group(); g.add(sign);
     K.bx(sign, 0.1, 1.9, 0.1, K.woodD, -0.7, 0.95, 0); K.bx(sign, 0.1, 1.9, 0.1, K.woodD, 0.7, 0.95, 0);
-    const sm = new THREE.MeshBasicMaterial({ map: reSignTex(c, false) }); const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), sm); sp.position.set(0, 1.55, 0.07); sign.add(sp);
+    const sm = signMat(reSignTex(c, false)); const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), sm); sp.position.set(0, 1.55, 0.07); sign.add(sp);
     const cache = new THREE.Group(); g.add(cache); cache.position.set(3.2, 0, -0.5);
     K.put(cache, new THREE.CylinderGeometry(0.75, 0.75, 2.6, 14), green, 0, 1.15, 0).rotation.z = Math.PI / 2;
     for (const sx of [-0.9, 0.9]) K.bx(cache, 0.14, 0.45, 1.2, steel, sx, 0.22, 0);
@@ -9680,7 +9690,7 @@ function buildFishShops() {
     const g = KIT.house(x, z, 7.5, 6, 3.0, ry, L(0x8a2f22));
     bx(g, 7.9, 0.12, 1.8, woodD, 0, 2.55, 3.85); bx(g, 8.1, 0.2, 2.0, snowM, 0, 2.7, 3.9);           // porch roof
     for (const sx of [-3.6, 3.6]) bx(g, 0.14, 2.55, 0.14, woodD, sx, 1.27, 4.7);
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.15), new THREE.MeshBasicMaterial({ map: signTex("FISK & FRILUFT", "NORDKINN · TACKLE · BAIT · AUGERS", "#efe7d6", "#7a2418") }));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.15), signMat(signTex("FISK & FRILUFT", "NORDKINN · TACKLE · BAIT · AUGERS", "#efe7d6", "#7a2418"), 0.35));
     sign.position.set(0, 3.45, 3.02); g.add(sign);
     for (let i = 0; i < 5; i++) { const r = put(g, new THREE.CylinderGeometry(0.012, 0.02, 0.75, 5), L(i % 2 ? 0x1a1d20 : 0x3e5a2c), 2.6 + i * 0.13, 0.45, 3.35); r.rotation.x = -0.18; }   // ice rods by the door
     const aug = new THREE.Group(); aug.position.set(-2.8, 0, 3.6); aug.rotation.z = 0.12; g.add(aug);
@@ -9707,7 +9717,7 @@ function buildFishShops() {
     bx(fb, 5.25, 0.18, 6.65, KIT.trimG, 0, 2.74, 0).castShadow = false;   // fascia
     bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0);
     bx(Q, 0.1, 2.0, 1.2, L(0x2d4f74), u0 + 2.55, qy + 1.0, v0 - 1.6);
-    const sg = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex("FISKEMOTTAK", "FISH BOUGHT · FERSK FISK", "#1f3f5f", "#f2efe6") }));
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.95), signMat(signTex("FISKEMOTTAK", "FISH BOUGHT · FERSK FISK", "#1f3f5f", "#f2efe6"), 0.25));
     sg.position.set(u0 + 2.62, qy + 3.4, v0); sg.rotation.y = Math.PI / 2; Q.add(sg);
     for (let i = 0; i < 6; i++) bx(Q, 0.9, 0.32, 0.6, L(i % 3 === 1 ? 0xe07a28 : 0x2b6fa8), u0 + 3.6 + (i % 2) * 0.95, qy + 0.16 + Math.floor(i / 2) * 0.33, v0 + 2.6);
     put(Q, new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), metal, u0 + 3.4, qy + 0.6, v0 - 3.0); bx(Q, 0.6, 0.06, 0.6, metal, u0 + 3.4, qy + 1.22, v0 - 3.0);
@@ -13012,10 +13022,10 @@ function buildHospital() {
   bx(g, 4.8, 2.6, 0.12, glass, 0, 1.3, D / 2 + 0.06); bx(g, 2.3, 2.3, 0.14, houseWinMat(), 0, 1.15, D / 2 + 0.08);   // the glass entrance, lit after dusk
   bx(g, 6.4, 0.3, 3.2, trim, 0, 2.95, D / 2 + 1.6); bx(g, 6.6, 0.25, 3.4, snowM, 0, 3.22, D / 2 + 1.6);       // its canopy
   for (const sx of [-3, 3]) bx(g, 0.18, 2.9, 0.18, metal, sx, 1.45, D / 2 + 3.1);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 1.4), new THREE.MeshBasicMaterial({ map: signTex("HELSESENTER", "KJØLLEFJORD · LEGEVAKT · AMBULANSE", "#f4f6f7", "#1f4f8f") }));
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 1.4), signMat(signTex("HELSESENTER", "KJØLLEFJORD · LEGEVAKT · AMBULANSE", "#f4f6f7", "#1f4f8f"), 0.45));
   sign.position.set(-3.6, 5.9, D / 2 + 0.07); g.add(sign);
-  const hT = hospSignTex();
-  for (const [sx, sz, rr] of [[6.6, D / 2 + 0.07, 0], [W / 2 + 0.07, 2, Math.PI / 2], [-W / 2 - 0.07, 2, -Math.PI / 2]]) { const h = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: hT })); h.position.set(sx, 5.85, sz); h.rotation.y = rr; g.add(h); }
+  const hT = hospSignTex(), hM = signMat(hT, 0.6);   // the H boxes are backlit
+  for (const [sx, sz, rr] of [[6.6, D / 2 + 0.07, 0], [W / 2 + 0.07, 2, Math.PI / 2], [-W / 2 - 0.07, 2, -Math.PI / 2]]) { const h = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), hM); h.position.set(sx, 5.85, sz); h.rotation.y = rr; g.add(h); }
   // the ambulance bay on the left end: a canopy, and a white ambulance with its blue stripe, nose out
   bx(g, 5, 0.3, 7, trim, -W / 2 - 2.6, 3.6, 0.5); bx(g, 5.2, 0.25, 7.2, snowM, -W / 2 - 2.6, 3.88, 0.5);
   for (const v of [-2.8, 3.8]) bx(g, 0.2, 3.6, 0.2, metal, -W / 2 - 4.9, 1.8, v);
@@ -13031,7 +13041,7 @@ function buildHospital() {
   for (const v of [-2.8, 3.8]) addOb({ x: x + ax * (-W / 2 - 4.9) + dx * v, z: z + az * (-W / 2 - 4.9) + dz * v, r: 0.25, top: 1e9 });
   // the helipad on the snow off the right end, and a windsock
   const px = x + ax * (W / 2 + 15) + dx * 2, pz = z + az * (W / 2 + 15) + dz * 2;
-  const pad = new THREE.Mesh(new THREE.CircleGeometry(6.5, 40), new THREE.MeshBasicMaterial({ map: padTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(6.5, 40), signMat(padTex(), 0.12, { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   pad.rotation.x = -Math.PI / 2; pad.rotation.z = ry; pad.position.set(px, surf(px, pz) + 0.06, pz); scene.add(pad); HOSP.pad = pad;
   { const sx = px + ax * 8, sz = pz + az * 8, sg = new THREE.Group(); sg.position.set(sx, groundAt(sx, sz) - 0.2, sz); scene.add(sg);
     put(sg, new THREE.CylinderGeometry(0.06, 0.08, 5, 8), metal, 0, 2.5, 0);
