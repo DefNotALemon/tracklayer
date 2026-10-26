@@ -182,6 +182,8 @@ pier freight shed, the fish buyer and the drying racks); only walking straight a
 you stand there with your legs still rather than marching on the spot (and a jog into a wall costs no breath).
 Once you've wandered off, the on-foot prompt tells you where the sled is from the way you're facing
 ("Sled 25 m ahead on your left", "Sled 140 m behind you"), on foot or on skis, until you're close enough for Q.
+Past 30 m a slim pale-yellow light column also stands over the sled (fading in by 60 m), so you can spot it
+at night, in a storm or over a rise; it goes when you climb back on.
 
 ## The ferry and the mail
 
