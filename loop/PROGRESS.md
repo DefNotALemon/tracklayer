@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 04:50 — Aurora E plugs in anywhere (G2) — ed57feb
+Triage 0016 (verify v73 wall slide: holds, numbers match) and 0017 (verify v74 drift shading: holds, smaller on
+whole-frame stats as expected; slice 5 still wanted): no new items. Took the Aurora item over daylight slice 5: last
+two landings were G3/G1 and both reports said G2 is due. The $14500 Aurora was strictly a weaker, pricier Matriarch.
+Kept its stats (no retune) and gave it a battery sled's real reason: `SLEDS[].plug` makes `fuelSpot` return
+`plugSpot()` — any warm stop of type cabin/home/relay (villages, herder cabins, wind farm, homes) or a pump charges it at
+`FUEL.charge` $0.75/L; quay/garage stay free; plus `perks.burn -0.15` (regen). Own toasts ("Plugged in at Mehamn…",
+"Battery full…") and a "Battery low" warning naming the nearest plug (`nearestPlug`). Green perk line on the card.
+New `scenarios/g2_aurora_plug.mjs` (8 game-s parked nearly flat): Aurora at Mehamn village **+0 L → +31 L for $23**,
+wind farm **+0 → +31 L / $23**, pump **$76 → $23** for 31 L; Matriarch unchanged (0/0/27 free at quay/27 for $66).
+Range L÷burn **34 → 40** (Matriarch 30, Trekker 33.3). smoke.mjs exit 0, page errors none (powder 1.45, trench 2.17,
+6 s ride 65.2 mph). Not visual. README sled paragraph; v75. Follow-up filed: low-fuel warning fires at the free quay.
+Next: daylight slice 5.
+
 ## 2026-10-26 04:45 — Far snow gets wind-drift shading (G3) — 76a94ea
 Triage 0014 (verify v72: holds, no action) and 0015 (F1 wall-stall: fixed by v73 after the report was cut; F2 yard
 approaches walk 2.44–2.52 m/s even from pack 0.31 → narrowed the plowed-lanes item to low/looks-only; F3 badge already

@@ -91,7 +91,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | nothing |
 | Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | nothing |
-| Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing — **weaker than the Matriarch, +$4700** |
+| Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing; since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
 
 Ranks/contracts (pay = average offered): 3 deliveries grooming ~$900 (needs groomer $700 + receiver $150, both
 Woodsman-tier, so really opens at 4); 5 heavy freight ~$1500 (trailer $900 + Freight licence); 12 priority
@@ -111,11 +111,6 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
-- [ ] G2: Aurora E ($14500, 60 deliveries) is weaker than the Matriarch it follows (p/d 3.11 vs 3.79, +$4700) and
-      opens nothing. v66 added `SLEDS[].perks`/`perk` (built-in stats + a green card line, see Trekker): give the
-      Aurora a visible reason the same way (e.g. instant torque/zip, cheap "fuel" at its charge points, silent =
-      no wildlife scare/no noise) or retune. Measure with `g2_sledperks.mjs`. Also the Trekker's two-up seat
-      (aurora tours) is Lemon's spare-seat work in his checkout: leave it to him.
 - [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
       at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
       ($145–370) makes parcels pointless after rank 3.
@@ -135,5 +130,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
+- [ ] G2 (low): "Fuel low" / "Battery low" fires at the quay and the garage, which refill you free (they aren't in
+      `fuelSpot`, the free fill is a separate line before `fuelStep`). `g2_aurora_plug.mjs` depot rows show it twice.
+      Count `GS.near === depot || garageSite` as a fuel spot in the low-warn test.
 
-Last triaged report: 15
+Last triaged report: 17
