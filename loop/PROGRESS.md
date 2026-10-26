@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 11:20 — COLD RUN card stops over-warning on ordinary trailer loads (G2) — 38a902f
+Took the v102 follow-up (G2 had the fewest recent landings): ride a laden leg the card flags. New
+`scenarios/g2_coldrun_ride_laden.mjs` (card's load really on the hitch, calm, rides LR_SECS game-s of the real leg and
+projects: loss/s × leg ÷ along-line pace). Four legs, 210–290 kg towed: Woodsman Mehamn→Ifjord 18.9 m/s, card **497%** vs
+projected real **136%**; Gamvik→Ifjord 22.4 m/s, card 532% vs 128%; quay→Ifjord 16.9 m/s, card 223% vs 28%; Aurora clean
+air quay→Ifjord 20.3 m/s, card 138% vs 52%. Laden trailer rides beat even the EMPTY estimate (12.6 Woodsman), so the
+(1 + kg/320) stretch only added false alarms. Now `(1 + max(0, kg − 300)/250)`: trailer-class loads unstretched, 425 kg
+×1.5, 1125 kg ×4.3 (still on the slow side of g2_cruise_laden's powder runs). g2_coldcard_laden before → after: Aurora
+stock 09:40 cards ≥100% **14 → 1** (chips 18 → 11 of 25), Ranger lvl21 12 → 7, Woodsman lvl6 6 → 5; night 19 → 17 (night
+really is cold); full/mid kit unchanged 0. Model warmth rate matched (0.30/s) except quay→Ifjord at 0.12/s. Not visual.
+smoke exit 0, page errors none (powder 1.52, trench 2.26, 6 s 66.5 mph). README cold-run para; v105.
+Triage 0042: F1 real (column hidden behind a ridge at 600 m) → new top G1 item; F2/F3 info.
+Next: G1 sled column over ridges (top); playtester rides more legs (deep powder, flatbed 400+ kg).
+
 ## 2026-10-26 11:00 — Light column over the sled when you're far from it on foot (G1) — fab3a92
 Triage 0041 (v103 verified: 6/6 hints, real A/D turn tracks with no camera-trail lag → that half of the follow-up closed;
 F4 = this build; F5 narrow-viewport wrapping dropped, desktop-first and the pill fit with room at 1280). Took the other
