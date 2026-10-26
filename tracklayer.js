@@ -5841,10 +5841,38 @@ function migrateEngines() {
 }
 
 /* ui */
+/* Toasts: 4.2 s each, at most 4 on screen (3 on touch layouts). A burst (a milestone delivery fires 5 in under
+   3 s: pay, the window, fuel/backhaul, the sled-ready line, the post sack) used to evict the oldest on arrival, so
+   "Delivered ... +$80" was gone after 2.6 s. Now a toast is never pushed off before 3.4 s: later ones wait in
+   a short queue and step in as slots free. The same line already up (or queued) isn't shown twice. */
+var TOASTQ, toastTm = 0;   // var + lazy: toast() can fire during init before this line runs (4.2 s life, 3.4 s min)
 function toast(msg, kind) {
-  const el = document.createElement("div"); el.className = "toast" + (kind ? " " + kind : ""); el.textContent = msg;
-  const box = $("toasts"); box.appendChild(el); while (box.children.length > 3) box.firstChild.remove();
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 400); }, 4200);
+  const box = $("toasts");
+  for (const c of box.children) if (!c.classList.contains("out") && c.textContent === msg) return;
+  if (!TOASTQ) TOASTQ = [];
+  if (TOASTQ.some(t => t.msg === msg)) return;
+  TOASTQ.push({ msg, kind }); if (TOASTQ.length > 5) TOASTQ.shift();
+  toastPump();
+}
+function toastOut(el) {
+  if (el.classList.contains("out")) return;
+  clearTimeout(el._tm); el.classList.add("out");
+  setTimeout(() => { el.remove(); toastPump(); }, 400);
+}
+function toastPump() {
+  const box = $("toasts"), cap = document.body.classList.contains("touch") ? 3 : 4;
+  while (TOASTQ.length) {
+    const live = Array.from(box.children).filter(c => !c.classList.contains("out"));
+    if (live.length >= cap) {
+      const age = performance.now() - live[0]._t0;
+      if (age < 3400) { clearTimeout(toastTm); toastTm = setTimeout(toastPump, 3400 - age + 15); return; }
+      toastOut(live[0]);
+    }
+    const t = TOASTQ.shift(), el = document.createElement("div");
+    el.className = "toast" + (t.kind ? " " + t.kind : ""); el.textContent = t.msg;
+    el._t0 = performance.now(); el._tm = setTimeout(() => toastOut(el), 4200);
+    box.appendChild(el);
+  }
 }
 /* ---------------- the job board: a survey chart of the Nordkinn ---------------- */
 // The board is a paper chart drawn from the real height field: 25 m contours, the coast and its
