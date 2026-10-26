@@ -22,6 +22,7 @@ deep-snow feel (powder should still be slower than a packed trail; you should st
 Baseline measured 26 Oct (smoke.mjs, fresh Frontier save, flat open ground):
 fresh powder **1.01 m/s** and tired 0.57 after 8 s; back along your own trench **1.75 m/s**.
 Since v58 (g1_walk30.mjs): powder **1.56 m/s**, 30 m in **19.3 s**; trench **2.23 m/s**; tired 0.77 after 30 m.
+Since v60 (g1_slope.mjs, 0.85 m powder on a 0.27 grade): up **0.91**, across **1.32**, down **1.49 m/s**.
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -101,12 +102,13 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1: Slope does nothing on foot: `footStep` never reads the grade (report 0001: "uphill" 1.66 m/s,
-      "downhill" 2.41 vs flat 1.04, all explained by snow depth). Add a grade term like `skiStep`'s
-      (`surf` ahead minus behind): uphill slower, gentle downhill a touch quicker, capped. Test on an inland
-      hillside, not the fjord bank.
-- [ ] G1: Measure walking in town/quay (plowed, pack≈1 → should be 2.9 m/s since v58) and around doors;
-      check nothing snags on building corners or the quay edge.
+- [ ] G1: Town is fresh powder: nothing ever packs the snow at the quay, villages or home yards (report
+      0002: pack 0, depth 0.53–0.63 m, walking 1.31–1.55 m/s at the quay door, HUD "POWDER · Breaking
+      trail"). LOOP.md already names "packed paths in town, plowed roads" as a direction: pre-pack the snow
+      around each site's buildings/quay (a plowed yard + lanes to doors, depth ≈ thin, fresh kept so pack≈1)
+      at chunk build, so walking there hits the 2.9 m/s hard-pack pace and the sled feels the hardpack too.
+      Check visuals (snow surface should read as packed) and that quay edge/doors still collide cleanly
+      (report 0002: they do now). Measure with `g1_town_quay.mjs`.
 - [ ] G3: Baseline contact sheet of fixed views (title, quay day, quay night, open backcountry, sled
       close-up, rider on foot) as `scenarios/views.mjs`, scored 1–10 per view in PROGRESS.md; every later
       visual pass re-shoots it.
@@ -119,10 +121,15 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       his checkout; read origin/main only. Same check for Aurora E vs Matriarch (3.11 vs 3.79, +$4700).
 - [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
       (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
+      Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
+      sells them" (`contractBlock` `c.groom` branch); the garage then explains the Woodsman lock. Low: one
+      extra tap, not a dead end.
 - [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
       at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
       ($145–370) makes parcels pointless after rank 3.
 - [ ] G2: First-5-minutes playtest of a new save: is the first job obvious, how long to the first $600?
       (playtester can own this; builder triages).
+- [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
+      as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
 
-Last triaged report: 1
+Last triaged report: 3
