@@ -142,7 +142,9 @@ On foot without skis you break trail: every step leaves a boot hole and your leg
 trench about half a metre wide behind you. It shows on the minimap. Wading fresh powder you make
 about 1.5 m/s (30 m in under 20 s); walking back along your own trench is half as quick again, and
 on hard-packed snow you walk a brisk 2.9 m/s. The more you use a trench, the harder it packs. Deep
-wading winds you after about 25 s, and you get your breath back quickly once you stop.
+wading winds you after about 25 s, and you get your breath back quickly once you stop. Hills count:
+climbing shortens your stride (a 25% grade costs about a quarter of your pace and blows you faster), a
+gentle descent lets you lope a little quicker, and on a really steep one you slow to pick your footing.
 
 ## The ferry and the mail
 

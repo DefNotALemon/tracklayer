@@ -10617,10 +10617,18 @@ function footStep(dt) {
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack
   const wade = lerp(0.57, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
-  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * F.fwd : F.fwd < 0 ? 1.5 * wade * F.fwd : 0;
+  // the hill under your boots, along the way you're facing (backing up flips it): a climb shortens the stride
+  // (a 25% grade ≈ 4/5 pace, never below half), a gentle descent lets you lope a little quicker, and a steep one
+  // makes you pick your footing so you slow again. The ground, not the snow top: your own trench behind you
+  // would read as a climb.
+  const gr = (groundAt(F.x + fx * 0.7, F.z + fz * 0.7) - groundAt(F.x - fx * 0.7, F.z - fz * 0.7)) / 1.4;
+  F.grade += (gr - F.grade) * (1 - Math.exp(-6 * dt));
+  const gw = F.fwd < 0 ? -F.grade : F.grade;
+  const hill = gw > 0 ? Math.max(0.5, 1 - 0.85 * gw) : 1 + 0.18 * sstep(0.02, 0.16, -gw) - 0.45 * sstep(0.3, 0.6, -gw);
+  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * hill * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
   F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
-  // every step is a fight: how deep it is decides how hard, and the body only really moves while a leg is driving
-  F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
+  // every step is a fight: how deep it is decides how hard (and how steep), and the body only really moves while a leg is driving
+  F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
   const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
   const mv = F.sp * surge;
   let nx = F.x + fx * mv * dt, nz = F.z + fz * mv * dt;
