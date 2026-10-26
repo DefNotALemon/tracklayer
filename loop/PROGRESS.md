@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:48 — Walking along the shore follows the waterline (G1) — 977795b
+Took G1 (one real G1 landing in the last 20 passes). Found in `footStep`: a step that landed in the sea zeroed the
+position AND speed, so walking a quay or beach even slightly seaward froze you on the edge (re-accelerating every
+frame). New hoisted `shoreSlide(F, nx, nz)`: shore normal from 12 isSea taps 1.5 m round you, takes off only the
+seaward part of the step; only a step square out to sea (or a slid spot that's wet too) stops you. Used by footStep
+and skiStep. New `g1_shore.mjs` (4 shore spots near the depot, 20°/45° seaward both ways, W for 5 game-s): avg along
+shore **2.73 → 5.13 m**, stuck (<1 m) 3 → 1 (spot 1 45°: 0.8 → 6.7 m; spot 2 20°: 2.7 → 9.6). smoke exit 0, page errors
+none (66.9 mph, powder 1.54, trench 2.22). No stills: motion-only change. README; v136.
+Triage 0068: v134 verified on a second rise; F1/F4 harness notes (wet start spot, beacon projection) and F2 (no trees
+near spawn crests) folded into the sled-column item; F3 positive, no action.
+Next: the remaining stuck spot (spot 3 45° side −1), ski along a beach.
+
 ## 2026-10-26 17:35 — Sled unlocks announced with a toast (G2) — e1f38d7
 No new reports since 0067. After 18 G3/G1 passes, took G2 (fewest recent landings), goal item "does the game say what's
 next": `bumpDelivered` toasted rank-ups but nothing said when a delivery opened a sled (Woodsman 4, Ranger 8, Sprint 13,

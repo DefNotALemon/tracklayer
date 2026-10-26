@@ -224,8 +224,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low, playtest, follow-up to v106): sled column over ridges lifts above the crest. b78 continuous walk
       (`g1_sledpin_crestcont.mjs`, hold W 106 m over a 59 m rise): lift eases 114 → 0 m over the last ~25 m to the crest,
       foot screen row moves ≤16 px/game-s, no jump at the 25 m skip; vision: column visible over the walker every frame.
-      Crest walk closed. v134 made the easing frame-rate independent. Still unchecked: in trees, next to a
-      delivery/depot beacon.
+      Crest walk closed. v134 made the easing frame-rate independent; report 0068 verified it on a second, bigger
+      rise (10.5 m/game-s, 18 px/game-s). Still unchecked: in trees (anchor the search on a known forest cell, not
+      spawn: none within 600 m of spawn), next to a LIT depot beacon (needs `GS.load` set; call
+      `updateMatrixWorld` before projecting `depot.beacon`, 0068 F4).
+- [ ] G1 (playtest, follow-up to v136 shore slide): `g1_shore.mjs` avg along-shore 2.73 → 5.13 m in 5 game-s, stuck
+      3 → 1. Left: spot 3 (-1409,-326) 45° side −1 still stops at 0.5 m (concave corner? an obstacle?); ski along a
+      beach; the shore near piers/the ferry slip. Playtester: walk the quay edge by hand toward a door/the pier.
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
@@ -285,4 +290,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 67
+Last triaged report: 68
