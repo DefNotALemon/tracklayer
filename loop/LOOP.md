@@ -104,14 +104,18 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daytime looks flat and washed out (report 0004: quay day 5/10, backcountry day 5, sled close-up 6,
-      rider 6 vs quay night 8): hazy white sky, no visible sun, almost no shadow contrast on buildings, snow
-      and the sled even under "Clear". Check `updSky` day exposure/fog/hemisphere vs sun intensity and the
-      shadow setter; aim for night's contrast. Re-shoot with `scenarios/views.mjs` (the baseline sheet;
-      the old "baseline views" item is done by the playtester in 0004) and score every view before/after.
 - [ ] G1: Fix the start: 6 s of throttle from the spawn runs the Frontier into the Helsesenter wall
-      (smoke.mjs still 01_riding). Spawn facing open snow or a clear lane. (v61 smoke: the sled now covers
-      74 m in 6 s from the plowed depot yard; re-check the still before working on it.)
+      (re-checked at v62: smoke.mjs 01_riding shows the sled nose-in under the HELSESENTER sign at 1 mph after
+      6 s, x −1298.7 z −453.3). Spawn facing open snow or a clear lane.
+- [ ] G1: Shore-road house yard gap (report 0005 F1): `g1_yards.mjs` stop at depot +46,+26 (yaw −1.2) starts in
+      0.47 m powder (pack 0.13) and the 10 m walk to its door averages **0.58 m/s** vs 2.5 at every other yard.
+      Find why `addYard` misses that building (not a `KIT.house`? door far from the anchor?), then the
+      plowed-lane follow-up below.
+- [ ] G3: Daylight slice 2 (after v62's lifted key light + softer fill): open backcountry still reads hazy
+      and low-contrast (g3_day.mjs 05/06: std 39–40 vs quay 51), the sky is a pale lavender wash with no
+      sun glow unless you face the sun, and the sled's colours go a little paler (quay sat 41 → 38). Look at
+      fog density/colour by day, snow surface relief (normal/micro shading in `patchMat`), a touch more
+      saturation in daytime grade. Measure with `g3_day.mjs` + `imgstats.py`, judge with vision.
 - [ ] G2: Trekker 550 ($3400, 24 deliveries) is weaker than the Summit 600 it follows (p/d 1.61 vs 1.91,
       power 161% vs 168% shown on its card) and opens no parts: a trap on raw numbers. Give it a reason the
       player can see (its two-up seat for aurora tours? range: 30 L + 0.9 burn engine is already its thing; say
@@ -133,6 +137,6 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (only discs round each building and the depot→quay lane are plowed now), and whether village yards
       should join up; measure a door-to-door walk with `g1_yards.mjs`.
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
-      (report 0004 F3, also seen in the v61 yard stills); the zone test should count the quay/town.
+      (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 4
+Last triaged report: 5
