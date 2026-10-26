@@ -4292,7 +4292,7 @@ const KIT = (() => {
     }
     for (let u = -w / 2 + 1.1; u <= w / 2 - 1; u += 1.9) for (let v = -d / 2 + 1.1; v <= d / 2 - 1; v += 1.9) {
       const wx = x + u * Math.cos(ry) + v * Math.sin(ry), wz = z - u * Math.sin(ry) + v * Math.cos(ry);
-      addOb({ x: wx, z: wz, r: 1.35, top: 1e9 });
+      addOb({ x: wx, z: wz, r: 1.35, top: 1e9, ax: ry });
     }
     return g;
   };
@@ -4430,7 +4430,7 @@ function buildSites() {
         add(g, new THREE.BoxGeometry(0.12, 1.0, 2.6), L(0xd8d2c4), D / 2 + 2.5, 2.4, -W / 2 - 1.5);
         addOb({ x: bx + D / 2 + 2.2, z: bz + W / 2 - 1, r: 0.6, top: 1e9 });
       }
-      for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9 });
+      for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9, ax: 0 });
       if (s.kind === "village") KIT.village(s, 1000 + s.id.length * 77 + s.seed[0]);
       if (s.kind === "home") {
         // a stacked woodpile along the gable end and a mailbox post out by the track
@@ -9003,7 +9003,7 @@ function buildTown() {
   bx(gg, 0.16, 1.5, 3.4, L(0xd8d2c4), 7.4, 3.2, -3.2);
   bx(gg, 0.06, 0.34, 2.6, red, 7.3, 3.4, -3.2);
   bx(gg, 0.06, 0.2, 2.2, L(0x1c2b3a), 7.3, 2.9, -3.2);
-  for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9 });
+  for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9, ax: 0 });
   bx(gg, 1.0, 0.8, 1.0, wood, -4.2, 0.4, 4.6); bx(gg, 0.9, 0.7, 0.9, wood, -2.8, 0.35, 4.8);
   put(gg, new THREE.TorusGeometry(0.85, 0.16, 8, 18), L(0x14181d), 3.4, 1.0, 4.6).rotation.set(0.25, 0.4, 0);
 
@@ -10788,9 +10788,44 @@ function footStep(dt) {
   F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
   const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
   const mv = F.sp * surge;
-  let nx = F.x + fx * mv * dt, nz = F.z + fz * mv * dt;
+  let mx = fx * mv * dt, mz = fz * mv * dt, nx = F.x + mx, nz = F.z + mz;
   // trees, rocks and buildings
   const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
+  // slide along what you walk into: a house wall is a row of discs, and pushing out of each one alone left you
+  // wedged in the notch between two whenever you came at it within ~35° of square. Sum the normals of everything
+  // the step would touch, take the into-the-wall part off the step, then push straight out along that one normal
+  // until every disc is clear, so a wall reads as one face you can slide along. The per-disc push below stays as
+  // the fallback (a gap between two walls, where the normals cancel).
+  {
+    const hit = [];
+    let sx = 0, sz = 0, touch = false;
+    for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.log || o.down) continue;
+        // a wider probe than the body, so the next disc along the wall counts too (that's what flattens the notch);
+        // a building's discs (o.ax = its yaw) push square off its nearest face, so its corners aren't round posts
+        const dx = nx - o.x, dz = nz - o.z, rr = o.r + 0.36, d2 = dx * dx + dz * dz, pr = rr + 0.3;
+        if (d2 < pr * pr && d2 > 1e-6) {
+          const dd = Math.sqrt(d2), w = pr - dd; let ux = dx / dd, uz = dz / dd;
+          if (o.ax !== undefined) { const c = Math.cos(o.ax), s = Math.sin(o.ax), lu = ux * c - uz * s, lv = ux * s + uz * c;
+            if (Math.abs(lu) > Math.abs(lv)) { ux = Math.sign(lu) * c; uz = -Math.sign(lu) * s; } else { ux = Math.sign(lv) * s; uz = Math.sign(lv) * c; } }
+          sx += ux * w; sz += uz * w; hit.push(o); if (dd < rr + 0.02) touch = true;
+        }
+      }
+    }
+    const sl = Math.hypot(sx, sz);
+    if (touch && sl > 1e-6) {
+      sx /= sl; sz /= sl;
+      const into = mx * sx + mz * sz; if (into < 0) { mx -= into * sx; mz -= into * sz; nx = F.x + mx; nz = F.z + mz; }
+      let t = 0;
+      for (const o of hit) {
+        const cx = nx - o.x, cz = nz - o.z, rr = o.r + 0.36, b = cx * sx + cz * sz, c = cx * cx + cz * cz - rr * rr;
+        if (c < 0) t = Math.max(t, -b + Math.sqrt(b * b - c));
+      }
+      if (t < 0.6) { nx += sx * t; nz += sz * t; }
+    }
+  }
   for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
     const a = obGrid.get(j * OBW + i); if (!a) continue;
     for (const o of a) {
