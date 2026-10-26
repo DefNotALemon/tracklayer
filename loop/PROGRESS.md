@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 14:35 — Helsesenter gets a real facade (G3) — 0971a3f
+Triage 0054 (v117 sheds verified: draw calls 877 reproduce, night glass right, no moire): F4 (fascia under noon sun may
+read as paint) kept as a note on the buildings item; F5 already listed. Took the hospital slice. New
+`scenarios/g3_hospital.mjs` (3/4, front, ambulance end; Nov/March noon + 20:00) showed a plain white box with 38 cream
+`glowM` squares lit at noon. Now: sandwich-panel walls (`hospPanelTex`, 1.2 m panels + storey joint, `hospUV` metric UVs),
+concrete plinth, windows through `houseFacade` (grey frames/sill/bar, `houseWinMat` glass), upper windows 1.1 → 0.9 m and
+H signs 1.6 → 1.3 m raised so signs clear the window heads, mullioned entrance with its door on `houseWinMat`. imgstats
+local nov q34/front/amb 4.89/4.91/4.75 → 6.09/6.23/5.26, March 4.13/4.61/4.39 → 5.39/6.08/5.05, night front 5.93 → 6.96;
+draw calls at the front 561 → 530 (38 window boxes → 2 merged meshes). Vision (b62/before2.jpg vs after.jpg + crop): panel
+joints, framed windows and signs read, no z-fighting; glass mid-grey by day like the houses. smoke exit 0, page errors none
+(67.9 mph, powder 1.51, trench 2.28). README; v118. Next: depot / village sheds.
+
 ## 2026-10-26 14:20 — Work sheds get facades: garage, freight shed, fish buyer (G3) — 87d82a0
 Triage 0053 (v116 houses verified: local contrast reproduces 6.20/6.56/6.29, draw calls 912, no moire): F1 roof eaves and
 F2 plain work sheds folded into the buildings item, F3 grey day glass kept as a low note. Took the sheds slice. New
