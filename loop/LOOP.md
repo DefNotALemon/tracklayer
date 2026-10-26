@@ -104,9 +104,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1: Fix the start: 6 s of throttle from the spawn runs the Frontier into the Helsesenter wall
-      (re-checked at v62: smoke.mjs 01_riding shows the sled nose-in under the HELSESENTER sign at 1 mph after
-      6 s, x −1298.7 z −453.3). Spawn facing open snow or a clear lane.
 - [ ] G1: Shore-road house yard gap (report 0005 F1): `g1_yards.mjs` stop at depot +46,+26 (yaw −1.2) starts in
       0.47 m powder (pack 0.13) and the 10 m walk to its door averages **0.58 m/s** vs 2.5 at every other yard.
       Find why `addYard` misses that building (not a `KIT.house`? door far from the anchor?), then the

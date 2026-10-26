@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 02:22 — A clear first ride (G1) — 60e578a
+Cause: `buildHospital` picks the flattest lot 75–205 m from the depot and nothing kept it off the spawn's heading
+(SPAWN = depot +6 z, yaw π), so it stood 81 m dead ahead (−5°); behind it, the south town-limit sign (12 spokes
+round the depot, spoke k=9 is exactly the spawn line) had a post 1.1 m off the lane. Fix: the hospital lot search
+skips a 220 m × 80 m corridor ahead of SPAWN; the one sign whose spoke runs down that lane turns 0.11 rad (~12 m)
+aside. New `scenarios/g1_start.mjs` (spawn geometry, obstacles in the forward lane, 12 s full throttle, hit log).
+Before: lane obstacles at 68–78 m (hospital), ride stopped at 74 m (0.6 mph, nose-in under the sign); after moving
+the hospital alone it hit the sign post at 114 m (63.9 → 11.4 mph). After both: lane clear to 120 m, **309 m in
+12 s**, top 65.8 mph, no hits; smoke 6 s ride ends at 65.6 mph instead of 1 mph. Hospital now at 82 m, 41° right
+of the spawn heading, still in view from the start. Vision (cmp_start/sheet.jpg): spawn view natural, helsesenter
+sits to the right behind the houses, ride ends on open snow along the coast. smoke.mjs exit 0, page errors none
+(powder 1.42, trench 2.20). README helsesenter line; script v63. No new reports (last triaged 5).
+Next: shore-road house yard gap (G1).
+
 ## 2026-10-26 02:12 — Daylight has shape (G3) — 10a0dc9
 Cause: on 1 Nov the noon sun is 4° up, so at its true angle flat snow got N·L ≈ 0.07 of the key light and the
 whole scene was lit by the even sky fill (hemi 0.54, near-white ground bounce) = no shadows, one flat grey.
