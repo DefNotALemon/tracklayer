@@ -88,7 +88,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Ranger 500 | 900 | 8 | 1.41 | 1.02 | 0.3 | 20 | 1.38 | 18: flatbed, tiller, turbo, paddle track, heavy winch |
 | Sprint 580 | 1700 | 13 | 1.58 | 1.12 | 1.1 | 18 | 1.41 | 8: EFI, hybrid track, freight deck |
 | Summit 600 | 2400 | 18 | 1.68 | 0.88 | 0.8 | 24 | 1.91 | 3: mountain track, stage 3, expedition tank |
-| Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing — **weaker than the Summit it follows** |
+| Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | nothing |
 | Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | nothing |
 | Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing — **weaker than the Matriarch, +$4700** |
@@ -104,12 +104,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2: Trekker 550 ($3400, 24 deliveries) is weaker than the Summit 600 it follows (p/d 1.61 vs 1.91,
-      power 161% vs 168% shown on its card) and opens no parts: a trap on raw numbers. Give it a reason the
-      player can see (its two-up seat for aurora tours? range: 30 L + 0.9 burn engine is already its thing; say
-      so on the card) or retune toward its place in the ladder. Don't touch Lemon's spare-seat tour work in
-      his checkout; read origin/main only. Same check for Aurora E vs Matriarch (3.11 vs 3.79, +$4700).
-      (Moved to top 02:45: G2 has had no landing in 8 passes; tie rule.)
 - [ ] G3: Daylight slice 3 (v65 thinned/blued the clear-day fog): near and mid snow still reads as one flat pale
       sheet (backcountry std 40 vs quay 52, local contrast 2.7 vs 4.4) and the big hillside right of the
       backcountry view is a white wash: look at snow surface relief (normal/micro shading in `patchMat`), a touch
@@ -121,6 +115,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
       sells them" (`contractBlock` `c.groom` branch); the garage then explains the Woodsman lock. Low: one
       extra tap, not a dead end.
+- [ ] G2: Aurora E ($14500, 60 deliveries) is weaker than the Matriarch it follows (p/d 3.11 vs 3.79, +$4700) and
+      opens nothing. v66 added `SLEDS[].perks`/`perk` (built-in stats + a green card line, see Trekker): give the
+      Aurora a visible reason the same way (e.g. instant torque/zip, cheap "fuel" at its charge points, silent =
+      no wildlife scare/no noise) or retune. Measure with `g2_sledperks.mjs`. Also the Trekker's two-up seat
+      (aurora tours) is Lemon's spare-seat work in his checkout: leave it to him.
 - [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
       at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
       ($145–370) makes parcels pointless after rank 3.
@@ -138,4 +137,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 7
+Last triaged report: 8

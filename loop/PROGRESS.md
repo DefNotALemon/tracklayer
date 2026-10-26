@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 02:52 — Trekker earns its place: built-in touring kit (G2) — 2e529fb
+The Trekker ($3400, 24 deliveries) had less power than the Summit before it and nothing else to show; its 0.9-burn
+engine didn't even count (stock engines report burn 1). Decided not to retune its power (it's a touring sled, not a
+mountain sled) but to make it the long-haul machine: new `SLEDS[].perks` (added in `stats()` after parts, so it stacks)
+and `perk` text shown in green on the garage card. Trekker: +2.5 warmth (heated grips/seat, tall shield), +1 parcel slot
+(its rack), burn −0.1. New `scenarios/g2_sledperks.mjs`. Before → after (Trekker): slots 1 → **2**, warmth 5 → **7.5**
+(cold drain 100% → 73%), burn 1 → 0.9, range 30 → 33.3 L-equiv = **1.25× → 1.39× the Summit** (Aurora 1.42); 20 s ride
+2.29 → 1.78 L/km. Other sleds unchanged. Card text checked in the scenario log. smoke.mjs exit 0, page errors none
+(powder 1.49, trench 2.25, 6 s ride 65.6 mph). README garage paragraph; script v66. Did not touch the two-up seat /
+tours (Lemon's spare-seat work). Triage 0008: all confirmations (v65 verified, slice 3 + g3_day teleport + HUD badge
+already queued). Follow-up: Aurora E vs Matriarch (new item, use perks). Next: daylight slice 3 (G3).
+
 ## 2026-10-26 02:45 — Clear-day air: thinner, cool-blue haze (G3) — 5085562
 Daylight slice 2, fog part. `updSky`: while the sun is up and the sky clear (`clr` = sun ramp × (1 − storm)) fog
 density drops 30% (0.0017 → 0.00119) and its colour (shared with the sky shader's horizon, so no seam) leans 35%
