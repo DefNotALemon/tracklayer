@@ -419,9 +419,14 @@ const patchGeo = new THREE.BufferGeometry();
 }
 // melt uniforms shared by the snow patch, the far terrain and the lakes (MELT sets them)
 const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uThin: { value: 1 }, uLakeThr: { value: new Array(LAKES.length).fill(9) } };
+// Sky sheen: snow seen at a glancing angle mirrors the sky a little, so on a clear day the flats running away from you
+// lean toward the sky's blue while the snow at your feet stays white (the depth cue that makes an open fell read as
+// distance instead of one pale sheet). uSkyRef = the clear-day fill's hue at luminance 1, set by updSky (white in
+// storms/overcast/night, so nothing changes then); the patch and the far terrain both apply it to snow only.
+const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 } };
 const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
 patchMat.onBeforeCompile = sh => {
-  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet;
+  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet; Object.assign(sh.uniforms, skyRefU);
   sh.vertexShader = "uniform sampler2D uSnow; uniform float uTexel; attribute vec2 aUv; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     sh.vertexShader
       .replace("#include <beginnormal_vertex>", `
@@ -442,7 +447,7 @@ patchMat.onBeforeCompile = sh => {
   // across a prevailing north-westerly) plus slow drift swells, as a per-pixel normal tilt only (no geometry,
   // so physics and the 25 cm snow grid are untouched). Fades out on packed trails, on rock and bare ground,
   // and by 45 m from the camera, before the patch hands over to the far terrain. Low sun rakes across it.
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -483,7 +488,11 @@ patchMat.onBeforeCompile = sh => {
       float rnd = fract(sin(dot(cellp, vec2(12.9898,78.233)))*43758.5453);
       float tw = fract(rnd*37.0 + dot(normalize(vWP - cameraPosition), vec3(4.0,6.0,5.0)));
       col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 0.9;
-      diffuseColor.rgb *= col;`);
+      diffuseColor.rgb *= col;
+      float skyW = (1.0 - rock) * (1.0 - bare) * (1.0 - 0.7 * uWet);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
+      { float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
+        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
+      ${o}`);
 };
 const patchMesh = new THREE.Mesh(patchGeo, patchMat);
 patchMesh.frustumCulled = false; patchMesh.receiveShadow = true;
@@ -584,7 +593,7 @@ function buildFar() {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
   const NL = LAKES.length;
   mat.onBeforeCompile = sh => {
-    Object.assign(sh.uniforms, farU, meltU);
+    Object.assign(sh.uniforms, farU, meltU, skyRefU);
     sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
       vec3 transformed = vec3(position); vWxz = position.xz; vBare = 0.0; vOpen = 0.0;
       if (uMeltK > 0.0 && aMeltT >= 0.0) {
@@ -605,7 +614,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" +
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" +
       `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
        float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
          return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -634,7 +643,11 @@ function buildFar() {
       float en = fract(sin(dot(floor(vWxz / 9.0), vec2(41.31,17.83))) * 43758.5453);
       vec3 earth = mix(vec3(0.26,0.22,0.16), vec3(0.28,0.3,0.18), en);
       diffuseColor.rgb = mix(diffuseColor.rgb, earth, clamp(vBare, 0.0, 1.0) * uSpr);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);`);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
+      { float skyW = smoothstep(0.8, 0.9, vColor.r) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
+        float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
+        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
+      ${o}`);
   };
   far = new THREE.Mesh(geo, mat); far.receiveShadow = false;
   scene.add(far);
@@ -4682,7 +4695,10 @@ function updSky() {
   // cold blue against the warm sunlit faces instead of one beige-grey. Overcast/storm fill stays neutral (clr → 0).
   { const c = hemi.color, L = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, k = 1 + 1.8 * clr;
     const r = Math.max(0, L + (c.r - L) * k), g = Math.max(0, L + (c.g - L) * k), b = Math.max(0, L + (c.b - L) * k), m = Math.max(1, r, g, b);
-    c.setRGB(r / m, g / m, b / m); }
+    c.setRGB(r / m, g / m, b / m);
+    // the snow's sky sheen (skyRefU): this fill's hue at luminance 1, faded to white as the day clouds over or ends
+    const Lc = Math.max(0.05, 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b);
+    skyRefU.uSkyRef.value.setRGB(lerp(1, c.r / Lc, clr), lerp(1, c.g / Lc, clr), lerp(1, c.b / Lc, clr)); }
   hemi.color.lerp(C_AUR, 0.15 * sstep(0.1, 0.5, aur) + 0.55 * ak);
   hemi.groundColor.setRGB(lerp(0.34, 0.91 - 0.1 * sunK, dayness), lerp(0.40, 0.93 - 0.08 * sunK, dayness), lerp(0.55, 0.96 - 0.03 * sunK, dayness)).lerp(C_AURG, 0.45 * ak);
   renderer.toneMappingExposure = lerp(0.95, 1.05, dayness) + 0.06 * ak;
