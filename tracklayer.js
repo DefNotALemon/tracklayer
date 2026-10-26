@@ -4488,6 +4488,8 @@ function houseWinTick(day, st) {
   const n = 1 - day * (1 - 0.6 * st);
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
   if (stationPool.m) stationPool.m.opacity = 0.45 * n;
+  if (lampPools.at && lampPools.at.length) lampPools();
+  if (lampPools.m) lampPools.m.opacity = 0.5 * n;
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
@@ -4622,6 +4624,7 @@ const KIT = (() => {
     K.put(g, new THREE.SphereGeometry(0.22, 10, 8), K.glowM, 0, 4.1, 0).castShadow = false;
     K.put(g, new THREE.ConeGeometry(0.34, 0.3, 10), K.metal, 0, 4.35, 0);
     addOb({ x, z, r: 0.3, top: 1e9 });
+    (lampPools.at || (lampPools.at = [])).push([x, z]);   // its pool of light on the snow, laid once the yards/lanes are in (lampPools)
     return g;
   };
   // hjell: the A-frame racks the cod hangs on to dry
@@ -4830,6 +4833,34 @@ function stationPool() {
     #endif`);
   };
   return m;
+}
+// Street lamps (KIT.lamp: villages, sites, schools, the new cabins) throw a warm pool on the snow under them after
+// dark, like the station canopies. K.lamp only queues its spot; the first houseWinTick (after the whole world, its
+// plowed yards and lanes are built) lays every pool as one merged additive mesh: a 13 m disc whose rings follow
+// the snow surface (surf) 12 cm up, so it hugs berms and plowed lanes instead of floating or sinking. Shares the
+// station pool's radial texture and fog handling; its opacity rides houseWinTick (0 by day).
+function lampPools() {
+  const at = lampPools.at; lampPools.at = []; lampPools.spots = (lampPools.spots || []).concat(at || []);
+  if (!at || !at.length) return;
+  const sm = stationPool(), R = 6.5, NR = 6, NA = 20, pos = [], uv = [], idx = [];
+  for (const [x, z] of at) {
+    const b = pos.length / 3;
+    for (let i = 0; i <= NR; i++) for (let j = 0; j < (i ? NA : 1); j++) {
+      const r = R * i / NR, a = j / NA * Math.PI * 2, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
+      pos.push(px, surf(px, pz) + 0.12, pz); uv.push(0.5 + Math.cos(a) * r / (2 * R), 0.5 + Math.sin(a) * r / (2 * R));
+    }
+    for (let j = 0; j < NA; j++) idx.push(b, b + 1 + (j + 1) % NA, b + 1 + j);
+    for (let i = 1; i < NR; i++) for (let j = 0; j < NA; j++) {
+      const p = b + 1 + (i - 1) * NA, q = p + NA, j1 = (j + 1) % NA;
+      idx.push(p + j, p + j1, q + j1, p + j, q + j1, q + j);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
+  geo.computeBoundingSphere();
+  if (!lampPools.m) { lampPools.m = sm.clone(); lampPools.m.color.set(0xe0601a); lampPools.m.side = THREE.DoubleSide; lampPools.m.onBeforeCompile = sm.onBeforeCompile; }
+  const mesh = new THREE.Mesh(geo, lampPools.m); mesh.renderOrder = 2; mesh.frustumCulled = false; mesh.castShadow = mesh.receiveShadow = false; scene.add(mesh);
+  lampPools.mesh = mesh;
 }
 function buildStations() {
   const { woodD, snowM, metal, glowM, L, white } = KIT;
