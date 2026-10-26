@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 11:00 — Light column over the sled when you're far from it on foot (G1) — fab3a92
+Triage 0041 (v103 verified: 6/6 hints, real A/D turn tracks with no camera-trail lag → that half of the follow-up closed;
+F4 = this build; F5 narrow-viewport wrapping dropped, desktop-first and the pill fit with room at 1280). Took the other
+half of the v103 follow-up: at 90 m the parked sled is a speck (before stills: barely findable by day, invisible in a
+night storm). New `sledPinTick()` (end of rescueTick): on foot past 30 m a slim pale-yellow `beaconMat` column (scaled
+0.34×0.15×0.34 → ~150 m tall, <1 m wide) stands over the sled, fading in 30–60 m; hidden mounting, in driving school,
+dead, and on the sled. New `scenarios/g1_sledpin.mjs` (20/90 m facing the sled, night clear/night storm/day; max luma in
+a strip above the sled's screen point): column shown at 90 m **0/3 → 3/3**, at 20 m 0/3 → 0/3; strip max luma night
+**128 → 238**, storm **66 → 152**, day 221 → 255; gone after remount. Vision (b47/cmp.jpg): thin soft column with its foot
+on the sled in all three, not garish; reads near-white rather than yellow over bright snow. smoke exit 0, page errors
+none (powder 1.55, trench 2.25, 6 s 66.5 mph). README walking para; v104.
+Next: playtest the column far out / behind a rise (new low item); G2 laden-leg ride; G3 FPS check.
+
 ## 2026-10-26 10:50 — On-foot prompt says where the sled is (G1) — d7a5d92
 Triage 0040 (tested v101, before v102): its laden ratios (tonne 0.26–0.28, fell 0.51, clean-air 0.73–0.85) are already
 covered by v102's (1 + kg/320) stretch (1000 kg → 0.24, 320 kg → 0.50, trailer+190 → ~0.55: safe side everywhere); F4–F6

@@ -165,8 +165,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-- [ ] G1 (low, follow-up to v103): the on-foot sled bearing is relative to the walker's facing, but the camera trails
-      a sudden turn; check in play (g1_sledhint.mjs stills) that "straight ahead" reads right after normal A/D turning,
-      and consider a small world marker over a far sled at night / in a storm when it's out of sight.
+- [ ] G1 (low, playtest, follow-up to v104): the sled locator column (`sledPinTick`, `g1_sledpin.mjs`) was only judged
+      at 90 m on flat ground; check it at 300–800 m and with the sled behind a rise or in trees, and that it reads as
+      "my sled" (pale yellow, thin) and not as a delivery/depot beacon when one stands nearby.
 
-Last triaged report: 40
+Last triaged report: 41
