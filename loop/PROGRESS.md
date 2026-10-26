@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 03:45 — Rig gates say what you're missing (G2) — d1a31b7
+Rank 3 told a Frontier rider "You'll want a groomer" and the groom card said "the garage sells them", but the groomer
+(and the trailer at rank 5) fit only the Woodsman and newer and need a $150 receiver. New hoisted `rigNeed(id)` (tier
+lock via `genWhy` with sled price/deliveries, else "the garage sells … ($N)", else "yours is at the garage: hitch it on",
+plus the receiver if `recvOk` fails) and `rankOpens(r)`; used by the groom + heavy-freight `contractBlock` lines, both
+accept toasts and the rank-up toast. Locked cards now end "(Woodsman+ sleds)". New `scenarios/g2_rig_wording.mjs`
+(reads the strings directly at 6 ladder states). Before: every state said "the garage sells them". After, 3 deliveries on
+a Frontier: "The tow-behind groomer drag ($700) fits the Woodsman 440 W/T and newer (4 deliveries, $600). It hooks to a
+hitch receiver ($150)."; on a Woodsman it drops the sled line, then the receiver line, then is empty once fitted.
+Still of the Trail Crew app (b13shot/01): the line fits the card on three small lines, no clipping. smoke.mjs exit 0, page
+errors none (powder 1.47, trench 2.24, 6 s ride 65.4 mph). README rank section; v70. Triage 0012: F1 beacon hairline at
+1.2 km → new G3 item at top; F2 wall-stall re-confirmed 0.58 m/s (noted); F3/F4 info. Next: beacon distance fade.
+
 ## 2026-10-26 03:30 — Guide beacons are soft light columns (G3) — c91d357
 Report 0010 F1's "huge uniform grey band" in the night sky was the guide beacon over the quay (empty-handed you get
 one over the depot): a 4.4 m × 1 km additive tube at flat opacity 0.2 with no fog, so from 120–350 m it drew a

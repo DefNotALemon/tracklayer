@@ -104,12 +104,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
-      (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
-      Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
-      sells them" (`contractBlock` `c.groom` branch); the garage then explains the Woodsman lock. Report 0011
-      re-confirmed; check all three `c.groom` branches (~4926, ~6039, ~7050). `g2_groomer_gate.mjs` reads
-      `#tablet .tcard` and gets nothing (the board is on the 3D dash tablet): read `contractBlock(c)` directly.
+- [ ] G3 (follow-up to v69): from ~1.2 km the guide beacon is a hard constant-width hairline from the roofline to
+      the top of the frame, day and night (report 0012 F1, `g3_beacon.mjs` night_1200/day_1200); 120/350 m look
+      right. The column is only a few px wide there, so the silhouette fade has no room: fade `beaconMat` alpha
+      with camera distance (and/or shorten the visible top) past ~600 m; measure half-max width/peak at more ranges.
 - [ ] G3: Daylight slice 4 (v67 gave the near 45 m of fresh snow wind relief): past the snow patch the far
       terrain is still a white wash (backcountry local contrast 2.7–2.8 vs quay 4.4): give the far terrain material
       some of the same drift shading at a coarser scale, a touch more daytime saturation, sun glow in the sky away
@@ -131,7 +129,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
       as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
 - [ ] G1: Walking into a house wall at an angle stalls instead of sliding along it: `g1_yards.mjs` row "shore-rd old
-      aim" (12 m out at yaw −1.2 toward the house middle) covers <10 m in 14 s = **0.58 m/s**. Check the
+      aim" (12 m out at yaw −1.2 toward the house middle) covers <10 m in 14 s = **0.58 m/s** (0012 re-confirmed). Check the
       `footStep` obstacle push (house walls are a grid of r 1.35 discs) for a tangential slide; measure that row.
 - [ ] G1 (follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road
       (only discs round each building and the depot→quay lane are plowed now), and whether village yards
@@ -139,4 +137,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 11
+Last triaged report: 12
