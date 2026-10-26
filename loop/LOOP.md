@@ -28,6 +28,8 @@ in powder), open powder 1.38. Since v64: shore-road house door square-on from 12
 Since v84 (g1_lanes.mjs): depot yard edge → shore-road doors 24–49 m at **2.62–2.66 m/s** (was 1.80–1.90).
 Since v89 (g1_lanesob.mjs): lanes routed round obstacles; lanes crossing an obstacle 8/14 → 1/15; lot9 72 m at 2.65 m/s
 (was stuck against the pier freight shed at 32 m).
+Since v96 (g1_jog.mjs): Shift jog. 20 m powder 1.48 → **1.79 m/s**, trench 2.32 → **3.04**; plowed lane 3.7–3.8 m/s,
+blown after 17 s / 58 m, then walks ~2.1 until breath is back (30 s: 85 m vs 71 walking).
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -127,6 +129,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       hillside 100–300 m out; near dunes now domain-warped + ridged crests, crest weight faded by dist/cos(view) so
       grazing flats don't barcode. Local 03/04/05 3.01/4.06/3.11 → 3.22/4.16/3.57; midband strip 3 Nov 4.69 → 5.49.
       Still open: global std (~40) / overall low contrast; crests may read a touch sand-dune-like on big facing slopes.
+- [ ] G1 (playtest, follow-up to v96 jog): play the jog like a player: quay → a shore-road door with Shift held, a
+      jog up a town slope, touch lean on foot. Is 20 m of deep powder blowing you (~11 s) too harsh? Does the toast
+      repeat annoyingly? Does the walker pose read as a jog at 3.7 m/s (stride lengthened, no run pose of its own)?
+      `scenarios/g1_jog.mjs` has the numbers.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph

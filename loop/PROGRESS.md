@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 09:08 — Shift to jog on foot (G1) — a2e68c2
+No new reports (last 33). G1 had the oldest landing (08:15) and no open backlog item, so took a LOOP.md G1 direction:
+a jog key. `footStep` gets `jogK` (×1 + lerp(0.2, 0.5, pack), faded on climbs > 0.1 and steep descents) from Shift / RB /
+touch lean (readInput's `lean` → `FOOT.jog` on foot), and a breath meter `F.wind`: +0.045/s on pack, up to +0.115 in deep
+powder, +0.08 more uphill; −0.05 walking, −0.12 standing; at 1 you're blown (one toast, 20 s cooldown) and can't jog until
+0.35. Stride lengthens while jogging; pose `tired` follows the wind. New `scenarios/g1_jog.mjs` (weather pinned): before
+Shift did nothing (powder 1.48/1.54, trench 2.30/2.25, lane 2.6 m/s, 30 s 71 m); after powder walk 1.48 → jog **1.79**
+(blown at ~11 s), trench 2.32 → **3.04**, plowed lane **3.8 m/s**, blown at 17 s / 58 m, 30 s **85 m**. Still
+after/01_jog_powder: forward-leaning stride, no broken limbs. smoke exit 0, page errors none (powder 1.53, trench 2.21,
+6 s 67.7 mph). README (controls + walking paragraph), help panel line, v96.
+Next: playtester plays the jog (new item); G3 global contrast; G2 TONNE chip.
+
 ## 2026-10-26 08:55 — COLD RUN chip on freight cards (G2) — 8ee52c0
 Triage 0033 (verify v94: macro local 2.60/3.22/4.16/3.56 and midband Nov 5.50 / March 5.04 reproduce, vision no
 ovals/barcode; global std 38–44 = the open G3 item): all info. G1 hospital 10° notch item dropped after a rerun of
