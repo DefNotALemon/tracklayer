@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:50 — Window glass reflection follows the viewpoint (G3) — 21ce8de
+Triage 0065: v130 verified (871 calls, night unchanged); F1 (same fixed reflection on every pane whatever it faces) taken
+this pass. houseWinMat's shader now offsets the glass lookup by the mirrored view ray (horizontal along the wall ×0.45,
+vertical ×0.55) and mixes in the sky colour by Schlick Fresnel ×0.75; world normal/position as new varyings, 0 draw calls
+(871 → 871). First try turned the white houses' panes flat pale sky (their normals point inward: Fresnel = 1); fixed by
+flipping the normal to face the eye. `g3_glass.mjs` imgstats before → after within ±0.1 local on every view (night ±0.1
+mean); vision (b75/cmp2.jpg): the sheen sits in a different pane from closeL vs closeR, horizon line a little higher at
+close range, no seams. smoke exit 0, page errors none (65.9 mph, powder 1.53, trench 2.25). README; v131.
+Next: red-house fascia tint; playtester to judge the sliding sheen in motion.
+
 ## 2026-10-26 16:40 — Windows read as glass by day (G3) — c121fde
 Triage 0064: v128 pool verified (538 calls, night pump 109.8/5.03); its F1 (canopy soffit un-graded) was already fixed by
 v129 (0064 tested v128); kiosk ridge gap from 0063 F2 not reproducible, dropped. Took 0053 F3: day glass read as flat
