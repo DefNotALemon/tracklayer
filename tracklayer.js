@@ -444,6 +444,20 @@ const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uT
 // height toward the real 4° winter sun and darkens the direct light on lee sides of ripples and swells.
 const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 }, uSunRef: { value: new THREE.Color(1, 1, 1) }, uSunK: { value: 1.0 }, uSunW: { value: sunDir },
   uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 } };
+// Lake skin (v109): a frozen Finnmark lake is wind-scoured ice under streaks of thin snow, not one flat grey-blue disc.
+// lkBare(p, fine) = 0 snow-streaked .. 1 bare scoured ice, in long streaks along the north-westerly (~80 x 17 m, bent by
+// a slow wander, plus 25 x 4 m fine streaks weighted by `fine`) with about half bare. The patch and the far terrain both read
+// it, so the near/far hand-over at ~45 m matches. Shading only: lake physics (P.ice) are untouched.
+const LAKE_GLSL = `float lkH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+  float lkN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(lkH(i), lkH(i + vec2(1.0, 0.0)), f.x), mix(lkH(i + vec2(0.0, 1.0)), lkH(i + vec2(1.0, 1.0)), f.x), f.y); }
+  float lkBare(vec2 p, float fine) {
+    vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
+    q.y += (lkN(p * 0.005) - 0.5) * 90.0;
+    float n = lkN(q * vec2(0.012, 0.06)) * 0.65 + lkN(p * 0.006 + 31.0) * 0.35 + (lkN(q * vec2(0.04, 0.25)) - 0.5) * 0.3 * fine;
+    return smoothstep(0.47, 0.6, n);
+  }
+`;
 const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
 patchMat.onBeforeCompile = sh => {
   sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet; Object.assign(sh.uniforms, skyRefU);
@@ -471,7 +485,7 @@ patchMat.onBeforeCompile = sh => {
   // Drift shadows (v100): the lifted key light alone leaves the foreground evenly lit, but under a real 4° sun every
   // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
   // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -502,7 +516,8 @@ patchMat.onBeforeCompile = sh => {
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
       float ice = min(vIce, 1.0), thin = clamp(vIce - 1.0, 0.0, 1.0);          // 1..2 is ice the melt is eating (dark, grey, wet)
       vec3 col = mix(powder, packedC, vPack);
-      col = mix(col, iceC, ice*(0.3 + 0.7*vPack));
+      float lkB = ice > 0.01 ? lkBare(vWP.xz, 1.0) : 0.0;                     // lake skin: scoured ice vs snow streaks (v109)
+      col = mix(col, iceC, ice*clamp(0.08 + 0.72*lkB + 0.7*vPack, 0.0, 1.0));
       col = mix(col, vec3(0.17,0.25,0.31), thin*0.8);
       // spring: wet snow goes grey, the edges of the drifts go dirty, and where it's gone there's earth and heather
       float lo = (1.0 - smoothstep(0.08,0.3,vFresh)) * (1.0 - ice) * uSpr;
@@ -627,8 +642,8 @@ function buildFar() {
   const NL = LAKES.length;
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, farU, meltU, skyRefU);
-    sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
-      vec3 transformed = vec3(position); vWxz = position.xz; vBare = 0.0; vOpen = 0.0;
+    sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
+      vec3 transformed = vec3(position); vWxz = position.xz; vBare = 0.0; vOpen = 0.0; vLake = aMelt.y > 0.5 ? 1.0 : 0.0;
       vRockS = (aMeltT >= 0.0 && aMelt.y < 0.5) ? clamp(aMelt.x / 0.4, 0.0, 1.0) : 1.0;   // snow depth, land only (lakes/sea never show rock)
       if (uMeltK > 0.0 && aMeltT >= 0.0) {
         if (aMelt.y > 0.5) {                                  // lake ice: open water from the shore in
@@ -648,7 +663,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n" +
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
       `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
        float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
          return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -665,7 +680,15 @@ function buildFar() {
       float fdSh = 1.0;
       {
         float dist = length(vViewPosition);
-        float fdSnow = smoothstep(0.8, 0.9, vColor.r) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
+        // lake skin (v109): scoured blue ice under wind-streaked thin snow. Lakes are flat, so the pixel footprint is
+        // dist / cos(view) with cos from the geometric normal; streaks fade to their mean before they can alias.
+        if (vLake > 0.01) {
+          float fp = dist / max(abs(dot(normal, normalize(vViewPosition))), 0.01);
+          lkB = mix(0.45, lkBare(vWxz, 1.0 - smoothstep(250.0, 700.0, fp)), 1.0 - smoothstep(1500.0, 5000.0, fp));
+          lkW = vLake * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.88, 0.92, 0.975), vec3(0.47, 0.64, 0.77), lkB), lkW);
+        }
+        float fdSnow = max(smoothstep(0.8, 0.9, vColor.r), lkW * (1.0 - lkB) * 0.12) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
           * (1.0 - smoothstep(1600.0, 3200.0, dist));
         if (fdSnow > 0.01) {
           float near = 1.0 - smoothstep(150.0, 450.0, dist);
@@ -698,8 +721,9 @@ function buildFar() {
       float en = fract(sin(dot(floor(vWxz / 9.0), vec2(41.31,17.83))) * 43758.5453);
       vec3 earth = mix(vec3(0.26,0.22,0.16), vec3(0.28,0.3,0.18), en);
       diffuseColor.rgb = mix(diffuseColor.rgb, earth, clamp(vBare, 0.0, 1.0) * uSpr);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
-      { float skyW = smoothstep(0.8, 0.9, vColor.r) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);
+      float lkB = 0.0, lkW = 0.0;`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
+      { float skyW = max(smoothstep(0.8, 0.9, vColor.r), lkW * (0.75 + 0.5 * lkB)) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
         outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
