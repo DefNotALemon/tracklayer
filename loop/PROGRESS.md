@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:05 — Church, ferry and pump glass dark by day (G3) — 16d1d77
+Triage 0061: v124 lamp pools verified (508 calls); F3 (pool fainter from 9 m than 22 m, foreshortening) noted as low in
+the buildings item; F4 already fixed by v125. Took the last K.glowM users: church windows, ferry windows/portholes, fuel
+pump displays (one fixed cream MeshBasic, lit at noon). houseWinTick now copies houseWinMat's day/night colour into
+KIT.glowM (one line, 0 draw calls). New `scenarios/g3_glow.mjs` (finds every glowM mesh, one view per building, ferry
+pinned alongside; Nov noon + 21:00). Centre crop at noon 227/219/196 → 104/105/107 (church, 3 pumps), night 225/215/190
+unchanged; frames ±1; calls 103 → 103. Vision (b70/pair.jpg): noon windows/displays read as dark glass like the houses,
+night still glows. smoke exit 0, page errors none (67.2 mph, powder 1.52, trench 2.22). README; v126.
+Next: pump display digits by day, station pool strength, red-house fascia tint.
+
 ## 2026-10-26 15:55 — Lamp globes stop glowing at noon (G3) — e75d27b
 No new reports since 0060. Took the v124 follow-up: all 35 `K.lamp` globes used the shared MeshBasic `KIT.glowM`, so they
 burned cream at full brightness at noon. New hoisted `lampHeadMat()` (Lambert, colour 0xc4c8cc × (1−n), emissive 0xffc26b
