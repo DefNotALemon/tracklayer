@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 18:40 — Late-ladder lock cards say what you're short of (G2) — 4bd1bea
+No new reports since 0071. After 3 G3 landings took G2 (late ladder polish + "locked items should say how to unlock
+them"). The fell, tonne and clean-air lock text repeated the sled's sticker ("(32 deliveries, $5200)") whatever your state,
+even when the right sled was already in your garage. New hoisted `sledGap(s)`: owned → "Your Apex 800 is in the garage:
+swap onto it there (T …)"; else "The Apex 800 is $5,200 at 32 deliveries: you need 2 more deliveries and $4,400 more"
+(only the short parts). Fell points at the smallest owned sled ≥ Apex. New `g2_lockgap.mjs` (3 kinds × short both /
+short cash / owns it): distinct texts 1/3 → 3/3 per kind, owned-sled hint 0/3 → 3/3. Text only, no stills. smoke exit 0,
+page errors none (66.3 mph, powder 1.53, trench 2.25). README; v141.
+Next: playtester judges the longer text on the Freight card and toast.
+
 ## 2026-10-26 18:35 — Street lamp pools fall off like a real lamp (G3) — 0eb2b65
 Triage 0071: v138 pump hardware + moonless canopy pool verified; F1 (detail invisible at 20 m ride distance) is by design,
 no action; F2 (jerry-can camera ignored the cabin's rotation) harness-only, and the cans were judged up close in b83 (v139);

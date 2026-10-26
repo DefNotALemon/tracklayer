@@ -113,6 +113,9 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G2 (playtest, follow-up to v141 sledGap): fell/tonne/clean lock cards now end with your gap ("you need 2 more
+      deliveries and $4,400 more" / "Your Apex 800 is in the garage: swap onto it there"). `g2_lockgap.mjs` prints all
+      9 cases. Playtester: judge the longer text on the Freight app card (wrapping, fits the card) and in the toast.
 - [ ] G3: Buildings slice 3 (v116 `KIT.house`; v117 `workShed()` did the garage (corrugated steel `shedMetalTex`),
       pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
       fish buyer 5.18 → 5.77; quay draw calls 869 → 877; report 0054 verified). v118 did the hospital (`hospPanelTex`,
@@ -244,6 +247,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
       vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
+      v141 (b85): the lock text now gives the player's own gap (sledGap); the "just slower" line left out on purpose
+      (the cards already frame it as insurance/rating, which reads coherent).
 - [ ] G2 (playtest, follow-up to v105): the empty-pace part of `coldRun` is still pessimistic on real routes (laden
       trailer rides ran 17–22 m/s vs 12.6 assumed; Woodsman Gamvik→Ifjord card 321% vs ~128% projected), and the
       depot→Ifjord ride lost warmth at only 0.12/s vs 0.30 modelled (thaw near town?). `g2_coldrun_ride_laden.mjs`
