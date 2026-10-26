@@ -145,6 +145,10 @@ on hard-packed snow you walk a brisk 2.9 m/s. The more you use a trench, the har
 wading winds you after about 25 s, and you get your breath back quickly once you stop. Hills count:
 climbing shortens your stride (a 25% grade costs about a quarter of your pace and blows you faster), a
 gentle descent lets you lope a little quicker, and on a really steep one you slow to pick your footing.
+Folk keep their yards plowed: around every house, the quay and the lane down to it, the garage
+forecourt, the shops, cabins and the helsesenter door the snow is pushed back and packed hard (the
+HUD says "Plowed yard"), so you walk to a door at about 2.5 m/s instead of wading, and snowfall never
+buries a yard again.
 
 ## The ferry and the mail
 

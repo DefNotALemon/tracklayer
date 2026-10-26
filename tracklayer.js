@@ -187,16 +187,71 @@ function freshBase(ix, iz) {
 }
 // what's left of it today (the spring melt thins it and opens bare ground; see MELT)
 function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && d > 0 ? d * meltMul(ix * CELL - HALF, iz * CELL - HALF) : d; }
+/* ---------------- plowed yards ----------------
+   Folk up here plow: around every house, the quay, the shops, the cabins and the homes the snow is
+   pushed back and packed hard, so you walk (and ride) a firm yard to the door instead of wading
+   powder. Each building adds a disc with addYard(x, z, r) (fully plowed inside r, easing back to
+   powder over YARD_FALL m). yardOf(cx, cz) is a lazily cached per-chunk 0..1 map of it (null where
+   there's none). A plowed cell starts at d = f·(1 − YARD_K·y): the snowpack (f) is untouched, only
+   pressed down, so it reads as hard pack to footStep, the sled and the snow shader. Snowfall
+   (refill) fills it back only to that level: someone keeps plowing. Derived from building positions
+   at boot; nothing is saved. */
+const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, yardCache = new Map();
+function yardOf(cx, cz) {
+  const key = cz * CPR + cx;
+  let a = yardCache.get(key);
+  if (a !== undefined) return a;
+  a = null;
+  const x0 = cx * CH * CELL - HALF, z0 = cz * CH * CELL - HALF, x1 = x0 + CH * CELL, z1 = z0 + CH * CELL;
+  for (const Y of YARDS) {
+    const R = Y.r + YARD_FALL;
+    if (Y.x + R < x0 || Y.x - R > x1 || Y.z + R < z0 || Y.z - R > z1) continue;
+    for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) {
+      const dd = Math.hypot(x0 + i * CELL - Y.x, z0 + j * CELL - Y.z);
+      if (dd >= R) continue;
+      const y = 1 - sstep(Y.r, R, dd);
+      if (!a) a = new Float32Array(CH * CH);
+      if (y > a[j * CH + i]) a[j * CH + i] = y;
+    }
+  }
+  yardCache.set(key, a);
+  return a;
+}
+function addYard(x, z, r) {
+  YARDS.push({ x, z, r });
+  const R = r + YARD_FALL;
+  for (let cz = Math.floor((z - R + HALF) / (CH * CELL)); cz <= Math.floor((z + R + HALF) / (CH * CELL)); cz++)
+    for (let cx = Math.floor((x - R + HALF) / (CH * CELL)); cx <= Math.floor((x + R + HALF) / (CH * CELL)); cx++) {
+      if (cx < 0 || cz < 0 || cx >= CPR || cz >= CPR) continue;
+      yardCache.delete(cz * CPR + cx);
+      const c = chunks[cz * CPR + cx];
+      if (!c) continue;
+      const y = c.y = yardOf(cx, cz);                                // a chunk already loaded gets plowed now
+      if (y) for (let k = 0; k < CH * CH; k++) { const tg = c.f[k] * (1 - YARD_K * y[k]), d0 = c.d[k]; if (d0 > tg) { c.d[k] = tg; writeCell(cx * CH + (k & 31), cz * CH + (k >> 5), d0, tg, c.f[k]); } }
+    }
+}
+// 0..1, how plowed the ground here is
+function yardAt(x, z) {
+  if (!YARDS.length) return 0;
+  const ix = clamp(Math.round((x + HALF) / CELL), 0, FN - 1), iz = clamp(Math.round((z + HALF) / CELL), 0, FN - 1), a = yardOf(ix >> 5, iz >> 5);
+  return a ? a[(iz & 31) * CH + (ix & 31)] : 0;
+}
+// the depth a cell settles back to under snowfall: the snowpack, or the plowed level in a yard
+function restCell(ix, iz) {
+  const f = freshCell(ix, iz), y = f > 0 && YARDS.length ? yardOf(ix >> 5, iz >> 5) : null;
+  return y ? f * (1 - YARD_K * y[(iz & 31) * CH + (ix & 31)]) : f;
+}
 function getChunk(cx, cz) {
   const key = cz * CPR + cx;
   let c = chunks[key];
   if (!c) {
     c = { d: new Float32Array(CH * CH), f: new Float32Array(CH * CH), b: new Float32Array(CH * CH) };
-    const melt = MELT.kq > 0;
+    const melt = MELT.kq > 0, y = YARDS.length ? yardOf(cx, cz) : null;
     for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) {
       const b = freshBase(cx * CH + i, cz * CH + j), v = melt && b > 0 ? b * meltMul((cx * CH + i) * CELL - HALF, (cz * CH + j) * CELL - HALF) : b;
-      c.b[j * CH + i] = b; c.f[j * CH + i] = v; c.d[j * CH + i] = v;
+      c.b[j * CH + i] = b; c.f[j * CH + i] = v; c.d[j * CH + i] = y ? v * (1 - YARD_K * y[j * CH + i]) : v;
     }
+    if (y) c.y = y;
     chunks[key] = c; c.key = key; c.cx = cx; c.cz = cz; c.t = gameClock; c.mk = MELT.kq; activeChunks.push(c);
   }
   return c;
@@ -204,7 +259,7 @@ function getChunk(cx, cz) {
 function depthAt(ix, iz) {
   ix = clamp(ix, 0, FN - 1); iz = clamp(iz, 0, FN - 1);
   const c = chunks[(iz >> 5) * CPR + (ix >> 5)];
-  return c ? c.d[(iz & 31) * CH + (ix & 31)] : freshCell(ix, iz);
+  return c ? c.d[(iz & 31) * CH + (ix & 31)] : restCell(ix, iz);
 }
 function freshAt(ix, iz) {
   ix = clamp(ix, 0, FN - 1); iz = clamp(iz, 0, FN - 1);
@@ -413,7 +468,7 @@ function fillCell(arr, i, j, ix, iz) {
   const x = ix * CELL - HALF, z = iz * CELL - HALF;
   const c = chunks[(iz >> 5) * CPR + (ix >> 5)];
   let d, f;
-  if (c) { const k = (iz & 31) * CH + (ix & 31); d = c.d[k]; f = c.f[k]; } else { d = f = freshCell(ix, iz); }
+  if (c) { const k = (iz & 31) * CH + (ix & 31); d = c.d[k]; f = c.f[k]; } else { f = freshCell(ix, iz); d = restCell(ix, iz); }
   const o = (j * S + i) * 4;
   arr[o] = groundAt(x, z) + d; arr[o + 1] = packOf(d, f); arr[o + 2] = f; arr[o + 3] = bioAt(x, z) === 1 ? 1 + iceThin(x, z) : 0;
 }
@@ -3347,7 +3402,7 @@ function updHud(spd) {
   if (gv && gv.textContent !== gt) gv.textContent = gt;
   const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
-  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? "On your tracks" : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? (yardAt(P.x, P.z) > 0.5 ? "Plowed yard" : "On your tracks") : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
   const b = bioAt(P.x, P.z), h = groundAt(P.x, P.z);
@@ -4190,6 +4245,7 @@ const KIT = (() => {
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
   // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
   K.house = (x, z, w, d, h, ry, mat, lit) => {
+    addYard(x, z, Math.max(w, d) / 2 + 3);                             // plowed round the walls and out to the door
     const g = new THREE.Group();
     g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
     K.bx(g, w, h, d, mat, 0, h / 2, 0);
@@ -4283,6 +4339,7 @@ function buildSites() {
   for (const s of SITES) {
     if (s.type === "shop") { s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ visible: false })); s.beacon.visible = false; continue; }
     const g = new THREE.Group(), bx = s.x - 11, bz = s.z;
+    addYard(s.x - 5, s.z, s.type === "depot" ? 20 : s.kind === "village" ? 13 : 10);   // the yard: building, door and where the sled parks
     g.position.set(bx, groundAt(bx, bz) - 0.3, bz);
     if (s.type === "relay") {
       // Slettnes: a cast-iron tower, red with white bands, the lamp room on top and a keeper's house at its foot
@@ -4550,10 +4607,10 @@ function refill() {
     const c = activeChunks[refillIdx], dtc = gameClock - c.t; c.t = gameClock;
     const a = 1 - Math.exp(-rate * dtc), ag = 1 - Math.exp(-rate * dtc / 3); let done = true;
     for (let k = 0; k < CH * CH; k++) {
-      const d0 = c.d[k], f = c.f[k], df = f - d0;
+      const d0 = c.d[k], f = c.f[k], tg = c.y ? f * (1 - YARD_K * c.y[k]) : f, df = tg - d0;   // a yard fills back only to plowed
       if (df < 0.003 && df > -0.003) continue;
       const d = d0 + df * (c.g && c.g[k] ? ag : a); c.d[k] = d;
-      if (Math.abs(f - d) >= 0.003) done = false;
+      if (Math.abs(tg - d) >= 0.003) done = false;
       writeCell(c.cx * CH + (k & 31), c.cz * CH + (k >> 5), d0, d, f);
     }
     const far = Math.abs((c.cx + 0.5) * CH * CELL - HALF - P.x) > 12 || Math.abs((c.cz + 0.5) * CH * CELL - HALF - P.z) > 12;
@@ -8825,6 +8882,7 @@ function placeQuay() {
   const dirx = Math.cos(qa), dirz = Math.sin(qa);
   const qx = depot.x + dirx * (qd - 6), qz = depot.z + dirz * (qd - 6), qy = Math.max(groundAt(qx, qz), SEA + 1.4);
   QUAY = { qx, qz, qa, qy };
+  for (let t = 0; t < qd - 2; t += 7) addYard(depot.x + dirx * t, depot.z + dirz * t, 6);   // the plowed lane down to the quay
   const R = 40;
   for (let j = Math.floor((qz - R + HALF) / GRES); j <= Math.ceil((qz + R + HALF) / GRES); j++) for (let i = Math.floor((qx - R + HALF) / GRES); i <= Math.ceil((qx + R + HALF) / GRES); i++) {
     if (i < 0 || j < 0 || i >= GN || j >= GN) continue;
@@ -8839,6 +8897,7 @@ function buildTown() {
   const d0 = depot;
   // the garage: a long service shed with a roll door and a sign out front
   const gx = garageSite.x - 12, gz = garageSite.z;
+  addYard(garageSite.x - 5, gz, 13);                                   // the forecourt is plowed
   const gg = new THREE.Group(); gg.position.set(gx, groundAt(gx, gz) - 0.25, gz); scene.add(gg);
   bx(gg, 11, 4.2, 8, L(0x4a5058), 0, 2.1, 0);
   bx(gg, 11.6, 0.5, 8.6, snowM, 0, 4.35, 0);
@@ -12171,6 +12230,7 @@ function buildHospital() {
   KIT.lamp(x + dx * (D / 2 + 7) + ax * 6, z + dz * (D / 2 + 7) + az * 6); KIT.lamp(x + dx * (D / 2 + 7) - ax * 6, z + dz * (D / 2 + 7) - az * 6);
   HOSP.x = x; HOSP.z = z; HOSP.ry = ry;
   HOSP.door = { x: x + dx * (D / 2 + 4.4), z: z + dz * (D / 2 + 4.4), yaw: ry };                 // you walk out under the canopy, facing town
+  addYard(HOSP.door.x, HOSP.door.z, 9);
   HOSP.park = { x: x + dx * (D / 2 + 6.6) + ax * 2.2, z: z + dz * (D / 2 + 6.6) + az * 2.2, yaw: ry + Math.PI / 2 };   // and the sled's parked just out front
   HOSP.built = true;
 }
