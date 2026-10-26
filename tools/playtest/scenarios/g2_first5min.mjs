@@ -10,7 +10,7 @@ const DRIVE_CAP_S = 150;
 await boot();
 const s0 = await st();
 console.log("start", JSON.stringify(s0));
-// Open the tablet (Tab opens to Home); go to Parcels, same as tapping its icon.
+// Open the tablet (since v91 Tab opens straight on Parcels on a new save; the go() is a no-op then).
 await tap("Tab");
 await sleep(500);
 await shot("00_tab_home");

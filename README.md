@@ -40,7 +40,8 @@ country itself (open backcountry, boreal forest, high country, a frozen lake, op
 Work comes in on the **dash tablet**, an iPad-style screen on the bars that shows a live map while
 you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it: the world keeps
 running and you can still steer, you just can't see much trail. In third person it opens as a big
-overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own little chart; left open, it
+overlay instead. Until your first delivery, with nothing aboard or claimed, it opens straight on the
+Parcels board, so a new courier's first Tab shows the jobs. Apps: **Parcels** (pickups and drop-offs, each with its own little chart; left open, it
 redraws the moment a drop-off pays, so the rack, your delivered count and what's aboard are always current),
 **Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once

@@ -5722,6 +5722,9 @@ const TABLET = {
     if (want && !this.can()) return;
     if (want) {
       if (!this.open && appId === undefined && this.live && this.live.app) appId = this.live.app;   // a ping on the dash: open where it points
+      // a brand-new courier with nothing in hand (no delivery yet, nothing aboard or claimed, no rescue) opens
+      // straight onto the Parcels board: the first thing they need is a job, not the icon grid (playtest 0007 F2)
+      if (!this.open && appId === undefined && !this.app && !GS.delivered && !GS.load.length && !(GS.claims || []).length && !GS.rescueJob && this.byId.parcels) appId = "parcels";
       if (!this.open) { this.open = true; $("tab").hidden = false; document.body.classList.add("tabOn"); tabWork(); this.layout(); tabPing("open"); }
       if (appId !== undefined) this.go(appId); else this.render();
     } else this.close();
