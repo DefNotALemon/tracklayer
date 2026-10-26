@@ -4494,14 +4494,36 @@ function houseWinTick(day, st) {
 }
 function mergeBoxes(list) {
   const pos = [], nor = [], uv = [];
-  for (const [w, h, d, x, y, z] of list) {
-    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z);
+  for (const [w, h, d, x, y, z, rz] of list) {
+    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); if (rz) g.rotateZ(rz); g.translate(x, y, z);
     for (const [arr, k] of [[pos, "position"], [nor, "normal"], [uv, "uv"]]) { const a = g.attributes[k].array; for (let i = 0; i < a.length; i++) arr.push(a[i]); }
     g.dispose();
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
   out.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  return out;
+}
+// painted roof trim for a gabled roof (gables facing ±z, eaves along ±x): the roof slabs were bare boxes that ended in
+// a raw dark edge with a slot of open air above the wall, so a roof read as a flat lid. Now each eave gets a boxed
+// soffit closing the slot and a fascia board across the slab end, and each gable end gets two barge boards down the
+// rakes, all in the house's trim paint (merged into its trim mesh, so no extra draw calls). Slab geometry as built by
+// KIT.house / buildSites: width w, wall height h, length len, pitch a, eave overhang eo, gable overhang go, slab
+// thickness T, slab centre lifted 0.05 above the wall-top roof line. Boxes [w, h, d, x, y, z, rz] for mergeBoxes.
+function roofTrim(w, h, len, a, eo, go, T) {
+  const out = [], t = Math.tan(a), ca = Math.cos(a), sa = Math.sin(a), hs = w / 2 + eo, Ls = hs / ca;
+  const cy = h + (hs / 2) * t + 0.05, hv = T / 2 / ca;          // slab centre y; half the slab's vertical thickness
+  const L = len + 2 * go, top = h + 0.05 + hv - 0.02, soT = h + 0.05 - hv - 0.01, soB = soT - 0.035, xF = hs + (T / 2) * sa + 0.04;
+  for (const s of [-1, 1]) {
+    out.push([xF - w / 2, 0.035, L, s * (w / 2 + xF) / 2, soT - 0.0175, 0]);              // soffit, wall to fascia
+    out.push([0.04, top - soB + 0.01, L + 0.08, s * xF, (top + soB - 0.01) / 2, 0]);       // fascia over the slab end
+    const bh = T + 0.15, no = -0.085, sh = 0.05;                                           // barge board: slab top to 15 cm below it
+    const bx = s * hs / 2 + s * sa * no + s * ca * sh, by = cy + ca * no - sa * sh;
+    for (const z of [-1, 1]) out.push([Ls + 0.1, bh, 0.04, bx, by, z * (len / 2 + go + 0.02), -s * a]);
+    // rake soffit: the gable overhang's underside, boxed in from the gable wall out to the barge board
+    const rx = s * hs / 2 - s * sa * (T / 2 + 0.03), ry = cy - ca * (T / 2 + 0.03);
+    for (const z of [-1, 1]) out.push([Ls, 0.03, go + 0.02, rx, ry, z * (len / 2 + go / 2), -s * a]);
+  }
   return out;
 }
 // wins: [face, along, (width, height, centre y)] with face 0 front (+z, the door), 1 back, 2 +x side, 3 -x side;
@@ -4583,7 +4605,7 @@ const KIT = (() => {
       if (d < 12) wins.push([2, 0], [3, 0]);
       K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, 0.95, d / 2 + 0.04);
     }
-    const fac = houseFacade(w, h, d, wins, lit !== false);
+    const fac = houseFacade(w, h, d, wins, lit !== false, roofTrim(w, h, d, a, 0.4, 0.35, 0.2));
     const c = mat.color, trimM = c.r + c.g + c.b > 2.1 ? K.trimG : K.trimW;   // white houses get grey trim so it reads
     K.put(g, fac.trim, trimM, 0, 0, 0).castShadow = false;
     if (fac.glass) K.put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
@@ -4715,7 +4737,7 @@ function buildSites() {
       add(g, new THREE.BoxGeometry(D + 0.12, 0.6, W + 0.12), KIT.plinth, 0, 0.3, 0).castShadow = false;
       {
         const wl = D * 0.7, wins = [[2, -W / 3.2, 1.1, 0.8, 1.6], [2, W / 3.2, 1.1, 0.8, 1.6], [1, 0, wl, 0.8, 1.6]];
-        const more = [[0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, -0.62], [0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, 0.62], [0.12, 0.14, 1.38, D / 2 + 0.07, 2.08, 0]];
+        const more = [[0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, -0.62], [0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, 0.62], [0.12, 0.14, 1.38, D / 2 + 0.07, 2.08, 0], ...roofTrim(D, Hh, W, a, 0.5, 0.5, 0.22)];
         const fac = houseFacade(D, Hh, W, wins, false, more), c = wall.color;
         add(g, fac.trim, c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, 0, 0, 0).castShadow = false;
         add(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
