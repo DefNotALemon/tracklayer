@@ -12934,6 +12934,34 @@ function padTex() {
   g.fillStyle = "#e8b81f"; g.font = "800 150px 'Barlow Semi Condensed', Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("H", 128, 138);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
 }
+/* the helsesenter's facade (v118): it was a white box with 38 cream glowM squares lit at noon. Now its walls wear
+   sandwich panels (hospPanelTex: 1.2 m panels with shadowed joints, one storey per tile, UVs from vertex positions in
+   metres by hospUV), it stands on a concrete plinth, and its windows go through houseFacade (grey frames, sill, glazing
+   bar; houseWinMat glass, dark by day and lit from dusk) as one trim + one glass mesh. The entrance gets mullions. */
+function hospPanelTex() {
+  if (hospPanelTex.t) return hospPanelTex.t;
+  const c = document.createElement("canvas"); c.width = 512; c.height = 256; const g = c.getContext("2d"), rnd = mulberry32(5303);
+  for (let i = 0; i < 4; i++) {
+    const b = 0.95 + rnd() * 0.05, x0 = i * 128, v = k => Math.round(255 * Math.min(1, b * k));
+    const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, `rgb(${v(1)},${v(1)},${v(1)})`); gr.addColorStop(1, `rgb(${v(0.96)},${v(0.96)},${v(0.96)})`);
+    g.fillStyle = gr; g.fillRect(x0, 0, 128, 256);
+    g.fillStyle = `rgb(${v(0.6)},${v(0.6)},${v(0.6)})`; g.fillRect(x0, 0, 3, 256);                 // the shadowed joint
+    g.fillStyle = `rgb(${v(1.05)},${v(1.05)},${v(1.05)})`; g.fillRect(x0 + 3, 0, 1, 256);
+  }
+  g.fillStyle = "rgb(150,150,150)"; g.fillRect(0, 0, 512, 3);                                                 // storey joint
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return (hospPanelTex.t = t);
+}
+// uv in panel tiles (4.8 m across, 3.2 m tall) from the box's own vertex positions; yo = the box centre's height
+function hospUV(geo, yo) {
+  const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    const h = Math.abs(n.getX(i)) > 0.5 ? p.getZ(i) : p.getX(i);
+    uv.setXY(i, h / 4.8, (p.getY(i) + yo) / 3.2);
+  }
+  uv.needsUpdate = true;
+}
 function buildHospital() {
   const { bx, put, L, snowM, metal, glowM, white, concrete } = KIT, d0 = depot;
   // a flat lot near town, clear of the houses, the shops and the water, with room for the pad beside it
@@ -12958,18 +12986,27 @@ function buildHospital() {
   const W = 18, D = 11, Hh = 6.6, y0 = Math.min(groundAt(x - ax * 9, z - az * 9), groundAt(x + ax * 9, z + az * 9), groundAt(x + dx * 5, z + dz * 5), groundAt(x, z)) - 0.2;
   const g = new THREE.Group(); g.position.set(x, y0, z); g.rotation.y = ry; scene.add(g);
   const panel = L(0xe9ebe8), band = L(0x2d6fb0), glass = L(0x1d2a36), trim = L(0x9aa3ab);
-  bx(g, W, Hh + 3, D, panel, 0, Hh / 2 - 1.5, 0);                                  // two storeys on a plinth that hides the slope
+  { const wg = new THREE.BoxGeometry(W, Hh + 3, D); hospUV(wg, Hh / 2 - 1.5);     // two storeys on a plinth that hides the slope
+    const pm = hospUV.m || (hospUV.m = panel.clone()); pm.map = hospPanelTex(); put(g, wg, pm, 0, Hh / 2 - 1.5, 0); }
+  bx(g, W + 0.14, 3.45, D + 0.14, concrete, 0, -1.3, 0).castShadow = false;        // the concrete plinth, 0.4 m showing
   bx(g, W + 0.4, 0.35, D + 0.4, trim, 0, Hh + 0.1, 0); bx(g, W + 0.5, 0.35, D + 0.5, snowM, 0, Hh + 0.42, 0);
   bx(g, W + 0.06, 0.45, D + 0.06, band, 0, 3.25, 0);                               // the blue band between the floors
-  for (let u = -7.5; u <= 7.6; u += 2.5) for (const yy of [1.7, 4.8]) { if (yy < 3 && Math.abs(u) < 3) continue; bx(g, 1.5, 1.1, 0.08, glowM, u, yy, D / 2 + 0.04); bx(g, 1.5, 1.1, 0.08, glowM, u, yy, -D / 2 - 0.04); }
-  for (let v = -3.5; v <= 3.6; v += 2.5) for (const yy of [1.7, 4.8]) for (const sd of [-1, 1]) bx(g, 0.08, 1.1, 1.5, glowM, sd * (W / 2 + 0.04), yy, v);
-  bx(g, 4.8, 2.6, 0.12, glass, 0, 1.3, D / 2 + 0.06); bx(g, 2.2, 2.3, 0.14, glowM, 0, 1.2, D / 2 + 0.08);   // the glass entrance, lit
+  { const wins = [];
+    for (let u = -7.5; u <= 7.6; u += 2.5) for (const yy of [1.7, 4.6]) { if (yy < 3 && Math.abs(u) < 3) continue; const wh = yy < 3 ? 1.1 : 0.9; wins.push([0, u, 1.5, wh, yy], [1, -u, 1.5, wh, yy]); }
+    for (let v = -3.5; v <= 3.6; v += 2.5) for (const yy of [1.7, 4.6]) { const wh = yy < 3 ? 1.1 : 0.9; wins.push([2, v, 1.5, wh, yy], [3, v, 1.5, wh, yy]); }
+    const more = [], fz = D / 2 + 0.14;                                              // the entrance's mullions and transom
+    for (const u of [-2.4, -1.15, 1.15, 2.4]) more.push([0.12, 2.6, 0.1, u, 1.3, fz]);
+    more.push([4.92, 0.14, 0.1, 0, 2.6, fz], [4.92, 0.1, 0.1, 0, 2.3, fz]);
+    const fac = houseFacade(W, Hh, D, wins, false, more);
+    put(g, fac.trim, trim, 0, 0, 0).castShadow = false;
+    put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false; }
+  bx(g, 4.8, 2.6, 0.12, glass, 0, 1.3, D / 2 + 0.06); bx(g, 2.3, 2.3, 0.14, houseWinMat(), 0, 1.15, D / 2 + 0.08);   // the glass entrance, lit after dusk
   bx(g, 6.4, 0.3, 3.2, trim, 0, 2.95, D / 2 + 1.6); bx(g, 6.6, 0.25, 3.4, snowM, 0, 3.22, D / 2 + 1.6);       // its canopy
   for (const sx of [-3, 3]) bx(g, 0.18, 2.9, 0.18, metal, sx, 1.45, D / 2 + 3.1);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 1.4), new THREE.MeshBasicMaterial({ map: signTex("HELSESENTER", "KJØLLEFJORD · LEGEVAKT · AMBULANSE", "#f4f6f7", "#1f4f8f") }));
   sign.position.set(-3.6, 5.9, D / 2 + 0.07); g.add(sign);
   const hT = hospSignTex();
-  for (const [sx, sz, rr] of [[6.6, D / 2 + 0.07, 0], [W / 2 + 0.07, 2, Math.PI / 2], [-W / 2 - 0.07, 2, -Math.PI / 2]]) { const h = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ map: hT })); h.position.set(sx, 5.6, sz); h.rotation.y = rr; g.add(h); }
+  for (const [sx, sz, rr] of [[6.6, D / 2 + 0.07, 0], [W / 2 + 0.07, 2, Math.PI / 2], [-W / 2 - 0.07, 2, -Math.PI / 2]]) { const h = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: hT })); h.position.set(sx, 5.85, sz); h.rotation.y = rr; g.add(h); }
   // the ambulance bay on the left end: a canopy, and a white ambulance with its blue stripe, nose out
   bx(g, 5, 0.3, 7, trim, -W / 2 - 2.6, 3.6, 0.5); bx(g, 5.2, 0.25, 7.2, snowM, -W / 2 - 2.6, 3.88, 0.5);
   for (const v of [-2.8, 3.8]) bx(g, 0.2, 3.6, 0.2, metal, -W / 2 - 4.9, 1.8, v);
