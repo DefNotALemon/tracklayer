@@ -9446,10 +9446,14 @@ function buildTown() {
   bx(gg, 11.6, 0.3, 1.2, metal, 0, 4.0, 0);
   bx(gg, 0.2, 3.2, 4.4, L(0x25313c), 5.5, 1.6, 0.4);            // roll door
   for (let i = 0; i < 6; i++) bx(gg, 0.24, 0.12, 4.4, metal, 5.55, 0.5 + i * 0.55, 0.4);
+  // the forecourt sign on its post (painted both faces, softly lit after dusk) and a name board over the roll door
   bx(gg, 0.3, 2.6, 0.3, woodD, 7.4, 1.3, -3.2);                 // sign post
-  bx(gg, 0.16, 1.5, 3.4, L(0xd8d2c4), 7.4, 3.2, -3.2);
-  bx(gg, 0.06, 0.34, 2.6, red, 7.3, 3.4, -3.2);
-  bx(gg, 0.06, 0.2, 2.2, L(0x1c2b3a), 7.3, 2.9, -3.2);
+  bx(gg, 0.14, 1.62, 3.52, woodD, 7.4, 3.2, -3.2);              // the board's timber frame
+  const gsM = signMat(garageSignTex(), 0.2);
+  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.5), gsM); p.position.set(7.4 + s * 0.075, 3.2, -3.2); p.rotation.y = s * Math.PI / 2; gg.add(p); }
+  bx(gg, 0.08, 0.46, 4.6, woodD, 5.56, 3.63, 0.4).castShadow = false;
+  const gn = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.4), signMat(signTex("NORDKINN SKUTER & SERVICE", null, "#efe9dc", "#1c2b3a", 1100, 100), 0.15));
+  gn.position.set(5.605, 3.63, 0.4); gn.rotation.y = Math.PI / 2; gg.add(gn);
   for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9, ax: 0 });
   bx(gg, 1.0, 0.8, 1.0, wood, -4.2, 0.4, 4.6); bx(gg, 0.9, 0.7, 0.9, wood, -2.8, 0.35, 4.8);
   put(gg, new THREE.TorusGeometry(0.85, 0.16, 8, 18), L(0x14181d), 3.4, 1.0, 4.6).rotation.set(0.25, 0.4, 0);
@@ -9573,8 +9577,21 @@ function signTex(t1, t2, bg, fg, w = 512, h = 160) {
   const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
   g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.globalAlpha = .55; g.lineWidth = 6; g.strokeRect(10, 10, w - 20, h - 20); g.globalAlpha = 1;
   g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle";
-  g.font = `800 ${Math.round(h * .36)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t1, w / 2, t2 ? h * .4 : h / 2);
+  g.font = `800 ${Math.round(h * (t2 ? .36 : .56))}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t1, w / 2, t2 ? h * .4 : h / 2, w * .9);
   if (t2) { g.font = `600 ${Math.round(h * .17)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t2, w / 2, h * .75); }
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+}
+// the garage's forecourt sign: a red NORDKINN band over SKUTER & SERVICE and what's inside, painted on cream board
+function garageSignTex() {
+  const w = 512, h = 226, c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
+  const F = "'Barlow Semi Condensed', Arial, sans-serif";
+  g.fillStyle = "#efe9dc"; g.fillRect(0, 0, w, h);
+  g.fillStyle = "#a3271c"; g.fillRect(0, 0, w, 62);
+  g.strokeStyle = "#1c2b3a"; g.globalAlpha = .55; g.lineWidth = 6; g.strokeRect(9, 9, w - 18, h - 18); g.globalAlpha = 1;
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "#f6f1e6"; g.font = `700 40px ${F}`; if ("letterSpacing" in g) g.letterSpacing = "8px"; g.fillText("NORDKINN", w / 2, 35); if ("letterSpacing" in g) g.letterSpacing = "0px";
+  g.fillStyle = "#1c2b3a"; g.font = `800 70px ${F}`; g.fillText("SKUTER & SERVICE", w / 2, 116, w * .9);
+  g.font = `600 30px ${F}`; g.fillText("SLEDS · PARTS · KIT · REPAIRS", w / 2, 180, w * .88);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
 }
 /* ---------------- town lanes: plowed paths from the depot yard to every Kjøllefjord door ----------------
