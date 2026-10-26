@@ -149,7 +149,8 @@ gentle descent lets you lope a little quicker, and on a really steep one you slo
 Folk keep their yards plowed: around every house, the quay and the lane down to it, the garage
 forecourt, the shops, cabins and the helsesenter door the snow is pushed back and packed hard (the
 HUD says "Plowed yard"), so you walk to a door at about 2.5 m/s instead of wading, and snowfall never
-buries a yard again.
+buries a yard again. Every lived-in house also has a plowed apron running about 8 m out from its front
+door, so you reach the hard pack well before you reach the step.
 
 ## The ferry and the mail
 

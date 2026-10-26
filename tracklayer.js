@@ -4246,6 +4246,7 @@ const KIT = (() => {
   // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
   K.house = (x, z, w, d, h, ry, mat, lit) => {
     addYard(x, z, Math.max(w, d) / 2 + 3);                             // plowed round the walls and out to the door
+    if (lit !== false) addYard(x + Math.sin(ry) * (d / 2 + 5), z + Math.cos(ry) * (d / 2 + 5), 3.5);   // and a plowed apron out from the door (local +z), so you walk up to it on hard pack
     const g = new THREE.Group();
     g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
     K.bx(g, w, h, d, mat, 0, h / 2, 0);

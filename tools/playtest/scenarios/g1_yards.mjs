@@ -31,7 +31,10 @@ const spots = JSON.parse(await ev(`(() => {
   const dep = depot, sb = SITES.find(s => s.id === "strandbu"), me = SITES.find(s => s.id === "mehamn");
   add("depot yard", dep.x - 5, dep.z, 0.4);
   add("garage forecourt", garageSite.x - 5, garageSite.z, 0.3);
-  add("shore-road house", dep.x + 46, dep.z + 26, -1.2);
+  // the red shore-road house (buildTown lot +46,+26, ry 0.2, 7 m deep): its door is on the local +z wall, so walk
+  // up to it square on (the old target was the house's middle from the side, which walked into the wall)
+  add("shore-road house", dep.x + 46 + 3.5 * Math.sin(0.2), dep.z + 26 + 3.5 * Math.cos(0.2), Math.PI / 2 - 0.2);
+  add("shore-rd old aim", dep.x + 46, dep.z + 26, -1.2);
   add("Strandbu home", sb.x - 5, sb.z, 0.2);
   add("Mehamn village", me.x - 5, me.z, 0.5);
   add("open powder", dep.x + 300, dep.z + 300, 0.0);
