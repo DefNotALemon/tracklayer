@@ -601,7 +601,33 @@ function buildFar() {
       if (position.x > uPatch.x && position.x < uPatch.z && position.z > uPatch.y && position.z < uPatch.w) {
         bool deep = position.x > uPatch.x + 5.0 && position.x < uPatch.z - 5.0 && position.z > uPatch.y + 5.0 && position.z < uPatch.w - 5.0;
         transformed.y -= deep ? 30.0 : 1.3; }`);
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+    // Far drifts: past the 45 m where the snow patch's sastrugi fade, the fell was a flat white wash. The same
+    // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
+    // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
+    // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" +
+      `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+       float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+         return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
+       float fdH(vec2 p, float near) {
+         vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
+         q.y += (fdN(p * 0.004) - 0.5) * 140.0;
+         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + fdN(q * vec2(0.04, 0.11)) * 0.35 * near;
+       }\n` +
+      sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
+      {
+        float dist = length(vViewPosition);
+        float fdSnow = smoothstep(0.8, 0.9, vColor.r) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
+          * (1.0 - smoothstep(1600.0, 3200.0, dist));
+        if (fdSnow > 0.01) {
+          float near = 1.0 - smoothstep(150.0, 450.0, dist);
+          float e = 2.0, h0 = fdH(vWxz, near);
+          vec2 g = vec2(fdH(vWxz + vec2(e, 0.0), near) - h0, fdH(vWxz + vec2(0.0, e), near) - h0) / e * fdSnow;
+          normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz * 6.0);
+          float lee = fdSnow * clamp(0.5 - (g.x * 0.8 + g.y * 0.6) * 10.0, 0.0, 1.0);   // lee of the north-westerly
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), lee);   // (color_fragment ran already; lighting hasn't)
+        }
+      }`).replace("#include <color_fragment>", `#include <color_fragment>
       float tr = texture2D(uTrail, (vWxz + ${HALF}.0) / ${WORLD}.0).r;
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.76,0.82,0.9), tr);
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.86,0.89,0.93), uWet * 0.7);
