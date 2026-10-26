@@ -14,7 +14,7 @@ const R = JSON.parse(await ev(`(() => {
       makeContracts(depot);
       for (const c of GS.contracts) {
         if (c.locked) { locked.add(c.locked); continue; }
-        const k = c.fell ? "fell" : c.groom ? "groom" : c.expedition ? "exped" : c.priority ? "prio" : c.big ? "heavy" : c.rescue ? "rescue" : "other";
+        const k = c.tonne ? "tonne" : c.fell ? "fell" : c.groom ? "groom" : c.expedition ? "exped" : c.priority ? "prio" : c.big ? "heavy" : c.rescue ? "rescue" : "other";
         (ck[k] = ck[k] || []).push(c.pay);
         if (c.fell) dests[c.dest.id + " " + c.kg + "kg"] = (dests[c.dest.id + " " + c.kg + "kg"] || 0) + 1;
       }
@@ -26,11 +26,19 @@ const R = JSON.parse(await ev(`(() => {
   GS.delivered = 40; GS.cash = 50000; GS.lic.freight = true; GS.own.sleds = SLEDS.map(s => s.id);
   GS.own.partsOwned["hitch:flatbed"] = true; GS.own.parts.hitch = "flatbed";
   GS.own.partsOwned["recv:heavy"] = true; GS.own.parts.recv = "heavy";
-  for (const id of ["summit", "trekker", "apex", "aurora"]) {
-    GS.own.sled = id; restat(); makeContracts(depot);
-    const c = GS.contracts.find(x => x.fell) || GS.contracts.find(x => x.expedition);
+  for (const id of ["summit", "trekker", "apex", "matriarch", "aurora"]) {
+    GS.delivered = 40; GS.own.sled = id; restat(); makeContracts(depot);
+    const c = GS.contracts.find(x => x.fell && !x.tonne) || GS.contracts.find(x => x.expedition);
     R.gate[id] = c ? (c.fell ? "fell: " : "exped: ") + (contractBlock(c) || "OK") : "none";
+    GS.delivered = 50; makeContracts(depot);
+    const t = GS.contracts.find(x => x.tonne);
+    R.gate[id] += " | tonne@50: " + (t ? contractBlock(t) || "OK" : "none (" + (GS.contracts.filter(x => x.locked).map(x => x.locked).join(",")) + ")");
   }
+  // Matriarch card while locked (36 deliveries)
+  GS.delivered = 36; GS.own.sleds = SLEDS.slice(0, 7).map(s => s.id); GS.own.sled = "apex"; restat();
+  document.querySelector("#garage").hidden = false; garageTab = "sleds"; renderGarage();
+  { const t = document.querySelector("#garage").innerText, i = t.indexOf("Matriarch 850T"); R.mcard = t.slice(i, i + 420); }
+  { const t = GS.contracts; makeContracts(depot); R.lock36 = GS.contracts.filter(x => x.locked).map(x => x.locked + ": " + x.sub); }
   // Apex card while locked (20 deliveries, own up to Summit)
   GS.delivered = 20; GS.own.sleds = ["frontier", "woodsman", "ranger", "sprint", "summit"]; GS.own.sled = "summit"; restat();
   document.querySelector("#garage").hidden = false; garageTab = "sleds"; renderGarage();
@@ -42,9 +50,11 @@ console.log("BOARDS");
 for (const b of R.boards) console.log(`  ${b.lvl}: ${JSON.stringify(b.cs)}\n      locked=${JSON.stringify(b.locked)}\n      fell dests=${JSON.stringify(b.dests)}`);
 console.log("GATE (licence + flatbed, 40 deliveries):"); for (const k in R.gate) console.log(`  ${k}: ${R.gate[k]}`);
 console.log("APEX CARD @20 deliveries:\n" + R.card);
+console.log("MATRIARCH CARD @36 deliveries:\n" + R.mcard);
+console.log("LOCKED @36:\n  " + (R.lock36 || []).join("\n  "));
 await shot("01_garage_apex_locked");
 // Freight app board at 40 deliveries on the Apex, flatbed + licence
-await ev(`(() => { document.querySelector("#garage").hidden = true; GS.delivered = 40; GS.own.sleds = SLEDS.map(s => s.id); GS.own.sled = "apex"; restat(); applyLoadout(); makeContracts(depot); GS.apps.freight = true; GS.contracts.sort((a, b) => (b.fell ? 1 : 0) - (a.fell ? 1 : 0)); TABLET.toggle(undefined, "freight"); return true; })()`);
+await ev(`(() => { document.querySelector("#garage").hidden = true; GS.delivered = 50; GS.own.sleds = SLEDS.map(s => s.id); GS.own.sled = "matriarch"; restat(); applyLoadout(); makeContracts(depot); GS.apps.freight = true; GS.contracts.sort((a, b) => (b.tonne ? 2 : b.fell ? 1 : 0) - (a.tonne ? 2 : a.fell ? 1 : 0)); TABLET.toggle(undefined, "freight"); return true; })()`);
 await sleep(1500);
 await ev(`(() => { if (!TABLET.open) TABLET.toggle(true, "freight"); else TABLET.go("freight"); return TABLET.open + " " + TABLET.app; })()`);
 await sleep(800);

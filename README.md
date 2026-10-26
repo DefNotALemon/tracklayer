@@ -244,6 +244,7 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 | Priority courier | 12 | Emergency runs to villages in trouble: about double pay, a tight clock, a 25% bond |
 | Expedition hauler | 20 | Slettnes lighthouse loads on the flatbed: batteries, turbine, standby generator |
 | Fell hauler | 32 | Fell freight: 450–540 kg flatbed loads up to the wind farm and the high herder cabin (turbine gearbox, hut kits, reindeer feed, diesel). The best-paid work on the board (about $3,900–7,600), and the shippers only insure it behind an Apex 800 or bigger |
+| Fell master | 46 | Tonne loads: 920–1,050 kg in one piece to the top of the fell (turbine blade set, snowcat cab, a whole built hut, a diesel genset), about $9,600–10,400, nearly twice a fell load. Only the Matriarch 850T is rated to pull them (the Aurora E is lighter: its strength is range) |
 
 The groomer drag and the freight trailer fit the Woodsman 440 and newer and hook to a hitch
 receiver, so the first two ranks can arrive before your sled can tow their work. The rank-up
