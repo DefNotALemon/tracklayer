@@ -7304,11 +7304,13 @@ const bigTag = j => j.clean ? "clean air" : j.tonne ? "tonne" : j.fell ? "fell" 
    Estimates the warmth one leg costs with the same cold formula the rider feels (night now, the weather here now,
    the height of the ground along the line, your kit's coldMul) over a conservative ride time (see rideS
    below, on the trail km), and names a warm place that splits the leg. Only a hint on the card: the cold itself is unchanged. */
-function coldRun(f, d, km) {
+function coldRun(f, d, km, towKg) {
   let el = 0; for (let i = 0; i <= 10; i++) { const t = i / 10; el += clamp((groundAt(lerp(f.x, d.x, t), lerp(f.z, d.z, t)) - 110) / 220, 0, 1); }
   // ride speed: report 0034 + g2_cruise.mjs (fresh powder, cross-country) measured about 12 x power/drag m/s (Woodsman
-  // 12.6-14.4, Summit 22, Apex 31); take 10.5 x that, never quicker than the old 12 + 6 x power (laden trailers unmeasured)
-  const rideS = km * 1000 / Math.min(12 + 6 * ST.power, 10.5 * ST.power / ST.drag), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
+  // 12.6-14.4, Summit 22, Apex 31); take 10.5 x that, never quicker than the old 12 + 6 x power.
+  // Laden (g2_cruise_laden.mjs, towed rig + cargo kg): 220 kg held 0.72-0.81 of the empty pace, 425 kg 0.37-0.55,
+  // 1125 kg 0.24-0.43; 1 / (1 + kg / 320) sits on the slow (safe) side of all of them.
+  const rideS = km * 1000 / Math.min(12 + 6 * ST.power, 10.5 * ST.power / ST.drag) * (1 + (towKg || 0) / 320), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
   const direct = Math.hypot(d.x - f.x, d.z - f.z); let stop = null, best = 1e9;
   for (const s of SITES) {
     if (s.x === undefined || s === f || s === d) continue;
@@ -7342,7 +7344,10 @@ function conCard(c, k) {
     if (f !== depot) chips += chip("PICKUP " + shortName(f).toUpperCase());
     meta = `${f === depot ? "Kjøllefjord quay" : shortName(f)} → ${shortName(d)} · ≈ ${km} km · climb ${conClimb(c)} m · ${c.kg} kg${c.fragile ? " · fragile" : ""}${here ? " · pickup is here" : " · pickup " + fmtMi(Math.hypot(f.x - P.x, f.z - P.z)) + " from you"}`;
     note = `${c.why ? `<span class="why">${tabEsc(c.why)}</span> ` : ""}Pays by condition, refused below 30%. The $${c.bond} bond comes back if it arrives whole${c.priority ? " and on time" : ""}.${c.bays > 1 ? " Takes the whole flatbed." : ""}${c.due ? ` Due ${fmtTime(c.due)}${c.priority ? ", late and they keep the bond" : ", late pays half"}.` : ""}`;
-    const cr = coldRun(f, d, +km);
+    // what the hitch will drag on this leg: the rig, this load, and whatever's already strapped on
+    const hz = GS.own.parts.hitch, rig = HITCH[hz === "trailer" || hz === "flatbed" ? hz : c.need] || HITCH.trailer;
+    const towKg = rig.mass + c.kg + bigLoads().reduce((a, j) => a + (j === c ? 0 : j.kg), 0);
+    const cr = coldRun(f, d, +km, towKg);
     if (cr.loss >= 70) { chips += chip("COLD RUN", "due"); note += ` <b>Cold run:</b> about ${Math.round(cr.loss / 5) * 5}% of your warmth one way in this weather${cr.loss >= 100 ? ", more than you've got" : ""}.${cr.stop ? ` Thaw out at ${tabEsc(shortName(cr.stop))} on the way.` : ""}${ST.warm < 9 ? " Warmer kit at the garage stretches it." : ""}`; }
     lbl = here ? "STRAP IT DOWN" : "CLAIM";
   }
