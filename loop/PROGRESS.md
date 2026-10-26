@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 18:55 — Walking into a lone tree, rock or pallet steps you round it (G1) — 11a75ab
+Triage 0072/0073: v139 cans + yard patch verified; 0072 F2 (pallet dark from 4 m at night) by design, no action; F3
+(Risfjord's sharper powder→yard edge) informational. 0073 verified v141 (card + toast wrap, button greyed); its F1/F2 (double
+clause never shows in play, Aurora card not shot) low, dropped: same `sledGap` text. v141 item closed. Took 0072 F1: walking
+square at the pallet orbited it ~2.8 s. New `g1_obround.mjs` (2 pallets + 4 lone r0.3/r1.0 obstacles, head-on and 0.3 m off,
+cap 12 game-s) showed worse: dead square you were pinned on the face forever (6/12 stuck). footStep's summed-normal slide now,
+when every disc hit is round (no `o.ax`), turns the blocked stride into a tangent sidestep (≥ 0.8 of the into part) on the side
+you lean to, side latched (`F.obSide`, 0.3 s hold) so it can't dither. Stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s, max 9.35 →
+2.47, mean pass 5.25 → 5.11 s (now over all 12). `g1_wallslide` houses unchanged (along 5.28/8.77/11.34 → 5.30/8.56/11.20,
+noise). smoke exit 0, page errors none (67.2 mph, powder 1.55, trench 2.23). README; v142.
+Next: playtester checks forest stands (sidestep into the next tree?), lamp posts by lanes, gamepad, skiing.
+
 ## 2026-10-26 18:40 — Late-ladder lock cards say what you're short of (G2) — 4bd1bea
 No new reports since 0071. After 3 G3 landings took G2 (late ladder polish + "locked items should say how to unlock
 them"). The fell, tonne and clean-air lock text repeated the sled's sticker ("(32 deliveries, $5200)") whatever your state,

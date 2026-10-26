@@ -113,9 +113,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2 (playtest, follow-up to v141 sledGap): fell/tonne/clean lock cards now end with your gap ("you need 2 more
-      deliveries and $4,400 more" / "Your Apex 800 is in the garage: swap onto it there"). `g2_lockgap.mjs` prints all
-      9 cases. Playtester: judge the longer text on the Freight app card (wrapping, fits the card) and in the toast.
+- [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
+      rocks/trees, head-on and 0.3 m off) stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s. Playtester: walk through a
+      forest stand (trees close together: does the sidestep ever push you into the next tree or dither between two?),
+      past lamp posts beside a lane, and with the gamepad stick; also skiing (skiStep has its own obstacle code, unchanged).
 - [ ] G3: Buildings slice 3 (v116 `KIT.house`; v117 `workShed()` did the garage (corrugated steel `shedMetalTex`),
       pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
       fish buyer 5.18 → 5.77; quay draw calls 869 → 877; report 0054 verified). v118 did the hospital (`hospPanelTex`,
@@ -302,4 +303,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 71
+Last triaged report: 73
