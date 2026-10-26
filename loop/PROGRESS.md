@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 14:20 — Work sheds get facades: garage, freight shed, fish buyer (G3) — 87d82a0
+Triage 0053 (v116 houses verified: local contrast reproduces 6.20/6.56/6.29, draw calls 912, no moire): F1 roof eaves and
+F2 plain work sheds folded into the buildings item, F3 grey day glass kept as a low note. Took the sheds slice. New
+`scenarios/g3_sheds.mjs` (garage, pier freight shed, fish buyer; 3/4 from the door side, Nov/March noon + 20:00; the
+freight camera had to come from the pier's sea end, a yellow house hides it from the land side). New `workShed()` (clad
+walls + `houseFacade` trim/glass; `houseFacade` now takes per-window size and extra trim boxes) and `shedMetalTex`
+(corrugated ribs, `houseClad(mat, metal)`). Garage: corrugated steel, concrete plinth, fascia, framed roll door, framed
+service windows (the right one narrowed so it no longer runs under the door). Freight shed: red boards, curb, fascia, 7
+framed windows, framed slide door. Fish buyer: white boards, grey trim, framed door + 2 windows. Their `glowM` service
+windows are now `houseWinMat` (dark by day, lit after dusk). imgstats local nov/mar/night: garage 5.47/5.66/4.89 →
+6.75/6.93/5.84, freight 4.09/4.36/4.50 → 4.96/4.88/5.35, fish buyer 5.18/4.88/4.33 → 5.77/5.48/4.86; quay draw calls
+869 → 877. Vision (b61/before3.jpg vs after.jpg + crops): ribs, boards, trim and frames read, no z-fighting/moire/floating
+trim, night windows lit. smoke exit 0, page errors none (67.5 mph, powder 1.56, trench 2.24). README; v117. Next: hospital.
+
 ## 2026-10-26 14:10 — Houses get real facades (G3) — d754edf
 Triage 0052 (Sprint feel): trail half of the harness never rode packed snow, ice top speeds were truncated runs; the
 "Sprint wanders 11× further on ice" result dropped: steering is sled-independent apart from zip/grip (Sprint grips more)

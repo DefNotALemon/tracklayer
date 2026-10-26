@@ -113,12 +113,13 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Buildings slice 2 (v116 did `KIT.house`: board cladding, plinth, corner boards, framed windows on all walls,
-      day/night glass via `houseWinTick`; `g3_houses.mjs` local contrast nov_2_front 5.24 → 6.57, back 4.82 → 6.18; draw
-      calls town wide 882 → 912). Still plain painted boxes: the depot (`buildTown` gg), garage, pier freight shed,
-      hospital, fish buyer, cabins' sheds; their `glowM` service windows stay cream by day. Also: day glass still reads
-      mid-grey (tone mapping lifts 0x0e141b), roofs are flat slabs with no eave fascia. Playtester: judge v116 houses in
-      the villages (Mehamn/Gamvik) and from the sled at ride distance for moire on the cladding.
+- [ ] G3: Buildings slice 3 (v116 `KIT.house`; v117 `workShed()` did the garage (corrugated steel `shedMetalTex`),
+      pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
+      fish buyer 5.18 → 5.77; quay draw calls 869 → 877). Still plain: the hospital (panel box, `glowM` windows cream by
+      day: frame them + `houseWinMat`), the tackle shop porch is fine (KIT.house), village/cabin sheds, the depot itself.
+      House roofs: report 0053 F1 no projecting eave/soffit at the gable ends (roof slabs overhang 0.35 m but no fascia
+      board); day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
+      the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -243,4 +244,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 52
+Last triaged report: 53
