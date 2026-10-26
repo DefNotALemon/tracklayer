@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 06:00 — Top-left badge names the town/place you're in (G3) — 0251872
+No new reports at start (last 21); took the low HUD badge item (0004 F3 / 0005 F2) as a small certain G3 win after a
+G2/G1/G3/G2 run. 0022 arrived during the pass and was triaged after landing: F1 (backcountry local contrast 2.70 /
+March 2.63) added to daylight slice 8 as its baseline; F2 (badge "OPEN BACKCOUNTRY" at the quay) is this fix; F3 info.
+`updHud` named the biome at the SLED only. New hoisted `placeBadge(x,z)`: within `TOWN_R` of the quay or 40 m of the
+garage → KJØLLEFJORD; within a site's `clear`+10 m → its `shortName` (villages, homes, cabins, wind farm, relay);
+schools → their sign; water/lake still win, else the biome line. Reads FOOT's position when on foot. New
+`scenarios/g3_zone_badge.mjs`: quay / town edge 95 m / garage / Strandbu / Mehamn / Dyfjord / wind farm / Sandfjord /
+Slettnes **OPEN BACKCOUNTRY (wind farm HIGH COUNTRY) → KJØLLEFJORD ×3, STRANDBU, MEHAMN, DYFJORD, GARTEFJELLET,
+SANDFJORDDALEN, SLETTNES**; open fell HIGH COUNTRY unchanged; on foot 650 m out with the sled at the quay
+OPEN BACKCOUNTRY (sled's) → HIGH COUNTRY (yours). Still 01_quay judged: fits the panel. smoke.mjs exit 0, page errors
+none (powder 1.46, trench 2.19, 6 s ride 65.4 mph). README controls section; v82.
+Next: daylight slice 8 (G3, baseline 2.70) or late-sled gear/jobs (G2).
+
 ## 2026-10-26 05:55 — Parcels redraws on delivery (G2) — 0bee7b8
 Triage 0021 (verify v79/v80: both reproduce to the decimal; G2 first-cash leg): F1 (open Parcels goes stale at a
 drop-off) taken; F2 (accept → delivered 41.2 game-s / 768 m / +$120) folded into the first-5-min item, which now only
