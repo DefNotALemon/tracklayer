@@ -135,7 +135,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
-      `g2_first5min.mjs` over ~4 more deliveries). Low (0007 F2): Tab opens Home, not Parcels, on a new save.
+      `g2_first5min.mjs` over ~4 more deliveries). (0007 F2 Tab → Home done in v91: Tab opens Parcels on a new save.)
 - [ ] G1 (low, follow-up to v73 wall slide): the flat-face slide only knows the yaw of `KIT.house` walls, the depot
       buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
       vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and

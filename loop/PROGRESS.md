@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:57 — First Tab on a new save opens the Parcels board (G2) — 35d5108
+No new reports (last 29). G2 had the fewest recent landings (G3/G1/G3/G2); its open items are playtester-owned
+(long-haul road rerun, first-5-min to $600) except 0007 F2, so took that: on a new save the first Tab showed the
+Home icon grid, one extra tap before a new player sees any job. `TABLET.toggle` now opens on `parcels` when no app is
+remembered and the courier has 0 deliveries, nothing aboard, nothing claimed and no rescue (`GS.jobs` is the posted
+board, so it isn't a "has work" signal: first try used it and changed nothing). New `scenarios/g2_firsttab.mjs`:
+before new save 1st Tab **Home (NORDKINN)**; after **PARCELS**; veteran (5 deliveries) Home both; new save with a
+parcel aboard Home both; close/reopen unchanged. Still after3/01_newsave_tab.jpg: board with 5 jobs + route chart,
+clean. smoke exit 0, page errors none (powder 1.53, trench 2.26). `g2_first5min.mjs` comment updated. README; v91.
+Next: daylight slice 8 macro check, G2 long-haul warmth after the playtester's road rerun, G1 wall-slide `ax` tags.
+
 ## 2026-10-26 07:50 — Rock through thin snow per pixel, no more sawtooth (G3) — 02f3fd7
 Triage 0029 (verify v89: lanesob 1/15 lanes 1 sample, lot9 2.66 m/s, g1_lanes 2.66/2.65/2.64/2.66, plowed share 91%:
 all reproduce; F4/F5 info, no action). Took the v68 rock-zigzag follow-up over daylight slice 8: slice 8's open part
