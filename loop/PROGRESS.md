@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 13:50 — Snowshoes you can see (G1/G3) — f018e81
+Triage 0051 (v113 snowshoes on a 0.25 grade: up/down/across 1.09/1.42/1.33 → 1.83/2.68/2.28 m/s with the kit, same
+ratios; night toast and crash-clear/re-don correct; discoverability fine): snowshoe item closed except the mesh. Ice top
+speed (b58 note) dropped as a build target: it's `SPEED_K` 1.42 from Lemon's own "Faster sleds +42%" commit, canon.
+Took the mesh half: b57 stills showed a small dark oval lost under dark boots. `shoeMesh` now real size (rim 0.22 × 0.66 m,
+was 0.24 × 0.52), red deck 0xb83a26 (was slate 0x24303c), lighter aluminium frame + side rails, tail moved back. Same
+`g1_snowshoe.mjs` numbers (mesh only): kit powder 30 m 14.2 → 14.3 s (2.11 m/s), no-kit 1.48. Vision (b59/after.jpg +
+feet crop): red aluminium-rimmed shoe clearly reads on the stepping foot from the side; the planted one sinks into powder
+(only a sliver shows, realistic); no clipping/floating. smoke exit 0, page errors none (66.5 mph, powder 1.55, trench
+2.21). README snowshoe para; v115. Next: chase-camera judge while walking (low item); G2 hand-paced first-5-min.
+
 ## 2026-10-26 13:40 — Sprint 580 SX gets trail gearing (G2) — 10e69bc
 No new reports (last triaged 50). Recent passes were G1-heavy and the top items are diminishing-returns G3 or playtest/
 harness work, so took the G2 goal's "is any sled pointless or a trap?" check on the one sled never audited. g2_cruise

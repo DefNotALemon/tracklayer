@@ -200,14 +200,15 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
-- [ ] G1 (playtest, follow-up to v113 snowshoes): `g1_snowshoe.mjs` covers flat powder. Unchecked: snowshoes on a slope
-      (`g1_slope.mjs` with the kit), at night, with a crash (crashGetUp clears FOOT.shoe: you walk back un-shod, intended),
-      and whether a new player finds them (garage Parts card note; first-Q-off toast). Also judge the shoe mesh from the
-      chase camera at walking pace (b57 stills: grey oval rims read, dark deck barely shows).
+- [ ] G1/G3 (low, playtest, follow-up to v115 snowshoe mesh): slope/night/crash/discoverability all clean (report 0051).
+      v115 made the shoes full-size (22×66 cm) with red decks; side view reads clearly (b59/after.jpg). Left: judge them
+      from the real chase camera while walking (b59's chase still framed the walker at the screen edge, feet cut off).
 - [ ] G2 (playtest, follow-up to v114 Sprint trail gearing): `g2_sprint.mjs` rides 14 game-s from rest, yaw pinned. Check
       by hand: does the Sprint feel twitchy/over-fast on its own tracks at 117 mph, and does it crash more on the lake?
       Also b58 noticed every sled hits 121–137 mph on lake ice from rest in 14 s (Ranger 121): ice top speed may be
       unrealistically high (rolling 140 vs 260 on snow, no extra air drag); worth a realism look on its own.
+      b59 decision: NOT retuning ice top speed. It comes from `SPEED_K = 1.42`, Lemon's own "Faster sleds (+42% top
+      speed)" commit (7093330, v47); lowering it would undo his canon. Only revisit if Lemon asks.
       (Harness: the Trekker legs in that run parked on a bad spot and crashed at 0.1 s; harden `park` choice per sled.)
 - [ ] G3/G1 (low, playtest, follow-up to v112 shoulder slide): walk-away + turn-on-spot verified clean (report 0050).
       Still unchecked: narrow gaps between two houses (second camWallClip on the slid spot).
@@ -231,4 +232,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 50
+Last triaged report: 51
