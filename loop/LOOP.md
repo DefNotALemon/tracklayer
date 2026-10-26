@@ -110,6 +110,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       light (far terrain normals are 8 m-grid smooth). Measure with `g3_day.mjs` + `tlloop/b22/wc.py`/`nf2.py`.
       Report 0022 F1: `imgstats.py` local contrast 05 backcountry **2.70**, 06 March **2.63** (quay 4.56, close-up
       3.89; std 39.8/40.2 vs 43–52): no visible drift shadows or bumps at all; use 2.70 as the before baseline.
+      v83 (slice 8a): near-patch sastrugi tilt ×2 → local 05 **2.71 → 2.97**, 06 2.63 → 2.89 (quay 4.54 → 4.64).
+      Still open: the 45–150 m band (far `fdH` near term) and global std (40); maybe a mid-scale (2–4 m) dune term.
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.

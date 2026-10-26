@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 06:10 — Powder ripples read in the low sun (G3) — 320693f
+No new reports (last 22). Took the top item, daylight slice 8, as a first slice: the patch shader's wind relief
+(`tlDrift` sastrugi + swells, per-pixel normal tilt within 45 m) was too faint to see, so its tilt is ×2 (packed
+snow, trails, rock, wet snow and the 28–45 m fade unchanged). `g3_day.mjs` + `imgstats.py` local contrast:
+05 Nov backcountry **2.71 → 2.97**, 06 March **2.63 → 2.89**, 02 toward sun 3.99 → 4.15, quay 4.54 → 4.64; std/mean
+≈ unchanged (40.5 → 39.9). Vision (b26/t1/05, b26/sheet.jpg): ripple light/shade bands clearly visible ahead of the
+sled, no noise/grid/seam; town stills identical. smoke.mjs exit 0, page errors none (powder 1.47, trench 2.21,
+6 s ride 65.4 mph). README daylight paragraph; v83.
+Next: slice 8b (45–150 m band via the far terrain's near term) or late-sled gear/jobs (G2).
+
 ## 2026-10-26 06:00 — Top-left badge names the town/place you're in (G3) — 0251872
 No new reports at start (last 21); took the low HUD badge item (0004 F3 / 0005 F2) as a small certain G3 win after a
 G2/G1/G3/G2 run. 0022 arrived during the pass and was triaged after landing: F1 (backcountry local contrast 2.70 /
