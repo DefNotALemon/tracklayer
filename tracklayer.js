@@ -435,7 +435,11 @@ const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uT
 // the sun read warm against the blue shade and sheen. It scales only the direct (shadowed, N·L) part of the light:
 // ×0.6 on snow near you (fading out 40→400 m so the distance keeps its cold sheen), ×1.2 on faces turned to the sun
 // (N·uSunW past the lifted sun's 0.22 on the flats) at any range. Same formula in the patch and the far terrain: no seam.
-const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 }, uSunRef: { value: new THREE.Color(1, 1, 1) }, uSunK: { value: 1.0 }, uSunW: { value: sunDir } };
+// Drift shadows (v100): uSunT is the sun's TRUE direction (before updSky lifts the light to ~13°) and uMicroK how much
+// it rakes (clear-day sun as the key light, else 0: no moon/headlight shadows from it). The patch marches the drift
+// height toward the real 4° winter sun and darkens the direct light on lee sides of ripples and swells.
+const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 }, uSunRef: { value: new THREE.Color(1, 1, 1) }, uSunK: { value: 1.0 }, uSunW: { value: sunDir },
+  uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 } };
 const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
 patchMat.onBeforeCompile = sh => {
   sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet; Object.assign(sh.uniforms, skyRefU);
@@ -460,7 +464,10 @@ patchMat.onBeforeCompile = sh => {
   // so physics and the 25 cm snow grid are untouched). Fades out on packed trails, on rock and bare ground,
   // and by 45 m from the camera, before the patch hands over to the far terrain. Low sun rakes across it.
   // Tilt ×2 (v83): at ×1 the open fell's foreground read as a flat wash (local contrast 2.7 vs 4.5 at the quay).
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
+  // Drift shadows (v100): the lifted key light alone leaves the foreground evenly lit, but under a real 4° sun every
+  // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
+  // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -471,6 +478,7 @@ patchMat.onBeforeCompile = sh => {
        return (tlN(q * vec2(0.25, 1.1)) * 0.05 + tlN(q * vec2(0.7, 2.6)) * 0.015) * (0.35 + sw) + tlN(p * 0.09) * 0.35;
      }\n` +
     sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
+      float tlSh = 1.0;
       {
         float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
         float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet)
@@ -479,6 +487,12 @@ patchMat.onBeforeCompile = sh => {
           vec2 p = vWP.xz; float h0 = tlDrift(p);
           vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief * 2.0;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz);
+          if (uMicroK > 0.01) {
+            float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
+            float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 0.3;
+            for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 4.0 - tE * d); d *= 1.75; }
+            tlSh = 1.0 - smoothstep(0.0, 0.04, occ) * 0.8 * relief * uMicroK;
+          }
         }
       }`).replace("#include <color_fragment>", `
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
@@ -506,7 +520,7 @@ patchMat.onBeforeCompile = sh => {
       { outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
-      ${o}`);
+      ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= tlSh; reflectedLight.directSpecular *= tlSh;\n#include <aomap_fragment>");
 };
 const patchMesh = new THREE.Mesh(patchGeo, patchMat);
 patchMesh.frustumCulled = false; patchMesh.receiveShadow = true;
@@ -4723,6 +4737,7 @@ function updSky() {
   const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1.5, 4, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
   if (sunI >= moonI) { sun.intensity = sunI; keyAt(SUNK, e, 1, sun.color); sunDir.copy(_sunV); }
   else { sun.intensity = moonI; sun.color.copy(C_MOON); sunDir.copy(_moonV); }
+  skyRefU.uSunT.value.copy(_sunV); skyRefU.uMicroK.value = sunI >= moonI ? sstep(-1.5, 4, e) * (1 - st) : 0;   // drift shadows: true sun
   // The winter sun skims the horizon (4° at noon on 1 Nov), so lit at its true angle flat snow catches almost none
   // of it and the whole day reads as one flat grey under the sky fill. The light (not the sky disc) is lifted to at
   // least ~13° while the sun is the key: snow facing it goes warm, shadows stay long and read blue. Sun and moon are
