@@ -7,6 +7,23 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 06:30 — Plowed lanes from the depot to every door in town (G1) — e6673ff
+Triage 0023 (verify v83: March 2.89 to the decimal, Nov 3.15 = unpinned-spot noise → note on slice 8; F1 shore-road
+point → this item; F3/F4 info, dropped) and 0024 (G2 late ladder flat from 20 to 75 deliveries, cards silent →
+merged into the late-sled item, now top/high; F3 tooling note kept on it; F4 info). G1 was due (last 5: G3/G3/G2/G1/G3).
+0023 F1's "house cluster" next to (-1250,-420) is the garage's own r=1.5 disc grid: the point is behind the garage,
+not on a quay→door path, so no lane there (walk to the forecourt 1.96 → 1.97 m/s, unchanged). The real gap: yards
+were discs, and between the depot yard and most doors lay a powder band. `YARDS` entries are now capsules
+(`addPlow`; `addYard` = zero-length leg, `addLane(pts, r)` = legs with `LANE_FALL` 2.5 m); `K.house` records its door
+in `KIT.doors` and buildTown plows a 3 m lane from the depot yard to every door within `TOWN_R`, via the house's side
+when the door faces away. New `scenarios/g1_lanes.mjs` (before = origin/main via TL_SRC): plowed share of the
+15 depot→door lines **77% → 96%**, lines with a gap **11 → 3**; walks from the depot yard edge, by gameClock:
+lot0 43 m **23.0 → 16.2 s** (1.87 → 2.66 m/s), lot11 49 m **27.5 → 18.8 s** (1.80 → 2.64), lot3 24 m **12.7 → 9.1 s**
+(1.90 → 2.62); pack underfoot 0.22–0.32 → 0.85. Stills b27/p1.jpg, p2.jpg (before over after, town from 16 m up):
+lanes read as faint pressed paths, no stripes/seams; otherwise identical. smoke.mjs exit 0, page errors none
+(powder 1.53, trench 2.24, 6 s ride 68 mph). README walking paragraph; v84.
+Next: late-sled jobs/gear (G2, high, 0024). Follow-up: lot9's lane runs under the pier freight shed (bend round obstacles).
+
 ## 2026-10-26 06:10 — Powder ripples read in the low sun (G3) — 320693f
 No new reports (last 22). Took the top item, daylight slice 8, as a first slice: the patch shader's wind relief
 (`tlDrift` sastrugi + swells, per-pixel normal tilt within 45 m) was too faint to see, so its tilt is ×2 (packed

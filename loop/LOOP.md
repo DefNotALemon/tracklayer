@@ -25,6 +25,7 @@ Since v58 (g1_walk30.mjs): powder **1.56 m/s**, 30 m in **19.3 s**; trench **2.2
 Since v60 (g1_slope.mjs, 0.85 m powder on a 0.27 grade): up **0.91**, across **1.32**, down **1.49 m/s**.
 Since v61 (g1_yards.mjs, 10 m from a standstill toward a door): plowed town yards **2.53 m/s** (was 1.48–1.55
 in powder), open powder 1.38. Since v64: shore-road house door square-on from 12 m out **2.42 m/s** (was 1.93).
+Since v84 (g1_lanes.mjs): depot yard edge → shore-road doors 24–49 m at **2.62–2.66 m/s** (was 1.80–1.90).
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -104,6 +105,12 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G2 (high): Nothing above the Summit opens a part or a job (tiers stop at 4): Apex/Matriarch/Aurora are only
+      stats. Report 0024 F1: board sampled at 20/32/40/46/55/60/75 deliveries is flat (same 4 contract kinds;
+      parcels $351–377, groom $848–904, heavy $1608–1849, prio $2251–2577, exped $3525–3627, no trend). F2: their
+      garage cards drop the "opens N more parts" line and say nothing instead. Slice idea: one late contract tier
+      gated on 32/46/60 deliveries that needs the power/range of those sleds, and a card line saying what each
+      opens. `scenarios/g2_lategame.mjs` measures the board (its tablet still lands on Map: open Jobs after a sleep).
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -112,12 +119,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       3.89; std 39.8/40.2 vs 43–52): no visible drift shadows or bumps at all; use 2.70 as the before baseline.
       v83 (slice 8a): near-patch sastrugi tilt ×2 → local 05 **2.71 → 2.97**, 06 2.63 → 2.89 (quay 4.54 → 4.64).
       Still open: the 45–150 m band (far `fdH` near term) and global std (40); maybe a mid-scale (2–4 m) dune term.
+      Report 0023 F2: `g3_day` 05 local contrast varies 2.97–3.15 run to run (backcountry spot not pinned); pin
+      the search start before trusting a <0.2 change.
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
-- [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
-      at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
-      ($145–370) makes parcels pointless after rank 3.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -126,12 +132,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
       vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
       rerun `g1_wallslide.mjs` pointed at one.
-- [ ] G1 (low, follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road.
-      Report 0015 F2: approaches from 12 m walk at 2.44–2.52 m/s even from pack 0.31, so this is packed-snow
-      continuity/looks, not a speed fix; don't over-invest.
-      Report 0020 F1: (-1250,-420) just out from the depot reads pack 0.08 / 0.58 m deep, walked 1.56 m/s;
-      check whether it's on a natural quay→building path before widening the packed footprint.
+- [ ] G1 (low, follow-up to v84 lanes): lanes are straight legs from the depot yard, so lot9's (the yellow house
+      at depot −66,+4) runs under the pier freight shed and lot6/church/lot9 straight-line samples still show
+      gaps (`g1_lanes.mjs` 3/15). Bend a leg round any `obGrid` obstacle it crosses (sample the leg every 2 m).
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 22
+Last triaged report: 24
