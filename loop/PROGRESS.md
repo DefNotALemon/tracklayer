@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 19:55 — Delivery messages no longer vanish in a burst (G2) — ffe2b97
+Triage 0074–0076: 0074 F1 (two trunks 0.51 m apart: v142 sidestep drifts you 12 m off line, never resumes) → new G1
+backlog item at the top; F2/F3 (wide gaps, lamp posts) verified clean, lamp-post check closed. 0075 F1 taken (below);
+F2/F3 (stack renders cleanly, 4.2 s long enough) close the v135 toast item; F4 ("trail report" as mail backhaul) cosmetic,
+dropped. Its idea (b) "evict the one with least time left" is the same as oldest-first (all toasts live 4.2 s), so not used.
+0076 judged the drip edge at ride distance (red clean; white house faint at 15 m, gone at 25 m): low, noted in the item.
+Fix: `toast()` now queues; up to 4 on screen (3 on touch), and a toast is never pushed off before 3.4 s, later ones wait;
+an identical line already up/queued isn't repeated. New `g2_toast_time.mjs` (4th delivery at Strandbu, 5 toasts): Delivered
+shown 2.60 → 3.47 s, window line 2.69 → 4.21, min 2.6 → 3.47, mean 3.59 → 4.07, under 3 s 2 → 0, last off 6.95 → 7.68 s;
+same line 6× → 3 on screen → 1. Vision (b88/tafter/t3500.jpg): 4 stacked bars, no overlap, clear of the sled and HUD.
+smoke exit 0, page errors none (67.9 mph, powder 1.53, trench 2.22). README; v143.
+Next: the narrow-gap forest drift (0074 F1).
+
 ## 2026-10-26 19:40 — Forest walking checked after the v142 sidestep (G1) — harness only, no game change
 No new reports since 0073. Top item asked whether v142's round-obstacle sidestep pushes you into the next tree or
 dithers in a stand. New `g1_forest.mjs` (4 densest flat stands on the map, 16–18 trees within 12 m; 3 headings each;

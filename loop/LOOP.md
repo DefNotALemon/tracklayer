@@ -113,12 +113,18 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G1 (report 0074 F1, `g1_forest_lamp.mjs`): two trunks only 0.51 m apart (narrower than the walker) and W held at
+      the gap: v142's sidestep latches a side and slides along the summed tangent forever, drifting 5 → 12 m off line into
+      open snow (stuck both runs, hug 5.6/7.6 s, 4–12 side reversals). Gaps ≥ 1.0 m pass clean. Fix idea: once the
+      sidestep clears the blocking trunk (minD > r + 0.6) release `F.obSide` and steer back toward the held heading, so
+      you go round the pair and resume your line instead of wandering.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
       rocks/trees, head-on and 0.3 m off) stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s. Forest stands verified by b87
       (`g1_forest.mjs`: 4 densest flat stands, 16–18 trees within 12 m, 3 headings each, W held 30 m through): v141 4/10
       pinned on a trunk face (mean stall 15 s; 2 more runs were harness cold blackouts) → v142 stuck 0/12, stall 0, side
       flips 1 in 12, max lateral drift 1.3 m. Pace there (mean 23.8 s / 30 m) is the 0.86–0.9 m snow, same depth as open
-      ground round the stands, not the trees. Left for the playtester: lamp posts beside a lane, the gamepad stick, and
+      ground round the stands, not the trees. Lamp posts beside lanes verified clean (report 0074: 0/6 stuck). Left for the
+      playtester: the gamepad stick (no CDP gamepad emulation; maybe drive `navigator.getGamepads` with a stub) and
       skiing (skiStep has its own obstacle code, unchanged).
 - [ ] G3: Buildings slice 3 (v116 `KIT.house`; v117 `workShed()` did the garage (corrugated steel `shedMetalTex`),
       pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
@@ -172,7 +178,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       +3 draw calls, quay 821 → 824); `g3_sheds` local +0.07–0.12 by day. Hospital skipped: its fascia is already grey
       0x9aa3ab under the snow. Report 0066 verified v131 (no seams; same sheen on 5 houses from the same angle, by design).
       Report 0067 verified v132 drip edge at 15–20 m (red + grey trim); fades into the roofline by 25 m and at night (by
-      design, no action). Left: playtester: drip edge on the white gabled SITES homes (naust/brattli), `g3_drip_ride.mjs`.
+      design, no action). Report 0076 (`g3_drip_ride.mjs`): reads as a crisp line on red houses at 15–20 m; on the white
+      grey-trim house faint at 15 m, gone at 25 m (low; idea: darker drip tint on white-trim houses only).
       Playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
@@ -287,9 +294,6 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Still unchecked: narrow gaps between two houses (second camWallClip on the slid spot).
 - [ ] G1 (low, follow-up to v111 turn ramp): door turn + stick twitch verified clean (report 0049). Left: pivot is the same
       in deep powder and on hard pack; judge whether that feels right.
-- [ ] G2 (playtest, follow-up to v135 sled-ready toast): in a real delivery chain (`g2_first5min_chain.mjs`), does the
-      4th delivery's "garage will sell you the Woodsman" toast read alongside the delivery toast (3-toast cap, 4.2 s each),
-      and is 4.2 s long enough for a 3-line toast? `g2_sledready.mjs` checks every sled via bumpDelivered.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -308,4 +312,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 73
+Last triaged report: 76
