@@ -7,6 +7,15 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 15:55 — Lamp globes stop glowing at noon (G3) — e75d27b
+No new reports since 0060. Took the v124 follow-up: all 35 `K.lamp` globes used the shared MeshBasic `KIT.glowM`, so they
+burned cream at full brightness at noon. New hoisted `lampHeadMat()` (Lambert, colour 0xc4c8cc × (1−n), emissive 0xffc26b
+× n, n from houseWinTick like the windows/pools). `g3_lamps.mjs` now finds lamps by shape (works before/after) and adds a
+5 m `head` view. Globe RGB at Nov noon 227/219/196 → 169/171/178 (shaded grey glass), night 225/215/190 → identical; frame
+means ±1. Draw calls 380 → 379. Vision (b69/heads2.jpg): noon globe reads as unlit frosted glass with shading, night
+unchanged. smoke exit 0, page errors none (67.6 mph, powder 1.52, trench 2.26). README; v125.
+Next: other K.glowM users lit at noon (ferry windows, pump displays), station pool strength, red-house fascia tint.
+
 ## 2026-10-26 15:45 — Street lamps throw light pools after dark (G3) — 23bd096
 Triage 0059 (v122 stations verified: 537 calls, pump local 5.15; F3 pool faint on moonlit nights, F4 posts plain, F6 lamps
 have no pool) and 0060 (v123 roof trim verified, 304 calls; F4 white fascia merges with roof snow on red houses up close)
