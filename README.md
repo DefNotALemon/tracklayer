@@ -204,7 +204,8 @@ and the Red Cross sled drags you home, minus the cargo and a fee. A freight card
 cost 70% or more of your warmth in the current light and weather, with the kit you're wearing, wears
 a COLD RUN chip saying roughly how much, and names a village or cabin on the way to thaw out at. The estimate assumes the pace your sled really
 holds across open powder (about 10.5 × power ÷ drag m/s, so a Woodsman ~13 m/s, never above 12 + 6 × power), slowed by what
-the hitch drags: the rig plus the cargo, so 220 kg behind you rides at about 0.6 of that and half a tonne at about 0.4. Under a fifth of a tank you get
+the hitch drags past 300 kg (rig plus cargo): an ordinary trailer load doesn't change it, half a tonne rides at about 0.55 of that
+and a tonne at about 0.25. Under a fifth of a tank you get
 one "Fuel low" (or "Battery low") warning naming the nearest pump or plug; the quay and the garage
 top you up free and stay quiet about it.
 Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress saves in your browser.

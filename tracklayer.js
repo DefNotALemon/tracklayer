@@ -7309,8 +7309,11 @@ function coldRun(f, d, km, towKg) {
   // ride speed: report 0034 + g2_cruise.mjs (fresh powder, cross-country) measured about 12 x power/drag m/s (Woodsman
   // 12.6-14.4, Summit 22, Apex 31); take 10.5 x that, never quicker than the old 12 + 6 x power.
   // Laden (g2_cruise_laden.mjs, towed rig + cargo kg): 220 kg held 0.72-0.81 of the empty pace, 425 kg 0.37-0.55,
-  // 1125 kg 0.24-0.43; 1 / (1 + kg / 320) sits on the slow (safe) side of all of them.
-  const rideS = km * 1000 / Math.min(12 + 6 * ST.power, 10.5 * ST.power / ST.drag) * (1 + (towKg || 0) / 320), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
+  // 1125 kg 0.24-0.43. But riding real flagged trailer cards (g2_coldrun_ride_laden.mjs, 210-290 kg on the hitch:
+  // Woodsman 16.9-22.4 m/s, Aurora 20.3) went FASTER than the empty estimate, so a light trailer load costs nothing
+  // here (the empty pace is already the deep-powder worst case); only the weight past 300 kg stretches the ride:
+  // 425 kg -> x1.5, 1125 kg -> x4.3, still on the slow side of the powder runs.
+  const rideS = km * 1000 / Math.min(12 + 6 * ST.power, 10.5 * ST.power / ST.drag) * (1 + Math.max(0, (towKg || 0) - 300) / 250), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
   const direct = Math.hypot(d.x - f.x, d.z - f.z); let stop = null, best = 1e9;
   for (const s of SITES) {
     if (s.x === undefined || s === f || s === d) continue;
