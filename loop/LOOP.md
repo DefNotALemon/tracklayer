@@ -127,8 +127,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (`stationPool`, fog-dimmed, opacity from houseWinTick). v138 pump/post hardware (merged per material, +1 call: q34
       538 → 539): steel kick plate, white stripe, holster + nozzle + hose loop per face (old holster floated 10 cm off
       the pump), island bollards, post concrete feet + amber/black bands + collar (`g3_stations` local nov canopy 4.09 →
-      4.24, night canopy 4.65 → 4.75). Playtester: judge the nozzle at ride distance and the bands at night. The pool is subtle on moonlit nights (judge on a dark night);
-      fuel cabins' jerry-can pallets unchecked up close. Street lamps (`K.lamp`) could get the same pool. The relay
+      4.24, night canopy 4.65 → 4.75). Playtester: judge the nozzle at ride distance and the bands at night. The pool is subtle on moonlit nights (judge on a dark night).
+      v139 fuel cabins (`g3_fuelcabin.mjs`, 2 cabins × walk 6 m / q34 / cans 1.3 m, Nov noon + 21:00): Euro pallet + 7 real
+      20 L jerry cans (X emboss, 3-bar handle, spout cap) + ratchet strap, on an `addYard(…, 1.6)` shovelled patch (the old
+      pallet sat under the powder); 17 → 6+2 meshes per cabin (q calls 334 → 324); local nov cans 3.37/3.05 → 4.49/4.02.
+      Playtester: walk-up from the sled (the new yard patch, any snag on the pallet ob), the cans at night by headlamp. Street lamps (`K.lamp`) could get the same pool. The relay
       keeper's house is a KIT.house already. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
       v123 roof trim (`roofTrim()`, merged into the trim mesh, 0 extra draw calls): eave fascia + boxed soffit, barge
       boards + rake soffit on KIT.house and buildSites (`g3_roofs.mjs`: corner/gable/eave, Nov/March 15:00/21:00). Left:

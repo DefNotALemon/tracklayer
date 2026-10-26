@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 18:22 — Fuel cabins' jerry cans become real jerry cans (G3) — daa5150
+No new reports since 0070. Backlog's builder-actionable items are mostly playtest checks; took the buildings item's open
+leftover "fuel cabins' jerry-can pallets unchecked up close". New `g3_fuelcabin.mjs` (first 2 cabins, 6 m / 2.4 m / 1.3 m,
+Nov noon + 21:00) showed plain salmon boxes with a grey block on top and the pallet buried in the powder (group at
+ground − 0.1). Now: pine Euro pallet (deck boards, cross boards, 9 blocks, runners), 7 × 20 L cans (35×47×17 cm) with the
+stamped X on both faces, foot seam, 3-bar handle, black spout cap + lever, a yellow ratchet strap round the back stack;
+`addYard(x, z, 1.6)` shovels the spot and the group sits at `surf − 0.03`. All merged per material: 17 → 8 meshes per cabin
+(walk-view calls 334/159 → 324/149). imgstats local nov cans 3.37/3.05 → 4.49/4.02, q34 4.24/3.80 → 4.63/4.36, night cans
+3.11/2.83 → 3.69/3.24. Vision (b83/before_sheet.jpg vs after_sheet.jpg + after/nov_0_cans.jpg): reads as jerry cans on a
+pallet, no clipping/floating. smoke exit 0, page errors none (66.1 mph, powder 1.54, trench 2.24). README; v139.
+Next: playtester walks up to a fuel cabin from the sled (yard patch, pallet obstacle) and judges the cans at night.
+
 ## 2026-10-26 18:15 — Fuel station pumps and canopy posts get real hardware (G3) — 02a0053
 Triage 0069/0070: v136/v137 shore slide verified (stuck 0/16, avg 5.53 m; skiing and the pier edge clean); shore item cut to
 the one hand-walk check left. 0069 F1 (spot 3 = steep slope) superseded by v137 (it moves 3.8 m now). 0069/0070 "should a
