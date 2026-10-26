@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 03:08 — Wind-sculpted snow relief (G3) — 454630b
+Daylight slice 3. First fixed `g3_day.mjs`'s backcountry teleport: its search started at r 300 m, so the first
+obstacle-free spot was the town edge; now 1.5 km+ out, 600 m+ from every site, open fell (`bioAt` 0, no frozen lake),
+gentle ground, and it logs the distance (1.50 km). Then `patchMat` fragment: fresh untouched snow gets a per-pixel
+normal tilt from a world-space height noise (sastrugi ripples stretched across a NW wind, bent by a domain warp,
+gathered in patches, plus slow ~10 m drift swells); fades out on packed snow, ice, rock/bare ground, wet spring snow
+and from 28 → 45 m (the patch edge). No geometry/physics change; sin-free hash so big world coords don't band.
+g3_day before → after (imgstats local contrast / std): backcountry Nov **2.35 → 2.78** / 40.0 → 40.1; March **2.29 →
+2.66** / 40.8; quay 4.41 → 4.42, sled close-up 3.78 → 3.83 (yards are plowed so near-unchanged, as intended). A first
+try (stronger, uniform ripples) looked like motion-blur streaks at dawn from the chase cam; softened ~35%, warped and
+patched; vision on shots/b10/cmp2/sheet.jpg: reads as natural wind-blown snow, no seam where it fades, no artifacts.
+smoke.mjs exit 0, page errors none (powder 1.43, trench 2.20, 6 s ride 65.6 mph). README daylight paragraph; v67.
+Triage 0009: all confirmations of v66 (no action; the card-height idea noted for the Aurora perk item). Found: a
+sawtooth band on far hillsides (new G3 item). Next: daylight slice 4 (far terrain) or the G2 groomer wording.
+
 ## 2026-10-26 02:52 — Trekker earns its place: built-in touring kit (G2) — 2e529fb
 The Trekker ($3400, 24 deliveries) had less power than the Summit before it and nothing else to show; its 0.9-burn
 engine didn't even count (stock engines report burn 1). Decided not to retune its power (it's a touring sled, not a

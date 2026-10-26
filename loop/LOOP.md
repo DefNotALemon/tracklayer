@@ -104,12 +104,14 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 3 (v65 thinned/blued the clear-day fog): near and mid snow still reads as one flat pale
-      sheet (backcountry std 40 vs quay 52, local contrast 2.7 vs 4.4) and the big hillside right of the
-      backcountry view is a white wash: look at snow surface relief (normal/micro shading in `patchMat`), a touch
-      more daytime saturation, sun glow in the sky away from the sun. Also fix `g3_day.mjs`'s backcountry teleport:
-      05/06 still land 0.31 km from the quay (the loop's `return true` path apparently never moves P, or the
-      sled snaps back), so "backcountry" stills are really the town edge. Measure with `g3_day.mjs` + `imgstats.py`.
+- [ ] G3: Daylight slice 4 (v67 gave the near 45 m of fresh snow wind relief): past the snow patch the far
+      terrain is still a white wash (backcountry local contrast 2.7–2.8 vs quay 4.4): give the far terrain material
+      some of the same drift shading at a coarser scale, a touch more daytime saturation, sun glow in the sky away
+      from the sun. Measure with `g3_day.mjs` (now really 1.5 km out on open fell) + `imgstats.py`.
+- [ ] G3: Far terrain shows a sawtooth/zigzag band on hillsides (builder pass 10, before-still of a frozen-lake
+      spot 1.5 km from the quay: a row of bright/dark triangles along a ridge ~300 m off, looks like the far-terrain
+      grid's triangle split or a rock/snow threshold stepping per vertex). Find the cause (far terrain colour/
+      rock mask per vertex vs `buildGridIndex` diagonal) and smooth it. Repro: teleport to a lake 1.5 km out at noon.
 - [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
       (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
       Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
@@ -137,4 +139,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 8
+Last triaged report: 9
