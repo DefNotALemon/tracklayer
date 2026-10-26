@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:55 — Parcels redraws on delivery (G2) — 0bee7b8
+Triage 0021 (verify v79/v80: both reproduce to the decimal; G2 first-cash leg): F1 (open Parcels goes stale at a
+drop-off) taken; F2 (accept → delivered 41.2 game-s / 768 m / +$120) folded into the first-5-min item, which now only
+needs the time to $600; F3 (0020 F5 sideCam) left for the playtester. G2 was due (last landings G1/G3/G2/G3/G3).
+`deliver()` saved and re-meshed but never called `TABLET.refresh()` (only the roaming branch did), so an open Parcels
+page kept "1/1 rack's full · 0 delivered · ABOARD <cargo>" while the toast said paid. Now it refreshes at the end of
+`deliver()`, after a Bytteboden crate drop and when the backhaul parcel goes on 1.4 s later. New
+`scenarios/g2_tablet_live.mjs` (new save, accept top job, park at its dest with Parcels open, read the screen):
+stale **true → false** (before: still listed "A sack of dog food" ABOARD, 1/1; after: 0/1 · 1 slot free · 1 delivered,
+cargo gone). Home was already fine. Still parcels_after.jpg judged: coherent. smoke.mjs exit 0, page errors none
+(powder 1.47, trench 2.20, 6 s ride 65.5 mph). README tablet paragraph; v81.
+Next: daylight slice 8 (G3) or late-sled gear/jobs (G2).
+
 ## 2026-10-26 05:45 — Skis feel the real slope, not their own groove (G1) — 61b5e51
 No new reports (last 20). G1 was due (last 5 landings G3/G2/G3/G3/G3); took the low skiStep-grade item. `skiStep`
 read the grade off `surf`, so the groove the skis cut 0.7 m behind read as a climb. Now it reads the undisturbed snow

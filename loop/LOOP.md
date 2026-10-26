@@ -115,8 +115,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
       ($145–370) makes parcels pointless after rank 3.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
-      works first try, route drawn). Still open: drive + deliver, gameClock to first cash and to $600
-      (playtester owns: extend `g2_first5min.mjs`). Low (0007 F2): Tab opens Home, not Parcels, on a new save.
+      works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
+      cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
+      `g2_first5min.mjs` over ~4 more deliveries). Low (0007 F2): Tab opens Home, not Parcels, on a new save.
 - [ ] G1 (low, follow-up to v73 wall slide): the flat-face slide only knows the yaw of `KIT.house` walls, the depot
       buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
       vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
@@ -131,4 +132,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 20
+Last triaged report: 21
