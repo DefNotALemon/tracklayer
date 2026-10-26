@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 10:40 — COLD RUN estimate counts the towed load (G2) — 4eecc31
+Triage 0039 (v101 far shadows verified, numbers exact): info only. Took the G2 laden-trailer coldRun check (two G3 landings
+in a row). New `scenarios/g2_cruise_laden.mjs` (g2_cruise harness + a real big load in `GS.load`, so `TOW.mass` is the
+game's own): along-line pace ÷ empty pace, 30–40 game-s from rest — 220 kg tow (trailer+150) **0.72–0.81**, 425 kg
+(flatbed+300) **0.37–0.55**, 1125 kg (flatbed+1000) **0.24–0.43** (Matriarch best). The card assumed empty pace, so laden
+hauls lost ~2× the warmth it showed. `coldRun(f, d, km, towKg)` now stretches ride time by (1 + kg/320) (safe side of every
+measurement); `conCard` passes the hitch rig mass + card kg + loads already on. New `scenarios/g2_coldcard_laden.mjs`
+(same board, old → new est per card): Aurora stock 09:40 (0027 setup) 220 kg clean-air Gamvik 63% → **119%**, fell 520 kg
+Risfjord 84% → **240%**; ≥100% cards 1 → 13 of 24; Woodsman lvl6 chips 6 → 7/8; full/mid kit still 0 chips. Not visual.
+smoke exit 0, page errors none (powder 1.52, trench 2.28, 6 s 67.6 mph). README cold-run para; v102.
+Next: ride a flagged laden leg to confirm the % and check stock kit isn't now a board-wide trap (new item); G3 FPS check.
+
 ## 2026-10-26 10:16 — Far drift lee shadows past 50 m (G3) — 0816c3e
 Triage 0038: v99 wall-stride verified (0.0 cycles, go/wind 0), wallslide unchanged; info only, no new items. Took G3
 slice 8's open end: v100 shadows stopped with the patch at 34–50 m. The far terrain now marches its own `fdH` height

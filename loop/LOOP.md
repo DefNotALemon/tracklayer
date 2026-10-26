@@ -147,9 +147,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
       vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
-- [ ] G2 (low, playtest, follow-up to v97): `coldRun` speed is now min(12 + 6×power, 10.5×power/drag), fitted on EMPTY
-      sleds (`scenarios/g2_cruise.mjs`). Ride a laden trailer (heavy 300+ kg, clean-air 110–220 kg) on an Apex/Aurora
-      with g2_cruise-style harness: if a loaded top sled holds < 12 + 6×power, fold cargo kg into the estimate.
+- [ ] G2 (playtest, follow-up to v102): with laden pace folded in, nearly every stock-kit freight card past ~3 km now
+      says "more than you've got" (g2_coldcard_laden: Woodsman lvl6 ≥100% 4 → 6 of 8). Ride one flagged laden leg
+      (e.g. Aurora stock 09:40, 220 kg clean air to Gamvik, card ~120%) and log real warmth lost vs the card; if the
+      warning is now right, check the early game still has warm-enough short hauls (is stock kit a trap on the board?).
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -164,4 +165,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 38
+Last triaged report: 39
