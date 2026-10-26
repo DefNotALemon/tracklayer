@@ -123,6 +123,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       slightly uniform oval hollows (value-noise blobs); stretch them along the wind / break their outline.
       Report 0028: v88 numbers reproduce (Nov 4.68, March 4.28); at play distance vision sees wind-stretched streaks, no
       oval blobs. Check with a macro camera (20–40 m look) before working the ovals; may already be fine.
+      v94 (slice 8c): macro check (`g3_macro.mjs`, 9 m up looking 40 m out) DID show flat blue oval puddles on a facing
+      hillside 100–300 m out; near dunes now domain-warped + ridged crests, crest weight faded by dist/cos(view) so
+      grazing flats don't barcode. Local 03/04/05 3.01/4.06/3.11 → 3.22/4.16/3.57; midband strip 3 Nov 4.69 → 5.49.
+      Still open: global std (~40) / overall low contrast; crests may read a touch sand-dune-like on big facing slopes.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
@@ -149,4 +153,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       slide); the 0.36 m body probe vs the 2.1 m disc pitch may still notch at very shallow angles. Check with
       `g1_wallslide2.mjs` before touching footStep.
 
-Last triaged report: 31
+Last triaged report: 32

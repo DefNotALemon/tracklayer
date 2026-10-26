@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 08:42 — Sharp wind crests instead of blue oval hollows (G3) — 1e75240
+Triage 0032 (verify v93: 0%/0% storms before 13:00, 13%/24% after; coldrate confirms no crash/foot multiplier: all
+info, nothing new). G3 had the oldest landing (v90), so did slice 8's macro check with new `scenarios/g3_macro.mjs`
+(pinned spot −1637,−1943; eye 1.8 m and 9 m up, 30–40 m look, Nov + March). Before: on a facing hillside 100–300 m out
+the v88 scoops read as flat blue oval puddles (05_high_cross2). `fdH`'s near term is now domain-warped (22×9 m at
+~30 m scale) and the 0.04×0.11 term folded into a ridged crest (`cr²`); first try striped the grazing far flats into
+a barcode, so the crest weight `nc` = near × (1 − ss(350, 900, dist / |cos view|)): crests where a pixel covers little
+ground, the old soft bump elsewhere. Vision on b37crop05b (before/after hillside): ovals → wind-sculpted crests;
+b37crop04b far band: no barcode, close to before. imgstats local 03 3.01 → 3.22, 04 4.06 → 4.16, 05 3.11 → 3.57, eye
+level 01 2.60 → 2.61; `g3_midband` strip 3 Nov 4.69 → **5.49**, March 4.29 → 5.05, across 1.11 → 1.26, away 0.25 → 0.23.
+smoke exit 0, page errors none (powder 1.52, trench 2.23, 6 s 67.5 mph). README daylight paragraph; v94.
+Next: G1 hospital 10° notch, G2 long-haul warmth after the road rerun, G3 global contrast.
+
 ## 2026-10-26 08:28 — A new game's first morning stays clear (G2) — 079d7e5
 Triage 0031 (F1 v91 reproduces; F3 harness auto-nav crashes into the quay shed → new low playtester item; F4 info).
 F2 "post-crash warmth drains faster than riding" checked with new `scenarios/g2_coldrate.mjs` (weather pinned calm,
