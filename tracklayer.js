@@ -634,10 +634,14 @@ function buildFar() {
       `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
        float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
          return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
-       float fdH(vec2 p, float near) {
+       float fdH(vec2 p, float near, float nc) {
          vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
          q.y += (fdN(p * 0.004) - 0.5) * 140.0;
-         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (fdN(q * vec2(0.04, 0.11)) * 0.8 + fdN(q * vec2(0.022, 0.065)) * 0.4) * near;
+         // the close dunes: a 20-35 m warp frays their outlines and the ridged fold turns each value-noise bump into a
+         // sharp wind crest (seen from a rise, plain bumps read as rows of flat blue oval puddles)
+         vec2 w = q + (vec2(fdN(p * 0.035), fdN(p * 0.035 + 17.0)) - 0.5) * vec2(22.0, 9.0);
+         float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);   // nc: crest weight, 0 where a pixel spans too much ground
+         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near;
        }\n` +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       {
@@ -646,8 +650,11 @@ function buildFar() {
           * (1.0 - smoothstep(1600.0, 3200.0, dist));
         if (fdSnow > 0.01) {
           float near = 1.0 - smoothstep(150.0, 450.0, dist);
-          float e = 2.0, h0 = fdH(vWxz, near);
-          vec2 g = vec2(fdH(vWxz + vec2(e, 0.0), near) - h0, fdH(vWxz + vec2(0.0, e), near) - h0) / e * fdSnow;
+          // the sharp crests alias into barcode stripes where one pixel spans metres of ground (far + grazing): fade
+          // them on distance over the cosine of the view angle (a facing hillside at 200 m keeps them, flat fell at 300 m doesn't)
+          float nc = near * (1.0 - smoothstep(350.0, 900.0, dist / max(abs(dot(normal, normalize(vViewPosition))), 0.02)));
+          float e = 2.0, h0 = fdH(vWxz, near, nc);
+          vec2 g = vec2(fdH(vWxz + vec2(e, 0.0), near, nc) - h0, fdH(vWxz + vec2(0.0, e), near, nc) - h0) / e * fdSnow;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz * 6.0);
           float lee = fdSnow * clamp(0.45 - (g.x * 0.8 + g.y * 0.6) * 6.0, 0.0, 0.8);   // lee of the north-westerly (soft: the v88 dunes made ×10 blotchy)
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), lee);   // (color_fragment ran already; lighting hasn't)
