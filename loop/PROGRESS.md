@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 08:55 — COLD RUN chip on freight cards (G2) — 8ee52c0
+Triage 0033 (verify v94: macro local 2.60/3.22/4.16/3.56 and midband Nov 5.50 / March 5.04 reproduce, vision no
+ovals/barcode; global std 38–44 = the open G3 item): all info. G1 hospital 10° notch item dropped after a rerun of
+`g1_wallslide2.mjs`: hospital 10° slides 1.60 m vs freight 1.71 / buyer 1.75, closest 0.021 m (never wedged); 4 s of
+sliding at sin 10° × ~2 m/s ≈ 1.4 m, so it's the projection, not a notch. Took the G2 long-haul warmth item (0027
+F3: −$2,155 blackout on a clean-air run): kept the cold, told the player. New `coldRun(f, d, km)` estimates one leg's
+warmth cost with the rider's own cold formula (night now, storm now, ground height along the line, kit coldMul)
+over 12 + 6×power m/s; ≥70% puts a COLD RUN chip + "about N% of your warmth one way…, more than you've got. Thaw out
+at <site splitting the leg> on the way. Warmer kit…" on the freight card. New `scenarios/g2_coldcard.mjs` (weather
+pinned): before **0 warnings on every board**; after Woodsman lvl 6 stock kit noon 5/7 cards flagged (4 ≥100%, Gamvik
+9.5 km 210%), Ranger lvl 21 7/18, Aurora lvl 62 stock 09:40 10/25 (0027's Skjånes clean-air ≈90%), same at 20:00
+17/26 (14 ≥100%), Aurora full kit 0/23 (max 44%), Apex mid kit 0/16. Still cc_after/01: chip sits beside HEAVY,
+text in the note, layout clean. smoke exit 0, page errors none (powder 1.53, trench 2.24, 6 s 67 mph). README; v95.
+Next: playtester checks the estimate against a real ride (new item); G3 global contrast; G2 TONNE chip.
+
 ## 2026-10-26 08:42 — Sharp wind crests instead of blue oval hollows (G3) — 1e75240
 Triage 0032 (verify v93: 0%/0% storms before 13:00, 13%/24% after; coldrate confirms no crash/foot multiplier: all
 info, nothing new). G3 had the oldest landing (v90), so did slice 8's macro check with new `scenarios/g3_macro.mjs`

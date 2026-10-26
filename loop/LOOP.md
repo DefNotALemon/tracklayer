@@ -131,11 +131,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
       vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
-- [ ] G2: Long-haul warmth (report 0027 F3): a clean-air run driven straight across powder from the quay (4.9 km,
-      137.6 game-s, 09:40 → 12:25 in-game) drained warmth 100 → 0 and blacked out: −$2,155 (bond + rescue), cargo lost.
-      Playtester: rerun along the coast road with a village stop (`g2_cleanair_deliver.mjs`, fix its delivered check
-      per 0027 F4). Builder, if the intended route also fails: say it on the card (est. time vs warmth, "plug in /
-      warm up at X") rather than softening the cold.
+- [ ] G2 (playtest, follow-up to v95 COLD RUN chip): play one card the chip flags (e.g. Woodsman stock kit, heavy to
+      Ifjord "≈110%, thaw out at Neset") both straight and with the named stop; check the estimate against the real
+      warmth drop (v95 rides at 12 + 6×power m/s, cold formula at the current hour/storm, ground height on the line)
+      and that the named stop is actually on a sensible route. `scenarios/g2_coldcard.mjs` prints the board side.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -149,8 +148,5 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, playtest, report 0030 F4): `g3_ridge.mjs`'s rock search keeps landing on the same two snow-dominated
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
-- [ ] G1 (low, follow-up to v92): the hospital 10° approach still stops after ~1.6 m along the back wall (rows 20°+
-      slide); the 0.36 m body probe vs the 2.1 m disc pitch may still notch at very shallow angles. Check with
-      `g1_wallslide2.mjs` before touching footStep.
 
-Last triaged report: 32
+Last triaged report: 33
