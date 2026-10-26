@@ -4495,6 +4495,15 @@ function lampHeadMat() {
   }
   return lampHeadMat.m;
 }
+// the light panel under a fuel-station canopy: was a fixed cream MeshBasic, so it burned flat white at noon. Now a frosted
+// diffuser (lit only by the shade under the roof by day) whose tubes fade in after dusk with the windows (houseWinTick).
+function canopyLightMat() {
+  if (!canopyLightMat.m) {
+    canopyLightMat.on = new THREE.Color(0xfff1cf); canopyLightMat.off = new THREE.Color(0xa4acb6);
+    canopyLightMat.m = new THREE.MeshLambertMaterial({ color: 0xa4acb6, emissive: 0xfff1cf });
+  }
+  return canopyLightMat.m;
+}
 function houseWinTick(day, st) {
   const n = 1 - day * (1 - 0.6 * st);
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
@@ -4503,6 +4512,8 @@ function houseWinTick(day, st) {
   if (lampPools.m) lampPools.m.opacity = 0.5 * n;
   const hm = lampHeadMat.m;
   if (hm) { hm.emissive.copy(lampHeadMat.on).multiplyScalar(n); hm.color.copy(lampHeadMat.off).multiplyScalar(1 - n); }
+  const cm = canopyLightMat.m;
+  if (cm) { cm.emissive.copy(canopyLightMat.on).multiplyScalar(n); cm.color.copy(canopyLightMat.off).multiplyScalar(1 - n); }
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
@@ -4900,7 +4911,7 @@ function lampPools() {
 }
 function buildStations() {
   const { woodD, snowM, metal, glowM, L, white } = KIT;
-  const redM = L(0xc23a22), navy = L(0x16324a), dark = L(0x1d2228), slab = L(0xaeb6bd), lightM = new THREE.MeshBasicMaterial({ color: 0xfff1cf }), amber = L(0xd98a14);
+  const redM = L(0xc23a22), navy = L(0x16324a), dark = L(0x1d2228), slab = L(0xaeb6bd), lightM = canopyLightMat(), amber = L(0xd98a14);
   for (const t of STATIONS) {
     if (t.x === undefined) continue;
     const g = new THREE.Group(), cr = Math.cos(t.ry), sr = Math.sin(t.ry);
