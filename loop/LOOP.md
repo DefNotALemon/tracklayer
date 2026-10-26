@@ -130,8 +130,5 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
-- [ ] G2 (low): "Fuel low" / "Battery low" fires at the quay and the garage, which refill you free (they aren't in
-      `fuelSpot`, the free fill is a separate line before `fuelStep`). `g2_aurora_plug.mjs` depot rows show it twice.
-      Count `GS.near === depot || garageSite` as a fuel spot in the low-warn test.
 
-Last triaged report: 18
+Last triaged report: 19

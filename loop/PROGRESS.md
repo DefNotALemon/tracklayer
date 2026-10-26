@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:20 — No more low-fuel warning spam at the quay/garage (G2) — 2900ee2
+Triage 0019 (verify v77 sky sheen: numbers reproduce exactly, no seams, no regressions): no new items. Took the low-fuel
+item over daylight slice 7: 3 of the last 4 landings were G3. It was worse than filed: the free quay/garage top-up reset
+`lowWarned` every frame before the warn test, so a parked low sled re-toasted every frame until it passed 20%. Now a
+`freeFill` flag skips the warning there (it still re-arms). New `scenarios/g2_lowfuel_warn.mjs` (10% tank, 5 game-s
+parked): low-warn toasts Frontier quay **16 → 0**, garage **5 → 0**; Aurora quay **24 → 0**, garage **32 → 0**;
+backcountry 1 → 1 for both; leaving the quay still low → 1 warning out there (unchanged). smoke.mjs exit 0, page
+errors none (powder 1.53, trench 2.25, 6 s ride 65.7 mph). Not visual. README fuel paragraph; v78.
+Next: daylight slice 7 (warm sunlit faces).
+
 ## 2026-10-26 05:15 — Snow mirrors the clear sky at glancing angles (G3) — ec5e66f
 Triage 0018 (verify v75 Aurora plug: numbers reproduce exactly, card/toasts read right; false "Battery low" at the
 quay already on the backlog): no new items. Took daylight slice 6. Open backcountry was one pale near-white sheet.
