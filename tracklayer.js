@@ -10604,8 +10604,9 @@ function footStep(dt) {
   F.yaw += -F.turn * 2.2 * dt;
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
-  const wade = lerp(0.42, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
-  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.7 * wade * F.fwd : F.fwd < 0 ? 1.5 * wade * F.fwd : 0;
+  // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack
+  const wade = lerp(0.57, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
+  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * F.fwd : F.fwd < 0 ? 1.5 * wade * F.fwd : 0;
   F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
   // every step is a fight: how deep it is decides how hard, and the body only really moves while a leg is driving
   F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
@@ -10638,7 +10639,7 @@ function footStep(dt) {
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
   F.step += (mv * 3.1 + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
-  F.tired = clamp(F.tired + (Math.abs(F.sp) > 0.4 ? 0.07 * F.strain : -0.05) * dt, 0, 1);
+  F.tired = clamp(F.tired + (Math.abs(F.sp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
   // a boot goes in at each half-cycle: puff of snow round it and a crunch
   const half = Math.floor(F.step / Math.PI);
   if (half !== F.half) {
