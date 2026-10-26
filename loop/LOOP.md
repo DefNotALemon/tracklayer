@@ -141,10 +141,20 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `g3_fardrift.mjs` + `bandstats.py` strip 5 (mid band): Nov across 3.44 → 3.99, high across 5.65 → 6.29, high toward
       3.34 → 3.90, March 2.76 → 3.09; near strips unchanged. Still open: GPU cost now 5 extra fdH per far pixel (FPS check
       on GFX low/high is the playtester's job), and the overall global std (~40) is still flat.
+      v107 (slice 8f): clear-day haze 0.0017×(1−0.3) → ×(1−0.5) (fog at 1 km 76% → 51%; ring edge still >94% fogged on
+      high and low). New `g3_vista.mjs` (25 m up, level, across/toward/away from sun; quay + pinned backcountry, Nov/March)
+      + bandstats strips 4–5: back Nov away 0.36/1.26 → 0.37/2.20, toward 4.79/10.40 → 5.58/10.75, quay across 1.51/5.60 →
+      1.90/6.05, March away strip 5 0.95 → 1.63. Ground-level g3_day unchanged (far land is a sliver there). Vision: subtle,
+      far hills a little more shaped, no seam/pop. Still open: a faint flat pale band where the hazed far ground meets
+      the sky in the backcountry vistas (seen before and after); global std ~40.
 - [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
       rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
       as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
       samples are skipped).
+      Report 0044: crestwalk lift 252 → 203 → 0 at 600/500/400 m read as a "snap", but the scenario teleports 100 m
+      per sample; the lift is already smoothed (6/s) and `need` falls continuously as the eye climbs. Re-check with a
+      continuous walk (hold W over the last ~60 m before the crest, sample every 2 game-s) before building anything;
+      watch for a jump when the crest crosses the 25 m skip distance.
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
@@ -156,6 +166,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       depot→Ifjord ride lost warmth at only 0.12/s vs 0.30 modelled (thaw near town?). `g2_coldrun_ride_laden.mjs`
       (LR_SLED/LR_FROM/LR_KIND): ride 3–4 more legs incl. a deep-powder one and a 400+ kg flatbed leg before any
       further retune; check whether snow depth along the line should feed the pace.
+      Report 0043: Gamvik→Ifjord light trailer reconfirms (card 321% vs real 137%). Its heavy-flatbed stall (Woodsman,
+      265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
+      fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
+      the flatbed and hand-steered/hardened nav before treating it as under-warning.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -170,4 +184,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 42
+Last triaged report: 44

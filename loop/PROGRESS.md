@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 11:50 — Clear days less hazy: far fells keep their shape (G3) — de022b8
+Triage 0043 (light trailer reconfirms the open pessimism note; heavy-flatbed "under-warning" was a Woodsman with a
+Ranger-tier flatbed plus an autopilot that crashed twice: noted on the G2 item, re-ride on a Ranger first; F2 cargo
+damage on crash = existing design) and 0044 (v106 lift "snaps" 203 → 0 m between 100 m teleports; the lift is smoothed
+and falls continuously while walking, so logged as a continuous-walk re-check, not a build). Took the top G3 item
+(daylight, global flatness). g3_day stills: the backcountry sky and far hills share one pale wash. Clear-day fog
+0.0017×(1−0.3) → ×(1−0.5): fog at 1 km 76% → 51%; ring edge 2.6 km (high) / 1.5 km (low, fogK 1.3) still >94% fogged.
+New `scenarios/g3_vista.mjs` (25 m up, level, across/toward/away from the sun, quay + pinned backcountry, Nov + March),
+bandstats strip 4/5 before → after: back Nov away 0.36/1.26 → 0.37/2.20, toward 4.79/10.40 → 5.58/10.75, quay across
+1.51/5.60 → 1.90/6.05, March away strip 5 0.95 → 1.63; near strips unchanged. g3_day (ground level) unchanged within
+0.1 (far land is a sliver there). Vision (b50/cmp.jpg): subtle, far hills/turbines a bit more defined, no seam or
+pop-in. smoke exit 0, page errors none (powder 1.53, trench 2.23, 6 s 66.4 mph). README sky para; v107.
+Next: the pale flat band where hazed far ground meets the sky in backcountry vistas; G1 continuous crest walk; G2 Ranger flatbed leg.
+
 ## 2026-10-26 11:35 — Sled light column rises from behind a ridge (G1) — e4b91c6
 No new reports (last triaged 42). Took the top item (0042 F1). `sledPinTick()` now samples the ground at 15 points on
 the camera→sled line (25 m+ out) and lifts the column's foot to 10 m under the sight line over the highest crest (crest
