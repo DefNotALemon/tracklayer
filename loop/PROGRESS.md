@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 19:40 — Forest walking checked after the v142 sidestep (G1) — harness only, no game change
+No new reports since 0073. Top item asked whether v142's round-obstacle sidestep pushes you into the next tree or
+dithers in a stand. New `g1_forest.mjs` (4 densest flat stands on the map, 16–18 trees within 12 m; 3 headings each;
+W held, no steering, 30 m through the centre, cap 40 game-s): v141 (`git archive 2d8f2c6`) 4/10 pinned on a trunk face,
+mean stall 15.1 s (2 further runs were cold blackouts from 12 back-to-back walks: scenario now resets warmth) → v142
+stuck 0/12, stall 0.00, side flips 1/12, max lateral drift 1.3 m, mean 23.8 s / 30 m. A depth probe put that pace on the
+snow (0.86–0.9 m in the stands, same round them), not the trees, so no tuning (snowshoes are the answer there).
+Also fixed `g1_jog_player.mjs`'s toast hook (report 0036 F2: window.toast never fires; now a MutationObserver on
+#toasts), item closed. Logged a tree-well idea in the backlog. No game code changed, no smoke/version bump.
+Next: the playtester takes lamp posts / gamepad / skiing; builder takes the next buildable item.
+
 ## 2026-10-26 18:55 — Walking into a lone tree, rock or pallet steps you round it (G1) — 11a75ab
 Triage 0072/0073: v139 cans + yard patch verified; 0072 F2 (pallet dark from 4 m at night) by design, no action; F3
 (Risfjord's sharper powder→yard edge) informational. 0073 verified v141 (card + toast wrap, button greyed); its F1/F2 (double

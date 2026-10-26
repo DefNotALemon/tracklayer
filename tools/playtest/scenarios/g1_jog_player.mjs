@@ -34,7 +34,10 @@ await sleep(300);
 
 const S = () => ev(`JSON.stringify({x: FOOT.x, z: FOOT.z, t: gameClock, sp: +FOOT.sp.toFixed(2), wind: +(FOOT.wind||0).toFixed(2), blown: !!FOOT.blown, tired: +FOOT.tired.toFixed(2)})`);
 let toastLog = [];
-await ev(`(() => { window.__toastLog = []; const _t = toast; window.toast = (msg, kind) => { window.__toastLog.push([+gameClock.toFixed(1), msg]); return _t(msg, kind); }; true; })()`);
+// the game's toast() is IIFE-local, so a window.toast hook never fires (report 0036 F2): watch the real #toasts box
+await ev(`(() => { window.__toastLog = []; const box = document.getElementById("toasts");
+  new MutationObserver(muts => { for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) window.__toastLog.push([+gameClock.toFixed(1), n.textContent]); })
+    .observe(box, { childList: true }); true; })()`);
 
 // walk-to-door leg: steer toward the door each tick, Shift held the whole way (a player holding jog on the stick)
 async function jogTo(tx, tz, capSecs, label) {

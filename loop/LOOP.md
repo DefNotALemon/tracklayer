@@ -114,9 +114,12 @@ Order = priority. Builder keeps it ordered; ties go to whichever goal has had th
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
-      rocks/trees, head-on and 0.3 m off) stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s. Playtester: walk through a
-      forest stand (trees close together: does the sidestep ever push you into the next tree or dither between two?),
-      past lamp posts beside a lane, and with the gamepad stick; also skiing (skiStep has its own obstacle code, unchanged).
+      rocks/trees, head-on and 0.3 m off) stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s. Forest stands verified by b87
+      (`g1_forest.mjs`: 4 densest flat stands, 16–18 trees within 12 m, 3 headings each, W held 30 m through): v141 4/10
+      pinned on a trunk face (mean stall 15 s; 2 more runs were harness cold blackouts) → v142 stuck 0/12, stall 0, side
+      flips 1 in 12, max lateral drift 1.3 m. Pace there (mean 23.8 s / 30 m) is the 0.86–0.9 m snow, same depth as open
+      ground round the stands, not the trees. Left for the playtester: lamp posts beside a lane, the gamepad stick, and
+      skiing (skiStep has its own obstacle code, unchanged).
 - [ ] G3: Buildings slice 3 (v116 `KIT.house`; v117 `workShed()` did the garage (corrugated steel `shedMetalTex`),
       pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
       fish buyer 5.18 → 5.77; quay draw calls 869 → 877; report 0054 verified). v118 did the hospital (`hospPanelTex`,
@@ -242,8 +245,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low, playtest, follow-up to v136/v137 shore slide): stuck 3 → 0, avg 2.73 → 5.53 m (report 0070); skiing and the
       pier edge clean (0069). Only left: a long diagonal beach walked by hand (does the 4 m sea-mask staircase make the
       walker zig-zag visibly?), stills from the chase camera.
-- [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
-      toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
+- [ ] G3/G1 (idea, b87): tree wells. Snow under a dense pine/spruce stand is as deep as open ground (0.86–0.9 m inside vs
+      0.87–0.96 m round it). Real conifers intercept snow: a shallower dish round each trunk (birch barely, it's leafless).
+      Would read as real forest snow and give the walker shallower footing by trunks. Needs care: the near deformable
+      patch vs far terrain hand-over (pop-in), trunk/cap y placement, and `freshCell` must match `getChunk`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
