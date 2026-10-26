@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 15:30 — Houses get finished rooflines (G3) — 72406bc
+No new reports since 0058. Took 0053 F1 (roofs read as bare slabs). New `scenarios/g3_roofs.mjs` (2 houses by the depot:
+door-gable corner 11 m out, gable square-on, up under the eave; Nov noon, March 15:00, 21:00). Before: the dark roof slab
+ended in a raw edge with a ~18 cm slot of air above the eave wall and a dark slab underside at the gable overhangs. New
+`roofTrim()` (mergeBoxes now takes an optional rz): eave fascia over the slab end, boxed soffit closing the slot, barge
+boards down both rakes and a rake soffit under the gable overhang, all in the house trim paint and merged into the existing
+trim mesh: draw calls at the corner 304 → 304, +1.6k tris. Applied to KIT.house and buildSites (depot, village shops,
+cabins, fell homes). imgstats local contrast falls 0.1–0.4 per still (dark slab edges → light trim; small-area change,
+not a quality signal here). Vision (b67/cmp.jpg before|after): white barge boards and fascia read on the red houses by day
+and night, grey on the white house with a thin shadow line where the rake soffit meets the gable; no floating boards,
+ridge crossings or z-fighting. smoke exit 0, page errors none (66.3 mph, powder 1.55, trench 2.24). README; v123.
+Next: check workShed/hospital roofs match, pump/canopy detail, lamp pools.
+
 ## 2026-10-26 15:15 — Gas station forecourts lit and plowed at night (G3) — 7d2c354
 Triage 0057 (v120 signs verified, ratios within 0.07) and 0058 (v121 garage boards verified, 636 calls); 0058 F5 (post
 band fainter than the door board at 34 m) dropped: legible, low. Took the stations slice. New `scenarios/g3_stations.mjs`

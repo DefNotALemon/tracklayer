@@ -128,8 +128,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       face/nozzle detail), canopy posts plain grey boxes, the pool is subtle on moonlit nights (judge on a dark night);
       fuel cabins' jerry-can pallets unchecked up close. Street lamps (`K.lamp`) could get the same pool. The relay
       keeper's house is a KIT.house already. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
-      House roofs: report 0053 F1 no projecting eave/soffit at the gable ends (roof slabs overhang 0.35 m but no fascia
-      board); day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
+      v123 roof trim (`roofTrim()`, merged into the trim mesh, 0 extra draw calls): eave fascia + boxed soffit, barge
+      boards + rake soffit on KIT.house and buildSites (`g3_roofs.mjs`: corner/gable/eave, Nov/March 15:00/21:00). Left:
+      the work sheds (`workShed`) and the hospital still have their own roofs (check they match), white trim on the
+      white snow edge reads a little merged in a close eave view; day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
