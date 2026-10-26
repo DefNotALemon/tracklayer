@@ -11896,7 +11896,26 @@ function sledPinTick() {
   const k = FOOT.on && !GS.dead && !SCHOOL.on && !MNT.on ? Math.min(1, Math.max(0, (d - 30) / 30)) : 0;
   if (!V.sledPin) { if (k <= 0) return; V.sledPin = new THREE.Mesh(beaconGeo, beaconMat(0xffd860, 0.26)); V.sledPin.scale.set(0.34, 0.15, 0.34); V.sledPin.frustumCulled = false; scene.add(V.sledPin); }
   V.sledPin.visible = k > 0;
-  if (k > 0) { V.sledPin.material.opacity = 0.26 * 1.3 * k; V.sledPin.position.set(P.x, groundAt(P.x, P.z) + 75, P.z); }
+  if (k <= 0) { V.sledPinB = undefined; return; }
+  V.sledPin.material.opacity = 0.26 * 1.3 * k;
+  // Behind a rise (report 0042: from a ridge 600 m out the whole 150 m column sat below the crest) the column lifts
+  // so its bright foot sits just under the camera's sight line over the highest ground between you and the sled:
+  // the crest hides the foot and the column rises from behind it. Sight line from the camera through each sample
+  // (25 m+ out) extended to the sled; flat ground keeps it standing on the sled. Wider with distance so it stays
+  // a few pixels thick and long enough to read past the beacon shader's far fade.
+  const gs = groundAt(P.x, P.z), cx = camera.position.x, cz = camera.position.z, ey = camera.position.y;
+  const D = Math.hypot(P.x - cx, P.z - cz);
+  let need = gs;
+  for (let i = 1; i < 16; i++) {
+    const t = i / 16, s = D * t; if (s < 25) continue;
+    const gy = groundAt(cx + (P.x - cx) * t, cz + (P.z - cz) * t) + 2;
+    if (gy > ey + (gs - ey) * t) need = Math.max(need, ey + (gy - ey) / t);
+  }
+  const base = Math.min(gs + 600, Math.max(gs, need - 10));
+  V.sledPinB = V.sledPinB === undefined ? base : V.sledPinB + (base - V.sledPinB) * Math.min(1, 6 * (1 / 60));
+  const w = Math.max(1, d / 200);
+  V.sledPin.scale.set(0.34 * w, 0.15 * w, 0.34 * w);
+  V.sledPin.position.set(P.x, V.sledPinB + 75 * w, P.z);
 }
 // On-foot "where's my sled": distance + which way it is from where you're facing (+rel = your left; FOOT.yaw
 // forward is (sin, cos), sled-space +x is left). Rounded so the prompt doesn't flicker every frame.
