@@ -55,6 +55,10 @@ Parts the shop won't fit yet are marked with the sled they need (**Woodsman+**, 
 The Trekker 550 Tour isn't a faster Summit, it's the long-haul sled: its touring kit is built in (heated grips and
 seat behind a tall shield, +2.5 warmth; a rack that carries a second parcel; a frugal tune that burns 10% less, so
 its 30 L go about 40% further than the Summit's tank). Built-in kit stacks with the parts you fit, and the card says so.
+The Aurora E has less shove than the Matriarch; its reason is freedom. It plugs in at every warm stop (any village,
+cabin, relay or home, and the pumps) for $0.75 per litre of charge, under a third of the pump price, and regen makes
+it 15% thriftier, so its 34 L battery goes furthest of any sled. Stop beside one and it charges; "Battery low" names
+the nearest place to plug in.
 The screen sits in the world's light: it goes through the same tone curve and fog as everything else, picks up a
 cast from the sky (warm at sunset, blue in polar night, green under a strong aurora) and turns itself down in the
 dark. It rides on a short stalk off the hood, on the rider's side of the steering column; the column rakes forward

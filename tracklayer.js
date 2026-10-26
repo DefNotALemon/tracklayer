@@ -4194,7 +4194,21 @@ function nearSite(x, z, r) {
    normal prices. About a quarter of the remote cabins and villages with no station sell it from a jerry-can rack at
    FUEL.markup x the pump price. Stop at a pump (or a fuel cabin) and the tank fills at FUEL.rate L/s, charged by the
    litre as it goes. Some parcels pay part of the reward as fuel: j.tipL litres, shown as "+12 L" next to the cash. */
-const FUEL = { price: 2.5, markup: 1.6, rate: 6, tipVal: 0.8, reach: 16, share: 0.25 };
+const FUEL = { price: 2.5, markup: 1.6, rate: 6, tipVal: 0.8, reach: 16, share: 0.25, charge: 0.75 };
+// Battery sleds (SLEDS[].plug, the Aurora E) charge at any warm stop instead: villages, cabins, relays, homes and
+// the pumps (they all have a socket), at FUEL.charge per litre-equivalent. The quay and the garage stay free.
+const PLUG_TYPES = { cabin: 1, home: 1, relay: 1 };
+function plugOf(s) { return s.plug || (s.plug = { name: s.name, fuelPrice: FUEL.charge, plug: true, at: s }); }
+function plugSpot() {
+  for (const t of STATIONS) if (t.x !== undefined && Math.hypot(P.x - t.x, P.z - t.z) < FUEL.reach) return plugOf(t);
+  const n = GS.near; return n && PLUG_TYPES[n.type] ? plugOf(n) : null;
+}
+function nearestPlug() {
+  let b = null, bd = 1e9;
+  for (const s of SITES) if (s.x !== undefined && (PLUG_TYPES[s.type] || s === depot || s === garageSite)) { const d = Math.hypot(s.x - P.x, s.z - P.z); if (d < bd) { bd = d; b = s; } }
+  for (const t of STATIONS) if (t.x !== undefined) { const d = Math.hypot(t.x - P.x, t.z - P.z); if (d < bd) { bd = d; b = t; } }
+  return b ? { name: shortName(b), d: bd } : null;
+}
 const STATIONS = [
   { id: "st_kjollefjord", name: "Kjøllefjord Drivstoff", near: "depot", price: 2.45, r0: 130, dir: 0.35 },
   { id: "st_mehamn", name: "Mehamn Drivstoff", near: "mehamn", price: 2.6, r0: 100, dir: 2.2 },
@@ -4245,6 +4259,7 @@ function nearestFuel() {
 }
 function fuelSpot() {
   const rc = reFuelSpot(); if (rc) return rc;                // your own depot's cache comes first (Risfjord sells fuel too)
+  if (sledDef().plug) return plugSpot();
   for (const t of STATIONS) if (t.x !== undefined && Math.hypot(P.x - t.x, P.z - t.z) < FUEL.reach) return t;
   const n = GS.near; return n && n.fuelPrice ? n : null;
 }
@@ -4254,6 +4269,7 @@ function fuelEnd(why) {
   const sp = FS.spot; if (!sp) return;
   const owe = Math.round(FS.cost) - FS.paid; if (owe > 0) GS.cash = Math.max(0, GS.cash - owe);
   if (sp.cache) { if (FS.L >= 0.3) toast(`${why === "full" ? "Tank full" : "Pulled off the pump"}: ${FS.L.toFixed(1)} L from ${sp.name}. It goes on Monday's bill (${fuelFmt(RE_FUEL.perL)}).`, "good"); }
+  else if (sp.plug && FS.L >= 0.3) toast(`${why === "broke" ? "Out of cash" : why === "full" ? "Battery full" : "Unplugged"}: ${FS.L.toFixed(1)} L of charge at ${shortName(sp)} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
   else if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `Pulled off the pump: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
   else if (why === "broke" && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. You can't afford a splash of it.`, "warn");
   FS.broke = why === "broke";
@@ -4262,7 +4278,7 @@ function fuelEnd(why) {
 function fuelStep(dt, spd) {
   const sp = GS.dead || HELP.on || FOOT.on ? null : fuelSpot(), room = GS.cap - GS.fuel;
   if (sp && spd < 4 && room > 0.02) {
-    if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke && !sp.cache) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
+    if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke && !sp.cache) toast(sp.plug ? `Plugged in at ${shortName(sp)}: ${fuelFmt(sp.fuelPrice)} of charge. Charging.` : `${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
     if (sp.cache) { const l = Math.min(FUEL.rate * dt, room); GS.fuel += l; FS.L += l; GS.outWarned = GS.lowWarned = false; const o = GS.re.own[sp.cab.id]; if (o) o.L += l; return; }
     const want = Math.min(FUEL.rate * dt, room), afford = Math.max(0, (GS.cash - (FS.cost - FS.paid)) / sp.fuelPrice), l = Math.min(want, afford);
     if (l > 0) {
@@ -7426,6 +7442,10 @@ const SLEDS = [
     era: "Battery sleds — where Taiga and the electric prototypes are heading",
     blurb: "Silent, instant torque, and a battery gauge instead of a tank. You hear the snow instead of the engine.",
     power: 2.24, fuel: 34, drag: 0.72, grip: 1.6, trackLen: 1.2,
+    // Less shove than the Matriarch, so its reason is range and freedom: `plug` lets it charge at any warm stop
+    // (fuelSpot → plugSpot), and regen on the downhills is the burn perk.
+    perks: { burn: -0.15 }, plug: true,
+    perk: "Plugs in anywhere with a stove: every village, cabin, relay and home charges it at $0.75/L (under a third of the pump), so you never ride to a pump again. Regen on the downhills makes it 15% thriftier: the longest range on the ladder.",
     livery: { body: "#c6e6ea", panel: "#1d3557", trim: "#7cf2a0", seat: "#1d3557", name: "Glacier ice over navy, mint accent" },
     shape: { style: "smooth", w: 0.8, hoodL: 1.18, zPeak: 0.32, round: 0.5, yTop: 1.0, yPeak: 1.02, yNose: 0.7, yBelly: 0.4, pan: 0.64, tunnelW: 0.56, tunnelL: 2.0, seat: "sport", barY: 1.2, barZ: 0.36, lamp: "strip", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, charge: true, trackW: 1.08, extras: ["lightbar"] }
   }
@@ -9846,7 +9866,7 @@ function updGame(dt, spd) {
   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
   if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   fuelStep(dt, spd);
-  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); }
+  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   schoolTick(dt, spd);
   sarTick(dt, spd);
