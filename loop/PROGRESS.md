@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 11:58 — No hard pale line along the horizon (G3) — ea01f03
+No new reports at start (0045 arrived during the pass: v107 verified, numbers reproduce; F2 away view still flattest →
+noted on the G3 item; F3/F4 info). Took the top G3 item's open note (pale band where hazed land meets sky). Row profiles of
+`g3_vista` away shots showed a 2-row step (sky 195,191,206 → fog 173,184,204): the sky dome is pure fog below the
+horizon but only 45% haze just above it. Now the haze eases 100% → the old 45% curve over ~3° (h 0–0.05). New
+`tools/playtest/horizonstep.py` (max one-row luma / 6-row RGB step, middle columns, rows 15–65%): back Nov away 7.87/17.4
+→ 2.01/9.09, March away 8.02/19.0 → 1.69/8.61; across/toward/quay unchanged ±0.5; bandstats unchanged except the seam's
+own strip (away strip 3 0.38 → 0.20). Vision (b51/cmp2.jpg): seam gone to a soft gradient, sun glow toward the sun
+intact. smoke exit 0, page errors none (powder 1.55, trench 2.22, 6 s 66.1 mph). README sky para; v108.
+Next: frozen lakes read as flat grey discs in vistas (new G3 item); away-from-sun far terrain flat; G1 crest walk.
+
 ## 2026-10-26 11:50 — Clear days less hazy: far fells keep their shape (G3) — de022b8
 Triage 0043 (light trailer reconfirms the open pessimism note; heavy-flatbed "under-warning" was a Woodsman with a
 Ranger-tier flatbed plus an autopilot that crashed twice: noted on the G2 item, re-ride on a Ranger first; F2 cargo

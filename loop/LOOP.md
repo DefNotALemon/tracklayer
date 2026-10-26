@@ -147,6 +147,15 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       1.90/6.05, March away strip 5 0.95 → 1.63. Ground-level g3_day unchanged (far land is a sliver there). Vision: subtle,
       far hills a little more shaped, no seam/pop. Still open: a faint flat pale band where the hazed far ground meets
       the sky in the backcountry vistas (seen before and after); global std ~40.
+      Report 0045: v107 numbers reproduce (fog 1 km 0.51, March away strip4 1.63); F2 the AWAY-from-sun view is still the
+      flattest (pale featureless basin). v108 (slice 8g): the hard horizon seam was the sky's haze dropping from 100%
+      (below the horizon) to 45% in one pixel row; now eases over ~3°. `tools/playtest/horizonstep.py` max 6-row RGB step
+      in the sky/ground band: back Nov away 17.4 → 9.1, March away 19.0 → 8.6, toward/across/quay unchanged ±0.5.
+      Still open: away-from-sun far terrain lit flat (hemi fill only; maybe a sky-gradient or self-shadow term facing
+      away), and the band below the horizon is one flat fog colour (far ring 99% fogged at 2.6 km).
+- [ ] G3 (new, b51 stills): frozen lakes read as a flat featureless pale-grey disc in daylight vistas (`g3_vista` 02/03
+      away: a big uniform oval with no snow drift, no sheen, no edge detail). Give lake ice a little wind-blown snow
+      streaking / sastrugi and a faint sky sheen so it reads as a snow-covered lake, not a hole in the terrain.
 - [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
       rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
       as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
@@ -184,4 +193,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 44
+Last triaged report: 45
