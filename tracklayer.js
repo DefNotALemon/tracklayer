@@ -3036,7 +3036,8 @@ function physCore(dt) {
     const hill = M * G * up / (1 + g2);                                         // what the climb takes
     const punch = lerp(zip, 1, clamp(Math.abs(vf) / 25, 0, 1));                 // a quick chassis jumps off the line
     const grunt = Math.max(3600 * PWR * punch * (1 - 0.5 * steep), hill + P.drag + TOW.drag + rolling + 1.3 * PWR * M);
-    const pw = 47000 * PWR * SPEED_K * punch * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
+    const trailK = ST.trail ? 1 + ST.trail * (P.ice ? 1 : sstep(0.3, 0.75, P.pack)) * (1 - P.rock) : 1;   // Sprint's trail gearing
+    const pw = 47000 * PWR * SPEED_K * punch * trailK * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     gbStep(dt, vf, thrE);
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * GB.mul * GB.dir * (1 - 0.9 * P.rock);
@@ -7652,6 +7653,10 @@ const SLEDS = [
     era: "Trail-racer years — Yamaha SRX, Ski-Doo MXZ, Cat ZR",
     blurb: "Low, loud and geared for the lake run. Terrible in deep snow, glorious on a groomed trail.",
     power: 1.58, fuel: 18, drag: 1.12, grip: 1.1, trackLen: 0.98,
+    // trail gearing: tall final drive, so it pulls a quarter harder once the snow underneath is packed or ice
+    // (the physics fades it in with P.pack); in fresh powder it's just a 1.58 that ploughs
+    perks: { trail: 0.25 },
+    perk: "Trail gearing: a quarter more pull on packed trails, your own tracks and lake ice, the fastest sled on the ladder there until the Apex. In fresh powder it ploughs: the Summit floats past it.",
     livery: { body: "#7a1e9c", panel: "#12151a", trim: "#3ef0c8", seat: "#12151a", name: "Nineties purple over black, teal splash" },
     shape: { style: "wedge", w: 0.82, hoodL: 1.4, zPeak: 0.06, round: 0.15, yTop: 0.9, yPeak: 0.9, yNose: 0.56, yBelly: 0.32, pan: 0.5, tunnelW: 0.54, tunnelL: 1.9, seat: "sport", barY: 1.12, barZ: 0.32, lamp: "slit", bumper: "none", skis: "plastic", susp: "aarm", raceStripe: true, fins: true, exhaust: 1, trackW: 0.94, extras: ["lowshield"] }
   },
@@ -8057,7 +8062,7 @@ function stats() {
   }
   // kit a sled comes with from the factory (SLEDS[].perks, e.g. the Trekker's touring kit): stacks with parts
   const pk = sd.perks || {};
-  st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0;
+  st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0; st.trail = pk.trail || 0;
   let warm = 0;
   for (const slot of GEAR_ORDER) warm += gearDef(slot, GS.own.gear[slot]).warm;
   st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
