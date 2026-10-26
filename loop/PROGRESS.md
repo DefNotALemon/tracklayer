@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 10:06 — Drift lee shadows under the low sun (G3) — 96e914c
+No new reports (last 37). Took G3 slice 8's own next idea (b41 vision: foreground evenly lit under a 4° sun). The lifted
+key light (≥13°) can't throw ripple shadows, so the snow patch now marches `tlDrift` (height ×4) 6 taps toward the TRUE
+sun direction (`uSunT` = `_sunV`, set in updSky; `uMicroK` = clear-day sun key, 0 at night/storm/moon) and takes up to
+80% of direct light off lee sides, same relief fades (packed/rock/ice/wet/34–50 m). First try (height ×2) shadowed only
+thin specks (debug render b43dbg); ×4 gives long bands. New `scenarios/g3_driftshadow.mjs` (pinned weather, 1.6 km out,
+eye 1.8 m, 25 m look at 4 azimuths vs sun, Nov + March): local contrast Nov toward/across-L/across-R/away
+**3.71/2.77/2.84/2.81 → 3.91/3.00/2.99/3.03**, March 3.50/2.88 → 3.52/2.85 (sun 11°: few shadows, as expected).
+`g3_day` (first ×2 try) 05 local 3.05 → 3.09, quay 4.52 → 4.63, nothing worse; not rerun at ×4. Stills b43cmp2.jpg: long cold-blue lee bands behind
+swells, soft edges, no ring or noise. smoke exit 0, page errors none (powder 1.51, trench 2.22, 6 s 67.3 mph). README; v100.
+Next: far-terrain version of the shadows past 50 m; FPS check on GFX low; G2 laden-trailer coldRun check.
+
 ## 2026-10-26 09:52 — Legs stop when you walk square into a wall (G1) — ce212f9
 Triage 0036/0037. 0037 (v98 TONNE chip verified) info. 0036 F1 "snag bug" reproduced with new `scenarios/g1_snag0036.mjs`
 (start-only clear check, yaw 0 jog → Strandbu-area house, ax 0): it's a dead-square approach (heading vs face 0°), so the

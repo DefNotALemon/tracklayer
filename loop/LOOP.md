@@ -132,6 +132,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       b41 (09:36, v97) recheck: 05 std 40.3 local 3.07, 06 40.2 / 2.96; vision on 05: ripples and far hills read, but the
       foreground under a 4° sun is evenly lit (no grazing-light shadows on the relief). Next slice idea: stronger
       self-shadow/darker lee sides on near relief when the sun is low, not more tint.
+      v100 (slice 8d): near-patch drift shadows marched toward the TRUE sun (`uSunT`, `uMicroK`; 6 taps, 3 on low).
+      `g3_driftshadow.mjs` local Nov toward/across-L/across-R/away 3.71/2.77/2.84/2.81 → 3.91/3.00/2.99/3.03; March
+      unchanged (sun 11°, few streaks). Vision: long blue lee bands in the foreground, no ring/noise. Still open:
+      the shadows end with the patch relief at 34–50 m (far `fdH` has no equivalent; could add a cheap 2-tap version),
+      and nothing yet for GPU cost (playtester: compare `renderer.info`/FPS on GFX low vs high in open backcountry).
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
