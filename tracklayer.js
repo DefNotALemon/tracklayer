@@ -11715,6 +11715,7 @@ function footStep(dt) {
   {
     const hit = [];
     let sx = 0, sz = 0, touch = false;
+    F.obT = Math.max(0, (F.obT || 0) - dt); if (F.obT <= 0) F.obSide = 0;
     for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
       const a = obGrid.get(j * OBW + i); if (!a) continue;
       for (const o of a) {
@@ -11733,7 +11734,22 @@ function footStep(dt) {
     const sl = Math.hypot(sx, sz);
     if (touch && sl > 1e-6) {
       sx /= sl; sz /= sl;
-      const into = mx * sx + mz * sz; if (into < 0) { mx -= into * sx; mz -= into * sz; nx = F.x + mx; nz = F.z + mz; }
+      const into = mx * sx + mz * sz;
+      if (into < 0) {
+        mx -= into * sx; mz -= into * sz;
+        // a lone round thing (a tree, a rock, the fuel-cabin pallet) you walk into square: losing only the into
+        // part left almost nothing along the tangent, so you hung on its face, or crept round it at body radius for
+        // seconds. Step round it instead, as a person does: most of the blocked stride turns into a sidestep along the
+        // tangent, on the side you were already leaning to (dead square: the side picked on first touch, kept until
+        // you're clear so it doesn't dither). Buildings (o.ax) keep the plain wall slide.
+        if (!hit.some(o => o.ax !== undefined)) {
+          const tx = -sz, tz = sx, tm = mx * tx + mz * tz;
+          if (!F.obSide || Math.abs(tm) > 0.3 * -into) F.obSide = tm >= 0 ? 1 : -1;
+          const want = F.obSide * Math.max(Math.abs(tm), -0.8 * into);
+          mx += (want - tm) * tx; mz += (want - tm) * tz; F.obT = 0.3;
+        }
+        nx = F.x + mx; nz = F.z + mz;
+      }
       let t = 0;
       for (const o of hit) {
         const cx = nx - o.x, cz = nz - o.z, rr = o.r + 0.36, b = cx * sx + cz * sz, c = cx * cx + cz * cz - rr * rr;
