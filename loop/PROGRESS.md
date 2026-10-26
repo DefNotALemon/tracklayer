@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 18:15 — Fuel station pumps and canopy posts get real hardware (G3) — 02a0053
+Triage 0069/0070: v136/v137 shore slide verified (stuck 0/16, avg 5.53 m; skiing and the pier edge clean); shore item cut to
+the one hand-walk check left. 0069 F1 (spot 3 = steep slope) superseded by v137 (it moves 3.8 m now). 0069/0070 "should a
+~1.3 grade (53°) nearly stop walking?" dropped: a near-cliff stopping you on foot is the realism-first canon, not friction.
+After 3 G1 landings took G3 (buildings item, stations leftovers): pumps were plain red boxes with the holster a free post
+10 cm off the pump, canopy posts plain white boxes. Now: steel kick plate, white stripe, a steel holster cup with the nozzle
+grip + spout and the hose looping into a grommet on each face; steel bollards with amber bands at the island ends; posts on
+concrete crash feet with amber/black hazard bands and a steel collar. All small boxes merged per material (`det` → mergeBoxes),
+q34 calls 538 → 539. `g3_stations` local nov canopy/pump/disp 4.09/5.16/4.69 → 4.24/5.21/4.85, night canopy 4.65 → 4.75.
+Vision (b82/before_sheet.jpg vs after2/): first try's spout read as a little roof shape, re-angled; now reads as a hung
+nozzle. smoke exit 0, page errors none (67.5 mph, powder 1.54, trench 2.26). README; v138.
+Next: playtester judges the nozzle at ride distance and the bands at night; fuel cabins' jerry-can pallets up close.
+
 ## 2026-10-26 17:58 — Shore slide gets round the beach's stair-step corners (G1) — fd13d4a
 No new reports since 0068. Took the v136 follow-up (last stuck spot). New `g1_shore_probe.mjs` (isSea ASCII map + per-step
 trace) showed spot 3 sits on a diagonal shore that the sea mask draws as 4 m stairs: the 45° walk hits a riser almost

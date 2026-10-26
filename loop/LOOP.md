@@ -124,8 +124,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       v121 did the garage name boards (0056 F5: the blank panel was the garage's forecourt post sign, its stripes faced
       the wall): `garageSignTex()` on both faces + an over-door board; `g3_garage_sign.mjs`; report 0058 verified (636 calls).
       v122 gas stations (`g3_stations.mjs`): forecourt plowed (`addLane`) + an additive warm light pool under the canopy
-      (`stationPool`, fog-dimmed, opacity from houseWinTick). Left on stations: pumps are plain red boxes (no display
-      face/nozzle detail), canopy posts plain grey boxes, the pool is subtle on moonlit nights (judge on a dark night);
+      (`stationPool`, fog-dimmed, opacity from houseWinTick). v138 pump/post hardware (merged per material, +1 call: q34
+      538 → 539): steel kick plate, white stripe, holster + nozzle + hose loop per face (old holster floated 10 cm off
+      the pump), island bollards, post concrete feet + amber/black bands + collar (`g3_stations` local nov canopy 4.09 →
+      4.24, night canopy 4.65 → 4.75). Playtester: judge the nozzle at ride distance and the bands at night. The pool is subtle on moonlit nights (judge on a dark night);
       fuel cabins' jerry-can pallets unchecked up close. Street lamps (`K.lamp`) could get the same pool. The relay
       keeper's house is a KIT.house already. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
       v123 roof trim (`roofTrim()`, merged into the trim mesh, 0 extra draw calls): eave fascia + boxed soffit, barge
@@ -228,11 +230,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       rise (10.5 m/game-s, 18 px/game-s). Still unchecked: in trees (anchor the search on a known forest cell, not
       spawn: none within 600 m of spawn), next to a LIT depot beacon (needs `GS.load` set; call
       `updateMatrixWorld` before projecting `depot.beacon`, 0068 F4).
-- [ ] G1 (playtest, follow-up to v136 shore slide): `g1_shore.mjs` avg along-shore 2.73 → 5.13 m in 5 game-s, stuck
-      3 → 1. v137: spot 3 was the sea mask's 4 m staircase (a riser square to the averaged normal; `g1_shore_probe.mjs`
-      prints the isSea map + a step trace); shoreSlide now falls back to a grid-axis slide: avg 5.13 → 5.52 m, stuck 1 → 0.
-      Left: ski along a beach; the shore near piers/the ferry slip. Playtester: walk the quay edge by hand toward a
-      door/the pier, and a long diagonal beach (does the staircase make you zig-zag visibly?).
+- [ ] G1 (low, playtest, follow-up to v136/v137 shore slide): stuck 3 → 0, avg 2.73 → 5.53 m (report 0070); skiing and the
+      pier edge clean (0069). Only left: a long diagonal beach walked by hand (does the 4 m sea-mask staircase make the
+      walker zig-zag visibly?), stills from the chase camera.
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
@@ -292,4 +292,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 68
+Last triaged report: 70
