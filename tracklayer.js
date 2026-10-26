@@ -7300,6 +7300,9 @@ const SLEDS = [
     era: "Two-up touring — Grand Touring and Yamaha Venture territory",
     blurb: "Heated grips, a passenger seat nobody uses, and a windshield like a garage door. Warm and heavy.",
     power: 1.61, fuel: 30, drag: 1.0, grip: 0.6, trackLen: 1.1,
+    // Not a faster Summit: a long-haul sled. Its touring kit is built in (see `perks` in stats()).
+    perks: { cold: 2.5, slots: 1, burn: -0.1 },
+    perk: "Touring kit built in: heated grips & seat behind a tall shield (+2.5 warmth), a rack that carries a second parcel, and a frugal tune (10% thriftier). The longest range on a tank until the Aurora E.",
     livery: { body: "#6b1f2a", panel: "#b5b8bd", trim: "#c9a227", seat: "#3b2a22", name: "Burgundy over silver, gold pinstripe" },
     shape: { style: "round", w: 0.94, hoodL: 1.25, zPeak: 0.36, round: 0.6, yTop: 1.0, yPeak: 1.05, yNose: 0.76, yBelly: 0.38, pan: 0.62, tunnelW: 0.62, tunnelL: 2.25, seat: "twoup", barY: 1.2, barZ: 0.32, lamp: "twin", bumper: "bar", skis: "plastic", susp: "aarm", rack: true, fins: true, exhaust: 1, trackW: 1.05, extras: ["tallshield", "mirrors"] }
   },
@@ -7680,6 +7683,9 @@ function stats() {
     st.armor += o.armor || 0; st.rescue += o.rescue || 0; st.camp = Math.max(st.camp, o.camp || 0); st.campCap = Math.max(st.campCap, o.campCap || 0); st.winch = Math.max(st.winch, o.winch || 0); st.cool = Math.max(st.cool, o.cool || 0);
     st.light = Math.max(st.light, o.light || 1);
   }
+  // kit a sled comes with from the factory (SLEDS[].perks, e.g. the Trekker's touring kit): stacks with parts
+  const pk = sd.perks || {};
+  st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0;
   let warm = 0;
   for (const slot of GEAR_ORDER) warm += gearDef(slot, GS.own.gear[slot]).warm;
   st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
@@ -7773,7 +7779,8 @@ function renderGarage() {
       const opens = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === SLEDS.indexOf(s) && o.cost).length, 0);
       const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opens ? ` · opens ${opens} more parts in the shop` : ""}`
         : !owned && opens ? `\nOpens ${opens} more parts in the shop` : "";
-      tryOn(row(s.name, `${spec}${ask}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
+      const perk = s.perk ? `\n<span style="color:#9fd8a8">${s.perk}</span>` : "";
+      tryOn(row(s.name, `${spec}${ask}${perk}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
         on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
     });
     const note = document.createElement("div"); note.className = "bfoot";

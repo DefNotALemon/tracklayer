@@ -48,6 +48,9 @@ Pings on the dash (with a banner when the tablet's down) tell you when something
 The garage (**T**) sells nine sleds, 1970 to 2029. Each newer one needs a number of deliveries and its
 price; a locked sled's card says both (and how many you've made), plus how many shop parts it opens up.
 Parts the shop won't fit yet are marked with the sled they need (**Woodsman+**, **Ranger+**, …).
+The Trekker 550 Tour isn't a faster Summit, it's the long-haul sled: its touring kit is built in (heated grips and
+seat behind a tall shield, +2.5 warmth; a rack that carries a second parcel; a frugal tune that burns 10% less, so
+its 30 L go about 40% further than the Summit's tank). Built-in kit stacks with the parts you fit, and the card says so.
 The screen sits in the world's light: it goes through the same tone curve and fog as everything else, picks up a
 cast from the sky (warm at sunset, blue in polar night, green under a strong aurora) and turns itself down in the
 dark. It rides on a short stalk off the hood, on the rider's side of the steering column; the column rakes forward
