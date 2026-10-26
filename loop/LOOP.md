@@ -104,10 +104,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3 (follow-up to v69): from ~1.2 km the guide beacon is a hard constant-width hairline from the roofline to
-      the top of the frame, day and night (report 0012 F1, `g3_beacon.mjs` night_1200/day_1200); 120/350 m look
-      right. The column is only a few px wide there, so the silhouette fade has no room: fade `beaconMat` alpha
-      with camera distance (and/or shorten the visible top) past ~600 m; measure half-max width/peak at more ranges.
 - [ ] G3: Daylight slice 4 (v67 gave the near 45 m of fresh snow wind relief): past the snow patch the far
       terrain is still a white wash (backcountry local contrast 2.7–2.8 vs quay 4.4): give the far terrain material
       some of the same drift shading at a coarser scale, a touch more daytime saturation, sun glow in the sky away
@@ -136,5 +132,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       should join up; measure a door-to-door walk with `g1_yards.mjs`.
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
+- [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
+      far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
 Last triaged report: 12

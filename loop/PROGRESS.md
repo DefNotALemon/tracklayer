@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 03:55 — Far beacons shrink to a soft glow (G3) — 796dc3b
+Report 0012 F1: from 0.7–1.2 km the guide beacon was a hard hairline from the roofline to the top of the frame (too few
+px wide for v69's silhouette fade). `beaconMat` now passes the camera's ground distance to the pillar (vBD) and blends
+by `smoothstep(300, 1100)`: the top fade moves from 450–1000 m of height down to 30–280 m, the foot falloff steepens a
+little and strength drops to 0.85×. Inside 300 m nothing changes. `g3_beacon.mjs` now also shoots 700 m. Before → after
+(top of pillar in the 1280×720 frame, contrast-boosted strips b14/strip.jpg): 700 m night ran to the HUD at y≈60 → fades
+out by y≈130; 700 m day full-height hard line → soft taper fading toward the top; 1200 m day (foot behind a hill) a
+faint line at the top of the sky +33 luma at y120 → +11 (gone). 120/350 m unchanged (vision on b14/crop.jpg; row stats
+there are dominated by toasts/HUD). smoke.mjs exit 0, page errors none (powder 1.44, trench 2.18, 6 s ride 65.5 mph).
+README tablet paragraph; v71. No new reports to triage (last 12). Next: daylight slice 4 (far terrain contrast).
+
 ## 2026-10-26 03:45 — Rig gates say what you're missing (G2) — d1a31b7
 Rank 3 told a Frontier rider "You'll want a groomer" and the groom card said "the garage sells them", but the groomer
 (and the trailer at rank 5) fit only the Woodsman and newer and need a $150 receiver. New hoisted `rigNeed(id)` (tier
