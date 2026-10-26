@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 04:45 — Far snow gets wind-drift shading (G3) — 76a94ea
+Triage 0014 (verify v72: holds, no action) and 0015 (F1 wall-stall: fixed by v73 after the report was cut; F2 yard
+approaches walk 2.44–2.52 m/s even from pack 0.31 → narrowed the plowed-lanes item to low/looks-only; F3 badge already
+on the backlog; F4 info). Built daylight slice 4: past the 50 m snow patch the far terrain was a flat white wash.
+`buildFar`'s fragment shader now tilts the per-pixel normal by a coarse wind-drift field (≈90 m swells, ≈30 m
+elongated drift ridges along a wandering NW wind, ≈10 m ripples inside 450 m) on snow-covered fell only (not lakes, sea,
+rock, bare spring ground), fading out 1.6–3.2 km, and tints the lee sides a faint cold blue. Shading only. Tuned in 3
+steps by stills: ×1.6 invisible, ×9 made sunlit oval blobs on the hills facing the low sun, ×6 with weaker swells and
+longer ridges reads as drift streaks. `g3_day.mjs`, terrain-band crop (260–1020 × 240–470) local contrast: 05 backcountry
+**2.45 → 3.22** (std 10.97 → 11.8), 02 toward the sun **4.64 → 5.59**; whole-frame stats within run noise (toasts).
+Vision: 02 hills behind the village now show long sunlit drift streaks, 0700 beacon view the far slope across the lake
+gets drift bands; no seam at the patch edge, no grid; night stills (g3_beacon) unchanged/natural. smoke.mjs exit 0,
+page errors none (powder 1.44, trench 2.19, 6 s ride 65.4 mph). README daylight paragraph; v74. Stills
+`~/.hermes/cache/scratch/tlloop/b17/` (c02.jpg, c1200.jpg, nightsheet.jpg). Next: daylight slice 5 (saturation, sky glow).
+
 ## 2026-10-26 04:25 — Walls slide you along instead of wedging you (G1) — 3567c2b
 No new reports (last 13). Took the wall-stall item over daylight slice 4: G1 had no landing since v64 and it's
 friction a player hits at every door. Cause: house walls are a grid of r 1.35 discs 1.9 m apart, so the walker's

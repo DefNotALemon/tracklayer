@@ -104,10 +104,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 4 (v67 gave the near 45 m of fresh snow wind relief): past the snow patch the far
-      terrain is still a white wash (backcountry local contrast 2.7–2.8 vs quay 4.4): give the far terrain material
-      some of the same drift shading at a coarser scale, a touch more daytime saturation, sun glow in the sky away
-      from the sun. Measure with `g3_day.mjs` (now really 1.5 km out on open fell) + `imgstats.py`.
+- [ ] G3: Daylight slice 5 (v74 gave the far terrain drift shading): a touch more daytime saturation (backcountry
+      sat 20–24 vs quay 37) and sun glow in the sky away from the sun. With the sun behind the camera the far drifts
+      stay faint (05 local 2.45 → 3.2): if still flat, a little sky-tinted albedo variation on the far snow. Measure
+      with `g3_day.mjs` + `imgstats.py`, crop the terrain band (HUD/toasts skew whole-frame stats).
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
@@ -128,12 +128,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
       vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
       rerun `g1_wallslide.mjs` pointed at one.
-- [ ] G1 (follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road
-      (only discs round each building and the depot→quay lane are plowed now), and whether village yards
-      should join up; measure a door-to-door walk with `g1_yards.mjs`.
+- [ ] G1 (low, follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road.
+      Report 0015 F2: approaches from 12 m walk at 2.44–2.52 m/s even from pack 0.31, so this is packed-snow
+      continuity/looks, not a speed fix; don't over-invest.
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 13
+Last triaged report: 15
