@@ -4826,7 +4826,7 @@ function makeContracts(from) {
     C.push({ groom: true, dest: d, cargo: `Groom the ${d.name.replace(/ (herder cabin|wind farm|lighthouse)$/, "")} trail`, pay: round5(140 + dist * 0.22 + climb * 0.6), due: GS.hour + est * 3.2 / GAMEHOUR, need: "groomer" });
     // a second line once you're known on the trails
     if (lvl >= 8 && cabins[4]) { const d2 = cabins[4], q = jobGeom(d2, from); C.push({ groom: true, dest: d2, cargo: `Groom the ${shortName(d2)} trail`, pay: round5(140 + q.dist * 0.22 + q.climb * 0.6), due: GS.hour + q.est * 3.2 / GAMEHOUR, need: "groomer" }); }
-  } else C.push({ locked: "Grooming contracts", sub: lvl >= 3 ? "Every cabin trail has melted out. Back when it freezes." : `Trail crew work — ${RANKS[1].at} deliveries and a groomer on the hitch` });
+  } else C.push({ locked: "Grooming contracts", sub: lvl >= 3 ? "Every cabin trail has melted out. Back when it freezes." : `Trail crew work — ${RANKS[1].at} deliveries and a groomer on the hitch (${genLock(partDef("hitch", "groomer").tier)} sleds)` });
   // heavy freight: one or two on the trailer
   if (lvl >= 5) {
     const n = lvl >= 9 ? 2 : 1, menu = HEAVY.filter(x => x.lvl <= lvl).sort(() => Math.random() - 0.5);
@@ -4839,7 +4839,7 @@ function makeContracts(from) {
       const pay = round5((120 + dist * 0.3 + climb * 1.2) * h.mul * (urgent ? 1.35 : 1));
       C.push({ big: true, bays: 1, from: f, dest: d, cargo: h.cargo, kg: h.kg, fragile: h.fragile, look: h.look, pay, bond: round5(pay * 0.15), due: urgent ? GS.hour + (jobGeom(f, { x: P.x, z: P.z, y: groundAt(P.x, P.z) }).est + est) * 2.2 / GAMEHOUR : null, need: "trailer" });
     }
-  } else C.push({ locked: "Heavy freight", sub: `Appliances, generators, solar kits — ${RANKS[2].at} deliveries and a trailer` });
+  } else C.push({ locked: "Heavy freight", sub: `Appliances, generators, solar kits — ${RANKS[2].at} deliveries and a trailer (${genLock(partDef("hitch", "trailer").tier)} sleds)` });
   // priority: someone's in trouble, tonight
   if (lvl >= 12 && !cabins[3]) C.push({ locked: "Priority runs", sub: "Nobody's cut off: you can't get a sled out to the cabins in this melt." });
   else if (lvl >= 12) {
@@ -4933,6 +4933,27 @@ function acceptJob(k) {
   TABLET.refresh(); applyLoadout(); save();
 }
 const HITCH_NAME = { groomer: "a groomer drag", tiller: "a wing tiller", trailer: "a freight trailer", flatbed: "the heavy flatbed", akja: "the rescue toboggan" };
+/* What still stands between you and towing rig `id`, in one or two sentences, for the board cards, the accept
+   toasts and the rank-up toast. The rigs are sled-tier parts (groomer/trailer fit the Woodsman and newer) and
+   hook to a receiver, so "the garage sells them" alone sent rank-3 Frontier riders to a shop that wouldn't sell.
+   "" when it's already on the hitch. Hoisted: the rank toast and contract cards can call it any time. */
+function rigNeed(id) {
+  const o = partDef("hitch", id), own = GS.own;
+  if (own.parts.hitch === id) return "";
+  const out = [];
+  if (!own.partsOwned[ownKey("hitch", id)]) {
+    if (sledTier() < o.tier) out.push(`The ${o.name.toLowerCase()} ($${o.cost}) ${genWhy(o.tier).replace(/^Fits/, "fits")}.`);
+    else out.push(`The garage across the road sells ${HITCH_NAME[id] || "one"} ($${o.cost}).`);
+  } else out.push(`Yours is at the garage: hitch it on there (Parts).`);
+  if (!recvOk(id)) { const r = partDef("recv", HEAVY_RIG[id] ? "heavy" : "ball"); out.push(`It hooks to ${recvNeed(id)} ($${r.cost}).`); }
+  return out.join(" ");
+}
+// rank-up text: what the rank opens, plus what you still need for it on the machine you ride now
+function rankOpens(r) {
+  const rig = r.at === RANKS[1].at ? "groomer" : r.at === RANKS[2].at ? "trailer" : null;
+  if (!rig || (rig === "groomer" ? isGroomer(GS.own.parts.hitch) : GS.own.parts.hitch === "trailer" || GS.own.parts.hitch === "flatbed")) return r.opens || "";
+  return `${r.opens.replace(/ (You'll want a groomer on the hitch|Needs a trailer)\.$/, "")} ${rigNeed(rig)}`;
+}
 function acceptContract(k) {
   const c = GS.contracts && GS.contracts[k]; if (!c || c.locked) return;
   if (c.tour) { acceptTour(c); return; }
@@ -4943,7 +4964,7 @@ function acceptContract(k) {
   }
   const hitch = GS.own.parts.hitch;
   if (c.groom) {
-    if (!isGroomer(hitch)) { toast("That's grooming work. Nordkinn Skuter & Service sells a groomer drag for the hitch.", "warn"); return; }
+    if (!isGroomer(hitch)) { toast(`That's grooming work: it needs a groomer on the hitch. ${rigNeed("groomer")}`, "warn"); return; }
     if (GS.groomJob) { toast("Finish the line you're grooming first.", "warn"); return; }
     c.pts = groomLine(depot, c.dest); GS.groomJob = c; GS.contracts.splice(k, 1);
     toast(`Groom the line to ${c.dest.name}. The dots on the map are the stretches still to do.`);
@@ -4951,7 +4972,7 @@ function acceptContract(k) {
   }
   if (!licensed("freight")) { toast("Trailer freight needs a Freight licence. The Freight app signs you up for school.", "warn"); return; }
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
-  if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`, "warn"); return; }
+  if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`, "warn"); return; }
   if (baysUsed() + c.bays > ST.bays) { toast(ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded.", "warn"); return; }
   if (GS.cash < c.bond) { toast(`The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= c.bond; c.cond = 100; c.hits = 0; GS.load.push(c); GS.contracts.splice(k, 1);
@@ -4994,7 +5015,7 @@ function finishGroom(site) {
 function bumpDelivered() {
   const before = rankOf(GS.delivered); GS.delivered++;
   const after = rankOf(GS.delivered);
-  if (after !== before) { GS.contracts = null; setTimeout(() => toast(`New rank: ${after.name}. ${after.opens || ""}`, "good"), 2600); }
+  if (after !== before) { GS.contracts = null; setTimeout(() => toast(`New rank: ${after.name}. ${rankOpens(after)}`, "good"), 2600); }
 }
 
 function applyUpg() { restat(); }
@@ -6055,11 +6076,11 @@ function contractBlock(c) {
   const hitch = GS.own.parts.hitch;
   if (c.tour) return GS.tour || GS.claims.some(x => x.tour) ? "You've already got tourists booked." : "";
   if (c.rescue) return ST.winch < c.needTier ? `Needs a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. The garage across the road sells them.` : GS.rescueJob || SAR.cur ? "Finish the call you're on first." : "";
-  if (c.groom) return !isGroomer(hitch) ? "That's grooming work. You need a groomer drag on the hitch: the garage sells them." : GS.groomJob ? "Finish the line you're grooming first." : "";
+  if (c.groom) return !isGroomer(hitch) ? `That's grooming work: it needs a groomer on the hitch. ${rigNeed("groomer")}` : GS.groomJob ? "Finish the line you're grooming first." : "";
   if (c.big && !licensed("freight")) return "Needs your Freight licence. Sign up for Freight school above.";
   if (SCHOOL.on) return "Finish (or quit) the course first.";
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
-  if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. The garage across the road sells them.`;
+  if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`;
   if (baysUsed() + claimBays() + c.bays > ST.bays) return ST.bays > 1 ? "The flatbed's full (or spoken for)." : "The trailer's already loaded (or spoken for).";
   if (GS.cash < c.bond) return `The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`;
   return "";

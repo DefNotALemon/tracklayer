@@ -228,6 +228,11 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 | Priority courier | 12 | Emergency runs to villages in trouble: about double pay, a tight clock, a 25% bond |
 | Expedition hauler | 20 | Slettnes lighthouse loads on the flatbed: batteries, turbine, standby generator |
 
+The groomer drag and the freight trailer fit the Woodsman 440 and newer and hook to a hitch
+receiver, so the first two ranks can arrive before your sled can tow their work. The rank-up
+message and the locked contract cards say exactly what's still missing (sled, rig, receiver,
+with prices), and once it's all bought they just point you to the garage to hitch it on.
+
 Big loads pay by condition. Hits, snags and rollovers wear it down, and below 30% the
 village refuses it. The bond is paid up front and refunded on delivery. You lose it if the
 load is refused, if a priority run is late, or if you black out.
