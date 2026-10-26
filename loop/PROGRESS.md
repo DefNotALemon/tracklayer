@@ -7,6 +7,24 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:05 — Clean-air runs: first work the Aurora E opens (G2) — 596deae
+Triage 0026 (verify v85: reproduces; F2 tow test: Summit hauls 500 kg up a 0.38 grade at 33 mph vs Apex 42, never
+bogs → gates are insurance rules, noted on the late-ladder polish item, the "untested" line dropped; F3/F5/F6 info,
+dropped; F4 no flatbed in side stills → new low playtest item, unconfirmed). Took the top item (late ladder) as
+slice 3. New rank "Clean-air courier" at 60 (`RANKS[7]`) and a `CLEAN_AIR` contract in `makeContracts`: NILU
+instruments (soot sampler, ozone monitor, balloon hut, battery bank; 110–220 kg, trailer bays 1) from the quay to an
+open site ≥ 4 km out (relay, Skjånes, Gamvik, Ifjord, Risfjord), pay `(3200 + dist + climb·12) × 1.2/1.3`. Gate
+`cleanBlock()` = `sledDef().plug` (zero exhaust at the stations), in `contractBlock` + `acceptContract`; CLEAN AIR chip
+(`.bchip.clean`); locked card from 46; Aurora garage card work line; Freight app note; accept toast. The 5 km map
+makes "range" a weak hook on its own, so the gate is the exhaust rule; the plug-in charging is the flavour.
+New `scenarios/g2_cleanair.mjs` (before = origin/main via TL_SRC): kinds at 60/75 **…+tonne → …+tonne+clean**; clean
+avg **$10,222 / $10,378** [8,665–11,675] (tonne 9.8k, fell 5.7k); dests spread over all 5 far sites; gate @62 with
+trailer: Apex/Matriarch blocked with the NILU line, Aurora OK (before: no such job); Aurora card @50 before: price
+only, after: + clean-air line; locked @50 before: none, after: "Clean-air runs — 60 deliveries and the Aurora E".
+Still b30/after/02: CLEAN AIR card (soot sampler → Ifjord, $9,390) lays out cleanly, chip readable. smoke exit 0,
+page errors none (powder 1.53, trench 2.25, 6 s ride 66.7 mph). README ranks table; v87.
+Next: late ladder is done (polish items left low); top is now G3 daylight slice 8.
+
 ## 2026-10-26 07:00 — Tonne loads: first work the Matriarch opens (G2) — f580af1
 Triage 0025 (verify v84: lane numbers reproduce to the decimal; F2 lot6/church gaps → merged into the lanes
 follow-up; F3/F4 info, dropped). Took the top item (late ladder, high) as slice 2. New rank "Fell master" at 46

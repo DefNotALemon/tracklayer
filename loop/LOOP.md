@@ -92,7 +92,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | no parts; since v85 the only class insured for fell freight (rank 32, $3.9–7.6k avg $5.6k) |
 | Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | no parts; since v86 the only sled rated for tonne loads (rank 46, 920–1,050 kg, $9.6–10.4k avg $9.9k) |
-| Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing; since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
+| Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | since v87 the only sled let on NILU clean-air runs (rank 60, quay → 4–5 km out, 110–220 kg trailer, $8.7–11.7k avg $10.2k); since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
 
 Ranks/contracts (pay = average offered): 3 deliveries grooming ~$900 (needs groomer $700 + receiver $150, both
 Woodsman-tier, so really opens at 4); 5 heavy freight ~$1500 (trailer $900 + Freight licence); 12 priority
@@ -105,14 +105,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2 (high): Late ladder, slice 3 (slice 1 v85: rank "Fell hauler" at 32 posts fell freight, $3.9–7.6k,
-      Apex 800+ only; slice 2 v86: rank "Fell master" at 46 posts tonne loads 920–1,050 kg to the wind farm,
-      $9.6–10.4k, Matriarch only; both cards say so; `scenarios/g2_fell.mjs`). Still open: Aurora (60) opens
-      nothing beyond plug-in charging; idea: long electric-range work (a far relay/Slettnes-and-back run that only
-      its 40 L-eq range makes without a fuel stop), said on its card.
-      Also untested: whether a Summit/Apex physically can/can't drag 500 kg / 1 t up to Gartefjellet (433 m climb)
-      vs a Matriarch; measure with a tow run before claiming the gates in physics terms (today they're insurance rules).
-      Low: tonne cards wear the FELL chip; a TONNE chip colour would read better.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -123,6 +115,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Still open: the 45–150 m band (far `fdH` near term) and global std (40); maybe a mid-scale (2–4 m) dune term.
       Report 0023 F2: `g3_day` 05 local contrast varies 2.97–3.15 run to run (backcountry spot not pinned); pin
       the search start before trusting a <0.2 change.
+- [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
+      `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
+      Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
+      vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
+- [ ] G2 (low, playtest): report 0026 F4: with `TOW.kind/mass` set directly, no flatbed/cargo showed behind the sled
+      in side stills. Recheck via `acceptContract` + strap-down with the camera framed on the hitch before fixing.
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
@@ -142,4 +140,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 25
+Last triaged report: 26
