@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 13:25 — Snowshoes from the recovery kit (G1) — 3827a0b
+Triage 0049 (v111 door turn 0.58 s with the real camera, stick ramp scales with deflection: not twitchy) and 0050 (v112
+slide eases out on walk-away and holds through a turn): both clean, matching halves of the two follow-up items closed
+(narrow-gap camera and powder-vs-pack pivot left as small items). Top G3 daylight item is diminishing returns (b55), the rest
+are playtest/harness items, so took an untouched G1 direction from the goals: snowshoes as a cheap item. The garage's
+$120 "Shovel, strap & snowshoes" kit (tier 0) already named them; now buying it once (`partsOwned["recovery:kit"]`) puts
+them on every non-ski Q off (`FOOT.shoe`, `shoesOwn`, `footWade`): powder wade 0.57 → 0.78 of hard-pack pace, deep-snow drag
+0.25 → 0.08, sink ×0.4, depth strain halved; pack 1 unchanged; cleared after a crash. Oval frame + deck + tail mesh under
+each boot (`shoeMesh`), one-time toast, Parts card note. New `scenarios/g1_snowshoe.mjs` (same spot type, with/without):
+powder 30 m **19.8 → 14.2 game-s** (1.52 → 2.11 m/s), sink 0.29 → 0.12, trench 2.32 → 2.59; no-kit run identical before/
+after (1.49, 2.37). Vision (b57/after.jpg + feet crop): grey oval frames under both boots, no clipping/floating; dark deck
+barely shows. smoke exit 0, page errors none (powder 1.54, trench 2.24, 66.8 mph). README on-foot para; v113. Next:
+playtest snowshoes on slopes/at night/new-player discoverability (new item); G2 hand-paced first-5-min.
+
 ## 2026-10-26 13:15 — Over-the-shoulder view on foot with a wall behind you (G3/G1) — 0d66edf
 No new reports (last triaged 48). Took the v110 follow-up: with a house right behind you the chase camera sits ~0.6 m back
 and the helmet filled the middle of the screen (vision on b56/before.jpg: 6/6 frames mostly helmet). Now, on foot only,

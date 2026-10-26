@@ -32,6 +32,8 @@ Since v96 (g1_jog.mjs): Shift jog. 20 m powder 1.48 → **1.79 m/s**, trench 2.3
 blown after 17 s / 58 m, then walks ~2.1 until breath is back (30 s: 85 m vs 71 walking).
 Since v111 (g1_turn.mjs): held A/D pivot ramps 2.2 → 3.6 rad/s over 0.12–0.45 s: 180° on the spot **1.45 → 0.99 s**,
 facing a door 90° off while walking 0.72 → 0.54 s; a 70 ms tap still ~8.4°.
+Since v113 (g1_snowshoe.mjs): the $120 recovery kit's snowshoes: powder 30 m **19.8 → 14.2 s** (1.52 → 2.11 m/s), sink
+0.29 → 0.12 m, trench 2.32 → 2.59; hard pack unchanged (footWade(…, pack 1) = 1).
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -198,12 +200,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
-- [ ] G3/G1 (low, playtest, follow-up to v112 shoulder slide): `g3_camshoulder.mjs` covers standing still at doors. Unchecked:
-      walking away from a door (does the slide ease out smoothly as the camera backs off, no swing?), turning on the spot
-      at a door with the slide on, and narrow gaps between two houses (second camWallClip on the slid spot).
-- [ ] G1 (low, follow-up to v111 turn ramp): pivot is the same in deep powder and on hard pack; a playtest should say
-      whether turning on the spot feels right at a door with the camera following (stills of a 90° turn at a K.house
-      door), and whether gamepad/touch stick steering (same ramp, |turn| > 0.1) feels twitchy.
+- [ ] G1 (playtest, follow-up to v113 snowshoes): `g1_snowshoe.mjs` covers flat powder. Unchecked: snowshoes on a slope
+      (`g1_slope.mjs` with the kit), at night, with a crash (crashGetUp clears FOOT.shoe: you walk back un-shod, intended),
+      and whether a new player finds them (garage Parts card note; first-Q-off toast). Also judge the shoe mesh from the
+      chase camera at walking pace (b57 stills: grey oval rims read, dark deck barely shows).
+- [ ] G3/G1 (low, playtest, follow-up to v112 shoulder slide): walk-away + turn-on-spot verified clean (report 0050).
+      Still unchecked: narrow gaps between two houses (second camWallClip on the slid spot).
+- [ ] G1 (low, follow-up to v111 turn ramp): door turn + stick twitch verified clean (report 0049). Left: pivot is the same
+      in deep powder and on hard pack; judge whether that feels right.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
@@ -222,4 +226,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 48
+Last triaged report: 50
