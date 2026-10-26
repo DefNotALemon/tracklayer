@@ -7,6 +7,15 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 04:00 — Rank-up nag gone once the rig is hitched (G2) — 7fb1d8a
+Triage 0013: F1 real bug in v70 — `rankOpens()` returned the raw `RANKS[].opens` (still ending "You'll want a groomer on
+the hitch.") when the rig was already fitted, so a rider who had just hitched a groomer was told to go get one. Took it
+ahead of daylight slice 4 (small, a just-landed feature telling the player something false). Now the canned nag is always
+stripped and `rigNeed()` appended only when something's missing. `g2_rig_wording.mjs` state "Woodsman + receiver +
+groomer fitted": rank3 "Grooming contracts are on the board. You'll want a groomer on the hitch." → "Grooming contracts
+are on the board."; other 6 states unchanged. F2 (rest of v70 checks out): no action. smoke.mjs exit 0, page errors none
+(powder 1.48, trench 2.18, 6 s ride 65.4 mph). Text-only, no README change; v72. Next: daylight slice 4.
+
 ## 2026-10-26 03:55 — Far beacons shrink to a soft glow (G3) — 796dc3b
 Report 0012 F1: from 0.7–1.2 km the guide beacon was a hard hairline from the roofline to the top of the frame (too few
 px wide for v69's silhouette fade). `beaconMat` now passes the camera's ground distance to the pillar (vBD) and blends

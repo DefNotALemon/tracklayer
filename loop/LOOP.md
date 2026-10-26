@@ -135,4 +135,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 12
+Last triaged report: 13
