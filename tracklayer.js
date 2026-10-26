@@ -4676,7 +4676,14 @@ function updSky() {
   // by day the fill is held back ~30% so sunlit and shaded sides separate (it was lighting everything evenly)
   const sunK = sstep(-1.5, 4, e) * (1 - st);
   hemi.intensity = keyAt(SKYK, e, 7) * (1 - 0.3 * sunK) + 0.1 * illum * moonUp * night * (1 - st) + 0.42 * ak;
-  keyAt(SKYK, e, 6, hemi.color).lerp(C_AUR, 0.15 * sstep(0.1, 0.5, aur) + 0.55 * ak);
+  keyAt(SKYK, e, 6, hemi.color);
+  // On a clear day the fill off a dry arctic sky is properly blue: its colour is pushed ~2.8x further from grey at the
+  // same luminance (then scaled back under 1 with its hue kept), so snow in shade and facing away from the sun reads
+  // cold blue against the warm sunlit faces instead of one beige-grey. Overcast/storm fill stays neutral (clr → 0).
+  { const c = hemi.color, L = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b, k = 1 + 1.8 * clr;
+    const r = Math.max(0, L + (c.r - L) * k), g = Math.max(0, L + (c.g - L) * k), b = Math.max(0, L + (c.b - L) * k), m = Math.max(1, r, g, b);
+    c.setRGB(r / m, g / m, b / m); }
+  hemi.color.lerp(C_AUR, 0.15 * sstep(0.1, 0.5, aur) + 0.55 * ak);
   hemi.groundColor.setRGB(lerp(0.34, 0.91 - 0.1 * sunK, dayness), lerp(0.40, 0.93 - 0.08 * sunK, dayness), lerp(0.55, 0.96 - 0.03 * sunK, dayness)).lerp(C_AURG, 0.45 * ak);
   renderer.toneMappingExposure = lerp(0.95, 1.05, dayness) + 0.06 * ak;
   stars.material.uniforms.uOp.value = night * (1 - st) * (0.95 - 0.35 * illum * moonUp); stars.position.copy(camera.position);
