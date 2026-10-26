@@ -4982,7 +4982,16 @@ function buildStations() {
     const bx = (w, h, d, m, x, y, z) => KIT.bx(g, w, h, d, m, x, y, z);
     bx(24, 1.0, 15, slab, 0, -0.3, 0);                                   // the forecourt, swept; thick so a sloping site doesn't leave a gap
     // the canopy: white roof with a red rim and snow on it, four posts, a light panel underneath
-    for (const px of [-3.8, 7.8]) for (const pz of [-4.2, 4.2]) { bx(0.4, 4.4, 0.4, white, px, 2.4, pz); ob(px, pz, 0.45); }
+    // small hardware (post feet and hazard bands, pump kick plates, holsters, nozzles, bollards) is collected per
+    // material and merged into one mesh each at the end, so the detail costs a handful of draw calls per station
+    const det = { conc: [], steel: [], dark: [], white: [], amber: [] };
+    for (const px of [-3.8, 7.8]) for (const pz of [-4.2, 4.2]) {
+      bx(0.4, 4.4, 0.4, white, px, 2.4, pz); ob(px, pz, 0.45);
+      det.conc.push([0.64, 0.6, 0.64, px, 0.45, pz]);                                      // a concrete crash foot
+      det.amber.push([0.44, 0.14, 0.44, px, 1.05, pz], [0.44, 0.14, 0.44, px, 1.35, pz]);   // hazard bands at bumper height
+      det.dark.push([0.43, 0.16, 0.43, px, 1.2, pz]);
+      det.steel.push([0.46, 0.12, 0.46, px, 4.32, pz]);                                    // the steel collar under the canopy
+    }
     bx(12.6, 0.35, 10.2, white, 2, 4.78, 0); bx(12.8, 0.24, 10.4, redM, 2, 4.56, 0); bx(12.5, 0.28, 10.1, snowM, 2, 5.1, 0);
     bx(10.4, 0.05, 6.6, lightM, 2, 4.35, 0);
     // the forecourt is kept plowed, and after dark the canopy lights throw a warm pool on it (stationPool, faded in by houseWinTick)
@@ -4997,12 +5006,24 @@ function buildStations() {
     bx(8.6, 0.25, 1.7, L(0x8c9399), 2, 0.32, 0);
     for (const px of [-0.4, 4.4]) {
       bx(0.9, 1.7, 0.7, redM, px, 1.3, 0); bx(0.98, 0.16, 0.78, white, px, 2.2, 0);
+      det.steel.push([0.98, 0.32, 0.78, px, 0.6, 0]);                  // brushed-steel kick plate along the foot
+      det.white.push([0.93, 0.07, 0.73, px, 1.42, 0]);                 // a white brand stripe under the readouts
       for (const sd of [-1, 1]) {
-        KIT.put(g, dispGeo, disp, px, 1.75, sd * 0.37); bx(0.14, 0.55, 0.14, dark, px + 0.62, 1.2, sd * 0.2);
-        const hose = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.03, 5, 8, Math.PI), dark); hose.position.set(px + 0.34, 0.72, sd * 0.4); hose.rotation.z = Math.PI; g.add(hose);
+        KIT.put(g, dispGeo, disp, px, 1.75, sd * 0.37);
+        // on each face, below the readout: a black holster with the nozzle hung in it, its hose looping down into the
+        // pump (the old holster was a free-standing post beside the pump, not touching it)
+        det.steel.push([0.2, 0.24, 0.06, px + 0.25, 1.14, sd * 0.38]);   // holster cup
+        det.dark.push([0.07, 0.24, 0.07, px + 0.16, 1.21, sd * 0.43, 0.15],   // nozzle grip hanging in front of it
+          [0.15, 0.045, 0.045, px + 0.23, 1.3, sd * 0.43, -0.53],          // spout, angled down into the cup
+          [0.1, 0.1, 0.05, px - 0.24, 1.09, sd * 0.38]);                   // the hose's grommet in the body
+        const hose = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 5, 10, Math.PI), dark); hose.position.set(px - 0.04, 1.09, sd * 0.425); hose.rotation.z = Math.PI; g.add(hose);
       }
       ob(px, 0, 0.85);
     }
+    // steel bollards guarding the island's two ends, with an amber band
+    for (const bxp of [-2.05, 6.05]) for (const bz of [-0.55, 0.55]) det.steel.push([0.16, 0.85, 0.16, bxp, 0.85, bz]), det.amber.push([0.17, 0.12, 0.17, bxp, 1.05, bz]);
+    const DM = { conc: KIT.concrete, steel: L(0x737b83), dark, white, amber };
+    for (const k in det) KIT.put(g, mergeBoxes(det[k]), DM[k], 0, 0, 0);
     // the price pylon on the side the traffic comes from: the same panel facing both ways
     const sign = signMat(fuelSignTex(t.fuelPrice), 0.55);   // a backlit price panel
     bx(0.3, 6.4, 0.3, navy, 10.6, 3.4, 6.2); bx(0.2, 2.2, 2.4, [sign, sign, amber, amber, amber, amber], 10.6, 6.6, 6.2); ob(10.6, 6.2, 0.4);
