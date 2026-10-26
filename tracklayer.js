@@ -9887,9 +9887,12 @@ function updGame(dt, spd) {
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
   { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
-  if (near === depot || near === garageSite) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
+  // The quay and the garage top you up free; while you're there the low warning stays quiet (it used to re-fire
+  // every frame until the tank passed 20%) and re-arms so it can warn once more if you leave still low.
+  const freeFill = near === depot || near === garageSite;
+  if (freeFill) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   fuelStep(dt, spd);
-  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
+  if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !freeFill && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
   if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   schoolTick(dt, spd);
   sarTick(dt, spd);

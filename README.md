@@ -179,7 +179,9 @@ countdown, the piece count and the value are on the minimap (the ring round the 
 clock) and in the Map app's corner. It's the mail, not the jobs, that brings you back to town.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
-and the Red Cross sled drags you home, minus the cargo and a fee.
+and the Red Cross sled drags you home, minus the cargo and a fee. Under a fifth of a tank you get
+one "Fuel low" (or "Battery low") warning naming the nearest pump or plug; the quay and the garage
+top you up free and stay quiet about it.
 Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress saves in your browser.
 
 ## The calendar, the dark and the weather
