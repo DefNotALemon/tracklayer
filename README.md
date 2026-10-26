@@ -45,6 +45,9 @@ claim it, and it loads when you stop at its **P**. Your first six deliveries are
 up at the quay. After that the work comes to you: every drop-off posts parcels from wherever you
 are, mostly short hops to places within a few kilometres plus a long haul or two across the map.
 Pings on the dash (with a banner when the tablet's down) tell you when something comes up.
+The garage (**T**) sells nine sleds, 1970 to 2029. Each newer one needs a number of deliveries and its
+price; a locked sled's card says both (and how many you've made), plus how many shop parts it opens up.
+Parts the shop won't fit yet are marked with the sled they need (**Woodsman+**, **Ranger+**, …).
 The screen sits in the world's light: it goes through the same tone curve and fog as everything else, picks up a
 cast from the sky (warm at sunset, blue in polar night, green under a strong aurora) and turns itself down in the
 dark. It rides on a short stalk off the hood, on the rider's side of the steering column; the column rakes forward

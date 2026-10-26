@@ -7583,6 +7583,14 @@ function shelfSell(i) {
 }
 const burnTxt = b => b < 0.97 ? `${Math.round((1 - b) * 100)}% thriftier` : b > 1.03 ? `${Math.round((b - 1) * 100)}% thirstier` : "average thirst";
 const sledTier = () => SLEDS.indexOf(sledDef());
+// A part's `tier` is the SLEDS index it needs. Locked parts name that sled (button "Woodsman+", and a line
+// saying what it takes to get it) instead of an abstract "Gen 2+" the player can't map to anything.
+function genLock(tier) { const s = SLEDS[tier]; return s ? s.name.split(" ")[0] + "+" : `Gen ${tier + 1}+`; }
+function genWhy(tier) {
+  const s = SLEDS[tier]; if (!s) return "";
+  const got = GS.own.sleds.some(id => SLEDS.findIndex(x => x.id === id) >= tier);
+  return got ? `Fits the ${s.name} and newer: switch sleds on the Sleds tab` : `Fits the ${s.name} and newer (${s.need} deliveries, $${s.cost})`;
+}
 buildMachines();
 const partDef = (cat, id) => PARTS[cat].options.find(o => o.id === id) || PARTS[cat].options[0];
 const gearDef = (slot, id) => GEAR[slot].options.find(o => o.id === id) || GEAR[slot].options[0];
@@ -7633,7 +7641,7 @@ function fitPart(cat, id) {
   if (cat === "hitch" && id !== "none" && !recvOk(id)) { toast(`The ${o.name.toLowerCase()} needs ${recvNeed(id)} first (Hitch receiver, above).`, "warn"); return; }
   if (cat === "recv" && !recvOk(GS.own.parts.hitch, { parts: Object.assign({}, GS.own.parts, { recv: id }) })) { toast(`The ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()} needs ${recvNeed(GS.own.parts.hitch)}. Unhitch it first.`, "warn"); return; }
   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
-  if (!tierOK) { toast(`${o.name} doesn't fit this generation yet.`, "warn"); return; }
+  if (!tierOK) { toast(`${o.name}: ${genWhy(o.tier).replace(/^F/, "f")}.`, "warn"); return; }
   if (o.needLic && !licensed(o.needLic)) { toast(`${o.name}: Nordkinn Redning only sells these to licensed rescue crews.`, "warn"); return; }
   if (o.needRescues && (GS.rescues || 0) < o.needRescues) { toast(`${o.name}: the dealer wants to see ${o.needRescues} rescues first. You have ${GS.rescues || 0}.`, "warn"); return; }
   if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
@@ -7692,7 +7700,10 @@ function renderGarage() {
     SLEDS.forEach(s => {
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
       const spec = `${s.year} · ${Math.round(engineOf(s).pwr * 100)}% power${engineOf(s).stock ? "" : " (swapped)"} · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
-      tryOn(row(s.name, `${spec}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
+      const opens = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === SLEDS.indexOf(s) && o.cost).length, 0);
+      const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opens ? ` · opens ${opens} more parts in the shop` : ""}`
+        : !owned && opens ? `\nOpens ${opens} more parts in the shop` : "";
+      tryOn(row(s.name, `${spec}${ask}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
         on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
     });
     const note = document.createElement("div"); note.className = "bfoot";
@@ -7707,8 +7718,8 @@ function renderGarage() {
       const h = document.createElement("div"); h.className = "bsec"; h.textContent = PARTS[cat].label; body.appendChild(h);
       PARTS[cat].options.forEach(o => {
         const owned = GS.own.partsOwned[ownKey(cat, o.id)] || o.cost === 0, on = GS.own.parts[cat] === o.id, locked = !owned && sledTier() < o.tier;
-        tryOn(row(o.name, [statLine(o), o.note].filter(Boolean).join(" · "),
-          on ? "Fitted" : owned ? "Owned" : locked ? `Gen ${o.tier + 1}+` : o.needLic && !licensed(o.needLic) ? "Rescue licence" : o.needRescues && (GS.rescues || 0) < o.needRescues ? `${o.needRescues} recoveries` : "$" + o.cost,
+        tryOn(row(o.name, [statLine(o), o.note, locked && genWhy(o.tier)].filter(Boolean).join(" · "),
+          on ? "Fitted" : owned ? "Owned" : locked ? genLock(o.tier) : o.needLic && !licensed(o.needLic) ? "Rescue licence" : o.needRescues && (GS.rescues || 0) < o.needRescues ? `${o.needRescues} recoveries` : "$" + o.cost,
           on ? "on" : locked ? "locked" : "", () => fitPart(cat, o.id)), { cat, id: o.id });
       });
     });
@@ -7768,8 +7779,8 @@ function renderEngines(body, row, tryOn) {
   PARTS.boost.options.forEach(o => {
     const owned = GS.own.partsOwned[ownKey("boost", o.id)] || o.cost === 0, on = (GS.own.parts.boost || "none") === o.id;
     const why = boostWhy(sd, o.id), locked = (!owned && sledTier() < o.tier) || !!why;
-    tryOn(row(o.name, [statLine(o), why || o.note].filter(Boolean).join(" · "),
-      on ? "Fitted" : why ? "Won't fit" : owned ? "Owned" : sledTier() < o.tier ? `Gen ${o.tier + 1}+` : "$" + o.cost,
+    tryOn(row(o.name, [statLine(o), why || o.note, !why && !owned && sledTier() < o.tier && genWhy(o.tier)].filter(Boolean).join(" · "),
+      on ? "Fitted" : why ? "Won't fit" : owned ? "Owned" : sledTier() < o.tier ? genLock(o.tier) : "$" + o.cost,
       on ? "on" : locked ? "locked" : "", () => fitPart("boost", o.id)), { cat: "boost", id: o.id });
   });
 }
