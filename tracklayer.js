@@ -4550,7 +4550,7 @@ function houseWinTick(day, st) {
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
   if (stationPool.m) stationPool.m.opacity = 0.6 * n;
   if (lampPools.at && lampPools.at.length) lampPools();
-  if (lampPools.m) lampPools.m.opacity = 0.5 * n;
+  if (lampPools.m) lampPools.m.opacity = 0.65 * n;
   const hm = lampHeadMat.m;
   if (hm) { hm.emissive.copy(lampHeadMat.on).multiplyScalar(n); hm.color.copy(lampHeadMat.off).multiplyScalar(1 - n); }
   const cm = canopyLightMat.m;
@@ -4944,13 +4944,28 @@ function stationPool() {
 }
 // Street lamps (KIT.lamp: villages, sites, schools, the new cabins) throw a warm pool on the snow under them after
 // dark, like the station canopies. K.lamp only queues its spot; the first houseWinTick (after the whole world, its
-// plowed yards and lanes are built) lays every pool as one merged additive mesh: a 13 m disc whose rings follow
+// plowed yards and lanes are built) lays every pool as one merged additive mesh: a 17 m disc whose rings follow
 // the snow surface (surf) 12 cm up, so it hugs berms and plowed lanes instead of floating or sinking. Shares the
 // station pool's radial texture and fog handling; its opacity rides houseWinTick (0 by day).
+// The lamp pool's falloff is a real lamp's: a bare head ~3.9 m over the snow lights the ground as cos³ of the angle
+// off straight down (h² / (h² + r²))^1.5, so it's brightest at the foot of the post and fades out over ~8 m, plus a
+// little scatter tail off the bright snow. (The old flat-topped disc read fainter standing at the post than riding by.)
+var LAMP_POOL_R = 8.5;
+function lampPoolTex() {
+  const N = 256, c = document.createElement("canvas"); c.width = c.height = N; const g = c.getContext("2d"), im = g.createImageData(N, N);
+  const h2 = 3.9 * 3.9, prof = r => Math.pow(h2 / (h2 + r * r), 1.5) + 0.12 * Math.exp(-r / 3);
+  const p0 = prof(0);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const t = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2) / (N / 2), r = t * LAMP_POOL_R;
+    const e = t >= 1 ? 0 : prof(r) / p0 * (1 - Math.pow(Math.max(0, (t - 0.7) / 0.3), 2) * (3 - 2 * Math.max(0, (t - 0.7) / 0.3)));
+    const i = (y * N + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = Math.round(255 * Math.min(1, e));
+  }
+  g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c);
+}
 function lampPools() {
   const at = lampPools.at; lampPools.at = []; lampPools.spots = (lampPools.spots || []).concat(at || []);
   if (!at || !at.length) return;
-  const sm = stationPool(), R = 6.5, NR = 6, NA = 20, pos = [], uv = [], idx = [];
+  const sm = stationPool(), R = LAMP_POOL_R, NR = 8, NA = 20, pos = [], uv = [], idx = [];
   for (const [x, z] of at) {
     const b = pos.length / 3;
     for (let i = 0; i <= NR; i++) for (let j = 0; j < (i ? NA : 1); j++) {
@@ -4966,7 +4981,7 @@ function lampPools() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx);
   geo.computeBoundingSphere();
-  if (!lampPools.m) { lampPools.m = sm.clone(); lampPools.m.color.set(0xe0601a); lampPools.m.side = THREE.DoubleSide; lampPools.m.onBeforeCompile = sm.onBeforeCompile; }
+  if (!lampPools.m) { lampPools.m = sm.clone(); lampPools.m.map = lampPoolTex(); lampPools.m.color.set(0xe0601a); lampPools.m.side = THREE.DoubleSide; lampPools.m.onBeforeCompile = sm.onBeforeCompile; }
   const mesh = new THREE.Mesh(geo, lampPools.m); mesh.renderOrder = 2; mesh.frustumCulled = false; mesh.castShadow = mesh.receiveShadow = false; scene.add(mesh);
   lampPools.mesh = mesh;
 }
