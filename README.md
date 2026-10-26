@@ -79,7 +79,7 @@ the yard to start. On the course you ride the school's Matriarch 850T (your own 
 yard with anything on it) and stay on the course or the instructor fetches you back. Freight school
 is four short missions: hook up a trailer and hold a side-hill, drag 300 kg up the big hill, a
 timed priority run with a fragile load, and a flatbed expedition loop. Pass them all for your
-**Freight licence**, which opens heavy, priority and expedition freight in the Freight app (your
+**Freight licence**, which opens heavy, priority, expedition and fell freight in the Freight app (your
 courier rank still decides which). Aurora tours are posted in Parcels.
 
 **Real Estate** sells depot cabins: two of the herder cabins and two lakeside cabins, Fjellbu and
@@ -243,6 +243,7 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 | Freight hauler | 5 | Heavy freight: stoves, freezers, generators, propane, solar kits, battery banks |
 | Priority courier | 12 | Emergency runs to villages in trouble: about double pay, a tight clock, a 25% bond |
 | Expedition hauler | 20 | Slettnes lighthouse loads on the flatbed: batteries, turbine, standby generator |
+| Fell hauler | 32 | Fell freight: 450–540 kg flatbed loads up to the wind farm and the high herder cabin (turbine gearbox, hut kits, reindeer feed, diesel). The best-paid work on the board (about $3,900–7,600), and the shippers only insure it behind an Apex 800 or bigger |
 
 The groomer drag and the freight trailer fit the Woodsman 440 and newer and hook to a hitch
 receiver, so the first two ranks can arrive before your sled can tow their work. The rank-up

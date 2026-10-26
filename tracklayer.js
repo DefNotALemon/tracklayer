@@ -4815,7 +4815,8 @@ const RANKS = [
   { at: 3, name: "Trail crew", opens: "Grooming contracts are on the board. You'll want a groomer on the hitch." },
   { at: 5, name: "Freight hauler", opens: "Heavy freight is on the board: stoves, freezers, generators. Needs a trailer." },
   { at: 12, name: "Priority courier", opens: "Priority runs are on the board. Big money, a bond up front, and a clock that doesn't forgive." },
-  { at: 20, name: "Expedition hauler", opens: "Slettnes lighthouse is hiring. Expedition loads out to the tip, flatbed only." }
+  { at: 20, name: "Expedition hauler", opens: "Slettnes lighthouse is hiring. Expedition loads out to the tip, flatbed only." },
+  { at: 32, name: "Fell hauler", opens: "Fell freight is on the board: half-tonne flatbed loads up to the wind farm and the herder cabins. The shippers only insure it behind an Apex 800 or bigger." }
 ];
 const rankOf = n => RANKS.reduce((r, x) => n >= x.at ? x : r, RANKS[0]);
 // Big freight rides the trailer. Off-grid cabins run on stoves, solar, batteries and a backup generator,
@@ -4844,6 +4845,22 @@ const EXPEDITION = [
   { cargo: "Wind turbine nacelle & blades", kg: 260, fragile: true, look: "turbine", why: "A new turbine for the keeper's house. Glass-fibre blades: don't drop it." },
   { cargo: "Standby generator & fuel", kg: 360, fragile: false, look: "bigcrate", why: "Standby power for the light before the next big storm off the Barents." }
 ];
+/* ---- fell freight (late ladder, rank "Fell hauler" at 32 deliveries) ----
+   Half-tonne flatbed loads UP the fell: to the wind farm and the herder cabins, the highest open work sites.
+   It's the first work the top of the SLEDS ladder opens: the shippers only insure it behind a machine of
+   FELL_SLED's class or bigger (sledTier() >= fellTier()), and the drag of 450-540 kg in loose snow (towTick's
+   `loose * (180 + mass * 1.6)`) is what makes the power worth having. Pays above an expedition for less
+   distance, because it's climb that costs. Generated in makeContracts; gated in contractBlock + acceptContract. */
+const FELL_SLED = "apex";
+function fellTier() { return SLEDS.findIndex(s => s.id === FELL_SLED); }
+const FELL = [
+  { cargo: "Turbine gearbox", kg: 540, fragile: true, look: "bigcrate", to: "farm", why: "Number three threw its gearbox in the last gale. The crane crew is waiting up at {s}." },
+  { cargo: "Herders' hut kit: walls, roof & stove", kg: 470, fragile: false, look: "bigcrate", to: "cabin", why: "The herders want a second hut at {s} before calving." },
+  { cargo: "A winter of reindeer feed", kg: 500, fragile: false, look: "bigcrate", to: "cabin", why: "Ice crust over the lichen: the herd at {s} can't dig through it. They need pellets." },
+  { cargo: "Diesel tank, full", kg: 520, fragile: false, look: "tanks", why: "{s} burns its winter diesel by March. This is the refill." },
+  { cargo: "Weather mast & battery hut", kg: 450, fragile: true, look: "bigcrate", why: "Met Norway wants a mast on the fell at {s}." }
+];
+const fellBlock = () => sledTier() >= fellTier() ? "" : `Half a tonne up the fell: the shippers only insure it behind an ${SLEDS[fellTier()].name} or bigger (${SLEDS[fellTier()].need} deliveries, $${SLEDS[fellTier()].cost}).`;
 function jobGeom(d, from) { const dist = Math.hypot(d.x - from.x, d.z - from.z), climb = Math.max(0, d.y - from.y); return { dist, climb, est: (dist / 9 + 45) * (1 + climb / 150) }; }
 const pick = a => a[(Math.random() * a.length) | 0];
 const round5 = v => Math.round(v / 5) * 5;
@@ -4954,6 +4971,15 @@ function makeContracts(from) {
     const pay = round5((400 + dist * 0.5 + climb * 2.5) * (e.fragile ? 1.25 : 1.1));
     C.push({ big: true, bays: 2, expedition: true, from: depot, dest: relay, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why, pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.6 / GAMEHOUR, need: "flatbed" });
   } else if (lvl >= 12) C.push({ locked: "Slettnes expeditions", sub: lvl >= 20 ? "The trail out to Slettnes has melted out. The keeper waits for the boat now." : `Flatbed loads out to the lighthouse — ${RANKS[4].at} deliveries` });
+  // fell freight: half a tonne up to the highest open work site, behind a big sled only (see FELL)
+  const fellAt = RANKS[5].at, fells = SITES.filter(s => s.type === "cabin" && s.kind !== "village" && siteOpen(s)).sort((a, b) => b.y - a.y);
+  if (lvl >= fellAt && fells.length) {
+    const d = pick(fells.slice(0, 2)), menu = FELL.filter(x => !x.to || x.to === d.kind), e = pick(menu);
+    const harbours = SITES.filter(s => s.kind === "village" && Math.hypot(s.x - d.x, s.z - d.z) > 900);
+    const f = Math.random() < 0.4 && harbours.length ? pick(harbours) : depot, { dist, climb, est } = jobGeom(d, f);
+    const pay = round5((1500 + dist * 0.6 + climb * 8) * (e.fragile ? 1.3 : 1.2));
+    C.push({ big: true, bays: 2, fell: true, from: f, dest: d, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why.replace("{s}", d.name), pay, bond: round5(pay * 0.2), due: GS.hour + est * 2.8 / GAMEHOUR, need: "flatbed" });
+  } else if (lvl >= RANKS[4].at) C.push({ locked: "Fell freight", sub: lvl >= fellAt ? "The fell trails are slush. Nothing heavy goes up till it freezes." : `Half-tonne flatbed loads up the fell — ${fellAt} deliveries and an ${SLEDS[fellTier()].name} or bigger` });
   // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
   if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
   else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
@@ -5075,12 +5101,13 @@ function acceptContract(k) {
     TABLET.refresh(); save(); return;
   }
   if (!licensed("freight")) { toast("Trailer freight needs a Freight licence. The Freight app signs you up for school.", "warn"); return; }
+  if (c.fell && fellBlock()) { toast(fellBlock(), "warn"); return; }
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`, "warn"); return; }
   if (baysUsed() + c.bays > ST.bays) { toast(ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded.", "warn"); return; }
   if (GS.cash < c.bond) { toast(`The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= c.bond; c.cond = 100; c.hits = 0; GS.load.push(c); GS.contracts.splice(k, 1);
-  toast(`Strapped down: ${c.cargo} (${c.kg} kg) for ${c.dest.name}. $${c.bond} bond paid, back on delivery.${c.priority ? " Clock's running." : ""}`, c.priority || c.expedition ? "warn" : undefined);
+  toast(`Strapped down: ${c.cargo} (${c.kg} kg) for ${c.dest.name}. $${c.bond} bond paid, back on delivery.${c.priority ? " Clock's running." : c.fell ? " Half a tonne behind you: keep the revs up on the climbs." : ""}`, c.priority || c.expedition || c.fell ? "warn" : undefined);
   TABLET.refresh(); applyLoadout(); save();
 }
 // grooming lines: points along the straight run from the quay. Lake ice and cliff you can't groom are left out.
@@ -6183,6 +6210,7 @@ function contractBlock(c) {
   if (c.groom) return !isGroomer(hitch) ? `That's grooming work: it needs a groomer on the hitch. ${rigNeed("groomer")}` : GS.groomJob ? "Finish the line you're grooming first." : "";
   if (c.big && !licensed("freight")) return "Needs your Freight licence. Sign up for Freight school above.";
   if (SCHOOL.on) return "Finish (or quit) the course first.";
+  if (c.fell && fellBlock()) return fellBlock();
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`;
   if (baysUsed() + claimBays() + c.bays > ST.bays) return ST.bays > 1 ? "The flatbed's full (or spoken for)." : "The trailer's already loaded (or spoken for).";
@@ -7147,7 +7175,7 @@ SCHOOL.addMission("freight", {
 
 /* ---- the App Store: Freight, Rescue and Real Estate are downloads; Trail Crew came with the tablet ---- */
 const STORE = [
-  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority and expedition freight, each with its own pickup and drop-off." },
+  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority, expedition and fell freight, each with its own pickup and drop-off." },
   { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." },
   { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent." },
   { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true }
@@ -7175,7 +7203,7 @@ TABLET.register({
 const conFrom = c => c.from || depot;
 const conKm = c => conFrom(c) === depot ? routeKm(c.dest) : Math.hypot(c.dest.x - conFrom(c).x, c.dest.z - conFrom(c).z) * 1.15 / 1000;
 const conClimb = c => conFrom(c) === depot ? climbOf(c.dest) : Math.round(Math.max(0, c.dest.y - conFrom(c).y));
-const bigTag = j => j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
+const bigTag = j => j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
 function conCard(c, k) {
   if (c.locked) return tabCard({ cls: "locked", title: c.locked, chips: chip("LOCKED"), meta: tabEsc(c.sub) });
   const why = contractBlock(c), d = c.dest, f = conFrom(c), km = conKm(c).toFixed(1), g = groom[d.id] || 0, here = GS.near === f;
@@ -7256,7 +7284,7 @@ TABLET.register({
     const { h: ph, n } = conList(isFreightCon);
     h += sec("Posted", lic ? "claim it, ride to the P, strap it down; at the P it loads straight on" : "your licence opens these");
     h += n ? ph : `<p class="tnote2">Nothing posted right now.</p>`;
-    h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}.</p>`;
+    h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}, fell freight at ${RANKS[5].at} (${SLEDS[fellTier()].name} or bigger).</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     conBind(el); schoolBind(el, sc);
   }
@@ -7951,8 +7979,11 @@ function renderGarage() {
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
       const spec = `${s.year} · ${Math.round(engineOf(s).pwr * 100)}% power${engineOf(s).stock ? "" : " (swapped)"} · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
       const opens = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === SLEDS.indexOf(s) && o.cost).length, 0);
-      const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opens ? ` · opens ${opens} more parts in the shop` : ""}`
-        : !owned && opens ? `\nOpens ${opens} more parts in the shop` : "";
+      // work only this class of machine is insured for (fell freight from the Apex up); said on the card that first opens it
+      const work = SLEDS.indexOf(s) === fellTier() ? "takes fell freight (half-tonne flatbed loads up the fell, the best-paid work on the board)" : "";
+      const opn = [opens ? `opens ${opens} more parts in the shop` : "", work].filter(Boolean).join(" · ");
+      const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opn ? ` · ${opn}` : ""}`
+        : !owned && opn ? `\n${opn[0].toUpperCase() + opn.slice(1)}` : "";
       const perk = s.perk ? `\n<span style="color:#9fd8a8">${s.perk}</span>` : "";
       tryOn(row(s.name, `${spec}${ask}${perk}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
         on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
