@@ -157,7 +157,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       roofs (garage, freight shed, fish buyer) get a `KIT.dripRing` (KIT.drip 0x4f4f4e, 6 cm, 4 cm inside the snow edge;
       +3 draw calls, quay 821 → 824); `g3_sheds` local +0.07–0.12 by day. Hospital skipped: its fascia is already grey
       0x9aa3ab under the snow. Report 0066 verified v131 (no seams; same sheen on 5 houses from the same angle, by design).
-      Left: playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
+      Report 0067 verified v132 drip edge at 15–20 m (red + grey trim); fades into the roofline by 25 m and at night (by
+      design, no action). Left: playtester: drip edge on the white gabled SITES homes (naust/brattli), `g3_drip_ride.mjs`.
+      Playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
@@ -219,14 +221,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Report 0047 (`g3_lake_conditions.mjs`): night and a strong aurora keep the streaks (std 25/38, aurora 57/36); storm
       washes it flat (3.4/7.4) like all terrain, by design. Still open: melt, and the 45 m seam: `LAKES[].r` isn't the real
       ice mask, so confirm footing (walk on from the shore vantage, check `P.ice`) before placing the camera.
-- [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
-      rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
-      as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
-      samples are skipped).
-      Report 0044: crestwalk lift 252 → 203 → 0 at 600/500/400 m read as a "snap", but the scenario teleports 100 m
-      per sample; the lift is already smoothed (6/s) and `need` falls continuously as the eye climbs. Re-check with a
-      continuous walk (hold W over the last ~60 m before the crest, sample every 2 game-s) before building anything;
-      watch for a jump when the crest crosses the 25 m skip distance.
+- [ ] G1 (low, playtest, follow-up to v106): sled column over ridges lifts above the crest. b78 continuous walk
+      (`g1_sledpin_crestcont.mjs`, hold W 106 m over a 59 m rise): lift eases 114 → 0 m over the last ~25 m to the crest,
+      foot screen row moves ≤16 px/game-s, no jump at the 25 m skip; vision: column visible over the walker every frame.
+      Crest walk closed. v134 made the easing frame-rate independent. Still unchecked: in trees, next to a
+      delivery/depot beacon.
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
@@ -283,4 +282,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 66
+Last triaged report: 67

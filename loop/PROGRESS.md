@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:25 — Sled column eases the same at any frame rate; crest walk verified (G1) — bd73629
+Triage 0067: v132 drip edge verified at 15–20 m on red and grey trim; F1/F2 (fades by 25 m and at night) by design, no
+action; F3 → playtester note to check the white gabled SITES homes. Its harness note (rider.visible is reset every frame,
+hide it inside the camOv hook) is a known skill pitfall. After 17 G3 passes in a row, took G1: the crest-walk recheck
+(0044 called the ridge-lift drop a "snap" from 100 m teleports). New `g1_sledpin_crestcont.mjs` holds W 106 m over a 59 m
+rise toward the sled at night: lift eases 114 → 0 m over the last ~25 m before the crest, foot screen row ≤16 px/game-s,
+no jump at the 25 m skip; vision (b78/before_sheet.jpg): column stands over the walker in every frame, no pop. Not a
+snap. Found the easing used a fixed 1/60 step per frame (3× slower at 20 fps); now `1 − exp(−6·dt)`. Headless numbers
+unchanged (max lift change 11.0 → 11.2 m/game-s, row 16 → 14 px/game-s, lift 0 at crest-cam 4.5 → 4.9 m). smoke exit 0,
+page errors none (67.8 mph, powder 1.54, trench 2.28). v134 (no README: not a visible feature change).
+Next: column in trees / next to a depot beacon (playtester).
+
 ## 2026-10-26 17:10 — Work sheds get the drip edge too (G3) — aa73625
 Triage 0066: v131 verified (no seams/flicker, mirrored panes fine on 5 buildings); F1 (same sheen on every house seen from
 the same angle) is by design for a view-ray shader, the row-street check stays a playtester item; F2/F3 no issue. Took the
