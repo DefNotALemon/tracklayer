@@ -7,6 +7,14 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:25 — Station forecourt pool matches the street lamps (G3) — e461479
+No new reports since 0062. Took the buildings follow-up (0059 F3: station pool faint on moonlit nights, 0.45/0xff7a2a vs
+lamp pools 0.5/0xe0601a; b68 found 0xff8a3a-ish reads neutral white on blue snow). stationPool colour → 0xe0601a, opacity
+0.45 → 0.6 (a lit canopy outshines one lamp). `g3_stations.mjs` night: pump mean/p95 104.6/196 → 109.5/211 (local 4.89 →
+5.02), canopy 94.7 → 95.5, q34 ±0.1, noon unchanged; calls 538 → 538. Vision (b72/cmp.jpg): warmer cream-orange pool under
+the pumps and along the island, soft edges, not over-bright. smoke exit 0, page errors none (67.1 mph, powder 1.51, trench
+2.25). README; v128. Next: red-house fascia tint, day glass mid-grey.
+
 ## 2026-10-26 16:15 — Fuel pumps get a readable LCD readout (G3) — d588af0
 Triage 0062: v126 verified (103 calls, dark glass by day, glow at night); F1 (pump display a flat grey panel) taken this
 pass; F2 harness-only (g3_glow ferry target frames the tackle shop), F3 no issue. Pumps used KIT.glowM, now a per-station
