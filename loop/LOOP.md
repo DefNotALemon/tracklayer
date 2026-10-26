@@ -104,16 +104,18 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 2 (after v62's lifted key light + softer fill): open backcountry still reads hazy
-      and low-contrast (g3_day.mjs 05/06: std 39–40 vs quay 51), the sky is a pale lavender wash with no
-      sun glow unless you face the sun, and the sled's colours go a little paler (quay sat 41 → 38). Look at
-      fog density/colour by day, snow surface relief (normal/micro shading in `patchMat`), a touch more
-      saturation in daytime grade. Measure with `g3_day.mjs` + `imgstats.py`, judge with vision.
 - [ ] G2: Trekker 550 ($3400, 24 deliveries) is weaker than the Summit 600 it follows (p/d 1.61 vs 1.91,
       power 161% vs 168% shown on its card) and opens no parts: a trap on raw numbers. Give it a reason the
       player can see (its two-up seat for aurora tours? range: 30 L + 0.9 burn engine is already its thing; say
       so on the card) or retune toward its place in the ladder. Don't touch Lemon's spare-seat tour work in
       his checkout; read origin/main only. Same check for Aurora E vs Matriarch (3.11 vs 3.79, +$4700).
+      (Moved to top 02:45: G2 has had no landing in 8 passes; tie rule.)
+- [ ] G3: Daylight slice 3 (v65 thinned/blued the clear-day fog): near and mid snow still reads as one flat pale
+      sheet (backcountry std 40 vs quay 52, local contrast 2.7 vs 4.4) and the big hillside right of the
+      backcountry view is a white wash: look at snow surface relief (normal/micro shading in `patchMat`), a touch
+      more daytime saturation, sun glow in the sky away from the sun. Also fix `g3_day.mjs`'s backcountry teleport:
+      05/06 still land 0.31 km from the quay (the loop's `return true` path apparently never moves P, or the
+      sled snaps back), so "backcountry" stills are really the town edge. Measure with `g3_day.mjs` + `imgstats.py`.
 - [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
       (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
       Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
@@ -122,8 +124,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
       at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
       ($145–370) makes parcels pointless after rank 3.
-- [ ] G2: First-5-minutes playtest of a new save: is the first job obvious, how long to the first $600?
-      (playtester can own this; builder triages).
+- [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
+      works first try, route drawn). Still open: drive + deliver, gameClock to first cash and to $600
+      (playtester owns: extend `g2_first5min.mjs`). Low (0007 F2): Tab opens Home, not Parcels, on a new save.
 - [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
       as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
 - [ ] G1: Walking into a house wall at an angle stalls instead of sliding along it: `g1_yards.mjs` row "shore-rd old
@@ -135,4 +138,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 6
+Last triaged report: 7

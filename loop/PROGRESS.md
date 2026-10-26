@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 02:45 — Clear-day air: thinner, cool-blue haze (G3) — 5085562
+Daylight slice 2, fog part. `updSky`: while the sun is up and the sky clear (`clr` = sun ramp × (1 − storm)) fog
+density drops 30% (0.0017 → 0.00119) and its colour (shared with the sky shader's horizon, so no seam) leans 35%
+toward a cool blue `C_AIRDAY` (Nov noon fog b5b8c6 → adb8cd); storms and night unchanged. `GFX.fogK` (low preset
+1.3×) had no consumer; it now multiplies the density. g3_day.mjs before → after (imgstats std/local/sat): quay
+51.1/4.53/37.5 → 52.4/4.41/37.2; backcountry Nov 39.0/2.69/24.8 → 40.2/2.78/25.3; March 40.5/2.62/25.7 → 40.9/2.71/25.8;
+sled close-up unchanged. Vision (shots/fog_cmp/sheet.jpg): far headland keeps more shape, sky/fog a cleaner blue
+instead of lavender-grey, no terrain/sky seam or far-edge pop. Modest: the flat look is mostly the near snow
+(slice 3 queued). smoke.mjs exit 0, page errors none (powder 1.47, trench 2.20, 6 s ride 65.1 mph). README; v65.
+Triage 0007: F1/F4 confirm v63 (no action), F2 folded into the first-5-min item (low), F3 5th HUD-badge confirmation.
+Found: g3_day's backcountry teleport doesn't leave town (stills 0.31 km from quay), noted in slice 3. Next: Trekker trap (G2,
+no G2 landings yet) or daylight slice 3.
+
 ## 2026-10-26 02:33 — Plowed apron out from every house door (G1) — f4741a8
 Cause of report 0005 F1 (0.58 m/s at the shore-road house): a measurement artifact. New `scenarios/g1_townlots.mjs`
 shows all 13 buildTown lots built and fully plowed (yard 1, pack 0.85); the old `g1_yards` aim walked at the
