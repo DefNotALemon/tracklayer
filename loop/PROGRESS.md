@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 02:33 — Plowed apron out from every house door (G1) — f4741a8
+Cause of report 0005 F1 (0.58 m/s at the shore-road house): a measurement artifact. New `scenarios/g1_townlots.mjs`
+shows all 13 buildTown lots built and fully plowed (yard 1, pack 0.85); the old `g1_yards` aim walked at the
+house's middle from the side and stalled against the wall (10 m never reached in 14 s). Re-aimed square-on at
+the door (kept the old aim as a row): 1.93 m/s, slower than other yards because `KIT.house`'s disc reaches only
+~4 m past the door wall. Fix: lit (doored) `KIT.house` adds a 3.5 m disc 5 m out from the door wall → plowed
+~8.5 m out, easing over 6 m. g1_yards before → after: shore-road door 1.93 → **2.42 m/s** (start depth 0.45 →
+0.31); depot/garage/Strandbu/Mehamn 2.52–2.55 and open powder 1.38 unchanged. Stills (shots/apron_cmp/sheet.jpg):
+no rings or artifacts, packed snow reads the same as the rest of the yard. smoke.mjs exit 0, page errors none
+(powder 1.52, trench 2.25, 6 s ride 65.3 mph). README walking paragraph; script v64.
+Triage: 0006 F1 confirms daylight slice 2 (already queued, now top), F2 third confirmation of the HUD badge item,
+F3 info. Follow-up: walking into a wall at an angle stalls (new G1 item). Next: daylight slice 2 (G3).
+
 ## 2026-10-26 02:22 — A clear first ride (G1) — 60e578a
 Cause: `buildHospital` picks the flattest lot 75–205 m from the depot and nothing kept it off the spawn's heading
 (SPAWN = depot +6 z, yaw π), so it stood 81 m dead ahead (−5°); behind it, the south town-limit sign (12 spokes

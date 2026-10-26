@@ -24,7 +24,7 @@ fresh powder **1.01 m/s** and tired 0.57 after 8 s; back along your own trench *
 Since v58 (g1_walk30.mjs): powder **1.56 m/s**, 30 m in **19.3 s**; trench **2.23 m/s**; tired 0.77 after 30 m.
 Since v60 (g1_slope.mjs, 0.85 m powder on a 0.27 grade): up **0.91**, across **1.32**, down **1.49 m/s**.
 Since v61 (g1_yards.mjs, 10 m from a standstill toward a door): plowed town yards **2.53 m/s** (was 1.48–1.55
-in powder), open powder 1.38.
+in powder), open powder 1.38. Since v64: shore-road house door square-on from 12 m out **2.42 m/s** (was 1.93).
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -104,10 +104,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1: Shore-road house yard gap (report 0005 F1): `g1_yards.mjs` stop at depot +46,+26 (yaw −1.2) starts in
-      0.47 m powder (pack 0.13) and the 10 m walk to its door averages **0.58 m/s** vs 2.5 at every other yard.
-      Find why `addYard` misses that building (not a `KIT.house`? door far from the anchor?), then the
-      plowed-lane follow-up below.
 - [ ] G3: Daylight slice 2 (after v62's lifted key light + softer fill): open backcountry still reads hazy
       and low-contrast (g3_day.mjs 05/06: std 39–40 vs quay 51), the sky is a pale lavender wash with no
       sun glow unless you face the sun, and the sled's colours go a little paler (quay sat 41 → 38). Look at
@@ -130,10 +126,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (playtester can own this; builder triages).
 - [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
       as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
+- [ ] G1: Walking into a house wall at an angle stalls instead of sliding along it: `g1_yards.mjs` row "shore-rd old
+      aim" (12 m out at yaw −1.2 toward the house middle) covers <10 m in 14 s = **0.58 m/s**. Check the
+      `footStep` obstacle push (house walls are a grid of r 1.35 discs) for a tangential slide; measure that row.
 - [ ] G1 (follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road
       (only discs round each building and the depot→quay lane are plowed now), and whether village yards
       should join up; measure a door-to-door walk with `g1_yards.mjs`.
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 5
+Last triaged report: 6
