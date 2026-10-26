@@ -4484,12 +4484,25 @@ function signMat(tex, glow = 0, opt) {
   if (glow > 0) { m.emissiveMap = tex; m.emissive.setScalar(0); m.userData.glow = glow; (signMat.lit || (signMat.lit = [])).push(m); }
   return m;
 }
+// street-lamp globes (K.lamp): they shared KIT.glowM (MeshBasic cream) with the ferry windows and pump displays, so all
+// 35 lamps burned full bright at noon. Now one Lambert frosted-glass material of their own: by day a pale grey globe
+// lit by the sun like any glass, after dark the diffuse fades out and the emissive (the old glow colour) fades in with the
+// windows and the lamp pools (houseWinTick, same n). Hoisted: K.lamp runs during init.
+function lampHeadMat() {
+  if (!lampHeadMat.m) {
+    lampHeadMat.on = new THREE.Color(0xffc26b); lampHeadMat.off = new THREE.Color(0xc4c8cc);
+    lampHeadMat.m = new THREE.MeshLambertMaterial({ color: 0xc4c8cc, emissive: 0xffc26b });
+  }
+  return lampHeadMat.m;
+}
 function houseWinTick(day, st) {
   const n = 1 - day * (1 - 0.6 * st);
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
   if (stationPool.m) stationPool.m.opacity = 0.45 * n;
   if (lampPools.at && lampPools.at.length) lampPools();
   if (lampPools.m) lampPools.m.opacity = 0.5 * n;
+  const hm = lampHeadMat.m;
+  if (hm) { hm.emissive.copy(lampHeadMat.on).multiplyScalar(n); hm.color.copy(lampHeadMat.off).multiplyScalar(1 - n); }
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
@@ -4621,7 +4634,7 @@ const KIT = (() => {
   K.lamp = (x, z) => {
     const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); scene.add(g);
     K.put(g, new THREE.CylinderGeometry(0.07, 0.09, 4, 8), K.metal, 0, 2, 0);
-    K.put(g, new THREE.SphereGeometry(0.22, 10, 8), K.glowM, 0, 4.1, 0).castShadow = false;
+    K.put(g, new THREE.SphereGeometry(0.22, 10, 8), lampHeadMat(), 0, 4.1, 0).castShadow = false;
     K.put(g, new THREE.ConeGeometry(0.34, 0.3, 10), K.metal, 0, 4.35, 0);
     addOb({ x, z, r: 0.3, top: 1e9 });
     (lampPools.at || (lampPools.at = [])).push([x, z]);   // its pool of light on the snow, laid once the yards/lanes are in (lampPools)
