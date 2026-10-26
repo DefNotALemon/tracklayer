@@ -23,6 +23,8 @@ Baseline measured 26 Oct (smoke.mjs, fresh Frontier save, flat open ground):
 fresh powder **1.01 m/s** and tired 0.57 after 8 s; back along your own trench **1.75 m/s**.
 Since v58 (g1_walk30.mjs): powder **1.56 m/s**, 30 m in **19.3 s**; trench **2.23 m/s**; tired 0.77 after 30 m.
 Since v60 (g1_slope.mjs, 0.85 m powder on a 0.27 grade): up **0.91**, across **1.32**, down **1.49 m/s**.
+Since v61 (g1_yards.mjs, 10 m from a standstill toward a door): plowed town yards **2.53 m/s** (was 1.48–1.55
+in powder), open powder 1.38.
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -102,18 +104,14 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1: Town is fresh powder: nothing ever packs the snow at the quay, villages or home yards (report
-      0002: pack 0, depth 0.53–0.63 m, walking 1.31–1.55 m/s at the quay door, HUD "POWDER · Breaking
-      trail"). LOOP.md already names "packed paths in town, plowed roads" as a direction: pre-pack the snow
-      around each site's buildings/quay (a plowed yard + lanes to doors, depth ≈ thin, fresh kept so pack≈1)
-      at chunk build, so walking there hits the 2.9 m/s hard-pack pace and the sled feels the hardpack too.
-      Check visuals (snow surface should read as packed) and that quay edge/doors still collide cleanly
-      (report 0002: they do now). Measure with `g1_town_quay.mjs`.
-- [ ] G3: Baseline contact sheet of fixed views (title, quay day, quay night, open backcountry, sled
-      close-up, rider on foot) as `scenarios/views.mjs`, scored 1–10 per view in PROGRESS.md; every later
-      visual pass re-shoots it.
+- [ ] G3: Daytime looks flat and washed out (report 0004: quay day 5/10, backcountry day 5, sled close-up 6,
+      rider 6 vs quay night 8): hazy white sky, no visible sun, almost no shadow contrast on buildings, snow
+      and the sled even under "Clear". Check `updSky` day exposure/fog/hemisphere vs sun intensity and the
+      shadow setter; aim for night's contrast. Re-shoot with `scenarios/views.mjs` (the baseline sheet;
+      the old "baseline views" item is done by the playtester in 0004) and score every view before/after.
 - [ ] G1: Fix the start: 6 s of throttle from the spawn runs the Frontier into the Helsesenter wall
-      (smoke.mjs still 01_riding). Spawn facing open snow or a clear lane.
+      (smoke.mjs still 01_riding). Spawn facing open snow or a clear lane. (v61 smoke: the sled now covers
+      74 m in 6 s from the plowed depot yard; re-check the still before working on it.)
 - [ ] G2: Trekker 550 ($3400, 24 deliveries) is weaker than the Summit 600 it follows (p/d 1.61 vs 1.91,
       power 161% vs 168% shown on its card) and opens no parts: a trap on raw numbers. Give it a reason the
       player can see (its two-up seat for aurora tours? range: 30 L + 0.9 burn engine is already its thing; say
@@ -131,5 +129,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (playtester can own this; builder triages).
 - [ ] G1 (low): `skiStep` reads the grade from `surf` (snow top), so its own groove behind the skis reads
       as a slight climb; switch to `groundAt` like `footStep` does since v60 and re-measure skiing.
+- [ ] G1 (follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road
+      (only discs round each building and the depot→quay lane are plowed now), and whether village yards
+      should join up; measure a door-to-door walk with `g1_yards.mjs`.
+- [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
+      (report 0004 F3, also seen in the v61 yard stills); the zone test should count the quay/town.
 
-Last triaged report: 3
+Last triaged report: 4
