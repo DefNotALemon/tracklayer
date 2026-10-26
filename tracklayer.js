@@ -10795,8 +10795,10 @@ function skiStep(dt) {
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   const soft = (1 - pack) * sstep(0.04, 0.45, d), bog = soft * (1 - 0.75 * K.float), bare = d < 0.03 && f < 0.05;
   const top = bare ? 1.4 : K.top * glide * (1 - 0.6 * bog);
-  // the slope along the skis: downhill runs, uphill the kick gives out
-  const gr = (surf(F.x + fx * 0.7, F.z + fz * 0.7) - surf(F.x - fx * 0.7, F.z - fz * 0.7)) / 1.4;
+  // the slope along the skis: downhill runs, uphill the kick gives out. Read the undisturbed snow top (ground +
+  // the fresh-depth field), not `surf`: the groove the skis just cut behind you read as a ~4% climb on the flat.
+  const gt = (x, z) => groundAt(x, z) + sampleG(freshG, x, z);
+  const gr = (gt(F.x + fx * 0.7, F.z + fz * 0.7) - gt(F.x - fx * 0.7, F.z - fz * 0.7)) / 1.4;
   F.grade += (gr - F.grade) * (1 - Math.exp(-6 * dt));
   const kick = F.fwd > 0.05 && !F.dig, brake = F.fwd < -0.05;
   let sp = F.sp, a = -9.8 * F.grade / Math.sqrt(1 + F.grade * F.grade) * 0.9;

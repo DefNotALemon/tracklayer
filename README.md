@@ -147,7 +147,8 @@ trail, they sink in fresh snow). Collect them and they ride strapped along the r
 tunnel, poles with them. **Q** off the sled and you're on them instead of wading: **W** kicks, **A / D**
 steer, let go to glide, **S** ploughs. They're slow to get going (the first few kicks barely move
 you) but they build to two or three times walking pace on packed snow, run downhill on their own
-and glide a long way. Your sled tracks are the fast lanes, and the skis leave grooves of their own.
+and glide a long way (the hill they feel is the snow under you, not the groove you just cut, so flat
+ground skis flat). Your sled tracks are the fast lanes, and the skis leave grooves of their own.
 Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving.
 
 On foot without skis you break trail: every step leaves a boot hole and your legs plough a
