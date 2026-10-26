@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 14:40 — Depot, village shops, cabins and fell homes get facades (G3) — 04eac4f
+Triage 0055: v118 hospital verified (numbers reproduce within 0.03, calls 530, night glass right); nothing new to build.
+Took the next buildings slice. New `scenarios/g3_sites.mjs` (depot, Mehamn shop, Sandfjord herder cabin, Strandbu,
+Naustbakken; door side 3/4 + long-window end, Nov noon + 20:00) showed flat walls with painted stripe boxes and three
+cream `glowM` windows lit at noon. `buildSites` now: houseClad board walls + gables (`houseUV`), stone plinth, framed
+door, two framed door-side windows and a four-pane long window through `houseFacade` with `houseWinMat` glass (dark by
+day, lit after dusk); the 7 stripe boxes + 3 glow boxes per building are gone. imgstats local nov door/end: depot
+4.93/5.48 → 4.98/5.80, Mehamn 5.04/4.81 → 5.15/5.34, Sandfjord 4.76/5.38 → 5.22/5.52, Strandbu 4.34/5.00 → 4.61/5.10,
+Naust 4.83/5.79 → 4.55/5.56 (white house: grey trim on white boards, lower contrast but reads fine); night mostly up.
+Draw calls at the depot 579 → 553. Vision (b63/before2.jpg vs after.jpg + depot end crop): boards, framed 4-pane window,
+plinth and corner boards read, no z-fighting/floating trim. smoke exit 0, page errors none (67 mph, powder 1.54, trench
+2.23). README; v119. Next: night-glowing MeshBasic signs (shop/hospital/fish), fuel cabins/stations.
+
 ## 2026-10-26 14:35 — Helsesenter gets a real facade (G3) — 0971a3f
 Triage 0054 (v117 sheds verified: draw calls 877 reproduce, night glass right, no moire): F4 (fascia under noon sun may
 read as paint) kept as a note on the buildings item; F5 already listed. Took the hospital slice. New

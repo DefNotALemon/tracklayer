@@ -117,8 +117,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       pier freight shed and fish buyer shed: `g3_sheds.mjs` local contrast garage nov 5.47 → 6.75, freight 4.09 → 4.96,
       fish buyer 5.18 → 5.77; quay draw calls 869 → 877; report 0054 verified). v118 did the hospital (`hospPanelTex`,
       `hospUV`, framed `houseFacade` windows, plinth, mullions; `g3_hospital.mjs` local nov front 4.91 → 6.23).
-      Still plain: village/cabin sheds, the depot itself; hospital/shop signs are MeshBasic (glow at night, never driven
-      from updSky). Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
+      Report 0055 verified v118 (local 6.24/6.10/5.26, calls 530). v119 did every `buildSites` building (quay depot,
+      village shops, herder/wind-farm cabins, fell homes): houseClad boards, plinth, framed door, framed `houseWinMat`
+      windows (`g3_sites.mjs`, depot calls 579 → 553). Left:
+      hospital/shop/fish signs are MeshBasic (glow at night, never driven from updSky; next slice), the
+      relay keeper's house is a KIT.house already; fuel cabins/gas stations (`buildStations`/`buildFuelCabins`) unchecked. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
       House roofs: report 0053 F1 no projecting eave/soffit at the gable ends (roof slabs overhang 0.35 m but no fascia
       board); day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
@@ -246,4 +249,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 54
+Last triaged report: 55
