@@ -7,6 +7,23 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:35 — Town lanes go round obstacles (G1) — 84980a4
+Triage 0027 (verify v87: board numbers reproduce; F2 cargo does render on the trailer when the camera frames the hitch
+→ the 0026 F4 "no cargo" item dropped; F3 straight-line powder clean-air run blacked out, −$2,155 → new G2 long-haul
+warmth item, playtester reruns the road route first; F4 harness note kept on it; F5 info) and 0028 (verify v88: Nov 4.68 /
+March 4.28 reproduce; vision sees no oval blobs at play distance → noted on slice 8). G3 just landed, so took the G1
+lanes follow-up. New `scenarios/g1_lanesob.mjs` samples every lane leg each 1 m against `obGrid`: before **8 of 14
+lanes ran through something** (73 samples: the depot-side posts, the pier freight shed, lamps, woodpile) and walking
+lot9's lane jammed at 32 m (STUCK). Lanes are now `buildLanes()` (after every builder in `boot()`, so the fish shops /
+sheds are in obGrid): `laneRoute` = 8-way A* on a 1.5 m grid, cells within 1.1 m of an obstacle or on sea cost ×40
+(soft, so starts inside a clearance still get out), string-pulled to 1–8 legs. After: **1/15 lanes, 1 sample** (a
+grid-corner graze), a new lane to the tackle shop door, lot9 **reached, 72 m in 27.1 s at 2.66 m/s**. `g1_lanes.mjs`
+walks now follow the lane's own legs (+ lot9): before lot0/11/3 2.66/2.65/2.63, lot9 NOT reached (0.54 m/s);
+after 2.65/2.65/2.64, lot9 **2.65 m/s**. Its straight-line "plowed share" metric drops 96 → 91% because lanes now bend
+(expected, not a gap). Overhead stills b32/cmp.jpg: lanes too faint from 30 m up to judge; numbers carry it.
+smoke exit 0, page errors none (powder 1.56, trench 2.30, 6 s 66.9 mph). README walking paragraph; v89.
+Next: daylight slice 8 (macro check of the ovals first), G2 long-haul warmth once the playtester reruns the road.
+
 ## 2026-10-26 07:20 — Mid-distance dunes on the open fell (G3) — 74c3219
 No new reports (last 26). G3 was due (last 4: G2/G2/G2/G1). Took the top item, daylight slice 8, as slice 8b: the
 45–150 m band. New `scenarios/g3_midband.mjs` (backcountry spot searched from SPAWN, so it's pinned: −1637,−1943;

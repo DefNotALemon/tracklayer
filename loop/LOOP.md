@@ -26,6 +26,8 @@ Since v60 (g1_slope.mjs, 0.85 m powder on a 0.27 grade): up **0.91**, across **1
 Since v61 (g1_yards.mjs, 10 m from a standstill toward a door): plowed town yards **2.53 m/s** (was 1.48–1.55
 in powder), open powder 1.38. Since v64: shore-road house door square-on from 12 m out **2.42 m/s** (was 1.93).
 Since v84 (g1_lanes.mjs): depot yard edge → shore-road doors 24–49 m at **2.62–2.66 m/s** (was 1.80–1.90).
+Since v89 (g1_lanesob.mjs): lanes routed round obstacles; lanes crossing an obstacle 8/14 → 1/15; lot9 72 m at 2.65 m/s
+(was stuck against the pier freight shed at 32 m).
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -119,12 +121,17 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `g3_midband.mjs` (pinned from SPAWN) + `bandstats.py` strip 3 (horizon→~30 m): Nov 3.29 → 4.69, March 2.93 → 4.29,
       low cam across sun 0.87 → 1.11; away from sun unchanged 0.25 (flat light, expected). Left: the scoops read as
       slightly uniform oval hollows (value-noise blobs); stretch them along the wind / break their outline.
+      Report 0028: v88 numbers reproduce (Nov 4.68, March 4.28); at play distance vision sees wind-stretched streaks, no
+      oval blobs. Check with a macro camera (20–40 m look) before working the ovals; may already be fine.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
       vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
-- [ ] G2 (low, playtest): report 0026 F4: with `TOW.kind/mass` set directly, no flatbed/cargo showed behind the sled
-      in side stills. Recheck via `acceptContract` + strap-down with the camera framed on the hitch before fixing.
+- [ ] G2: Long-haul warmth (report 0027 F3): a clean-air run driven straight across powder from the quay (4.9 km,
+      137.6 game-s, 09:40 → 12:25 in-game) drained warmth 100 → 0 and blacked out: −$2,155 (bond + rescue), cargo lost.
+      Playtester: rerun along the coast road with a village stop (`g2_cleanair_deliver.mjs`, fix its delivered check
+      per 0027 F4). Builder, if the intended route also fails: say it on the card (est. time vs warmth, "plug in /
+      warm up at X") rather than softening the cold.
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
@@ -136,12 +143,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
       vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
       rerun `g1_wallslide.mjs` pointed at one.
-- [ ] G1 (low, follow-up to v84 lanes): lanes are straight legs from the depot yard, so lot9's (the yellow house
-      at depot −66,+4) runs under the pier freight shed and lot6/church/lot9 straight-line samples still show
-      gaps (`g1_lanes.mjs` 3/15). Bend a leg round any `obGrid` obstacle it crosses (sample the leg every 2 m).
-      Report 0025 F2: the other two gapped routes are lot6 (53 m, 78% plowed) and church (82 m, 82%); check all
-      three in the same pass (maybe one shared cause).
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 26
+Last triaged report: 28
