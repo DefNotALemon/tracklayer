@@ -4565,15 +4565,23 @@ function updSky() {
   scene.fog.density = lerp(0.0017, 0.012, st) + (1 - dayness) * 0.001;
   // key light: the sun while it's up, handing over to the moon once it's well below (both are dark at
   // the crossover, so the shadow direction never snaps)
-  const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1, 7, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
+  const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1.5, 4, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
   if (sunI >= moonI) { sun.intensity = sunI; keyAt(SUNK, e, 1, sun.color); sunDir.copy(_sunV); }
   else { sun.intensity = moonI; sun.color.copy(C_MOON); sunDir.copy(_moonV); }
-  if (sunDir.y < 0.05) { sunDir.y = 0.05; } sunDir.normalize();
+  // The winter sun skims the horizon (4° at noon on 1 Nov), so lit at its true angle flat snow catches almost none
+  // of it and the whole day reads as one flat grey under the sky fill. The light (not the sky disc) is lifted to at
+  // least ~13° while the sun is the key: snow facing it goes warm, shadows stay long and read blue. Sun and moon are
+  // both near dark at the handover, so the direction change there doesn't show.
+  if (sunI >= moonI) { if (sunDir.y < 0.22) sunDir.y = 0.22; }
+  else if (sunDir.y < 0.05) sunDir.y = 0.05;
+  sunDir.normalize();
   // sky fill: tinted by the sky, a little extra off moonlit snow, a green cast under a strong aurora
   // a strong aurora is bright enough to ride by: a green-teal fill off the whole northern sky
-  hemi.intensity = keyAt(SKYK, e, 7) + 0.1 * illum * moonUp * night * (1 - st) + 0.42 * ak;
+  // by day the fill is held back ~30% so sunlit and shaded sides separate (it was lighting everything evenly)
+  const sunK = sstep(-1.5, 4, e) * (1 - st);
+  hemi.intensity = keyAt(SKYK, e, 7) * (1 - 0.3 * sunK) + 0.1 * illum * moonUp * night * (1 - st) + 0.42 * ak;
   keyAt(SKYK, e, 6, hemi.color).lerp(C_AUR, 0.15 * sstep(0.1, 0.5, aur) + 0.55 * ak);
-  hemi.groundColor.setRGB(lerp(0.34, 0.91, dayness), lerp(0.40, 0.93, dayness), lerp(0.55, 0.96, dayness)).lerp(C_AURG, 0.45 * ak);
+  hemi.groundColor.setRGB(lerp(0.34, 0.91 - 0.1 * sunK, dayness), lerp(0.40, 0.93 - 0.08 * sunK, dayness), lerp(0.55, 0.96 - 0.03 * sunK, dayness)).lerp(C_AURG, 0.45 * ak);
   renderer.toneMappingExposure = lerp(0.95, 1.05, dayness) + 0.06 * ak;
   stars.material.uniforms.uOp.value = night * (1 - st) * (0.95 - 0.35 * illum * moonUp); stars.position.copy(camera.position);
   stars.quaternion.setFromAxisAngle(POLE, -h / 24 * Math.PI * 2); stars.material.uniforms.uTime.value = gameClock;   // the sky wheels round the pole star

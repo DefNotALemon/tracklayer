@@ -175,7 +175,7 @@ the season runs to the end of May, then the summer fast-forwards and you come ba
 to a fresh snowpack with everything you own (the Calendar app counts the years). Daylight follows Kjøllefjord's 70.9°N. In early November the sun
 barely clears the horizon at noon. From about 20 November to 22 January it doesn't rise at
 all: there's a blue twilight around noon and dark the rest of the time, and **every job pays
-×1.5**. By March the days are twelve hours, and from mid-May the sun never sets.
+×1.5**. By March the days are twelve hours, and from mid-May the sun never sets. While the sun is up it lights the snow as if a little higher than it really stands, so even the low November noon throws long blue shadows off houses and sleds onto warm-lit snow instead of one flat grey.
 
 Auroras come more often and burn brighter in the polar night. A strong one lights the snow
 green enough to ride by. While one is up, tourists queue at the quay for a ride to one of
