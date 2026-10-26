@@ -474,7 +474,7 @@ patchMat.onBeforeCompile = sh => {
       {
         float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
         float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet)
-          * (1.0 - smoothstep(28.0, 45.0, distance(vWP, cameraPosition)));
+          * (1.0 - smoothstep(34.0, 50.0, distance(vWP, cameraPosition)));
         if (relief > 0.01) {
           vec2 p = vWP.xz; float h0 = tlDrift(p);
           vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief * 2.0;
@@ -635,7 +635,7 @@ function buildFar() {
        float fdH(vec2 p, float near) {
          vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
          q.y += (fdN(p * 0.004) - 0.5) * 140.0;
-         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + fdN(q * vec2(0.04, 0.11)) * 0.35 * near;
+         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (fdN(q * vec2(0.04, 0.11)) * 0.8 + fdN(q * vec2(0.022, 0.065)) * 0.4) * near;
        }\n` +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       {
@@ -647,7 +647,7 @@ function buildFar() {
           float e = 2.0, h0 = fdH(vWxz, near);
           vec2 g = vec2(fdH(vWxz + vec2(e, 0.0), near) - h0, fdH(vWxz + vec2(0.0, e), near) - h0) / e * fdSnow;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz * 6.0);
-          float lee = fdSnow * clamp(0.5 - (g.x * 0.8 + g.y * 0.6) * 10.0, 0.0, 1.0);   // lee of the north-westerly
+          float lee = fdSnow * clamp(0.45 - (g.x * 0.8 + g.y * 0.6) * 6.0, 0.0, 0.8);   // lee of the north-westerly (soft: the v88 dunes made ×10 blotchy)
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), lee);   // (color_fragment ran already; lighting hasn't)
         }
       }`).replace("#include <color_fragment>", `#include <color_fragment>
