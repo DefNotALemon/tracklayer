@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 14:10 — Houses get real facades (G3) — d754edf
+Triage 0052 (Sprint feel): trail half of the harness never rode packed snow, ice top speeds were truncated runs; the
+"Sprint wanders 11× further on ice" result dropped: steering is sled-independent apart from zip/grip (Sprint grips more)
+and the taps were wall-timed. Noted on the Sprint item. Took a fresh G3 direction (terrain work is at diminishing
+returns): buildings. New `scenarios/g3_houses.mjs` (3 town doors 3/4 front + one back view + wide, Nov/March noon and
+20:00) showed flat painted boxes with two pale squares for windows. `KIT.house` now: vertical board cladding (shared
+canvas map, metric UVs via `houseUV`, cloned paint mats cached in `houseClad`), stone plinth, corner boards, framed
+windows with glazing bars on front/back and both eave sides (`houseFacade`, trim + glass merged into one mesh each),
+framed door; glass `houseWinMat` driven from updSky (`houseWinTick`): dark by day, warm glow at dusk/storm/night.
+imgstats local contrast nov 0/1/2 front 5.53/3.90/5.24 → 6.18/4.98/6.57, back 4.82 → 6.18, mar 2 front 4.76 → 6.15;
+draw calls (town wide) 882 → 912, tris +13k. Vision (b60/before.jpg vs after2.jpg + crops): boards, trim and framed
+windows read clearly, no z-fighting/moire, night windows glow; day glass mid-grey rather than black (fine). smoke exit 0,
+page errors none (66.7 mph, powder 1.52, trench 2.25). README; v116. Next: other buildings (depot, garage, sheds) item.
+
 ## 2026-10-26 13:50 — Snowshoes you can see (G1/G3) — f018e81
 Triage 0051 (v113 snowshoes on a 0.25 grade: up/down/across 1.09/1.42/1.33 → 1.83/2.68/2.28 m/s with the kit, same
 ratios; night toast and crash-clear/re-don correct; discoverability fine): snowshoe item closed except the mesh. Ice top
