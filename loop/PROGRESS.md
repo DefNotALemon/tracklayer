@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:40 — Windows read as glass by day (G3) — c121fde
+Triage 0064: v128 pool verified (538 calls, night pump 109.8/5.03); its F1 (canopy soffit un-graded) was already fixed by
+v129 (0064 tested v128); kiosk ridge gap from 0063 F2 not reproducible, dropped. Took 0053 F3: day glass read as flat
+mid-grey paint on every house/shop/cabin/helsesenter. New hoisted `houseGlassTex()` (pale sky reflection top, dark ridge
+line, dim room, faint diagonal sheen) blended into houseWinMat by a `uGlassDay` uniform (map_fragment replaced; houseWinTick
+sets it from the same day factor), so dusk/night glow unchanged. New `scenarios/g3_glass.mjs`. imgstats night views ±1
+mean (unchanged), day close-ups p5 30–32 → 27–29 (darker glass bottoms), nov_0_front local 5.93 → 6.01; calls 871 → 871.
+Vision (b74/cmp.jpg): windows now read as reflective glass with depth, at 6 m and 13 m. smoke exit 0, page errors none
+(66.2 mph, powder 1.53, trench 2.22). README; v130. Next: red-house fascia tint; sheen repetition along a street.
+
 ## 2026-10-26 16:30 — Canopy light panel stops glowing at noon (G3) — 532cefc
 Triage 0063: v127 pump LCD verified (538 calls); F1 (canopy underside a flat near-white panel at noon) taken this pass;
 F2 (kiosk ridge cap proud / gap at barge boards) logged low in the buildings item; F3 no issue. The panel under each
