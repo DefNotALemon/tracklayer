@@ -11189,14 +11189,18 @@ function shoesOwn() { return !!(GS.own && GS.own.partsOwned && GS.own.partsOwned
 function footWade(d, pack, shoe) {
   return lerp(lerp(0.57, 0.78, shoe), 1, pack) * (1 - lerp(0.25, 0.08, shoe) * sstep(0.5, 0.95, d));
 }
-// one snowshoe under a boot (origin at the shin pivot, like the skis): an oval deck in a frame, a tail behind
+// one snowshoe under a boot (origin at the shin pivot, like the skis): an oval deck in a frame, a tail behind.
+// Real size (≈22 × 66 cm) with a red decking, like most rental/backcountry shoes: a dark deck vanished under dark
+// boots from the chase camera, and a bright one reads against the snow at walking distance.
 function shoeMesh(parent) {
   const g = new THREE.Group(); g.position.set(0, -0.505, 0.03); parent.add(g);
-  const frame = shoeMesh.frame || (shoeMesh.frame = std(0x9aa3ab, 0.45, 0.6)), deck = shoeMesh.deck || (shoeMesh.deck = std(0x24303c, 0.8, 0.05));
-  const rim = cyl(0.12, 0.12, 0.014, frame, 0, -0.004, 0.02, 0, 0, 0, g, 18); rim.scale.set(1, 1, 2.15);
-  const dk = cyl(0.108, 0.108, 0.018, deck, 0, 0.001, 0.02, 0, 0, 0, g, 18); dk.scale.set(1, 1, 2.05);
-  box(0.03, 0.012, 0.16, frame, 0, -0.004, -0.27, 0, 0, 0, g);                       // tail
-  box(0.11, 0.03, 0.05, M.dark, 0, 0.02, 0.07, 0, 0, 0, g);                         // toe strap
+  const frame = shoeMesh.frame || (shoeMesh.frame = std(0xc3cad1, 0.4, 0.6)), deck = shoeMesh.deck || (shoeMesh.deck = std(0xb83a26, 0.7, 0.05));
+  const rim = cyl(0.112, 0.112, 0.016, frame, 0, -0.004, 0.03, 0, 0, 0, g, 20); rim.scale.set(1, 1, 2.95);
+  const dk = cyl(0.1, 0.1, 0.02, deck, 0, 0.002, 0.03, 0, 0, 0, g, 20); dk.scale.set(1, 1, 2.9);
+  box(0.03, 0.012, 0.14, frame, 0, -0.004, -0.36, 0, 0, 0, g);                       // tail
+  box(0.12, 0.03, 0.05, M.dark, 0, 0.022, 0.07, 0, 0, 0, g);                        // toe strap
+  box(0.012, 0.02, 0.36, frame, 0.07, 0.004, 0.03, 0, 0, 0, g);                       // side rails show the frame
+  box(0.012, 0.02, 0.36, frame, -0.07, 0.004, 0.03, 0, 0, 0, g);
   return g;
 }
 function footStep(dt) {

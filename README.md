@@ -172,7 +172,8 @@ turning to face the way you came takes about a second.
 The garage's $120 recovery kit (shovel, strap and **snowshoes**, any sled) puts the snowshoes on your feet
 every time you Q off without skis: you float on fresh powder instead of wading (about 2.1 m/s, 30 m in ~14 s
 against ~20), sink in half as far and tire less. Packed snow and plowed lanes are no quicker in them. Once
-bought they stay in your pack even if you swap the kit for the satellite messenger.
+bought they stay in your pack even if you swap the kit for the satellite messenger. They are full-size
+aluminium-framed shoes with red decking, so you can see them on your boots from the chase camera.
 Hold **Shift** (gamepad **RB**, the touch lean button) to jog: about half as quick again on packed snow
 (3.7 m/s along a plowed lane, 3 m/s back down your own trench) and a fifth quicker wading powder, but it
 spends your breath: about 15–20 s of jogging on hard pack (~60 m), 10 s or so in deep powder, then you're
