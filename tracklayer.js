@@ -4694,11 +4694,22 @@ function buildSites() {
     } else {
       const big = s.type === "depot", D = big ? 9 : s.kind === "village" ? 7 : 5.5, W = big ? 12 : s.kind === "village" ? 8 : 6.5, Hh = big ? 3.6 : 2.7, a = 0.58, hs = D / 2 + 0.5, Ls = hs / Math.cos(a);
       const wall = big ? red : s.kind === "village" ? L(0x7a5a3a) : s.kind === "home" ? (KIT[s.paint] || wood) : wood;
-      add(g, new THREE.BoxGeometry(D, Hh, W), wall, 0, Hh / 2, 0);
-      for (let yy = 0.35; yy < Hh; yy += 0.45) add(g, new THREE.BoxGeometry(D + 0.08, 0.06, W + 0.08), woodD, 0, yy, 0);
+      // walls and gables wear the town houses' board cladding (houseClad, metric UVs), on a stone plinth; the door and
+      // service windows get painted frames and day-dark glass (houseFacade + houseWinMat) instead of cream boxes lit at noon
+      const wallG = new THREE.BoxGeometry(D, Hh, W); houseUV(wallG, D, W, 0);
+      add(g, wallG, houseClad(wall), 0, Hh / 2, 0);
       const tri = new THREE.Shape(); tri.moveTo(-D / 2, 0); tri.lineTo(D / 2, 0); tri.lineTo(0, (D / 2) * Math.tan(a)); tri.closePath();
-      const gable = new THREE.ExtrudeGeometry(tri, { depth: W, bevelEnabled: false }); gable.translate(0, 0, -W / 2);
-      add(g, gable, wall, 0, Hh, 0);
+      const gable = new THREE.ExtrudeGeometry(tri, { depth: W, bevelEnabled: false }); gable.translate(0, 0, -W / 2); houseUV(gable, 0, 0, D / 2);
+      add(g, gable, houseClad(wall), 0, Hh, 0);
+      add(g, new THREE.BoxGeometry(D + 0.12, 0.6, W + 0.12), KIT.plinth, 0, 0.3, 0).castShadow = false;
+      {
+        const wl = D * 0.7, wins = [[2, -W / 3.2, 1.1, 0.8, 1.6], [2, W / 3.2, 1.1, 0.8, 1.6], [1, 0, wl, 0.8, 1.6]];
+        const more = [[0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, -0.62], [0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, 0.62], [0.12, 0.14, 1.38, D / 2 + 0.07, 2.08, 0]];
+        const fac = houseFacade(D, Hh, W, wins, false, more), c = wall.color;
+        add(g, fac.trim, c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, 0, 0, 0).castShadow = false;
+        add(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
+        if (wl > 2.4) for (const s of [-1, 1]) add(g, new THREE.BoxGeometry(0.045, 0.8, 0.04), c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, s * wl / 4, 1.6, -W / 2 - 0.08).castShadow = false;   // a long window gets four panes
+      }
       for (const sd of [-1, 1]) {
         add(g, new THREE.BoxGeometry(Ls, 0.22, W + 1.0), woodD, sd * hs / 2, Hh + (hs / 2) * Math.tan(a) + 0.05, 0, -sd * a);
         add(g, new THREE.BoxGeometry(Ls + 0.1, 0.34, W + 1.1), snowM, sd * hs / 2 + sd * 0.1 * Math.sin(a), Hh + (hs / 2) * Math.tan(a) + 0.3, 0, -sd * a);
@@ -4707,8 +4718,6 @@ function buildSites() {
       add(g, new THREE.BoxGeometry(0.9, 0.2, 0.9), snowM, -D / 4, Hh + 2.65, W / 3);
       s.chimney = [bx - D / 4, g.position.y + Hh + 2.8, bz + W / 3];
       add(g, new THREE.BoxGeometry(0.1, 2.0, 1.1), doorM, D / 2 + 0.03, 1.0, 0);
-      for (const zz of [-W / 3.2, W / 3.2]) add(g, new THREE.BoxGeometry(0.08, 0.8, 1.1), glow, D / 2 + 0.04, 1.6, zz);
-      add(g, new THREE.BoxGeometry(D * 0.7, 0.8, 0.08), glow, 0, 1.6, -W / 2 - 0.04);
       if (big) {
         // the fuel pump stands against the wall, clear of where the sled parks
         add(g, new THREE.BoxGeometry(0.7, 1.7, 0.6), pumpM, D / 2 + 2.2, 0.85, W / 2 - 1);
