@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 03:30 — Guide beacons are soft light columns (G3) — c91d357
+Report 0010 F1's "huge uniform grey band" in the night sky was the guide beacon over the quay (empty-handed you get
+one over the depot): a 4.4 m × 1 km additive tube at flat opacity 0.2 with no fog, so from 120–350 m it drew a
+hard-edged bar from the village to the top of the frame. Kept the beacon (it's how you find your way) and gave all
+of them (sites, lookouts, school yards, school checkpoint) one `beaconMat`: a MeshBasic `onBeforeCompile` that fades
+alpha to 0 at the silhouette (view·normal²), keeps it strong at the foot and thins it upward, fading out over the top
+half instead of a cut. New `scenarios/g3_beacon.mjs` (depot beacon from 120/350/1200 m, midnight + noon, weather
+pinned). Before → after (half-max width of the pillar at a mid-sky row, 1280 px frame): 120 m night **22–24 → 16 px**,
+day 22 → 16–18; core peak unchanged (+85–100 luma over the sky), so it still reads clearly as a marker. Vision on
+shots b12/crop.jpg (before top, after bottom): flat bar → glowing column with soft edges, no artifacts.
+smoke.mjs exit 0, page errors none (powder 1.44, trench 2.20, 6 s ride 65.4 mph). README tablet paragraph; v69.
+Triage 0011: F1 re-confirms the groomer wording item (moved to top, G2 has had one landing to G3's four); F2 garage
+clarity fine (no action); F3 `g2_groomer_gate.mjs` can't read the 3D board (noted on the item). Next: groomer wording.
+
 ## 2026-10-26 03:20 — No more cliff rims round the lakes (G3) — d276e89
 Took the far-terrain sawtooth item over daylight slice 4 (a visible artifact beats a contrast nudge). Cause was
 geometry, not shading: `genWorld` carves each lake basin with `mk = 1 − sstep(0.85, 2.1, t)` but skips cells past
