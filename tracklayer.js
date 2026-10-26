@@ -7277,11 +7277,13 @@ const conClimb = c => conFrom(c) === depot ? climbOf(c.dest) : Math.round(Math.m
 const bigTag = j => j.clean ? "clean air" : j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
 /* Cold-run check for freight cards (report 0027: a 4.9 km clean-air run in stock kit blacked out, -$2,155).
    Estimates the warmth one leg costs with the same cold formula the rider feels (night now, the weather here now,
-   the height of the ground along the line, your kit's coldMul) over a conservative ride time (12 + 6 x power m/s
-   on the trail km), and names a warm place that splits the leg. Only a hint on the card: the cold itself is unchanged. */
+   the height of the ground along the line, your kit's coldMul) over a conservative ride time (see rideS
+   below, on the trail km), and names a warm place that splits the leg. Only a hint on the card: the cold itself is unchanged. */
 function coldRun(f, d, km) {
   let el = 0; for (let i = 0; i <= 10; i++) { const t = i / 10; el += clamp((groundAt(lerp(f.x, d.x, t), lerp(f.z, d.z, t)) - 110) / 220, 0, 1); }
-  const rideS = km * 1000 / (12 + 6 * ST.power), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
+  // ride speed: report 0034 + g2_cruise.mjs (fresh powder, cross-country) measured about 12 x power/drag m/s (Woodsman
+  // 12.6-14.4, Summit 22, Apex 31); take 10.5 x that, never quicker than the old 12 + 6 x power (laden trailers unmeasured)
+  const rideS = km * 1000 / Math.min(12 + 6 * ST.power, 10.5 * ST.power / ST.drag), cold = (0.3 + 0.35 * (1 - dayFactor()) + 0.9 * clamp(GS.storm, 0, 1.2) + 0.35 * el / 11) * ST.coldMul;
   const direct = Math.hypot(d.x - f.x, d.z - f.z); let stop = null, best = 1e9;
   for (const s of SITES) {
     if (s.x === undefined || s === f || s === d) continue;
