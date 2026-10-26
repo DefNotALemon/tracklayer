@@ -4506,6 +4506,10 @@ function houseWinTick(day, st) {
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
+  // KIT.glowM (the church windows, the coastal ferry's windows and portholes, the fuel pump displays) was a fixed cream
+  // MeshBasic, so all of it burned full bright at noon; it now goes to dark glass by day with the house windows. (Safe
+  // here: houseWinMat.m only exists once K.house has run, long after KIT is built.)
+  KIT.glowM.color.copy(m.color);
 }
 function mergeBoxes(list) {
   const pos = [], nor = [], uv = [];
