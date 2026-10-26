@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 06:45 — Fell freight: first work the Apex opens (G2) — 49f5591
+No new reports (last 24). Took the top item (late ladder, high, 0024) as slice 1. New rank "Fell hauler" at 32 deliveries
+(`RANKS[5]`) and a `FELL` contract in `makeContracts`: 450–540 kg flatbed loads (bays 2) to the two highest open
+non-village cabin sites (wind farm, Risfjord), cargo matched to the place (gearbox → wind farm, hut kit/feed → herder
+cabin), from the quay or a village harbour; pay `(1500 + dist·0.6 + climb·8) × 1.2/1.3`. Gated in `contractBlock` +
+`acceptContract` by `fellBlock()` (sled tier ≥ Apex). Locked card from 20 deliveries says what it needs; FELL chip
+colour; Freight app note and about text; Apex garage card adds "takes fell freight (… best-paid work on the board)".
+New `scenarios/g2_fell.mjs` (before = origin/main via TL_SRC), 40 boards per level: contract kinds at 32/46/60
+**groom/heavy/prio/exped → + fell**; fell avg **$5,597–5,672** [3,855–7,625] vs exped 3,559–3,604, prio 2,274–2,394;
+gate with licence + flatbed: Summit/Trekker blocked with the Apex line, Apex/Aurora OK (before: no such job). Apex card
+@20 deliveries before: only the price line; after: + fell freight line. Still 02_freight_app_apex (b28/aft3) judged:
+FELL card (Turbine gearbox, 540 kg, $4,175) lays out cleanly. smoke.mjs exit 0, page errors none (powder 1.54,
+trench 2.27, 6 s ride 67.2 mph). README ranks table; v85.
+Next: late ladder slices 2–3 (Matriarch 46, Aurora 60) and a tow test of Summit vs Apex with 500 kg up the fell.
+
 ## 2026-10-26 06:30 — Plowed lanes from the depot to every door in town (G1) — e6673ff
 Triage 0023 (verify v83: March 2.89 to the decimal, Nov 3.15 = unpinned-spot noise → note on slice 8; F1 shore-road
 point → this item; F3/F4 info, dropped) and 0024 (G2 late ladder flat from 20 to 75 deliveries, cards silent →

@@ -90,7 +90,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Sprint 580 | 1700 | 13 | 1.58 | 1.12 | 1.1 | 18 | 1.41 | 8: EFI, hybrid track, freight deck |
 | Summit 600 | 2400 | 18 | 1.68 | 0.88 | 0.8 | 24 | 1.91 | 3: mountain track, stage 3, expedition tank |
 | Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
-| Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | nothing |
+| Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | no parts; since v85 the only class insured for fell freight (rank 32, $3.9–7.6k avg $5.6k) |
 | Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | nothing |
 | Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing; since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
 
@@ -105,12 +105,12 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2 (high): Nothing above the Summit opens a part or a job (tiers stop at 4): Apex/Matriarch/Aurora are only
-      stats. Report 0024 F1: board sampled at 20/32/40/46/55/60/75 deliveries is flat (same 4 contract kinds;
-      parcels $351–377, groom $848–904, heavy $1608–1849, prio $2251–2577, exped $3525–3627, no trend). F2: their
-      garage cards drop the "opens N more parts" line and say nothing instead. Slice idea: one late contract tier
-      gated on 32/46/60 deliveries that needs the power/range of those sleds, and a card line saying what each
-      opens. `scenarios/g2_lategame.mjs` measures the board (its tablet still lands on Map: open Jobs after a sleep).
+- [ ] G2 (high): Late ladder, slices 2–3 (slice 1 v85: rank "Fell hauler" at 32 posts fell freight, $3.9–7.6k,
+      Apex 800+ only; Apex card says so; `scenarios/g2_fell.mjs`). Still open: Matriarch (46) and Aurora (60) open
+      nothing and their cards stay silent. Ideas: Matriarch = a two-load fell run / tracked-tow work it alone can
+      pull; Aurora = long electric-range work (a far relay run that only its 40 L-eq range makes without a fuel stop).
+      Also untested: whether a Summit physically can/can't drag 500 kg up to Gartefjellet (433 m climb) vs an Apex;
+      measure with a tow run before claiming the gate in physics terms (today it's an insurance rule).
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
