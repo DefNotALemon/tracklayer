@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 15:45 — Street lamps throw light pools after dark (G3) — 23bd096
+Triage 0059 (v122 stations verified: 537 calls, pump local 5.15; F3 pool faint on moonlit nights, F4 posts plain, F6 lamps
+have no pool) and 0060 (v123 roof trim verified, 304 calls; F4 white fascia merges with roof snow on red houses up close)
+into the buildings item. Took the lamp pools (0059 F6). New `scenarios/g3_lamps.mjs` (finds lamps by their glow sphere,
+works on old builds; 9 m near / 22 m ride views, 21:00 + Nov noon; LAMPS=i,j). Before: 35 lamps, each a glowing head over
+dark snow. Now K.lamp queues its spot and `lampPools()` (first houseWinTick, after yards/lanes exist) lays one merged
+additive mesh of 13 m discs whose rings follow `surf` 12 cm up, station-pool texture + fog-darkening, colour 0xe0601a,
+opacity 0.5·n. First try 0xff8a3a read neutral white on the blue snow; the deeper orange reads faint warm cream. Night near
+mean/p95: lamp 0 73.8/134 → 84.8/189, lamp 4 88.9/137 → 100.5/190; ride views (22 m) ±1; noon unchanged. Draw calls
+507 → 508, +7.7k tris. Vision (b68/before.jpg vs after2/night_*): soft warm pool round the post, drift streaks show through,
+no hard edge, nothing drawn over the sign/house. smoke exit 0, page errors none (66.7 mph, powder 1.54, trench 2.27).
+README; v124. Next: lamp heads glow at noon (shared K.glowM), station pool strength to match, red-house fascia tint.
+
 ## 2026-10-26 15:30 — Houses get finished rooflines (G3) — 72406bc
 No new reports since 0058. Took 0053 F1 (roofs read as bare slabs). New `scenarios/g3_roofs.mjs` (2 houses by the depot:
 door-gable corner 11 m out, gable square-on, up under the eave; Nov noon, March 15:00, 21:00). Before: the dark roof slab

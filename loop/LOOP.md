@@ -131,7 +131,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       v123 roof trim (`roofTrim()`, merged into the trim mesh, 0 extra draw calls): eave fascia + boxed soffit, barge
       boards + rake soffit on KIT.house and buildSites (`g3_roofs.mjs`: corner/gable/eave, Nov/March 15:00/21:00). Left:
       the work sheds (`workShed`) and the hospital still have their own roofs (check they match), white trim on the
-      white snow edge reads a little merged in a close eave view; day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
+      white snow edge reads a little merged in a close eave view (report 0060 F4: red houses, close range only; idea: a
+      slightly grey fascia tint for white trim); day glass still mid-grey (0053 F3, low). Report 0060 verified v123 (304 calls).
+      v124 street-lamp pools (`lampPools()`: 35 K.lamp spots, one merged additive surface-following 13 m disc mesh, +1
+      draw call, laid on the first houseWinTick; `g3_lamps.mjs` night near mean 73.8 → 84.8, p95 134 → 189). Report 0059
+      F3: the station pool (0.45, 0xff7a2a) reads faint on moonlit nights; lamp pools use 0.5 / 0xe0601a; consider
+      matching the station to that. Lamp heads (K.glowM) still glow at full brightness at noon (shared with ferry windows
+      and pump displays; give lamps their own material faded by houseWinTick). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
@@ -257,4 +263,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 58
+Last triaged report: 60
