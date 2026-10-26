@@ -4659,8 +4659,12 @@ const KIT = (() => {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
     glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [],
-    plinth: L(0x4c4d51), trimW: L(0xeeebe4), trimG: L(0xa9b0b7)
+    plinth: L(0x4c4d51), trimW: L(0xeeebe4), trimG: L(0xa9b0b7),
+    drip: L(0x4f4f4e)                                                  // the dark steel drip edge (roofTrim's DRIP_K × trimW)
   };
+  // the work sheds' flat roofs: a dark drip-edge ring tucked under the snow load's overhang, over the fascia, so the
+  // white fascia and the white snow above it stop reading as one thick slab (the houses' roofTrim drip edge, v132)
+  K.dripRing = (g, w, d, yTop) => { K.bx(g, w, 0.06, d, K.drip, 0, yTop - 0.03, 0).castShadow = false; };
   K.put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
   // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
@@ -9630,7 +9634,7 @@ function buildTown() {
     [[0.18, 3.42, 0.16, 5.6, 1.71, 0.4 - 2.28], [0.18, 3.42, 0.16, 5.6, 1.71, 0.4 + 2.28], [0.18, 0.18, 4.72, 5.6, 3.33, 0.4]], KIT.trimW);
   bx(gg, 11.14, 0.45, 8.14, concrete, 0, 0.22, 0).castShadow = false;
   bx(gg, 11.3, 0.22, 8.3, KIT.trimW, 0, 4.12, 0).castShadow = false;   // the fascia under the snow load
-  bx(gg, 11.6, 0.5, 8.6, snowM, 0, 4.35, 0);
+  bx(gg, 11.6, 0.5, 8.6, snowM, 0, 4.35, 0); KIT.dripRing(gg, 11.5, 8.5, 4.1);
   bx(gg, 11.6, 0.3, 1.2, metal, 0, 4.0, 0);
   bx(gg, 0.2, 3.2, 4.4, L(0x25313c), 5.5, 1.6, 0.4);            // roll door
   for (let i = 0; i < 6; i++) bx(gg, 0.24, 0.12, 4.4, metal, 5.55, 0.5 + i * 0.55, 0.4);
@@ -9699,7 +9703,7 @@ function buildTown() {
       [[0.14, 2.56, 0.16, 4.58, 1.28, -1.7], [0.14, 2.56, 0.16, 4.58, 1.28, 1.7], [0.14, 0.16, 3.56, 4.58, 2.52, 0]], KIT.trimW);
     bx(fs, 9.12, 0.3, 14.12, concrete, 0, 0.15, 0).castShadow = false;
     bx(fs, 9.25, 0.2, 14.25, KIT.trimW, 0, 3.52, 0).castShadow = false;   // fascia
-    bx(Q, 9.4, 0.4, 14.4, snowM, 2, qy + 3.8, -20);
+    bx(Q, 9.4, 0.4, 14.4, snowM, 2, qy + 3.8, -20); KIT.dripRing(fs, 9.33, 14.33, 3.6);
     bx(Q, 0.1, 2.4, 3.2, L(0x25313c), 6.55, qy + 1.2, -20);
     put(Q, new THREE.CylinderGeometry(0.12, 0.14, 7, 8), metal, 12, qy + 3.5, 14);   // a crane
     bx(Q, 0.2, 0.2, 9, metal, 12, qy + 6.9, 18.4);
@@ -9920,7 +9924,7 @@ function buildFishShops() {
     workShed(fb, 5, 2.8, 6.4, white, false, [[2, -1.4, 1.6, 0.9, 1.7], [3, 0, 1.2, 0.8, 1.7]],
       [[0.12, 2.1, 0.14, 2.57, 1.05, -1.6 - 0.67], [0.12, 2.1, 0.14, 2.57, 1.05, -1.6 + 0.67], [0.12, 0.14, 1.48, 2.57, 2.08, -1.6]], KIT.trimG);
     bx(fb, 5.25, 0.18, 6.65, KIT.trimG, 0, 2.74, 0).castShadow = false;   // fascia
-    bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0);
+    bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0); KIT.dripRing(fb, 5.33, 6.73, 2.8);
     bx(Q, 0.1, 2.0, 1.2, L(0x2d4f74), u0 + 2.55, qy + 1.0, v0 - 1.6);
     const sg = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.95), signMat(signTex("FISKEMOTTAK", "FISH BOUGHT · FERSK FISK", "#1f3f5f", "#f2efe6"), 0.25));
     sg.position.set(u0 + 2.62, qy + 3.4, v0); sg.rotation.y = Math.PI / 2; Q.add(sg);
