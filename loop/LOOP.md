@@ -75,14 +75,32 @@ the title screen and at the quay.
 - (none yet)
 
 ## Progression map
-(builder fills this in on the first G2 audit)
+First audit 26 Oct 01:25 (`scenarios/g2_ladder.mjs`: stats as `stats()` computes them with stock parts; boards
+sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = tier 1). p/d = power ÷ powder drag.
+
+| Sled | $ | Deliveries | Power | Drag | Grip | Fuel L | p/d | Opens (parts at its tier) |
+|---|---|---|---|---|---|---|---|---|
+| Frontier 340 | 0 | 0 | 1.00 | 1.05 | 0.5 | 16 | 0.95 | (zip 1.6: sharp off the line) |
+| Woodsman 440 | 600 | 4 | 1.20 | 1.00 | 0.4 | 22 | 1.20 | 22 parts: receiver-heavy, groomer, trailer, elec winch, supercharger |
+| Ranger 500 | 900 | 8 | 1.41 | 1.02 | 0.3 | 20 | 1.38 | 18: flatbed, tiller, turbo, paddle track, heavy winch |
+| Sprint 580 | 1700 | 13 | 1.58 | 1.12 | 1.1 | 18 | 1.41 | 8: EFI, hybrid track, freight deck |
+| Summit 600 | 2400 | 18 | 1.68 | 0.88 | 0.8 | 24 | 1.91 | 3: mountain track, stage 3, expedition tank |
+| Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing — **weaker than the Summit it follows** |
+| Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | nothing |
+| Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | nothing |
+| Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing — **weaker than the Matriarch, +$4700** |
+
+Ranks/contracts (pay = average offered): 3 deliveries grooming ~$900 (needs groomer $700 + receiver $150, both
+Woodsman-tier, so really opens at 4); 5 heavy freight ~$1500 (trailer $900 + Freight licence); 12 priority
+~$2450; 20 Slettnes expedition ~$3500 (flatbed $2400, Ranger-tier). Board parcels: $145 avg at 0–5 deliveries
+(0.6 km), ~$295 at 6–10 (roaming, 2.3 km), ~$370 at 12+; all ≈ **$48–60 per estimated minute at every level**
+(sled upgrades only raise it by beating the estimate). First upgrade (Woodsman $600 at 4 deliveries) ≈ 4–5
+round-town jobs ≈ 15 game-min: on target. After that a single contract outpays 6 parcels.
 
 ## Backlog
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2: Audit the progression ladder end to end (code read + a fast-forwarded playtest) and write the
-      Progression map table above; turn the worst problems into backlog items.
 - [ ] G1: Slope does nothing on foot: `footStep` never reads the grade (report 0001: "uphill" 1.66 m/s,
       "downhill" 2.41 vs flat 1.04, all explained by snow depth). Add a grade term like `skiStep`'s
       (`surf` ahead minus behind): uphill slower, gentle downhill a touch quicker, capped. Test on an inland
@@ -94,5 +112,17 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       visual pass re-shoots it.
 - [ ] G1: Fix the start: 6 s of throttle from the spawn runs the Frontier into the Helsesenter wall
       (smoke.mjs still 01_riding). Spawn facing open snow or a clear lane.
+- [ ] G2: Trekker 550 ($3400, 24 deliveries) is weaker than the Summit 600 it follows (p/d 1.61 vs 1.91,
+      power 161% vs 168% shown on its card) and opens no parts: a trap on raw numbers. Give it a reason the
+      player can see (its two-up seat for aurora tours? range: 30 L + 0.9 burn engine is already its thing; say
+      so on the card) or retune toward its place in the ladder. Don't touch Lemon's spare-seat tour work in
+      his checkout; read origin/main only. Same check for Aurora E vs Matriarch (3.11 vs 3.79, +$4700).
+- [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
+      (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
+- [ ] G2: Nothing above the Summit opens a part (tiers stop at 4): Apex/Matriarch/Aurora are only stats. Look
+      at whether late sleds should open late gear or jobs, and whether contract pay ($900–3500) vs parcel pay
+      ($145–370) makes parcels pointless after rank 3.
+- [ ] G2: First-5-minutes playtest of a new save: is the first job obvious, how long to the first $600?
+      (playtester can own this; builder triages).
 
 Last triaged report: 1

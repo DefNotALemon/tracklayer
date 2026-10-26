@@ -7,6 +7,22 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 01:30 — Progression audit + garage says what's next (G2) — 127af07
+Audit: new `scenarios/g2_ladder.mjs` (per-sled stats via `stats()`, job boards sampled 40× at 12 delivery
+levels, garage text). Ladder table + pay curve written into LOOP.md "Progression map". Worst findings: Trekker
+weaker than the Summit before it, Aurora weaker than the Matriarch, nothing above the Summit opens a part,
+grooming announced at rank 3 but its gear needs the Woodsman (4), parcels ≈$50/est-min flat at every level.
+First upgrade timing is fine (Woodsman ≈ 4–5 round-town jobs ≈ 15 game-min). Each became a backlog item.
+Built the slice a player hits first: the garage's locks were unreadable. Before (`g2_garage.mjs`, 2 deliveries,
+$450): locked sleds showed only "4 deliveries" (no price), locked parts showed "Gen 2+ / Gen 3+ / Gen 4+ /
+Gen 5+" with nothing mapping a generation to a sled. After: lock labels "Woodsman+ / Ranger+ / Sprint+ /
+Summit+", each locked part's line ends "Fits the Woodsman 440 W/T and newer (4 deliveries, $600)" (or "switch
+sleds" if you own one), locked sled cards add an amber "$600 once you've made 4 deliveries (you have 2) · opens
+22 more parts in the shop"; the tier toast in `fitPart` says the same. First try used `<b>`, which picked up
+the title style and shouted (vision); changed to an amber span the size of the other text. smoke.mjs exit 0,
+page errors none (powder 1.49, trench 2.18). README garage paragraph; script v59. No new reports to triage.
+Next: G1 slope on foot, then the Trekker/Aurora sidegrade problem.
+
 ## 2026-10-26 01:15 — Walking pace in powder up ~45%, tiredness softer (G1) — 31a0364
 Fresh powder: `wade` floor 0.42 → 0.57 and full pace 2.7 → 2.9 m/s in `footStep`; tiredness builds
 0.07 → 0.04 ×strain/s and recovers 0.05 → 0.08/s (tired only drives the pose/breathing, not speed).
