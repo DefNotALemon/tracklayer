@@ -4037,10 +4037,14 @@ const WX = {
   },
   frontAt(f, x, z, T) { const u = (x * f.dx + z * f.dz - f.v * (T - f.t0)) / f.L; return f.s * Math.exp(u > 0 ? -2.9 * u * u : -u * u); },
   // calendar-hour T version: strongest front over (x, z); WX.f is the front that won
+  // First morning grace: on 1 November (calendar hour 0-24, which only a brand-new save sees) the sky holds
+  // clear until 13:00 and fronts ease in over 13:00-15:00, so a new courier's first jobs aren't in a storm
+  // they've had no warning or kit for (report 0031: 14% of new saves had one before 11:00, -1.1 warmth/s).
   atT(x, z, T) {
+    const g = sstep(13, 15, T); if (g <= 0) { this.f = null; return 0; }
     const D = Math.floor(T / 24); let v = 0; this.f = null;
     for (let d = D - 2; d <= D + 1; d++) for (const f of this.dayFronts(d)) { const q = this.frontAt(f, x, z, T); if (q > v) { v = q; this.f = f; } }
-    return v;
+    return v * g;
   },
   at(x, z, H = GS.hour) {
     const v = this.atT(x, z, CAL.abs(H)), F = this.force;

@@ -212,7 +212,8 @@ strong the lights are when you get there.
 Storms are weather fronts that sweep across the map, so the west coast gets hit before the
 quay. The tablet's Weather app (or **B**, for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
 confidence figure and are sometimes wrong. It also shows whether the ferry's calls look
-on time, delayed or cancelled.
+on time, delayed or cancelled. A new game's first morning (1 November) stays clear until about
+13:00, with fronts easing in over the next two hours, so your first jobs aren't run in a storm.
 
 ## The spring melt
 
