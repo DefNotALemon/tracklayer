@@ -3472,6 +3472,7 @@ function updVisuals(dt) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
     sledRoot.updateMatrixWorld();
     const eye = sledRoot.localToWorld(_camEye.set(0, 1.66 + CLIMB.stand * 0.7, -0.14));
+    camState.shOn = false; camState.shK = 0;                             // the chase cam's shoulder slide doesn't carry over
     if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.fpBob = 0; camState.fpEyeY = eye.y; camState.init = true; }
     // the head sits exactly where the rider's head is — no smoothing along the ground, or
     // speed drags the camera back into the seat. Only vertical jolts are cushioned.
@@ -3491,6 +3492,7 @@ function updVisuals(dt) {
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
     const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1, FZp - cfz * (view.d + td));
+    if (camState.shOn) { camera.position.copy(camState.shBase); camState.shOn = false; }   // undo last frame's shoulder offset before the lerp, or it piles up
     if (camState.cp && camState.cpOn) camera.position.copy(camState.cp);   // the over-the-shoulder dip moved the camera last frame: start from the chase cam's own spot
     want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
@@ -3501,6 +3503,17 @@ function updVisuals(dt) {
     const la = (4 + CLIMB.v * 4) * (0.35 + 0.65 * camState.wallK);   // pulled in close: aim nearer, so the rider stays in frame
     look = _camAim.set(FXp + cfx * la, FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * la);
     camState.cp = (camState.cp || new THREE.Vector3()).copy(camera.position); camState.cpOn = false;
+    // on foot with a wall right behind you the camera sits ~0.6 m back and the helmet filled the middle of the screen:
+    // slide it over the right shoulder (render-only, undone next frame) so you see past your head to where you're going
+    const shT = FOOT.on && !cr && !fishing ? clamp((0.6 - camState.wallK) / 0.35, 0, 1) : 0;
+    camState.shK = (camState.shK || 0) + (shT - (camState.shK || 0)) * (1 - Math.exp(-6 * dt));
+    if (camState.shK > 0.01) {
+      camState.shBase = (camState.shBase || new THREE.Vector3()).copy(camera.position); camState.shOn = true;
+      const so = 0.42 * camState.shK, rx = -cfz * so, rz = cfx * so;      // camera right = (-fwd.z, fwd.x)
+      camera.position.x += rx; camera.position.z += rz;
+      camWallClip(FXp, FYp + 1.3, FZp, camera.position);                  // the slid spot mustn't be in a wall either
+      look.x += rx * 0.45; look.z += rz * 0.45;
+    }
   }
   P.shake *= Math.exp(-4 * dt);
   const sh = (P.shake * 0.35 + (P.gnd ? clamp(spd / 40, 0, 1) * 0.015 * (1 - P.pack) : 0)) * (view.fp ? 0.5 : 1);
