@@ -229,8 +229,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spawn: none within 600 m of spawn), next to a LIT depot beacon (needs `GS.load` set; call
       `updateMatrixWorld` before projecting `depot.beacon`, 0068 F4).
 - [ ] G1 (playtest, follow-up to v136 shore slide): `g1_shore.mjs` avg along-shore 2.73 → 5.13 m in 5 game-s, stuck
-      3 → 1. Left: spot 3 (-1409,-326) 45° side −1 still stops at 0.5 m (concave corner? an obstacle?); ski along a
-      beach; the shore near piers/the ferry slip. Playtester: walk the quay edge by hand toward a door/the pier.
+      3 → 1. v137: spot 3 was the sea mask's 4 m staircase (a riser square to the averaged normal; `g1_shore_probe.mjs`
+      prints the isSea map + a step trace); shoreSlide now falls back to a grid-axis slide: avg 5.13 → 5.52 m, stuck 1 → 0.
+      Left: ski along a beach; the shore near piers/the ferry slip. Playtester: walk the quay edge by hand toward a
+      door/the pier, and a long diagonal beach (does the staircase make you zig-zag visibly?).
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,

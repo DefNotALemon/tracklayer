@@ -7,6 +7,15 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:58 — Shore slide gets round the beach's stair-step corners (G1) — fd13d4a
+No new reports since 0068. Took the v136 follow-up (last stuck spot). New `g1_shore_probe.mjs` (isSea ASCII map + per-step
+trace) showed spot 3 sits on a diagonal shore that the sea mask draws as 4 m stairs: the 45° walk hits a riser almost
+square, the normal-projected slide lands wet, and the walker froze (sp 0). shoreSlide now also slides on the step's dry
+x-only / z-only part (whichever goes further) and handles steps not into the averaged normal. `g1_shore.mjs` avg along-shore
+**5.13 → 5.52 m** in 5 game-s, stuck **1 → 0** (spot 3 45° −1: 0.5 → 3.8 m); never ends in the sea. smoke exit 0, page
+errors none (66.2 mph, powder 1.54, trench 2.21). No stills: motion-only. README; v137.
+Next: playtester walks a long diagonal beach by hand (visible zig-zag on the staircase?), ski along a beach.
+
 ## 2026-10-26 17:48 — Walking along the shore follows the waterline (G1) — 977795b
 Took G1 (one real G1 landing in the last 20 passes). Found in `footStep`: a step that landed in the sea zeroed the
 position AND speed, so walking a quay or beach even slightly seaward froze you on the edge (re-accelerating every
