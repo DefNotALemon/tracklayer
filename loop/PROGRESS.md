@@ -7,6 +7,22 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:00 — Tonne loads: first work the Matriarch opens (G2) — f580af1
+Triage 0025 (verify v84: lane numbers reproduce to the decimal; F2 lot6/church gaps → merged into the lanes
+follow-up; F3/F4 info, dropped). Took the top item (late ladder, high) as slice 2. New rank "Fell master" at 46
+(`RANKS[6]`) and a tonne contract in `makeContracts` (`FELL_TONNE`, `c.tonne`, `c.sled = TONNE_SLED`): 920–1,050 kg
+in one piece (blade set, snowcat cab, built hut, genset) from the quay to the highest open fell site, pay
+`(4000 + dist·1.2 + climb·20) × 1.2/1.3`. `fellBlock(id)` now takes the class; tonne loads need exactly the
+Matriarch (Aurora is the lighter range machine, its work is slice 3). Locked "Tonne loads" card from 32 deliveries,
+Matriarch garage card line, Freight app note, accept toast. `g2_fell.mjs` extended (Matriarch card @36, locked cards,
+tonne gate per sled). Before → after (40 boards/level): kinds at 46/60 **…+fell → …+fell+tonne**; tonne avg
+**$9,940 / $9,860** [9,600–10,400] vs fell 5,450–5,620 (same quay→wind farm fell trip ≈ $4.2k); gate @50: Summit/
+Trekker/Apex/Aurora blocked with the Matriarch line, Matriarch OK; Matriarch card @36 before: price only, after: + tonne
+line; board @36 before: no hint, after: "Tonne loads — 46 deliveries and a Matriarch 850T". Still b29/aft3/02: tonne
+card (Snowcat cab & tracks, 1050 kg, $9,600) lays out cleanly. smoke exit 0, page errors none (powder 1.53, trench
+2.18, 6 s ride 67.1 mph). README ranks table; v86.
+Next: slice 3 (Aurora E range work); tow test of the gates in physics terms.
+
 ## 2026-10-26 06:45 — Fell freight: first work the Apex opens (G2) — 49f5591
 No new reports (last 24). Took the top item (late ladder, high, 0024) as slice 1. New rank "Fell hauler" at 32 deliveries
 (`RANKS[5]`) and a `FELL` contract in `makeContracts`: 450–540 kg flatbed loads (bays 2) to the two highest open

@@ -91,7 +91,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Summit 600 | 2400 | 18 | 1.68 | 0.88 | 0.8 | 24 | 1.91 | 3: mountain track, stage 3, expedition tank |
 | Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | no parts; since v85 the only class insured for fell freight (rank 32, $3.9–7.6k avg $5.6k) |
-| Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | nothing |
+| Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | no parts; since v86 the only sled rated for tonne loads (rank 46, 920–1,050 kg, $9.6–10.4k avg $9.9k) |
 | Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | nothing; since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
 
 Ranks/contracts (pay = average offered): 3 deliveries grooming ~$900 (needs groomer $700 + receiver $150, both
@@ -105,12 +105,14 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G2 (high): Late ladder, slices 2–3 (slice 1 v85: rank "Fell hauler" at 32 posts fell freight, $3.9–7.6k,
-      Apex 800+ only; Apex card says so; `scenarios/g2_fell.mjs`). Still open: Matriarch (46) and Aurora (60) open
-      nothing and their cards stay silent. Ideas: Matriarch = a two-load fell run / tracked-tow work it alone can
-      pull; Aurora = long electric-range work (a far relay run that only its 40 L-eq range makes without a fuel stop).
-      Also untested: whether a Summit physically can/can't drag 500 kg up to Gartefjellet (433 m climb) vs an Apex;
-      measure with a tow run before claiming the gate in physics terms (today it's an insurance rule).
+- [ ] G2 (high): Late ladder, slice 3 (slice 1 v85: rank "Fell hauler" at 32 posts fell freight, $3.9–7.6k,
+      Apex 800+ only; slice 2 v86: rank "Fell master" at 46 posts tonne loads 920–1,050 kg to the wind farm,
+      $9.6–10.4k, Matriarch only; both cards say so; `scenarios/g2_fell.mjs`). Still open: Aurora (60) opens
+      nothing beyond plug-in charging; idea: long electric-range work (a far relay/Slettnes-and-back run that only
+      its 40 L-eq range makes without a fuel stop), said on its card.
+      Also untested: whether a Summit/Apex physically can/can't drag 500 kg / 1 t up to Gartefjellet (433 m climb)
+      vs a Matriarch; measure with a tow run before claiming the gates in physics terms (today they're insurance rules).
+      Low: tonne cards wear the FELL chip; a TONNE chip colour would read better.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -135,7 +137,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low, follow-up to v84 lanes): lanes are straight legs from the depot yard, so lot9's (the yellow house
       at depot −66,+4) runs under the pier freight shed and lot6/church/lot9 straight-line samples still show
       gaps (`g1_lanes.mjs` 3/15). Bend a leg round any `obGrid` obstacle it crosses (sample the leg every 2 m).
+      Report 0025 F2: the other two gapped routes are lot6 (53 m, 78% plowed) and church (82 m, 82%); check all
+      three in the same pass (maybe one shared cause).
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 24
+Last triaged report: 25
