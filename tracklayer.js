@@ -4475,7 +4475,35 @@ function houseUV(geo, w, d, off) {
   }
   uv.needsUpdate = true;
 }
-function houseWinMat() { return houseWinMat.m || (houseWinMat.m = new THREE.MeshBasicMaterial({ color: 0xffc26b })); }
+// Day glass: by day a pane read as flat mid-grey paint. houseGlassTex() paints what a window reflects (pale sky at the
+// top, a dark far-ridge line, the dim room below, a faint diagonal sheen); houseWinMat blends to it by uGlassDay, which
+// houseWinTick drives with the same day factor that fades the lamp glow out, so dusk and night are unchanged. Every
+// glass box is one window (UV 0..1 per face), so each pane gets the whole reflection. 0 extra draw calls.
+function houseGlassTex() {
+  if (houseGlassTex.t) return houseGlassTex.t;
+  const c = document.createElement("canvas"); c.width = 64; c.height = 128; const g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, "rgb(168,184,204)"); gr.addColorStop(0.36, "rgb(112,128,150)"); gr.addColorStop(0.44, "rgb(70,80,94)");
+  gr.addColorStop(0.47, "rgb(34,39,47)"); gr.addColorStop(0.8, "rgb(20,24,30)"); gr.addColorStop(1, "rgb(36,40,47)");
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 128);
+  g.save(); g.translate(32, 64); g.rotate(-0.5);                      // a soft diagonal sheen
+  const sh = g.createLinearGradient(-14, 0, 14, 0);
+  sh.addColorStop(0, "rgba(255,255,255,0)"); sh.addColorStop(0.5, "rgba(230,238,248,0.16)"); sh.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = sh; g.fillRect(-14, -100, 28, 200); g.restore();
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+  return (houseGlassTex.t = t);
+}
+function houseWinMat() {
+  if (houseWinMat.m) return houseWinMat.m;
+  const m = new THREE.MeshBasicMaterial({ color: 0xffc26b, map: houseGlassTex() });
+  houseWinMat.u = { value: 0 };
+  m.onBeforeCompile = s => {
+    s.uniforms.uGlassDay = houseWinMat.u;
+    s.fragmentShader = "uniform float uGlassDay;\n" + s.fragmentShader.replace("#include <map_fragment>",
+      "vec4 texelColor = mapTexelToLinear( texture2D( map, vUv ) );\n diffuseColor.rgb = mix( diffuseColor.rgb, texelColor.rgb, uGlassDay );");
+  };
+  return (houseWinMat.m = m);
+}
 // painted signs (shop boards, the Helsesenter and its H signs, fuel price boards, school signs, the helipad) take the
 // scene's light like any other surface; they used to be MeshBasic, as bright at midnight as at noon. A sign made with
 // `glow` > 0 is backlit or floodlit after dusk: its own picture as emissive, faded in by houseWinTick with the windows.
@@ -4517,6 +4545,7 @@ function houseWinTick(day, st) {
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
+  houseWinMat.u.value = day * (1 - 0.6 * st);
   // KIT.glowM (the church windows, the coastal ferry's windows and portholes, the fuel pump displays) was a fixed cream
   // MeshBasic, so all of it burned full bright at noon; it now goes to dark glass by day with the house windows. (Safe
   // here: houseWinMat.m only exists once K.house has run, long after KIT is built.)
