@@ -12372,12 +12372,12 @@ function rescueTick(dt) {
   wnUpdate(dt);
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
-  sledPinTick();
+  sledPinTick(dt);
 }
 /* Sled locator: on foot, once you're 30+ m from the sled, a slim warm-yellow light column (the guide-beacon shader,
    scaled to ~150 m tall and under a metre wide) stands over it so you can find it at night, in a storm or behind
    a rise; it fades in over 30–60 m. Yellow so it never reads as a delivery (orange), depot (blue) or lookout (green). */
-function sledPinTick() {
+function sledPinTick(dt) {
   const d = FOOT.on ? Math.hypot(P.x - FOOT.x, P.z - FOOT.z) : 0;
   const k = FOOT.on && !GS.dead && !SCHOOL.on && !MNT.on ? Math.min(1, Math.max(0, (d - 30) / 30)) : 0;
   if (!V.sledPin) { if (k <= 0) return; V.sledPin = new THREE.Mesh(beaconGeo, beaconMat(0xffd860, 0.26)); V.sledPin.scale.set(0.34, 0.15, 0.34); V.sledPin.frustumCulled = false; scene.add(V.sledPin); }
@@ -12398,7 +12398,8 @@ function sledPinTick() {
     if (gy > ey + (gs - ey) * t) need = Math.max(need, ey + (gy - ey) / t);
   }
   const base = Math.min(gs + 600, Math.max(gs, need - 10));
-  V.sledPinB = V.sledPinB === undefined ? base : V.sledPinB + (base - V.sledPinB) * Math.min(1, 6 * (1 / 60));
+  // eased at the same rate whatever the frame rate (it was a fixed 1/60 step: 3x slower at 20 fps)
+  V.sledPinB = V.sledPinB === undefined ? base : V.sledPinB + (base - V.sledPinB) * (1 - Math.exp(-6 * Math.min(0.1, dt || 1 / 60)));
   const w = Math.max(1, d / 200);
   V.sledPin.scale.set(0.34 * w, 0.15 * w, 0.34 * w);
   V.sledPin.position.set(P.x, V.sledPinB + 75 * w, P.z);
