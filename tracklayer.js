@@ -4360,6 +4360,25 @@ function updTurbines(dt) {
 }
 
 const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 1000, 16, 1, true);
+/* Guide beacons (sites, lookouts, school checkpoints) are 1 km light pillars. A flat additive tube read as a
+   hard-edged grey bar up the whole frame at night (report 0010), so the shader shapes it like a column of light:
+   brightest along the core and fading to nothing at the silhouette (view·normal), strong near the ground and
+   thinning upward, faded out over the top third instead of ending in a cut. `op` keeps each caller's strength. */
+function beaconMat(color, op) {
+  const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op * 1.3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH;\nvoid main() {")
+      .replace("#include <project_vertex>", "#include <project_vertex>\n  vBN = normalize(normalMatrix * normal); vBV = -mvPosition.xyz; vBH = position.y / 1000.0 + 0.5;");
+    sh.fragmentShader = sh.fragmentShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH;\nvoid main() {")
+      .replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `float bE = abs(dot(normalize(vBN), normalize(vBV)));
+  float bF = bE * bE * (0.3 + 0.7 * exp(-vBH * 5.0)) * (1.0 - smoothstep(0.45, 1.0, vBH));
+  diffuseColor.a *= bF;
+  ${o}`);
+    m.userData.shaded = /bF/.test(sh.fragmentShader);
+  };
+  m.customProgramCacheKey = () => "beacon";
+  return m;
+}
 function buildSites() {
   const { wood, woodD, snowM, stone, doorM, metal, glowM: glow, L } = KIT, pumpM = L(0xc23a22), red = KIT.red, white = KIT.white;
   const add = (g, geo, mat, x, y, z, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.z = rz; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
@@ -4442,7 +4461,7 @@ function buildSites() {
     }
     scene.add(g);
     const bc = s.type === "depot" ? 0x7fc8e0 : 0xff5a1f;
-    s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: bc, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    s.beacon = new THREE.Mesh(beaconGeo, beaconMat(bc, 0.2));
     s.beacon.position.set(s.x, s.y + 480, s.z); s.beacon.visible = false; scene.add(s.beacon);
   }
 }
@@ -4868,7 +4887,7 @@ function buildViews() {
     const bench = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.42), wood); bench.position.set(2.6, 0.48, 0.8); bench.rotation.y = 0.4; g.add(bench);
     for (const sx of [-0.75, 0.75]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.38), wood); leg.position.set(2.6 + sx * Math.cos(0.4), 0.24, 0.8 - sx * Math.sin(0.4)); leg.rotation.y = 0.4; g.add(leg); }
     addOb({ x: v.x, z: v.z, r: 1.2, top: 1e9 });
-    v.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: 0x5ff0b0, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    v.beacon = new THREE.Mesh(beaconGeo, beaconMat(0x5ff0b0, 0.2));
     v.beacon.position.set(v.x, v.y + 480, v.z); v.beacon.visible = false; scene.add(v.beacon);
   }
 }
@@ -6630,11 +6649,11 @@ function buildSchools() {
       K.put(c, coneG, cone, 0, 0.3, 0); K.put(c, bandG, band, 0, 0.36, 0);
     }
     K.lamp(s.x + 6, s.z - 9); K.lamp(s.x - 18, s.z - 8);
-    s.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(s.col), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    s.beacon = new THREE.Mesh(beaconGeo, beaconMat(new THREE.Color(s.col), 0.22));
     s.beacon.position.set(s.x, s.y + 480, s.z); s.beacon.visible = false; scene.add(s.beacon);
   }
   // one beacon for the course's next checkpoint
-  SCHOOL.beacon = new THREE.Mesh(beaconGeo, new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+  SCHOOL.beacon = new THREE.Mesh(beaconGeo, beaconMat(0xff8a3a, 0.25));
   SCHOOL.beacon.scale.set(0.8, 1, 0.8); SCHOOL.beacon.visible = false; scene.add(SCHOOL.beacon);
 }
 // the trailer waiting in the yard for the hookup mission: runners, a deck and a yellow frame

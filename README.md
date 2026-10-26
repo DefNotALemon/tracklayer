@@ -41,6 +41,8 @@ overlay instead. Apps: **Parcels** (pickups and drop-offs, each with its own lit
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
 you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
+A soft column of light stands over wherever you're carrying a load (empty-handed, over the quay), brightest
+at its foot and fading out high in the sky.
 Take a job where it's waiting and it goes straight on the sled; take it anywhere else and you
 claim it, and it loads when you stop at its **P**. Your first six deliveries are round town, picked
 up at the quay. After that the work comes to you: every drop-off posts parcels from wherever you
