@@ -4426,6 +4426,87 @@ function fuelTip(j, chance, lo, hi) {
   j.tipL = L; j.pay -= cut; return j;
 }
 
+/* ---------------- house facades (KIT.house) ----------------
+   Houses were flat painted boxes with two pale squares for windows. Now: vertical board cladding (a shared canvas
+   map, one clone of each paint material in houseClad's cache, UVs in metres via houseUV so boards are ~18 cm on every
+   house), a stone plinth, corner boards, framed windows with glazing bars on all four walls and a framed door. The
+   trim and the glass are each one merged mesh per house (houseFacade), so a house costs 2 more draw calls, not 50.
+   Window glass (houseWinMat) is unlit and driven from updSky by houseWinTick: dark slate glass by day, the warm
+   lamp glow from dusk, in storms and through the polar night. Nothing saved. */
+const HOUSE_BW = 1.44;                                  // metres of wall per texture repeat (8 boards)
+function houseBoardTex() {
+  if (houseBoardTex.t) return houseBoardTex.t;
+  const c = document.createElement("canvas"); c.width = 256; c.height = 64; const g = c.getContext("2d"), rnd = mulberry32(7121);
+  for (let i = 0; i < 8; i++) {
+    const b = 0.9 + rnd() * 0.1, x0 = i * 32;
+    const v = k => Math.round(255 * Math.min(1, b * k));
+    g.fillStyle = `rgb(${v(1)},${v(1)},${v(1)})`; g.fillRect(x0, 0, 32, 64);
+    for (let k = 0; k < 5; k++) { const gx = x0 + 4 + rnd() * 26, s = 0.96 + rnd() * 0.06; g.fillStyle = `rgba(${v(s)},${v(s)},${v(s)},0.6)`; g.fillRect(gx, 0, 1 + rnd() * 2, 64); }   // faint grain
+    g.fillStyle = `rgb(${v(0.62)},${v(0.62)},${v(0.62)})`; g.fillRect(x0, 0, 2, 64);           // the shadowed joint
+    g.fillStyle = `rgb(${v(1.06)},${v(1.06)},${v(1.06)})`; g.fillRect(x0 + 2, 0, 1, 64);        // the lit board edge
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return (houseBoardTex.t = t);
+}
+function houseClad(mat) {
+  const C = houseClad.c || (houseClad.c = new Map());
+  let m = C.get(mat.uuid); if (!m) { m = mat.clone(); m.map = houseBoardTex(); C.set(mat.uuid, m); }
+  return m;
+}
+// box (w > 0): u across each wall face in metres / HOUSE_BW; extrude (w = 0): its caps already carry world x,y as uv
+function houseUV(geo, w, d, off) {
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    if (w > 0) { const f = (i / 4) | 0; if (f === 2 || f === 3) continue; uv.setX(i, uv.getX(i) * (f < 2 ? d : w) / HOUSE_BW); }
+    else uv.setXY(i, (uv.getX(i) + off) / HOUSE_BW, uv.getY(i) / HOUSE_BW);
+  }
+  uv.needsUpdate = true;
+}
+function houseWinMat() { return houseWinMat.m || (houseWinMat.m = new THREE.MeshBasicMaterial({ color: 0xffc26b })); }
+function houseWinTick(day, st) {
+  const m = houseWinMat.m; if (!m) return;
+  const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
+  m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
+}
+function mergeBoxes(list) {
+  const pos = [], nor = [], uv = [];
+  for (const [w, h, d, x, y, z] of list) {
+    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z);
+    for (const [arr, k] of [[pos, "position"], [nor, "normal"], [uv, "uv"]]) { const a = g.attributes[k].array; for (let i = 0; i < a.length; i++) arr.push(a[i]); }
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  out.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  return out;
+}
+// wins: [face, along] with face 0 front (+z, the door), 1 back, 2 +x side, 3 -x side
+function houseFacade(w, h, d, wins, door) {
+  const trim = [], glass = [];
+  const put = (arr, f, sa, sb, sn, a, b, n) => {
+    if (f === 0) arr.push([sa, sb, sn, a, b, d / 2 + n]);
+    else if (f === 1) arr.push([sa, sb, sn, -a, b, -d / 2 - n]);
+    else if (f === 2) arr.push([sn, sb, sa, w / 2 + n, b, -a]);
+    else arr.push([sn, sb, sa, -w / 2 - n, b, a]);
+  };
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) trim.push([0.16, h, 0.16, sx * (w / 2 - 0.05), h / 2, sz * (d / 2 - 0.05)]);   // corner boards
+  const ww = 0.82, wh = 0.98, wb = 1.48, t = 0.1;
+  for (const [f, a] of wins) {
+    put(glass, f, ww, wh, 0.06, a, wb, 0.03);
+    put(trim, f, ww + 2 * t, t, 0.1, a, wb + wh / 2 + t / 2, 0.05);                 // head
+    put(trim, f, ww + 2 * t + 0.1, 0.09, 0.15, a, wb - wh / 2 - 0.045, 0.075);      // sill
+    for (const s of [-1, 1]) put(trim, f, t, wh, 0.1, a + s * (ww / 2 + t / 2), wb, 0.05);
+    put(trim, f, 0.045, wh, 0.04, a, wb, 0.08);                                      // glazing bars
+    put(trim, f, ww, 0.045, 0.04, a, wb + 0.12, 0.08);
+  }
+  if (door) {
+    for (const s of [-1, 1]) put(trim, 0, 0.11, 2.0, 0.12, s * 0.5, 1.0, 0.06);
+    put(trim, 0, 1.22, 0.13, 0.12, 0, 2.02, 0.06);
+  }
+  return { trim: mergeBoxes(trim), glass: glass.length ? mergeBoxes(glass) : null };
+}
+
 /* ---------------- building kit: shared by the villages and the town ---------------- */
 const KIT = (() => {
   // per-pixel (Standard at roughness 1 is the same diffuse as Lambert): r128's Lambert lights per vertex, and a box wall has four,
@@ -4434,7 +4515,8 @@ const KIT = (() => {
   const K = {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
-    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: []
+    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [],
+    plinth: L(0x4c4d51), trimW: L(0xeeebe4), trimG: L(0xa9b0b7)
   };
   K.put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
@@ -4445,21 +4527,32 @@ const KIT = (() => {
     if (lit !== false) K.doors.push({ x, z, nx: Math.sin(ry), nz: Math.cos(ry), d, rr: Math.max(w, d) / 2 + 3.5 });   // buildTown plows a lane to it
     const g = new THREE.Group();
     g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
-    K.bx(g, w, h, d, mat, 0, h / 2, 0);
+    // walls and gables wear vertical board cladding (houseClad), UVs in metres so every house gets the same board width
+    const wallG = new THREE.BoxGeometry(w, h, d); houseUV(wallG, w, d, 0);
+    K.put(g, wallG, houseClad(mat), 0, h / 2, 0);
     const a = 0.55, hs = w / 2 + 0.4, Ls = hs / Math.cos(a);
     const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, (w / 2) * Math.tan(a)); tri.closePath();
-    const gable = new THREE.ExtrudeGeometry(tri, { depth: d, bevelEnabled: false }); gable.translate(0, 0, -d / 2);
-    K.put(g, gable, mat, 0, h, 0);
+    const gable = new THREE.ExtrudeGeometry(tri, { depth: d, bevelEnabled: false }); gable.translate(0, 0, -d / 2); houseUV(gable, 0, 0, w / 2);
+    K.put(g, gable, houseClad(mat), 0, h, 0);
     for (const s of [-1, 1]) {
       K.bx(g, Ls, 0.2, d + 0.7, K.woodD, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.05, 0).rotation.z = -s * a;
       K.bx(g, Ls + 0.1, 0.3, d + 0.8, K.snowM, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.28, 0).rotation.z = -s * a;
     }
     K.bx(g, 0.7, 1.8, 0.7, K.stone, -w / 4, h + 1.1, d / 4);
     K.bx(g, 0.8, 0.18, 0.8, K.snowM, -w / 4, h + 2.05, d / 4);
+    // facade: a stone plinth, painted corner boards, framed windows with glazing bars on every wall (front and back,
+    // and both eave sides on ordinary-length houses), a framed door. Trim and glass are one merged mesh each.
+    const pl = K.bx(g, w + 0.12, 0.6, d + 0.12, K.plinth, 0, 0.3, 0); pl.castShadow = false;
+    const wins = [];
     if (lit !== false) {
-      for (const sx of [-w / 4, w / 4]) K.bx(g, 0.7, 0.6, 0.08, K.glowM, sx, 1.5, d / 2 + 0.04);
+      for (const sx of [-w / 4, w / 4]) wins.push([0, sx], [1, sx]);
+      if (d < 12) wins.push([2, 0], [3, 0]);
       K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, 0.95, d / 2 + 0.04);
     }
+    const fac = houseFacade(w, h, d, wins, lit !== false);
+    const c = mat.color, trimM = c.r + c.g + c.b > 2.1 ? K.trimG : K.trimW;   // white houses get grey trim so it reads
+    K.put(g, fac.trim, trimM, 0, 0, 0).castShadow = false;
+    if (fac.glass) K.put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
     const box = { x, z, c: Math.cos(ry), s: Math.sin(ry), hw: w / 2 + 0.45, hd: d / 2 + 0.4 };   // the walls + eaves, for camWallClip
     for (let u = -w / 2 + 1.1; u <= w / 2 - 1; u += 1.9) for (let v = -d / 2 + 1.1; v <= d / 2 - 1; v += 1.9) {
       const wx = x + u * Math.cos(ry) + v * Math.sin(ry), wz = z - u * Math.sin(ry) + v * Math.cos(ry);
@@ -4831,6 +4924,7 @@ function updSky() {
   headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
   updScreenGrade();                                  // the tablets' screens take the same light and grade
   updSledEnv();
+  houseWinTick(dayness, st);
 }
 // the sleds' reflections take the same light as everything else: the sky fill plus some of the key light, ~1 at noon,
 // a few per cent on a moonless night, warm at sunset, green under an aurora. Repainted only when it has moved.
