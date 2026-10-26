@@ -4738,10 +4738,12 @@ function updSky() {
   // On a clear day with the sun up the air is arctic-dry: the haze thins ~30% and leans a cool blue (aerial
   // perspective) instead of a pale lavender wash, so hills a kilometre off keep their shape. Storms and night as before.
   // GFX.fogK thickens it on the low preset, where the far terrain ring stops sooner.
+  // Clear-day haze is half the overcast value (was −30%): at 1 km fog covers ~55% instead of ~76%, so far fells keep
+  // their sunlit/shaded sides; the far ring's edge (2.6 km high, 1.5 km low) is still >94% fogged.
   const clr = sstep(-1.5, 4, e) * (1 - st);
   keyAt(SKYK, e, 5, _c1); _c1.lerp(C_AIRDAY, 0.35 * clr); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, dayness); _c1.lerp(_c2, st);
   scene.fog.color.copy(_c1); u.uFog.value.copy(_c1);
-  scene.fog.density = (lerp(0.0017 * (1 - 0.3 * clr), 0.012, st) + (1 - dayness) * 0.001) * GFX.fogK;
+  scene.fog.density = (lerp(0.0017 * (1 - 0.5 * clr), 0.012, st) + (1 - dayness) * 0.001) * GFX.fogK;
   // key light: the sun while it's up, handing over to the moon once it's well below (both are dark at
   // the crossover, so the shadow direction never snaps)
   const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1.5, 4, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
