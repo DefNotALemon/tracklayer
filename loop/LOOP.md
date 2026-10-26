@@ -182,14 +182,27 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       depot→Ifjord ride lost warmth at only 0.12/s vs 0.30 modelled (thaw near town?). `g2_coldrun_ride_laden.mjs`
       (LR_SLED/LR_FROM/LR_KIND): ride 3–4 more legs incl. a deep-powder one and a 400+ kg flatbed leg before any
       further retune; check whether snow depth along the line should feed the pace.
+      b54: Summit lvl21 210 kg trailer rode 29.6 m/s vs est 20 (card 202% vs projected 107%); Ranger flatbed heavy leg
+      again useless (autopilot oscillated 129–258 m along, 2 crashes). Decision: keep the empty pace conservative for now:
+      it equals the slowest real leg (0034 Woodsman 12.7 m/s), others run 1.3–1.8× it, and the ≥100% flag was right on
+      5/7 ridden legs; only retune with a reliable (hand-steered) Ranger flatbed ride in hand.
       Report 0043: Gamvik→Ifjord light trailer reconfirms (card 321% vs real 137%). Its heavy-flatbed stall (Woodsman,
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
+- [ ] G3/G1 (low, follow-up to v110 camera wall clip): `g3_camwall.mjs` covers K.house doors only (8/8 → 0/8). Other
+      buildings (depot/quay sheds, garage, shops, cabins, church) keep circle footprints, which can stop short of their
+      walls, so the camera may still end up just inside them: extend the `box` field to those builders if a playtest finds
+      one. On foot at a door the camera sits 0.6 m back and the helmet fills the frame centre; a shoulder offset may read
+      better.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
-      `g2_first5min.mjs` over ~4 more deliveries). (0007 F2 Tab → Home done in v91: Tab opens Parcels on a new save.)
+      `g2_first5min.mjs` over ~4 more deliveries).
+      Report 0046 (`g2_first5min_chain.mjs`, real claim → pickup → drop): $845 after 5 deliveries at gameClock 214 s
+      (~3.6 game-min), 3–4× quicker than the 10–15 min target, but auto-nav drives straight lines at 45–96 mph. The
+      Woodsman also needs 4 deliveries, so cash isn't the gate. Don't retune until a hand-paced (or speed-capped ~40 mph)
+      run gives a real-player number. (0007 F2 Tab → Home done in v91: Tab opens Parcels on a new save.)
 - [ ] G2 (low, playtest, report 0031 F3): `g2_first5min.mjs` auto-nav drives straight into the quay shed on the
       Neset order and then shuffles on foot; harden it (steer round `obNear`, or detect `FOOT.on` after a crash and
       tap Q back on) so first-5-min numbers mean something. Since v93 the first morning is storm-free, so warmth
@@ -200,4 +213,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 45
+Last triaged report: 46

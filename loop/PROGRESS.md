@@ -7,6 +7,22 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 12:50 — Chase camera stays out of the house behind you (G3/G1) — 0e665a2
+Triage 0046: F1 (time-to-Woodsman 3.6 game-min with auto-nav, 3–4× under target) noted on the first-5-min item, no
+retune until a real-pace run (the Woodsman also needs 4 deliveries); F2 "static white streak in the sky" is the
+Kjøllefjord pickup beacon seen from km away (leg3_pick_t72 shows it on the quay): dropped, by design; F3 one-off harness
+stall, not reproduced: dropped. Its delivery stills (leg0/leg2/zz_final) were a screenful of yellow timber wall: the
+camera inside the Strandbu house. Also re-rode the G2 cold-run item first (Summit trailer 29.6 m/s vs est 20; Ranger
+flatbed run stuck again) and decided to keep the conservative pace (logged on the item). Took the camera bug instead.
+New `camWallClip()`: casts focus → chase camera against obGrid footprints (houses via a real wall box `box` on their
+circles, since the circles stop up to 1.5 m short of the walls; other non-tree footprints grown 0.45 m), pulls the camera
+in short of the first wall, drops it halfway to shoulder height and aims nearer (`camState.wallK`) so the rider stays in
+frame; drone view exempt. New `scenarios/g3_camwall.mjs` (8 town doors, rider on foot / sled parked at the door facing
+out): camera inside a building foot **4/8 → 0/8**, sled **8/8 → 0/8** (circle probe; vision on the before sheet saw all 8
+inside walls). Vision after (b54/after3.jpg): every tile looks out over town, rider/sled readable; on foot the helmet sits
+mid-frame at 0.6 m. smoke exit 0, page errors none (powder 1.54, trench 2.26, 6 s 66 mph). README V-key line; v110.
+Next: other buildings' footprints (new low item); G2 hand-paced first-5-min; G3 away-from-sun flatness.
+
 ## 2026-10-26 12:40 — Hill-cast shadows on the far fells (G3) — not landed: no visible gain, contrast down
 No new reports (last triaged 45). Took the top G3 item (far land flat, esp. away from the sun). Built terrain-cast
 hill shadows: `ground` sampled at 16 m into a 512² map, marched toward the TRUE sun (16 m steps, then +6%, to 1.6 km;
