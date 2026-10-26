@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:00 — Clear-day shade is sky-blue (G3) — b436296
+No new reports (last 17). Took daylight slice 5. The sky fill (hemi light) was a grey-lavender (b6c4de at the Nov
+noon), so shaded snow and snow turned from the sun went beige-grey like the sunlit faces. `updSky` now pushes the
+fill's colour 2.8× further from grey at the same luminance on a clear day (×`clr`, so storms/overcast/night unchanged),
+scaled under 1 with hue kept: Nov noon b6c4de → 95bbff, March bbd2eb → 87bfff. A first try at 1.9× was invisible in
+stills. `g3_day.mjs` terrain band (260–1020 × 240–470) sat / blue−red: 01 quay **36.3 → 40.1**, −11.8 → −2.8; 02
+toward sun **27.4 → 38.5**, 9.3 → 21.3; 03 24.5 → 28.8; 04 33.0 → 35.2; 06 March backcountry **2.7 → 9.5**; 05 Nov
+backcountry 9.2 → 5.7 (its warm-grey snow went neutral-cool: hue shift, not flatter). Whole-frame mean luma within ±1.5.
+Vision (b19/pair2.jpg): shaded hillsides and house shadows read cooler/bluer, natural, not cartoonish; sled/rider fine.
+smoke.mjs exit 0, page errors none (powder 1.48, trench 2.21, 6 s ride 65.3 mph). README daylight paragraph; v76.
+Next: daylight slice 6 (backcountry still pale; sky glow, far albedo variation).
+
 ## 2026-10-26 04:50 — Aurora E plugs in anywhere (G2) — ed57feb
 Triage 0016 (verify v73 wall slide: holds, numbers match) and 0017 (verify v74 drift shading: holds, smaller on
 whole-frame stats as expected; slice 5 still wanted): no new items. Took the Aurora item over daylight slice 5: last

@@ -104,10 +104,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 5 (v74 gave the far terrain drift shading): a touch more daytime saturation (backcountry
-      sat 20–24 vs quay 37) and sun glow in the sky away from the sun. With the sun behind the camera the far drifts
-      stay faint (05 local 2.45 → 3.2): if still flat, a little sky-tinted albedo variation on the far snow. Measure
-      with `g3_day.mjs` + `imgstats.py`, crop the terrain band (HUD/toasts skew whole-frame stats).
+- [ ] G3: Daylight slice 6 (v76 made the clear-day sky fill blue): open backcountry (`g3_day` 05) is still a pale
+      near-white sheet, band sat 5.7, sunlit snow faintly warm-grey. Try sun glow in the sky away from the sun
+      (`uGlow`), and a little sky-tinted albedo variation on the far snow with the sun behind the camera. Measure
+      with `g3_day.mjs` + `imgstats.py`, crop the terrain band 260–1020 × 240–470 (`tlloop/b19/pair.py` prints it).
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
