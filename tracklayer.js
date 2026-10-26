@@ -4363,15 +4363,19 @@ const beaconGeo = new THREE.CylinderGeometry(2.2, 2.2, 1000, 16, 1, true);
 /* Guide beacons (sites, lookouts, school checkpoints) are 1 km light pillars. A flat additive tube read as a
    hard-edged grey bar up the whole frame at night (report 0010), so the shader shapes it like a column of light:
    brightest along the core and fading to nothing at the silhouette (view·normal), strong near the ground and
-   thinning upward, faded out over the top third instead of ending in a cut. `op` keeps each caller's strength. */
+   thinning upward, faded out over the top third instead of ending in a cut. `op` keeps each caller's strength.
+   Far off (report 0012: a hard hairline from the roofline to the top of the frame at 0.7–1.2 km, too thin for the
+   silhouette fade to show) the pillar shortens and dims with the camera's ground distance to it (vBD): full 1 km
+   column inside 300 m, by 1.1 km a ~280 m glow over the place that fades out softly, still easy to spot. */
 function beaconMat(color, op) {
   const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op * 1.3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
   m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH;\nvoid main() {")
-      .replace("#include <project_vertex>", "#include <project_vertex>\n  vBN = normalize(normalMatrix * normal); vBV = -mvPosition.xyz; vBH = position.y / 1000.0 + 0.5;");
-    sh.fragmentShader = sh.fragmentShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH;\nvoid main() {")
+    sh.vertexShader = sh.vertexShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH; varying float vBD;\nvoid main() {")
+      .replace("#include <project_vertex>", "#include <project_vertex>\n  vBN = normalize(normalMatrix * normal); vBV = -mvPosition.xyz; vBH = position.y / 1000.0 + 0.5;\n  vBD = distance(cameraPosition.xz, (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz);");
+    sh.fragmentShader = sh.fragmentShader.replace("void main() {", "varying vec3 vBN; varying vec3 vBV; varying float vBH; varying float vBD;\nvoid main() {")
       .replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `float bE = abs(dot(normalize(vBN), normalize(vBV)));
-  float bF = bE * bE * (0.3 + 0.7 * exp(-vBH * 5.0)) * (1.0 - smoothstep(0.45, 1.0, vBH));
+  float bK = smoothstep(300.0, 1100.0, vBD);
+  float bF = bE * bE * (0.3 + 0.7 * exp(-vBH * mix(5.0, 7.0, bK))) * (1.0 - smoothstep(mix(0.45, 0.03, bK), mix(1.0, 0.28, bK), vBH)) * mix(1.0, 0.85, bK);
   diffuseColor.a *= bF;
   ${o}`);
     m.userData.shaded = /bF/.test(sh.fragmentShader);

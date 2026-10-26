@@ -23,7 +23,7 @@ const place = d => ev(`(() => {
 const hour = h => ev(`GS.storm = 0; GS.hour = Math.floor(GS.hour / 24) * 24 + ${h}; camState.init = false; true`);
 for (const [tag, h] of [["night", 0.7], ["day", 12]]) {
   await hour(h);
-  for (const d of [120, 350, 1200]) {
+  for (const d of [120, 350, 700, 1200]) {
     console.log(tag, d, await place(d));
     await sleep(1800);
     console.log("  beacon visible", await ev(`SITES.find(s => s.type === "depot").beacon.visible`), "shaded", await ev(`!!SITES.find(s => s.type === "depot").beacon.material.userData.shaded`));
