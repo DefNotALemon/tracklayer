@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 15:03 — The garage gets its name boards (G3) — c3b62eb
+No new reports since 0056. Took 0056 F5: the "blank grey panel" was the garage's forecourt post sign in `buildTown`, a
+cream box whose red/navy stripe boxes sat on the wall-facing side, so from the forecourt it read blank. New
+`scenarios/g3_garage_sign.mjs` (forecourt 3/4, square-on post, roll door, ride-in 34 m; Nov noon + 21:00). Now a timber
+frame with `garageSignTex()` (red NORDKINN band, SKUTER & SERVICE, SLEDS · PARTS · KIT · REPAIRS) on both faces via
+`signMat(…, 0.2)`, and a NORDKINN SKUTER & SERVICE board over the roll door (`signTex` one-line mode now sizes the
+text to 0.56 h and fits it to the width; glow 0.15). imgstats local noon door/post/fore 4.97/4.41/4.61 → 6.78/6.40/5.17;
+draw calls at the forecourt 634 → 636. Glow 0.3 first read too bright square-on at night; cut to 0.2 (night post mean
+54.5, frame-level, aurora-free run). Vision (b65/before.jpg vs after.jpg + night_post crops): both boards readable at
+noon and night, flush, no z-fighting. smoke exit 0, page errors none (66.1 mph, powder 1.55, trench 2.21). README; v121.
+Next: fuel stations/cabins check, house eaves (0053 F1), low-sun roofline fascia (0054 F4).
+
 ## 2026-10-26 14:55 — Signs stop glowing at midnight (G3) — 15aa68a
 Triage 0056: v119 site facades verified (calls 553, local contrast within 0.3, night glass right); F5 (blank grey panel
 by the depot, no "Nordkinn Skuter & Service" name board) added to the buildings item; F7 stale toast = harness artifact.
