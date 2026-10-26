@@ -9160,7 +9160,12 @@ function buildTownSigns() {
   const { put, bx, woodD, snowM, L } = KIT;
   const faceO = new THREE.MeshLambertMaterial({ map: signTexture(true) }), faceI = new THREE.MeshLambertMaterial({ map: signTexture(false) }), edge = L(0x26323b);
   for (let k = 0; k < 12; k++) {
-    const a = k / 12 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), x = depot.x + ca * TOWN_R, z = depot.z + sa * TOWN_R;
+    let a = k / 12 * Math.PI * 2;
+    // the sled spawns on the depot's x facing SPAWN.yaw, i.e. straight down one of these twelve spokes: that
+    // sign would put a post right in a new save's first full-throttle run, so it stands ~12 m off to the side
+    { const ax = Math.cos(a), az = Math.sin(a), fx = Math.sin(SPAWN.yaw), fz = Math.cos(SPAWN.yaw);
+      if (ax * fx + az * fz > 0.9 && Math.abs((depot.x + ax * TOWN_R - SPAWN.x) * fz - (depot.z + az * TOWN_R - SPAWN.z) * fx) < 8) a += 0.11; }
+    const ca = Math.cos(a), sa = Math.sin(a), x = depot.x + ca * TOWN_R, z = depot.z + sa * TOWN_R;
     if (isSea(x, z) || isSea(x + ca * 8, z + sa * 8) || isSea(x - ca * 8, z - sa * 8) || groundAt(x, z) < SEA + 1.2 || slopeAt(x, z, 3) > 0.35 || solidNear(x, z, 4)) continue;
     const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); g.rotation.y = Math.PI / 2 - a; scene.add(g);   // local +z points out of town
     for (const sx of [-1.1, 1.1]) { put(g, new THREE.CylinderGeometry(0.07, 0.09, 2.9, 7), woodD, sx, 1.45, 0); addOb({ x: x + sx * Math.cos(g.rotation.y), z: z - sx * Math.sin(g.rotation.y), r: 0.3, top: 1e9 }); }
@@ -12194,6 +12199,10 @@ function buildHospital() {
     const sl = slopeAt(x, z, 8) + slopeAt(x + 16, z, 6) * 0.5 + slopeAt(x - 16, z, 6) * 0.5;
     if (sl > 0.32 || obNear(x, z, 26) || Math.hypot(x - garageSite.x, z - garageSite.z) < 45) continue;
     if (schoolList().some(s => s.x !== undefined && Math.hypot(s.x - x, s.z - z) < 70)) continue;
+    // and out of the lane a new save's first ride takes: the sled spawns facing SPAWN.yaw, and full throttle
+    // from there covers ~75 m in 8 s, so a building dead ahead within ~220 m is the first thing you hit
+    { const fx = Math.sin(SPAWN.yaw), fz = Math.cos(SPAWN.yaw), ux = x - SPAWN.x, uz = z - SPAWN.z, along = ux * fx + uz * fz;
+      if (along > -15 && along < 220 && Math.abs(ux * fz - uz * fx) < 40) continue; }
     const sc = sl * 120 + r * 0.25; if (sc < bs) { bs = sc; best = [x, z]; }
   }
   if (!best) return;

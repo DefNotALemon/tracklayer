@@ -92,7 +92,8 @@ and so does letting pings go two or more in a row. Volunteer winch recoveries st
 Some callouts are **hospital runs** (the HOSPITAL chip): every cold casualty, most hurt riders and the
 odd hiker who took a fall. A cabin stove only slows their clock; they're saved when you stop at
 **Kjøllefjord helsesenter**, the health centre on the edge of town (the blue **H** on the maps). These
-pay a bit more.
+pay a bit more. It (and the town-limit sign) stands clear of the lane you face when a new save starts at the
+depot, so your first ride out of town is open snow.
 
 ## Crashes and the health centre
 
