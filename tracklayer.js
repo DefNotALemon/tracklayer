@@ -4545,7 +4545,7 @@ function keyAt(K, e, i, out) {
   if (typeof A === "number") return lerp(A, B, t);
   return out.setRGB(lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t));
 }
-const C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.3, 0.95, 0.68), C_AURG = new THREE.Color(0.32, 0.8, 0.62);
+const C_AIRDAY = new THREE.Color(0.62, 0.72, 0.86), C_MOON = new THREE.Color(0.6, 0.7, 1.0), C_AUR = new THREE.Color(0.3, 0.95, 0.68), C_AURG = new THREE.Color(0.32, 0.8, 0.62);
 function updSky() {
   const H = GS.hour, h = H % 24, st = GS.storm, u = sky.material.uniforms;
   // sun
@@ -4561,9 +4561,13 @@ function updSky() {
   keyAt(SKYK, e, 1, u.uZen.value); keyAt(SKYK, e, 2, u.uMid.value); keyAt(SKYK, e, 3, u.uHor.value); keyAt(SKYK, e, 4, u.uHorA.value);
   keyAt(SKYK, e, 8, u.uGlow.value).multiplyScalar(1 - 0.85 * st);
   // fog tracks the horizon, greyed out by storms
-  keyAt(SKYK, e, 5, _c1); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, dayness); _c1.lerp(_c2, st);
+  // On a clear day with the sun up the air is arctic-dry: the haze thins ~30% and leans a cool blue (aerial
+  // perspective) instead of a pale lavender wash, so hills a kilometre off keep their shape. Storms and night as before.
+  // GFX.fogK thickens it on the low preset, where the far terrain ring stops sooner.
+  const clr = sstep(-1.5, 4, e) * (1 - st);
+  keyAt(SKYK, e, 5, _c1); _c1.lerp(C_AIRDAY, 0.35 * clr); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, dayness); _c1.lerp(_c2, st);
   scene.fog.color.copy(_c1); u.uFog.value.copy(_c1);
-  scene.fog.density = lerp(0.0017, 0.012, st) + (1 - dayness) * 0.001;
+  scene.fog.density = (lerp(0.0017 * (1 - 0.3 * clr), 0.012, st) + (1 - dayness) * 0.001) * GFX.fogK;
   // key light: the sun while it's up, handing over to the moon once it's well below (both are dark at
   // the crossover, so the shadow direction never snaps)
   const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1.5, 4, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
