@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:15 — Snow mirrors the clear sky at glancing angles (G3) — ec5e66f
+Triage 0018 (verify v75 Aurora plug: numbers reproduce exactly, card/toasts read right; false "Battery low" at the
+quay already on the backlog): no new items. Took daylight slice 6. Open backcountry was one pale near-white sheet.
+New shared `skyRefU` (uSkyRef = the clear-day hemi fill's hue at luminance 1, set in `updSky`, white when `clr` → 0 so
+storms/overcast/night are untouched; uSkyK 0.75): the snow patch and far terrain multiply `outgoingLight` toward it by a
+cubed fresnel term on snow only (not rock, bare ground, open water, wet snow ×0.3). Pitfall: r128 has no
+`#include <output_fragment>`; hook the literal `gl_FragColor = vec4( outgoingLight, diffuseColor.a );` (regex, as the
+sled shader does) — the first run changed nothing. `g3_day.mjs` band (260–1020 × 240–470) sat / blue−red: 05 Nov
+backcountry **5.6 → 12.1**, 0.5 → 9.3; 06 March **9.6 → 20.2**, 8.1 → 17.5; 03 28.8 → 36.0; 02 38.6 → 43.6; 01 quay
+40.1 → 46.9, −2.8 → 4.3; 04 sled close-up ≈ unchanged. Band luma −2. uSkyK 0.45 was barely visible; 0.75 kept.
+Vision (b20/c05b, c06b, c01b): flats grade white at the sled to cold blue-lavender toward the horizon, no seam at the
+patch edge, quay yards slightly cooler and natural; March is the strongest, still reads arctic not cartoon.
+smoke.mjs exit 0, page errors none (powder 1.48, trench 2.22, 6 s ride 65.2 mph). README daylight paragraph; v77.
+Next: slice 7 (warm sunlit faces).
+
 ## 2026-10-26 05:00 — Clear-day shade is sky-blue (G3) — b436296
 No new reports (last 17). Took daylight slice 5. The sky fill (hemi light) was a grey-lavender (b6c4de at the Nov
 noon), so shaded snow and snow turned from the sun went beige-grey like the sunlit faces. `updSky` now pushes the

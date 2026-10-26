@@ -104,10 +104,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 6 (v76 made the clear-day sky fill blue): open backcountry (`g3_day` 05) is still a pale
-      near-white sheet, band sat 5.7, sunlit snow faintly warm-grey. Try sun glow in the sky away from the sun
-      (`uGlow`), and a little sky-tinted albedo variation on the far snow with the sun behind the camera. Measure
-      with `g3_day.mjs` + `imgstats.py`, crop the terrain band 260–1020 × 240–470 (`tlloop/b19/pair.py` prints it).
+- [ ] G3: Daylight slice 7 (v77 grazing sky sheen gave the flats a white→blue depth gradient): sunlit faces in
+      the backcountry are still neutral, not warm (`g3_day` 05 band b−r 9.3 is all from shade/sheen). Try a gentle
+      warm forward-scatter on snow facing the low sun (sun colour × NdotL boost on snow only) so warm/cold reads
+      both ways. Measure with `g3_day.mjs`, crop band 260–1020 × 240–470 (`tlloop/b19/pair.py`).
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
@@ -134,4 +134,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `fuelSpot`, the free fill is a separate line before `fuelStep`). `g2_aurora_plug.mjs` depot rows show it twice.
       Count `GS.near === depot || garageSite` as a fuel spot in the low-warn test.
 
-Last triaged report: 17
+Last triaged report: 18
