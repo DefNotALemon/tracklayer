@@ -7,7 +7,8 @@ the coastal ferry at Kjøllefjord quay and out across eight kilometres of bare p
 frozen lakes and birch valleys to the villages along the coast — Dyfjord, Mehamn, Gamvik,
 Skjånes, Lebesby, Ifjord — the reindeer herders' cabins up on the fell, the wind farm on
 Gartefjellet and the lighthouse at Slettnes. The fjords never freeze; ride off the quay
-and a fishing boat pulls you out, minus the load.
+and a fishing boat pulls you out, minus the load. Each lake sits in a basin whose sides
+rise in one even slope to the fell around it (no cliff rim round the outside).
 
 ## The idea
 

@@ -141,7 +141,10 @@ function genWorld() {
         const dx = x - L.x, dz = z - L.z, dd = Math.sqrt(dx * dx + dz * dz);
         if (dd > L.r * 1.7) continue;
         const t = dd / (L.r * (0.76 + 0.48 * fbm(x / 170 + L.x, z / 170, 3)));
-        const mk = 1 - sstep(0.85, 2.1, t);
+        // the basin's pull eases to nothing by the 1.7 r cut-off: without the fade a noisy t left mk up to ~0.5 there,
+        // so every lake had a ring of 20-40 m cliff steps that the 8 m far terrain drew as a sawtooth (never below 1.2 r,
+        // so the ice and its banks are untouched)
+        const mk = (1 - sstep(0.85, 2.1, t)) * (1 - sstep(L.r * 1.2, L.r * 1.7, dd));
         h += (L.lv - h) * mk;
         if (t < 0.97) { b = 1; lakeId[j * GN + i] = li + 1; lakeT[j * GN + i] = Math.min(255, Math.round(t / 0.97 * 255)); }
       }
