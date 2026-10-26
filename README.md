@@ -245,6 +245,7 @@ Courier rank comes from deliveries, and each rank puts bigger contracts on the b
 | Expedition hauler | 20 | Slettnes lighthouse loads on the flatbed: batteries, turbine, standby generator |
 | Fell hauler | 32 | Fell freight: 450–540 kg flatbed loads up to the wind farm and the high herder cabin (turbine gearbox, hut kits, reindeer feed, diesel). The best-paid work on the board (about $3,900–7,600), and the shippers only insure it behind an Apex 800 or bigger |
 | Fell master | 46 | Tonne loads: 920–1,050 kg in one piece to the top of the fell (turbine blade set, snowcat cab, a whole built hut, a diesel genset), about $9,600–10,400, nearly twice a fell load. Only the Matriarch 850T is rated to pull them (the Aurora E is lighter: its strength is range) |
+| Clean-air courier | 60 | NILU's clean-air runs: samplers, an ozone monitor, a balloon hut or a battery bank on the trailer (110–220 kg, mostly fragile) from the quay to the far end of the peninsula (the lighthouse, Skjånes, Gamvik, Ifjord, Risfjord: 4–5 km out), about $8,700–11,700. One whiff of exhaust ruins the samples, so only a battery sled (the Aurora E) is let near the stations |
 
 The groomer drag and the freight trailer fit the Woodsman 440 and newer and hook to a hitch
 receiver, so the first two ranks can arrive before your sled can tow their work. The rank-up

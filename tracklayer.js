@@ -4817,7 +4817,8 @@ const RANKS = [
   { at: 12, name: "Priority courier", opens: "Priority runs are on the board. Big money, a bond up front, and a clock that doesn't forgive." },
   { at: 20, name: "Expedition hauler", opens: "Slettnes lighthouse is hiring. Expedition loads out to the tip, flatbed only." },
   { at: 32, name: "Fell hauler", opens: "Fell freight is on the board: half-tonne flatbed loads up to the wind farm and the herder cabins. The shippers only insure it behind an Apex 800 or bigger." },
-  { at: 46, name: "Fell master", opens: "Tonne loads up the fell are on the board: turbine blades, snowcat cabs, whole huts, the whole flatbed in one go. Only a Matriarch 850T is rated to pull that up the climb." }
+  { at: 46, name: "Fell master", opens: "Tonne loads up the fell are on the board: turbine blades, snowcat cabs, whole huts, the whole flatbed in one go. Only a Matriarch 850T is rated to pull that up the climb." },
+  { at: 60, name: "Clean-air courier", opens: "NILU's clean-air runs are on the board: instruments out to the far end of the peninsula, where one whiff of exhaust ruins a month of samples. Only a battery sled gets near the stations." }
 ];
 const rankOf = n => RANKS.reduce((r, x) => n >= x.at ? x : r, RANKS[0]);
 // Big freight rides the trailer. Off-grid cabins run on stoves, solar, batteries and a backup generator,
@@ -4876,6 +4877,24 @@ function fellBlock(id = FELL_SLED) {
   const t = fellTier(id), s = SLEDS[t]; if (id === TONNE_SLED ? GS.own.sled === id : sledTier() >= t) return "";
   return id === TONNE_SLED ? `A tonne up the fell: only a ${s.name} is rated to pull it up the climb (${s.need} deliveries, $${s.cost}).`
     : `Half a tonne up the fell: the shippers only insure it behind an ${s.name} or bigger (${s.need} deliveries, $${s.cost}).`;
+}
+/* ---- clean-air runs (late ladder, rank "Clean-air courier" at 60 deliveries, CLEAN_AIR) ----
+   NILU (the Norwegian air-research institute) keeps samplers out at the far end of the peninsula: black carbon,
+   ozone, snow chemistry. A two-stroke's exhaust plume ruins the filters, so the stations only let a battery sled
+   (SLEDS[].plug: the Aurora E) near them; cleanBlock() gates it. It's the Aurora's own work, the way fell freight is
+   the Apex's and tonne loads the Matriarch's: trailer loads (bays 1) from the quay to an open site 4 km+ out (the
+   lighthouse, Skjånes, Gamvik, Ifjord, Risfjord), where its plug-in charging means no pump on the way. Pay sits
+   with the tonne loads for a third of the weight: the instruments are fragile and the trip is the longest. */
+const CLEAN_AIR = [
+  { cargo: "Black-carbon sampler & filter cases", kg: 140, fragile: true, look: "crate", why: "NILU is putting a soot sampler at {s}. One whiff of two-stroke and a month of filters is ruined." },
+  { cargo: "Ozone monitor & calibration gas", kg: 110, fragile: true, look: "crate", why: "The ozone monitor at {s} drifted in the cold. This is its replacement, calibrated and sealed." },
+  { cargo: "Weather-balloon hut & helium", kg: 190, fragile: false, look: "tanks", why: "Met Norway wants soundings from {s} through the polar night. The helium rides in its own rack." },
+  { cargo: "Clean-room battery bank", kg: 220, fragile: true, look: "crate", why: "The sampler hut at {s} runs on batteries, never a generator. These are next winter's." }
+];
+function cleanBlock() {
+  if (sledDef().plug) return "";
+  const s = SLEDS.find(x => x.plug) || SLEDS[SLEDS.length - 1];
+  return `Zero exhaust at the station: NILU only lets a battery sled near its samplers, the ${s.name} (${s.need} deliveries, $${s.cost}).`;
 }
 function jobGeom(d, from) { const dist = Math.hypot(d.x - from.x, d.z - from.z), climb = Math.max(0, d.y - from.y); return { dist, climb, est: (dist / 9 + 45) * (1 + climb / 150) }; }
 const pick = a => a[(Math.random() * a.length) | 0];
@@ -5003,6 +5022,13 @@ function makeContracts(from) {
     const pay = round5((4000 + dist * 1.2 + climb * 20) * (e.fragile ? 1.3 : 1.2));
     C.push({ big: true, bays: 2, fell: true, tonne: true, sled: TONNE_SLED, from: depot, dest: d, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why.replace("{s}", d.name), pay, bond: round5(pay * 0.2), due: GS.hour + est * 3.2 / GAMEHOUR, need: "flatbed" });
   } else if (lvl >= fellAt) C.push({ locked: "Tonne loads", sub: lvl >= tonneAt ? "The fell trails are slush. Nothing heavy goes up till it freezes." : `A tonne in one piece up the fell — ${tonneAt} deliveries and a ${SLEDS[fellTier(TONNE_SLED)].name}` });
+  // clean-air runs: instruments out to the far end of the peninsula, battery sled only (see CLEAN_AIR)
+  const cleanAt = RANKS[7].at, far = workSites().filter(s => s !== depot && s.type !== "home" && siteOpen(s) && Math.hypot(s.x - depot.x, s.z - depot.z) >= 4000);
+  if (lvl >= cleanAt && far.length) {
+    const d = pick(far), e = pick(CLEAN_AIR), { dist, climb, est } = jobGeom(d, depot);
+    const pay = round5((3200 + dist * 1.0 + climb * 12) * (e.fragile ? 1.3 : 1.2));
+    C.push({ big: true, bays: 1, clean: true, from: depot, dest: d, cargo: e.cargo, kg: e.kg, fragile: e.fragile, look: e.look, why: e.why.replace("{s}", d.name), pay, bond: round5(pay * 0.2), due: GS.hour + est * 3 / GAMEHOUR, need: "trailer" });
+  } else if (lvl >= tonneAt) { const s = SLEDS.find(x => x.plug); C.push({ locked: "Clean-air runs", sub: lvl >= cleanAt ? "The far trails have melted out. NILU waits for the boat." : `Instruments to the far end of the peninsula, zero exhaust — ${cleanAt} deliveries and the ${s.name}` }); }
   // recovery call-outs: a generated stuck rider, somewhere the ground would catch them
   if (ST && ST.winch) { const r = makeRescue(from); C.push(r || { locked: "Recovery call-outs", sub: "Nobody's stuck right now. Check back after the next storm." }); }
   else C.push({ locked: "Recovery call-outs", sub: "Stuck riders out on the fell pay well. Fit a winch at the garage." });
@@ -5125,12 +5151,13 @@ function acceptContract(k) {
   }
   if (!licensed("freight")) { toast("Trailer freight needs a Freight licence. The Freight app signs you up for school.", "warn"); return; }
   if (c.fell && fellBlock(c.sled)) { toast(fellBlock(c.sled), "warn"); return; }
+  if (c.clean && cleanBlock()) { toast(cleanBlock(), "warn"); return; }
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) { toast(`That load needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`, "warn"); return; }
   if (baysUsed() + c.bays > ST.bays) { toast(ST.bays > 1 ? "The flatbed's full." : "The trailer's already loaded.", "warn"); return; }
   if (GS.cash < c.bond) { toast(`The shipper wants a $${c.bond} bond up front. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= c.bond; c.cond = 100; c.hits = 0; GS.load.push(c); GS.contracts.splice(k, 1);
-  toast(`Strapped down: ${c.cargo} (${c.kg} kg) for ${c.dest.name}. $${c.bond} bond paid, back on delivery.${c.priority ? " Clock's running." : c.tonne ? " A tonne behind you: take the climbs steady and don't stop on them." : c.fell ? " Half a tonne behind you: keep the revs up on the climbs." : ""}`, c.priority || c.expedition || c.fell ? "warn" : undefined);
+  toast(`Strapped down: ${c.cargo} (${c.kg} kg) for ${c.dest.name}. $${c.bond} bond paid, back on delivery.${c.priority ? " Clock's running." : c.tonne ? " A tonne behind you: take the climbs steady and don't stop on them." : c.fell ? " Half a tonne behind you: keep the revs up on the climbs." : c.clean ? " Fragile science on the trailer: it's a long way out, and any village can plug you in on the way." : ""}`, c.priority || c.expedition || c.fell ? "warn" : undefined);
   TABLET.refresh(); applyLoadout(); save();
 }
 // grooming lines: points along the straight run from the quay. Lake ice and cliff you can't groom are left out.
@@ -6234,6 +6261,7 @@ function contractBlock(c) {
   if (c.big && !licensed("freight")) return "Needs your Freight licence. Sign up for Freight school above.";
   if (SCHOOL.on) return "Finish (or quit) the course first.";
   if (c.fell && fellBlock(c.sled)) return fellBlock(c.sled);
+  if (c.clean && cleanBlock()) return cleanBlock();
   const okHitch = c.need === "flatbed" ? hitch === "flatbed" : hitch === "trailer" || hitch === "flatbed";
   if (!okHitch) return `Needs ${HITCH_NAME[c.need]} on the hitch. ${rigNeed(c.need)}`;
   if (baysUsed() + claimBays() + c.bays > ST.bays) return ST.bays > 1 ? "The flatbed's full (or spoken for)." : "The trailer's already loaded (or spoken for).";
@@ -7226,7 +7254,7 @@ TABLET.register({
 const conFrom = c => c.from || depot;
 const conKm = c => conFrom(c) === depot ? routeKm(c.dest) : Math.hypot(c.dest.x - conFrom(c).x, c.dest.z - conFrom(c).z) * 1.15 / 1000;
 const conClimb = c => conFrom(c) === depot ? climbOf(c.dest) : Math.round(Math.max(0, c.dest.y - conFrom(c).y));
-const bigTag = j => j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
+const bigTag = j => j.clean ? "clean air" : j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
 function conCard(c, k) {
   if (c.locked) return tabCard({ cls: "locked", title: c.locked, chips: chip("LOCKED"), meta: tabEsc(c.sub) });
   const why = contractBlock(c), d = c.dest, f = conFrom(c), km = conKm(c).toFixed(1), g = groom[d.id] || 0, here = GS.near === f;
@@ -7307,7 +7335,7 @@ TABLET.register({
     const { h: ph, n } = conList(isFreightCon);
     h += sec("Posted", lic ? "claim it, ride to the P, strap it down; at the P it loads straight on" : "your licence opens these");
     h += n ? ph : `<p class="tnote2">Nothing posted right now.</p>`;
-    h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}, fell freight at ${RANKS[5].at} (${SLEDS[fellTier()].name} or bigger), tonne loads at ${RANKS[6].at} (${SLEDS[fellTier(TONNE_SLED)].name} only).</p>`;
+    h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}, fell freight at ${RANKS[5].at} (${SLEDS[fellTier()].name} or bigger), tonne loads at ${RANKS[6].at} (${SLEDS[fellTier(TONNE_SLED)].name} only), clean-air runs at ${RANKS[7].at} (battery sleds only).</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     conBind(el); schoolBind(el, sc);
   }
@@ -8004,7 +8032,8 @@ function renderGarage() {
       const opens = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === SLEDS.indexOf(s) && o.cost).length, 0);
       // work only this class of machine is insured for (fell freight from the Apex up); said on the card that first opens it
       const work = SLEDS.indexOf(s) === fellTier() ? "takes fell freight (half-tonne flatbed loads up the fell, the best-paid work on the board)"
-        : SLEDS.indexOf(s) === fellTier(TONNE_SLED) ? "pulls tonne loads up the fell (a whole flatbed in one piece, nothing else is rated for it; about twice a fell load's pay)" : "";
+        : SLEDS.indexOf(s) === fellTier(TONNE_SLED) ? "pulls tonne loads up the fell (a whole flatbed in one piece, nothing else is rated for it; about twice a fell load's pay)"
+        : s.plug ? "takes NILU's clean-air runs (instruments to the far end of the peninsula; zero exhaust, so nothing else gets near the stations)" : "";
       const opn = [opens ? `opens ${opens} more parts in the shop` : "", work].filter(Boolean).join(" · ");
       const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opn ? ` · ${opn}` : ""}`
         : !owned && opn ? `\n${opn[0].toUpperCase() + opn.slice(1)}` : "";
