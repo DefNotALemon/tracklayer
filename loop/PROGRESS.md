@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 09:52 — Legs stop when you walk square into a wall (G1) — ce212f9
+Triage 0036/0037. 0037 (v98 TONNE chip verified) info. 0036 F1 "snag bug" reproduced with new `scenarios/g1_snag0036.mjs`
+(start-only clear check, yaw 0 jog → Strandbu-area house, ax 0): it's a dead-square approach (heading vs face 0°), so the
+stop itself is correct (wall slide at 10–50° works); the real bug was the walker marching on the spot: before, 25.2 stride
+cycles in 17.2 s pressed against the wall, FOOT.sp 2.71, still jogging breath (wind 0.84, blown cycle). New `F.go` = real
+ground speed (surge removed, smoothed 10/s) drives the stride clock, pose amplitude, boot puffs, tiredness and jog breath
+(min with F.sp). After: **0.0 stride cycles** in 17.1 s, go 0.00, wind 0.00; still b42/cmp.jpg: stands upright at the
+wall instead of mid-stride. `g1_wallslide2` unchanged (10° slides hospital 1.63 / freight 1.71 / buyer 1.73 m, was
+1.60/1.71/1.75). F2 (toast hook) → low playtester item. F3 dropped: one "Out of breath" toast per sustained jog is the
+intended warning (the pose shows every later blow); F4 info (1.02 m powder jogs 1.25 m/s, depth-driven). Blow-twice
+item closed by 0036. smoke exit 0, page errors none (powder 1.56, trench 2.22, 6 s 66.7 mph). README walking para; v99.
+Next: G3 low-sun self-shadow on near relief; G2 laden-trailer coldRun check.
+
 ## 2026-10-26 09:40 — TONNE chip on tonne-load cards (G2) — 13b8803
 Triage 0035 (jog played as a real route): F1–F6 info (depot→lot2 48.9 m jogged at 3.79 m/s, never blown; pose reads
 as a jog; uphill 0.196 grade 1.83 m/s): G1 jog item closed, follow-up low item for a 120 m backcountry blow-twice

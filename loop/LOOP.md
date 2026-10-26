@@ -132,9 +132,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       b41 (09:36, v97) recheck: 05 std 40.3 local 3.07, 06 40.2 / 2.96; vision on 05: ripples and far hills read, but the
       foreground under a 4° sun is evenly lit (no grazing-light shadows on the relief). Next slice idea: stronger
       self-shadow/darker lee sides on near relief when the sun is low, not more tint.
-- [ ] G1 (low, playtest, report 0035): jog 120+ m of continuous open-backcountry powder (blown twice) to check the
-      "blown" toast fires once per blow and the walk-until-breath-back stretch doesn't feel punishing. Town routes never
-      blow you (0035: depot→lot2 48.9 m at 3.79 m/s, wind 0.58).
+- [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
+      toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
@@ -156,4 +155,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 35
+Last triaged report: 37
