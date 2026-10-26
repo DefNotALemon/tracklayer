@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:10 — Work sheds get the drip edge too (G3) — aa73625
+Triage 0066: v131 verified (no seams/flicker, mirrored panes fine on 5 buildings); F1 (same sheen on every house seen from
+the same angle) is by design for a view-ray shader, the row-street check stays a playtester item; F2/F3 no issue. Took the
+buildings item's "work sheds/hospital roofs match?": the garage, freight shed and fish buyer had white (grey) fascia straight
+under the white snow slab, the same one-slab look v132 fixed on houses. New `KIT.drip` + `KIT.dripRing(g, w, d, yTop)`: a
+6 cm dark ring just under the snow load, 4 cm inside its edge (first try 4.5 cm / 12 cm inset hid in the snow's underside on
+the garage; widened). Hospital skipped (fascia already grey). `g3_sheds.mjs` local nov garage/freight/fish 7.20/4.77/5.65 →
+7.32/4.85/5.77, March +0.08–0.12, means ±0.5; quay calls 821 → 824. Night stats not comparable (before run had a bright
+aurora). Vision (b77/after2 crops): thin grey line on both garage sides and along the freight shed, reads as flashing, no
+z-fight. smoke exit 0, page errors none (67.6 mph, powder 1.52, trench 2.26). README; v133.
+Next: playtester judges the drip lines at ride distance; row-street sheen check.
+
 ## 2026-10-26 17:00 — Drip edge separates roof trim from the snow load (G3) — 89232a4
 No new reports since 0065. Took the buildings item's red-house fascia note (0060 F4: white fascia ran into the white snow
 cap, one thick white slab under the eave). Rather than greying all white trim (window frames too), roofTrim now adds a

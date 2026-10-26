@@ -153,7 +153,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       face the eye (white houses are mirrored/inward-normal: first try turned every pane flat sky). v132 (0060 F4): dark
       steel drip edge (vertex-tinted 0.34 in the merged trim, `mergeBoxes` 8th entry + `trimVC`) along every fascia and
       barge-board top, 0 calls (305 → 305); `g3_roofs` eave local mar 5.50 → 5.80, nov 5.83 → 6.09. Playtester: judge
-      the drip line at ride distance (too faint/too busy?) and on the white houses' grey trim. Left: playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
+      the drip line at ride distance (too faint/too busy?) and on the white houses' grey trim. v133: the work sheds' flat
+      roofs (garage, freight shed, fish buyer) get a `KIT.dripRing` (KIT.drip 0x4f4f4e, 6 cm, 4 cm inside the snow edge;
+      +3 draw calls, quay 821 → 824); `g3_sheds` local +0.07–0.12 by day. Hospital skipped: its fascia is already grey
+      0x9aa3ab under the snow. Report 0066 verified v131 (no seams; same sheen on 5 houses from the same angle, by design).
+      Left: playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
@@ -279,4 +283,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 65
+Last triaged report: 66
