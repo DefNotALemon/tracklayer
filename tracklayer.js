@@ -7853,7 +7853,7 @@ const PARTS = {
   recovery: {
     label: "Recovery kit", options: [
       { id: "none", name: "Nothing", cost: 0, tier: 0, stats: {}, note: "Hope." },
-      { id: "kit", name: "Shovel, strap & snowshoes", cost: 120, tier: 0, stats: { rescue: 0.3 }, note: "You've half dug yourself out by the time the crew shows up." },
+      { id: "kit", name: "Shovel, strap & snowshoes", cost: 120, tier: 0, stats: { rescue: 0.3 }, note: "You've half dug yourself out by the time the crew shows up. The snowshoes are yours to keep: Q off into fresh powder and you float instead of wading, about a third quicker." },
       { id: "sat", name: "Satellite messenger", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. F calls a rescue sled, and they come straight to you, faster and cheaper." }
     ]
   },
@@ -10812,8 +10812,9 @@ function makeWalker(m) {
 function buildWalker() {
   FOOT.g = makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot });
   FOOT.g.visible = false; scene.add(FOOT.g);
-  const U = FOOT.g.userData; U.skis = []; U.poles = [];
+  const U = FOOT.g.userData; U.skis = []; U.poles = []; U.shoes = [];
   for (let i = 0; i < 2; i++) {
+    const sh = shoeMesh(U.shins[i]); sh.visible = false; U.shoes.push(sh);
     const sk = new THREE.Group(); sk.position.set(0, -0.505, 0.0); sk.rotation.order = "XYZ"; U.shins[i].add(sk); xcSki(sk); sk.visible = false; U.skis.push(sk);
     const pl = new THREE.Group(); pl.position.set(0, -0.25, 0.01); U.fore[i].add(pl); xcPole(pl); pl.visible = false; U.poles.push(pl);
   }
@@ -10843,6 +10844,7 @@ const frac = x => x - Math.floor(x);
 function poseWalker(g, dt) {
   const F = FOOT, U = g.userData, st = F.strain, cr = F.crouch, t = gameClock;
   if (U.skis) for (let i = 0; i < 2; i++) { U.skis[i].visible = false; U.poles[i].visible = false; }
+  if (U.shoes) for (let i = 0; i < 2; i++) U.shoes[i].visible = !!F.shoe;
   const amt = clamp(Math.max(Math.min(Math.abs(F.sp), Math.abs(F.go)) / 0.9, Math.abs(F.turn) * 0.45), 0, 1) * (1 - cr);   // go: pressed into a wall, the legs stop
   const uA = frac(F.step / (Math.PI * 2)), v = frac(uA * 2), side = Math.sin(uA * Math.PI * 2);   // side > 0: weight on the right leg
   const breath = Math.sin(t * (2.2 + 3.2 * F.tired)) * (0.012 + 0.02 * F.tired);
@@ -10952,6 +10954,9 @@ function dismount() {
   FOOT.sp = FOOT.fwd = FOOT.turn = 0; FOOT.dig = false; FOOT.crouch = 1; FOOT.on = true;
   P.vx = P.vz = 0; camState.init = false;
   FOOT.ski = !!xcOwn(); FOOT.kickW = FOOT.moveW = FOOT.plow = FOOT.tuck = 0;
+  FOOT.shoe = !FOOT.ski && shoesOwn();
+  if (FOOT.g && FOOT.g.userData.shoes) for (const s of FOOT.g.userData.shoes) s.visible = FOOT.shoe;
+  if (FOOT.shoe && !GS.shoeTold) { GS.shoeTold = true; toast("Snowshoes on, out of the recovery kit: you float on fresh powder instead of wading. Packed snow's no quicker in them."); }
   if (FOOT.ski) { xcLook(); if (!xcTold) { xcTold = true; toast(`Skis on. ${TC.on ? "Push the stick" : "W"} to kick: slow to get going, then they run. Let go and glide, ${TC.on ? "pull back" : "S"} to plough. Glide back to the sled and ${TC.on ? "tap Q" : "Q"} gets you straight on.`); } }
   if (winchDef()) WN.state = "out";
 }
@@ -11167,6 +11172,28 @@ function skiStep(dt) {
   const bob = poseSkier(g, dt);
   g.position.set(F.x, F.y + bob, F.z);
 }
+/* ---- snowshoes (the recovery kit's) ----
+   "Shovel, strap & snowshoes" (PARTS.recovery "kit", $120, any sled) has always had a pair in it; since v113 you wear
+   them: buy the kit once (GS.own.partsOwned["recovery:kit"], so they stay in the pack if you later fit the satellite
+   messenger instead) and every Q off onto snow you step off on them (FOOT.shoe, set in dismount). Fresh powder goes
+   from a wade (0.57 of hard-pack pace, less again past half a metre) to a float (0.78, the deep-snow drag mostly gone),
+   you sink in about half as far and it's less of a fight, so 30 m of powder is ~a third quicker. Packed snow and your own
+   trench barely change and the sled is still twice as quick, so they're a cheap first buy, not a way round the sled.
+   Off skis only: XC skis (FOOT.ski) win when you own both. */
+function shoesOwn() { return !!(GS.own && GS.own.partsOwned && GS.own.partsOwned["recovery:kit"]); }
+function footWade(d, pack, shoe) {
+  return lerp(lerp(0.57, 0.78, shoe), 1, pack) * (1 - lerp(0.25, 0.08, shoe) * sstep(0.5, 0.95, d));
+}
+// one snowshoe under a boot (origin at the shin pivot, like the skis): an oval deck in a frame, a tail behind
+function shoeMesh(parent) {
+  const g = new THREE.Group(); g.position.set(0, -0.505, 0.03); parent.add(g);
+  const frame = shoeMesh.frame || (shoeMesh.frame = std(0x9aa3ab, 0.45, 0.6)), deck = shoeMesh.deck || (shoeMesh.deck = std(0x24303c, 0.8, 0.05));
+  const rim = cyl(0.12, 0.12, 0.014, frame, 0, -0.004, 0.02, 0, 0, 0, g, 18); rim.scale.set(1, 1, 2.15);
+  const dk = cyl(0.108, 0.108, 0.018, deck, 0, 0.001, 0.02, 0, 0, 0, g, 18); dk.scale.set(1, 1, 2.05);
+  box(0.03, 0.012, 0.16, frame, 0, -0.004, -0.27, 0, 0, 0, g);                       // tail
+  box(0.11, 0.03, 0.05, M.dark, 0, 0.02, 0.07, 0, 0, 0, g);                         // toe strap
+  return g;
+}
 function footStep(dt) {
   const F = FOOT;
   if (F.ski) { skiStep(dt); return; }
@@ -11178,8 +11205,9 @@ function footStep(dt) {
   F.yaw += -F.turn * 2.2 * F.turnK * dt;
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
-  // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack
-  const wade = lerp(0.57, 1, pack) * (1 - 0.25 * sstep(0.5, 0.95, d));
+  // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack;
+  // snowshoes (F.shoe, footWade) float you over the powder
+  const shoe = F.shoe ? 1 : 0, wade = footWade(d, pack, shoe);
   // the hill under your boots, along the way you're facing (backing up flips it): a climb shortens the stride
   // (a 25% grade ≈ 4/5 pace, never below half), a gentle descent lets you lope a little quicker, and a steep one
   // makes you pick your footing so you slow again. The ground, not the snow top: your own trench behind you
@@ -11201,7 +11229,7 @@ function footStep(dt) {
   const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * hill * jogK * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
   F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
   // every step is a fight: how deep it is decides how hard (and how steep), and the body only really moves while a leg is driving
-  F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
+  F.strain += (clamp(0.55 + 0.45 * (1 - 0.5 * shoe) * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
   const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
   const mv = F.sp * surge;
   let mx = fx * mv * dt, mz = fz * mv * dt, nx = F.x + mx, nz = F.z + mz;
@@ -11265,7 +11293,7 @@ function footStep(dt) {
   F.go += ((dt > 0 ? Math.sign(mv) * moved / (dt * surge) : 0) - F.go) * (1 - Math.exp(-10 * dt));
   const gsp = Math.sign(F.sp) * Math.min(Math.abs(F.sp), Math.abs(F.go)), mvG = Math.sign(mv) * Math.min(Math.abs(mv), Math.abs(F.go) * surge);
   F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x - fx * 0.5, F.z - fz * 0.5, fx, fz); }    // the trench behind you (not under you: fresh snow stays hard going)
-  F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
+  F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack) * (1 - 0.6 * shoe);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
   F.step += (mvG * lerp(3.1, 2.4, F.runW) + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 * (F.turnK || 1) : 0)) * dt;   // a jog lengthens the stride
@@ -12977,7 +13005,7 @@ function crashGetUp() {
   const C = CRASH;
   FOOT.x = C.x; FOOT.z = C.z; FOOT.y = surf(C.x, C.z); FOOT.yaw = Math.atan2(P.x - C.x, P.z - C.z); FOOT.sp = 0; FOOT.dig = false;
   C.on = false; C.st = ""; C.cool = 1.5; crashPoseReset();
-  FOOT.on = true; FOOT.ski = false; P.vx = P.vz = 0;
+  FOOT.on = true; FOOT.ski = false; FOOT.shoe = false; P.vx = P.vz = 0;
   const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
   const line = C.inj < 1.5 ? C.tied ? `Came off at ${mph} mph and nothing hurts.` : `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
   if (C.tied) toast(`${line} The tether caught you and pulled the kill cord: the sled's right beside you. ${TC.on ? "Tap Q" : "Press Q"} to get back on.`, C.inj < 4.5 ? "warn" : "bad");
