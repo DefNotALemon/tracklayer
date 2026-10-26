@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 10:16 — Far drift lee shadows past 50 m (G3) — 0816c3e
+Triage 0038: v99 wall-stride verified (0.0 cycles, go/wind 0), wallslide unchanged; info only, no new items. Took G3
+slice 8's open end: v100 shadows stopped with the patch at 34–50 m. The far terrain now marches its own `fdH` height
+(×6, same as its normal tilt) toward the true sun (`uSunT`/`uMicroK` declared in the far shader; 5 taps 3–48 m, 3 on
+GFX low) and scales directDiffuse/Specular by `fdSh` (up to 85%, fades 1.2–2.2 km). First try (4 taps 4–32 m, 70%)
+was barely visible (strip 5 3.44 → 3.76). New `scenarios/g3_fardrift.mjs` (pinned SPAWN spot, calm, eye 1.8 m/9 m
+looking 120–150 m out): bandstats strip 5 Nov across **3.44 → 3.99**, high across **5.65 → 6.29**, high toward 3.34 → 3.90,
+March 2.76 → 3.09; near strips 6–8 unchanged, imgstats global std unchanged (~40). Vision on b44/cmp2.jpg: deeper blue
+bands behind mid-distance swells, no seams/banding/noise. smoke exit 0, page errors none (powder 1.54, trench 2.29,
+6 s 66 mph). README; v101.
+Next: FPS/GPU check of the shadow taps (GFX low vs high); G2 laden-trailer coldRun check.
+
 ## 2026-10-26 10:06 — Drift lee shadows under the low sun (G3) — 96e914c
 No new reports (last 37). Took G3 slice 8's own next idea (b41 vision: foreground evenly lit under a 4° sun). The lifted
 key light (≥13°) can't throw ripple shadows, so the snow patch now marches `tlDrift` (height ×4) 6 taps toward the TRUE

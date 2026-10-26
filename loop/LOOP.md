@@ -137,6 +137,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       unchanged (sun 11°, few streaks). Vision: long blue lee bands in the foreground, no ring/noise. Still open:
       the shadows end with the patch relief at 34–50 m (far `fdH` has no equivalent; could add a cheap 2-tap version),
       and nothing yet for GPU cost (playtester: compare `renderer.info`/FPS on GFX low vs high in open backcountry).
+      v101 (slice 8e): far-terrain lee shadows (`fdSh`, 5 taps 3–48 m toward `uSunT`, 3 on low, fade 1.2–2.2 km).
+      `g3_fardrift.mjs` + `bandstats.py` strip 5 (mid band): Nov across 3.44 → 3.99, high across 5.65 → 6.29, high toward
+      3.34 → 3.90, March 2.76 → 3.09; near strips unchanged. Still open: GPU cost now 5 extra fdH per far pixel (FPS check
+      on GFX low/high is the playtester's job), and the overall global std (~40) is still flat.
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
@@ -160,4 +164,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 37
+Last triaged report: 38
