@@ -10600,7 +10600,7 @@ function bogStep(dt, spd, thrE, fr) {
 /* ---- on foot ---- */
 const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0,
   ski: false, kickW: 0, moveW: 0, plow: 0, tuck: 0, trk: 0, bumpT: 0, grade: 0,
-  jog: 0, runW: 0, wind: 0, blown: false, blownT: 0 };   // jog = Shift/RB/lean held; wind = breath spent jogging (footStep)
+  jog: 0, runW: 0, wind: 0, blown: false, blownT: 0, go: 0 };   // jog = Shift/RB/lean held; wind = breath spent jogging; go = real ground speed (footStep)
 /* ---------------- cross-country skis (Bytteboden, cat "ski") ----------------
    Bought used off Bytteboden and strapped along the right of the tunnel (V.xcRack). Q off the sled with a pair aboard and
    you're on them instead of wading: W kicks (diagonal stride with poles), S ploughs, A / D steer.
@@ -10722,7 +10722,7 @@ const frac = x => x - Math.floor(x);
 function poseWalker(g, dt) {
   const F = FOOT, U = g.userData, st = F.strain, cr = F.crouch, t = gameClock;
   if (U.skis) for (let i = 0; i < 2; i++) { U.skis[i].visible = false; U.poles[i].visible = false; }
-  const amt = clamp(Math.max(Math.abs(F.sp) / 0.9, Math.abs(F.turn) * 0.45), 0, 1) * (1 - cr);
+  const amt = clamp(Math.max(Math.min(Math.abs(F.sp), Math.abs(F.go)) / 0.9, Math.abs(F.turn) * 0.45), 0, 1) * (1 - cr);   // go: pressed into a wall, the legs stop
   const uA = frac(F.step / (Math.PI * 2)), v = frac(uA * 2), side = Math.sin(uA * Math.PI * 2);   // side > 0: weight on the right leg
   const breath = Math.sin(t * (2.2 + 3.2 * F.tired)) * (0.012 + 0.02 * F.tired);
   // legs: the stride, faded to a tired stand, folded into a squat to dig
@@ -11134,19 +11134,23 @@ function footStep(dt) {
     if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; } else WN.tight = false;
   }
   const lim = HALF - 24, moved = Math.hypot(nx - F.x, nz - F.z); F.x = clamp(nx, -lim, lim); F.z = clamp(nz, -lim, lim);
+  // the ground you really covered (surge taken out): walk square into a wall and the stride, the boot puffs and the
+  // jog's breath all stop with you, instead of marching on the spot. Sliding along a face strides at the slide's pace.
+  F.go += ((dt > 0 ? Math.sign(mv) * moved / (dt * surge) : 0) - F.go) * (1 - Math.exp(-10 * dt));
+  const gsp = Math.sign(F.sp) * Math.min(Math.abs(F.sp), Math.abs(F.go)), mvG = Math.sign(mv) * Math.min(Math.abs(mv), Math.abs(F.go) * surge);
   F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x - fx * 0.5, F.z - fz * 0.5, fx, fz); }    // the trench behind you (not under you: fresh snow stays hard going)
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
-  F.step += (mv * lerp(3.1, 2.4, F.runW) + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;   // a jog lengthens the stride
+  F.step += (mvG * lerp(3.1, 2.4, F.runW) + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;   // a jog lengthens the stride
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
-  F.tired = clamp(F.tired + (Math.abs(F.sp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
-  F.wind = clamp(F.wind + (F.runW > 0.5 && F.sp > 0.8 ? 0.045 + 0.07 * sstep(0.05, 0.6, d) + 0.08 * sstep(0.04, 0.3, gw) : Math.abs(F.sp) > 0.4 ? -0.05 : -0.12) * dt, 0, 1);
+  F.tired = clamp(F.tired + (Math.abs(gsp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
+  F.wind = clamp(F.wind + (F.runW > 0.5 && gsp > 0.8 ? 0.045 + 0.07 * sstep(0.05, 0.6, d) + 0.08 * sstep(0.04, 0.3, gw) : Math.abs(gsp) > 0.4 ? -0.05 : -0.12) * dt, 0, 1);
   F.tired = Math.max(F.tired, F.wind * 0.95);                                                 // the pose breathes hard after a jog too
   // a boot goes in at each half-cycle: puff of snow round it and a crunch
   const half = Math.floor(F.step / Math.PI);
   if (half !== F.half) {
-    if (Math.abs(F.sp) > 0.25) {
+    if (Math.abs(gsp) > 0.25) {
       const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.1, lz = -Math.sin(F.yaw) * sd * 0.1, px = F.x + fx * 0.5 + lx, pz = F.z + fz * 0.5 + lz;
       for (let k = 0; k < 3 + d * 8; k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
       bootHole(F.x - fx * 0.45 + lx, F.z - fz * 0.45 + lz);         // the trailing boot pulls out and leaves its hole
@@ -11154,7 +11158,7 @@ function footStep(dt) {
     }
     F.half = half;
   }
-  if (Math.abs(F.sp) > 0.5 && d > 0.25 && Math.random() < dt * 8) emit(F.x - fx * 0.2, F.y + 0.35, F.z - fz * 0.2, -fx * 0.3, 0.9 + Math.random(), -fz * 0.3, 0.6, 0.6);   // clumps flung off the boot pulling out
+  if (Math.abs(gsp) > 0.5 && d > 0.25 && Math.random() < dt * 8) emit(F.x - fx * 0.2, F.y + 0.35, F.z - fz * 0.2, -fx * 0.3, 0.9 + Math.random(), -fz * 0.3, 0.6, 0.6);   // clumps flung off the boot pulling out
   const g = F.g; g.visible = true;
   const bob = poseWalker(g, dt);
   g.position.set(F.x, F.y + bob, F.z);
