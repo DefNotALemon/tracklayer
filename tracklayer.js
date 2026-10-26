@@ -7274,7 +7274,7 @@ TABLET.register({
 const conFrom = c => c.from || depot;
 const conKm = c => conFrom(c) === depot ? routeKm(c.dest) : Math.hypot(c.dest.x - conFrom(c).x, c.dest.z - conFrom(c).z) * 1.15 / 1000;
 const conClimb = c => conFrom(c) === depot ? climbOf(c.dest) : Math.round(Math.max(0, c.dest.y - conFrom(c).y));
-const bigTag = j => j.clean ? "clean air" : j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
+const bigTag = j => j.clean ? "clean air" : j.tonne ? "tonne" : j.fell ? "fell" : j.expedition ? "expedition" : j.priority ? "priority" : "heavy";
 /* Cold-run check for freight cards (report 0027: a 4.9 km clean-air run in stock kit blacked out, -$2,155).
    Estimates the warmth one leg costs with the same cold formula the rider feels (night now, the weather here now,
    the height of the ground along the line, your kit's coldMul) over a conservative ride time (see rideS
