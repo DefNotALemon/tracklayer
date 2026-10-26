@@ -11157,7 +11157,12 @@ function skiStep(dt) {
 function footStep(dt) {
   const F = FOOT;
   if (F.ski) { skiStep(dt); return; }
-  F.yaw += -F.turn * 2.2 * dt;
+  // turning: a tap still nudges at 2.2 rad/s (fine aim at a door, ~8° a tap); held, the pivot builds to 3.6 rad/s
+  // over ~0.4 s, so coming round to face the way you came takes ~1 s instead of 1.45 and a door off to the side
+  // isn't a wait. F.turnK feeds the step cadence so the feet keep up with the quicker pivot.
+  F.turnT = Math.abs(F.turn) > 0.1 ? (F.turnT || 0) + dt : 0;
+  F.turnK = 1 + (1.4 / 2.2) * sstep(0.12, 0.45, F.turnT);
+  F.yaw += -F.turn * 2.2 * F.turnK * dt;
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack
@@ -11250,7 +11255,7 @@ function footStep(dt) {
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
-  F.step += (mvG * lerp(3.1, 2.4, F.runW) + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;   // a jog lengthens the stride
+  F.step += (mvG * lerp(3.1, 2.4, F.runW) + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 * (F.turnK || 1) : 0)) * dt;   // a jog lengthens the stride
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
   F.tired = clamp(F.tired + (Math.abs(gsp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
   F.wind = clamp(F.wind + (F.runW > 0.5 && gsp > 0.8 ? 0.045 + 0.07 * sstep(0.05, 0.6, d) + 0.08 * sstep(0.04, 0.3, gw) : Math.abs(gsp) > 0.4 ? -0.05 : -0.12) * dt, 0, 1);

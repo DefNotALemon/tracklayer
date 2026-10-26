@@ -164,6 +164,8 @@ on hard-packed snow you walk a brisk 2.9 m/s. The more you use a trench, the har
 wading winds you after about 25 s, and you get your breath back quickly once you stop. Hills count:
 climbing shortens your stride (a 25% grade costs about a quarter of your pace and blows you faster), a
 gentle descent lets you lope a little quicker, and on a really steep one you slow to pick your footing.
+A tap of **A / D** nudges you round a few degrees to line up on a door; hold it and you pivot quicker, so
+turning to face the way you came takes about a second.
 Hold **Shift** (gamepad **RB**, the touch lean button) to jog: about half as quick again on packed snow
 (3.7 m/s along a plowed lane, 3 m/s back down your own trench) and a fifth quicker wading powder, but it
 spends your breath: about 15–20 s of jogging on hard pack (~60 m), 10 s or so in deep powder, then you're
