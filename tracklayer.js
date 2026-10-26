@@ -2207,8 +2207,8 @@ function readInput(dt) {
     break;
   }
   if (!started) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
-  FOOT.fwd = 0; FOOT.turn = 0;
-  if (FOOT.on && !(typeof MNT !== "undefined" && MNT.on) && !(typeof DMT !== "undefined" && DMT.on)) { FOOT.fwd = thr - brk * 0.6; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider (locked out mid-mount)
+  FOOT.fwd = 0; FOOT.turn = 0; FOOT.jog = 0;
+  if (FOOT.on && !(typeof MNT !== "undefined" && MNT.on) && !(typeof DMT !== "undefined" && DMT.on)) { FOOT.fwd = thr - brk * 0.6; FOOT.jog = lean; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider (locked out mid-mount)
   if (FISH && FISH.blocking()) { FOOT.fwd = FOOT.turn = 0; thr = brk = lean = wh = 0; st = 0; analog = null; }                        // fishing, or in the shop: the sled stays parked
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
   input.thr = thr; input.brk = brk; input.lean = lean;
@@ -10597,7 +10597,8 @@ function bogStep(dt, spd, thrE, fr) {
 
 /* ---- on foot ---- */
 const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0,
-  ski: false, kickW: 0, moveW: 0, plow: 0, tuck: 0, trk: 0, bumpT: 0, grade: 0 };
+  ski: false, kickW: 0, moveW: 0, plow: 0, tuck: 0, trk: 0, bumpT: 0, grade: 0,
+  jog: 0, runW: 0, wind: 0, blown: false, blownT: 0 };   // jog = Shift/RB/lean held; wind = breath spent jogging (footStep)
 /* ---------------- cross-country skis (Bytteboden, cat "ski") ----------------
    Bought used off Bytteboden and strapped along the right of the tunnel (V.xcRack). Q off the sled with a pair aboard and
    you're on them instead of wading: W kicks (diagonal stride with poles), S ploughs, A / D steer.
@@ -11059,7 +11060,17 @@ function footStep(dt) {
   F.grade += (gr - F.grade) * (1 - Math.exp(-6 * dt));
   const gw = F.fwd < 0 ? -F.grade : F.grade;
   const hill = gw > 0 ? Math.max(0.5, 1 - 0.85 * gw) : 1 + 0.18 * sstep(0.02, 0.16, -gw) - 0.45 * sstep(0.3, 0.6, -gw);
-  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * hill * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
+  // jog (hold Shift / RB / the lean button): half as quick again on hard pack, a fifth quicker wading powder, little
+  // help on a real climb or a steep descent. It spends breath (F.wind): ~20 s of jogging a packed lane (~80 m), ~9 s
+  // wading deep powder; at the end of it you're blown and walk until you've got most of it back. Walking refills it
+  // slowly, standing quickly. So it's for the last stretch to a door or along a lane, and the sled still wins.
+  if (F.wind >= 1 && !F.blown) { F.blown = true; if (F.blownT <= 0) toast("Out of breath. Walk it off a moment.", "warn"); F.blownT = 20; }
+  if (F.blown && F.wind < 0.35) F.blown = false;
+  F.blownT = Math.max(0, F.blownT - dt);
+  const jogOn = F.jog && F.fwd > 0 && !F.dig && !F.blown ? 1 : 0;
+  F.runW += (jogOn - F.runW) * (1 - Math.exp(-3 * dt));
+  const jogK = 1 + F.runW * (lerp(0.2, 0.5, pack) * (1 - sstep(0.1, 0.35, gw)) * (1 - sstep(0.2, 0.45, -gw)));
+  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * hill * jogK * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
   F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
   // every step is a fight: how deep it is decides how hard (and how steep), and the body only really moves while a leg is driving
   F.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
@@ -11125,9 +11136,11 @@ function footStep(dt) {
   F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   F.y = surf(F.x, F.z) - F.sink * 0.6;
   // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
-  F.step += (mv * 3.1 + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;
+  F.step += (mv * lerp(3.1, 2.4, F.runW) + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 2.4 : 0)) * dt;   // a jog lengthens the stride
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
   F.tired = clamp(F.tired + (Math.abs(F.sp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
+  F.wind = clamp(F.wind + (F.runW > 0.5 && F.sp > 0.8 ? 0.045 + 0.07 * sstep(0.05, 0.6, d) + 0.08 * sstep(0.04, 0.3, gw) : Math.abs(F.sp) > 0.4 ? -0.05 : -0.12) * dt, 0, 1);
+  F.tired = Math.max(F.tired, F.wind * 0.95);                                                 // the pose breathes hard after a jog too
   // a boot goes in at each half-cycle: puff of snow round it and a crunch
   const half = Math.floor(F.step / Math.PI);
   if (half !== F.half) {
