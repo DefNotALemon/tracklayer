@@ -4487,6 +4487,7 @@ function signMat(tex, glow = 0, opt) {
 function houseWinTick(day, st) {
   const n = 1 - day * (1 - 0.6 * st);
   if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
+  if (stationPool.m) stationPool.m.opacity = 0.45 * n;
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
   m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
@@ -4786,6 +4787,28 @@ function fuelSignTex(price) {
   g.fillStyle = "#f4efe3"; g.font = "700 96px 'Barlow Semi Condensed', Arial, sans-serif"; g.fillText(price.toFixed(2), 128, 112);
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4; return tex;
 }
+// The light pool under a station canopy: one additive warm decal (radial falloff) laid just over the plowed forecourt.
+// Fog dims it to nothing instead of tinting it (additive + fog colour would glow through a storm); houseWinTick sets
+// its opacity with the lit windows and signs, so it's off by day and on from dusk.
+function stationPool() {
+  if (stationPool.m) return stationPool.m;
+  const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.45, "rgba(255,255,255,0.75)"); gr.addColorStop(0.8, "rgba(255,255,255,0.18)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const m = stationPool.m = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  m.onBeforeCompile = s => {
+    s.fragmentShader = s.fragmentShader.replace("#include <fog_fragment>", `#ifdef USE_FOG
+      #ifdef FOG_EXP2
+        float fogFactor = 1.0 - exp(-fogDensity * fogDensity * fogDepth * fogDepth);
+      #else
+        float fogFactor = smoothstep(fogNear, fogFar, fogDepth);
+      #endif
+      gl_FragColor.rgb *= 1.0 - fogFactor;
+    #endif`);
+  };
+  return m;
+}
 function buildStations() {
   const { woodD, snowM, metal, glowM, L, white } = KIT;
   const redM = L(0xc23a22), navy = L(0x16324a), dark = L(0x1d2228), slab = L(0xaeb6bd), lightM = new THREE.MeshBasicMaterial({ color: 0xfff1cf }), amber = L(0xd98a14);
@@ -4801,6 +4824,12 @@ function buildStations() {
     for (const px of [-3.8, 7.8]) for (const pz of [-4.2, 4.2]) { bx(0.4, 4.4, 0.4, white, px, 2.4, pz); ob(px, pz, 0.45); }
     bx(12.6, 0.35, 10.2, white, 2, 4.78, 0); bx(12.8, 0.24, 10.4, redM, 2, 4.56, 0); bx(12.5, 0.28, 10.1, snowM, 2, 5.1, 0);
     bx(10.4, 0.05, 6.6, lightM, 2, 4.35, 0);
+    // the forecourt is kept plowed, and after dark the canopy lights throw a warm pool on it (stationPool, faded in by houseWinTick)
+    addLane([W(-11, 0), W(12, 0)], 6.5);
+    let top = -1e9; for (let a = -7; a <= 11; a += 3) for (let b = -6; b <= 6; b += 3) { const [x, z] = W(a, b); top = Math.max(top, surf(x, z)); }
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(19, 15), stationPool()); pool.rotation.x = -Math.PI / 2;
+    pool.position.set(2, top - g.position.y + 0.06, 0); pool.renderOrder = 2; g.add(pool);
+    const isl = new THREE.Mesh(new THREE.PlaneGeometry(10, 3), stationPool()); isl.rotation.x = -Math.PI / 2; isl.position.set(2, 0.46, 0); isl.renderOrder = 2; g.add(isl);   // and on the pump island
     // the pumps on a raised island between the two lanes
     bx(8.6, 0.25, 1.7, L(0x8c9399), 2, 0.32, 0);
     for (const px of [-0.4, 4.4]) {
