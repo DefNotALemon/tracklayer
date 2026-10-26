@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 08:15 — Flat wall slide on the hospital, pier sheds and drying racks (G1) — bfc0fb6
+Triage 0030 (verify v90: pinned −234,676 local 3.98/2.94/2.62, unpinned 3.10/2.10/2.42, vision no teeth: holds; F4 the
+rock search never lands on real scree → new low playtest item). G1 had the oldest landing (07:35) and the top G3 item is
+a macro check, so took the v73 follow-up: disc-grid buildings without `ax` still had round-post walls. Tagged `ax` on
+the hospital (+ ambulance bay, `ax: ry`), the pier freight shed and pier-edge discs (`-qa`), the fish buyer's shed
+(`-qa`) and `K.hjell` drying racks (`ry`). New `scenarios/g1_wallslide2.mjs` (6 game-s holding W from 4 m off a face,
+along-face metres): hospital back wall 0° sideways drift **0.45 → 0.00**, 20° **1.94 → 3.29**, 35° 4.75 → 5.41;
+freight shed 10° **0.05 → 1.67** (was dead stop), 20° 3.26 → 3.44; buyer 20° **1.26 → 3.41**, 35° 5.60 → 5.94; others
+within noise; hospital 10° 1.81 → 1.61 (still notches, new low item). Worst penetration −0.02 m (freight 0°).
+smoke exit 0, page errors none (powder 1.53, trench 2.23, 6 s 67.7 mph). Not visual, no stills. README walking; v92.
+Next: daylight slice 8 macro check, G2 long-haul warmth after the playtester's road rerun.
+
 ## 2026-10-26 07:57 — First Tab on a new save opens the Parcels board (G2) — 35d5108
 No new reports (last 29). G2 had the fewest recent landings (G3/G1/G3/G2); its open items are playtester-owned
 (long-haul road rerun, first-5-min to $600) except 0007 F2, so took that: on a new save the first Tab showed the

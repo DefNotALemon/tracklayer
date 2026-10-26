@@ -136,11 +136,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
       `g2_first5min.mjs` over ~4 more deliveries). (0007 F2 Tab → Home done in v91: Tab opens Parcels on a new save.)
-- [ ] G1 (low, follow-up to v73 wall slide): the flat-face slide only knows the yaw of `KIT.house` walls, the depot
-      buildings and the garage (`ax` on their discs). Other disc-grid buildings (the line ~12320 block with `ax/az`
-      vectors, the line ~9178 quay sheds, lot-built shops) still have round-post corners; tag them with `ax` and
-      rerun `g1_wallslide.mjs` pointed at one.
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
+- [ ] G3 (low, playtest, report 0030 F4): `g3_ridge.mjs`'s rock search keeps landing on the same two snow-dominated
+      spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
+      50–150 m out so a pass can judge grey scree + snow tongues up close.
+- [ ] G1 (low, follow-up to v92): the hospital 10° approach still stops after ~1.6 m along the back wall (rows 20°+
+      slide); the 0.36 m body probe vs the 2.1 m disc pitch may still notch at very shallow angles. Check with
+      `g1_wallslide2.mjs` before touching footStep.
 
-Last triaged report: 29
+Last triaged report: 30
