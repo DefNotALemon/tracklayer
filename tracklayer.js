@@ -5045,14 +5045,39 @@ function buildFuelCabins() {
       if (!isSea(x, z) && groundAt(x, z) > SEA + 1.5 && slopeAt(x, z, 2) < 0.25 && !solidNear(x, z, 3.2)) spot = [x, z, a];
     }
     if (!spot) spot = [s.x - 11, s.z - 8, 0];
-    const [x, z, a] = spot, g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.1, z); g.rotation.y = a; scene.add(g);
+    // the cabin keeps the spot shovelled, so the pallet stands on the old pack instead of vanishing into the powder
+    const [x, z, a] = spot; addYard(x, z, 1.6);
+    const g = new THREE.Group(); g.position.set(x, surf(x, z) - 0.03, z); g.rotation.y = a; g.userData.fuelCans = s.name; scene.add(g);
     const bx = (w, h, d, m, px, py, pz) => KIT.bx(g, w, h, d, m, px, py, pz);
-    bx(1.7, 0.14, 1.1, woodD, 0, 0.07, 0);
-    for (const [px, py, pz] of [[-0.55, 0.45, -0.25], [0, 0.45, -0.25], [0.55, 0.45, -0.25], [-0.3, 0.45, 0.28], [0.3, 0.45, 0.28], [0, 0.99, -0.25], [-0.55, 0.99, -0.25]]) {
-      bx(0.42, 0.52, 0.22, redM, px, py, pz); bx(0.16, 0.07, 0.2, dark, px + 0.08, py + 0.3, pz);
+    // a real Euro pallet (1.2 x 0.8 m, 14 cm: deck boards on cross boards on nine blocks on runners) in pale pine, and
+    // 20 L jerry cans (35 x 47 x 17 cm) with the stamped X on each face, the three-bar handle and the spout cap; a
+    // ratchet strap round the back stack. Every piece merges per material (6 draw calls, was 17 boxes).
+    const det = { pine: [], red: [], redD: [], dark: [], strap: [] };
+    for (const pz of [-0.345, -0.17, 0, 0.17, 0.345]) det.pine.push([1.2, 0.022, 0.11, 0, 0.133, pz]);
+    for (const px of [-0.525, 0, 0.525]) {
+      det.pine.push([0.145, 0.022, 0.8, px, 0.111, 0]);
+      for (const pz of [-0.35, 0, 0.35]) det.pine.push([0.145, 0.078, 0.1, px, 0.061, pz]), px === 0 && det.pine.push([1.2, 0.022, 0.1, 0, 0.011, pz]);
     }
+    const XA = Math.atan2(0.36, 0.29);                          // the X runs corner to corner of the flat face
+    const can = (cx, cy, cz) => {
+      det.red.push([0.35, 0.42, 0.17, cx, cy + 0.21, cz], [0.33, 0.04, 0.15, cx, cy + 0.44, cz]);   // body, shoulder
+      for (const sd of [-1, 1]) for (const r of [XA, -XA]) det.redD.push([0.44, 0.024, 0.012, cx, cy + 0.21, cz + sd * 0.088, r]);
+      det.redD.push([0.35, 0.02, 0.172, cx, cy + 0.015, cz]);                                 // the seam round the foot
+      det.red.push([0.2, 0.028, 0.034, cx - 0.04, cy + 0.505, cz]);                            // handle bar on three posts
+      for (const hx of [-0.13, -0.04, 0.05]) det.red.push([0.026, 0.05, 0.03, cx + hx, cy + 0.47, cz]);
+      det.dark.push([0.06, 0.055, 0.06, cx + 0.12, cy + 0.485, cz], [0.012, 0.03, 0.07, cx + 0.155, cy + 0.49, cz]);   // spout cap + lever
+    };
+    const P0 = 0.144;
+    for (const px of [-0.39, 0, 0.39]) can(px, P0, -0.2);
+    for (const px of [-0.2, 0.2]) can(px, P0, 0.12);
+    for (const px of [-0.2, 0.2]) can(px, P0 + 0.52, -0.2);
+    // the strap: round the back stack at the lower can's waist and over the top pair
+    det.strap.push([1.18, 0.04, 0.008, 0, P0 + 0.25, -0.29], [1.18, 0.04, 0.008, 0, P0 + 0.25, -0.11], [0.008, 0.04, 0.18, -0.59, P0 + 0.25, -0.2], [0.008, 0.04, 0.18, 0.59, P0 + 0.25, -0.2]);
+    det.dark.push([0.05, 0.06, 0.02, 0.1, P0 + 0.25, -0.1]);                                   // its ratchet
+    const DM = { pine: L(0x9a7a55), red: redM, redD: L(0x9c2c18), dark, strap: L(0xd8a21c) };
+    for (const k in det) KIT.put(g, mergeBoxes(det[k]), DM[k], 0, 0, 0);
     const sign = signMat(fuelSignTex(s.fuelPrice));         // painted, unlit
-    bx(0.12, 2.1, 0.12, woodD, 1.2, 1.05, 0.2); bx(1.1, 0.96, 0.08, [amber, amber, amber, amber, sign, sign], 1.2, 2.1, 0.2);
+    bx(0.12, 2.1, 0.12, woodD, 1.0, 1.05, 0.2); bx(1.1, 0.96, 0.08, [amber, amber, amber, amber, sign, sign], 1.0, 2.1, 0.2);
     addOb({ x, z, r: 1.0, top: 1e9 });
   }
 }
