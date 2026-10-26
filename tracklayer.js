@@ -4449,9 +4449,21 @@ function houseBoardTex() {
   t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return (houseBoardTex.t = t);
 }
-function houseClad(mat) {
-  const C = houseClad.c || (houseClad.c = new Map());
-  let m = C.get(mat.uuid); if (!m) { m = mat.clone(); m.map = houseBoardTex(); C.set(mat.uuid, m); }
+// corrugated sheet steel for the work sheds (garage): vertical ribs ~18 cm apart, a lit crest and a shadowed trough
+function shedMetalTex() {
+  if (shedMetalTex.t) return shedMetalTex.t;
+  const c = document.createElement("canvas"); c.width = 256; c.height = 16; const g = c.getContext("2d");
+  for (let x = 0; x < 256; x++) {
+    const p = (x % 32) / 32, k = 0.84 + 0.16 * Math.cos(p * Math.PI * 2) + (p > 0.45 && p < 0.55 ? -0.1 : 0), v = Math.round(255 * Math.min(1, k));
+    g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x, 0, 1, 16);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return (shedMetalTex.t = t);
+}
+function houseClad(mat, metal) {
+  const C = houseClad.c || (houseClad.c = new Map()), key = mat.uuid + (metal ? "m" : "");
+  let m = C.get(key); if (!m) { m = mat.clone(); m.map = metal ? shedMetalTex() : houseBoardTex(); if (metal) { m.roughness = 0.62; m.metalness = 0.25; } C.set(key, m); }
   return m;
 }
 // box (w > 0): u across each wall face in metres / HOUSE_BW; extrude (w = 0): its caps already carry world x,y as uv
@@ -4481,9 +4493,10 @@ function mergeBoxes(list) {
   out.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   return out;
 }
-// wins: [face, along] with face 0 front (+z, the door), 1 back, 2 +x side, 3 -x side
-function houseFacade(w, h, d, wins, door) {
-  const trim = [], glass = [];
+// wins: [face, along, (width, height, centre y)] with face 0 front (+z, the door), 1 back, 2 +x side, 3 -x side;
+// more: extra trim boxes [w, h, d, x, y, z] (door frames on the work sheds), merged into the same trim mesh
+function houseFacade(w, h, d, wins, door, more) {
+  const trim = more ? more.slice() : [], glass = [];
   const put = (arr, f, sa, sb, sn, a, b, n) => {
     if (f === 0) arr.push([sa, sb, sn, a, b, d / 2 + n]);
     else if (f === 1) arr.push([sa, sb, sn, -a, b, -d / 2 - n]);
@@ -4491,8 +4504,8 @@ function houseFacade(w, h, d, wins, door) {
     else arr.push([sn, sb, sa, -w / 2 - n, b, a]);
   };
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) trim.push([0.16, h, 0.16, sx * (w / 2 - 0.05), h / 2, sz * (d / 2 - 0.05)]);   // corner boards
-  const ww = 0.82, wh = 0.98, wb = 1.48, t = 0.1;
-  for (const [f, a] of wins) {
+  const t = 0.1;
+  for (const [f, a, ww = 0.82, wh = 0.98, wb = 1.48] of wins) {
     put(glass, f, ww, wh, 0.06, a, wb, 0.03);
     put(trim, f, ww + 2 * t, t, 0.1, a, wb + wh / 2 + t / 2, 0.05);                 // head
     put(trim, f, ww + 2 * t + 0.1, 0.09, 0.15, a, wb - wh / 2 - 0.045, 0.075);      // sill
@@ -4505,6 +4518,16 @@ function houseFacade(w, h, d, wins, door) {
     put(trim, 0, 1.22, 0.13, 0.12, 0, 2.02, 0.06);
   }
   return { trim: mergeBoxes(trim), glass: glass.length ? mergeBoxes(glass) : null };
+}
+// the town's work sheds (garage, pier freight shed, fish buyer) get the same treatment as the houses: clad walls (boards,
+// or corrugated steel with metal = true) standing on the group's y = 0, corner boards, framed windows with day-dark glass
+// (houseWinMat, so their service windows stop glowing cream at noon), and door frames passed in as extra trim boxes
+function workShed(g, w, h, d, mat, metal, wins, more, trimM) {
+  const wallG = new THREE.BoxGeometry(w, h, d); houseUV(wallG, w, d, 0);
+  KIT.put(g, wallG, houseClad(mat, metal), 0, h / 2, 0);
+  const fac = houseFacade(w, h, d, wins, false, more);
+  KIT.put(g, fac.trim, trimM, 0, 0, 0).castShadow = false;
+  if (fac.glass) KIT.put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
 }
 
 /* ---------------- building kit: shared by the villages and the town ---------------- */
@@ -9395,13 +9418,15 @@ function buildTown() {
   const gx = garageSite.x - 12, gz = garageSite.z;
   addYard(garageSite.x - 5, gz, 13);                                   // the forecourt is plowed
   const gg = new THREE.Group(); gg.position.set(gx, groundAt(gx, gz) - 0.25, gz); scene.add(gg);
-  bx(gg, 11, 4.2, 8, L(0x4a5058), 0, 2.1, 0);
+  // corrugated steel walls on a concrete plinth, white corner trim, framed service windows, a framed roll door
+  workShed(gg, 11, 4.2, 8, L(0x56606a), true, [[2, 2.9, 1.4, 1.1, 2.6], [3, 0.6, 2.4, 1.1, 2.6]],
+    [[0.18, 3.42, 0.16, 5.6, 1.71, 0.4 - 2.28], [0.18, 3.42, 0.16, 5.6, 1.71, 0.4 + 2.28], [0.18, 0.18, 4.72, 5.6, 3.33, 0.4]], KIT.trimW);
+  bx(gg, 11.14, 0.45, 8.14, concrete, 0, 0.22, 0).castShadow = false;
+  bx(gg, 11.3, 0.22, 8.3, KIT.trimW, 0, 4.12, 0).castShadow = false;   // the fascia under the snow load
   bx(gg, 11.6, 0.5, 8.6, snowM, 0, 4.35, 0);
   bx(gg, 11.6, 0.3, 1.2, metal, 0, 4.0, 0);
   bx(gg, 0.2, 3.2, 4.4, L(0x25313c), 5.5, 1.6, 0.4);            // roll door
   for (let i = 0; i < 6; i++) bx(gg, 0.24, 0.12, 4.4, metal, 5.55, 0.5 + i * 0.55, 0.4);
-  bx(gg, 0.12, 1.1, 2.4, glowM, 5.48, 2.6, -2.6);               // lit service window
-  bx(gg, 0.12, 1.1, 2.4, glowM, -5.48, 2.6, 0.6);
   bx(gg, 0.3, 2.6, 0.3, woodD, 7.4, 1.3, -3.2);                 // sign post
   bx(gg, 0.16, 1.5, 3.4, L(0xd8d2c4), 7.4, 3.2, -3.2);
   bx(gg, 0.06, 0.34, 2.6, red, 7.3, 3.4, -3.2);
@@ -9457,7 +9482,12 @@ function buildTown() {
     bx(Q, 26, 2.2, 60, concrete, 8, qy - 1.1, 0);                                // the pier slab, sticking out over the water
     bx(Q, 26.4, 0.25, 60.4, snowM, 8, qy + 0.1, 0);
     for (let v = -26; v <= 26; v += 8) { put(Q, new THREE.CylinderGeometry(0.28, 0.32, 1.1, 8), L(0x2b2f33), 20, qy + 0.55, v); }
-    bx(Q, 9, 3.6, 14, L(0x8d3b2f), 2, qy + 1.8, -20);                            // the freight shed on the pier
+    // the freight shed on the pier: red boards on a low concrete curb, white trim, framed windows, a framed slide door
+    const fs = new THREE.Group(); fs.position.set(2, qy, -20); Q.add(fs);
+    workShed(fs, 9, 3.6, 14, L(0x8d3b2f), false, [[2, 4.6, 0.9, 0.9, 1.9], [2, -4.6, 0.9, 0.9, 1.9], [3, -4, 0.9, 0.9, 1.9], [3, 0, 0.9, 0.9, 1.9], [3, 4, 0.9, 0.9, 1.9], [0, 0], [1, 0]],
+      [[0.14, 2.56, 0.16, 4.58, 1.28, -1.7], [0.14, 2.56, 0.16, 4.58, 1.28, 1.7], [0.14, 0.16, 3.56, 4.58, 2.52, 0]], KIT.trimW);
+    bx(fs, 9.12, 0.3, 14.12, concrete, 0, 0.15, 0).castShadow = false;
+    bx(fs, 9.25, 0.2, 14.25, KIT.trimW, 0, 3.52, 0).castShadow = false;   // fascia
     bx(Q, 9.4, 0.4, 14.4, snowM, 2, qy + 3.8, -20);
     bx(Q, 0.1, 2.4, 3.2, L(0x25313c), 6.55, qy + 1.2, -20);
     put(Q, new THREE.CylinderGeometry(0.12, 0.14, 7, 8), metal, 12, qy + 3.5, 14);   // a crane
@@ -9662,8 +9692,12 @@ function buildFishShops() {
     // the fish buyer's shed on the pier: white boards, a blue door, a scale and a stack of fish boxes
     const { qx, qz, qy } = QUAY, Q = new THREE.Group(); Q.position.set(qx, 0, qz); Q.rotation.y = -qa; scene.add(Q);
     const u0 = 1, v0 = 13;
-    bx(Q, 5, 2.8, 6.4, white, u0, qy + 1.4, v0); bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0);
-    bx(Q, 0.1, 2.0, 1.2, L(0x2d4f74), u0 + 2.55, qy + 1.0, v0 - 1.6); bx(Q, 0.1, 0.9, 1.6, glowM, u0 + 2.55, qy + 1.7, v0 + 1.4);
+    const fb = new THREE.Group(); fb.position.set(u0, qy, v0); Q.add(fb);
+    workShed(fb, 5, 2.8, 6.4, white, false, [[2, -1.4, 1.6, 0.9, 1.7], [3, 0, 1.2, 0.8, 1.7]],
+      [[0.12, 2.1, 0.14, 2.57, 1.05, -1.6 - 0.67], [0.12, 2.1, 0.14, 2.57, 1.05, -1.6 + 0.67], [0.12, 0.14, 1.48, 2.57, 2.08, -1.6]], KIT.trimG);
+    bx(fb, 5.25, 0.18, 6.65, KIT.trimG, 0, 2.74, 0).castShadow = false;   // fascia
+    bx(Q, 5.4, 0.3, 6.8, snowM, u0, qy + 2.95, v0);
+    bx(Q, 0.1, 2.0, 1.2, L(0x2d4f74), u0 + 2.55, qy + 1.0, v0 - 1.6);
     const sg = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.95), new THREE.MeshBasicMaterial({ map: signTex("FISKEMOTTAK", "FISH BOUGHT · FERSK FISK", "#1f3f5f", "#f2efe6") }));
     sg.position.set(u0 + 2.62, qy + 3.4, v0); sg.rotation.y = Math.PI / 2; Q.add(sg);
     for (let i = 0; i < 6; i++) bx(Q, 0.9, 0.32, 0.6, L(i % 3 === 1 ? 0xe07a28 : 0x2b6fa8), u0 + 3.6 + (i % 2) * 0.95, qy + 0.16 + Math.floor(i / 2) * 0.33, v0 + 2.6);
