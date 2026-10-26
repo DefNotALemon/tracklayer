@@ -57,6 +57,8 @@ are, mostly short hops to places within a few kilometres plus a long haul or two
 Pings on the dash (with a banner when the tablet's down) tell you when something comes up.
 The garage (**T**) sells nine sleds, 1970 to 2029. Each newer one needs a number of deliveries and its
 price; a locked sled's card says both (and how many you've made), plus how many shop parts it opens up.
+The delivery that opens a sled says so in a toast: its price (and your cash if you're short), how much more power
+it has than the sled you ride, how many parts it opens and any work only it can do.
 Parts the shop won't fit yet are marked with the sled they need (**Woodsman+**, **Ranger+**, …).
 The Sprint 580 SX is the trail racer: its tall gearing pulls a quarter harder once the snow underneath is packed
 (groomed trails, your own tracks, plowed ground) or lake ice, which makes it the quickest sled there until the Apex.

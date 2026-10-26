@@ -5615,6 +5615,21 @@ function bumpDelivered() {
   const before = rankOf(GS.delivered); GS.delivered++;
   const after = rankOf(GS.delivered);
   if (after !== before) { GS.contracts = null; setTimeout(() => toast(`New rank: ${after.name}. ${rankOpens(after)}`, "good"), 2600); }
+  // the garage's sled ladder is gated by deliveries: say so the moment one opens, or the player has to go look
+  const s = SLEDS.find(q => q.need > 0 && q.need === GS.delivered && !GS.own.sleds.includes(q.id));
+  if (s) setTimeout(() => toast(sledReadyMsg(s), "good"), after !== before ? 5400 : 2600);
+}
+// "The garage will sell you the Woodsman 440 now" + what it's for, against the sled you ride today
+function sledReadyMsg(s) {
+  const cur = SLEDS.find(q => q.id === GS.own.sled) || SLEDS[0], i = SLEDS.indexOf(s);
+  const pwr = Math.round((engineOf(s).pwr / engineOf(cur).pwr - 1) * 100);
+  const parts = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === i && o.cost).length, 0);
+  const why = [pwr > 0 ? `${pwr}% more power than your ${cur.name}` : "", parts ? `${parts} more parts in the shop` : "",
+    s.perk ? s.perk.split(":")[0].toLowerCase() : "",
+    i === fellTier() ? "fell freight" : i === fellTier(TONNE_SLED) ? "tonne loads up the fell" : s.plug ? "NILU's clean-air runs" : ""].filter(Boolean);
+  const cash = GS.cash >= s.cost ? "" : ` (you have $${Math.floor(GS.cash).toLocaleString("en-US")})`;
+  const w = why.length ? " " + why.join(", ").replace(/^./, c => c.toUpperCase()) + "." : "";
+  return `${GS.delivered} deliveries: the garage will sell you the ${s.name} now, $${s.cost.toLocaleString("en-US")}${cash}.${w} T at the garage across from the quay.`;
 }
 
 function applyUpg() { restat(); }
