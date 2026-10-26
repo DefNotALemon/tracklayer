@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 12:12 — Frozen lakes look like wind-scoured ice, not a flat grey disc (G3) — f38ad4f
+No new reports (last triaged 45). Took the b51 lake item (the top daylight item is open-ended; this one was concrete and
+what the vistas showed). Cause: far-terrain lake vertices are a flat 0.62/0.76/0.86 that the drift relief and sky sheen
+both skip (gated on vColor.r > 0.8). New shared `LAKE_GLSL` `lkBare()` (streaks ~80×17 m along the north-westerly, bent,
+plus 25×4 m fine streaks, ~half bare ice) used by BOTH the snow patch (ice mix 0.3 → 0.08 + 0.72·bare) and the far
+terrain (snow 0.88/0.92/0.975 ↔ ice 0.47/0.64/0.77, faded to the mean by pixel footprint so it can't alias; weak 0.12
+relief on the snowy streaks; sky sheen on the ice). New `scenarios/g3_lake.mjs` (lake 3, shore 25 m up / ridge vista 120 m
+up / rider height on the ice, Nov + March noon) + `tools/playtest/lakestats.py` (lake-only crops). Before → after std/local:
+shore Nov 2.86/0.40 → 8.61/1.97, March 2.09/0.26 → 8.10/1.75; vista Nov 4.47/1.32 → 6.76/2.79, March 3.30/0.72 → 5.82/2.17;
+low Nov 8.59/1.79 → 11.0/2.46. A first try (relief 0.35) made the lake read as dune-covered land; cut to 0.12 so it stays
+flat. Vision (b52/c2_nov.jpg, c2_low.jpg): streaked snow over blue ice, lake outline still clear, no stripes; the old
+white-near / grey-far step at rider height is gone. smoke exit 0, page errors none (powder 1.51, trench 2.21, 67.2 mph).
+README sky para; v109. Next: playtest the lakes at night/storm/melt (new low item); daylight item (away-from-sun flatness).
+
 ## 2026-10-26 11:58 — No hard pale line along the horizon (G3) — ea01f03
 No new reports at start (0045 arrived during the pass: v107 verified, numbers reproduce; F2 away view still flattest →
 noted on the G3 item; F3/F4 info). Took the top G3 item's open note (pale band where hazed land meets sky). Row profiles of

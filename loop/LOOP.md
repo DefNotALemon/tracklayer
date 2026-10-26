@@ -153,9 +153,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       in the sky/ground band: back Nov away 17.4 → 9.1, March away 19.0 → 8.6, toward/across/quay unchanged ±0.5.
       Still open: away-from-sun far terrain lit flat (hemi fill only; maybe a sky-gradient or self-shadow term facing
       away), and the band below the horizon is one flat fog colour (far ring 99% fogged at 2.6 km).
-- [ ] G3 (new, b51 stills): frozen lakes read as a flat featureless pale-grey disc in daylight vistas (`g3_vista` 02/03
-      away: a big uniform oval with no snow drift, no sheen, no edge detail). Give lake ice a little wind-blown snow
-      streaking / sastrugi and a faint sky sheen so it reads as a snow-covered lake, not a hole in the terrain.
+- [ ] G3 (low, playtest, follow-up to v109 lake skin): `g3_lake.mjs` + `lakestats.py`. Unchecked: the lakes at night /
+      polar-night twilight / aurora (ice streaks go through the normal lit path, should be fine), in a storm, during the
+      melt (open water from the shore must still win over the streaks), and at rider height whether the near patch → far
+      hand-over ~45 m out shows as a faint light band (b52 `01_nov_low` had one soft band; unclear if it's the seam).
 - [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
       rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
       as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
