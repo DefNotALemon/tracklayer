@@ -3496,7 +3496,10 @@ function updVisuals(dt) {
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
-    look = _camAim.set(FXp + cfx * (4 + CLIMB.v * 4), FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * (4 + CLIMB.v * 4));
+    const wk = view.d < 10 ? camWallClip(FXp, FYp + 1.3, FZp, camera.position) : 1;   // not inside the house behind you (the drone view flies over)
+    camState.wallK = (camState.wallK ?? 1) + (wk - (camState.wallK ?? 1)) * (1 - Math.exp(-8 * dt));
+    const la = (4 + CLIMB.v * 4) * (0.35 + 0.65 * camState.wallK);   // pulled in close: aim nearer, so the rider stays in frame
+    look = _camAim.set(FXp + cfx * la, FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * la);
     camState.cp = (camState.cp || new THREE.Vector3()).copy(camera.position); camState.cpOn = false;
   }
   P.shake *= Math.exp(-4 * dt);
@@ -4443,9 +4446,10 @@ const KIT = (() => {
       for (const sx of [-w / 4, w / 4]) K.bx(g, 0.7, 0.6, 0.08, K.glowM, sx, 1.5, d / 2 + 0.04);
       K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, 0.95, d / 2 + 0.04);
     }
+    const box = { x, z, c: Math.cos(ry), s: Math.sin(ry), hw: w / 2 + 0.45, hd: d / 2 + 0.4 };   // the walls + eaves, for camWallClip
     for (let u = -w / 2 + 1.1; u <= w / 2 - 1; u += 1.9) for (let v = -d / 2 + 1.1; v <= d / 2 - 1; v += 1.9) {
       const wx = x + u * Math.cos(ry) + v * Math.sin(ry), wz = z - u * Math.sin(ry) + v * Math.cos(ry);
-      addOb({ x: wx, z: wz, r: 1.35, top: 1e9, ax: ry });
+      addOb({ x: wx, z: wz, r: 1.35, top: 1e9, ax: ry, box });
     }
     return g;
   };
@@ -9459,6 +9463,47 @@ function buildLanes() {
     if (Math.hypot(D.x - depot.x, D.z - depot.z) > TOWN_R) continue;
     addLane(laneRoute(sx0, sz0, D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)), 1.5);
   }
+}
+/* ---- chase camera vs buildings (report 0046: delivery stills were a screenful of a house's painted wall). The chase cam
+   trails 4.6-7.8 m behind the sled or the rider on foot, so standing at a door facing out put it inside the house every
+   time (g3_camwall: 8/8). Cast from the focus to the camera against obGrid's footprints (trees, logs, the parked sled
+   and posts left out; circles grown 0.45 m so the gaps between a wall's circles close; a K.house's circles carry its
+   real wall box, tested instead, since its footprint circles stop up to 1.5 m short of the walls) and pull the camera in
+   to just short of the first wall, dropping it halfway toward the rider's shoulders and aiming closer in (camState.wallK)
+   so a close camera looks down past the head at the rider. It snaps in
+   and eases back out with the camera's own lerp. Footprints the focus already stands inside are skipped, so leaning on
+   a wall doesn't swallow the camera. */
+function camWallClip(fx, fy, fz, c) {
+  const dx = c.x - fx, dz = c.z - fz, L = Math.hypot(dx, dz); if (L < 0.8) return;
+  const ux = dx / L, uz = dz / L, seen = new Set(); let tMin = L;
+  for (let j = Math.floor((Math.min(fz, c.z) - 4 + HALF) / OBC); j <= Math.floor((Math.max(fz, c.z) + 4 + HALF) / OBC); j++)
+    for (let i = Math.floor((Math.min(fx, c.x) - 4 + HALF) / OBC); i <= Math.floor((Math.max(fx, c.x) + 4 + HALF) / OBC); i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.box) {                                                    // a house: slab test against its wall box
+          const B = o.box; if (seen.has(B)) continue; seen.add(B);
+          const px = fx - B.x, pz = fz - B.z, lu = px * B.c - pz * B.s, lv = px * B.s + pz * B.c, du = ux * B.c - uz * B.s, dv = ux * B.s + uz * B.c;
+          if (Math.abs(lu) < B.hw && Math.abs(lv) < B.hd) continue;
+          let t0 = 0, t1 = tMin, ok = true;
+          for (const [p, q, h] of [[lu, du, B.hw], [lv, dv, B.hd]]) {
+            if (Math.abs(q) < 1e-9) { if (Math.abs(p) >= h) ok = false; continue; }
+            let ta = (-h - p) / q, tb = (h - p) / q; if (ta > tb) [ta, tb] = [tb, ta];
+            t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
+          }
+          if (ok && t0 < t1 && t0 > 0) tMin = t0;
+          continue;
+        }
+        if (o.tree !== undefined || o.log || o.parked || o.r < 0.5) continue;
+        const R = o.r + 0.45, ox = o.x - fx, oz = o.z - fz, b = ox * ux + oz * uz, c2 = ox * ox + oz * oz - R * R;
+        if (c2 <= 0) continue;
+        const disc = b * b - c2; if (disc <= 0) continue;
+        const t = b - Math.sqrt(disc); if (t <= 0 || t >= tMin) continue;
+        if (fy + (c.y - fy) * t / L > o.top) continue;                 // passes over a rock
+        tMin = t;
+      }
+    }
+  if (tMin < L) { const k = Math.max(0.6, tMin - 0.3) / L; c.x = fx + dx * k; c.y = fy + (c.y - fy) * (0.5 + 0.5 * k); c.z = fz + dz * k; return k; }
+  return 1;
 }
 function obNear(x, z, R) {
   for (let j = Math.floor((z - R + HALF) / OBC); j <= Math.floor((z + R + HALF) / OBC); j++) for (let i = Math.floor((x - R + HALF) / OBC); i <= Math.floor((x + R + HALF) / OBC); i++) {
