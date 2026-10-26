@@ -129,12 +129,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       hillside 100–300 m out; near dunes now domain-warped + ridged crests, crest weight faded by dist/cos(view) so
       grazing flats don't barcode. Local 03/04/05 3.01/4.06/3.11 → 3.22/4.16/3.57; midband strip 3 Nov 4.69 → 5.49.
       Still open: global std (~40) / overall low contrast; crests may read a touch sand-dune-like on big facing slopes.
-- [ ] G1 (playtest, follow-up to v96 jog): play the jog like a player: quay → a shore-road door with Shift held, a
-      jog up a town slope, touch lean on foot. Is 20 m of deep powder blowing you (~11 s) too harsh? Does the toast
-      repeat annoyingly? Does the walker pose read as a jog at 3.7 m/s (stride lengthened, no run pose of its own)?
-      `scenarios/g1_jog.mjs` has the numbers.
+      b41 (09:36, v97) recheck: 05 std 40.3 local 3.07, 06 40.2 / 2.96; vision on 05: ripples and far hills read, but the
+      foreground under a 4° sun is evenly lit (no grazing-light shadows on the relief). Next slice idea: stronger
+      self-shadow/darker lee sides on near relief when the sun is low, not more tint.
+- [ ] G1 (low, playtest, report 0035): jog 120+ m of continuous open-backcountry powder (blown twice) to check the
+      "blown" toast fires once per blow and the walk-until-breath-back stretch doesn't feel punishing. Town routes never
+      blow you (0035: depot→lot2 48.9 m at 3.79 m/s, wind 0.58).
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
-      `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`). Tonne cards wear the FELL chip; a TONNE chip colour would read better.
+      `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
       vs Apex 42, never bogs); 0026 idea: the locked card could say "can haul it, just slower" if it stays coherent.
 - [ ] G2 (low, playtest, follow-up to v97): `coldRun` speed is now min(12 + 6×power, 10.5×power/drag), fitted on EMPTY
@@ -154,4 +156,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 34
+Last triaged report: 35

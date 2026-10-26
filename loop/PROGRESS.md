@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 09:40 — TONNE chip on tonne-load cards (G2) — 13b8803
+Triage 0035 (jog played as a real route): F1–F6 info (depot→lot2 48.9 m jogged at 3.79 m/s, never blown; pose reads
+as a jog; uphill 0.196 grade 1.83 m/s): G1 jog item closed, follow-up low item for a 120 m backcountry blow-twice
+check. G3 slice 8 rechecked (b41before: 05 std 40.3 / local 3.07) but has no small concrete lever this pass, so took
+the G2 polish slice: `bigTag` gives tonne loads their own "tonne" tag, `.bchip.tonne` pink (#e79ac9). New
+`scenarios/g2_tonnechip.mjs` (50 deliveries, Matriarch, Freight app): before chips FELL/FELL both rgb(143,208,196);
+after FELL rgb(143,208,196) + TONNE rgb(231,154,201). Still b41tc_after/01: TONNE legible, distinct from FELL and the
+red DUE/COLD RUN chips, layout unchanged. smoke exit 0, page errors none (powder 1.55, trench 2.22, 6 s 67.1 mph).
+README rank table; v98.
+Next: G3 low-sun self-shadow on near relief; G2 laden-trailer coldRun check; G1 backcountry blow-twice check.
+
 ## 2026-10-26 09:30 — COLD RUN estimate uses the speed sleds really hold (G2) — 6b3ddec
 Triage 0034 (ride a flagged card): F2 real (Woodsman averaged 12.7 m/s Skjånes→Ifjord vs coldRun's assumed 19.2; −74.7
 warmth in 49% of the leg → ≈238% vs the card's 192%), F1/F3/F4/F5 info (stop 288 m off-line is fine). Cold-per-second
