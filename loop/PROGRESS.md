@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:20 — Mid-distance dunes on the open fell (G3) — 74c3219
+No new reports (last 26). G3 was due (last 4: G2/G2/G2/G1). Took the top item, daylight slice 8, as slice 8b: the
+45–150 m band. New `scenarios/g3_midband.mjs` (backcountry spot searched from SPAWN, so it's pinned: −1637,−1943;
+weather pinned; game cam Nov/March noon + a 2.2 m camera looking 120 m out across/away from the sun) and
+`tools/playtest/bandstats.py` (local contrast per horizontal strip). Far shader `fdH`: the close (`near`, <150–450 m)
+ripple term ×0.35 → 0.8 plus a new 45×15 m scoop term (0.4) along the wandering north-westerly; patch sastrugi fade
+28–45 → 34–50 m so they reach the patch edge; lee tint gentler (×10 → ×6, cap 0.8) so it doesn't blotch. Strip 3
+(horizon → ~30 m) local contrast: Nov backcountry **3.29 → 4.69**, March **2.93 → 4.29**, low cam across sun
+**0.87 → 1.11**, away from sun 0.25 → 0.25 (flat light); whole-still local 05 3.42 → 4.08, 06 3.28 → 3.52. Stills
+b31/c05c.jpg, c06c.jpg (before over after): the flat wash now shows dunes with shaded lee hollows, no seam at the
+patch/far handover, no speckle; a few hollows read as similar ovals (follow-up noted on slice 8). Tried 0.6 for the
+scoops first: same numbers, blotchier → 0.4. smoke exit 0, page errors none (powder 1.50, trench 2.22, 6 s 68.1 mph).
+README daylight paragraph; v88.
+Next: top is still daylight slice 8 (oval hollows, global std); G2 first-5-min / G1 lanes follow-ups after.
+
 ## 2026-10-26 07:05 — Clean-air runs: first work the Aurora E opens (G2) — 596deae
 Triage 0026 (verify v85: reproduces; F2 tow test: Summit hauls 500 kg up a 0.38 grade at 33 mph vs Apex 42, never
 bogs → gates are insurance rules, noted on the late-ladder polish item, the "untested" line dropped; F3/F5/F6 info,
