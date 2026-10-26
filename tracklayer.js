@@ -200,8 +200,8 @@ function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && 
    (refill) fills it back only to that level: someone keeps plowing. Derived from building positions
    at boot; nothing is saved.
    Lanes: addLane([[x, z], ...], r) plows a walked/driven path (a capsule per leg, r each side, easing out over
-   LANE_FALL m). buildTown runs one from the depot yard to every Kjøllefjord door (round the house when the door
-   faces away), so the walk from the quay to a house or the garage stays on hard pack the whole way. */
+   LANE_FALL m). buildLanes() runs one from the depot yard to every Kjøllefjord door, routed round obstacles (houses,
+   sheds, lamps), so the walk from the quay to a house or the garage stays on hard pack the whole way. */
 const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, LANE_FALL = 2.5, yardCache = new Map();
 function yardOf(cx, cz) {
   const key = cz * CPR + cx;
@@ -9215,15 +9215,8 @@ function buildTown() {
     bx(ch, 0.12, 1.2, 0.12, metal, 0, 15.6, 6.5); bx(ch, 0.7, 0.12, 0.12, metal, 0, 15.4, 6.5);
     for (const zz of [-4, 0, 4]) for (const sd of [-1, 1]) bx(ch, 0.08, 1.6, 0.9, glowM, sd * 4.55, 2.4, zz);
   }
-  // plowed lanes from the depot yard to every door in town: straight to the apron, or round the side of the house
-  // when its door faces away from the quay (so the lane doesn't run in under the back wall)
-  const sx0 = d0.x - 5, sz0 = d0.z;
-  for (const D of KIT.doors) {
-    if (Math.hypot(D.x - d0.x, D.z - d0.z) > TOWN_R) continue;
-    const ax = D.x + D.nx * (D.d / 2 + 5), az = D.z + D.nz * (D.d / 2 + 5), tx = sx0 - D.x, tz = sz0 - D.z, pts = [[sx0, sz0]];
-    if (D.nx * tx + D.nz * tz < 0) { const s = Math.sign(D.nz * tx - D.nx * tz) || 1; pts.push([D.x + D.nz * s * D.rr, D.z - D.nx * s * D.rr]); }
-    pts.push([ax, az]); addLane(pts, 1.5);
-  }
+  // plowed lanes from the depot yard to every door in town: buildLanes(), run from boot() once every shed, shop
+  // and woodpile has its obstacle in, so the lanes can go round them
   for (const lx of [-40, -14, 14, 40]) { lamp(d0.x + lx, d0.z + 14); lamp(d0.x + lx, d0.z - 20); }
   // firewood, fuel drums, a plough pile of snow
   for (let i = 0; i < 5; i++) {
@@ -9316,6 +9309,54 @@ function signTex(t1, t2, bg, fg, w = 512, h = 160) {
   g.font = `800 ${Math.round(h * .36)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t1, w / 2, t2 ? h * .4 : h / 2);
   if (t2) { g.font = `600 ${Math.round(h * .17)}px 'Barlow Semi Condensed', Arial, sans-serif`; g.fillText(t2, w / 2, h * .75); }
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+}
+/* ---------------- town lanes: plowed paths from the depot yard to every Kjøllefjord door ----------------
+   Each lane is routed round whatever stands in the way (houses, the pier sheds, the fish shops, woodpiles, lamps;
+   anything in obGrid) and the sea: an 8-way A* on a 1.5 m grid where a cell within LANE_CLR of an obstacle costs
+   ×40 instead of being a wall (so a start/goal inside a building's clearance still finds its way out), then
+   string-pulled to a few straight legs. Runs once at boot after all the builders; nothing is saved. */
+const LANE_CLR = 1.1, LANE_G = 1.5;
+function laneFree(x, z) { return !obNear(x, z, LANE_CLR) && !isSea(x, z); }
+function laneRoute(sx, sz, gx, gz) {
+  const pad = 30, x0 = Math.min(sx, gx) - pad, z0 = Math.min(sz, gz) - pad;
+  const W = Math.ceil((Math.max(sx, gx) + pad - x0) / LANE_G) + 1, H = Math.ceil((Math.max(sz, gz) + pad - z0) / LANE_G) + 1, N = W * H;
+  const blk = new Int8Array(N).fill(-1), g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), shut = new Uint8Array(N);
+  const cx = x => clamp(Math.round((x - x0) / LANE_G), 0, W - 1), cz = z => clamp(Math.round((z - z0) / LANE_G), 0, H - 1);
+  const cost = k => { if (blk[k] < 0) blk[k] = laneFree(x0 + (k % W) * LANE_G, z0 + Math.floor(k / W) * LANE_G) ? 0 : 1; return blk[k] ? 40 : 1; };
+  const s = cz(sz) * W + cx(sx), t = cz(gz) * W + cx(gx), tx = t % W, tz = Math.floor(t / W);
+  const hq = [], hk = [];                                                 // binary heap of (f, cell)
+  const push = (f, k) => { let i = hq.length; hq.push(f); hk.push(k); while (i > 0) { const p = (i - 1) >> 1; if (hq[p] <= hq[i]) break; [hq[p], hq[i]] = [hq[i], hq[p]]; [hk[p], hk[i]] = [hk[i], hk[p]]; i = p; } };
+  const pop = () => { const k = hk[0], lf = hq.pop(), lk = hk.pop(); if (hq.length) { hq[0] = lf; hk[0] = lk; let i = 0; for (;;) { const a = 2 * i + 1, b = a + 1; let m = i; if (a < hq.length && hq[a] < hq[m]) m = a; if (b < hq.length && hq[b] < hq[m]) m = b; if (m === i) break; [hq[m], hq[i]] = [hq[i], hq[m]]; [hk[m], hk[i]] = [hk[i], hk[m]]; i = m; } } return k; };
+  g[s] = 0; push(0, s);
+  while (hq.length) {
+    const k = pop(); if (shut[k]) continue; shut[k] = 1; if (k === t) break;
+    const kx = k % W, kz = Math.floor(k / W);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dz) continue;
+      const nx = kx + dx, nz = kz + dz; if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
+      const n = nz * W + nx; if (shut[n]) continue;
+      const ng = g[k] + (dx && dz ? 1.4142 : 1) * cost(n);
+      if (ng < g[n]) { g[n] = ng; from[n] = k; push(ng + Math.hypot(nx - tx, nz - tz), n); }
+    }
+  }
+  if (from[t] < 0 && t !== s) return [[sx, sz], [gx, gz]];
+  const cells = []; for (let k = t; k >= 0; k = from[k]) cells.unshift([x0 + (k % W) * LANE_G, z0 + Math.floor(k / W) * LANE_G]);
+  cells[0] = [sx, sz]; cells[cells.length - 1] = [gx, gz];
+  // string-pull: from each kept point jump to the farthest path point in clear line (ends exempt within 3 m:
+  // the depot yard and a door apron sit inside their buildings' clearance)
+  const clear = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 0.5);
+    for (let i = 1; i < n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n;
+      if (Math.hypot(x - sx, z - sz) < 3 || Math.hypot(x - gx, z - gz) < 3) continue; if (!laneFree(x, z)) return false; } return true; };
+  const out = [cells[0]];
+  for (let i = 0; i < cells.length - 1;) { let j = cells.length - 1; while (j > i + 1 && !clear(cells[i], cells[j])) j--; out.push(cells[j]); i = j; }
+  return out;
+}
+function buildLanes() {
+  const sx0 = depot.x - 5, sz0 = depot.z;
+  for (const D of KIT.doors) {
+    if (Math.hypot(D.x - depot.x, D.z - depot.z) > TOWN_R) continue;
+    addLane(laneRoute(sx0, sz0, D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)), 1.5);
+  }
 }
 function obNear(x, z, R) {
   for (let j = Math.floor((z - R + HALF) / OBC); j <= Math.floor((z + R + HALF) / OBC); j++) for (let i = Math.floor((x - R + HALF) / OBC); i <= Math.floor((x + R + HALF) / OBC); i++) {
@@ -12960,7 +13001,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
-  buildFishShops(); buildHospital(); initFishing();
+  buildFishShops(); buildHospital(); initFishing(); buildLanes();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);

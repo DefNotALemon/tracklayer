@@ -59,10 +59,15 @@ const route = (i) => ev(`(() => {
   const pts = [], tx = sx0 - hx, tz = sz0 - hz;
   if (nx * tx + nz * tz < 0) { const s = Math.sign(nz * tx - nx * tz) || 1; pts.push([hx + nz * s * rr, hz - nx * s * rr]); }
   pts.push([hx + nx * (d / 2 + 5), hz + nz * (d / 2 + 5)]);
+  // since v89 lanes are routed round obstacles: walk the lane's own legs when one ends at this apron
+  const ls = YARDS.filter(Y => Y.f === LANE_FALL), [ex, ez] = pts[pts.length - 1];
+  let k = ls.findIndex(Y => Math.hypot(Y.x2 - ex, Y.z2 - ez) < 0.5);
+  if (k >= 0) { pts.length = 0; pts.push([ls[k].x2, ls[k].z2]);
+    while (k >= 0 && Math.hypot(ls[k].x - sx0, ls[k].z - sz0) > 0.01) { pts.unshift([ls[k].x, ls[k].z]); k--; } }
   const ux = pts[0][0] - sx0, uz = pts[0][1] - sz0, ul = Math.hypot(ux, uz);
-  return JSON.stringify({ start: [sx0 + ux / ul * 18, sz0 + uz / ul * 18], pts });
+  return JSON.stringify({ start: [sx0 + ux / ul * Math.min(18, ul * 0.8), sz0 + uz / ul * Math.min(18, ul * 0.8)], pts });
 })()`).then(JSON.parse);
-for (const i of [0, 11, 3]) {
+for (const i of [0, 11, 3, 9]) {
   const R = await route(i);
   await setFoot(R.start[0].toFixed(2), R.start[1].toFixed(2), `Math.atan2(${R.pts[0][0]} - ${R.start[0]}, ${R.pts[0][1]} - ${R.start[1]})`); await sleep(400);
   const w = await walkPath(R.pts, 60);
