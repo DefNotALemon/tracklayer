@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:00 — Drip edge separates roof trim from the snow load (G3) — 89232a4
+No new reports since 0065. Took the buildings item's red-house fascia note (0060 F4: white fascia ran into the white snow
+cap, one thick white slab under the eave). Rather than greying all white trim (window frames too), roofTrim now adds a
+5.5 cm dark steel drip edge along each fascia top and barge-board top, tinted by a vertex colour (mergeBoxes takes an
+optional 8th brightness entry; `trimVC()` gives the trim material a cached vertexColors twin). Calls 305 → 305.
+`g3_roofs.mjs` imgstats local: mar eave 5.50 → 5.80, nov eave 5.83 → 6.09, night eave 4.25 → 4.64, gables +0.1, corners
++0.1–0.3, means ±1. Vision (b76/cmp.jpg): a thin grey line now parts fascia from snow, reads as flashing, no z-fight or
+floating strips on the rakes. smoke exit 0, page errors none (67.3 mph, powder 1.54, trench 2.27). README; v132.
+Next: playtester judges the drip line at ride distance; sliding glass sheen along a street.
+
 ## 2026-10-26 16:50 — Window glass reflection follows the viewpoint (G3) — 21ce8de
 Triage 0065: v130 verified (871 calls, night unchanged); F1 (same fixed reflection on every pane whatever it faces) taken
 this pass. houseWinMat's shader now offsets the glass lookup by the mirrored view ray (horizontal along the wall ×0.45,

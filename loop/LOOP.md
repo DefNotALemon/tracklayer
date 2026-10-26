@@ -150,8 +150,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       v130 day glass (0053 F3): `houseGlassTex()` sky-over-dark-room reflection + sheen blended in by `houseWinMat.u`
       (`g3_glass.mjs`, 6 m close views + 13 m fronts; night ±1, calls 871 → 871). Report 0065 verified v130.
       v131 (0065 F1): glass lookup slides with the mirrored view ray (`gR`) + Schlick Fresnel to sky; normal flipped to
-      face the eye (white houses are mirrored/inward-normal: first try turned every pane flat sky). Left: red-house fascia
-      tint; playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
+      face the eye (white houses are mirrored/inward-normal: first try turned every pane flat sky). v132 (0060 F4): dark
+      steel drip edge (vertex-tinted 0.34 in the merged trim, `mergeBoxes` 8th entry + `trimVC`) along every fascia and
+      barge-board top, 0 calls (305 → 305); `g3_roofs` eave local mar 5.50 → 5.80, nov 5.83 → 6.09. Playtester: judge
+      the drip line at ride distance (too faint/too busy?) and on the white houses' grey trim. Left: playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
