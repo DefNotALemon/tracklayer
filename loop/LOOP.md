@@ -264,6 +264,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Still unchecked: narrow gaps between two houses (second camWallClip on the slid spot).
 - [ ] G1 (low, follow-up to v111 turn ramp): door turn + stick twitch verified clean (report 0049). Left: pivot is the same
       in deep powder and on hard pack; judge whether that feels right.
+- [ ] G2 (playtest, follow-up to v135 sled-ready toast): in a real delivery chain (`g2_first5min_chain.mjs`), does the
+      4th delivery's "garage will sell you the Woodsman" toast read alongside the delivery toast (3-toast cap, 4.2 s each),
+      and is 4.2 s long enough for a 3-line toast? `g2_sledready.mjs` checks every sled via bumpDelivered.
 - [ ] G2: First-5-minutes playtest of a new save: the board half is good (report 0007: 6 jobs posted, LOAD
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend

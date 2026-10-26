@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 17:35 — Sled unlocks announced with a toast (G2) — e1f38d7
+No new reports since 0067. After 18 G3/G1 passes, took G2 (fewest recent landings), goal item "does the game say what's
+next": `bumpDelivered` toasted rank-ups but nothing said when a delivery opened a sled (Woodsman 4, Ranger 8, Sprint 13,
+Summit 18, Trekker 24 opened silently; the player had to open the garage to notice). New `sledReadyMsg(s)`: "N deliveries:
+the garage will sell you the X now, $cost (you have $cash if short). P% more power than your <ridden sled>, K more parts in
+the shop, <perk name>, <exclusive work>. T at the garage across from the quay." Fires 2.6 s after the delivery (5.4 s when a
+rank-up toast also fires), skipped if the sled is owned. New `g2_sledready.mjs`: sled-ready toasts 0/8 → 8/8, owned Ranger at
+8 stays quiet. Vision (b79/after/01_woodsman_toast.jpg): 3 lines, readable, clear of the HUD. smoke exit 0, page errors none
+(66.1 mph, powder 1.53, trench 2.27). README; v135.
+Next: playtester sees it in a real first-5-min chain (4th delivery → Woodsman toast alongside the delivery toast).
+
 ## 2026-10-26 17:25 — Sled column eases the same at any frame rate; crest walk verified (G1) — bd73629
 Triage 0067: v132 drip edge verified at 15–20 m on red and grey trim; F1/F2 (fades by 25 m and at night) by design, no
 action; F3 → playtester note to check the white gabled SITES homes. Its harness note (rider.visible is reset every frame,
