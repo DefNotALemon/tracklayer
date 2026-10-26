@@ -144,7 +144,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       grey-green LCD ($, L, $/L) via signMat glow 0.85, box edge UVs pinned to the bezel (0 extra calls; `g3_stations.mjs`
       new `disp` view, local nov 3.98 → 4.64, night 3.99 → 4.41). Report 0062 verified v126; its F2 (g3_glow ferry target
       frames the tackle shop) is harness-only. v128: station pool now 0xe0601a like the lamps, opacity 0.45 → 0.6 (night
-      pump mean/p95 104.6/196 → 109.5/211, 0 calls). Left: red-house fascia tint, day glass mid-grey everywhere (0053 F3); playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
+      pump mean/p95 104.6/196 → 109.5/211, 0 calls). Report 0063 verified v127 (538 calls). v129: canopy light panel (a fixed
+      cream MeshBasic, 0063 F1) → `canopyLightMat()` Lambert 0xa4acb6 by day, emissive 0xfff1cf × n (houseWinTick); night
+      unchanged, 0 calls. Left: kiosk ridge cap proud of the ridge / gap at the barge boards (0063 F2, low), red-house fascia tint, day glass mid-grey everywhere (0053 F3); playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
@@ -270,4 +272,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 62
+Last triaged report: 63

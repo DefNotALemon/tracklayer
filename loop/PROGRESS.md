@@ -7,6 +7,16 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 16:30 — Canopy light panel stops glowing at noon (G3) — 532cefc
+Triage 0063: v127 pump LCD verified (538 calls); F1 (canopy underside a flat near-white panel at noon) taken this pass;
+F2 (kiosk ridge cap proud / gap at barge boards) logged low in the buildings item; F3 no issue. The panel under each
+canopy was a fixed cream `MeshBasicMaterial` 0xfff1cf (same bug family as v125/v126). New hoisted `canopyLightMat()`:
+Lambert colour 0xa4acb6 × (1−n), emissive 0xfff1cf × n from houseWinTick. First try 0xd4d8dc vanished into the white
+soffit at noon; the cooler grey reads as a frosted panel. `g3_stations.mjs` nov_canopy mean 166.0 → 160.9 (the panel is
+in shade now), night_canopy 96.4 → 95.3 / local 4.70 → 4.72 (unchanged glow), q34 ±0.4; calls 538 → 538. Vision
+(b73/cmp2.jpg): noon shows a shaded diffuser set into the soffit, night still glows warm. smoke exit 0, page errors none
+(67.2 mph, powder 1.53, trench 2.21). README; v129. Next: kiosk ridge cap, red-house fascia tint, day glass mid-grey.
+
 ## 2026-10-26 16:25 — Station forecourt pool matches the street lamps (G3) — e461479
 No new reports since 0062. Took the buildings follow-up (0059 F3: station pool faint on moonlit nights, 0.45/0xff7a2a vs
 lamp pools 0.5/0xe0601a; b68 found 0xff8a3a-ish reads neutral white on blue snow). stationPool colour → 0xe0601a, opacity
