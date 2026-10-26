@@ -452,6 +452,7 @@ patchMat.onBeforeCompile = sh => {
   // across a prevailing north-westerly) plus slow drift swells, as a per-pixel normal tilt only (no geometry,
   // so physics and the 25 cm snow grid are untouched). Fades out on packed trails, on rock and bare ground,
   // and by 45 m from the camera, before the patch hands over to the far terrain. Low sun rakes across it.
+  // Tilt ×2 (v83): at ×1 the open fell's foreground read as a flat wash (local contrast 2.7 vs 4.5 at the quay).
   sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -469,7 +470,7 @@ patchMat.onBeforeCompile = sh => {
           * (1.0 - smoothstep(28.0, 45.0, distance(vWP, cameraPosition)));
         if (relief > 0.01) {
           vec2 p = vWP.xz; float h0 = tlDrift(p);
-          vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief;
+          vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief * 2.0;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz);
         }
       }`).replace("#include <color_fragment>", `
