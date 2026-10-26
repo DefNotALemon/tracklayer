@@ -594,7 +594,8 @@ function buildFar() {
     let r = 0.93, g = 0.955, bl = 1.0;
     if (b === 3) { r = 0.07; g = 0.14; bl = 0.2; }
     else if (b === 1) { r = 0.62; g = 0.76; bl = 0.86; }
-    else if (d < 0.12) { const t = 1 - d / 0.12; r = lerp(r, 0.27, t); g = lerp(g, 0.26, t); bl = lerp(bl, 0.28, t); }
+    // (thin snow showing rock is no longer a vertex colour: blended over the 8 m grid it drew a sawtooth of grey
+    // triangles down every wind-scoured slope. The shader thresholds the snow depth per pixel instead; see vRockS.)
     else if (b === 2) { r = 0.86; g = 0.85; bl = 0.86; }
     col[v * 3] = r; col[v * 3 + 1] = g; col[v * 3 + 2] = bl;
   }
@@ -608,8 +609,9 @@ function buildFar() {
   const NL = LAKES.length;
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, farU, meltU, skyRefU);
-    sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
+    sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
       vec3 transformed = vec3(position); vWxz = position.xz; vBare = 0.0; vOpen = 0.0;
+      vRockS = (aMeltT >= 0.0 && aMelt.y < 0.5) ? clamp(aMelt.x / 0.4, 0.0, 1.0) : 1.0;   // snow depth, land only (lakes/sea never show rock)
       if (uMeltK > 0.0 && aMeltT >= 0.0) {
         if (aMelt.y > 0.5) {                                  // lake ice: open water from the shore in
           float thr = 9.0; int li = int(aMelt.y + 0.5) - 1;
@@ -628,7 +630,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; varying vec2 vWxz; varying float vBare; varying float vOpen;\n" +
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n" +
       `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
        float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
          return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -640,7 +642,7 @@ function buildFar() {
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       {
         float dist = length(vViewPosition);
-        float fdSnow = smoothstep(0.8, 0.9, vColor.r) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
+        float fdSnow = smoothstep(0.8, 0.9, vColor.r) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
           * (1.0 - smoothstep(1600.0, 3200.0, dist));
         if (fdSnow > 0.01) {
           float near = 1.0 - smoothstep(150.0, 450.0, dist);
@@ -651,6 +653,10 @@ function buildFar() {
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), lee);   // (color_fragment ran already; lighting hasn't)
         }
       }`).replace("#include <color_fragment>", `#include <color_fragment>
+      // rock through thin snow, per pixel: the interpolated depth plus 5-14 m noise blobs breaks the 8 m grid's
+      // triangles into ragged scree patches (fdRock also keeps the drift relief and sky sheen off the rock)
+      float fdRock = 1.0 - smoothstep(0.15, 0.45, vRockS + (fdN(vWxz * 0.07) * 0.6 + fdN(vWxz * 0.2) * 0.4 - 0.5) * 1.1);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.27, 0.26, 0.28), fdRock);
       float tr = texture2D(uTrail, (vWxz + ${HALF}.0) / ${WORLD}.0).r;
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.76,0.82,0.9), tr);
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.86,0.89,0.93), uWet * 0.7);
@@ -658,7 +664,7 @@ function buildFar() {
       vec3 earth = mix(vec3(0.26,0.22,0.16), vec3(0.28,0.3,0.18), en);
       diffuseColor.rgb = mix(diffuseColor.rgb, earth, clamp(vBare, 0.0, 1.0) * uSpr);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
-      { float skyW = smoothstep(0.8, 0.9, vColor.r) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
+      { float skyW = smoothstep(0.8, 0.9, vColor.r) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
         outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
