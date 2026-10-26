@@ -95,7 +95,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Frontier 340 | 0 | 0 | 1.00 | 1.05 | 0.5 | 16 | 0.95 | (zip 1.6: sharp off the line) |
 | Woodsman 440 | 600 | 4 | 1.20 | 1.00 | 0.4 | 22 | 1.20 | 22 parts: receiver-heavy, groomer, trailer, elec winch, supercharger |
 | Ranger 500 | 900 | 8 | 1.41 | 1.02 | 0.3 | 20 | 1.38 | 18: flatbed, tiller, turbo, paddle track, heavy winch |
-| Sprint 580 | 1700 | 13 | 1.58 | 1.12 | 1.1 | 18 | 1.41 | 8: EFI, hybrid track, freight deck |
+| Sprint 580 | 1700 | 13 | 1.58 | 1.12 | 1.1 | 18 | 1.41 | 8: EFI, hybrid track, freight deck; since v114 trail gearing +25% pull on packed/ice (`g2_sprint.mjs`: trail 35.9 m/s vs Summit 30.3, ice 47.6 vs 46.6, powder 19.9 vs 22.4) |
 | Summit 600 | 2400 | 18 | 1.68 | 0.88 | 0.8 | 24 | 1.91 | 3: mountain track, stage 3, expedition tank |
 | Trekker 550 | 3400 | 24 | 1.61 | 1.00 | 0.6 | 30 | 1.61 | nothing; since v66 built-in touring kit: +2.5 warmth, 2 parcels, burn 0.9 (range 1.39× Summit) |
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | no parts; since v85 the only class insured for fell freight (rank 32, $3.9–7.6k avg $5.6k) |
@@ -204,6 +204,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       (`g1_slope.mjs` with the kit), at night, with a crash (crashGetUp clears FOOT.shoe: you walk back un-shod, intended),
       and whether a new player finds them (garage Parts card note; first-Q-off toast). Also judge the shoe mesh from the
       chase camera at walking pace (b57 stills: grey oval rims read, dark deck barely shows).
+- [ ] G2 (playtest, follow-up to v114 Sprint trail gearing): `g2_sprint.mjs` rides 14 game-s from rest, yaw pinned. Check
+      by hand: does the Sprint feel twitchy/over-fast on its own tracks at 117 mph, and does it crash more on the lake?
+      Also b58 noticed every sled hits 121–137 mph on lake ice from rest in 14 s (Ranger 121): ice top speed may be
+      unrealistically high (rolling 140 vs 260 on snow, no extra air drag); worth a realism look on its own.
+      (Harness: the Trekker legs in that run parked on a bad spot and crashed at 0.1 s; harden `park` choice per sled.)
 - [ ] G3/G1 (low, playtest, follow-up to v112 shoulder slide): walk-away + turn-on-spot verified clean (report 0050).
       Still unchecked: narrow gaps between two houses (second camWallClip on the slid spot).
 - [ ] G1 (low, follow-up to v111 turn ramp): door turn + stick twitch verified clean (report 0049). Left: pivot is the same

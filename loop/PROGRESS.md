@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 13:40 — Sprint 580 SX gets trail gearing (G2) — 10e69bc
+No new reports (last triaged 50). Recent passes were G1-heavy and the top items are diminishing-returns G3 or playtest/
+harness work, so took the G2 goal's "is any sled pointless or a trap?" check on the one sled never audited. g2_cruise
+(Skjånes→Ifjord, 30 s): Ranger 15.4, Sprint 17.7, Summit 18.7 m/s; new `scenarios/g2_sprint.mjs` (from rest 14 game-s,
+yaw pinned, powder / back along its own track / lake ice): Sprint only edged the Summit on its own trench (33.1 vs 30.8) and
+lost on ice (44.7 vs 46.5) despite its blurb ("geared for the lake run, glorious on a groomed trail"). Now `SLEDS.sprint.perks
+.trail = 0.25` → `ST.trail`, physics `pw` × (1 + 0.25 × hardness), hardness = 1 on ice else sstep(0.3, 0.75, P.pack), off on
+rock; green perk line on the garage card. After: Sprint powder 19.6 → 19.9 (unchanged within noise; Summit 22.4), trail
+**33.1 → 35.9** (Summit 30.3), ice **44.7 → 47.6** (Summit 46.6); Ranger/Summit controls unchanged. smoke exit 0, page
+errors none (66.2 mph, powder 1.54, trench 2.22). No visual change (card text only). README sled para; v114. Next: playtest
+the Sprint by hand on trails/ice; ice top speeds (121–137 mph for every sled) look high: new item.
+
 ## 2026-10-26 13:25 — Snowshoes from the recovery kit (G1) — 3827a0b
 Triage 0049 (v111 door turn 0.58 s with the real camera, stick ramp scales with deflection: not twitchy) and 0050 (v112
 slide eases out on walk-away and holds through a turn): both clean, matching halves of the two follow-up items closed
