@@ -435,8 +435,31 @@ patchMat.onBeforeCompile = sh => {
         float hB = blur.x;
         vPack = blur.y; vFresh = sC.b; vIce = sC.a; vSlopeY = objectNormal.y;`)
       .replace("#include <begin_vertex>", `vec3 transformed = vec3(position.x, hB - position.y*1.4, position.z); vWP = (modelMatrix*vec4(transformed,1.0)).xyz;`);
+  // Wind-packed relief: untouched snow is never a flat sheet. Fresh snow gets sastrugi (ripples drawn out
+  // across a prevailing north-westerly) plus slow drift swells, as a per-pixel normal tilt only (no geometry,
+  // so physics and the 25 cm snow grid are untouched). Fades out on packed trails, on rock and bare ground,
+  // and by 45 m from the camera, before the patch hands over to the far terrain. Low sun rakes across it.
   sh.fragmentShader = "uniform float uSpr; uniform float uWet; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
-    sh.fragmentShader.replace("#include <color_fragment>", `
+    `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+     float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+       return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
+     float tlDrift(vec2 p) {
+       vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
+       q.y += (tlN(p * 0.03) - 0.5) * 22.0;                                 // the wind wanders: ripples bend across the fell
+       float sw = tlN(p * 0.06);                                            // ripples gather in patches, not everywhere
+       return (tlN(q * vec2(0.25, 1.1)) * 0.05 + tlN(q * vec2(0.7, 2.6)) * 0.015) * (0.35 + sw) + tlN(p * 0.09) * 0.35;
+     }\n` +
+    sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
+      {
+        float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
+        float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet)
+          * (1.0 - smoothstep(28.0, 45.0, distance(vWP, cameraPosition)));
+        if (relief > 0.01) {
+          vec2 p = vWP.xz; float h0 = tlDrift(p);
+          vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief;
+          normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz);
+        }
+      }`).replace("#include <color_fragment>", `
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
       float ice = min(vIce, 1.0), thin = clamp(vIce - 1.0, 0.0, 1.0);          // 1..2 is ice the melt is eating (dark, grey, wet)
       vec3 col = mix(powder, packedC, vPack);

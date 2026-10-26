@@ -24,13 +24,20 @@ await camOff();
 await sideCam("[P.x, P.y + 0.4, P.z]", 3.2, 1.9, 0.9); await shot("04_sled_closeup"); await camOff();
 
 await ev(`(() => {
-  for (let r = 300; r < 3000; r += 50) for (let a = 0; a < 6.28; a += 0.4) {
-    const x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r;
-    if (isSea(x, z) || obNear(x, z, 60)) continue;
-    P.x = x; P.z = z; P.y = surf(x, z) + 0.5; recenter(x, z, true); return true;
+  // really out of town: 1.5 km+ from the quay and 600 m+ from every site, on gentle open ground
+  const x0 = P.x, z0 = P.z;
+  for (let r = 1500; r < 5000; r += 100) for (let a = 0; a < 6.28; a += 0.3) {
+    const x = x0 + Math.cos(a) * r, z = z0 + Math.sin(a) * r;
+    if (isSea(x, z) || isWater(x, z) || obNear(x, z, 60)) continue;
+    if ([[0, 0], [40, 0], [-40, 0], [0, 40], [0, -40]].some(([u, v]) => bioAt(x + u, z + v) !== 0)) continue;   // open fell, not a frozen lake
+    if (SITES.some(s => Math.hypot(s.x - x, s.z - z) < 600)) continue;
+    if (Math.abs(groundAt(x + 20, z) - groundAt(x - 20, z)) > 2 || Math.abs(groundAt(x, z + 20) - groundAt(x, z - 20)) > 2) continue;
+    P.x = x; P.z = z; P.y = surf(x, z) + 0.5; P.vx = P.vy = P.vz = 0; P.safe = { x, z, yaw: P.yaw };
+    recenter(x, z, true); camState.init = false; return true;
   }
   return false;
 })()`);
+console.log("backcountry_km_from_quay", await ev("(Math.hypot(P.x - SPAWN.x, P.z - SPAWN.z) / 1000).toFixed(2)"));
 await noon(0); await sleep(1500);
 await shot("05_backcountry_day");
 // spring: 1 March noon (sun ~12°) — 120 days on
