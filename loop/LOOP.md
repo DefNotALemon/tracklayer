@@ -108,10 +108,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       terrain is still a white wash (backcountry local contrast 2.7–2.8 vs quay 4.4): give the far terrain material
       some of the same drift shading at a coarser scale, a touch more daytime saturation, sun glow in the sky away
       from the sun. Measure with `g3_day.mjs` (now really 1.5 km out on open fell) + `imgstats.py`.
-- [ ] G3: Far terrain shows a sawtooth/zigzag band on hillsides (builder pass 10, before-still of a frozen-lake
-      spot 1.5 km from the quay: a row of bright/dark triangles along a ridge ~300 m off, looks like the far-terrain
-      grid's triangle split or a rock/snow threshold stepping per vertex). Find the cause (far terrain colour/
-      rock mask per vertex vs `buildGridIndex` diagonal) and smooth it. Repro: teleport to a lake 1.5 km out at noon.
+- [ ] G3: Night sky shows a huge straight uniform-grey diagonal band across the frame (report 0010 F1,
+      `g1_walk30_night.mjs` → `03_trench_chase_night.jpg`, top right, 00:44 1 Nov, 0.35 km out looking back at the
+      village). Not seen by day. Suspects: an unlit pole/mast/wind turbine blade, a light shaft, or the aurora/sky
+      mesh. Reproduce with that scenario, identify the mesh (raycast from the camera through that pixel), fix.
+- [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
+      triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
+      (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
 - [ ] G2: Rank 3 announces grooming ("You'll want a groomer") but the groomer and receiver are Woodsman-tier
       (4 deliveries + $600 + $850): the toast and the locked contract card should say "on a Woodsman or newer".
       Report 0003: the board's groom card at 3 deliveries says only "You need a groomer drag... the garage
@@ -139,4 +142,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 
-Last triaged report: 9
+Last triaged report: 10

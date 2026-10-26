@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 03:20 — No more cliff rims round the lakes (G3) — d276e89
+Took the far-terrain sawtooth item over daylight slice 4 (a visible artifact beats a contrast nudge). Cause was
+geometry, not shading: `genWorld` carves each lake basin with `mk = 1 − sstep(0.85, 2.1, t)` but skips cells past
+`dd > 1.7 r`; with the noisy t, mk was still up to ~0.5 at that cut, so every lake had a ring of 20–40 m one-cell cliff
+steps (probe: 360 → 388 m in 4 m) that the 8 m far terrain drew as a comb of teeth. Fix: mk also fades to 0 from
+1.2 r → 1.7 r (ice and banks inside t < 0.97 untouched; icefish depth charts unchanged; lakeside cabins use
+`flatSpot` at runtime). New `scenarios/g3_ridge.mjs` (finds the worst view, logs cliff counts, TL_SPOT pins a spot).
+Before → after: 4 m edges rising >10 m world-wide **4525 → 683**, within 2 r of a lake **3952 → 110** (rest are sea
+cliffs). Pinned spot −234,676 (Røyevatnet, 1.5 km out): vision on shots/b11/cmp.jpg — comb ridge gone, slopes read
+as one smooth fell, no new seams; a soft zigzag of shaded triangles where snow thins to rock remains (new low item).
+smoke.mjs exit 0, page errors none (powder 1.48, trench 2.21, 6 s ride 65.7 mph). README intro line; script v68.
+Triage 0010: F1 night-sky grey diagonal band → new G3 item; F2/F3 night walking fine (no action); F4 quay contrast
+variance (ignore unless it recurs). Next: night band (G3) or groomer wording (G2).
+
 ## 2026-10-26 03:08 — Wind-sculpted snow relief (G3) — 454630b
 Daylight slice 3. First fixed `g3_day.mjs`'s backcountry teleport: its search started at r 300 m, so the first
 obstacle-free spot was the town edge; now 1.5 km+ out, 600 m+ from every site, open fell (`bioAt` 0, no frozen lake),
