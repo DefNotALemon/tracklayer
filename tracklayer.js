@@ -11520,7 +11520,7 @@ function skiStep(dt) {
   [nx, nz, hit] = footBlock(F, nx, nz);
   F.bumpT = Math.max(0, F.bumpT - dt);
   if (hit && Math.abs(sp) > 3.5) { if (F.bumpT <= 0) { thud(Math.min(0.6, sp * 0.05)); emit(nx, F.y + 0.6, nz, 0, 1.2, 0, 1, 0.7); if (sp > 7) toast("Into the birch. Ow.", "warn"); F.bumpT = 1.2; } sp *= 0.3; }
-  if (isSea(nx, nz)) { nx = F.x; nz = F.z; sp = 0; }
+  if (isSea(nx, nz)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; sp = 0; } }   // glide along the waterline
   if (WN.state === "out") {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
     if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; sp = Math.min(sp, 1); } else WN.tight = false;
@@ -11573,6 +11573,18 @@ function shoeMesh(parent) {
   box(0.012, 0.02, 0.36, frame, 0.07, 0.004, 0.03, 0, 0, 0, g);                       // side rails show the frame
   box(0.012, 0.02, 0.36, frame, -0.07, 0.004, 0.03, 0, 0, 0, g);
   return g;
+}
+// a step (from F.x/F.z to nx/nz) that lands in the sea: take off only its seaward part, along a shore normal summed
+// from a ring of isSea taps 1.5 m round the walker, so the waterline is a wall you slide along. Returns the slid
+// [x, z], or null when the step was square out to sea (or the slid spot is wet too) and you should stop.
+function shoreSlide(F, nx, nz) {
+  let sx = 0, sz = 0;
+  for (let k = 0; k < 12; k++) { const b = k * Math.PI / 6, cx = Math.sin(b), cz = Math.cos(b); if (isSea(F.x + cx * 1.5, F.z + cz * 1.5)) { sx += cx; sz += cz; } }
+  const sl = Math.hypot(sx, sz); if (sl < 1e-6) return null;
+  sx /= sl; sz /= sl;
+  const into = (nx - F.x) * sx + (nz - F.z) * sz; if (into <= 0) return null;
+  const ax = nx - into * sx, az = nz - into * sz;
+  return isSea(ax, az) ? null : [ax, az];
 }
 function footStep(dt) {
   const F = FOOT;
@@ -11661,7 +11673,10 @@ function footStep(dt) {
   [nx, nz] = rjWalls(nx, nz, 0.36);
   // the sled itself is a wall
   { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
-  if (isSea(nx, nz)) { nx = F.x; nz = F.z; F.sp = 0; }
+  // the waterline is a wall you slide along, like a house: a step that would land in the sea loses only its
+  // seaward part (shore normal from a ring of isSea taps round you), so walking the quay or a beach at an angle
+  // keeps going instead of freezing on the edge. Only a step straight out to sea stops you.
+  if (isSea(nx, nz)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; F.sp = 0; } }
   // the line only pays out so far
   if (WN.state === "out") {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
