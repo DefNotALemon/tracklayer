@@ -109,12 +109,6 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1 (report 0042 F1): the sled locator column (`sledPinTick`) vanishes behind a real rise: 600 m out on a ridge
-      (sight line crests 59 m above it) nothing shows although `V.sledPin.visible` is true; flat 150/300 m read fine
-      (colMax 237/156). Fix: make the column's top clear the highest ground on the walker↔sled line (sample ~12
-      points, scale height to it + margin), or past ~300 m with no line of sight lean on the `sledWhere()` text.
-      Measure with `scenarios/g1_sledpin_far.mjs`. Still unchecked: in trees, and next to a delivery/depot beacon.
-
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -147,6 +141,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `g3_fardrift.mjs` + `bandstats.py` strip 5 (mid band): Nov across 3.44 → 3.99, high across 5.65 → 6.29, high toward
       3.34 → 3.90, March 2.76 → 3.09; near strips unchanged. Still open: GPU cost now 5 extra fdH per far pixel (FPS check
       on GFX low/high is the playtester's job), and the overall global std (~40) is still flat.
+- [ ] G1 (low, playtest, follow-up to v106): sled column over ridges now lifts above the crest (`g1_sledpin_rise.mjs`
+      rise 600 m 0 → 14 lit rows); still unchecked: walking over the crest (does the lifted column slide down smoothly
+      as the sight line opens?), in trees, next to a delivery/depot beacon, and a rise close to the walker (<25 m
+      samples are skipped).
 - [ ] G1 (low, playtest, report 0036 F2): `g1_jog_player.mjs` hooks `window.toast`, which never sees the game's
       toasts (IIFE-local function); switch it to the MutationObserver on `#toasts` used in `g1_jog_backcountry.mjs`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,

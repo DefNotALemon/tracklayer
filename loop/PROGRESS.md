@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 11:35 — Sled light column rises from behind a ridge (G1) — e4b91c6
+No new reports (last triaged 42). Took the top item (0042 F1). `sledPinTick()` now samples the ground at 15 points on
+the camera→sled line (25 m+ out) and lifts the column's foot to 10 m under the sight line over the highest crest (crest
+hides the foot; smoothed); it also scales ×max(1, d/200) in height and width so the beacon shader's far fade doesn't
+shrink it to a stub. New `scenarios/g1_sledpin_rise.mjs` (same spots as g1_sledpin_far, probe = rows where the column
+strip beats side controls by 25+ luma over the full height). Before → after: ridge 600 m (59 m crest) **0/85 → 14/85**
+rows (max lift 14 → 106; foot raised 301 m, camera 271 m above the sled); flat 300 m 7 → 13; flat 150 m 16 → 16 (foot
+stays on the sled). Vision (b49/cmp.jpg): before nothing above the crest; after a thin pale column standing above the
+ridge line, not garish. smoke exit 0, page errors none (powder 1.53, trench 2.23, 66.6 mph). README walking para; v106.
+Next: playtest walking over the crest / trees / near beacons (new low item); G3 FPS check; G2 laden legs.
+
 ## 2026-10-26 11:20 — COLD RUN card stops over-warning on ordinary trailer loads (G2) — 38a902f
 Took the v102 follow-up (G2 had the fewest recent landings): ride a laden leg the card flags. New
 `scenarios/g2_coldrun_ride_laden.mjs` (card's load really on the hitch, calm, rides LR_SECS game-s of the real leg and
