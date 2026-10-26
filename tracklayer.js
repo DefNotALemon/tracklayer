@@ -4829,6 +4829,25 @@ function fuelSignTex(price) {
   g.fillStyle = "#f4efe3"; g.font = "700 96px 'Barlow Semi Condensed', Arial, sans-serif"; g.fillText(price.toFixed(2), 128, 112);
   const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4; return tex;
 }
+// A fuel pump's display face (v127): the pumps showed a blank cream square (KIT.glowM), then a flat grey one by day once
+// glowM went dark. Now a grey-green LCD with dark segment digits (last sale, litres, the station's price per litre)
+// that reads by daylight like a real one; signMat glow backlights it from dusk with the windows (houseWinTick).
+function pumpDisplayTex(price) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 154; const g = c.getContext("2d");
+  g.fillStyle = "#23282d"; g.fillRect(0, 0, 256, 154);
+  g.fillStyle = "#b4bf9f"; g.fillRect(10, 10, 236, 134);
+  g.fillStyle = "rgba(40,52,30,0.10)"; for (let y = 12; y < 142; y += 3) g.fillRect(10, y, 236, 1);   // faint LCD rows
+  const lit = (price * (18 + (price * 37) % 21)), rows = [["$", lit.toFixed(2)], ["L", (lit / price).toFixed(2)], ["$/L", price.toFixed(2)]];
+  g.textBaseline = "middle";
+  rows.forEach(([k, v], i) => {
+    const y = 34 + i * 43;
+    g.fillStyle = "#2f3a26"; g.font = "700 20px 'Barlow Semi Condensed', Arial, sans-serif"; g.textAlign = "left"; g.fillText(k, 20, y);
+    g.font = `700 ${i === 2 ? 30 : 38}px 'Courier New', monospace`; g.textAlign = "right";
+    g.fillStyle = "rgba(47,58,38,0.12)"; g.fillText("888.88".slice(-v.length), 236, y);   // unlit segments
+    g.fillStyle = "#1f2819"; g.fillText(v, 236, y);
+  });
+  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4; return tex;
+}
 // The light pool under a station canopy: one additive warm decal (radial falloff) laid just over the plowed forecourt.
 // Fog dims it to nothing instead of tinting it (additive + fog colour would glow through a storm); houseWinTick sets
 // its opacity with the lit windows and signs, so it's off by day and on from dusk.
@@ -4900,12 +4919,14 @@ function buildStations() {
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(19, 15), stationPool()); pool.rotation.x = -Math.PI / 2;
     pool.position.set(2, top - g.position.y + 0.06, 0); pool.renderOrder = 2; g.add(pool);
     const isl = new THREE.Mesh(new THREE.PlaneGeometry(10, 3), stationPool()); isl.rotation.x = -Math.PI / 2; isl.position.set(2, 0.46, 0); isl.renderOrder = 2; g.add(isl);   // and on the pump island
-    // the pumps on a raised island between the two lanes
+    // the pumps on a raised island between the two lanes; each face carries a backlit LCD readout (pumpDisplayTex)
+    const disp = signMat(pumpDisplayTex(t.fuelPrice), 0.85), dispGeo = new THREE.BoxGeometry(0.6, 0.36, 0.05);
+    { const uv = dispGeo.attributes.uv; for (let i = 0; i < 16; i++) uv.setXY(i, 0.01, 0.01); }   // edges sample the dark bezel: one draw call per face
     bx(8.6, 0.25, 1.7, L(0x8c9399), 2, 0.32, 0);
     for (const px of [-0.4, 4.4]) {
       bx(0.9, 1.7, 0.7, redM, px, 1.3, 0); bx(0.98, 0.16, 0.78, white, px, 2.2, 0);
       for (const sd of [-1, 1]) {
-        bx(0.6, 0.36, 0.05, glowM, px, 1.75, sd * 0.37); bx(0.14, 0.55, 0.14, dark, px + 0.62, 1.2, sd * 0.2);
+        KIT.put(g, dispGeo, disp, px, 1.75, sd * 0.37); bx(0.14, 0.55, 0.14, dark, px + 0.62, 1.2, sd * 0.2);
         const hose = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.03, 5, 8, Math.PI), dark); hose.position.set(px + 0.34, 0.72, sd * 0.4); hose.rotation.z = Math.PI; g.add(hose);
       }
       ob(px, 0, 0.85);

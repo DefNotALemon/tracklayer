@@ -15,6 +15,7 @@ const VIEWS = [
   ["canopy", 10, 9, 1.8, 0, 0, 1.6],
   ["pump", 4.4, 4.2, 1.7, 3.2, 0, 1.3],
   ["kiosk", -2, 10, 1.8, -8, 0, 1.8],
+  ["disp", 4.9, 1.9, 1.9, 4.4, 0.4, 1.75],   // a pump's display face from ~1.5 m (v127 LCD readout)
 ];
 for (const [tag, h] of [["nov", 12], ["night", 21]]) {
   await ev(`GS.storm = 0; GS.hour = Math.floor(GS.hour / 24) * 24 + ${h}; true`); await sleep(1200);
