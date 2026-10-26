@@ -104,10 +104,10 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3: Daylight slice 7 (v77 grazing sky sheen gave the flats a white→blue depth gradient): sunlit faces in
-      the backcountry are still neutral, not warm (`g3_day` 05 band b−r 9.3 is all from shade/sheen). Try a gentle
-      warm forward-scatter on snow facing the low sun (sun colour × NdotL boost on snow only) so warm/cold reads
-      both ways. Measure with `g3_day.mjs`, crop band 260–1020 × 240–470 (`tlloop/b19/pair.py`).
+- [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
+      but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
+      variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
+      light (far terrain normals are 8 m-grid smooth). Measure with `g3_day.mjs` + `tlloop/b22/wc.py`/`nf2.py`.
 - [ ] G3 (low, follow-up to v68): far slopes where the snow thins to rock still show a soft zigzag of shaded
       triangles (`g3_ridge.mjs` after-stills 02/04): the far terrain's rock colour is a per-vertex threshold
       (`buildFar`, `d < 0.12`) on an 8 m grid. Pass `aMelt.x` (depth) to the fragment and threshold per pixel.
@@ -126,9 +126,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low, follow-up to v61 yards): plowed lanes between the Kjøllefjord houses/shops along the shore road.
       Report 0015 F2: approaches from 12 m walk at 2.44–2.52 m/s even from pack 0.31, so this is packed-snow
       continuity/looks, not a speed fix; don't over-invest.
+      Report 0020 F1: (-1250,-420) just out from the depot reads pack 0.08 / 0.58 m deep, walked 1.56 m/s;
+      check whether it's on a natural quay→building path before widening the packed footprint.
 - [ ] G3 (low): HUD location badge says "OPEN BACKCOUNTRY" parked beside the Kjøllefjord quay buildings
       (report 0004 F3, 0005 F2: also at the garage and home yards); the zone test should count the quay/town.
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 
-Last triaged report: 19
+Last triaged report: 20

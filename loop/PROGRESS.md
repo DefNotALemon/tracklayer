@@ -7,6 +7,23 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 05:40 — Low sun warms the snow (G3) — 75c52d6
+No new reports at start; 0020 arrived during the pass (verify v78: reproduces 0/0/1/1; G1 quay walk) and was triaged
+after landing: F1 (pack 0.08 / 0.58 m at -1250,-420) merged into the shore-road lanes item; F2 (quay 2.32 vs 2.71 m/s
+steady state = start-up ramp over 20 m), F3 (12 cm looser stop = v73 slide), F4 (6 s window too short), F5
+(`g1_town_quay.mjs` sideCam aims at empty snow) dropped as info/tooling for the playtester. Took daylight slice 7.
+New `uSunRef` (sun hue at luminance 1 while it's the clear-day key light, white otherwise) + `uSunW` (= sunDir) on
+`skyRefU`: snow's `reflectedLight.directDiffuse` (so shadows and N·L are respected) leans toward the sun's colour by
+max(0.6 near, fading 40→400 m; 1.2 × smoothstep(0.22, 0.45, N·sun) on faces turned to the sun), same code in the patch
+and far terrain. First try (×0.5 flat) was a uniform shift; second (sun-facing only, 0.24–0.6) changed nothing (almost
+no face beats the lifted sun's 0.22). `g3_day.mjs` near band (y 480–600) b−r: 05 Nov backcountry **4.9 → −2.8** (warm),
+far 11.3 → 4.6, near/far split 6.4 → 7.4, band sd 8.0 → 8.9; 04 sled close-up warm px **23% → 52%** with the blue
+shadow kept (p10 −61 both); 06 March ≈ unchanged (near 12.8 → 9.3). Band sat −2..−3.5 (warm cancels blue on average).
+Vision (b22/c04, c05, c06): sunlit snow by the sled goes from grey-lavender to a soft peach-cream, shadows stay blue,
+no ring where it fades, March still cold. smoke.mjs exit 0, page errors none (powder 1.44, trench 2.15, 6 s ride
+65.4 mph). README daylight paragraph; v79. Follow-up filed: slice 8 (backcountry contrast needs relief, not tint).
+Next: by goal rotation G1 or G2 is due (last 4 landings G3, G2, G3, G3).
+
 ## 2026-10-26 05:20 — No more low-fuel warning spam at the quay/garage (G2) — 2900ee2
 Triage 0019 (verify v77 sky sheen: numbers reproduce exactly, no seams, no regressions): no new items. Took the low-fuel
 item over daylight slice 7: 3 of the last 4 landings were G3. It was worse than filed: the free quay/garage top-up reset
