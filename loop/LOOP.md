@@ -136,6 +136,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       works first try, route drawn). Report 0021: accept → first delivery 41.2 game-s for 768 m, +$120 (first
       cash is quick). Still open: gameClock from a new save to $600 / the Woodsman (playtester owns: extend
       `g2_first5min.mjs` over ~4 more deliveries). (0007 F2 Tab → Home done in v91: Tab opens Parcels on a new save.)
+- [ ] G2 (low, playtest, report 0031 F3): `g2_first5min.mjs` auto-nav drives straight into the quay shed on the
+      Neset order and then shuffles on foot; harden it (steer round `obNear`, or detect `FOOT.on` after a crash and
+      tap Q back on) so first-5-min numbers mean something. Since v93 the first morning is storm-free, so warmth
+      there is ~−0.34/s (`g2_coldrate.mjs`).
 - [ ] G3 (low, playtest): `g3_beacon.mjs`'s 1200 m spots put the depot behind a hill (beacon foot hidden), so the
       far fade (v71) is only judged at 700 m; pick spots with line of sight and hide the HUD toasts for cleaner stats.
 - [ ] G3 (low, playtest, report 0030 F4): `g3_ridge.mjs`'s rock search keeps landing on the same two snow-dominated
@@ -145,4 +149,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       slide); the 0.36 m body probe vs the 2.1 m disc pitch may still notch at very shallow angles. Check with
       `g1_wallslide2.mjs` before touching footStep.
 
-Last triaged report: 30
+Last triaged report: 31

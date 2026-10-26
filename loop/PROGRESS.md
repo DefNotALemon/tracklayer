@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 08:28 — A new game's first morning stays clear (G2) — 079d7e5
+Triage 0031 (F1 v91 reproduces; F3 harness auto-nav crashes into the quay shed → new low playtester item; F4 info).
+F2 "post-crash warmth drains faster than riding" checked with new `scenarios/g2_coldrate.mjs` (weather pinned calm,
+Frontier, 09:40): parked −0.340/s, riding 44 mph −0.330, on foot standing −0.318, walking −0.312, after a crash
+eject −0.305/−0.302: no crash/foot multiplier exists, the cold formula ignores both. 0031's −1.16/s = a storm
+(0.9 × storm ≈ 0.85) on a fresh save. So the real problem is weather on new saves: new `scenarios/g2_newsave_wx.mjs`
+(300 seeds, quay + 1 km inland): before **14% of new saves had a storm 09:36–11:00**, 16% 11–13, 19% 13–15;
+warmth lost standing out 09:36–13:00 avg 71, **max 175** (blackout). `WX.atT` now holds 1 November clear until 13:00
+and eases fronts in over 13–15 (`sstep`, calendar hour, so only a brand-new save sees it; forecast/ferry agree since
+they read the same function). After: **0% / 0%** before 13:00, 13% 13–15, 15–18 unchanged 24%; loss avg 52, max 52.
+Gave it over softening cold for everyone: the cold stays, the first job just isn't a storm. smoke exit 0, page errors
+none (powder 1.53, trench 2.22, 6 s 66.9 mph). Not visual, no stills. README weather paragraph; v93.
+Next: daylight slice 8 macro check (G3), G1 hospital 10° notch, G2 long-haul warmth after the road rerun.
+
 ## 2026-10-26 08:15 — Flat wall slide on the hospital, pier sheds and drying racks (G1) — bfc0fb6
 Triage 0030 (verify v90: pinned −234,676 local 3.98/2.94/2.62, unpinned 3.10/2.10/2.42, vision no teeth: holds; F4 the
 rock search never lands on real scree → new low playtest item). G1 had the oldest landing (07:35) and the top G3 item is
