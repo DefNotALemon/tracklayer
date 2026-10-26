@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 15:15 — Gas station forecourts lit and plowed at night (G3) — 7d2c354
+Triage 0057 (v120 signs verified, ratios within 0.07) and 0058 (v121 garage boards verified, 636 calls); 0058 F5 (post
+band fainter than the door board at 34 m) dropped: legible, low. Took the stations slice. New `scenarios/g3_stations.mjs`
+(Kjøllefjord station: ride-in 3/4, under the canopy, pump close, kiosk; Nov noon + 21:00; `ST=n` picks a station). Before:
+forecourt buried in powder (island hidden), and at night a glowing canopy roof over dark ground. Now `addLane` plows the
+forecourt and `stationPool()` lays one additive warm radial decal just over the snow (19×15 m) plus one on the pump
+island; fog multiplies it to black instead of tinting (no glow through storms), opacity 0.45·n from `houseWinTick` (0 by
+day). Crop under the pumps at night luma 116 → 169, r−b −47 → −14; under the canopy 115 → 135; noon whole-frame within 1–8
+(pump view local 4.84 → 5.15: island now visible). Draw calls 535 → 536 at q34. Tried 0xffd9a0 first (read cool white) and
+a polygonOffset that drew a pink band over the pump feet; fixed. Vision (b66/before.jpg vs after3.jpg): soft lighter warm
+patch, no hard edge, nothing drawn over pumps. smoke exit 0, page errors none (66.1 mph, powder 1.54, trench 2.25).
+README; v122. Next: pump/canopy detail, lamp pools, house eaves (0053 F1).
+
 ## 2026-10-26 15:03 — The garage gets its name boards (G3) — c3b62eb
 No new reports since 0056. Took 0056 F5: the "blank grey panel" was the garage's forecourt post sign in `buildTown`, a
 cream box whose red/navy stripe boxes sat on the wall-facing side, so from the forecourt it read blank. New

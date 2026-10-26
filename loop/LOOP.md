@@ -122,8 +122,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       windows (`g3_sites.mjs`, depot calls 579 → 553); report 0056 verified (calls 553, local within 0.3).
       v120 did the signs (`signMat(tex, glow)`: Lambert + emissive faded in by houseWinTick; `g3_signs.mjs` + `signstat.py`).
       v121 did the garage name boards (0056 F5: the blank panel was the garage's forecourt post sign, its stripes faced
-      the wall): `garageSignTex()` on both faces + an over-door board; `g3_garage_sign.mjs`. Left: the
-      relay keeper's house is a KIT.house already; fuel cabins/gas stations (`buildStations`/`buildFuelCabins`) unchecked. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
+      the wall): `garageSignTex()` on both faces + an over-door board; `g3_garage_sign.mjs`; report 0058 verified (636 calls).
+      v122 gas stations (`g3_stations.mjs`): forecourt plowed (`addLane`) + an additive warm light pool under the canopy
+      (`stationPool`, fog-dimmed, opacity from houseWinTick). Left on stations: pumps are plain red boxes (no display
+      face/nozzle detail), canopy posts plain grey boxes, the pool is subtle on moonlit nights (judge on a dark night);
+      fuel cabins' jerry-can pallets unchecked up close. Street lamps (`K.lamp`) could get the same pool. The relay
+      keeper's house is a KIT.house already. Report 0054 F4: shed fascia may read as a paint line at noon: judge rooflines under a low sun.
       House roofs: report 0053 F1 no projecting eave/soffit at the gable ends (roof slabs overhang 0.35 m but no fascia
       board); day glass still mid-grey (0053 F3, low). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
@@ -251,4 +255,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 56
+Last triaged report: 58
