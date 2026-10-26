@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 18:35 — Street lamp pools fall off like a real lamp (G3) — 0eb2b65
+Triage 0071: v138 pump hardware + moonless canopy pool verified; F1 (detail invisible at 20 m ride distance) is by design,
+no action; F2 (jerry-can camera ignored the cabin's rotation) harness-only, and the cans were judged up close in b83 (v139);
+F3 (poking `AUR.v` doesn't hold the night's aurora) harness note for the playtester. G2 cards/toasts already say what each
+late sled opens, so took report 0061 F3: a lamp pool read fainter from 9 m beside the post than from 22 m (flat-topped
+6.5 m disc). New `lampPoolTex()` (lamps only; the station keeps its texture): cos³ falloff from a head 3.9 m up + a small
+scatter tail, smooth edge fade, disc R 6.5 → 8.5 m (NR 6 → 8 rings on surf), opacity 0.5 → 0.65; 0 extra draw calls.
+`g3_lamps` night near/ride local 3.90/3.89, 4.26/4.75, 4.76/4.45 → 4.58/4.58, 4.40/4.86, 5.13/4.56 (lamps 0/4/9).
+Vision (b84/cmp.jpg before|after near): warm core now sits at the foot of the post and fades out; no ring edge or banding.
+smoke exit 0, page errors none (67.6 mph, powder 1.55, trench 2.22). README; v140.
+Next: playtester judges it on a moonless night and walking up to a village lamp.
+
 ## 2026-10-26 18:22 — Fuel cabins' jerry cans become real jerry cans (G3) — daa5150
 No new reports since 0070. Backlog's builder-actionable items are mostly playtest checks; took the buildings item's open
 leftover "fuel cabins' jerry-can pallets unchecked up close". New `g3_fuelcabin.mjs` (first 2 cabins, 6 m / 2.4 m / 1.3 m,

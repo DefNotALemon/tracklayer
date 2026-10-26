@@ -145,7 +145,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       faded in by houseWinTick); noon globe RGB 227/219/196 → 169/171/178, night unchanged. v126: KIT.glowM (church
       windows, ferry windows/portholes, pump displays: its only users) now follows houseWinMat's colour (`g3_glow.mjs`, noon
       centre 227/219/196 → 104/105/107, night unchanged). Report 0061 F3: a lamp pool reads fainter from 9 m beside the
-      post than from 22 m (foreshortening; low, idea: brighter near falloff). v127 pump displays: `pumpDisplayTex(price)`
+      post than from 22 m (foreshortening; low, idea: brighter near falloff). v140: own `lampPoolTex()` cos³ falloff
+      (head 3.9 m up) + scatter tail, disc R 6.5 → 8.5 m, opacity 0.5 → 0.65, 0 extra calls; vision: warm core at the foot
+      of the post, no ring edge. Playtester: judge on a moonless night and walking up to a lamp in a village. v127 pump displays: `pumpDisplayTex(price)`
       grey-green LCD ($, L, $/L) via signMat glow 0.85, box edge UVs pinned to the bezel (0 extra calls; `g3_stations.mjs`
       new `disp` view, local nov 3.98 → 4.64, night 3.99 → 4.41). Report 0062 verified v126; its F2 (g3_glow ferry target
       frames the tackle shop) is harness-only. v128: station pool now 0xe0601a like the lamps, opacity 0.45 → 0.6 (night
@@ -295,4 +297,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 70
+Last triaged report: 71
