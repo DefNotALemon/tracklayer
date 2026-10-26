@@ -153,6 +153,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       in the sky/ground band: back Nov away 17.4 → 9.1, March away 19.0 → 8.6, toward/across/quay unchanged ±0.5.
       Still open: away-from-sun far terrain lit flat (hemi fill only; maybe a sky-gradient or self-shadow term facing
       away), and the band below the horizon is one flat fog colour (far ring 99% fogged at 2.6 km).
+      b53 tried baked terrain-cast hill shadows (512² CPU bake toward the true sun, 1.6 km march, 1.5 ms/frame over 32
+      frames; 40% of the map shaded at Nov noon, 15% in March) on the far terrain past ~250 m: NOT landed. Vision saw at
+      most faint blue patches; local contrast fell everywhere (g3_vista back Nov across strip 4 5.93 → 5.35, felltop Nov
+      across 3.21 → 2.94) because shaded land loses its N·L/drift relief and the hemi fill + haze swamp the rest. Don't
+      retry cast shadows as the lever; patch kept at scratch tlloop/b53/hillshadow_v110_experiment.patch. New
+      `scenarios/g3_felltop.mjs` (80 m up over the highest spot near SPAWN) for vista work.
 - [ ] G3 (low, playtest, follow-up to v109 lake skin): `g3_lake.mjs` + `lakestats.py`. Unchecked: the lakes at night /
       polar-night twilight / aurora (ice streaks go through the normal lit path, should be fine), in a storm, during the
       melt (open water from the shore must still win over the streaks), and at rider height whether the near patch → far

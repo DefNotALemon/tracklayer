@@ -7,6 +7,20 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 12:40 — Hill-cast shadows on the far fells (G3) — not landed: no visible gain, contrast down
+No new reports (last triaged 45). Took the top G3 item (far land flat, esp. away from the sun). Built terrain-cast
+hill shadows: `ground` sampled at 16 m into a 512² map, marched toward the TRUE sun (16 m steps, then +6%, to 1.6 km;
+soft edge 3 m + 2% of range), baked 16 rows/frame (whole map 43–53 ms ≈ 1.5 ms × 32 frames, re-bake when the sun moves
+~1.5°), sampled by the far terrain past 220–480 m (direct ×(1 − 0.65·shadow)), plus a 0.3 dim of the sun when you stand
+in a shadow. The bake is right (map dump: shadows fall north of the high southern ground; 40% of the map shaded at Nov
+noon, 15% in March). But the look didn't improve: g3_vista bandstats back Nov across strip 4 5.93 → 5.35 (near 0) /
+4.96 (near 0.3), toward strip 3 5.59 → 3.90; new `g3_felltop.mjs` (80 m over the highest spot) local Nov across
+3.21 → 2.94, toward 3.89 → 3.41, mean |diff| only 1–3 luma (4.4 at strength 0.9, contrast lower still). Vision: faint
+bluer patches, no artifacts, no added depth. Shaded land loses its N·L and drift relief while hemi fill + haze swamp
+the darkening. Reverted; patch at scratch `tlloop/b53/hillshadow_v110_experiment.patch`; kept g3_felltop.mjs. No game
+change, no smoke needed. Next: the away-from-sun lever should ADD light variation (sky-gradient / snow sheen), not
+remove direct light; or switch to a G1/G2 item.
+
 ## 2026-10-26 12:12 — Frozen lakes look like wind-scoured ice, not a flat grey disc (G3) — f38ad4f
 No new reports (last triaged 45). Took the b51 lake item (the top daylight item is open-ended; this one was concrete and
 what the vistas showed). Cause: far-terrain lake vertices are a flat 0.62/0.76/0.86 that the drift relief and sky sheen
