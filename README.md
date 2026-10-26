@@ -286,6 +286,8 @@ The groomer drag and the freight trailer fit the Woodsman 440 and newer and hook
 receiver, so the first two ranks can arrive before your sled can tow their work. The rank-up
 message and the locked contract cards say exactly what's still missing (sled, rig, receiver,
 with prices), and once it's all bought they just point you to the garage to hitch it on.
+The fell, tonne and clean-air cards do the same for the sled they need: how many deliveries and how
+much cash you're still short of it, or, if it's already yours, to swap onto it at the garage.
 
 Big loads pay by condition. Hits, snags and rollovers wear it down, and below 30% the
 village refuses it. The bond is paid up front and refunded on delivery. You lose it if the

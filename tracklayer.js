@@ -5353,9 +5353,21 @@ const FELL = [
   { cargo: "Weather mast & battery hut", kg: 450, fragile: true, look: "bigcrate", why: "Met Norway wants a mast on the fell at {s}." }
 ];
 function fellBlock(id = FELL_SLED) {
-  const t = fellTier(id), s = SLEDS[t]; if (id === TONNE_SLED ? GS.own.sled === id : sledTier() >= t) return "";
-  return id === TONNE_SLED ? `A tonne up the fell: only a ${s.name} is rated to pull it up the climb (${s.need} deliveries, $${s.cost}).`
-    : `Half a tonne up the fell: the shippers only insure it behind an ${s.name} or bigger (${s.need} deliveries, $${s.cost}).`;
+  const t = fellTier(id); if (id === TONNE_SLED ? GS.own.sled === id : sledTier() >= t) return "";
+  // half-tonne work takes any sled from the Apex up: point at the smallest one you own, else the Apex
+  const s = id === TONNE_SLED ? SLEDS[t] : SLEDS.slice(t).find(q => (GS.own.sleds || []).includes(q.id)) || SLEDS[t];
+  return id === TONNE_SLED ? `A tonne up the fell: only a ${s.name} is rated to pull it up the climb. ${sledGap(s)}`
+    : `Half a tonne up the fell: the shippers only insure it behind an ${SLEDS[t].name} or bigger. ${sledGap(s)}`;
+}
+// The second half of a sled-gated card: what YOU still lack for sled s. Owned already → go swap at the garage;
+// otherwise the deliveries still to make and the cash still to find (only the parts that are short).
+function sledGap(s) {
+  if ((GS.own.sleds || []).includes(s.id)) return `Your ${s.name} is in the garage: swap onto it there (T at the garage across from the quay).`;
+  const d = Math.max(0, s.need - GS.delivered), m = Math.max(0, s.cost - Math.floor(GS.cash));
+  const $ = v => "$" + v.toLocaleString("en-US");
+  const left = [d ? `${d} more ${d === 1 ? "delivery" : "deliveries"}` : "", m ? `${$(m)} more` : ""].filter(Boolean);
+  return left.length ? `The ${s.name} is ${$(s.cost)} at ${s.need} deliveries: you need ${left.join(" and ")}.`
+    : `The garage will sell you the ${s.name} now (${$(s.cost)}).`;
 }
 /* ---- clean-air runs (late ladder, rank "Clean-air courier" at 60 deliveries, CLEAN_AIR) ----
    NILU (the Norwegian air-research institute) keeps samplers out at the far end of the peninsula: black carbon,
@@ -5373,7 +5385,7 @@ const CLEAN_AIR = [
 function cleanBlock() {
   if (sledDef().plug) return "";
   const s = SLEDS.find(x => x.plug) || SLEDS[SLEDS.length - 1];
-  return `Zero exhaust at the station: NILU only lets a battery sled near its samplers, the ${s.name} (${s.need} deliveries, $${s.cost}).`;
+  return `Zero exhaust at the station: NILU only lets a battery sled near its samplers, the ${s.name}. ${sledGap(s)}`;
 }
 function jobGeom(d, from) { const dist = Math.hypot(d.x - from.x, d.z - from.z), climb = Math.max(0, d.y - from.y); return { dist, climb, est: (dist / 9 + 45) * (1 + climb / 150) }; }
 const pick = a => a[(Math.random() * a.length) | 0];
