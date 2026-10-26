@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 07:50 — Rock through thin snow per pixel, no more sawtooth (G3) — 02f3fd7
+Triage 0029 (verify v89: lanesob 1/15 lanes 1 sample, lot9 2.66 m/s, g1_lanes 2.66/2.65/2.64/2.66, plowed share 91%:
+all reproduce; F4/F5 info, no action). Took the v68 rock-zigzag follow-up over daylight slice 8: slice 8's open part
+is a macro check that 0028 says may already be fine, while this was a visible artifact (`g3_ridge.mjs` pinned at
+−234,676,0, 03_tele_right before: a regular row of grey/white triangular teeth down the slope under the crest). Cause:
+`buildFar` blended rock grey into the vertex colour on the 8 m grid, and the drift/sheen masks (`smoothstep(0.8,0.9,
+vColor.r)`) cut that gradient at hard diagonals. Now the vertex colour stays snow; `vRockS` (depth/0.4, land only)
+goes to the fragment and `fdRock` thresholds it per pixel with 5–14 m value noise (±0.55), and fdSnow/skyW take
+`1 − fdRock` so drifts and sheen stay off the rock. Tried noise ±0.25 first: teeth only got ragged edges → ±0.55.
+Vision on b33/cmp.jpg + after2/03 crop: teeth gone, snow reads as organic tongues and patches on grey scree, no
+speckle. imgstats pinned spot local 01 3.74 → 4.20, 02 2.91 → 3.22, 03 2.57 → 2.62; unpinned search spot (1700,−379,
+little rock) unchanged (3.09/2.10/2.41 → 2.96/2.10/2.43). `g3_midband` strip 3 Nov 4.70 / March 4.28 (= v88, no
+regression). smoke exit 0, page errors none (powder 1.51, trench 2.24, 6 s 66.7 mph). README daylight paragraph; v90.
+Next: daylight slice 8 (macro check of the scoops), G2 long-haul warmth once the playtester reruns the road route.
+
 ## 2026-10-26 07:35 — Town lanes go round obstacles (G1) — 84980a4
 Triage 0027 (verify v87: board numbers reproduce; F2 cargo does render on the trailer when the camera frames the hitch
 → the 0026 F4 "no cargo" item dropped; F3 straight-line powder clean-air run blacked out, −$2,155 → new G2 long-haul
