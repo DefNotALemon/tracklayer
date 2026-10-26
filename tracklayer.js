@@ -644,7 +644,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n" +
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS;\n" +
       `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
        float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
          return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -658,6 +658,7 @@ function buildFar() {
          return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near;
        }\n` +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
+      float fdSh = 1.0;
       {
         float dist = length(vViewPosition);
         float fdSnow = smoothstep(0.8, 0.9, vColor.r) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.6 * uWet)
@@ -672,6 +673,15 @@ function buildFar() {
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz * 6.0);
           float lee = fdSnow * clamp(0.45 - (g.x * 0.8 + g.y * 0.6) * 6.0, 0.0, 0.8);   // lee of the north-westerly (soft: the v88 dunes made ×10 blotchy)
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), lee);   // (color_fragment ran already; lighting hasn't)
+          // far drift shadows (v101): the patch's lee shadows (v100) end at 34-50 m; past that the swells and ridges were
+          // evenly lit under a 4° sun. March the same height (×6, as the tilt) toward the true sun, 4-32 m out, and take
+          // direct light off where a swell rises above the sun ray. Fades by ~2 km, with the relief.
+          if (uMicroK > 0.01 && dist < 2200.0) {
+            float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
+            float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 3.0;
+            for (int i = 0; i < ${GFX.low ? 3 : 5}; i++) { occ = max(occ, (fdH(vWxz + sd * d, near, nc) - h0) * 6.0 - tE * d); d *= 2.0; }
+            fdSh = 1.0 - smoothstep(0.0, 0.3, occ) * 0.85 * fdSnow * uMicroK * (1.0 - smoothstep(1200.0, 2200.0, dist));
+          }
         }
       }`).replace("#include <color_fragment>", `#include <color_fragment>
       // rock through thin snow, per pixel: the interpolated depth plus 5-14 m noise blobs breaks the 8 m grid's
@@ -689,7 +699,7 @@ function buildFar() {
         outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
-      ${o}`);
+      ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= fdSh; reflectedLight.directSpecular *= fdSh;\n#include <aomap_fragment>");
   };
   far = new THREE.Mesh(geo, mat); far.receiveShadow = false;
   scene.add(far);
