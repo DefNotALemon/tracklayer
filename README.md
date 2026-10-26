@@ -172,7 +172,8 @@ door, so you reach the hard pack well before you reach the step. In Kjøllefjord
 the depot yard to every house, the store, the church and the tackle shop, plowed round the houses, the
 pier sheds, woodpiles and lamp posts rather than under them, so the walk from the quay to any door in town
 is hard pack all the way and nothing stands in the lane. Walk into a wall at an angle and you
-slide along it and round the corner instead of sticking; only walking straight at it stops you.
+slide along it and round the corner instead of sticking (houses, the depot, the garage, the hospital, the
+pier freight shed, the fish buyer and the drying racks); only walking straight at it stops you.
 
 ## The ferry and the mail
 

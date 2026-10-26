@@ -4404,7 +4404,7 @@ const KIT = (() => {
     }
     for (const yy of [2.0, 3.0, 4.0]) K.put(g, new THREE.CylinderGeometry(0.05, 0.05, len + 0.4, 6), K.woodD, 0, yy, 0).rotation.z = Math.PI / 2;
     K.bx(g, len + 0.4, 0.14, 0.7, K.snowM, 0, 4.12, 0);
-    for (let u = -len / 2; u <= len / 2; u += 1.5) { const wx = x + u * Math.cos(ry), wz = z - u * Math.sin(ry); addOb({ x: wx, z: wz, r: 1.0, top: 1e9 }); }
+    for (let u = -len / 2; u <= len / 2; u += 1.5) { const wx = x + u * Math.cos(ry), wz = z - u * Math.sin(ry); addOb({ x: wx, z: wz, r: 1.0, top: 1e9, ax: ry }); }
     return g;
   };
   // a village: a shop on the flat, houses around it, a lamp or two, racks down by the shore
@@ -9255,7 +9255,7 @@ function buildTown() {
     bx(Q, 0.2, 0.2, 9, metal, 12, qy + 6.9, 18.4);
     for (let u = -4; u <= 20; u += 4) for (let v = -29; v <= 29; v += 4) {
       const wx = qx + u * Math.cos(-qa) + v * Math.sin(-qa), wz = qz - u * Math.sin(-qa) + v * Math.cos(-qa);
-      if (u > 14 || Math.abs(v + 20) < 8 && u < 7) addOb({ x: wx, z: wz, r: 2.2, top: u > 14 ? qy + 0.4 : 1e9 });
+      if (u > 14 || Math.abs(v + 20) < 8 && u < 7) addOb({ x: wx, z: wz, r: 2.2, top: u > 14 ? qy + 0.4 : 1e9, ax: -qa });   // ax: flat faces (footStep wall slide)
     }
     // the coastal ferry, alongside: black hull with a red boot-top, white decks in tiers, the bridge, a black-and-red
     // funnel, orange lifeboats. Nav lights and the masthead are fog-free sprites so you see her in the fjord at night.
@@ -9419,7 +9419,7 @@ function buildFishShops() {
     for (let i = 0; i < 6; i++) bx(Q, 0.9, 0.32, 0.6, L(i % 3 === 1 ? 0xe07a28 : 0x2b6fa8), u0 + 3.6 + (i % 2) * 0.95, qy + 0.16 + Math.floor(i / 2) * 0.33, v0 + 2.6);
     put(Q, new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), metal, u0 + 3.4, qy + 0.6, v0 - 3.0); bx(Q, 0.6, 0.06, 0.6, metal, u0 + 3.4, qy + 1.22, v0 - 3.0);
     const w = (u, v) => [qx + u * Math.cos(-qa) + v * Math.sin(-qa), qz - u * Math.sin(-qa) + v * Math.cos(-qa)];
-    for (let u = -1; u <= 3; u += 2) for (let v = v0 - 2.5; v <= v0 + 2.5; v += 2.5) { const [ox, oz] = w(u0 + u - 1, v); addOb({ x: ox, z: oz, r: 1.4, top: 1e9 }); }
+    for (let u = -1; u <= 3; u += 2) for (let v = v0 - 2.5; v <= v0 + 2.5; v += 2.5) { const [ox, oz] = w(u0 + u - 1, v); addOb({ x: ox, z: oz, r: 1.4, top: 1e9, ax: -qa }); }
     const [ox, oz] = w(u0 + 4, v0 + 2.6); addOb({ x: ox, z: oz, r: 0.9, top: 1e9 });
     const [bx0, bz0] = w(u0 + 7, v0); FISHSITES.buyer = { x: bx0, z: bz0, name: "Fiskemottak" };
   }
@@ -12601,9 +12601,9 @@ function buildHospital() {
   bx(amb, 1.6, 0.18, 0.4, L(0x3a8cff), 0, 2.78, 1.4).material = new THREE.MeshBasicMaterial({ color: 0x5aa0ff });
   for (const [u, v] of [[-1, 2.2], [1, 2.2], [-1, -1.6], [1, -1.6]]) put(amb, new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), L(0x15181b), u * 1.05, 0.42, v).rotation.z = Math.PI / 2;
   // obstacles: the building, the canopy posts and the ambulance
-  for (let u = -W / 2 + 1.2; u <= W / 2 - 1.1; u += 2.1) for (let v = -D / 2 + 1.2; v <= D / 2 - 1.1; v += 2.1) addOb({ x: x + ax * u + dx * v, z: z + az * u + dz * v, r: 1.5, top: 1e9 });
+  for (let u = -W / 2 + 1.2; u <= W / 2 - 1.1; u += 2.1) for (let v = -D / 2 + 1.2; v <= D / 2 - 1.1; v += 2.1) addOb({ x: x + ax * u + dx * v, z: z + az * u + dz * v, r: 1.5, top: 1e9, ax: ry });
   for (const sx of [-3, 3]) addOb({ x: x + ax * sx + dx * (D / 2 + 3.1), z: z + az * sx + dz * (D / 2 + 3.1), r: 0.25, top: 1e9 });
-  for (const v of [-1.4, 0.6, 2.6]) addOb({ x: x + ax * (-W / 2 - 2.6) + dx * v, z: z + az * (-W / 2 - 2.6) + dz * v, r: 1.25, top: 1e9 });
+  for (const v of [-1.4, 0.6, 2.6]) addOb({ x: x + ax * (-W / 2 - 2.6) + dx * v, z: z + az * (-W / 2 - 2.6) + dz * v, r: 1.25, top: 1e9, ax: ry });
   for (const v of [-2.8, 3.8]) addOb({ x: x + ax * (-W / 2 - 4.9) + dx * v, z: z + az * (-W / 2 - 4.9) + dz * v, r: 0.25, top: 1e9 });
   // the helipad on the snow off the right end, and a windsock
   const px = x + ax * (W / 2 + 15) + dx * 2, pz = z + az * (W / 2 + 15) + dz * 2;
