@@ -4497,10 +4497,23 @@ function houseWinMat() {
   if (houseWinMat.m) return houseWinMat.m;
   const m = new THREE.MeshBasicMaterial({ color: 0xffc26b, map: houseGlassTex() });
   houseWinMat.u = { value: 0 };
+  // The reflection follows the eye (report 0065 F1: every pane showed the same fixed picture whichever way it faced):
+  // the lookup slides with the mirrored view ray, up toward the sky when you look up at a pane, down into the room
+  // and along the wall as you pass, so the sheen sweeps across the panes like real glass and neighbouring windows
+  // differ; at a grazing angle Fresnel turns the pane to sky. Only per-pixel maths, no env map.
   m.onBeforeCompile = s => {
     s.uniforms.uGlassDay = houseWinMat.u;
-    s.fragmentShader = "uniform float uGlassDay;\n" + s.fragmentShader.replace("#include <map_fragment>",
-      "vec4 texelColor = mapTexelToLinear( texture2D( map, vUv ) );\n diffuseColor.rgb = mix( diffuseColor.rgb, texelColor.rgb, uGlassDay );");
+    s.vertexShader = "varying vec3 vGlW;\nvarying vec3 vGlN;\n" + s.vertexShader.replace("#include <project_vertex>",
+      "#include <project_vertex>\n vGlW = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz; vGlN = mat3( modelMatrix ) * normal;");
+    s.fragmentShader = "uniform float uGlassDay;\nvarying vec3 vGlW;\nvarying vec3 vGlN;\n" + s.fragmentShader.replace("#include <map_fragment>",
+      `vec3 gV = normalize( vGlW - cameraPosition ), gN = normalize( vGlN );
+ gN *= -sign( dot( gN, gV ) + 1e-6 );               // mirrored houses (negative scale) flip the normal: face the eye
+ vec3 gR = reflect( gV, gN ), gT = normalize( cross( vec3( 0.0, 1.0, 0.0 ), gN ) + vec3( 1e-4 ) );
+ float gFr = pow( 1.0 - clamp( -dot( gV, gN ), 0.0, 1.0 ), 5.0 );
+ vec4 texelColor = mapTexelToLinear( texture2D( map, vUv + vec2( dot( gR, gT ) * 0.45, gR.y * 0.55 ) ) );
+ vec3 gSky = mapTexelToLinear( texture2D( map, vec2( 0.5, 0.97 ) ) ).rgb;
+ texelColor.rgb = mix( texelColor.rgb, gSky, gFr * 0.75 );
+ diffuseColor.rgb = mix( diffuseColor.rgb, texelColor.rgb, uGlassDay );`);
   };
   return (houseWinMat.m = m);
 }
