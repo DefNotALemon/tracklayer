@@ -180,6 +180,8 @@ is hard pack all the way and nothing stands in the lane. Walk into a wall at an 
 slide along it and round the corner instead of sticking (houses, the depot, the garage, the hospital, the
 pier freight shed, the fish buyer and the drying racks); only walking straight at it stops you, and then
 you stand there with your legs still rather than marching on the spot (and a jog into a wall costs no breath).
+Once you've wandered off, the on-foot prompt tells you where the sled is from the way you're facing
+("Sled 25 m ahead on your left", "Sled 140 m behind you"), on foot or on skis, until you're close enough for Q.
 
 ## The ferry and the mail
 

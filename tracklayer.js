@@ -11884,6 +11884,16 @@ function rescueTick(dt) {
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
 }
+// On-foot "where's my sled": distance + which way it is from where you're facing (+rel = your left; FOOT.yaw
+// forward is (sin, cos), sled-space +x is left). Rounded so the prompt doesn't flicker every frame.
+function sledWhere() {
+  const dx = P.x - FOOT.x, dz = P.z - FOOT.z, d = Math.hypot(dx, dz);
+  let r = Math.atan2(dx, dz) - FOOT.yaw; r = Math.atan2(Math.sin(r), Math.cos(r));
+  const a = Math.abs(r) * 180 / Math.PI, side = r > 0 ? "left" : "right";
+  const way = a < 20 ? "straight ahead" : a < 65 ? `ahead on your ${side}` : a < 115 ? `on your ${side}` : a < 160 ? `behind you on your ${side}` : "behind you";
+  const m = d < 50 ? Math.round(d) : d < 500 ? Math.round(d / 10) * 10 : Math.round(d / 50) * 50;
+  return `Sled ${m < 1000 ? m + " m" : (m / 1000).toFixed(1) + " km"} ${way}`;
+}
 function wnPrompt() {
   let h = "", show = false;
   const wd = winchDef();
@@ -11902,7 +11912,7 @@ function wnPrompt() {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
       h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
-    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · glide back to the sled and press Q` : "Walk back to the sled and press Q");
+    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and press Q` : `${sledWhere()} · walk back and press Q`);
   } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
