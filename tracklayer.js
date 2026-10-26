@@ -198,8 +198,11 @@ function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && 
    there's none). A plowed cell starts at d = f·(1 − YARD_K·y): the snowpack (f) is untouched, only
    pressed down, so it reads as hard pack to footStep, the sled and the snow shader. Snowfall
    (refill) fills it back only to that level: someone keeps plowing. Derived from building positions
-   at boot; nothing is saved. */
-const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, yardCache = new Map();
+   at boot; nothing is saved.
+   Lanes: addLane([[x, z], ...], r) plows a walked/driven path (a capsule per leg, r each side, easing out over
+   LANE_FALL m). buildTown runs one from the depot yard to every Kjøllefjord door (round the house when the door
+   faces away), so the walk from the quay to a house or the garage stays on hard pack the whole way. */
+const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, LANE_FALL = 2.5, yardCache = new Map();
 function yardOf(cx, cz) {
   const key = cz * CPR + cx;
   let a = yardCache.get(key);
@@ -207,10 +210,12 @@ function yardOf(cx, cz) {
   a = null;
   const x0 = cx * CH * CELL - HALF, z0 = cz * CH * CELL - HALF, x1 = x0 + CH * CELL, z1 = z0 + CH * CELL;
   for (const Y of YARDS) {
-    const R = Y.r + YARD_FALL;
-    if (Y.x + R < x0 || Y.x - R > x1 || Y.z + R < z0 || Y.z - R > z1) continue;
+    const R = Y.r + Y.f;
+    if (Math.max(Y.x, Y.x2) + R < x0 || Math.min(Y.x, Y.x2) - R > x1 || Math.max(Y.z, Y.z2) + R < z0 || Math.min(Y.z, Y.z2) - R > z1) continue;
+    const ux = Y.x2 - Y.x, uz = Y.z2 - Y.z, uu = ux * ux + uz * uz;
     for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) {
-      const dd = Math.hypot(x0 + i * CELL - Y.x, z0 + j * CELL - Y.z);
+      const px = x0 + i * CELL - Y.x, pz = z0 + j * CELL - Y.z, t = uu > 0 ? clamp((px * ux + pz * uz) / uu, 0, 1) : 0;
+      const dd = Math.hypot(px - ux * t, pz - uz * t);                 // distance to the disc's centre, or to the lane's leg
       if (dd >= R) continue;
       const y = 1 - sstep(Y.r, R, dd);
       if (!a) a = new Float32Array(CH * CH);
@@ -220,11 +225,13 @@ function yardOf(cx, cz) {
   yardCache.set(key, a);
   return a;
 }
-function addYard(x, z, r) {
-  YARDS.push({ x, z, r });
-  const R = r + YARD_FALL;
-  for (let cz = Math.floor((z - R + HALF) / (CH * CELL)); cz <= Math.floor((z + R + HALF) / (CH * CELL)); cz++)
-    for (let cx = Math.floor((x - R + HALF) / (CH * CELL)); cx <= Math.floor((x + R + HALF) / (CH * CELL)); cx++) {
+function addYard(x, z, r) { addPlow({ x, z, x2: x, z2: z, r, f: YARD_FALL }); }
+function addLane(pts, r) { for (let k = 1; k < pts.length; k++) addPlow({ x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL }); }
+function addPlow(Y) {
+  YARDS.push(Y);
+  const R = Y.r + Y.f, xa = Math.min(Y.x, Y.x2) - R, xb = Math.max(Y.x, Y.x2) + R, za = Math.min(Y.z, Y.z2) - R, zb = Math.max(Y.z, Y.z2) + R;
+  for (let cz = Math.floor((za + HALF) / (CH * CELL)); cz <= Math.floor((zb + HALF) / (CH * CELL)); cz++)
+    for (let cx = Math.floor((xa + HALF) / (CH * CELL)); cx <= Math.floor((xb + HALF) / (CH * CELL)); cx++) {
       if (cx < 0 || cz < 0 || cx >= CPR || cz >= CPR) continue;
       yardCache.delete(cz * CPR + cx);
       const c = chunks[cz * CPR + cx];
@@ -4341,7 +4348,7 @@ const KIT = (() => {
   const K = {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
-    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L
+    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: []
   };
   K.put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
@@ -4349,6 +4356,7 @@ const KIT = (() => {
   K.house = (x, z, w, d, h, ry, mat, lit) => {
     addYard(x, z, Math.max(w, d) / 2 + 3);                             // plowed round the walls and out to the door
     if (lit !== false) addYard(x + Math.sin(ry) * (d / 2 + 5), z + Math.cos(ry) * (d / 2 + 5), 3.5);   // and a plowed apron out from the door (local +z), so you walk up to it on hard pack
+    if (lit !== false) K.doors.push({ x, z, nx: Math.sin(ry), nz: Math.cos(ry), d, rr: Math.max(w, d) / 2 + 3.5 });   // buildTown plows a lane to it
     const g = new THREE.Group();
     g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
     K.bx(g, w, h, d, mat, 0, h / 2, 0);
@@ -9122,6 +9130,15 @@ function buildTown() {
     put(ch, new THREE.ConeGeometry(2.6, 6, 4), L(0x2f3a44), 0, 12.1, 6.5).rotation.y = Math.PI / 4;
     bx(ch, 0.12, 1.2, 0.12, metal, 0, 15.6, 6.5); bx(ch, 0.7, 0.12, 0.12, metal, 0, 15.4, 6.5);
     for (const zz of [-4, 0, 4]) for (const sd of [-1, 1]) bx(ch, 0.08, 1.6, 0.9, glowM, sd * 4.55, 2.4, zz);
+  }
+  // plowed lanes from the depot yard to every door in town: straight to the apron, or round the side of the house
+  // when its door faces away from the quay (so the lane doesn't run in under the back wall)
+  const sx0 = d0.x - 5, sz0 = d0.z;
+  for (const D of KIT.doors) {
+    if (Math.hypot(D.x - d0.x, D.z - d0.z) > TOWN_R) continue;
+    const ax = D.x + D.nx * (D.d / 2 + 5), az = D.z + D.nz * (D.d / 2 + 5), tx = sx0 - D.x, tz = sz0 - D.z, pts = [[sx0, sz0]];
+    if (D.nx * tx + D.nz * tz < 0) { const s = Math.sign(D.nz * tx - D.nx * tz) || 1; pts.push([D.x + D.nz * s * D.rr, D.z - D.nx * s * D.rr]); }
+    pts.push([ax, az]); addLane(pts, 1.5);
   }
   for (const lx of [-40, -14, 14, 40]) { lamp(d0.x + lx, d0.z + 14); lamp(d0.x + lx, d0.z - 20); }
   // firewood, fuel drums, a plough pile of snow

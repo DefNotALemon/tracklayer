@@ -167,7 +167,9 @@ Folk keep their yards plowed: around every house, the quay and the lane down to 
 forecourt, the shops, cabins and the helsesenter door the snow is pushed back and packed hard (the
 HUD says "Plowed yard"), so you walk to a door at about 2.5 m/s instead of wading, and snowfall never
 buries a yard again. Every lived-in house also has a plowed apron running about 8 m out from its front
-door, so you reach the hard pack well before you reach the step. Walk into a wall at an angle and you
+door, so you reach the hard pack well before you reach the step. In Kjøllefjord a plowed lane runs from
+the depot yard to every house, the store and the church (round the side of the house when its door
+faces away from the quay), so the walk from the quay to any door in town is hard pack all the way. Walk into a wall at an angle and you
 slide along it and round the corner instead of sticking; only walking straight at it stops you.
 
 ## The ferry and the mail
