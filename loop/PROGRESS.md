@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 10:50 — On-foot prompt says where the sled is (G1) — d7a5d92
+Triage 0040 (tested v101, before v102): its laden ratios (tonne 0.26–0.28, fell 0.51, clean-air 0.73–0.85) are already
+covered by v102's (1 + kg/320) stretch (1000 kg → 0.24, 320 kg → 0.50, trailer+190 → ~0.55: safe side everywhere); F4–F6
+info. No new items. Took G1 (fewest recent landings; last G1 was v99) from the goal's "clear on-foot prompts" direction:
+far from the sled the hint just said "Walk back to the sled and press Q". New `sledWhere()` gives distance (1 m <50 m,
+10 m <500 m, 50 m beyond, km past 1 km) + way from the walker's facing (straight ahead/ahead on your left|right/on your
+left|right/behind you on your …/behind you). New `scenarios/g1_sledhint.mjs` (25 m out, 6 facings): hints with a distance
+**0/6 → 6/6**, all six directions correct by relDeg; still b46/after.jpg: rel +35 → sled on screen left, −35 → right,
+prompt legible in the HUD pill, near prompt unchanged "Q: get on the sled". smoke exit 0, page errors none (powder 1.51,
+trench 2.26, 6 s 67.6 mph). README walking para; v103.
+Next: G3 FPS check of the shadow taps (playtester); G2 ride a flagged laden leg; G1 sled marker when out of sight.
+
 ## 2026-10-26 10:40 — COLD RUN estimate counts the towed load (G2) — 4eecc31
 Triage 0039 (v101 far shadows verified, numbers exact): info only. Took the G2 laden-trailer coldRun check (two G3 landings
 in a row). New `scenarios/g2_cruise_laden.mjs` (g2_cruise harness + a real big load in `GS.load`, so `TOW.mass` is the

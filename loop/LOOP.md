@@ -165,4 +165,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 39
+- [ ] G1 (low, follow-up to v103): the on-foot sled bearing is relative to the walker's facing, but the camera trails
+      a sudden turn; check in play (g1_sledhint.mjs stills) that "straight ahead" reads right after normal A/D turning,
+      and consider a small world marker over a far sled at night / in a storm when it's out of sight.
+
+Last triaged report: 40
