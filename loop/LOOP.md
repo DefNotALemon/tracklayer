@@ -21,6 +21,7 @@ On foot is where the game fights you hardest. Make getting around on foot pleasa
 deep-snow feel (powder should still be slower than a packed trail; you should still want the sled).
 Baseline measured 26 Oct (smoke.mjs, fresh Frontier save, flat open ground):
 fresh powder **1.01 m/s** and tired 0.57 after 8 s; back along your own trench **1.75 m/s**.
+Since v58 (g1_walk30.mjs): powder **1.56 m/s**, 30 m in **19.3 s**; trench **2.23 m/s**; tired 0.77 after 30 m.
 Directions to explore (measure before and after, by gameClock):
 - Base pace in powder and on packed snow, the tiredness curve, how much depth slows you.
 - Snagging: trees/rocks/buildings/the sled push you sideways (`footStep` obstacle loop); getting stuck on
@@ -82,12 +83,16 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 
 - [ ] G2: Audit the progression ladder end to end (code read + a fast-forwarded playtest) and write the
       Progression map table above; turn the worst problems into backlog items.
-- [ ] G1: Raise base walking pace in fresh powder (baseline 1.01 m/s) and soften the tiredness build-up so
-      a 30 m walk is not a slog; keep packed/trench clearly faster than powder.
+- [ ] G1: Slope does nothing on foot: `footStep` never reads the grade (report 0001: "uphill" 1.66 m/s,
+      "downhill" 2.41 vs flat 1.04, all explained by snow depth). Add a grade term like `skiStep`'s
+      (`surf` ahead minus behind): uphill slower, gentle downhill a touch quicker, capped. Test on an inland
+      hillside, not the fjord bank.
+- [ ] G1: Measure walking in town/quay (plowed, pack≈1 → should be 2.9 m/s since v58) and around doors;
+      check nothing snags on building corners or the quay edge.
 - [ ] G3: Baseline contact sheet of fixed views (title, quay day, quay night, open backcountry, sled
       close-up, rider on foot) as `scenarios/views.mjs`, scored 1–10 per view in PROGRESS.md; every later
       visual pass re-shoots it.
 - [ ] G1: Fix the start: 6 s of throttle from the spawn runs the Frontier into the Helsesenter wall
       (smoke.mjs still 01_riding). Spawn facing open snow or a clear lane.
 
-Last triaged report: 0
+Last triaged report: 1

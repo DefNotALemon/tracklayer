@@ -138,7 +138,7 @@ Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving
 On foot without skis you break trail: every step leaves a boot hole and your legs plough a
 trench about half a metre wide behind you. It shows on the minimap. Wading fresh powder you make
 about 1.5 m/s (30 m in under 20 s); walking back along your own trench is half as quick again, and
-hard-packed snow in town is a brisk 2.9 m/s. The more you use a trench, the harder it packs. Deep
+on hard-packed snow you walk a brisk 2.9 m/s. The more you use a trench, the harder it packs. Deep
 wading winds you after about 25 s, and you get your breath back quickly once you stop.
 
 ## The ferry and the mail
