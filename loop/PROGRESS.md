@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 09:30 — COLD RUN estimate uses the speed sleds really hold (G2) — 6b3ddec
+Triage 0034 (ride a flagged card): F2 real (Woodsman averaged 12.7 m/s Skjånes→Ifjord vs coldRun's assumed 19.2; −74.7
+warmth in 49% of the leg → ≈238% vs the card's 192%), F1/F3/F4/F5 info (stop 288 m off-line is fine). Cold-per-second
+already matches (coldRun uses the same formula as the rider), so the gap is speed. New `scenarios/g2_cruise.mjs` (calm,
+noon, yaw-to-target, each leg on its own fresh line 70 m apart; the first try rode the previous sled's packed trench
+and read 92–147 mph): 40 game-s from rest, along-line m/s — Skjånes→Ifjord Frontier 13.9, Woodsman 14.4, Summit 22.0,
+Apex 31.1; depot→Ifjord (climbing) Woodsman 12.6, Ranger 15.5. Fits ≈12×power/drag; old 12+6×power was 0.66–0.77× too
+fast for Frontier/Woodsman/Ranger and too slow for Apex. `rideS` now uses min(12+6×power, 10.5×power/drag) (safe side:
+laden trailers unmeasured, so top sleds keep the old, slower assumption). `g2_coldcard` (boards random): Woodsman lvl6
+same 5.4 km Mehamn card 84% → **129%**, ≥100% cards 3/5 → 4/4; Ranger lvl21 ≥100% 2 → 6; Aurora/Apex/full-kit unchanged
+(bound by old formula). smoke exit 0, page errors none (powder 1.53, trench 2.26, 6 s 66.7 mph). Not visual. README; v97.
+Next: G3 global contrast; G1 jog playtest; laden-trailer speed check (new low item).
+
 ## 2026-10-26 09:08 — Shift to jog on foot (G1) — a2e68c2
 No new reports (last 33). G1 had the oldest landing (08:15) and no open backlog item, so took a LOOP.md G1 direction:
 a jog key. `footStep` gets `jogK` (×1 + lerp(0.2, 0.5, pack), faded on climbs > 0.1 and steep descents) from Shift / RB /
