@@ -4564,17 +4564,27 @@ function houseWinTick(day, st) {
   // here: houseWinMat.m only exists once K.house has run, long after KIT is built.)
   KIT.glowM.color.copy(m.color);
 }
+// an optional 8th entry is a brightness factor (0..1) multiplied into the material colour as a vertex colour (the
+// eave drip edges in roofTrim); the merged geometry then carries a color attribute and wants trimVC(material)
 function mergeBoxes(list) {
-  const pos = [], nor = [], uv = [];
-  for (const [w, h, d, x, y, z, rz] of list) {
+  const pos = [], nor = [], uv = [], col = [], tinted = list.some(b => b[7] != null);
+  for (const [w, h, d, x, y, z, rz, k = 1] of list) {
     const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); if (rz) g.rotateZ(rz); g.translate(x, y, z);
     for (const [arr, k] of [[pos, "position"], [nor, "normal"], [uv, "uv"]]) { const a = g.attributes[k].array; for (let i = 0; i < a.length; i++) arr.push(a[i]); }
+    if (tinted) for (let i = 0; i < g.attributes.position.count; i++) col.push(k, k, k);
     g.dispose();
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
   out.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  if (tinted) out.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
   return out;
+}
+// the vertex-coloured twin of a trim material (cached on it), for merged trim geometry that carries a color attribute
+function trimVC(m, geo) {
+  if (!geo || !geo.attributes.color) return m;
+  if (!m.userData.vc) { m.userData.vc = m.clone(); m.userData.vc.vertexColors = true; }
+  return m.userData.vc;
 }
 // painted roof trim for a gabled roof (gables facing ±z, eaves along ±x): the roof slabs were bare boxes that ended in
 // a raw dark edge with a slot of open air above the wall, so a roof read as a flat lid. Now each eave gets a boxed
@@ -4583,15 +4593,20 @@ function mergeBoxes(list) {
 // KIT.house / buildSites: width w, wall height h, length len, pitch a, eave overhang eo, gable overhang go, slab
 // thickness T, slab centre lifted 0.05 above the wall-top roof line. Boxes [w, h, d, x, y, z, rz] for mergeBoxes.
 function roofTrim(w, h, len, a, eo, go, T) {
-  const out = [], t = Math.tan(a), ca = Math.cos(a), sa = Math.sin(a), hs = w / 2 + eo, Ls = hs / ca;
+  const out = [], t = Math.tan(a), ca = Math.cos(a), sa = Math.sin(a), hs = w / 2 + eo, Ls = hs / ca, DRIP_K = 0.34;
   const cy = h + (hs / 2) * t + 0.05, hv = T / 2 / ca;          // slab centre y; half the slab's vertical thickness
   const L = len + 2 * go, top = h + 0.05 + hv - 0.02, soT = h + 0.05 - hv - 0.01, soB = soT - 0.035, xF = hs + (T / 2) * sa + 0.04;
   for (const s of [-1, 1]) {
     out.push([xF - w / 2, 0.035, L, s * (w / 2 + xF) / 2, soT - 0.0175, 0]);              // soffit, wall to fascia
     out.push([0.04, top - soB + 0.01, L + 0.08, s * xF, (top + soB - 0.01) / 2, 0]);       // fascia over the slab end
+    // a dark steel drip edge along the fascia top: the white fascia ran straight into the white snow load above it, so
+    // from close under an eave the roof edge read as one thick white slab (report 0060 F4); vertex-tinted, 0 draw calls
+    out.push([0.05, 0.055, L + 0.1, s * (xF + 0.006), top - 0.0275, 0, 0, DRIP_K]);
     const bh = T + 0.15, no = -0.085, sh = 0.05;                                           // barge board: slab top to 15 cm below it
     const bx = s * hs / 2 + s * sa * no + s * ca * sh, by = cy + ca * no - sa * sh;
     for (const z of [-1, 1]) out.push([Ls + 0.1, bh, 0.04, bx, by, z * (len / 2 + go + 0.02), -s * a]);
+    const dd = bh / 2 - 0.0275;                                                            // and along each barge board's top
+    for (const z of [-1, 1]) out.push([Ls + 0.1, 0.055, 0.05, bx + s * sa * dd, by + ca * dd, z * (len / 2 + go + 0.02), -s * a, DRIP_K]);
     // rake soffit: the gable overhang's underside, boxed in from the gable wall out to the barge board
     const rx = s * hs / 2 - s * sa * (T / 2 + 0.03), ry = cy - ca * (T / 2 + 0.03);
     for (const z of [-1, 1]) out.push([Ls, 0.03, go + 0.02, rx, ry, z * (len / 2 + go / 2), -s * a]);
@@ -4679,7 +4694,7 @@ const KIT = (() => {
     }
     const fac = houseFacade(w, h, d, wins, lit !== false, roofTrim(w, h, d, a, 0.4, 0.35, 0.2));
     const c = mat.color, trimM = c.r + c.g + c.b > 2.1 ? K.trimG : K.trimW;   // white houses get grey trim so it reads
-    K.put(g, fac.trim, trimM, 0, 0, 0).castShadow = false;
+    K.put(g, fac.trim, trimVC(trimM, fac.trim), 0, 0, 0).castShadow = false;
     if (fac.glass) K.put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
     const box = { x, z, c: Math.cos(ry), s: Math.sin(ry), hw: w / 2 + 0.45, hd: d / 2 + 0.4 };   // the walls + eaves, for camWallClip
     for (let u = -w / 2 + 1.1; u <= w / 2 - 1; u += 1.9) for (let v = -d / 2 + 1.1; v <= d / 2 - 1; v += 1.9) {
@@ -4812,7 +4827,7 @@ function buildSites() {
         const wl = D * 0.7, wins = [[2, -W / 3.2, 1.1, 0.8, 1.6], [2, W / 3.2, 1.1, 0.8, 1.6], [1, 0, wl, 0.8, 1.6]];
         const more = [[0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, -0.62], [0.12, 2.1, 0.14, D / 2 + 0.07, 1.05, 0.62], [0.12, 0.14, 1.38, D / 2 + 0.07, 2.08, 0], ...roofTrim(D, Hh, W, a, 0.5, 0.5, 0.22)];
         const fac = houseFacade(D, Hh, W, wins, false, more), c = wall.color;
-        add(g, fac.trim, c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, 0, 0, 0).castShadow = false;
+        add(g, fac.trim, trimVC(c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, fac.trim), 0, 0, 0).castShadow = false;
         add(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
         if (wl > 2.4) for (const s of [-1, 1]) add(g, new THREE.BoxGeometry(0.045, 0.8, 0.04), c.r + c.g + c.b > 2.1 ? KIT.trimG : KIT.trimW, s * wl / 4, 1.6, -W / 2 - 0.08).castShadow = false;   // a long window gets four panes
       }
