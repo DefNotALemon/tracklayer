@@ -143,8 +143,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       pop-in or seams; the dish isn't legible from the chase cam, by design). Report 0085 (`g1_treewell_foot.mjs`): walking
       through 4 stands 0/4 stuck, 24.2 s / 30 m (open-ground pace). Unjudged: a storm (refill fills a well back only to its
       own f, so it should stay).
-- [ ] G1 (low, report 0085 F3): one still mid-stand showed the snow badge "PACKED · Plowed yard" (s0_1m.jpg). Check with
-      `yardAt`/`pack` at that stand whether a yard/lane really reaches it or the badge misreads near trees.
+- [ ] G1 (low, playtest, follow-up to v149 on-foot snow badge): `g1_footbadge.mjs` badge vs the walker's own cell
+      138/258 → 1/248 mismatched. Unjudged: skis (on-ski lines "Skis float you"/"Skiing a track") and the ICE line on a lake.
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
       calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Unjudged: GFX low FPS in a dense stand, the tips at

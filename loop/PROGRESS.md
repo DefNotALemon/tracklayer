@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 22:50 — On foot, the snow badge reads the walker's snow, not the parked sled's (G1) — 8bad103
+No new reports since 0086. Took the 0085 F3 item ("PACKED · Plowed yard" mid-stand): root cause was `updHud` building
+the pill/line from `P` (the sled) even on foot, so the badge kept the parked sled's surface wherever you walked (0085's
+scenario left the sled in the depot yard). New hoisted `footBadge()` reads the walker's own cell (footStep's pack rule,
+lake ice, yardAt): PACKED "Plowed yard"/"Packed trail", POWDER "Wading powder"/"Wading deep powder", ICE "Slippery
+footing", snowshoe/ski lines. New `g1_footbadge.mjs` (sled left in the depot yard, walk 110 m out; sled parked in powder,
+walk 25 m): badge vs truth mismatched 138/258 → 1/248 (the one is the 15 Hz HUD tick at a yard edge), B 0/63 both.
+Vision on tlloop/b96/after/A_depot_walk.jpg: "POWDER · Wading deep powder" knee-deep 80 m from the sled. smoke exit 0,
+page errors none (powder 1.52, trench 2.26). README; v149.
+Next: playtester checks the ski/ice lines; builder takes the next buildable item.
+
 ## 2026-10-26 22:35 — Pine tiers get ragged drooping branch tips instead of a lampshade hem (G3) — 9798caf
 Triage: 0086 (garage Engines/Workshop tabs legible in all 3 saves, no bugs; F4 wording asymmetry cosmetic) → no items.
 Took the 0084 F3 boxy-pines item. `pineGeos`: each tier's green cone 7 → 14 sides, 2 height rings with a 7% belly, and the
