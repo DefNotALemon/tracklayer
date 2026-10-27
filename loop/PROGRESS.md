@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 21:45 — Ladder cadence measured past the first upgrade (G2) — harness only, no game change
+No new reports since 0082. Took the 0082 F1 follow-up (measure the cadence after the Woodsman). New `g2_cadence.mjs`:
+a modelled player on real boards (makeJobs/makeContracts at the live GS state, contractBlock filter, best pay/est-min,
+time = the game's own jobGeom est), 4–6 runs per mode, to 70 deliveries. Every sled is bought the delivery it unlocks
+(gaps 4/4/5/5/6/8/14/14); est-min Woodsman 12.5, Ranger 44, Sprint 96, Summit 133, Trekker 182, Apex 258, Matriarch 410,
+Aurora 478. No dry grind or trap in the early/mid ladder; the long stretch is Apex → Matriarch (14 deliveries, ~150
+est-min), which is Lemon's own `need` 32 → 46. Found instead: once you rig a trailer, cash stops mattering ($10k spare
+at the Sprint, $106k at the Matriarch); parcels-only riders are cash-gated only at the Matriarch (+5 deliveries).
+Decision: no retune. Sled costs/needs and contract pay are Lemon's pre-loop numbers (97fe993); logged as a low backlog
+item with canon-keeping levers, cadence added to the Progression map. 0082 item closed. Sim only, no smoke needed
+(page errors none in both runs).
+Next: builder takes the next buildable item; G3/G1 playtest follow-ups stay with the playtester.
+
 ## 2026-10-26 21:30 — Chase camera stays out of pine branches; a tree at the lens fades see-through (G3) — 627a385
 Triage: 0081 F1/F2 (chase cam inside a pine skirt riding close past it; a trunk filling the frame after a stand) → this
 pass; F3/F4 (wells clean from the chase cam, 4/4 clean passes) close the riding half of the tree-well item. 0082 F1 (first

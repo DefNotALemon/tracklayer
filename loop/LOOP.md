@@ -108,6 +108,10 @@ Woodsman-tier, so really opens at 4); 5 heavy freight ~$1500 (trailer $900 + Fre
 (0.6 km), ~$295 at 6–10 (roaming, 2.3 km), ~$370 at 12+; all ≈ **$48–60 per estimated minute at every level**
 (sled upgrades only raise it by beating the estimate). First upgrade (Woodsman $600 at 4 deliveries) ≈ 4–5
 round-town jobs ≈ 15 game-min: on target. After that a single contract outpays 6 parcels.
+Cadence (b93 `g2_cadence.mjs`, greedy best-$/min player, game's own est-minutes; real riding ran ~2.4x faster than est
+on early legs): every sled is bought the delivery it unlocks. Est-min from a new save: Woodsman 12–14, Ranger 40–44,
+Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 410 (parcels-only 418, 5 deliveries late on
+cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
@@ -118,11 +122,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       91 → 0, runs with a clip 2/12 → 0/12, min clearance −0.14 → 0.57 m. Trees within 2.6 m of the lens now screen-door out
       (breezeMat dither). Unjudged: the dither in motion (shimmer/crawl at 60 fps?), close chase (`CT_VIEW=1`), on foot in a
       forest, first person brushing a pine, at night. Birches skipped (bare limbs).
-- [ ] G2 (report 0082 F1): a new save reaches $600 in ~185 game-s even capped at ~40 mph (4 deliveries, $112–225 each).
-      b92 decision: NOT slowing it. The 10–15 min target was the loop's own guess, a quick first upgrade is good onboarding,
-      and the Woodsman is gated by 4 deliveries anyway (cutting pay is friction, against "easier = less friction"). Next:
-      measure the cadence after it (Ranger $900/8 deliveries, Sprint $1700/13) with `g2_first5min_chain_capped.mjs`
-      extended; retune only if a later step is a long dry grind or a trap.
+- [ ] G2 (low, owner-canon numbers; b93 `g2_cadence.mjs`): past the Ranger, cash never gates a sled. A player who rigs
+      a trailer at rank 5 (licence + receiver + trailer) and takes the best $/min job holds $2.4k left after buying the
+      Ranger, $10k after the Sprint, $53k after the Apex, $106k after the Matriarch ($320k at 70 deliveries): heavy
+      freight (~$1.5k) and priority (~$2.45k) outpay parcels 5–10x. Sled costs/needs and contract pay are all Lemon's
+      pre-loop numbers (97fe993, 27 Sep), so the loop does NOT retune them. Levers that keep canon, if a later pass wants
+      one: more things worth buying mid-ladder (depot cabins/Real Estate, engines, Bytteboden), or costs on the big
+      jobs (bond losses, wear on the rig). Parcels-only player: cash gates only the Matriarch (+5 deliveries).
+      Longest dry stretch is Apex → Matriarch, 14 deliveries / ~150 est-min (Lemon's `need` 32 → 46), unchanged.
 - [ ] G1 (low, playtest, follow-up to v146 tree wells): riding through stands judged clean by report 0081 (4/4 passes, no
       pop-in or seams; the dish isn't legible from the chase cam, by design). Unjudged: walking round a trunk by hand, and in
       a storm (refill fills a well back only to its own f, so it should stay).
