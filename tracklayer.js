@@ -467,7 +467,7 @@ const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uT
 // it rakes (clear-day sun as the key light, else 0: no moon/headlight shadows from it). The patch marches the drift
 // height toward the real 4° winter sun and darkens the direct light on lee sides of ripples and swells.
 const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 }, uSunRef: { value: new THREE.Color(1, 1, 1) }, uSunK: { value: 1.0 }, uSunW: { value: sunDir },
-  uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 } };
+  uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 }, uDrT: { value: 0 }, uDrW: { value: new THREE.Vector2(1, 0) } };
 // Lake skin (v109): a frozen Finnmark lake is wind-scoured ice under streaks of thin snow, not one flat grey-blue disc.
 // lkBare(p, fine) = 0 snow-streaked .. 1 bare scoured ice, in long streaks along the north-westerly (~80 x 17 m, bent by
 // a slow wander, plus 25 x 4 m fine streaks weighted by `fine`) with about half bare. The patch and the far terrain both read
@@ -509,7 +509,7 @@ patchMat.onBeforeCompile = sh => {
   // Drift shadows (v100): the lifted key light alone leaves the foreground evenly lit, but under a real 4° sun every
   // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
   // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -517,6 +517,7 @@ patchMat.onBeforeCompile = sh => {
      // mean as the pixel's ground footprint nears the ripple's half-period (v152): at full strength the fine octave turned
      // into crisp pixel-scale hatching ~10-15 m out from the chase camera, the hard "LOD line" Lemon saw at 30-40 ft.
      float tlKf = 1.0, tlKc = 1.0;
+     float tlSd = 0.0;
      float tlDrift(vec2 p) {
        vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
        q.y += (tlN(p * 0.03) - 0.5) * 22.0;                                 // the wind wanders: ripples bend across the fell
@@ -542,6 +543,27 @@ patchMat.onBeforeCompile = sh => {
             for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 4.0 - tE * d); d *= 1.75; }
             tlSh = 1.0 - smoothstep(0.0, 0.04 + tlFp * 0.2, occ) * 0.8 * relief * uMicroK;   // lee edge softens with the footprint
           }
+        }
+      }
+      // Spindrift (v154): the wind lifts loose powder and sends it skimming over the surface in pale streaks that slide
+      // downwind in gusty bands, so the open snow is never a still picture. Loose snow only (not packed trails, ice or
+      // rock), stronger with the wind, faded by pixel footprint and distance like the ripples so it adds no LOD line.
+      tlSd = 0.0;
+      {
+        float wl = length(uDrW);
+        float loose = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - smoothstep(0.55, 0.78, vSlopeY)) * (1.0 - 0.7 * uWet);
+        float dd = distance(vWP, cameraPosition);
+        float fade = loose * (1.0 - smoothstep(0.05, 0.45, tlFp)) * (1.0 - smoothstep(30.0, 70.0, dd));
+        if (fade > 0.01 && wl > 0.05) {
+          vec2 wd = uDrW / wl, wn = vec2(-wd.y, wd.x);
+          float spd = 0.8 + wl * 1.6;
+          vec2 p = vWP.xz - wd * (uDrT * spd);
+          vec2 q = vec2(dot(p, wd), dot(p, wn));
+          float streak = tlN(vec2(q.x * 0.22, q.y * 2.6)) * 0.65 + tlN(vec2(q.x * 0.6 - uDrT * 0.4, q.y * 6.5)) * 0.35;
+          streak = smoothstep(0.52, 0.86, streak);
+          vec2 g = vWP.xz - wd * (uDrT * spd * 0.55);
+          float gust = smoothstep(0.35, 0.8, tlN(vec2(dot(g, wd) * 0.035, dot(g, wn) * 0.05)));
+          tlSd = streak * gust * smoothstep(0.25, 1.6, wl) * fade;
         }
       }`).replace("#include <color_fragment>", `
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
@@ -570,6 +592,7 @@ patchMat.onBeforeCompile = sh => {
       diffuseColor.rgb *= col;
       float skyW = (1.0 - rock) * (1.0 - bare) * (1.0 - 0.7 * uWet);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
       { outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
+        outgoingLight = outgoingLight * (1.0 - 0.05 * tlSd) + uSkyRef * 0.09 * tlSd;
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
       ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= tlSh; reflectedLight.directSpecular *= tlSh;\n#include <aomap_fragment>");
@@ -2077,6 +2100,7 @@ function updFlakes(dt) {
   const stw = 1 + 1.6 * GS.storm, wx = (Math.sin(windT * 0.21) * 2.6 + 2.2) * stw, wz = Math.cos(windT * 0.17) * 2.0 * stw;
   const nFl = Math.round(5200 + 6800 * GS.storm); flGeo.setDrawRange(0, nFl);
   CSMK.wx = wx; CSMK.wz = wz;
+  skyRefU.uDrT.value = windT; skyRefU.uDrW.value.set(wx * 0.42 / Math.sqrt(stw), wz * 0.42 / Math.sqrt(stw));
   windU.uTime.value = windT; windU.uWind.value.set(wx * 0.42 / Math.sqrt(stw), wz * 0.42 / Math.sqrt(stw));
   // flakes rush past the camera, growing exponentially with speed
   const sp = Math.hypot(P.vx, P.vz), rush = Math.min(70, (Math.exp(sp / 12) - 1) * 2.4), rx = sp > 0.1 ? -P.vx / sp * rush : 0, rz = sp > 0.1 ? -P.vz / sp * rush : 0;

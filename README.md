@@ -24,6 +24,8 @@ is easier wading; on the sled it's a dip you feel. Birches are bare and barely c
 pine's snow-laden tiers the green branch tips hang out ragged and drooping, not in a level lampshade hem,
 and the snow on each tier sags down onto those tips in a ragged zigzag edge instead of a smooth band.
 
+Loose snow is never still: in any wind the surface shows spindrift, pale filaments of powder that skim downwind in gusty bands (faster and denser as the wind picks up, absent on packed trails, ice and rock, and faded by distance like the ripples).
+
 ## Playing
 
 The title menu sits over the live world: your sled parked at the quay in the low morning sun.
