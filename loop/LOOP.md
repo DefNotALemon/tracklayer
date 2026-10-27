@@ -113,9 +113,11 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1 (playtest, follow-up to v145 ski obstacle slide): `g1_ski_forest` 0/9 stuck now. Unjudged: skiing into a trunk
-      fast downhill (thud threshold sq > 0.55 at > 3.5 m/s: too forgiving / too harsh?), skis along a house wall (o.ax
-      slide), and how the sidestep looks from the chase camera at glide speed (a sideways shuffle on skis?).
+- [ ] G1/G3 (playtest, follow-up to v146 tree wells): `g1_treewell.mjs` depth at 0.6/1.2/2/3 m from a pine 0.73 → 0.36/
+      0.52/0.68/0.73 m (open 0.77). Unjudged: walking round a trunk by hand (does the dish feel like easier footing or a
+      stumble?), riding the sled through a pine stand (dips felt as bumps? crash rate vs before), how the wells look from
+      the real chase camera at ride distance (do trunks "grow" out of the snow as the near patch reaches them ~40 m out?),
+      and in a storm (refill fills a well back only to its own f, so it should stay).
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
@@ -181,7 +183,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       design, no action). Report 0076 (`g3_drip_ride.mjs`): reads as a crisp line on red houses at 15–20 m; on the white
       grey-trim house faint at 15 m, gone at 25 m (low; idea: darker drip tint on white-trim houses only).
       Playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
-      the T-key garage approach; also v116 houses in the villages (Mehamn/Gamvik) for moire.
+      the T-key garage approach. Report 0079: village houses (Mehamn/Gamvik) clean of moire at 20 m and 8 m, night legible
+      (closed). Left: corrugated shed sheen with a genuinely moving camera.
 - [ ] G3: Daylight slice 8 (v79 warm sun, v77 sheen, v76 blue fill): open backcountry is now warm near / blue far,
       but still low-contrast overall (`g3_day` 05 band b−r spread 13, sd 8.9; luma flat). Next lever is real
       variation, not tint: e.g. denser/larger far drift relief or sun-facing slopes on the far ring catching more
@@ -252,10 +255,6 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G1 (low, playtest, follow-up to v136/v137 shore slide): stuck 3 → 0, avg 2.73 → 5.53 m (report 0070); skiing and the
       pier edge clean (0069). Only left: a long diagonal beach walked by hand (does the 4 m sea-mask staircase make the
       walker zig-zag visibly?), stills from the chase camera.
-- [ ] G3/G1 (idea, b87): tree wells. Snow under a dense pine/spruce stand is as deep as open ground (0.86–0.9 m inside vs
-      0.87–0.96 m round it). Real conifers intercept snow: a shallower dish round each trunk (birch barely, it's leafless).
-      Would read as real forest snow and give the walker shallower footing by trunks. Needs care: the near deformable
-      patch vs far terrain hand-over (pop-in), trunk/cap y placement, and `freshCell` must match `getChunk`.
 - [ ] G2 (low): Late ladder polish (slices 1–3 done: v85 fell/Apex, v86 tonne/Matriarch, v87 clean-air/Aurora,
       `scenarios/g2_fell.mjs`, `g2_cleanair.mjs`; v98 TONNE chip, `g2_tonnechip.mjs`).
       Report 0026 F2: the gates are insurance/rating rules, not physics (Summit hauls 500 kg up a 0.38 grade at 33 mph
@@ -312,4 +311,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 78
+Last triaged report: 80

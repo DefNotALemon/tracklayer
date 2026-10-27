@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 21:10 — Pines stand in tree wells (G1/G3) — 93622ee
+Triage: 0079 (v144 narrow-gap verified 0/12; village houses Mehamn/Gamvik clean of moire at 20/8 m, night legible) closes
+the village-moire ask in the buildings item; 0080 verified v145 (downhill trunk hit = one thud then free, skis slide along
+a house wall like on foot, chase-cam weave reads as a glide): v145 follow-up item closed. No new bugs in either.
+Took the b87 tree-well idea (no buildable item left above it; G3 had no landing since v140). New hoisted `treeWell(x, z)`
+folded into `freshBase` (so getChunk, restCell and freshCell agree): each pine (obGrid `o.pine`) digs a smoothstep dish,
+up to 62% of the depth gone at the trunk, back to full at 2.3 m × scale (the lowest branch ring); birches none.
+`var WELLS_ON` flips after buildPines (hoisted, no TDZ). New `g1_treewell.mjs` (3 densest flat pine stands, 7 pines each):
+depth at 0.6/1.2/2/3/5 m from a trunk 0.73/0.73/0.73/0.73/0.73 → 0.36/0.52/0.68/0.73/0.70 m (open 0.77). `g1_forest`
+(mixed stands, W held 30 m): stuck 0/12, pass 24.0 → 23.7 s, stall 0, flips 0 (the line mostly misses well cores).
+Stills (tlloop/b91/sheet5.jpg, before = git archive origin/main): low 1 m view, background pines now show brown trunk
+feet under the skirts instead of being buried to the branches; no holes, rings or floating trees. smoke exit 0, page
+errors none (67.4 mph, powder 1.52, trench 2.23). README; v146.
+Next: playtester rides/walks through a stand and judges the wells from the chase camera (pop-in at ~40 m?).
+
 ## 2026-10-26 20:40 — Skiing through trees slides you round trunks instead of pinning you (G1) — 359b1f6
 No new reports since 0078. Took its top item: `skiStep` resolved trees only with footBlock's radial snap, so skis aimed
 at a trunk were re-clamped to the same spot every frame. footStep's obstacle block (summed-normal wall slide, v142
