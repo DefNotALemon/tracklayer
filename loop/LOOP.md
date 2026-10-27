@@ -84,7 +84,7 @@ the title screen and at the quay.
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
-- (none yet)
+- **26 Oct 23:40, Lemon: smoother snow LOD (top priority until he's happy).** He likes the visual changes so far, but about 30-40 ft (9-12 m) from the player is the most visible line where the snow changes drastically. Make that transition invisible: no ring, band or sharp change in brightness, ripple detail, sparkle, shading or texture as distance grows; everything should fade gradually over a wide range. Find the real cause from stills first (a still from the chase cam on the open fell at noon AND at night, plus a ground-level shot looking along the snow; crop and zoom on the 8-14 m band; also try each candidate switched off). Candidates: the sastrugi/ripple normal aliasing or its fine octave at grazing angles, the micro drift-shadow march (uMicroK), sparkle/glitter, snow texture mip/anisotropy switch, the sun shadow-map span/cascade edge, the sky-sheen (glancing) term, the 25 cm grid blur. Fix with distance/footprint-based fades (fwidth/derivatives), not by deleting the detail near the player. Re-check the 45 m patch→far-terrain handover too while there. Verify before/after on the same views at several hours, and on the GFX low preset. Playtester: verify every builder attempt at this from the rider's normal view.
 
 ## Progression map
 First audit 26 Oct 01:25 (`scenarios/g2_ladder.mjs`: stats as `stats()` computes them with stock parts; boards
@@ -117,6 +117,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G3 (OWNER, top): smooth the snow LOD line ~9-12 m from the player (see Owner notes 26 Oct 23:40).
 - [ ] G3 (playtest, follow-up to v151 chimney smoke): `g3_chimney.mjs`: 68 chimneys (50 lit KIT.house + 18 sites) now puff a
       wind-leaning grey plume (`CSMK`, 1100-puff Points pool, +1 draw call, 0.005 ms/frame). Unjudged: at ride distance and
       riding through town (does the plume read, any sorting pops against the windows/lamp pools?), in a storm (laid flat
