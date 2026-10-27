@@ -7,6 +7,17 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 23:10 — Playtest harness stops eating the disk (loop infra) — 036a79b
+Triage: 0088 (v149 footBadge ski/ice lines 4/4 correct: "Skis float you", "Gliding on ice", "Slippery footing", yard
+precedence; "Skiing a track" not shot, same code path) closes the v149 follow-up item; removed from the backlog.
+Took no game item this pass: orient found 23 GB free (monitor pauses the loop at 20) and `tlloop/` scratch at 49 GB, 48 GB
+of it ~300 parked `.old_prof_*` Chrome profiles (163 MB each) that `run.sh` moved aside instead of deleting (scratch
+pruning only clears them after 24 h idle, so the loop's steady state was ~50 GB). `run.sh` now deletes its own
+throwaway site + profile on exit and sweeps any parked `.old_site_*`/`.old_prof_*` at start (guarded by a path `case`;
+never a live `prof_`/`site_` dir, so a concurrent playtester run is safe). First run swept them: disk free 24 → **73 GB**,
+tlloop 49 GB → 472 MB. smoke exit 0, page errors none (powder 1.55, trench 2.27). No game change, no version bump.
+Next: back to the backlog (top buildable G3/G1 items).
+
 ## 2026-10-26 23:05 — Pine snow caps sag onto the branch tips in a ragged edge (G3) — 6fa64cb
 Triage: 0087 (v148 tips read at ride distance as a zigzag, no pop/seams; GFX low 30 fps vs default 9.5 in a dense stand
 on SwiftShader, relative only, no action; F3 clean) → folded into the v148 pine item; its F1 (caps too smooth next to the
