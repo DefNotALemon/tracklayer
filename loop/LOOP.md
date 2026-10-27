@@ -85,6 +85,7 @@ the title screen and at the quay.
 
 ## Owner notes (Lemon edits here; overrides everything above)
 - **26 Oct 23:40, Lemon: smoother snow LOD (top priority until he's happy).** He likes the visual changes so far, but about 30-40 ft (9-12 m) from the player is the most visible line where the snow changes drastically. Make that transition invisible: no ring, band or sharp change in brightness, ripple detail, sparkle, shading or texture as distance grows; everything should fade gradually over a wide range. Find the real cause from stills first (a still from the chase cam on the open fell at noon AND at night, plus a ground-level shot looking along the snow; crop and zoom on the 8-14 m band; also try each candidate switched off). Candidates: the sastrugi/ripple normal aliasing or its fine octave at grazing angles, the micro drift-shadow march (uMicroK), sparkle/glitter, snow texture mip/anisotropy switch, the sun shadow-map span/cascade edge, the sky-sheen (glancing) term, the 25 cm grid blur. Fix with distance/footprint-based fades (fwidth/derivatives), not by deleting the detail near the player. Re-check the 45 m patch→far-terrain handover too while there. Verify before/after on the same views at several hours, and on the GFX low preset. Playtester: verify every builder attempt at this from the rider's normal view.
+- **26 Oct 23:55, Lemon: same LOD problem on mountains.** Mountains look grey from far away, then turn white as you get closer: a distance-based colour/LOD switch, not real lighting. Snow-covered fells should stay snow-white (with honest aerial perspective/haze and shade) at every distance, and the change as you approach must be gradual and unnoticeable. Suspects: far-terrain rock/scree blend (v90 thin-snow rock per pixel), far-terrain material vs near patch colour/albedo mismatch, far shading/drift tint (v74/v88/v101), haze/fog colour, mip-level averaging of the far snow/rock texture. Measure: shoot the same fell from 2000/1000/500/200/100/50 m along one line, sample its mean colour per shot, and make the curve smooth. Part of the same top-priority owner item.
 
 ## Progression map
 First audit 26 Oct 01:25 (`scenarios/g2_ladder.mjs`: stats as `stats()` computes them with stock parts; boards
@@ -118,6 +119,7 @@ Order = priority. Builder keeps it ordered; ties go to whichever goal has had th
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
 - [ ] G3 (OWNER, top): smooth the snow LOD line ~9-12 m from the player (see Owner notes 26 Oct 23:40).
+- [ ] G3 (OWNER, top): mountains grey far away, white up close; make snow colour consistent over distance (Owner notes 26 Oct 23:55).
       b100 slice 1 (v152, 33557bf): cause = the patch's sastrugi fine octave (0.38 m) + its lee-shadow march turning
       into crisp pixel-scale hatching from ~10 m out at chase-cam height (switch-off stills in tlloop/b100/before:
       no_relief/no_micro both move the band; sparkle/sheen/warm don't). Fix: per-pixel footprint (dFdx/dFdy of vWP)
