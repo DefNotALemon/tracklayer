@@ -513,15 +513,22 @@ patchMat.onBeforeCompile = sh => {
     `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
+     // tlKf/tlKc: how much of the fine (0.38 m) and coarse (0.9 m) ripple octave this pixel can show. Each fades to its
+     // mean as the pixel's ground footprint nears the ripple's half-period (v152): at full strength the fine octave turned
+     // into crisp pixel-scale hatching ~10-15 m out from the chase camera, the hard "LOD line" Lemon saw at 30-40 ft.
+     float tlKf = 1.0, tlKc = 1.0;
      float tlDrift(vec2 p) {
        vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
        q.y += (tlN(p * 0.03) - 0.5) * 22.0;                                 // the wind wanders: ripples bend across the fell
        float sw = tlN(p * 0.06);                                            // ripples gather in patches, not everywhere
-       return (tlN(q * vec2(0.25, 1.1)) * 0.05 + tlN(q * vec2(0.7, 2.6)) * 0.015) * (0.35 + sw) + tlN(p * 0.09) * 0.35;
+       return (mix(0.5, tlN(q * vec2(0.25, 1.1)), tlKc) * 0.05 + mix(0.5, tlN(q * vec2(0.7, 2.6)), tlKf) * 0.015) * (0.35 + sw) + tlN(p * 0.09) * 0.35;
      }\n` +
     sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float tlSh = 1.0;
+      // ground metres one pixel spans here (grows with distance and with how grazing the view is)
+      float tlFp = max(length(dFdx(vWP.xz)), length(dFdy(vWP.xz)));
       {
+        tlKf = 1.0 - smoothstep(0.03, 0.17, tlFp); tlKc = 1.0 - smoothstep(0.15, 0.6, tlFp);
         float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
         float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet)
           * (1.0 - smoothstep(34.0, 50.0, distance(vWP, cameraPosition)));
@@ -533,7 +540,7 @@ patchMat.onBeforeCompile = sh => {
             float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
             float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 0.3;
             for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 4.0 - tE * d); d *= 1.75; }
-            tlSh = 1.0 - smoothstep(0.0, 0.04, occ) * 0.8 * relief * uMicroK;
+            tlSh = 1.0 - smoothstep(0.0, 0.04 + tlFp * 0.2, occ) * 0.8 * relief * uMicroK;   // lee edge softens with the footprint
           }
         }
       }`).replace("#include <color_fragment>", `
@@ -557,7 +564,9 @@ patchMat.onBeforeCompile = sh => {
       vec2 cellp = floor(vWP.xz*9.0);
       float rnd = fract(sin(dot(cellp, vec2(12.9898,78.233)))*43758.5453);
       float tw = fract(rnd*37.0 + dot(normalize(vWP - cameraPosition), vec3(4.0,6.0,5.0)));
-      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 0.9;
+      // glints are 11 cm cells: past the distance where a pixel spans a few of them they only speckle, so ease them out
+      float spFp = max(length(dFdx(vWP.xz)), length(dFdy(vWP.xz)));
+      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 0.9 * (1.0 - smoothstep(0.04, 0.2, spFp));
       diffuseColor.rgb *= col;
       float skyW = (1.0 - rock) * (1.0 - bare) * (1.0 - 0.7 * uWet);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
       { outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
@@ -565,6 +574,7 @@ patchMat.onBeforeCompile = sh => {
         outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
       ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= tlSh; reflectedLight.directSpecular *= tlSh;\n#include <aomap_fragment>");
 };
+patchMat.extensions = { derivatives: true };   // dFdx/dFdy pixel footprint on a WebGL1 fallback (built in on WebGL2)
 const patchMesh = new THREE.Mesh(patchGeo, patchMat);
 patchMesh.frustumCulled = false; patchMesh.receiveShadow = true;
 scene.add(patchMesh);
