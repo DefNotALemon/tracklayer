@@ -120,8 +120,16 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (playtest, follow-up to v147 camera vs pines, report 0081 F1/F2): `g3_camtree.mjs` (3 stands × 2 headings × 2
       offsets, per-frame clearance from the nearest pine canopy envelope): frames inside a canopy 33 → 0, closer than 0.3 m
       91 → 0, runs with a clip 2/12 → 0/12, min clearance −0.14 → 0.57 m. Trees within 2.6 m of the lens now screen-door out
-      (breezeMat dither). Unjudged: the dither in motion (shimmer/crawl at 60 fps?), close chase (`CT_VIEW=1`), on foot in a
-      forest, first person brushing a pine, at night. Birches skipped (bare limbs).
+      (breezeMat dither). Report 0083: close chase (`CT_VIEW=1`) 0/4 inside, night clean, no shimmer seen (closed).
+      b94 on foot (`g3_camtree_walkcam.mjs`, 12 walks through 3 dense pine stands, main @ b697853): 0 frames inside a canopy,
+      but the camera sits pinned at the 0.6 m clip margin, 49% of frames have a canopy within 1.6 m of the lens (a pale
+      screen-doored slab over half the screen in stills) and 35% of frames the sight line to the walker's head runs
+      through a canopy. Tried an on-foot spring-arm boom (`camPineBoom`, patch kept at scratch
+      tlloop/b94/pineboom_springarm.patch): occluded 35% → 20% but near-lens frames 49% → 63% (the camera ends up among
+      the trunks round the walker) and camera pumping (>0.15 m/frame jumps 8 → 353); stills showed no visible gain, so
+      NOT landed. Next idea if retaken: judge with the walker actually in shot (dismount with Q), and consider fading the
+      dither faster (gone by ~1.2 m) or lifting the on-foot camera in a stand rather than shortening the boom.
+      Still unjudged: first person brushing a pine. Birches skipped (bare limbs).
 - [ ] G2 (low, owner-canon numbers; b93 `g2_cadence.mjs`): past the Ranger, cash never gates a sled. A player who rigs
       a trailer at rank 5 (licence + receiver + trailer) and takes the best $/min job holds $2.4k left after buying the
       Ranger, $10k after the Sprint, $53k after the Apex, $106k after the Matriarch ($320k at 70 deliveries): heavy
@@ -196,7 +204,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       0x9aa3ab under the snow. Report 0066 verified v131 (no seams; same sheen on 5 houses from the same angle, by design).
       Report 0067 verified v132 drip edge at 15–20 m (red + grey trim); fades into the roofline by 25 m and at night (by
       design, no action). Report 0076 (`g3_drip_ride.mjs`): reads as a crisp line on red houses at 15–20 m; on the white
-      grey-trim house faint at 15 m, gone at 25 m (low; idea: darker drip tint on white-trim houses only).
+      grey-trim house faint at 15 m, gone at 25 m (low; idea: darker drip tint on white-trim houses only). b94 re-shot g3_drip_ride: the white house drip reads as a dark line at 15 m and still at 25 m (tlloop/b94/before), no change made.
       Playtester: judge the sliding sheen in motion along a street for a repeated-stripe look; playtester: judge the pump LCD at ride distance (moire?). Playtester: judge v117 sheds at ride distance and the garage from
       the T-key garage approach. Report 0079: village houses (Mehamn/Gamvik) clean of moire at 20 m and 8 m, night legible
       (closed). Left: corrugated shed sheen with a genuinely moving camera.
@@ -326,4 +334,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 82
+Last triaged report: 83

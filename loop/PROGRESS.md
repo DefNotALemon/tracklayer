@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 22:10 — On-foot camera in a pine stand measured; spring-arm boom tried, not landed (G3) — harness only
+Triage: 0083 (v147 at close chase 0/4 inside a canopy, min 0.57–5.46 m; night clean; no shimmer) closes those asks on
+the top item; its F3 (dither texture unproven in a still) is by design, no action. Also re-shot `g3_drip_ride` (white-trim
+drip edge reads at 15 and 25 m): that idea dropped, no change.
+Took the top item's on-foot half. New `g3_camtree_walkcam.mjs` (12 walks, 3 dense pine stands, W held, per-frame clearance,
+near-lens frames, sight line to the walker's head, camera jumps). main: inside 0/9231, but 49% of frames a canopy within
+1.6 m of the lens, 35% walker occluded by a canopy, 8 jumps > 0.15 m/frame. Built `camPineBoom` (on-foot spring arm:
+march along the pulled-in path, bisect, glide in ~10/s): stop 0.6 m short → occluded 20%, near-lens 63%, jumps 353; stop
+1.6 m short → occluded 21%, near-lens 63%, jumps 706. Vision on before/0.6/1.6 sheets (tlloop/b94/cmp3.jpg): no visible
+difference, the near-lens slabs come from trees beside the walker, not behind him. Not landed (more camera motion for no
+visible gain); patch kept at tlloop/b94/pineboom_springarm.patch. Harness note: FOOT.on set directly leaves the walker
+figure undrawn; dismount with Q for stills. Scenario committed, no game change (no smoke needed).
+Next: if retaken, judge with the walker in shot and try a faster dither fade or a lifted camera in stands; else the next
+buildable item.
+
 ## 2026-10-26 21:45 — Ladder cadence measured past the first upgrade (G2) — harness only, no game change
 No new reports since 0082. Took the 0082 F1 follow-up (measure the cadence after the Woodsman). New `g2_cadence.mjs`:
 a modelled player on real boards (makeJobs/makeContracts at the live GS state, contractBlock filter, best pay/est-min,
