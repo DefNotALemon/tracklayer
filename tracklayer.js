@@ -820,8 +820,23 @@ const PINE_CELL = 512;
 function pineGeos() {
   const green = [0.10, 0.20, 0.15], snowC = [0.92, 0.95, 1.0];
   const caps = [], parts = [paint(new THREE.CylinderGeometry(0.16, 0.24, 2.2, 6).translate(0, 1.1, 0), () => [0.33, 0.2, 0.13])];
-  [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]].forEach(([r, h, y]) => {
-    parts.push(paint(new THREE.ConeGeometry(r, h, 7).translate(0, y, 0), (x, py, z, ny) => {
+  [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]].forEach(([r, h, y], ti) => {
+    // report 0084 F3: the green skirt under each snow cap was a 7-sided cone with a dead-level hem, so every tier read as
+    // a lampshade. Now 14 sides, and the hem is a ring of drooping branch tips (alternate vertices reach out and hang
+    // down, the ones between tuck in and up), each tier turned so tips don't line up with the tier above.
+    const NS = 14, gc = new THREE.ConeGeometry(r, h, NS, 2), gp = gc.attributes.position, b0 = -h / 2, ph = ti * 0.9;
+    for (let v = 0; v < gp.count; v++) {
+      const vx = gp.getX(v), vy = gp.getY(v), vz = gp.getZ(v), rr = Math.hypot(vx, vz);
+      if (rr < 1e-4) continue;
+      const t = (vy - b0) / h, ang = Math.atan2(vx, vz), k = ((Math.round(ang / (Math.PI * 2 / NS)) % NS) + NS) % NS;   // three's cone theta (x = sin, z = cos); the seam's ±π twins share one k
+      const tip = (k & 1) === 0, j = hash(k * 13 + ti * 71, ti * 7 + 3) - 0.5;
+      let rs = 1 + 0.07 * Math.sin(Math.PI * t), dy = 0;
+      if (t < 0.01) { rs = tip ? 1.13 + j * 0.12 : 0.86 + j * 0.06; dy = tip ? -0.22 - j * 0.12 : 0.12; }
+      const a2 = ang + ph, rad = rr * rs;
+      gp.setXYZ(v, Math.sin(a2) * rad, vy + dy, Math.cos(a2) * rad);
+    }
+    gc.computeVertexNormals();
+    parts.push(paint(gc.translate(0, y, 0), (x, py, z, ny) => {
       const t = clamp((py - (y - h / 2)) / h, 0, 1), s = ny < -0.5 ? 0 : 0.12 + t * 0.12;
       return [lerp(green[0], snowC[0], s), lerp(green[1], snowC[1], s), lerp(green[2], snowC[2], s)];
     }));
