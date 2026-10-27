@@ -803,7 +803,13 @@ function breezeMat(snowy) {
       mvPosition.xz += uWind * bend * (1.0 + sway);
       mvPosition.y -= bend * 0.08 * length(uWind);
       mvPosition = modelViewMatrix * mvPosition;
+      vCamD = -mvPosition.z;
       gl_Position = projectionMatrix * mvPosition;`);
+    // report 0081: a trunk or skirt right at the lens (riding close past a pine, the chase cam trailing on your line) filled
+    // the screen with flat green. Within 2.6 m of the camera the tree screen-doors out (stable per-pixel dither, gone by 0.8 m).
+    sh.vertexShader = "varying float vCamD;\n" + sh.vertexShader;
+    sh.fragmentShader = "varying float vCamD;\n" + sh.fragmentShader.replace("void main() {", `void main() {
+      if (vCamD < 2.6) { float nk = clamp((vCamD - 0.8) / 1.8, 0.0, 1.0); if (fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) > nk) discard; }`);
   };
   return m;
 }
@@ -3524,6 +3530,7 @@ function updVisuals(dt) {
     if (!camState.init) { camera.position.copy(want); camState.init = true; }
     else camera.position.lerp(want, 1 - Math.exp(-6 * dt));
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
+    if (view.d < 10) camTreeClip(camera.position);                       // not inside a pine's skirt either (report 0081)
     const wk = view.d < 10 ? camWallClip(FXp, FYp + 1.3, FZp, camera.position) : 1;   // not inside the house behind you (the drone view flies over)
     camState.wallK = (camState.wallK ?? 1) + (wk - (camState.wallK ?? 1)) * (1 - Math.exp(-8 * dt));
     const la = (4 + CLIMB.v * 4) * (0.35 + 0.65 * camState.wallK);   // pulled in close: aim nearer, so the rider stays in frame
@@ -10015,6 +10022,40 @@ function camWallClip(fx, fy, fz, c) {
     }
   if (tMin < L) { const k = Math.max(0.6, tMin - 0.3) / L; c.x = fx + dx * k; c.y = fy + (c.y - fy) * (0.5 + 0.5 * k); c.z = fz + dz * k; return k; }
   return 1;
+}
+/* ---- chase camera vs pine canopies (report 0081 F1: passing close under a pine's low branches, the chase cam trailing on
+   the sled's line went INTO the skirt and the screen filled with flat dark-green backfaces for about a second). Each
+   pine's canopy is the pineGeos tier cones (green cone + its snow cap, scaled s across / sy up from its base o.y); if
+   the camera is inside one plus a 0.6 m margin it slides straight out sideways from the trunk to the surface. The spot
+   persists into next frame's lerp, so the camera glides round the skirt instead of snapping. Birches are bare limbs:
+   left out. Whatever is still within 2.6 m of the lens screen-doors out in breezeMat. g3_camtree.mjs counts the frames the camera spends inside a canopy. */
+function pineCanopyR(o, yy) {
+  const h = (yy - o.y) / o.sy; let R = 0;
+  if (h < 1 || h > 8.6) return 0;
+  const T = pineCanopyR.T || (pineCanopyR.T = [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]]);   // pineGeos tiers [r, h, y]; a function static, so no TDZ
+  for (const [r, th, y] of T) {
+    const b = y - th / 2; if (h >= b && h <= b + th) R = Math.max(R, r * (1 - (h - b) / th));
+    const ch = th * 0.86, cb = y + th / 2 + 0.1 - ch; if (h >= cb && h <= cb + ch) R = Math.max(R, r * 1.12 * (1 - (h - cb) / ch));
+  }
+  return R * o.s;
+}
+function camTreeClip(c) {
+  for (let pass = 0; pass < 2; pass++) {
+    let moved = false;
+    const i0 = Math.floor((c.x - 3 + HALF) / OBC), i1 = Math.floor((c.x + 3 + HALF) / OBC), j0 = Math.floor((c.z - 3 + HALF) / OBC), j1 = Math.floor((c.z + 3 + HALF) / OBC);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (!o.pine || o.down) continue;
+        const R = pineCanopyR(o, c.y); if (R <= 0) continue;
+        const dx = c.x - o.x, dz = c.z - o.z, d = Math.hypot(dx, dz), need = R + 0.6;
+        if (d >= need) continue;
+        const ux = d > 1e-3 ? dx / d : 1, uz = d > 1e-3 ? dz / d : 0;
+        c.x = o.x + ux * need; c.z = o.z + uz * need; moved = true;
+      }
+    }
+    if (!moved) return;
+  }
 }
 function obNear(x, z, R) {
   for (let j = Math.floor((z - R + HALF) / OBC); j <= Math.floor((z + R + HALF) / OBC); j++) for (let i = Math.floor((x - R + HALF) / OBC); i <= Math.floor((x + R + HALF) / OBC); i++) {
