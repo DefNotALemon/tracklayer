@@ -118,6 +118,16 @@ Order = priority. Builder keeps it ordered; ties go to whichever goal has had th
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
 - [ ] G3 (OWNER, top): smooth the snow LOD line ~9-12 m from the player (see Owner notes 26 Oct 23:40).
+      b100 slice 1 (v152, 33557bf): cause = the patch's sastrugi fine octave (0.38 m) + its lee-shadow march turning
+      into crisp pixel-scale hatching from ~10 m out at chase-cam height (switch-off stills in tlloop/b100/before:
+      no_relief/no_micro both move the band; sparkle/sheen/warm don't). Fix: per-pixel footprint (dFdx/dFdy of vWP)
+      fades the fine octave (fp 0.03→0.17 m) and coarse one (0.15→0.6) to their mean, softens the lee-shadow edge by
+      fp, eases glints out (0.04→0.2). `g3_snowlod.mjs` + `snowband.py` (fine detail per band, sled masked) noon
+      9-12/12-15/15-25/25-45 m 0.49/0.69/2.62/5.09 → 0.33/0.26/1.04/2.36, night 15-25/25-45 1.59/3.33 → 0.65/1.75.
+      Vision: night hatching band gone; noon gradual, far field a little softer. LEFT: (a) playtester judge from the
+      rider's normal view while RIDING (motion), noon/night/15:00 and GFX low; (b) the 34-50 m relief fade + 45 m
+      patch→far-terrain handover (owner asked to re-check); (c) the low "along the snow" camera in g3_snowlod didn't
+      take (camOv not hooked without sideCam first; shots duplicate the chase view) — fix the scenario.
 - [ ] G3 (playtest, follow-up to v151 chimney smoke): `g3_chimney.mjs`: 68 chimneys (50 lit KIT.house + 18 sites) now puff a
       wind-leaning grey plume (`CSMK`, 1100-puff Points pool, +1 draw call, 0.005 ms/frame). Unjudged: at ride distance and
       riding through town (does the plume read, any sorting pops against the windows/lamp pools?), in a storm (laid flat
@@ -159,6 +169,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       silhouette; landed version keeps tips inward. Unjudged: a faint sliver can still show edge-on on tier 2 at 7 m
       (b97/after4/noon_close7.jpg); judge at ride distance and on a dark night.
       Idea if the hem still reads star-like: vary tip length per tree (instance colour channel) instead of per tier.
+      Report 0089: v150 caps clean at 7/14/30 m, noon + night, no tier-2 sliver (closed; drop this item next edit).
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
@@ -315,6 +326,10 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       265 kg, 2.16 m/s, 2 crashes, card 294% vs 1082%) isn't a card fault yet: flatbed is Ranger-tier (Woodsman can't
       fit it in play) and the scenario's autopilot crashed twice and looped on its own trail. Re-ride on a Ranger with
       the flatbed and hand-steered/hardened nav before treating it as under-warning.
+      Report 0090: Ranger + flatbed 265 kg Ifjord→Gamvik stalled on a climb (31 → 0 mph, world-y 22 → 91, 206 m in 120 s,
+      0 crashes, shallow snow); card empty = laden 279% (identical: check coldRun tow term if touched). Fourth failed
+      autonav attempt: needs a slope-aware steer (sample slopeAt ahead, nudge round grades) or a flat coastal leg.
+      Also worth a look on its own: can a laden Ranger really not restart on its own packed trench on that grade?
 - [ ] G1/G3 (low, playtest, follow-up to v115 snowshoe mesh): slope/night/crash/discoverability all clean (report 0051).
       v115 made the shoes full-size (22×66 cm) with red decks; side view reads clearly (b59/after.jpg). Left: judge them
       from the real chase camera while walking (b59's chase still framed the walker at the screen edge, feet cut off).
@@ -352,4 +367,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 88
+Last triaged report: 90

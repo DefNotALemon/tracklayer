@@ -7,6 +7,22 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 23:40 — Snow LOD line 9-12 m out: fine ripples fade by pixel footprint (G3, OWNER) — 33557bf
+Triage: 0089 (v150 pine caps clean at 7/14/30 m noon+night, no sliver) closes the pine item; 0090 (Ranger+flatbed heavy
+leg stalls on a climb, 4th failed autonav) folded into the coldRun item with a slope-aware-steer note.
+Took Lemon's top-priority owner note. New `g3_snowlod.mjs` (open fell from SPAWN, weather pinned, chase cam at noon/15:00/
+21:00, SL_VARIANTS=1 shoots noon with each patch-shader term switched off) + `snowband.py` (fine-detail local contrast
+per screen band = ground distance, sled masked; A/B crop sheets). Cause from stills: near the sled the ripples are soft
+streaks; from ~10 m the 0.38 m sastrugi octave and its lee-shadow march become crisp pixel hatching (band moves with
+no_relief/no_micro; sparkle/sheen/warmth don't). Fix in the patch shader: footprint `tlFp` from dFdx/dFdy(vWP.xz) fades
+the fine octave (0.03→0.17 m/px) and coarse one (0.15→0.6) to their means inside tlDrift (tilt + shadows both), lee-shadow
+edge softens with fp, glints ease out 0.04→0.2. Fine detail per band noon 9-12/12-15/15-25/25-45 m 0.49/0.69/2.62/5.09 →
+0.33/0.26/1.04/2.36; night 15-25/25-45 1.59/3.33 → 0.65/1.75; near (<9 m) unchanged. Vision (b100/cmp2_noon, cmp2_night):
+night hatching band gone, noon change gradual, far field slightly softer, some far lee-shadow blotches moved/shrank. First
+try (coarse fade 0.08→0.4, shadow edge ×0.4) flattened 20-40 m too much; eased. smoke exit 0, page errors none (powder
+1.54, trench 2.25). README; v152.
+Next: playtester judges riding at rider view (noon/night/GFX low); then the 34-50 m relief fade and 45 m handover.
+
 ## 2026-10-26 23:30 — Wood smoke from every lived-in house's chimney (G3) — c3020dc
 No new reports since 0088. Backlog top items are all low/playtester checks, so took a fresh G3 lever: town and villages
 looked uninhabited. Before: only the 18 `buildSites` chimneys "smoked", via the snow-spray pool (0.42 m white dots,
