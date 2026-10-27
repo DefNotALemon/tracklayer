@@ -117,6 +117,12 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G3 (playtest, follow-up to v151 chimney smoke): `g3_chimney.mjs`: 68 chimneys (50 lit KIT.house + 18 sites) now puff a
+      wind-leaning grey plume (`CSMK`, 1100-puff Points pool, +1 draw call, 0.005 ms/frame). Unjudged: at ride distance and
+      riding through town (does the plume read, any sorting pops against the windows/lamp pools?), in a storm (laid flat
+      or a smear?), polar-night twilight and an aurora. The quay town from 45 m reads faint against a bright hazy noon sky;
+      if the playtester agrees, consider a little more density near the cap only.
+
 - [ ] G3 (low, follow-up to v147 camera vs pines, report 0081 F1/F2): `g3_camtree.mjs` (3 stands × 2 headings × 2
       offsets, per-frame clearance from the nearest pine canopy envelope): frames inside a canopy 33 → 0, closer than 0.3 m
       91 → 0, runs with a clip 2/12 → 0/12, min clearance −0.14 → 0.57 m. Trees within 2.6 m of the lens now screen-door out

@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 23:30 — Wood smoke from every lived-in house's chimney (G3) — c3020dc
+No new reports since 0088. Backlog top items are all low/playtester checks, so took a fresh G3 lever: town and villages
+looked uninhabited. Before: only the 18 `buildSites` chimneys "smoked", via the snow-spray pool (0.42 m white dots,
+gravity −9, so they fell straight back; vision on tlloop/b99/before.jpg: no smoke visible in any of 9 stills); the 50 lit
+`KIT.house` chimneys had none. New `/* chimney smoke */` block: `KIT.chimneys` (lit K.house caps) + site chimneys,
+one Points pool (`CSMK`, 1100 puffs, own ShaderMaterial with fog/tonemapping chunks): puffs 0.45 → 5 m, rise ~1 m/s,
+lean off with the real wind from `updFlakes` (`CSMK.wx/wz`), live 7–11 s, per-chimney draw 0.6–1.3; colour = hemi + 0.35 sun
+× 0.45 each frame (no night glow). Old spray smoke removed. New `g3_chimney.mjs` (quay town 45 m, Mehamn 60 m, Strandbu
+30 m, a town house 17 m; Nov noon / Mar 15:00 / Nov 20:00): chimneys 18 → 68, live puffs 195–409, draw calls +1
+(388 → 389), update 0.005 ms/frame. Vision (b99/after4.jpg): soft grey plumes off Mehamn/Strandbu by day, blue-grey curling
+plume at night, no glow, no hard edges; the quay town from 45 m is faint against the bright hazy sky (by design subtle).
+Tuned twice (alpha 0.30 → 0.6, colour 0.62 → 0.45, faster fade-in so the plume joins the cap). smoke exit 0, page errors
+none (powder 1.56, trench 2.27). README; v151.
+Next: playtester judges the plumes at ride distance, in a storm (laid flat?) and against the polar-night sky.
+
 ## 2026-10-26 23:10 — Playtest harness stops eating the disk (loop infra) — 036a79b
 Triage: 0088 (v149 footBadge ski/ice lines 4/4 correct: "Skis float you", "Gliding on ice", "Slippery footing", yard
 precedence; "Skiing a track" not shot, same code path) closes the v149 follow-up item; removed from the backlog.
