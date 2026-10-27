@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 23:05 — Pine snow caps sag onto the branch tips in a ragged edge (G3) — 6fa64cb
+Triage: 0087 (v148 tips read at ride distance as a zigzag, no pop/seams; GFX low 30 fps vs default 9.5 in a dense stand
+on SwiftShader, relative only, no action; F3 clean) → folded into the v148 pine item; its F1 (caps too smooth next to the
+jagged green) taken this pass. `pineGeos` caps: 11 → 14 sides turned by the tier's phase so each tip has a cap vertex
+over it; the hem vertex over a tip sits low (0.07 ch up, not 0.11 avg) and barely out, the gaps tuck up 0.2 ch and out
+0.06. Two earlier tries pushed the tongues out 0.035–0.10 r and read as thin white shards at the silhouette (vision on
+b97/after, after2, after3); the landed one doesn't. `g3_pines.mjs` (same tree, Nov noon/21:00): local noon 5.62/6.05/6.20
+→ 5.78/6.03/6.21 (flat, as expected for an edge change), calls 346 → 346, stand tris 24.27M → 25.07M (+3%). Vision on
+tlloop/b97/cmp.jpg: zigzag snow edge at 14 and 30 m, night clean, no floating snow. smoke exit 0, page errors none
+(powder 1.55, trench 2.28). README; v150.
+Next: playtester judges the caps at ride distance/dark night; a faint edge-on sliver on tier 2 at 7 m may remain.
+
 ## 2026-10-26 22:50 — On foot, the snow badge reads the walker's snow, not the parked sled's (G1) — 8bad103
 No new reports since 0086. Took the 0085 F3 item ("PACKED · Plowed yard" mid-stand): root cause was `updHud` building
 the pill/line from `P` (the sled) even on foot, so the badge kept the parked sled's surface wherever you walked (0085's

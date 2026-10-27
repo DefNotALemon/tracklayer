@@ -147,8 +147,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       138/258 → 1/248 mismatched. Unjudged: skis (on-ski lines "Skis float you"/"Skiing a track") and the ICE line on a lake.
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
-      calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Unjudged: GFX low FPS in a dense stand, the tips at
-      chase-cam ride distance, and whether the snow caps (still smooth scallops) now want a ragged edge to match.
+      calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Report 0087: tips read at ride distance as a zigzag edge
+      (no pop/seams); GFX low in a dense stand 30 fps vs default 9.5 (SwiftShader, relative only; treeR 750 vs 1700).
+      b97 (v150): snow caps 11 → 14 sides turned with their tier, hem sags onto each branch tip and tucks up between
+      (tris 24.27M → 25.07M, calls 346). First tries pushed the tongues outward and read as thin white shards at the
+      silhouette; landed version keeps tips inward. Unjudged: a faint sliver can still show edge-on on tier 2 at 7 m
+      (b97/after4/noon_close7.jpg); judge at ride distance and on a dark night.
       Idea if the hem still reads star-like: vary tip length per tree (instance colour channel) instead of per tier.
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
@@ -343,4 +347,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 86
+Last triaged report: 87
