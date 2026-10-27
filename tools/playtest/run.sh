@@ -22,7 +22,12 @@ free_port() { /usr/bin/python3 -c 'import socket; s=socket.socket(); s.bind(("12
 HTTP=$(free_port); CDP=$(free_port)
 /usr/bin/python3 "$HERE/mksite.py" "$SRC" "$SITE" >/dev/null || exit 2
 PIDS=()
-cleanup() { for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; sleep 0.5; for p in "${PIDS[@]}"; do kill -9 "$p" 2>/dev/null; done; mv "$SITE" "$BASE/.old_site_$STAMP" 2>/dev/null; mv "$PROF" "$BASE/.old_prof_$STAMP" 2>/dev/null; }
+# Each fresh Chrome profile is ~160 MB. Parking them as .old_prof_* (pruned only after 24 h idle) piled up 48 GB
+# in one day of the loop and drove the disk toward the 20 GB pause, so the run now deletes its own throwaway site
+# + profile on exit, and sweeps any parked .old_site_/.old_prof_ dirs left by earlier runs (never a live prof_/site_).
+gone() { case "$1" in "$BASE"/site_*|"$BASE"/prof_*|"$BASE"/.old_site_*|"$BASE"/.old_prof_*) /bin/rm -rf -- "$1" 2>/dev/null;; esac; }
+cleanup() { for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null; done; sleep 0.5; for p in "${PIDS[@]}"; do kill -9 "$p" 2>/dev/null; done; gone "$SITE"; gone "$PROF"; }
+for d in "$BASE"/.old_site_* "$BASE"/.old_prof_*; do [ -e "$d" ] && gone "$d"; done
 trap cleanup EXIT INT TERM
 ( cd "$SITE" && exec /usr/bin/python3 -m http.server "$HTTP" --bind 127.0.0.1 >/dev/null 2>&1 ) & PIDS+=($!)
 nice -n 10 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --remote-debugging-port="$CDP" \
