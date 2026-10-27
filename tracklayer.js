@@ -2391,6 +2391,14 @@ function readInput(dt) {
   WN.held = keys.has("Space") || !!TC.reel; WN.padReel = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
+    if (!$("settings").hidden) {                                            // Settings is up: the pad drives it and nothing else (no hopping, no riding off)
+      settingsPad(gp, dt); analog = null; thr = brk = lean = wh = 0; CAMPAD.x = CAMPAD.y = 0;
+      const pb = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+      padHop = pb(0); padB = pb(1); padX = pb(2); padGod = pb(3); padLB = pb(4); padMenu = pb(9); padReset = pb(8); padView = pb(11); padHorn = pb(10);
+      padTab = pb(12); padWipe = pb(14); padWx = pb(15); TOW.padWing = pb(4);
+      TT.padA = pb(0); TT.padB = pb(1); TT.nav = 0;
+      break;
+    }
     if (FISH && started && (FISH.on || FISH.panelOpen())) {                // on the ice (or in the shop): the fishing pad map
       const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod) toggleGod(); padGod = y;
       if (godOpen) { godPad(gp, dt); break; }
@@ -8349,6 +8357,63 @@ function toggleSettings(force) {
   if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
 }
 
+// Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of
+// swatches, then the next row down), A presses the focused button, left / right on a slider steps it,
+// B or Menu closes. The first press after opening focuses the first control.
+const SETPAD = { nav: 0, navT: 0, a: false, b: false, m: false };
+function settingsFocusables() {
+  return [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.offsetParent !== null && e.id !== "closeSet");
+}
+function settingsMove(dx, dy) {
+  const all = settingsFocusables(); if (!all.length) return;
+  let cur = document.activeElement && $("settings").contains(document.activeElement) && all.includes(document.activeElement) ? document.activeElement : null;
+  if (!cur) { all[0].focus(); return; }
+  const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let best = null, bs = 1e9;
+  for (const e of all) {
+    if (e === cur) continue;
+    const q = e.getBoundingClientRect(), qx = q.left + q.width / 2, qy = q.top + q.height / 2;
+    let sc;
+    if (dx) {                                                                  // same row only (centres within half a control's height)
+      if (Math.abs(qy - cy) > Math.max(r.height, q.height) * 0.5 || (qx - cx) * dx <= 0) continue;
+      sc = Math.abs(qx - cx);
+    } else {
+      if ((qy - cy) * dy <= Math.max(r.height, q.height) * 0.4) continue;       // a different row, in the direction asked
+      const off = cx < q.left ? q.left - cx : cx > q.right ? cx - q.right : 0;
+      sc = Math.abs(qy - cy) + off * 2;
+    }
+    if (sc < bs) { bs = sc; best = e; }
+  }
+  if (best) best.focus();
+  else if (dy < 0) $("settings").scrollTo({ top: 0 });
+  else if (dy > 0) $("settings").scrollTo({ top: $("settings").scrollHeight });
+}
+function settingsStep(el, d) {
+  const mn = +el.min || 0, mx = +el.max || 100, st = Math.max(1, Math.round((mx - mn) / 20));
+  el.value = clamp(+el.value + d * st, mn, mx); el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+function settingsPad(gp, dt) {
+  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  const nav = b(12) || ay < -0.6 ? 1 : b(13) || ay > 0.6 ? 2 : b(14) || ax < -0.6 ? 3 : b(15) || ax > 0.6 ? 4 : 0;   // 1 up, 2 down, 3 left, 4 right
+  SETPAD.navT -= dt;
+  if (nav !== SETPAD.nav || (nav && SETPAD.navT <= 0)) {
+    if (nav) {
+      const cur = document.activeElement, onRange = cur && cur.type === "range" && $("settings").contains(cur);
+      if (onRange && nav >= 3) settingsStep(cur, nav === 4 ? 1 : -1);
+      else settingsMove(nav === 3 ? -1 : nav === 4 ? 1 : 0, nav === 1 ? -1 : nav === 2 ? 1 : 0);
+    }
+    SETPAD.navT = nav === SETPAD.nav ? 0.12 : 0.4;
+  }
+  SETPAD.nav = nav;
+  const a = b(0), bb = b(1), m = b(9);
+  if (a && !SETPAD.a) {
+    const f = document.activeElement;
+    if (f && $("settings").contains(f) && f.tagName === "BUTTON") f.click(); else settingsMove(0, 0);
+  }
+  if ((bb && !SETPAD.b) || (m && !SETPAD.m)) toggleSettings(false);
+  SETPAD.a = a; SETPAD.b = bb; SETPAD.m = m;
+}
+
 /* ---------------- sleds, parts, gear ---------------- */
 // Five generations of sled, the way they actually aged: heavy thirsty fan-cooled singles
 // through modern light turbo mountain machines. Each one takes the parts below.
@@ -11399,7 +11464,7 @@ function titlePad(gp, dt) {
     TT.navT = nav === TT.nav ? 0.14 : 0.4;
   }
   TT.nav = nav;
-  const a = b(0), bb = b(1);
+  const a = b(0) || b(9), bb = b(1);
   if (a && !TT.padA && !TT.away) {
     if (TT.mode === "menu") titleActivate(TT.sel);
     else if (TT.mode === "panel") { const f = document.activeElement; if (f && f.closest && f.closest("#tPanel") && f.tagName === "BUTTON") f.click(); else titleBack(); }

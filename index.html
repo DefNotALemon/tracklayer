@@ -211,6 +211,8 @@
   .xbtn{font-size:20px;line-height:1;color:var(--slate);background:none;border:0;cursor:pointer;padding:4px 8px}
   .xbtn:hover{color:var(--frost)}
   #settings .hint{font-size:13px;color:var(--slate)}
+  #settings button:focus-visible,#settings input:focus-visible,#settings button:focus{outline:2px solid var(--signal);outline-offset:2px}
+  #settings .sw:focus{transform:scale(1.15)}
   #settings .hint b{color:var(--frost)}
   #god{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.94);border-color:rgba(255,194,107,.4)}
   #god .brand{color:#ffc26b}
@@ -816,7 +818,7 @@
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
   <div class="bsec">Controls</div>
   <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">God menu</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
-  <div class="bfoot"><b>Esc</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
+  <div class="bfoot"><b>Esc</b> closes. Pad: <b>D-pad</b> or stick to move, <b>A</b> to pick, <b>◀ ▶</b> on a slider, <b>B</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
 </div>
 
 <div class="panel" id="god" hidden>
@@ -917,5 +919,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=155"></script>
+<script src="tracklayer.js?v=156"></script>
 </body></html>
