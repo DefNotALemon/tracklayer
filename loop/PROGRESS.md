@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 22:35 — Pine tiers get ragged drooping branch tips instead of a lampshade hem (G3) — 9798caf
+Triage: 0086 (garage Engines/Workshop tabs legible in all 3 saves, no bugs; F4 wording asymmetry cosmetic) → no items.
+Took the 0084 F3 boxy-pines item. `pineGeos`: each tier's green cone 7 → 14 sides, 2 height rings with a 7% belly, and the
+hem is a ring of branch tips (alternate vertices reach 1.07–1.19 r and hang 0.16–0.28 m down, the ones between tuck to
+0.86 r and up 0.12 m), each tier turned 0.9 rad from the one above. Snow caps untouched. New `g3_pines.mjs` (densest flat
+stand, 34 pines in 60 m; tree from 7/14/30 m at Nov noon + 21:00; before = git archive origin/main): local contrast noon
+5.29/5.34/5.53 → 5.66/6.02/6.24, night 6.74/7.33/7.44 → 7.52/8.13/8.26; draw calls 346 → 346, triangles in the stand view
+22.6M → 24.3M (+7%). Vision (tlloop/b95/cmp/): the level lampshade hem under each cap is now a jagged drooping skirt, reads
+as branches from 7 m to 30 m, no cracks or floating bits; night fine. smoke exit 0, page errors none (powder 1.53, trench
+2.23). README; v148.
+Next: playtester judges the tips at ride distance and FPS on GFX low in a dense stand; snow caps may want a ragged edge.
+
 ## 2026-10-26 22:10 — On-foot camera in a pine stand measured; spring-arm boom tried, not landed (G3) — harness only
 Triage: 0084 (on-foot clip verified at the 0.6 m floor; FP on foot is Close chase by canon) closes the item's FP ask;
 0084 F3 boxy pines → new G3 item; 0085 (walking through tree wells 0/4 stuck) closes that hand-walk ask, its F3 PACKED badge

@@ -145,9 +145,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       own f, so it should stay).
 - [ ] G1 (low, report 0085 F3): one still mid-stand showed the snow badge "PACKED · Plowed yard" (s0_1m.jpg). Check with
       `yardAt`/`pack` at that stand whether a yard/lane really reaches it or the badge misreads near trees.
-- [ ] G3 (report 0084 F3): pines read as boxy stacked cones up close in the forest stills (Lemon's first complaint is boxy
-      shapes). Idea: more radial segments / a jagged skirt edge / drooping tier tips in `pineGeos`, judged on contact sheets
-      with draw calls + triangles before/after (instanced, so watch tri count on GFX low).
+- [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
+      14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
+      calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Unjudged: GFX low FPS in a dense stand, the tips at
+      chase-cam ride distance, and whether the snow caps (still smooth scallops) now want a ragged edge to match.
+      Idea if the hem still reads star-like: vary tip length per tree (instance colour channel) instead of per tier.
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
@@ -341,4 +343,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 85
+Last triaged report: 86
