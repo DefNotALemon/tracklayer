@@ -8,7 +8,9 @@ What changed for the player, numbers before → after (gameClock), smoke result,
 ```
 
 ## 2026-10-26 22:10 — On-foot camera in a pine stand measured; spring-arm boom tried, not landed (G3) — harness only
-Triage: 0083 (v147 at close chase 0/4 inside a canopy, min 0.57–5.46 m; night clean; no shimmer) closes those asks on
+Triage: 0084 (on-foot clip verified at the 0.6 m floor; FP on foot is Close chase by canon) closes the item's FP ask;
+0084 F3 boxy pines → new G3 item; 0085 (walking through tree wells 0/4 stuck) closes that hand-walk ask, its F3 PACKED badge
+mid-stand → new low G1 check. 0083 (v147 at close chase 0/4 inside a canopy, min 0.57–5.46 m; night clean; no shimmer) closes those asks on
 the top item; its F3 (dither texture unproven in a still) is by design, no action. Also re-shot `g3_drip_ride` (white-trim
 drip edge reads at 15 and 25 m): that idea dropped, no change.
 Took the top item's on-foot half. New `g3_camtree_walkcam.mjs` (12 walks, 3 dense pine stands, W held, per-frame clearance,

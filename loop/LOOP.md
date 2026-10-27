@@ -117,7 +117,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G3 (playtest, follow-up to v147 camera vs pines, report 0081 F1/F2): `g3_camtree.mjs` (3 stands × 2 headings × 2
+- [ ] G3 (low, follow-up to v147 camera vs pines, report 0081 F1/F2): `g3_camtree.mjs` (3 stands × 2 headings × 2
       offsets, per-frame clearance from the nearest pine canopy envelope): frames inside a canopy 33 → 0, closer than 0.3 m
       91 → 0, runs with a clip 2/12 → 0/12, min clearance −0.14 → 0.57 m. Trees within 2.6 m of the lens now screen-door out
       (breezeMat dither). Report 0083: close chase (`CT_VIEW=1`) 0/4 inside, night clean, no shimmer seen (closed).
@@ -129,7 +129,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       the trunks round the walker) and camera pumping (>0.15 m/frame jumps 8 → 353); stills showed no visible gain, so
       NOT landed. Next idea if retaken: judge with the walker actually in shot (dismount with Q), and consider fading the
       dither faster (gone by ~1.2 m) or lifting the on-foot camera in a stand rather than shortening the boom.
-      Still unjudged: first person brushing a pine. Birches skipped (bare limbs).
+      Report 0084 agrees (on foot 0 inside, camera held at exactly the 0.6 m floor); First person on foot is Close chase
+      by canon (VIEWS fallback), so nothing left to judge there. Birches skipped (bare limbs).
 - [ ] G2 (low, owner-canon numbers; b93 `g2_cadence.mjs`): past the Ranger, cash never gates a sled. A player who rigs
       a trailer at rank 5 (licence + receiver + trailer) and takes the best $/min job holds $2.4k left after buying the
       Ranger, $10k after the Sprint, $53k after the Apex, $106k after the Matriarch ($320k at 70 deliveries): heavy
@@ -139,8 +140,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       jobs (bond losses, wear on the rig). Parcels-only player: cash gates only the Matriarch (+5 deliveries).
       Longest dry stretch is Apex → Matriarch, 14 deliveries / ~150 est-min (Lemon's `need` 32 → 46), unchanged.
 - [ ] G1 (low, playtest, follow-up to v146 tree wells): riding through stands judged clean by report 0081 (4/4 passes, no
-      pop-in or seams; the dish isn't legible from the chase cam, by design). Unjudged: walking round a trunk by hand, and in
-      a storm (refill fills a well back only to its own f, so it should stay).
+      pop-in or seams; the dish isn't legible from the chase cam, by design). Report 0085 (`g1_treewell_foot.mjs`): walking
+      through 4 stands 0/4 stuck, 24.2 s / 30 m (open-ground pace). Unjudged: a storm (refill fills a well back only to its
+      own f, so it should stay).
+- [ ] G1 (low, report 0085 F3): one still mid-stand showed the snow badge "PACKED · Plowed yard" (s0_1m.jpg). Check with
+      `yardAt`/`pack` at that stand whether a yard/lane really reaches it or the badge misreads near trees.
+- [ ] G3 (report 0084 F3): pines read as boxy stacked cones up close in the forest stills (Lemon's first complaint is boxy
+      shapes). Idea: more radial segments / a jagged skirt edge / drooping tier tips in `pineGeos`, judged on contact sheets
+      with draw calls + triangles before/after (instanced, so watch tri count on GFX low).
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
@@ -334,4 +341,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 83
+Last triaged report: 85
