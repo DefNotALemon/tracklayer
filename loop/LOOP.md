@@ -113,11 +113,12 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1 (report 0074 F1, `g1_forest_lamp.mjs`): two trunks only 0.51 m apart (narrower than the walker) and W held at
-      the gap: v142's sidestep latches a side and slides along the summed tangent forever, drifting 5 → 12 m off line into
-      open snow (stuck both runs, hug 5.6/7.6 s, 4–12 side reversals). Gaps ≥ 1.0 m pass clean. Fix idea: once the
-      sidestep clears the blocking trunk (minD > r + 0.6) release `F.obSide` and steer back toward the held heading, so
-      you go round the pair and resume your line instead of wandering.
+- [ ] G1 (report 0078 F1/F2, `g1_ski_forest.mjs`, high): cross-country skiing through forest stands pins you on a trunk
+      face: `skiStep` only has the radial `footBlock` snap (no tangent slide / sidestep / notch lock like footStep v142/v144).
+      9 runs: 1 stuck (stall 28.4 of 40 s), mean stall 7.29 s, 23 speed collapses. Fix idea: share footStep's summed-normal
+      slide + round-obstacle sidestep (incl. the v144 notch lock) with skiStep, keeping ski momentum along the tangent.
+- [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
+      than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
       rocks/trees, head-on and 0.3 m off) stuck 6/12 → 0/12, mean hug 5.15 → 1.25 s. Forest stands verified by b87
       (`g1_forest.mjs`: 4 densest flat stands, 16–18 trees within 12 m, 3 headings each, W held 30 m through): v141 4/10
@@ -312,4 +313,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 76
+Last triaged report: 78

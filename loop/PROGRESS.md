@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 20:20 — Two trunks too close to squeeze between: you step round instead of wedging (G1) — 23464b8
+Triage 0077 (v143 toast fix verified, Delivered 3.44 s; nothing new) and 0078 (skiing pins you on a trunk: skiStep has
+no sidestep at all; new high G1 item at the top). Took 0074 F1. A per-sample path log showed it wasn't drifting off line
+(the report's 5 → 12 m was the sled-distance HUD): the walker was pinned IN the gap. Two discs closer than the body make a
+V; the summed-normal tangent always points back to its bottom, so v142's "follow your lean" rule flipped `F.obSide` every
+~0.3 s and you jittered ±0.2 m. Now when two hit discs are closer than body width (gap < 0.76 m) the side is set outward
+(round the nearer trunk) and locked (`F.obLock`) until contact ends. New `g1_narrowgap.mjs` (3 narrowest flat pairs, gap
+0.36/0.51/0.62 m, lateral 0/±0.3/0.6): stuck 9/12 → 0/12, mean hug 7.69 → 2.12 s, mean pass 8.17 s, max drift 2.58 m (one
+run went round a third trunk). `g1_forest_lamp`: stuck 2/12 → 0/12, hug 1.60 → 0.92, dither 1.33 → 0.08. No regressions:
+`g1_obround` 0/12, hug 1.25 → 1.27, pass 5.11 → 5.12; `g1_forest` 0/12, stall 0, flips 1 → 0, pass 23.8 → 24.0 s.
+smoke exit 0, page errors none (67.1 mph, powder 1.53, trench 2.27). Collision only, no stills. README; v144.
+Next: skiing through stands (0078): port the sidestep to skiStep.
+
 ## 2026-10-26 19:55 — Delivery messages no longer vanish in a burst (G2) — ffe2b97
 Triage 0074–0076: 0074 F1 (two trunks 0.51 m apart: v142 sidestep drifts you 12 m off line, never resumes) → new G1
 backlog item at the top; F2/F3 (wide gaps, lamp posts) verified clean, lamp-post check closed. 0075 F1 taken (below);
