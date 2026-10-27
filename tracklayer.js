@@ -11617,10 +11617,15 @@ function skiStep(dt) {
   if (!brake && sp < 0 && F.grade > -0.06) sp = Math.min(0, sp + 2 * dt);               // the fishscale grips: no sliding back
   { const crawl = 0.85 * F.fwd * (1 - sstep(0.3, 0.55, F.grade)); if (kick && sp < crawl) sp = Math.max(sp, Math.min(crawl, Math.max(F.sp, 0) + 0.6 * dt)); }   // never stuck: a herringbone crawl up anything you could walk up
   sp = clamp(sp, -1.2, 16);
-  let nx = F.x + fx * sp * dt, nz = F.z + fz * sp * dt, hit;
+  let nx, nz, hit, touch, sq;
+  // trees and rocks: the same summed-normal slide + step-round as on foot (obSlide), so a ski run at a trunk glances
+  // off along it instead of pinning you on the bark; footBlock stays as the fallback (and the sled / ruin walls)
+  [nx, nz, touch, sq] = obSlide(F, fx * sp * dt, fz * sp * dt, dt);
   [nx, nz, hit] = footBlock(F, nx, nz);
   F.bumpT = Math.max(0, F.bumpT - dt);
-  if (hit && Math.abs(sp) > 3.5) { if (F.bumpT <= 0) { thud(Math.min(0.6, sp * 0.05)); emit(nx, F.y + 0.6, nz, 0, 1.2, 0, 1, 0.7); if (sp > 7) toast("Into the birch. Ow.", "warn"); F.bumpT = 1.2; } sp *= 0.3; }
+  // only a square-on hit at speed is a thud; a glancing one just bleeds a little speed along the trunk
+  if ((hit || (touch && sq > 0.55)) && Math.abs(sp) > 3.5) { if (F.bumpT <= 0) { thud(Math.min(0.6, sp * 0.05)); emit(nx, F.y + 0.6, nz, 0, 1.2, 0, 1, 0.7); if (sp > 7) toast("Into the birch. Ow.", "warn"); F.bumpT = 1.2; } sp *= 0.3; }
+  else if (touch) sp *= 1 - 0.5 * sq * Math.min(1, dt * 6);
   if (isSea(nx, nz)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; sp = 0; } }   // glide along the waterline
   if (WN.state === "out") {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
@@ -11694,6 +11699,75 @@ function shoreSlide(F, nx, nz) {
   if (!isSea(F.x, nz) && dz * dz > bv) best = [F.x, nz];
   return best;
 }
+// trees, rocks and buildings in the way of a step (mx, mz) from F.x/F.z, for the walker and (since v145) the skier:
+// skiStep had only footBlock's radial snap, so skis pointed at a trunk were re-clamped to the same spot on its face
+// every frame and you stood pinned on the bark. Returns [nx, nz, touch, sq]: sq = how square-on the step met it.
+function obSlide(F, mx, mz, dt) {
+  let nx = F.x + mx, nz = F.z + mz, touched = false, sq = 0;
+  const m0 = Math.hypot(mx, mz);
+  // trees, rocks and buildings
+  const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
+  // slide along what you walk into: a house wall is a row of discs, and pushing out of each one alone left you
+  // wedged in the notch between two whenever you came at it within ~35° of square. Sum the normals of everything
+  // the step would touch, take the into-the-wall part off the step, then push straight out along that one normal
+  // until every disc is clear, so a wall reads as one face you can slide along. The per-disc push below stays as
+  // the fallback (a gap between two walls, where the normals cancel).
+  {
+    const hit = [];
+    let sx = 0, sz = 0, touch = false;
+    F.obT = Math.max(0, (F.obT || 0) - dt); if (F.obT <= 0) { F.obSide = 0; F.obLock = false; }
+    for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
+      const a = obGrid.get(j * OBW + i); if (!a) continue;
+      for (const o of a) {
+        if (o.log || o.down) continue;
+        // a wider probe than the body, so the next disc along the wall counts too (that's what flattens the notch);
+        // a building's discs (o.ax = its yaw) push square off its nearest face, so its corners aren't round posts
+        const dx = nx - o.x, dz = nz - o.z, rr = o.r + 0.36, d2 = dx * dx + dz * dz, pr = rr + 0.3;
+        if (d2 < pr * pr && d2 > 1e-6) {
+          const dd = Math.sqrt(d2), w = pr - dd; let ux = dx / dd, uz = dz / dd;
+          if (o.ax !== undefined) { const c = Math.cos(o.ax), s = Math.sin(o.ax), lu = ux * c - uz * s, lv = ux * s + uz * c;
+            if (Math.abs(lu) > Math.abs(lv)) { ux = Math.sign(lu) * c; uz = -Math.sign(lu) * s; } else { ux = Math.sign(lv) * s; uz = Math.sign(lv) * c; } }
+          sx += ux * w; sz += uz * w; hit.push(o); if (dd < rr + 0.02) touch = true;
+        }
+      }
+    }
+    const sl = Math.hypot(sx, sz);
+    if (touch && sl > 1e-6) {
+      sx /= sl; sz /= sl;
+      const into = mx * sx + mz * sz;
+      if (into < 0) {
+        touched = true; sq = m0 > 1e-6 ? Math.min(1, -into / m0) : 0;
+        mx -= into * sx; mz -= into * sz;
+        // a lone round thing (a tree, a rock, the fuel-cabin pallet) you walk into square: losing only the into
+        // part left almost nothing along the tangent, so you hung on its face, or crept round it at body radius for
+        // seconds. Step round it instead, as a person does: most of the blocked stride turns into a sidestep along the
+        // tangent, on the side you were already leaning to (dead square: the side picked on first touch, kept until
+        // you're clear so it doesn't dither). Buildings (o.ax) keep the plain wall slide.
+        if (!hit.some(o => o.ax !== undefined)) {
+          const tx = -sz, tz = sx, tm = mx * tx + mz * tz;
+          // two trunks closer than your body (a notch): the summed normals make a V whose slide always points back to
+          // its bottom, so following your lean there flipped sides every few frames and pinned you in the gap. Go round
+          // the nearer trunk instead (outward, against that pull) and keep that side until you're clear of them.
+          let notch = false;
+          for (let a = 0; a < hit.length && !notch; a++) for (let b = a + 1; b < hit.length; b++)
+            if (Math.hypot(hit[a].x - hit[b].x, hit[a].z - hit[b].z) - hit[a].r - hit[b].r < 0.76) { notch = true; break; }
+          if (notch && !F.obLock) { F.obSide = tm >= 0 ? -1 : 1; F.obLock = true; }
+          else if (!F.obLock && (!F.obSide || Math.abs(tm) > 0.3 * -into)) F.obSide = tm >= 0 ? 1 : -1;
+          const want = F.obSide * Math.max(Math.abs(tm), -0.8 * into);
+          mx += (want - tm) * tx; mz += (want - tm) * tz; F.obT = 0.3;
+        }
+        nx = F.x + mx; nz = F.z + mz;
+      }
+      let t = 0;
+      for (const o of hit) {
+        const cx = nx - o.x, cz = nz - o.z, rr = o.r + 0.36, b = cx * sx + cz * sz, c = cx * cx + cz * cz - rr * rr;
+        if (c < 0) t = Math.max(t, -b + Math.sqrt(b * b - c));
+      }
+      if (t < 0.6) { nx += sx * t; nz += sz * t; }
+    }
+  }
+  return [nx, nz, touched, sq];
+}
 function footStep(dt) {
   const F = FOOT;
   if (F.ski) { skiStep(dt); return; }
@@ -11732,67 +11806,9 @@ function footStep(dt) {
   F.strain += (clamp(0.55 + 0.45 * (1 - 0.5 * shoe) * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
   const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
   const mv = F.sp * surge;
-  let mx = fx * mv * dt, mz = fz * mv * dt, nx = F.x + mx, nz = F.z + mz;
-  // trees, rocks and buildings
+  let nx, nz;
+  [nx, nz] = obSlide(F, fx * mv * dt, fz * mv * dt, dt);
   const gx = Math.floor((nx + HALF) / OBC), gz = Math.floor((nz + HALF) / OBC);
-  // slide along what you walk into: a house wall is a row of discs, and pushing out of each one alone left you
-  // wedged in the notch between two whenever you came at it within ~35° of square. Sum the normals of everything
-  // the step would touch, take the into-the-wall part off the step, then push straight out along that one normal
-  // until every disc is clear, so a wall reads as one face you can slide along. The per-disc push below stays as
-  // the fallback (a gap between two walls, where the normals cancel).
-  {
-    const hit = [];
-    let sx = 0, sz = 0, touch = false;
-    F.obT = Math.max(0, (F.obT || 0) - dt); if (F.obT <= 0) { F.obSide = 0; F.obLock = false; }
-    for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
-      const a = obGrid.get(j * OBW + i); if (!a) continue;
-      for (const o of a) {
-        if (o.log || o.down) continue;
-        // a wider probe than the body, so the next disc along the wall counts too (that's what flattens the notch);
-        // a building's discs (o.ax = its yaw) push square off its nearest face, so its corners aren't round posts
-        const dx = nx - o.x, dz = nz - o.z, rr = o.r + 0.36, d2 = dx * dx + dz * dz, pr = rr + 0.3;
-        if (d2 < pr * pr && d2 > 1e-6) {
-          const dd = Math.sqrt(d2), w = pr - dd; let ux = dx / dd, uz = dz / dd;
-          if (o.ax !== undefined) { const c = Math.cos(o.ax), s = Math.sin(o.ax), lu = ux * c - uz * s, lv = ux * s + uz * c;
-            if (Math.abs(lu) > Math.abs(lv)) { ux = Math.sign(lu) * c; uz = -Math.sign(lu) * s; } else { ux = Math.sign(lv) * s; uz = Math.sign(lv) * c; } }
-          sx += ux * w; sz += uz * w; hit.push(o); if (dd < rr + 0.02) touch = true;
-        }
-      }
-    }
-    const sl = Math.hypot(sx, sz);
-    if (touch && sl > 1e-6) {
-      sx /= sl; sz /= sl;
-      const into = mx * sx + mz * sz;
-      if (into < 0) {
-        mx -= into * sx; mz -= into * sz;
-        // a lone round thing (a tree, a rock, the fuel-cabin pallet) you walk into square: losing only the into
-        // part left almost nothing along the tangent, so you hung on its face, or crept round it at body radius for
-        // seconds. Step round it instead, as a person does: most of the blocked stride turns into a sidestep along the
-        // tangent, on the side you were already leaning to (dead square: the side picked on first touch, kept until
-        // you're clear so it doesn't dither). Buildings (o.ax) keep the plain wall slide.
-        if (!hit.some(o => o.ax !== undefined)) {
-          const tx = -sz, tz = sx, tm = mx * tx + mz * tz;
-          // two trunks closer than your body (a notch): the summed normals make a V whose slide always points back to
-          // its bottom, so following your lean there flipped sides every few frames and pinned you in the gap. Go round
-          // the nearer trunk instead (outward, against that pull) and keep that side until you're clear of them.
-          let notch = false;
-          for (let a = 0; a < hit.length && !notch; a++) for (let b = a + 1; b < hit.length; b++)
-            if (Math.hypot(hit[a].x - hit[b].x, hit[a].z - hit[b].z) - hit[a].r - hit[b].r < 0.76) { notch = true; break; }
-          if (notch && !F.obLock) { F.obSide = tm >= 0 ? -1 : 1; F.obLock = true; }
-          else if (!F.obLock && (!F.obSide || Math.abs(tm) > 0.3 * -into)) F.obSide = tm >= 0 ? 1 : -1;
-          const want = F.obSide * Math.max(Math.abs(tm), -0.8 * into);
-          mx += (want - tm) * tx; mz += (want - tm) * tz; F.obT = 0.3;
-        }
-        nx = F.x + mx; nz = F.z + mz;
-      }
-      let t = 0;
-      for (const o of hit) {
-        const cx = nx - o.x, cz = nz - o.z, rr = o.r + 0.36, b = cx * sx + cz * sz, c = cx * cx + cz * cz - rr * rr;
-        if (c < 0) t = Math.max(t, -b + Math.sqrt(b * b - c));
-      }
-      if (t < 0.6) { nx += sx * t; nz += sz * t; }
-    }
-  }
   for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
     const a = obGrid.get(j * OBW + i); if (!a) continue;
     for (const o of a) {

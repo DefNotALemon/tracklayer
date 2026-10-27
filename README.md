@@ -163,6 +163,8 @@ steer, let go to glide, **S** ploughs. They're slow to get going (the first few 
 you) but they build to two or three times walking pace on packed snow, run downhill on their own
 and glide a long way (the hill they feel is the snow under you, not the groove you just cut, so flat
 ground skis flat). Your sled tracks are the fast lanes, and the skis leave grooves of their own.
+Skiing through a forest stand, a trunk in the way turns you round it like walking does: a glancing one
+just slides you along it with a little speed lost, and only running square into one at speed stops you.
 Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving.
 
 On foot without skis you break trail: every step leaves a boot hole and your legs plough a
