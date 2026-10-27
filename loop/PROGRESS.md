@@ -1301,3 +1301,6 @@ Next: G2 ladder audit; then slope on foot; town/quay walking check.
 ## 2026-10-27 — Right stick looks around (pad camera)
 Right stick now orbits the camera (chase views) / turns the head (first person): up to ±150° sideways, ±0.7 rad up/down, 
 dead zone 0.18. Released, it eases back to dead ahead. Off while the tablet or god menu is open (they use the stick). Controls list updated; script v155.
+
+## 2026-10-27 — Settings menu works on a pad
+Settings (title + in-game) is pad-driven: d-pad/left stick moves focus to the nearest control, A presses, left/right steps a slider, B or Menu closes; the pad no longer hops/rides behind it. Title menu: Menu/Start now selects. Focus ring + footer hint added. Navigation logic verified on an isolated copy of the real panel; full game cannot render in the sandbox browser. Script v156.
