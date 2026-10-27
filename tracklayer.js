@@ -841,15 +841,19 @@ function pineGeos() {
       return [lerp(green[0], snowC[0], s), lerp(green[1], snowC[1], s), lerp(green[2], snowC[2], s)];
     }));
     const ch = h * 0.86, cr = r * 0.86 * 1.13, cy = y + h / 2 + 0.1 - ch / 2, bot = cy - ch / 2;
-    const cg = new THREE.ConeGeometry(cr, ch, 11, 4, true).translate(0, cy, 0), cp = cg.attributes.position;
+    // report 0087 F1: the cap's hem was a smooth wavy band over the now-jagged green. It has 14 sides turned like its tier,
+    // so the snow runs out in tongues along each branch tip (out and down) and pulls back up in the gaps between them.
+    const cg = new THREE.ConeGeometry(cr, ch, NS, 4, true).translate(0, cy, 0), cp = cg.attributes.position;
     for (let v = 0; v < cp.count; v++) {
       const vx = cp.getX(v), vy = cp.getY(v), vz = cp.getZ(v), t = clamp((vy - bot) / ch, 0, 1);
       if (t > 0.99) { cp.setY(v, vy + 0.12); continue; }
       const hsh = hash(Math.round(vx * 97) + 7 * Math.round(y * 10), Math.round(vz * 97) + Math.round(vy * 53));
       const ang = Math.atan2(vz, vx), lump = Math.sin(ang * 5 + y * 3) * 0.5 + Math.sin(ang * 9 - y * 2) * 0.3;
+      const th = Math.atan2(vx, vz), k = ((Math.round(th / (Math.PI * 2 / NS)) % NS) + NS) % NS, tip = (k & 1) === 0, j = hash(k * 13 + ti * 71, ti * 7 + 3) - 0.5;
       let rs = 1 + 0.11 * Math.sin(Math.PI * Math.sqrt(t)) + lump * 0.05 * (1 - t) + (hsh - 0.5) * 0.06, dy = (hsh - 0.5) * 0.04;
-      if (t < 0.01) { rs += 0.06 + lump * 0.03; dy = (0.5 + lump * 0.5) * 0.22 * ch; }   // soft scalloped overhang
-      cp.setXYZ(v, vx * rs, vy + dy, vz * rs);
+      if (t < 0.01) { rs += tip ? 0.02 + j * 0.02 : 0.06; dy = tip ? (0.07 - j * 0.04) * ch : (0.2 + lump * 0.04) * ch; }   // tongues sag onto the tips, gaps tucked up
+      const a2 = th + ph, rad = Math.hypot(vx, vz) * rs;
+      cp.setXYZ(v, Math.sin(a2) * rad, vy + dy, Math.cos(a2) * rad);
     }
     cg.computeVertexNormals();
     caps.push(paint(cg, (x, py, z, ny) => { const u = Math.pow(clamp((py - bot) / ch, 0, 1), 0.35); return [lerp(0.8, 1.0, u), lerp(0.87, 1.0, u), 1.0]; }));

@@ -21,7 +21,8 @@ under a minute during a storm. Which routes you keep open is the strategy.
 Pines catch the snow that falls on them, so each one stands in a tree well: the snow is about half
 as deep against the trunk, easing back to full depth at the edge of the lowest branches. On foot that
 is easier wading; on the sled it's a dip you feel. Birches are bare and barely catch any. Under each
-pine's snow-laden tiers the green branch tips hang out ragged and drooping, not in a level lampshade hem.
+pine's snow-laden tiers the green branch tips hang out ragged and drooping, not in a level lampshade hem,
+and the snow on each tier sags down onto those tips in a ragged zigzag edge instead of a smooth band.
 
 ## Playing
 
