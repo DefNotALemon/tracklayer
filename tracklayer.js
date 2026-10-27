@@ -2387,6 +2387,7 @@ function readInput(dt) {
   let lean = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 1 : 0, analog = null, wh = (keys.has("ControlLeft") || keys.has("ControlRight")) ? 1 : 0;
   if (TC.on) { thr = Math.max(thr, TC.thr); brk = Math.max(brk, TC.brk); if (TC.lean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  CAMPAD.x = 0; CAMPAD.y = 0;
   WN.held = keys.has("Space") || !!TC.reel; WN.padReel = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
@@ -2400,6 +2401,10 @@ function readInput(dt) {
       break;
     }
     const ax = gp.axes[0] || 0; if (Math.abs(ax) > 0.12) analog = ax;
+    if (started && !godOpen && !TABLET.open) {                              // right stick looks around; the camera springs back when it's let go
+      const cx = gp.axes[2] || 0, cy = gp.axes[3] || 0, cm = Math.hypot(cx, cy);
+      if (cm > 0.18) { const k = (cm - 0.18) / 0.82 / cm; CAMPAD.x = clamp(cx * k, -1, 1); CAMPAD.y = clamp(cy * k, -1, 1); }
+    }
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
     if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
@@ -3579,6 +3584,7 @@ function markMap() {
   lastMark = [px, pz];
 }
 /* ---------------- visuals / camera / hud ---------------- */
+const CAMPAD = { x: 0, y: 0, ox: 0, oy: 0 };   // right stick (dead-zoned) and the eased look offset it drives, in radians
 const camState = { yaw: SPAWN.yaw, init: false, fpYaw: SPAWN.yaw, fpPitch: 0, fpRoll: 0 };
 const _camEye = new THREE.Vector3(), _camAim = new THREE.Vector3(), _camWant = new THREE.Vector3();
 let hudT = 0, safeT = 0;
@@ -3634,7 +3640,11 @@ function updVisuals(dt) {
   const FXp = fishing ? FISH.wx : cr ? CRASH.x : FOOT.on ? FOOT.x : P.x, FYp = fishing ? FISH.wy : cr ? CRASH.y - 0.7 : FOOT.on ? FOOT.y : P.y, FZp = fishing ? FISH.wz : cr ? CRASH.z : FOOT.on ? FOOT.z : P.z;   // what the camera follows: the sled, the rider on foot, or the rider in the air
   if (cr) { const bs = Math.hypot(CRASH.vx, CRASH.vz); if (bs > 2) camState.yaw = angLerp(camState.yaw, Math.atan2(CRASH.vx, CRASH.vz), 1 - Math.exp(-1.2 * dt)); }
   else camState.yaw = angLerp(camState.yaw, FOOT.on ? FOOT.yaw : angLerp(P.yaw, velYaw, 0.35), 1 - Math.exp(-(FOOT.on ? 2.2 : 3.5) * dt));
-  const cfx = Math.sin(camState.yaw), cfz = Math.cos(camState.yaw);
+  // right stick look: ease toward the stick, and back to dead ahead when it's released
+  CAMPAD.ox += (-CAMPAD.x * 2.6 - CAMPAD.ox) * (1 - Math.exp(-(CAMPAD.x ? 9 : 4) * dt));
+  CAMPAD.oy += (-CAMPAD.y * 0.7 - CAMPAD.oy) * (1 - Math.exp(-(CAMPAD.y ? 9 : 4) * dt));
+  if (Math.abs(CAMPAD.ox) < 1e-4 && !CAMPAD.x) CAMPAD.ox = 0;
+  const cfx = Math.sin(camState.yaw + CAMPAD.ox), cfz = Math.cos(camState.yaw + CAMPAD.ox);
   let look = null;
   if (view.fp) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
@@ -3648,9 +3658,9 @@ function updVisuals(dt) {
     camState.fpBob = clamp(camState.fpBob * Math.exp(-11 * dt) - dEy * 0.4, -0.22, 0.22);
     camera.position.copy(eye); camera.position.y += camState.fpBob;
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 0.45);
-    const pT = P.pitch * 0.3 + clamp(P.vy * 0.02, -0.25, 0.25) - 0.13;
+    const pT = P.pitch * 0.3 + clamp(P.vy * 0.02, -0.25, 0.25) - 0.13 - CAMPAD.oy;
     const rT = -P.roll * 0.22 - sledBody.rotation.z * 0.4;
-    camState.fpYaw = angLerp(camState.fpYaw, P.yaw + Math.PI, 1 - Math.exp(-14 * dt));   // a camera looks down its own -Z
+    camState.fpYaw = angLerp(camState.fpYaw, P.yaw + Math.PI + CAMPAD.ox, 1 - Math.exp(-14 * dt));   // a camera looks down its own -Z
     camState.fpPitch += (pT - camState.fpPitch) * (1 - Math.exp(-7 * dt));
     camState.fpRoll += (rT - camState.fpRoll) * (1 - Math.exp(-5 * dt));
     camera.rotation.set(camState.fpPitch, camState.fpYaw, camState.fpRoll);
@@ -3659,7 +3669,7 @@ function updVisuals(dt) {
     // towing: back the chase cam off so the rig behind you is in the shot
     camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
-    const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1, FZp - cfz * (view.d + td));
+    const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1 + CAMPAD.oy * 1.5, FZp - cfz * (view.d + td));
     if (camState.shOn) { camera.position.copy(camState.shBase); camState.shOn = false; }   // undo last frame's shoulder offset before the lerp, or it piles up
     if (camState.cp && camState.cpOn) camera.position.copy(camState.cp);   // the over-the-shoulder dip moved the camera last frame: start from the chase cam's own spot
     want.y = Math.max(want.y, rideSurf(want.x, want.z) + 1.3);
@@ -3670,7 +3680,7 @@ function updVisuals(dt) {
     const wk = view.d < 10 ? camWallClip(FXp, FYp + 1.3, FZp, camera.position) : 1;   // not inside the house behind you (the drone view flies over)
     camState.wallK = (camState.wallK ?? 1) + (wk - (camState.wallK ?? 1)) * (1 - Math.exp(-8 * dt));
     const la = (4 + CLIMB.v * 4) * (0.35 + 0.65 * camState.wallK);   // pulled in close: aim nearer, so the rider stays in frame
-    look = _camAim.set(FXp + cfx * la, FYp + 1.1 + CLIMB.v * 1.6, FZp + cfz * la);
+    look = _camAim.set(FXp + cfx * la, FYp + 1.1 + CLIMB.v * 1.6 - CAMPAD.oy * 5, FZp + cfz * la);
     camState.cp = (camState.cp || new THREE.Vector3()).copy(camera.position); camState.cpOn = false;
     // on foot with a wall right behind you the camera sits ~0.6 m back and the helmet filled the middle of the screen:
     // slide it over the right shoulder (render-only, undone next frame) so you see past your head to where you're going
@@ -11206,7 +11216,7 @@ function titleActivate(i) {
   else titlePanel(it.id);
 }
 const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage, or back on the tablet"], ["D-pad up", "Dash tablet (d-pad + A inside it)"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["D-pad right", "Weather, on the tablet"], ["Y", "God menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage, or back on the tablet"], ["D-pad up", "Dash tablet (d-pad + A inside it)"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Right stick", "Look around (springs back)"], ["D-pad right", "Weather, on the tablet"], ["Y", "God menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";

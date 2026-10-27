@@ -1297,3 +1297,7 @@ Triage: report 0001 → finding 1 (no slope term on foot) became a backlog item;
 collision clean) and 3 (turn rate = spec) are confirmations, no item. Reordered: did this G1 pace item ahead
 of the G2 audit since it's Lemon's first-named complaint and a direct player win; the audit is next.
 Next: G2 ladder audit; then slope on foot; town/quay walking check.
+
+## 2026-10-27 — Right stick looks around (pad camera)
+Right stick now orbits the camera (chase views) / turns the head (first person): up to ±150° sideways, ±0.7 rad up/down, 
+dead zone 0.18. Released, it eases back to dead ahead. Off while the tablet or god menu is open (they use the stick). Controls list updated; script v155.
