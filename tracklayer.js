@@ -186,7 +186,31 @@ function freshBase(ix, iz) {
   let d = sampleG(freshG, x, z);
   if (d > 0.1) d += (vn(x / 7 + 3, z / 7) - 0.5) * 0.34 * Math.min(1, d * 2) + (vn(x / 1.9, z / 1.9 + 5) - 0.5) * 0.07;
   else d += vn(x / 2.3, z / 2.3) * 0.025;
+  if (d > 0.15 && WELLS_ON) d *= 1 - treeWell(x, z);
   return d < 0 ? 0 : d;
+}
+/* ---------------- tree wells ----------------
+   A pine's branches catch the snow that falls on it, so the snowpack under the canopy is shallower: a dish round each
+   trunk, deepest against the bark (up to TREEWELL_K of the depth gone), easing out to open-ground depth at the drip
+   line of the lowest branches (TREEWELL_R × the tree's scale). Birches are leafless and barely catch any, so only
+   pines (obGrid entries with o.pine) dig one. Folded into freshBase, so getChunk, restCell and freshCell all agree and
+   the walker, skier, sled and the snow mesh feel the same dish; the far terrain (8 m grid) is too coarse to show it,
+   and it lies under the canopy anyway. WELLS_ON flips once buildPines has filled obGrid (var: hoisted, read from
+   freshBase before obGrid's own line has run). A felled pine leaves obGrid, so chunks built after that lose its well. */
+var WELLS_ON = false;
+const TREEWELL_R = 2.3, TREEWELL_K = 0.62;
+function treeWell(x, z) {
+  const ux = x + HALF, uz = z + HALF, cx = Math.floor(ux / OBC), cz = Math.floor(uz / OBC), fx = ux - cx * OBC, fz = uz - cz * OBC, E = TREEWELL_R * 1.4;
+  let k = 0;
+  for (let j = fz < E ? -1 : 0, j1 = fz > OBC - E ? 1 : 0; j <= j1; j++) for (let i = fx < E ? -1 : 0, i1 = fx > OBC - E ? 1 : 0; i <= i1; i++) {
+    const a = obGrid.get((cz + j) * OBW + cx + i); if (!a) continue;
+    for (const o of a) {
+      if (!o.pine) continue;
+      const R = TREEWELL_R * o.s, dx = x - o.x, dz = z - o.z, q = dx * dx + dz * dz; if (q >= R * R) continue;
+      const t = 1 - Math.sqrt(q) / R, w = t * t * (3 - 2 * t); if (w > k) k = w;
+    }
+  }
+  return TREEWELL_K * k;
 }
 // what's left of it today (the spring melt thins it and opens bare ground; see MELT)
 function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && d > 0 ? d * meltMul(ix * CELL - HALF, iz * CELL - HALF) : d; }
@@ -908,6 +932,7 @@ function buildProps() {
   tm.castShadow = true; scene.add(tm);
   capMesh.castShadow = true; scene.add(capMesh);
   buildPines(trees);
+  WELLS_ON = true;                                                     // pines are in obGrid: freshBase digs their tree wells
 
   // rocks: boulder fields up on the fell, shingle and skerries along the tideline
   const rockGeo = paint(new THREE.IcosahedronGeometry(1, 0), (x, y, z, ny) => ny > 0.45 ? [0.9, 0.93, 0.98] : [0.32, 0.31, 0.33]);

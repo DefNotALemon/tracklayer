@@ -18,6 +18,9 @@ landings leave craters. Fresh powder drags on the sled and drinks fuel. Snow you
 already packed has almost nothing left to compress, so your own trails are fast and
 cheap to ride — until falling snow fills them back in, slowly in calm weather and in
 under a minute during a storm. Which routes you keep open is the strategy.
+Pines catch the snow that falls on them, so each one stands in a tree well: the snow is about half
+as deep against the trunk, easing back to full depth at the edge of the lowest branches. On foot that
+is easier wading; on the sled it's a dip you feel. Birches are bare and barely catch any.
 
 ## Playing
 
