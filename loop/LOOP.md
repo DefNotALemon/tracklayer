@@ -113,10 +113,9 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1 (report 0078 F1/F2, `g1_ski_forest.mjs`, high): cross-country skiing through forest stands pins you on a trunk
-      face: `skiStep` only has the radial `footBlock` snap (no tangent slide / sidestep / notch lock like footStep v142/v144).
-      9 runs: 1 stuck (stall 28.4 of 40 s), mean stall 7.29 s, 23 speed collapses. Fix idea: share footStep's summed-normal
-      slide + round-obstacle sidestep (incl. the v144 notch lock) with skiStep, keeping ski momentum along the tangent.
+- [ ] G1 (playtest, follow-up to v145 ski obstacle slide): `g1_ski_forest` 0/9 stuck now. Unjudged: skiing into a trunk
+      fast downhill (thud threshold sq > 0.55 at > 3.5 m/s: too forgiving / too harsh?), skis along a house wall (o.ax
+      slide), and how the sidestep looks from the chase camera at glide speed (a sideways shuffle on skis?).
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone

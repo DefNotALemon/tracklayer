@@ -7,6 +7,19 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 20:40 — Skiing through trees slides you round trunks instead of pinning you (G1) — 359b1f6
+No new reports since 0078. Took its top item: `skiStep` resolved trees only with footBlock's radial snap, so skis aimed
+at a trunk were re-clamped to the same spot every frame. footStep's obstacle block (summed-normal wall slide, v142
+round-obstacle sidestep with `F.obSide`, v144 notch lock) moved verbatim into a new hoisted `obSlide(F, mx, mz, dt)`
+(returns touch + how square-on, `sq`); footStep calls it, skiStep calls it before footBlock (kept as fallback + sled/ruin
+walls). On skis the thud (speed × 0.3) now needs footBlock's push or a square hit (sq > 0.55) above 3.5 m/s; a glancing
+touch bleeds ≤ half the speed per ~1/6 s by sq. `g1_ski_forest.mjs` (3 densest stands × 3 headings, Turski, W held):
+stuck 1/9 → 0/9, mean stall 7.12 → 0.61 s, max stall 28.63 → 1.80, speed collapses 22 → 6, mean pass 16.46 → 14.87 s.
+On foot unchanged: `g1_narrowgap` 0/12, hug 2.12 → 2.13, pass 8.17 → 8.17; `g1_obround` 0/12, hug 1.27 → 1.30, pass 5.12
+→ 5.16 (noise). `g1_ski` open ground fine (flat 2.49, up 0.78, down 5.12 m/s). smoke exit 0, page errors none (67.6 mph,
+powder 1.54, trench 2.24). Collision only, no stills. README; v145.
+Next: playtester judges fast downhill trunk hits and skis along a house wall; builder takes the next buildable item.
+
 ## 2026-10-26 20:20 — Two trunks too close to squeeze between: you step round instead of wedging (G1) — 23464b8
 Triage 0077 (v143 toast fix verified, Delivered 3.44 s; nothing new) and 0078 (skiing pins you on a trunk: skiStep has
 no sidestep at all; new high G1 item at the top). Took 0074 F1. A per-sample path log showed it wasn't drifting off line
