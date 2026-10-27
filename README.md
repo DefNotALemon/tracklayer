@@ -197,7 +197,8 @@ pier freight shed, the fish buyer and the drying racks); only walking straight a
 you stand there with your legs still rather than marching on the spot (and a jog into a wall costs no breath).
 Walk into something round and on its own (a tree, a rock, a fuel cabin's can pallet), even dead square, and you
 step round it on the side you were leaning to, in about a second, instead of hanging on its face or creeping
-round it.
+round it. Two trunks too close together to squeeze between work the same way: you step round the nearer one
+and carry on, instead of wedging in the gap between them.
 The waterline works the same way: walk (or ski) along the quay or a beach angled a little toward the sea and
 you follow the shore instead of freezing on the edge, round the little steps and corners of a jagged
 beach too; only heading straight out to sea stops you.

@@ -11743,7 +11743,7 @@ function footStep(dt) {
   {
     const hit = [];
     let sx = 0, sz = 0, touch = false;
-    F.obT = Math.max(0, (F.obT || 0) - dt); if (F.obT <= 0) F.obSide = 0;
+    F.obT = Math.max(0, (F.obT || 0) - dt); if (F.obT <= 0) { F.obSide = 0; F.obLock = false; }
     for (let j = gz - 1; j <= gz + 1; j++) for (let i = gx - 1; i <= gx + 1; i++) {
       const a = obGrid.get(j * OBW + i); if (!a) continue;
       for (const o of a) {
@@ -11772,7 +11772,14 @@ function footStep(dt) {
         // you're clear so it doesn't dither). Buildings (o.ax) keep the plain wall slide.
         if (!hit.some(o => o.ax !== undefined)) {
           const tx = -sz, tz = sx, tm = mx * tx + mz * tz;
-          if (!F.obSide || Math.abs(tm) > 0.3 * -into) F.obSide = tm >= 0 ? 1 : -1;
+          // two trunks closer than your body (a notch): the summed normals make a V whose slide always points back to
+          // its bottom, so following your lean there flipped sides every few frames and pinned you in the gap. Go round
+          // the nearer trunk instead (outward, against that pull) and keep that side until you're clear of them.
+          let notch = false;
+          for (let a = 0; a < hit.length && !notch; a++) for (let b = a + 1; b < hit.length; b++)
+            if (Math.hypot(hit[a].x - hit[b].x, hit[a].z - hit[b].z) - hit[a].r - hit[b].r < 0.76) { notch = true; break; }
+          if (notch && !F.obLock) { F.obSide = tm >= 0 ? -1 : 1; F.obLock = true; }
+          else if (!F.obLock && (!F.obSide || Math.abs(tm) > 0.3 * -into)) F.obSide = tm >= 0 ? 1 : -1;
           const want = F.obSide * Math.max(Math.abs(tm), -0.8 * into);
           mx += (want - tm) * tx; mz += (want - tm) * tz; F.obT = 0.3;
         }
