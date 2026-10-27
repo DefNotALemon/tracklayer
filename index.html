@@ -153,6 +153,10 @@
   #arrow{flex:none;color:var(--signal);transition:color .3s}
   #jobTitle{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.04em;line-height:1.1}
   #jobSub{font-size:13px;color:var(--slate);font-variant-numeric:tabular-nums}
+  #job{pointer-events:auto;cursor:pointer}
+  #jobPin{margin-top:3px;font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--slate)}
+  #jobPin.on{color:var(--signal)}
+  #tabS .tcard.jtrk{border-color:rgba(255,90,31,.55);background-color:rgba(255,90,31,.08)}
   #toasts{position:fixed;z-index:3;top:calc(88px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
   .toast{background:var(--ink-a);border:1px solid var(--line);border-left:3px solid var(--ice);border-radius:4px;padding:7px 12px;font-size:15px;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
   .toast.good{border-left-color:#6fd08c}.toast.warn{border-left-color:#ffc26b}.toast.bad{border-left-color:#ff3b3b}
@@ -763,7 +767,7 @@
 
 <div class="hud panel" id="job" hidden>
   <svg id="arrow" viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2 L20 21 L12 16 L4 21 Z" fill="currentColor"/></svg>
-  <div><div id="jobTitle">No cargo</div><div id="jobSub">Head back to the quay</div></div>
+  <div><div id="jobTitle">No cargo</div><div id="jobSub">Head back to the quay</div><div id="jobPin" hidden></div></div>
 </div>
 <!-- the world's grade for the DOM tablet screen (filled by updScreenGrade in tracklayer.js): the light's tint and veil and
      the renderer's exposure in, three's ACES tone curve as a table, its output matrix out; worked in linear light like the 3D glass -->
@@ -855,7 +859,7 @@
   <div><b>Shift</b>On foot: hold to jog (quickest on packed snow; it winds you)</div>
   <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
   <div><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
-  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map</div>
+  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">J</b> Next job on the compass</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
   <div><b>Y</b>God menu</div>
 </div>
@@ -913,5 +917,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=152"></script>
+<script src="tracklayer.js?v=153"></script>
 </body></html>

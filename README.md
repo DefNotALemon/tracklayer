@@ -33,7 +33,7 @@ arrow keys and Enter, the mouse, a tap or a gamepad all work.
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **R / F** gear up / down on a manual sled · **F** when stopped puts any sled in **reverse** (the throttle backs you up, about 9 mph tops; the brake holds it), **R** puts it back in forward. Either one while rolling just grinds.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
-- **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **H** hide help
+- **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
   **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
@@ -52,6 +52,13 @@ redraws the moment a drop-off pays, so the rack, your delivered count and what's
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
 you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
+The compass at the top middle of the screen (the arrow with two lines of text) points at one job at a time. On
+its own it picks: a rescue first, then a tour, the nearest drop-off aboard, grooming, a Bytteboden pickup, the
+nearest claimed pickup, the quay. The **Jobs** app on the tablet lists everything you've accepted (aboard, claimed
+pickups, tours, grooming, recovery and search-and-rescue call-outs, Bytteboden pickups, mail for the quay) with its
+route chart, distance and pay; **Track** one and the compass follows it instead ("TRACKED 2/4" under the compass)
+until it's done, then goes back to auto. A tracked claim stays tracked once it's loaded and points on to its drop-off.
+**J** steps the compass through your jobs (after the last one, back to auto); tapping or clicking the compass opens Jobs.
 A soft column of light stands over wherever you're carrying a load (empty-handed, over the quay), brightest
 at its foot and fading out high in the sky; from far off it shrinks to a shorter, softer glow over the place
 instead of a thin line up the whole sky.

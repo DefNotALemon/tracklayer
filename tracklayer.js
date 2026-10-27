@@ -8089,6 +8089,96 @@ TABLET.register({
   }
 });
 
+/* ---------------- Jobs: everything you've taken on, and which one the compass follows ----------------
+   The compass at the top middle of the screen (#job: the arrow plus two lines) picks a job for you by itself: a
+   rescue first, then a tour, the nearest drop-off aboard, grooming, a Bytteboden pickup, the nearest claimed pickup,
+   the quay. The Jobs app lists every job you've accepted (aboard, claimed, tour, grooming, recovery, search and
+   rescue, Bytteboden pickups, mail for the quay) and lets you Track one: the compass then points at that job until
+   it's done (a tracked claim stays tracked when it loads and points on to its drop-off), or until you pick Auto.
+   J on the keyboard steps the compass through the list. JOBT.sel is session-only, like GS.load and GS.claims. */
+const JOBT = { sel: null };
+const TI_JOBS = svgI(`<rect x="4.5" y="4" width="15" height="17" rx="2"/><path d="M9 4V2.8h6V4"/><path d="m8 10 1.6 1.6L13 8.2M8 16l1.6 1.6L13 14.2M15.5 10h1.5M15.5 16h1.5"/>`);
+TICON.jobs = TI_JOBS;
+// the HUD's second line for a load aboard (shared by the auto compass and a tracked load)
+function loadSub(j, dist) {
+  const g = groom[j.dest.id];
+  return `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.tipL ? " +" + tipLiters(j) + " L" : ""}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · ferry sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+}
+// every job you've accepted, as rows: { obj (what JOBT.sel holds), kind, tgt {x,z}, col (arrow), title, meta, pay, chips, mini, hud(dist) }
+function jobsList() {
+  const out = [];
+  const c = SAR.cur;
+  if (c && !c.school && !c.res) { const t = sarTarget(c); out.push({ obj: c, kind: "sar", tgt: t, col: "#ff8a3a", title: `${SAR_KINDS[c.kind].name}: ${c.name}`, chips: chip("SEARCH & RESCUE", "due"), meta: `${sarStatus(c)} · ${sarClock(c)}`, pay: c.pay ? "~" + fmtCash(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : "", hud: () => sarHud(c, t) }); }
+  const rj = GS.rescueJob, rjv = rj ? rjNearest(P.x, P.z) : null;
+  if (rjv) { const n = RJ.vs.filter(v => !v.freed).length; out.push({ obj: rj, kind: "rescue", tgt: rjv.v, col: "#ff8a3a", title: `Recovery: ${rjv.v.name}`, chips: chip("DUE " + fmtTime(rj.due), "due"), meta: `${rjv.v.vk.who}${n > 1 ? ` + ${n - 1} more stuck` : ""}${winchDef() ? "" : " · no winch fitted"}`, pay: fmtCash(rj.pay * payMul()), hud: d => ({ title: `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`, sub: `${fmtMi(d)} · $${Math.round(rj.pay * payMul())} · ${rj.due - GS.hour > 0 ? `clock runs out ${fmtTime(rj.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}` }) }); }
+  const t = GS.tour;
+  if (t) out.push({ obj: t, kind: "tour", tgt: t.view, col: "#6ff0b8", title: `Aurora tour → ${t.view.name}`, chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${t.pax} aboard`, pay: "~" + fmtCash(t.base * tourMul(AUR.v) * payMul()), mini: `${depot.id}|${t.view.id}|t`, hud: d => ({ title: `Aurora tour → ${t.view.name}${GS.load.length ? "  (+" + GS.load.length + " aboard)" : ""}`, sub: `${fmtMi(d)} · aurora ${AUR.word(AUR.v).toLowerCase()} · about $${Math.round(t.base * tourMul(AUR.v) * payMul())} if you got there now` }) });
+  for (const j of GS.load) {
+    if (j.school) continue;
+    out.push({ obj: j, kind: "load", tgt: j.dest, col: j.dest === depot ? "var(--ice)" : "var(--signal)", title: `${j.cargo} → ${shortName(j.dest)}`, chips: chip("ABOARD", "ok") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + parcelChips(j), meta: `deliver to ${j.dest.name}${j.big ? ` · ${Math.round(j.cond)}% condition` : ""}`, pay: j.pay ? fmtCash(j.pay * payMul()) : "", mini: `${(j.from || depot).id}|${j.dest.id}`, hud: d => ({ title: `${j.cargo} → ${j.dest.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`, sub: loadSub(j, d) }) });
+  }
+  const g = GS.groomJob;
+  if (g) { const gt = groomTarget(); out.push({ obj: g, kind: "groom", tgt: gt, col: "var(--signal)", title: `Grooming → ${shortName(g.dest)}`, chips: chip(Math.round(groomFrac(g) * 100) + "% GROOMED") + chip("DUE " + fmtTime(g.due), "due"), meta: `groom the line out to ${g.dest.name}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched" : ""}`, pay: fmtCash(g.pay * payMul()), mini: `${depot.id}|${g.dest.id}|g`, hud: () => { const fr = groomFrac(g); return { title: `Grooming → ${g.dest.name}`, sub: `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${Math.round(g.pay * payMul())} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}` }; } }); }
+  if (GS.mkt) for (const h of GS.mkt.held) {
+    if (h.state !== "wait" || heldWhy(h)) continue;
+    const s = SITES.find(x => x.id === h.site); if (!s) continue;
+    out.push({ obj: h, kind: "mkt", tgt: s, col: "var(--signal)", title: `Collect: ${h.name}`, chips: chip("BYTTEBODEN"), meta: `paid for · ${h.seller} in ${shortName(s)}`, pay: "", mini: `${depot.id}|${s.id}`, hud: d => ({ title: `Collect: ${h.name}`, sub: `Paid for · ${h.seller} in ${shortName(s)} · ${fmtMi(d)}` }) });
+  }
+  if (GS.mkt && MKT.guide) { const l = GS.mkt.list.find(q => q.site === MKT.guide), s = l && SITES.find(x => x.id === l.site); if (s) { const nm = mktInfo(l).name; out.push({ obj: "guide:" + l.site, kind: "mkt", tgt: s, col: "var(--signal)", title: `Look at: ${nm}`, chips: chip("BYTTEBODEN"), meta: `${l.seller} in ${shortName(s)} · stop at the door to look it over`, pay: "", mini: `${depot.id}|${s.id}`, hud: d => ({ title: `Bytteboden: ${nm}`, sub: `${l.seller} in ${shortName(s)} · ${fmtMi(d)} · stop at the door to look it over` }) }); } }
+  for (const j of GS.claims) {
+    const f = j.from || depot;
+    out.push({ obj: j, kind: "claim", tgt: f, col: f === depot ? "var(--ice)" : "var(--signal)", title: `Pick up: ${j.tour ? "tourists" : j.cargo}`, chips: chip("CLAIMED") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + (j.tour ? chip("AURORA", "aurora") : parcelChips(j)), meta: `waiting at ${f.name}, then to ${shortName(j.dest)}${j.bond ? ` · $${j.bond} bond at pickup` : ""}`, pay: fmtCash(j.pay * (j.tour ? tourMul(AUR.v) : 1) * payMul()), mini: `${f.id}|${j.dest.id}${j.tour ? "|t" : ""}`, hud: d => ({ title: `Pick up: ${j.tour ? "tourists" : j.cargo}${j.dest ? ` for ${shortName(j.dest)}` : ""}`, sub: `Waiting at ${f.name} · ${fmtMi(d)} · stop there to load` }) });
+  }
+  if (GS.mail.length) out.push({ obj: "mail", kind: "mail", tgt: depot, col: "var(--ice)", title: "Mail → Kjøllefjord quay", chips: chip("MAIL"), meta: `${mailCount()} letters to hand in at the quay`, pay: "~" + fmtCash(mailValue()), hud: d => ({ title: "Mail → Kjøllefjord quay", sub: `${mailCount()} letters · ${fmtMi(d)} · stop at the quay to hand in` }) });
+  return out;
+}
+// the job the compass is pinned to, or null when it's on Auto (a finished job drops back to Auto)
+function jobTracked(list) {
+  if (JOBT.sel == null || SCHOOL.on) return null;
+  const r = (list || jobsList()).find(e => e.obj === JOBT.sel);
+  if (!r) JOBT.sel = null;
+  return r || null;
+}
+function jobTrack(obj, quiet) {
+  JOBT.sel = obj;
+  const r = obj == null ? null : jobsList().find(e => e.obj === obj);
+  if (obj != null && !r) JOBT.sel = null;
+  if (!quiet) toast(r ? `Compass → ${r.title}` : "Compass on auto: it picks the most pressing job.", "info");
+  tabPing("tick"); TABLET.refresh("jobs");
+}
+// J: step the compass to the next job (after the last one, back to Auto)
+function jobCycle() {
+  if (SCHOOL.on) { toast("On a school course the compass follows the checkpoints.", "warn"); return; }
+  const L = jobsList();
+  if (!L.length) { toast(`No jobs taken on. ${TC.on ? "TABLET" : "Tab"} → Parcels for work.`, "warn"); return; }
+  const i = L.findIndex(e => e.obj === JOBT.sel);
+  jobTrack(i + 1 < L.length ? L[i + 1].obj : null);
+}
+TABLET.register({
+  id: "jobs", name: "Jobs", icon: TI_JOBS, order: 1.5, live: 2,
+  badge: () => jobsList().length || "",
+  onOpen() { tabWork(); ctRoutes(); },
+  render(el) {
+    const L = jobsList(), tr = jobTracked(L), auto = !tr;
+    let h = tabHead("JOBS · WHAT YOU'VE TAKEN ON", "Jobs", fmtCash(GS.cash));
+    h += `<div class="tsub">${L.length ? `${L.length} job${L.length === 1 ? "" : "s"}` : "Nothing taken on"} · compass: ${tr ? "<b>" + tabEsc(tr.title) + "</b>" : "auto"} · <b>J</b> steps through them</div>`;
+    if (SCHOOL.on) h += `<p class="tnote2">You're on a school course: the compass follows the checkpoints until it's over.</p>`;
+    h += `<div class="tcard${auto ? " jtrk" : ""}" data-tf="jb:auto"><div class="tcb"><div class="tct"><span>Auto</span>${auto ? chip("ON THE COMPASS", "ok") : ""}</div><div class="tcm">The compass picks for you: a rescue first, then a tour, the nearest drop-off, grooming, a pickup, the quay.${auto && JOBT.auto ? ` Now: ${tabEsc(JOBT.auto)}.` : ""}</div><div class="tca"><span class="tpay"></span><button type="button" class="tbtn${auto ? " ghost" : ""}" data-jt="-1">${auto ? "Following" : "Use auto"}</button></div></div></div>`;
+    if (L.length) {
+      h += sec("Accepted", "Track one and the compass points at it");
+      L.forEach((r, i) => {
+        const on = tr && tr.obj === r.obj, d = Math.hypot(r.tgt.x - P.x, r.tgt.z - P.z);
+        h += tabCard({ tf: "jb:" + i, cls: on ? "jtrk" : "", mini: r.mini, title: r.title, chips: (on ? chip("ON THE COMPASS", "ok") : "") + (r.chips || ""), meta: `${tabEsc(r.meta)} · ${fmtMi(d)} away`, pay: r.pay, act: "jt:" + i, actLabel: on ? "Tracking" : "Track" });
+      });
+    } else h += `<p class="tnote2">Accept work in Parcels, Freight, Trail Crew or Rescue and it shows up here.</p>`;
+    el.innerHTML = `<div class="tapp">${h}</div>`;
+    for (const b of el.querySelectorAll("[data-act^='jt:']")) { const r = L[+b.dataset.act.slice(3)]; if (tr && r && tr.obj === r.obj) b.classList.add("ghost"); b.addEventListener("click", () => { if (r) jobTrack(tr && tr.obj === r.obj ? null : r.obj); }); }
+    for (const b of el.querySelectorAll("[data-jt]")) b.addEventListener("click", () => jobTrack(null));
+    tabMinis(el);
+  }
+});
+$("job").addEventListener("click", () => { if (started && !TABLET.open) TABLET.toggle(true, "jobs"); else if (TABLET.open) TABLET.go("jobs"); });   // tap the compass: the Jobs app
+
 /* ---- Rescue: the app is registered with the search-and-rescue block (O5), near the end of the file ---- */
 
 function gameKey(e) {
@@ -8101,6 +8191,7 @@ function gameKey(e) {
   if (e.code === "KeyE") { if (!e.repeat && !(FISH && FISH.ctx())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
+  if (e.code === "KeyJ") { jobCycle(); return; }                          // J: point the compass at the next job you've taken on (then back to auto)
   if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyP") callForHelp();
@@ -10955,11 +11046,16 @@ function updGameHud() {
   // the licence schools: on a course the arrow follows the checkpoints; signed up, it takes you to the yard when you're not carrying anything
   const stg = schoolTarget(), sGuide = !SCHOOL.on && stg && !sarT && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && !pend && !GS.claims.length;
   if (SCHOOL.on || sGuide) tgt = stg;
+  // a job picked in the Jobs app (or with J) overrides all of the above until it's done
+  const jl = jobsList(), tr = jobTracked(jl);
+  if (tr) tgt = tr.tgt;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
   const rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
-  $("arrow").style.color = GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
-  if (SCHOOL.on) schoolHud(tgt);
+  $("arrow").style.color = tr ? tr.col : GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
+  { const pin = $("jobPin"), on = !!tr || (jl.length > 1 && !SCHOOL.on); pin.hidden = !on; if (on) { const i = tr ? jl.indexOf(tr) : -1; pin.textContent = tr ? `TRACKED ${i + 1}/${jl.length}` : `AUTO · ${jl.length} JOBS`; pin.classList.toggle("on", !!tr); } }
+  if (tr) { const h = tr.hud(dist); $("jobTitle").textContent = h.title; $("jobSub").textContent = h.sub; }
+  else if (SCHOOL.on) schoolHud(tgt);
   else if (sGuide) { $("jobTitle").textContent = `To ${tgt.name}`; $("jobSub").textContent = `${tgt.short} · ${fmtMi(dist)} · stop in the yard to start`; }
   else if (sarT) { const hd = sarHud(SAR.cur, tgt); $("jobTitle").textContent = hd.title; $("jobSub").textContent = hd.sub; }
   else if (rjv) {
@@ -10973,8 +11069,7 @@ function updGameHud() {
   } else if (GS.load.length) {
     const j = GS.load.find(x => x.dest === tgt);
     $("jobTitle").textContent = `${j.cargo} → ${tgt.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`;
-    const g = groom[tgt.id];
-    $("jobSub").textContent = `${fmtMi(dist)} · $${Math.round(j.pay * payMul())}${j.tipL ? " +" + tipLiters(j) + " L" : ""}${j.big ? " · " + Math.round(j.cond) + "% condition" : ""}${g !== undefined ? " · " + groomLabel(g) : ""}${j.fragile ? " · fragile" : ""}${j.due ? (j.boat ? " · ferry sails " : " · due ") + fmtTime(j.due) + (GS.hour > j.due ? (j.priority ? " (late — bond lost)" : j.boat ? " (missed her)" : " (late)") : "") : ""}${GS.groomJob ? " · grooming " + Math.round(groomFrac(GS.groomJob) * 100) + "%" : ""}`;
+    $("jobSub").textContent = loadSub(j, dist);
   } else if (GS.groomJob) {
     const g = GS.groomJob, fr = groomFrac(g);
     $("jobTitle").textContent = `Grooming → ${g.dest.name}`;
@@ -10988,6 +11083,7 @@ function updGameHud() {
     $("jobSub").textContent = `Waiting at ${f.name} · ${fmtMi(dist)} · stop there to load`;
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
+  if (!tr) JOBT.auto = $("jobTitle").textContent;
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
   const sh = steamerAt(GS.hour), shN = steamerNextCall(GS.hour, "arr"), shTxt = sh.s === "in" ? `Ferry in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Ferry sailing" : sh.s === "arriving" ? "Ferry arriving" : shN ? `Ferry ${fmtTime(shN.arr)}${shN.state === "delayed" ? " (late)" : ""}` : "No ferry";
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
