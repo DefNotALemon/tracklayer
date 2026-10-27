@@ -193,7 +193,9 @@ helps little on a real climb or a steep descent.
 Folk keep their yards plowed: around every house, the quay and the lane down to it, the garage
 forecourt, the shops, cabins and the helsesenter door the snow is pushed back and packed hard (the
 HUD says "Plowed yard"), so you walk to a door at about 2.5 m/s instead of wading, and snowfall never
-buries a yard again. Every lived-in house also has a plowed apron running about 8 m out from its front
+buries a yard again. Off the sled, the snow badge by the speedo reads the snow under your own boots (PACKED
+"Plowed yard" / "Packed trail", POWDER "Wading powder" / "Wading deep powder", ICE on a frozen lake, and
+what your snowshoes or skis do for you), not wherever you left the sled. Every lived-in house also has a plowed apron running about 8 m out from its front
 door, so you reach the hard pack well before you reach the step. In Kjøllefjord a plowed lane runs from
 the depot yard to every house, the store, the church and the tackle shop, plowed round the houses, the
 pier sheds, woodpiles and lamp posts rather than under them, so the walk from the quay to any door in town

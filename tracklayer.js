@@ -3617,13 +3617,28 @@ function placeBadge(x, z) {
   for (const k in SCHOOLS) { const s = SCHOOLS[k]; if (s.x !== undefined && Math.hypot(x - s.x, z - s.z) < s.clear + 14) return s.sign; }
   return "";
 }
+/* Snow badge on foot / on skis: the pill and its line describe the snow under the rider's own boots (same cell rules
+   as footStep), not the parked sled's, which can sit in a plowed yard 100 m back (report 0085 F3). */
+function footBadge() {
+  const F = FOOT, ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
+  const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
+  if (bioAt(F.x, F.z) === 1 && f < 0.12) return ["ICE", F.ski ? "Gliding on ice" : "Slippery footing"];
+  if (pack > 0.62) return ["PACKED", yardAt(F.x, F.z) > 0.5 ? "Plowed yard" : F.ski ? "Skiing a track" : "Packed trail"];
+  return ["POWDER", F.ski ? (d > 0.3 ? "Skis float you" : "") : F.shoe ? (d > 0.3 ? "Snowshoes float you" : "") : d > 0.5 ? "Wading deep powder" : d > 0.25 ? "Wading powder" : ""];
+}
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
   const gv = $("gearV"), gt = GB.gear === 0 ? "REVERSE" : GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
   if (gv && gv.textContent !== gt) gv.textContent = gt;
+  if (FOOT.on) {
+    const [fs, fb] = footBadge(), pill = $("pill");
+    if (pill.dataset.s !== fs) { pill.dataset.s = fs; pill.textContent = fs; }
+    $("bonus").textContent = fb;
+  } else {
   const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
   $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? (yardAt(P.x, P.z) > 0.5 ? "Plowed yard" : "On your tracks") : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  }
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
   const zx = FOOT.on ? FOOT.x : P.x, zz = FOOT.on ? FOOT.z : P.z;   // where YOU are, on the sled or on foot
