@@ -1976,6 +1976,88 @@ function updMuck(dt) {
   }
   mkGeo.attributes.position.needsUpdate = true;
 }
+/* ---------------- chimney smoke ----------------
+   Every lived-in house burns wood all winter: each lit KIT.house (its chimney top goes into KIT.chimneys) and each
+   buildSites building (s.chimney) breathes a slow column of wood smoke. One Points pool (CSMK.n puffs) with its own
+   shader: a puff is born small and dense at the cap, rises ~1 m/s and slows, swells to ~4 m and thins out, and leans
+   off with the real wind (CSMK.wx/wz, set by updFlakes; a storm lays it flat). Colour is lit like the snow's fill
+   (hemi + a little sun/moon) every frame, so it goes blue-grey at night instead of glowing; fogged like the rest.
+   Only chimneys within CSMK.R of the camera puff. Nothing saved. (Replaces the old snow-spray dots that fell back
+   down.) Measured with scenarios/g3_chimney.mjs. */
+const CSMK = { n: 1100, R: 420, head: 0, live: 0, wx: 2, wz: 0, acc: null };
+const csPos = new Float32Array(CSMK.n * 3), csVel = new Float32Array(CSMK.n * 3), csAge = new Float32Array(CSMK.n * 2), csLife = new Float32Array(CSMK.n);
+for (let i = 0; i < CSMK.n; i++) { csPos[i * 3 + 1] = -9999; csAge[i * 2] = 1; }
+const csGeo = new THREE.BufferGeometry();
+csGeo.setAttribute("position", new THREE.BufferAttribute(csPos, 3)); csGeo.setAttribute("aAge", new THREE.BufferAttribute(csAge, 2));
+const csMat = new THREE.ShaderMaterial({
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uCol: { value: new THREE.Color(0.6, 0.62, 0.66) }, uScale: { value: 600 }, uMap: { value: null } }]),
+  vertexShader: `attribute vec2 aAge; varying vec2 vAge; uniform float uScale;
+    #include <fog_pars_vertex>
+    void main() { vAge = aAge; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      float t = aAge.x, sz = mix(0.45, 5.0, sqrt(t)) * (0.8 + 0.4 * fract(aAge.y * 7.13));
+      gl_PointSize = t >= 1.0 ? 0.0 : clamp(sz * uScale / max(0.5, -mvPosition.z), 0.0, 256.0);
+      gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `uniform vec3 uCol; uniform sampler2D uMap; varying vec2 vAge;
+    #include <fog_pars_fragment>
+    void main() { float t = vAge.x, s = vAge.y; if (t >= 1.0) discard;
+      float an = s * 6.2832, ca = cos(an), sa = sin(an); vec2 p = gl_PointCoord - 0.5; p = vec2(ca * p.x - sa * p.y, sa * p.x + ca * p.y);
+      float d = texture2D(uMap, p * 0.92 + 0.5).a, lump = 0.8 + 0.2 * sin(p.x * 13.0 + s * 40.0) * sin(p.y * 11.0 - s * 23.0);
+      float a = d * lump * 0.6 * smoothstep(0.0, 0.025, t) * pow(1.0 - t, 1.5);
+      if (a < 0.004) discard;
+      gl_FragColor = vec4(uCol * mix(0.92, 1.08, t), a);
+      #include <tonemapping_fragment>
+      #include <encodings_fragment>
+      #include <fog_fragment>
+    }`,
+  transparent: true, depthWrite: false, fog: true
+});
+csMat.uniforms.uMap.value = dotTex;
+const chimSmoke = new THREE.Points(csGeo, csMat); chimSmoke.frustumCulled = false; chimSmoke.renderOrder = 2; scene.add(chimSmoke);
+function chimTops() {
+  // every chimney cap in the world, with a per-chimney draw (0.6–1.3: some stoves are banked low) and a phase
+  if (CSMK.tops) return CSMK.tops;
+  const t = [];
+  for (const s of SITES) if (s.chimney) t.push(s.chimney);
+  if (typeof KIT !== "undefined" && KIT.chimneys) for (const c of KIT.chimneys) t.push(c);
+  if (!t.length) return t;                       // the world isn't built yet: look again next frame
+  CSMK.tops = t.map(([x, y, z], i) => ({ x, y, z, k: 0.6 + 0.7 * ((Math.sin(i * 12.9898 + x * 0.0137) * 43758.5453) % 1 + 1) % 1, acc: Math.random() }));
+  return CSMK.tops;
+}
+function updChimSmoke(dt) {
+  const tops = chimTops(); if (!tops.length) return;
+  const cx = camera.position.x, cz = camera.position.z, R2 = CSMK.R * CSMK.R, wx = CSMK.wx * 0.75, wz = CSMK.wz * 0.75;
+  for (const c of tops) {
+    const dx = c.x - cx, dz = c.z - cz; if (dx * dx + dz * dz > R2) continue;
+    c.acc += dt * 2.4 * c.k;
+    while (c.acc >= 1) {
+      c.acc -= 1; const i = CSMK.head; CSMK.head = (CSMK.head + 1) % CSMK.n;
+      csPos[i * 3] = c.x + (Math.random() - 0.5) * 0.15; csPos[i * 3 + 1] = c.y; csPos[i * 3 + 2] = c.z + (Math.random() - 0.5) * 0.15;
+      csVel[i * 3] = (Math.random() - 0.5) * 0.25; csVel[i * 3 + 1] = 0.9 + Math.random() * 0.5; csVel[i * 3 + 2] = (Math.random() - 0.5) * 0.25;
+      csLife[i] = 7 + Math.random() * 4; csAge[i * 2] = 0; csAge[i * 2 + 1] = Math.random();
+    }
+  }
+  let live = 0; const kv = Math.exp(-0.45 * dt), kw = 1 - Math.exp(-0.6 * dt);
+  for (let i = 0; i < CSMK.n; i++) {
+    let t = csAge[i * 2]; if (t >= 1) continue;
+    t += dt / csLife[i];
+    if (t >= 1) { csAge[i * 2] = 1; csPos[i * 3 + 1] = -9999; continue; }
+    csAge[i * 2] = t; live++;
+    // the plume rises on its own heat, then the wind takes it: the lean grows as the puff cools
+    const j = i * 3, lean = Math.min(1, t * 3.5);
+    csVel[j] += (wx * lean - csVel[j]) * kw; csVel[j + 2] += (wz * lean - csVel[j + 2]) * kw;
+    csVel[j + 1] = csVel[j + 1] * kv + 0.02 * dt;
+    csPos[j] += csVel[j] * dt; csPos[j + 1] += csVel[j + 1] * dt; csPos[j + 2] += csVel[j + 2] * dt;
+  }
+  CSMK.live = live;
+  csGeo.attributes.position.needsUpdate = true; csGeo.attributes.aAge.needsUpdate = true;
+  // lit like the snow's fill: hemi sky + a share of the sun (or moon), smoke greyer than snow
+  const c = csMat.uniforms.uCol.value;
+  c.setRGB(hemi.color.r * hemi.intensity + sun.color.r * sun.intensity * 0.35, hemi.color.g * hemi.intensity + sun.color.g * sun.intensity * 0.35,
+    hemi.color.b * hemi.intensity + sun.color.b * sun.intensity * 0.35).multiplyScalar(0.45);
+  csMat.uniforms.uScale.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
+}
 const flGeo = new THREE.BufferGeometry(); flGeo.setAttribute("position", new THREE.BufferAttribute(flPos, 3));
 const flakes = new THREE.Points(flGeo, new THREE.PointsMaterial({ size: 0.13, map: dotTex, transparent: true, opacity: 0.9, depthWrite: false, color: 0xffffff }));
 flakes.frustumCulled = false; scene.add(flakes);
@@ -1984,6 +2066,7 @@ function updFlakes(dt) {
   windT += dt;
   const stw = 1 + 1.6 * GS.storm, wx = (Math.sin(windT * 0.21) * 2.6 + 2.2) * stw, wz = Math.cos(windT * 0.17) * 2.0 * stw;
   const nFl = Math.round(5200 + 6800 * GS.storm); flGeo.setDrawRange(0, nFl);
+  CSMK.wx = wx; CSMK.wz = wz;
   windU.uTime.value = windT; windU.uWind.value.set(wx * 0.42 / Math.sqrt(stw), wz * 0.42 / Math.sqrt(stw));
   // flakes rush past the camera, growing exponentially with speed
   const sp = Math.hypot(P.vx, P.vz), rush = Math.min(70, (Math.exp(sp / 12) - 1) * 2.4), rx = sp > 0.1 ? -P.vx / sp * rush : 0, rz = sp > 0.1 ? -P.vz / sp * rush : 0;
@@ -4724,7 +4807,7 @@ const KIT = (() => {
   const K = {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
-    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [],
+    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [], chimneys: [],
     plinth: L(0x4c4d51), trimW: L(0xeeebe4), trimG: L(0xa9b0b7),
     drip: L(0x4f4f4e)                                                  // the dark steel drip edge (roofTrim's DRIP_K × trimW)
   };
@@ -4753,6 +4836,7 @@ const KIT = (() => {
     }
     K.bx(g, 0.7, 1.8, 0.7, K.stone, -w / 4, h + 1.1, d / 4);
     K.bx(g, 0.8, 0.18, 0.8, K.snowM, -w / 4, h + 2.05, d / 4);
+    if (lit !== false) K.chimneys.push([x - (w / 4) * Math.cos(ry) + (d / 4) * Math.sin(ry), g.position.y + h + 2.16, z + (w / 4) * Math.sin(ry) + (d / 4) * Math.cos(ry)]);   // someone's home: the stove is lit (updChimSmoke)
     // facade: a stone plinth, painted corner boards, framed windows with glazing bars on every wall (front and back,
     // and both eave sides on ordinary-length houses), a framed door. Trim and glass are one merged mesh each.
     const pl = K.bx(g, w + 0.12, 0.6, d + 0.12, K.plinth, 0, 0.3, 0); pl.castShadow = false;
@@ -10831,11 +10915,6 @@ function updGame(dt, spd) {
   const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt); updSteamer(dt);
 
-  GS.smokeT += dt;
-  if (GS.smokeT > 0.15) {
-    GS.smokeT = 0;
-    for (const s of SITES) if (s.chimney && Math.hypot(P.x - s.x, P.z - s.z) < 220) { const [x, y, z] = s.chimney; emit(x, y, z, windU.uWind.value.x * 0.8, 0.9, windU.uWind.value.y * 0.8, 0.35, 3.2); }
-  }
   updNpcs(dt);
   groomT += dt; if (groomT > 2.5) { groomT = 0; updGroom(); }
   refill(); fadeTrails(dt);
@@ -13809,7 +13888,7 @@ function frame(t) {
   if (started && !SEASON.card) updGame(dt, spd); else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
   meltTick(dt);
   updSky(); seaU.uTime.value += dt;
-  updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
+  updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updChimSmoke(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
   flushSnow();
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
