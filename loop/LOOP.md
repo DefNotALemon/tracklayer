@@ -113,11 +113,19 @@ round-town jobs ≈ 15 game-min: on target. After that a single contract outpays
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1/G3 (playtest, follow-up to v146 tree wells): `g1_treewell.mjs` depth at 0.6/1.2/2/3 m from a pine 0.73 → 0.36/
-      0.52/0.68/0.73 m (open 0.77). Unjudged: walking round a trunk by hand (does the dish feel like easier footing or a
-      stumble?), riding the sled through a pine stand (dips felt as bumps? crash rate vs before), how the wells look from
-      the real chase camera at ride distance (do trunks "grow" out of the snow as the near patch reaches them ~40 m out?),
-      and in a storm (refill fills a well back only to its own f, so it should stay).
+- [ ] G3 (playtest, follow-up to v147 camera vs pines, report 0081 F1/F2): `g3_camtree.mjs` (3 stands × 2 headings × 2
+      offsets, per-frame clearance from the nearest pine canopy envelope): frames inside a canopy 33 → 0, closer than 0.3 m
+      91 → 0, runs with a clip 2/12 → 0/12, min clearance −0.14 → 0.57 m. Trees within 2.6 m of the lens now screen-door out
+      (breezeMat dither). Unjudged: the dither in motion (shimmer/crawl at 60 fps?), close chase (`CT_VIEW=1`), on foot in a
+      forest, first person brushing a pine, at night. Birches skipped (bare limbs).
+- [ ] G2 (report 0082 F1): a new save reaches $600 in ~185 game-s even capped at ~40 mph (4 deliveries, $112–225 each).
+      b92 decision: NOT slowing it. The 10–15 min target was the loop's own guess, a quick first upgrade is good onboarding,
+      and the Woodsman is gated by 4 deliveries anyway (cutting pay is friction, against "easier = less friction"). Next:
+      measure the cadence after it (Ranger $900/8 deliveries, Sprint $1700/13) with `g2_first5min_chain_capped.mjs`
+      extended; retune only if a later step is a long dry grind or a trap.
+- [ ] G1 (low, playtest, follow-up to v146 tree wells): riding through stands judged clean by report 0081 (4/4 passes, no
+      pop-in or seams; the dish isn't legible from the chase cam, by design). Unjudged: walking round a trunk by hand, and in
+      a storm (refill fills a well back only to its own f, so it should stay).
 - [ ] G1 (low, follow-up to v144 notch lock): `g1_narrowgap.mjs` 0/12 stuck now; unjudged: a ring of 3+ trunks all closer
       than body width (does the locked side ever lead into a dead end?), and how the detour looks from the chase camera.
 - [ ] G1 (playtest, follow-up to v142 round-obstacle sidestep, report 0072 F1): `g1_obround.mjs` (2 pallets + 4 lone
@@ -311,4 +319,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 80
+Last triaged report: 82

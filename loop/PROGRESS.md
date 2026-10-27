@@ -7,6 +7,21 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-26 21:30 — Chase camera stays out of pine branches; a tree at the lens fades see-through (G3) — 627a385
+Triage: 0081 F1/F2 (chase cam inside a pine skirt riding close past it; a trunk filling the frame after a stand) → this
+pass; F3/F4 (wells clean from the chase cam, 4/4 clean passes) close the riding half of the tree-well item. 0082 F1 (first
+$600 in ~185 game-s even at ~40 mph): decided NOT to slow it (loop's own target, good onboarding, deliveries gate the
+Woodsman anyway); new item to measure the cadence after it. 0082 F2 harness-only, F3 no issue.
+Build: hoisted `pineCanopyR(o, y)` (the pineGeos tier cones per tree) + `camTreeClip(c)`: after the chase cam's lerp, a
+camera inside a canopy + 0.6 m slides straight out from the trunk (persists into the next lerp, so it glides). And in
+`breezeMat` (pines + birches, trunk + caps) fragments within 2.6 m of the camera screen-door out (stable per-pixel IGN,
+gone by 0.8 m). New `g3_camtree.mjs` (3 dense stands × 2 headings × 2 lateral offsets, per-frame clearance): frames inside
+a canopy 33 → 0, < 0.3 m 91 → 0, runs clipping 2/12 → 0/12, min clearance −0.14 → 0.57 m. Stills (tlloop/b92/cmp3.jpg,
+before = git archive origin/main): the solid green slab at r1_at0m is now a see-through dithered skirt with the sled
+showing behind; r0_at0m sled clear of the tree. Tried a 1.0 m push margin first (cmp2.jpg): still a slab, kept 0.6 + dither.
+smoke exit 0, page errors none (66.8 mph, powder 1.55, trench 2.26). README; v147.
+Next: playtester judges the dither in motion, close chase, on foot in a forest, at night.
+
 ## 2026-10-26 21:10 — Pines stand in tree wells (G1/G3) — 93622ee
 Triage: 0079 (v144 narrow-gap verified 0/12; village houses Mehamn/Gamvik clean of moire at 20/8 m, night legible) closes
 the village-moire ask in the buildings item; 0080 verified v145 (downhill trunk hit = one thud then free, skis slide along
