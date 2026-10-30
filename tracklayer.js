@@ -10169,7 +10169,7 @@ function placeQuay() {
     const x = i * GRES - HALF, z = j * GRES - HALF, dx = x - qx, dz = z - qz;
     const u = dx * dirx + dz * dirz, v = -dx * dirz + dz * dirx;                  // u: out toward the water, v: along the shore
     if (u < -6 || u > 21 || Math.abs(v) > 30.5) continue;
-    const k = j * GN + i; ground[k] = qy; bio[k] = 0; freshG[k] = 0.16;
+    const k = j * GN + i; ground[k] = qy; bio[k] = 0; freshG[k] = 0;              // kept clear: the quay is concrete underfoot (quayTop)
   }
 }
 function buildTown() {
@@ -10245,7 +10245,8 @@ function buildTown() {
     const { qx, qz, qa, qy } = QUAY, dirx = Math.cos(qa), dirz = Math.sin(qa), ax = -dirz, az = dirx;       // dir: toward the water; ax/az: along the shore
     const Q = new THREE.Group(); Q.position.set(qx, 0, qz); Q.rotation.y = -qa; scene.add(Q);
     bx(Q, 26, 2.2, 60, concrete, 8, qy - 1.1, 0);                                // the pier slab, sticking out over the water
-    bx(Q, 26.4, 0.25, 60.4, snowM, 8, qy + 0.1, 0);
+    bx(Q, 26.2, 0.1, 60.2, L(0x6f757b), 8, qy, 0).castShadow = false;          // the deck: bare, damp concrete, top 5 cm proud of the ground (quayTop)
+    for (const sd of [-1, 1]) bx(Q, 22, 0.22, 1.1, snowM, 6, qy + 0.05, sd * 29.4).castShadow = false;   // what the plow left along the sides
     for (let v = -26; v <= 26; v += 8) { put(Q, new THREE.CylinderGeometry(0.28, 0.32, 1.1, 8), L(0x2b2f33), 20, qy + 0.55, v); }
     // the freight shed on the pier: red boards on a low concrete curb, white trim, framed windows, a framed slide door
     const fs = new THREE.Group(); fs.position.set(2, qy, -20); Q.add(fs);
@@ -11666,7 +11667,8 @@ function bogStep(dt, spd, thrE, fr) {
 /* ---- on foot ---- */
 const FOOT = { on: false, x: 0, z: 0, y: 0, yaw: 0, sp: 0, step: 0, fwd: 0, turn: 0, g: null, dig: false, sink: 0, crouch: 0, strain: 0.6, tired: 0, half: 0,
   ski: false, kickW: 0, moveW: 0, plow: 0, tuck: 0, trk: 0, bumpT: 0, grade: 0,
-  jog: 0, runW: 0, wind: 0, blown: false, blownT: 0, go: 0 };   // jog = Shift/RB/lean held; wind = breath spent jogging; go = real ground speed (footStep)
+  jog: 0, runW: 0, wind: 0, blown: false, blownT: 0, go: 0,
+  hardW: 0, hardS: 0, brisk: 0, hgS: 1.45, hgV: 0, latX: 0, aboard: false };   // hardW/hardS/brisk/hgS/latX: walking off the snow (hgPose); aboard: on the ferry's deck or gangway (tutorial)   // jog = Shift/RB/lean held; wind = breath spent jogging; go = real ground speed (footStep)
 /* ---------------- cross-country skis (Bytteboden, cat "ski") ----------------
    Bought used off Bytteboden and strapped along the right of the tunnel (V.xcRack). Q off the sled with a pair aboard and
    you're on them instead of wading: W kicks (diagonal stride with poles), S ploughs, A / D steer.
@@ -11732,7 +11734,7 @@ const capsule = (r, len, mat, parent, y0 = 0) => {   // a capsule hanging down f
   return g;
 };
 function makeWalker(m) {
-  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = []; U.shins = [];
+  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = []; U.shins = []; U.ank = [];
   const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
   const body = capsule(0.2, 0.3, m.jacket, torso, 0.5); body.scale.set(1, 1, 0.84);                    // the parka: one rounded body
   put(new THREE.Mesh(new THREE.CylinderGeometry(0.207, 0.207, 0.07, 16), m.trim), 0, -0.36, 0, 0, 0, 0, body);   // hem band
@@ -11749,8 +11751,10 @@ function makeWalker(m) {
     const l = new THREE.Group(); l.position.set(s * 0.1, 0.93, 0); g.add(l);
     capsule(0.098, 0.36, m.pants, l);
     const sh = new THREE.Group(); sh.position.y = -0.42; l.add(sh);
-    capsule(0.088, 0.3, m.pants, sh); ball(0.105, m.boot, 0, -0.44, 0.05, sh, 0.95, 0.62, 1.45);                       // shin, boot
-    U.legs.push(l); U.shins.push(sh);
+    capsule(0.088, 0.3, m.pants, sh);                                                                               // shin
+    const an = new THREE.Group(); an.position.y = -0.43; sh.add(an);                                                // the ankle: heel strike, roll, toe-off (hgPose)
+    ball(0.105, m.boot, 0, -0.01, 0.05, an, 0.95, 0.62, 1.45);                                                      // boot: sole 7.5 cm under the ankle
+    U.legs.push(l); U.shins.push(sh); U.ank.push(an);
   }
   return g;
 }
@@ -11759,7 +11763,7 @@ function buildWalker() {
   FOOT.g.visible = false; scene.add(FOOT.g);
   const U = FOOT.g.userData; U.skis = []; U.poles = []; U.shoes = [];
   for (let i = 0; i < 2; i++) {
-    const sh = shoeMesh(U.shins[i]); sh.visible = false; U.shoes.push(sh);
+    const sh = shoeMesh(U.ank[i], -0.075); sh.visible = false; U.shoes.push(sh);
     const sk = new THREE.Group(); sk.position.set(0, -0.505, 0.0); sk.rotation.order = "XYZ"; U.shins[i].add(sk); xcSki(sk); sk.visible = false; U.skis.push(sk);
     const pl = new THREE.Group(); pl.position.set(0, -0.25, 0.01); U.fore[i].add(pl); xcPole(pl); pl.visible = false; U.poles.push(pl);
   }
@@ -11786,6 +11790,130 @@ function strideLeg(u, st) {
   return _leg;
 }
 const frac = x => x - Math.floor(x);
+/* ---- walking on hard ground (v158) ----
+   Owner note 30 Oct: off the snow (the ferry deck, the gangway, the quay's concrete, plowed yards and lanes, a packed
+   trail, ground the spring has melted out) you walk like a person instead of wading. FOOT.hardW (0 wading .. 1 walking,
+   from the loose snow under the boots: footStep) blends the two gaits, so stepping off the quay into a drift changes
+   the gait over a stride or two instead of snapping.
+   - Pace (footStep): 1.4 m/s, easing up to a brisk 1.8 after a few seconds of steady walking (FOOT.brisk); the jog
+     button runs ~3 m/s. Fresh powder keeps the wade (~1.5 m/s), so the snow is still the slow part.
+   - The gait runs on distance: one cycle (two steps) per hgStride(v) metres (1.45 m at 1.4 m/s = 116 steps/min; 1.58 m
+     brisk; 2.25 m jogging, 160/min), so a planted foot goes back exactly as fast as the body goes forward: no skating.
+   - Each foot (hgFoot): heel strike with the toe up, roll onto the flat foot, heel rise and toe-off pivoting on the ball,
+     then a swing that clears the floor (knee to ~58°, ~85° jogging); two-bone IK (hgLeg) sets hip and knee, the ankle
+     joint (makeWalker's U.ank) keeps the sole on the floor. The pelvis rides as high as the stance legs reach (hgHips:
+     ~5 cm bob, low in double support; a flight arc when jogging), shifts ~2 cm over the loaded foot and turns ~4° with
+     the stride while the shoulders counter-turn; arms swing opposite the legs, elbows a little bent; head held steady.
+   - Hard floors (walkFloor: deck, gangway, the quay) take no boot prints or trench, and the step is a knock, not a crunch.
+   Measure: scenarios/g1_hardwalk.mjs (speed per surface, slide of planted feet, bob, cadence, still strips). */
+const HG = { L1: 0.42, L2: 0.43, ay: 0.075, az: 0.07, hb: 0.19, H: 0.925, n: 48, hs: new Float32Array(48), raw: new Float32Array(48), f: {}, leg: {} };
+function hgStride(v, r) { v = Math.abs(v); return lerp(v < 1.4 ? 1.45 * Math.sqrt(Math.max(v, 0.03) / 1.4) : 1.45 + 0.33 * (v - 1.4), 0.75 * Math.max(v, 2), r); }
+function hgDuty(v, r) { return lerp(0.62 - 0.1 * clamp(Math.abs(v) - 1.4, 0, 0.6), 0.36, r); }
+function hgRY(y, z, th) { return y * Math.cos(th) + z * Math.sin(th); }       // a point of the foot (ankle frame) pitched toe-up by th
+function hgRZ(y, z, th) { return z * Math.cos(th) - y * Math.sin(th); }
+// the ankle at stance fraction s (u = the leg's phase, 0 = heel strike): [height above the floor, ahead of the hip, pitch]
+function hgStance(s, u, S, b, r, o) {
+  const th0 = lerp(0.24, 0.05, r), th1 = lerp(0.6, 0.45, r), a1 = lerp(0.16, 0.06, r), a2 = lerp(0.5, 0.3, r);
+  const zh = (b * S - HG.hb) / 2 + lerp(-0.04, 0.05, r) - u * S;                // the heel's spot on the floor, in the body's frame
+  if (s < a1) { const th = th0 * (1 - sstep(0, a1, s)); o.y = hgRY(HG.ay, HG.az, th); o.z = zh + hgRZ(HG.ay, HG.az, th); o.th = th; }        // on the heel
+  else if (s < a2) { o.y = HG.ay; o.z = zh + HG.az; o.th = 0; }                                                                            // foot flat
+  else { const th = -th1 * Math.pow((s - a2) / (1 - a2), 1.6); o.y = hgRY(HG.ay, HG.az - HG.hb, th); o.z = zh + HG.hb + hgRZ(HG.ay, HG.az - HG.hb, th); o.th = th; }   // up on the ball
+  return o;
+}
+const _hgA = {}, _hgB = {};
+function hgFoot(u, S, b, r, o) {
+  if (u < b) { hgStance(u / b, u, S, b, r, o); o.st = true; o.s = u / b; return o; }
+  const s = (u - b) / (1 - b), A = hgStance(1, b, S, b, r, _hgA), B = hgStance(0, 0, S, b, r, _hgB);   // from toe-off to the next strike
+  // forward through the air on a Hermite curve that leaves and lands at the floor's speed in the body's frame (-S per
+  // cycle), so the boot lifts off and touches down without a skid
+  // forward through the air on a Hermite curve that leaves and lands at the floor's speed in the body's frame (-S per
+  // cycle); the reach ends a touch ahead at 90% of the swing and the heel settles the last 1.5 cm already moving with the
+  // floor, so the boot lifts off and touches down without a skid
+  const m = -S * (1 - b), q = Math.min(1, s / 0.9), q2 = q * q, q3 = q2 * q, mq = m * 0.9, Bz = B.z - 0.1 * m;
+  const lift = lerp(0.2 * Math.min(1, S / 1.45), 0.26, r) * Math.pow(Math.sin(Math.PI * Math.pow(q, 0.45)), 1.2);
+  o.y = lerp(A.y, B.y, s) + lift + 0.015 * sstep(0.5, 0.85, s) * (1 - sstep(0.9, 1, s));
+  o.z = s < 0.9 ? (2 * q3 - 3 * q2 + 1) * A.z + (q3 - 2 * q2 + q) * mq + (-2 * q3 + 3 * q2) * Bz + (q3 - q2) * mq : B.z + m * (s - 1);
+  o.th = s < 0.5 ? lerp(A.th, 0.05, sstep(0, 0.5, s)) : lerp(0.05, B.th, sstep(0.5, 1, s));
+  o.st = false; o.s = s; return o;
+}
+// the pelvis height over one cycle (HG.hs, HG.n samples from leg 0's heel strike): as high as the stance legs reach
+// with the knee a touch bent, smoothed, a ballistic arc through a jog's flight, never over a relaxed stand
+function hgHips(S, b, r) {
+  const n = HG.n, L = HG.L1 + HG.L2, raw = HG.raw, hs = HG.hs, o = HG.f;
+  for (let k = 0; k < n; k++) {
+    let h = Infinity;
+    for (let i = 0; i < 2; i++) {
+      hgFoot(frac(k / n + i * 0.5), S, b, r, o); if (!o.st) continue;
+      const Lr = L * lerp(0.985, 0.94, r * Math.sin(Math.PI * o.s));
+      h = Math.min(h, o.y + Math.sqrt(Math.max(0, Lr * Lr - o.z * o.z)));
+    }
+    raw[k] = h;
+  }
+  for (let k = 0; k < n; k++) if (raw[k] === Infinity) {
+    let a = k, c = k; while (raw[(a - 1 + n) % n] === Infinity && a > k - n) a--; while (raw[(c + 1) % n] === Infinity && c < k + n) c++;
+    const h0 = raw[(a - 1 + n) % n], h1 = raw[(c + 1) % n], m = c - a + 2, t = (k - a + 1) / m;
+    hs[k] = lerp(h0, h1, t) + 4 * t * (1 - t) * 0.2 * m / n;
+  } else hs[k] = raw[k];
+  const cap = HG.H - 0.03;
+  for (let k = 0; k < n; k++) { let sm = 0; for (let j = -3; j <= 3; j++) sm += hs[(k + j + n) % n]; raw[k] = Math.min(sm / 7, raw[k], cap); }
+  hs.set(raw);
+}
+// two-bone leg IK from the hip to the ankle (dx sideways, dy drop, dz ahead): hip pitch / roll, knee bend, shin angle
+function hgLeg(dx, dy, dz, o) {
+  const L1 = HG.L1, L2 = HG.L2, dyp = Math.hypot(dx, dy), D = clamp(Math.hypot(dyp, dz), 0.2, (L1 + L2) * 0.9995);
+  const ft = Math.atan2(dz, dyp), al = Math.acos(clamp((L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), -1, 1));
+  o.kn = Math.PI - Math.acos(clamp((L1 * L1 + L2 * L2 - D * D) / (2 * L1 * L2), -1, 1));
+  o.hx = -(ft + al); o.hz = Math.atan2(dx, dy); o.sh = ft + al - o.kn;
+  return o;
+}
+// pose the walker in the hard-ground gait and blend it over the wade pose already set, by hw. uA = the wade's phase
+// (its plant = this heel strike). Returns the body's height offset; FOOT.latX = the sideways weight shift.
+function hgPose(g, uA, hw) {
+  const F = FOOT, U = g.userData, r = F.runW || 0, v = Math.abs(F.go), bk = F.brisk || 0;
+  const S = F.hgS || hgStride(v, r), b = hgDuty(F.hgV || 0, r), n = HG.n;
+  const mvA = sstep(0.04, 0.4, Math.max(v, Math.abs(F.turn) * 0.5));                 // walking .. standing
+  hgHips(S, b, r);
+  const u0 = frac(uA - 0.5), u1 = frac(u0 + 0.5), hk = u0 * n, k0 = Math.floor(hk) % n;
+  const h = lerp(HG.H - 0.012, lerp(HG.hs[k0], HG.hs[(k0 + 1) % n], hk - Math.floor(hk)), mvA);
+  const c1 = Math.cos(2 * Math.PI * u1), psi = -0.07 * c1 * mvA;                       // pelvis turns with the left leg's swing
+  const lat = -0.022 * Math.cos(2 * Math.PI * (u0 - b / 2)) * mvA * (1 - 0.5 * r);    // weight over the stance foot
+  const cy = Math.cos(F.yaw), sy = Math.sin(F.yaw), L = HG.leg, o = HG.f;
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1;
+    hgFoot(frac(u0 + i * 0.5), S, b, r, o);
+    const hx = sd * 0.1 * Math.cos(psi), hz = -sd * 0.1 * Math.sin(psi);
+    const fx = lerp(sd * 0.125, sd * 0.115, mvA) - lat, tz = lerp(0, o.z, mvA), ty = lerp(HG.ay, o.y, mvA), th = lerp(0, o.th, mvA);
+    const wx = F.x + cx(fx, tz), wz = F.z + cz(fx, tz);
+    const fl = clamp(walkFloor(wx, wz) - F.y, -0.35, 0.35);
+    hgLeg(fx - hx, h - fl - ty, tz - hz, L);
+    const l = U.legs[i];
+    l.position.set(lerp(sd * 0.1, hx, hw), 0.93, hz * hw);                           // the hip joint rides round with the pelvis
+    l.rotation.set(lerp(l.rotation.x, L.hx, hw), 0, lerp(l.rotation.z, L.hz, hw));
+    U.shins[i].rotation.x = lerp(U.shins[i].rotation.x, L.kn, hw);
+    if (U.ank) U.ank[i].rotation.x = (L.sh - th) * hw;
+  }
+  function cx(x, z) { return x * cy + z * sy; }
+  function cz(x, z) { return -x * sy + z * cy; }
+  // arms swing opposite the legs from relaxed shoulders, elbows a little bent (more as the arm comes forward, a lot jogging)
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, uo = frac(u0 + (1 - i) * 0.5), sw = Math.cos(2 * Math.PI * (uo - 0.04));
+    const A = lerp(lerp(0.3, 0.4, bk), 0.7, r) * mvA;
+    const ax = -A * sw + lerp(0.03, -0.12, r) * mvA, fx2 = -(lerp(0.16, lerp(lerp(0.22, 0.4, bk), 1.5, r), mvA) + 0.18 * Math.max(0, sw) * (1 - r) * mvA);
+    const a = U.arms[i], f = U.fore[i];
+    a.rotation.set(lerp(a.rotation.x, ax, hw), lerp(a.rotation.y, 0, hw), lerp(a.rotation.z, sd * lerp(0.07, lerp(0.08, 0.13, r), mvA), hw));
+    f.rotation.x = lerp(f.rotation.x, fx2, hw);
+  }
+  // torso a touch forward (more brisk, more again jogging), shoulders counter-turning the hips, head steady and level
+  const pitch = lerp(0.03, lerp(lerp(0.05, 0.08, bk), 0.17, r), mvA) + Math.sin(gameClock * 2.1) * 0.006 * (1 - mvA);
+  const gam = lerp(0.06, 0.1, r) * c1 * mvA, roll = -lat * 1.2;
+  const T = U.torso;
+  T.rotation.set(lerp(T.rotation.x, pitch, hw), lerp(T.rotation.y, gam, hw), lerp(T.rotation.z, roll, hw), "XYZ");
+  T.position.y = lerp(T.position.y, 0.93, hw);
+  U.head.rotation.x = lerp(U.head.rotation.x, -pitch * 0.85, hw); U.head.rotation.y = -gam * hw;
+  g.rotation.z = lerp(g.rotation.z, 0, hw);
+  F.latX = lat * hw;
+  return h - 0.93;
+}
 function poseWalker(g, dt) {
   const F = FOOT, U = g.userData, st = F.strain, cr = F.crouch, t = gameClock;
   if (U.skis) for (let i = 0; i < 2; i++) { U.skis[i].visible = false; U.poles[i].visible = false; }
@@ -11816,6 +11944,12 @@ function poseWalker(g, dt) {
   U.head.rotation.x = -U.torso.rotation.x * 0.55;
   g.rotation.set(0, F.yaw, -side * 0.05 * st * amt, "YXZ");
   // the hips ride low as each boot drops in, then heave up as the body is driven over it; squatting drops them
+  let bob = -(0.03 + 0.04 * st) * Math.cos(Math.PI * 2 * v) * amt - 0.04 * st * amt - cr * 0.31;
+  // off the snow: the walk (hgPose) over the wade, by how little loose snow is under the boots; never mid climb on/off
+  const hw = MNT.on || DMT.on ? 0 : (F.hardW || 0) * (1 - cr);
+  F.latX = 0; U.head.rotation.y = 0;
+  if (U.ank) for (let i = 0; i < 2; i++) { U.ank[i].rotation.x = 0; U.legs[i].position.set(i ? 0.1 : -0.1, 0.93, 0); }
+  if (hw > 0.001 && U.ank) bob = lerp(bob, hgPose(g, uA, hw), hw);
   if (WIPE.w > 0.001) {                                                // wiping the visor with the left arm: lift, bend the elbow, sweep across the goggles
     const w = WIPE.w, a = U.arms[1], f = U.fore[1];
     a.rotation.x = lerp(a.rotation.x, -1.2, w);
@@ -11823,7 +11957,7 @@ function poseWalker(g, dt) {
     a.rotation.z = lerp(a.rotation.z, 0, w);
     f.rotation.x = lerp(f.rotation.x, -1.6 - WIPE.py * 0.25, w);
   }
-  return -(0.03 + 0.04 * st) * Math.cos(Math.PI * 2 * v) * amt - 0.04 * st * amt - cr * 0.31;
+  return bob;
 }
 // the skier: idle on the poles, the diagonal stride (kick, glide, opposite pole plants), the tuck on a run, the plough.
 // Skis stay flat on the snow (counter-rotated against hip and knee); the body drops so the lower ski touches.
@@ -11842,11 +11976,12 @@ function poseSkier(g, dt) {
     U.legs[i].rotation.set(hips[i], 0, sd * (0.03 + 0.1 * pw));
     U.shins[i].rotation.x = knees[i];
     const sk = U.skis[i]; sk.visible = true; sk.rotation.set(-(hips[i] + knees[i]), -sd * 0.3 * pw, 0);
+    if (U.ank) U.ank[i].rotation.x = 0;
   }
   // torso: bent into the kick, folded down in the tuck
   const pitch = lerp(lerp(0.08 + 0.2 * F.tired + breath * 2, 0.22 + 0.55 * tk, mw), 0.3 + 0.06 * Math.sin(uA * Math.PI * 4), kw);
   U.torso.rotation.set(lerp(pitch, 0.75, cr), 0, 0, "XYZ"); U.torso.position.y = 0.93 - cr * 0.1 + breath * (1 - mw);
-  U.head.rotation.x = -U.torso.rotation.x * 0.7;
+  U.head.rotation.x = -U.torso.rotation.x * 0.7; U.head.rotation.y = 0;
   // arms and poles: each arm reaches forward with the opposite leg and drives back; tucked, the poles go under the arms
   for (let i = 0; i < 2; i++) {
     const sd = i ? 1 : -1, ho = hips[1 - i], back = clamp((ho + 0.42) / 0.9, 0, 1);
@@ -11871,6 +12006,17 @@ function snowStep(v) {
   s.buffer = buf; s.playbackRate.value = 0.7 + Math.random() * 0.25; f.type = "bandpass"; f.frequency.value = 700 + Math.random() * 300; f.Q.value = 0.8;
   g.gain.setValueAtTime(0.0001, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.5 * v, AC.currentTime + 0.03); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.32);
   s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime + 0.36);
+}
+// a boot on a hard floor: a short heel knock with a scuff of grit (steel deck / gangway: a little ring to it)
+function hardStep(v, steel) {
+  if (!audio) return;
+  const { AC, master, buf } = audio, t = AC.currentTime, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = buf; s.playbackRate.value = 1.1 + Math.random() * 0.3; f.type = "bandpass"; f.frequency.value = (steel ? 2400 : 1500) + Math.random() * 400; f.Q.value = steel ? 3 : 1.2;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 * v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + (steel ? 0.12 : 0.07));
+  s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 0.15);
+  const o = AC.createOscillator(), og = AC.createGain(); o.type = "sine"; o.frequency.setValueAtTime(steel ? 140 : 95, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.06);
+  og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.4 * v, t + 0.005); og.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  o.connect(og); og.connect(master); o.start(t); o.stop(t + 0.1);
 }
 function poseFigure(g, sp, step, crouch, dt) {
   const U = g.userData, amt = clamp(Math.abs(sp) / 2.4, 0, 1), sw = Math.sin(step) * 0.75 * amt;
@@ -12137,8 +12283,8 @@ function footWade(d, pack, shoe) {
 // one snowshoe under a boot (origin at the shin pivot, like the skis): an oval deck in a frame, a tail behind.
 // Real size (≈22 × 66 cm) with a red decking, like most rental/backcountry shoes: a dark deck vanished under dark
 // boots from the chase camera, and a bright one reads against the snow at walking distance.
-function shoeMesh(parent) {
-  const g = new THREE.Group(); g.position.set(0, -0.505, 0.03); parent.add(g);
+function shoeMesh(parent, y = -0.505) {
+  const g = new THREE.Group(); g.position.set(0, y, 0.03); parent.add(g);
   const frame = shoeMesh.frame || (shoeMesh.frame = std(0xc3cad1, 0.4, 0.6)), deck = shoeMesh.deck || (shoeMesh.deck = std(0xb83a26, 0.7, 0.05));
   const rim = cyl(0.112, 0.112, 0.016, frame, 0, -0.004, 0.03, 0, 0, 0, g, 20); rim.scale.set(1, 1, 2.95);
   const dk = cyl(0.1, 0.1, 0.02, deck, 0, 0.002, 0.03, 0, 0, 0, g, 20); dk.scale.set(1, 1, 2.9);
@@ -12236,6 +12382,18 @@ function obSlide(F, mx, mz, dt) {
   }
   return [nx, nz, touched, sq];
 }
+// the quay's concrete top, where (x, z) is on the pier slab (buildTown draws it 5 cm proud of the plowed ground), else null
+function quayTop(x, z) {
+  if (!QUAY) return null;
+  const dx = x - QUAY.qx, dz = z - QUAY.qz, c = Math.cos(QUAY.qa), s = Math.sin(QUAY.qa), u = dx * c + dz * s, v = -dx * s + dz * c;
+  return u > -5 && u < 21 && Math.abs(v) < 30 ? QUAY.qy + 0.05 : null;
+}
+// what the walker's boots stand on at (x, z): the ferry's deck or gangway (tutorial), the quay's concrete, or the snow
+function walkFloor(x, z) {
+  if (FOOT.aboard && typeof deckFloor === "function") { const y = deckFloor(x, z); if (y !== null) return y; }
+  const q = quayTop(x, z); if (q !== null) return q;
+  return surf(x, z) - FOOT.sink * 0.6;
+}
 function footStep(dt) {
   const F = FOOT;
   if (F.ski) { skiStep(dt); return; }
@@ -12247,6 +12405,12 @@ function footStep(dt) {
   F.yaw += -F.turn * 2.2 * F.turnK * dt;
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw), ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
+  // what's under the boots: a hard floor with no snow on it (deck, gangway, the quay's concrete), or snow, and how much
+  // of it is loose (a plowed yard or a packed trail is ~2-4 cm of it, fresh powder all of it). hardW blends wade → walk.
+  const hardS = F.aboard || quayTop(F.x, F.z) !== null ? 1 : 0, ls = hardS ? 0 : d * (1 - 0.8 * pack);
+  F.hardS = hardS;
+  F.hardW += ((hardS ? 1 : 1 - sstep(0.04, 0.3, ls)) - F.hardW) * (1 - Math.exp(-4 * dt));
+  const hw = F.hardW;
   // pace: ~1.6 m/s wading fresh powder (30 m in under 20 s), ~2.3 back along your own trench, 2.9 on hard pack;
   // snowshoes (F.shoe, footWade) float you over the powder
   const shoe = F.shoe ? 1 : 0, wade = footWade(d, pack, shoe);
@@ -12268,11 +12432,15 @@ function footStep(dt) {
   const jogOn = F.jog && F.fwd > 0 && !F.dig && !F.blown ? 1 : 0;
   F.runW += (jogOn - F.runW) * (1 - Math.exp(-3 * dt));
   const jogK = 1 + F.runW * (lerp(0.2, 0.5, pack) * (1 - sstep(0.1, 0.35, gw)) * (1 - sstep(0.2, 0.45, -gw)));
-  const tgt = F.dig ? 0 : F.fwd > 0 ? 2.9 * wade * hill * jogK * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
+  const wadeT = F.fwd > 0 ? 2.9 * wade * hill * jogK * F.fwd : F.fwd < 0 ? 1.5 * wade * hill * F.fwd : 0;
+  // off the snow a person's walk: 1.4 m/s, easing up to a brisk 1.8 after a few seconds of steady walking, ~3 m/s jogging
+  F.brisk += ((F.fwd > 0.8 && Math.abs(F.go) > 1.1 && !F.dig ? 1 : 0) - F.brisk) * (1 - Math.exp(-dt / (F.fwd > 0.8 ? 1.6 : 0.5)));
+  const hardT = F.fwd > 0 ? lerp(lerp(1.4, 1.8, F.brisk), 3.0, F.runW) * hill * F.fwd : F.fwd < 0 ? 0.9 * hill * F.fwd : 0;
+  const tgt = F.dig ? 0 : lerp(wadeT, hardT, hw);
   F.sp += (tgt - F.sp) * (1 - Math.exp(-5 * dt));
   // every step is a fight: how deep it is decides how hard (and how steep), and the body only really moves while a leg is driving
   F.strain += (clamp(0.55 + 0.45 * (1 - 0.5 * shoe) * sstep(0.05, 0.6, d) + 0.25 * (1 - wade) + 0.3 * sstep(0.04, 0.35, gw), 0.55, 1) - F.strain) * (1 - Math.exp(-3 * dt));
-  const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + 0.6 * F.strain * (Math.sin(Math.PI * ph) - 0.637);
+  const ph = frac(frac(F.step / (Math.PI * 2)) * 2), surge = 1 + lerp(0.6 * F.strain, 0.04, hw) * (Math.sin(Math.PI * ph) - 0.637);
   const mv = F.sp * surge;
   let nx, nz;
   [nx, nz] = obSlide(F, fx * mv * dt, fz * mv * dt, dt);
@@ -12302,13 +12470,19 @@ function footStep(dt) {
   // jog's breath all stop with you, instead of marching on the spot. Sliding along a face strides at the slide's pace.
   F.go += ((dt > 0 ? Math.sign(mv) * moved / (dt * surge) : 0) - F.go) * (1 - Math.exp(-10 * dt));
   const gsp = Math.sign(F.sp) * Math.min(Math.abs(F.sp), Math.abs(F.go)), mvG = Math.sign(mv) * Math.min(Math.abs(mv), Math.abs(F.go) * surge);
-  F.trk += moved; if (F.trk > 0.2) { F.trk = 0; footPath(F.x - fx * 0.5, F.z - fz * 0.5, fx, fz); }    // the trench behind you (not under you: fresh snow stays hard going)
-  F.sink = 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack) * (1 - 0.6 * shoe);
-  F.y = surf(F.x, F.z) - F.sink * 0.6;
-  // long strides: about a metre a step, slower to start when the snow's deep; turning on the spot shuffles the feet
-  F.step += (mvG * lerp(3.1, 2.4, F.runW) + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 * (F.turnK || 1) : 0)) * dt;   // a jog lengthens the stride
+  F.trk += moved; if (F.trk > 0.2) { F.trk = 0; if (!hardS && hw < 0.85) footPath(F.x - fx * 0.5, F.z - fz * 0.5, fx, fz); }    // the trench behind you (not under you: fresh snow stays hard going); none on a floor or plowed ground
+  F.sink = hardS ? 0 : 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack) * (1 - 0.6 * shoe);
+  F.y = walkFloor(F.x, F.z);
+  // long strides wading: about a metre a step, slower to start when the snow's deep; walking, one cycle per hgStride(v) m
+  // (so the planted foot stays planted); turning on the spot shuffles the feet
+  // walking, the phase runs on the ground really covered (moved) and the stride follows a slow average of the pace
+  // (hgV), so a planted foot keeps its spot to the millimetre instead of creeping with every surge of speed
+  F.hgV += (Math.abs(gsp) - F.hgV) * (1 - Math.exp(-dt / 0.45));
+  F.hgS = hgStride(F.hgV, F.runW);
+  const adv = lerp(mvG * lerp(3.1, 2.4, F.runW), (dt > 0 ? Math.sign(mv) * moved / dt : 0) * 2 * Math.PI / F.hgS, hw);
+  F.step += (adv + (Math.abs(gsp) < 0.3 ? Math.abs(F.turn) * 2.4 * (F.turnK || 1) : 0)) * dt;   // a jog lengthens the stride
   F.crouch += ((F.dig ? 1 : 0) - F.crouch) * (1 - Math.exp(-8 * dt));
-  F.tired = clamp(F.tired + (Math.abs(gsp) > 0.4 ? 0.04 * F.strain : -0.08) * dt, 0, 1);   // ~25 s of deep wading to be blown, quick to get your breath back
+  F.tired = clamp(F.tired + (Math.abs(gsp) > 0.4 ? lerp(0.04 * F.strain, -0.03, hw) : -0.08) * dt, 0, 1);   // walking off the snow doesn't wear you out   // ~25 s of deep wading to be blown, quick to get your breath back
   F.wind = clamp(F.wind + (F.runW > 0.5 && gsp > 0.8 ? 0.045 + 0.07 * sstep(0.05, 0.6, d) + 0.08 * sstep(0.04, 0.3, gw) : Math.abs(gsp) > 0.4 ? -0.05 : -0.12) * dt, 0, 1);
   F.tired = Math.max(F.tired, F.wind * 0.95);                                                 // the pose breathes hard after a jog too
   // a boot goes in at each half-cycle: puff of snow round it and a crunch
@@ -12316,16 +12490,19 @@ function footStep(dt) {
   if (half !== F.half) {
     if (Math.abs(gsp) > 0.25) {
       const sd = (half & 1) ? 1 : -1, lx = Math.cos(F.yaw) * sd * 0.1, lz = -Math.sin(F.yaw) * sd * 0.1, px = F.x + fx * 0.5 + lx, pz = F.z + fz * 0.5 + lz;
-      for (let k = 0; k < 3 + d * 8; k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
-      bootHole(F.x - fx * 0.45 + lx, F.z - fz * 0.45 + lz);         // the trailing boot pulls out and leaves its hole
-      snowStep(0.35 + 0.45 * F.strain);
+      if (hardS) hardStep(0.3 + 0.2 * F.runW, F.aboard);             // a boot on steel, timber or concrete: a knock, no snow
+      else {
+        for (let k = 0; k < (3 + d * 8) * (1 - 0.75 * hw); k++) emit(px, F.y + 0.15 + F.sink * 0.5, pz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
+        if (hw < 0.85) bootHole(F.x - fx * 0.45 + lx, F.z - fz * 0.45 + lz);         // the trailing boot pulls out and leaves its hole
+        snowStep(lerp(0.35 + 0.45 * F.strain, 0.22, hw));
+      }
     }
     F.half = half;
   }
-  if (Math.abs(gsp) > 0.5 && d > 0.25 && Math.random() < dt * 8) emit(F.x - fx * 0.2, F.y + 0.35, F.z - fz * 0.2, -fx * 0.3, 0.9 + Math.random(), -fz * 0.3, 0.6, 0.6);   // clumps flung off the boot pulling out
+  if (Math.abs(gsp) > 0.5 && d > 0.25 && !hardS && Math.random() < dt * 8) emit(F.x - fx * 0.2, F.y + 0.35, F.z - fz * 0.2, -fx * 0.3, 0.9 + Math.random(), -fz * 0.3, 0.6, 0.6);   // clumps flung off the boot pulling out
   const g = F.g; g.visible = true;
   const bob = poseWalker(g, dt);
-  g.position.set(F.x, F.y + bob, F.z);
+  g.position.set(F.x + Math.cos(F.yaw) * F.latX, F.y + bob, F.z - Math.sin(F.yaw) * F.latX);
 }
 
 /* ---- the winch: line, strap and pull ---- */
@@ -14151,6 +14328,7 @@ function crashVisual(dt) {
     else if (C.st === "up") { const u = clamp(C.t2 / 0.9, 0, 1); a.rotation.set(lerp(-0.9, 0, u), 0, sd * lerp(0.6, 0, u)); l.rotation.set(lerp(-1.2, 0, u) * (i ? 0.2 : 1), 0, 0); }
     else { a.rotation.set(-1.2 + s * 0.5, 0, sd * 0.7); l.rotation.set(0.3 * s * sd, 0, sd * 0.2); }
     U.fore[i].rotation.set(air ? -0.6 : limp ? -0.2 : 0, 0, 0);
+    if (U.ank) U.ank[i].rotation.x = 0;
     if (U.shins) U.shins[i].rotation.set(air ? 0.5 + 0.3 * s2 * sd : limp ? 0.15 : C.st === "up" ? lerp(1.4, 0, clamp(C.t2 / 0.9, 0, 1)) * (i ? 0.3 : 1) : 0.3, 0, 0);
   }
   U.torso.rotation.set(air ? 0.25 : 0, 0, 0); U.torso.position.y = 0.93; if (U.head) U.head.rotation.set(0, 0, 0);

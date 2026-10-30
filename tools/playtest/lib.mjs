@@ -91,6 +91,10 @@ export async function boot({ width = 1280, height = 720 } = {}) {
     else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") errors.push("ERR " + d.params.args.map(a => a.value || a.description).join(" ").slice(0, 300)); };
   await send("Runtime.enable"); await send("Page.enable"); await send("Network.enable"); await send("Network.setCacheDisabled", { cacheDisabled: true });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  // headless Chrome sees the Mac's real gamepads (a controller left on the desk steered the walker in circles): hide
+  // them. A scenario can drive a scripted pad instead: window.__fakePad = { id, mapping: "standard", connected: true,
+  // buttons: [{ pressed, value } x17], axes: [0, 0, 0, 0], timestamp } (see padSet()).
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: "navigator.getGamepads = () => window.__fakePad ? [window.__fakePad] : [];" });
   await send("Page.navigate", { url: URL });
   let ok = false;
   for (let i = 0; i < 120; i++) { await sleep(500); try { if (await raw("typeof window.__tl === 'function' && window.__tl(\"typeof titleLaunch === 'function' && TT.mode === 'menu'\")")) { ok = true; break; } } catch (e) { } }
@@ -100,6 +104,14 @@ export async function boot({ width = 1280, height = 720 } = {}) {
   await tap("KeyH");          // hide the help panel
   await sleep(500);
 }
+
+// a scripted standard-mapping gamepad (the real ones are hidden in boot): padSet({ 7: 1 }, [0, 0]) holds RT with the
+// left stick centred; padSet() lets go of everything. id names the brand the way Chrome reports it.
+export async function padSet(btns = {}, axes = [0, 0, 0, 0], id = "Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)") {
+  const b = Array.from({ length: 17 }, (_, i) => ({ pressed: !!btns[i] && btns[i] > 0.5, touched: !!btns[i], value: +(btns[i] || 0) }));
+  await raw(`window.__fakePad = { id: ${JSON.stringify(id)}, index: 0, mapping: "standard", connected: true, timestamp: performance.now(), buttons: ${JSON.stringify(b)}, axes: ${JSON.stringify([...axes, 0, 0, 0, 0].slice(0, 4))} }; true`);
+}
+export const padOff = () => raw("window.__fakePad = null; true");
 
 export async function done(code = 0) {
   console.log(errors.length ? "PAGE ERRORS:\n" + errors.join("\n") : "page errors: none");

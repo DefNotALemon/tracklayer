@@ -183,8 +183,8 @@ Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving
 
 On foot without skis you break trail: every step leaves a boot hole and your legs plough a
 trench about half a metre wide behind you. It shows on the minimap. Wading fresh powder you make
-about 1.5 m/s (30 m in under 20 s); walking back along your own trench is half as quick again, and
-on hard-packed snow you walk a brisk 2.9 m/s. The more you use a trench, the harder it packs. Deep
+about 1.5 m/s (30 m in under 20 s); walking back along your own trench is quicker again. The more you
+use a trench, the harder it packs. Deep
 wading winds you after about 25 s, and you get your breath back quickly once you stop. Hills count:
 climbing shortens your stride (a 25% grade costs about a quarter of your pace and blows you faster), a
 gentle descent lets you lope a little quicker, and on a really steep one you slow to pick your footing.
@@ -195,14 +195,22 @@ every time you Q off without skis: you float on fresh powder instead of wading (
 against ~20), sink in half as far and tire less. Packed snow and plowed lanes are no quicker in them. Once
 bought they stay in your pack even if you swap the kit for the satellite messenger. They are full-size
 aluminium-framed shoes with red decking, so you can see them on your boots from the chase camera.
-Hold **Shift** (gamepad **RB**, the touch lean button) to jog: about half as quick again on packed snow
-(3.7 m/s along a plowed lane, 3 m/s back down your own trench) and a fifth quicker wading powder, but it
+Off the snow (the quay's concrete, plowed yards and lanes, a hard-packed trail, ground the spring has melted
+out, and the ferry's deck) you stop wading and walk like a person: about 1.4 m/s, easing into a brisk 1.8 m/s
+after a few seconds of steady walking, with a real walking gait (heel down first, rolling over the foot onto
+the toes, the knee folding as the leg swings through, hips and shoulders turning against each other, arms
+swinging opposite the legs, planted boots that don't skate). How much loose snow is under your boots sets
+the gait, so stepping off the quay into a drift blends from the walk into the high-knee wade over a stride
+or two. Concrete and decking take no boot prints or trench and your steps knock instead of crunch. The quay
+itself is bare concrete now, with the plowed snow banked along its sides.
+Hold **Shift** (gamepad **RB**, the touch lean button) to jog: about 3 m/s on hard ground and plowed lanes
+(a proper running stride with both feet off the ground between steps) and a fifth quicker wading powder, but it
 spends your breath: about 15–20 s of jogging on hard pack (~60 m), 10 s or so in deep powder, then you're
 out of breath and walk until you've got it back (walking refills it slowly, standing still quickly). It
 helps little on a real climb or a steep descent.
 Folk keep their yards plowed: around every house, the quay and the lane down to it, the garage
 forecourt, the shops, cabins and the helsesenter door the snow is pushed back and packed hard (the
-HUD says "Plowed yard"), so you walk to a door at about 2.5 m/s instead of wading, and snowfall never
+HUD says "Plowed yard"), so you walk to a door at a normal walking pace instead of wading, and snowfall never
 buries a yard again. Off the sled, the snow badge by the speedo reads the snow under your own boots (PACKED
 "Plowed yard" / "Packed trail", POWDER "Wading powder" / "Wading deep powder", ICE on a frozen lake, and
 what your snowshoes or skis do for you), not wherever you left the sled. Every lived-in house also has a plowed apron running about 8 m out from its front
