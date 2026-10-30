@@ -7,6 +7,29 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-10-30 15:00 — Walking off the snow: a real walk at a person's pace (G1, OWNER) — caa7afd
+Owner note 30 Oct (interactive session, not a loop pass). New hard-ground gait (`hgPose` block above poseWalker): the
+walker has ankle joints now (makeWalker U.ank; snowshoes ride on them), and off the snow each foot is placed by two-bone
+IK on a distance-driven cycle (heel strike toe-up → flat → heel rise on the ball → Hermite swing that lands at floor
+speed), pelvis height from the stance legs (≈6 cm bob), hips turning ±4° with shoulders counter-turning, ~2 cm weight
+shift, arms opposite, head steady; jog (Shift) gets a running stride with flight. `FOOT.hardW` blends wade → walk by the
+loose snow under the boots (d·(1−0.8·pack): plowed yards/lanes/packed trail ≈ walk, fresh powder = wade), smoothed
+~0.25 s. Pace off snow 1.4 easing to brisk 1.8 after ~3 s (FOOT.brisk), jog 3.0. The quay is bare concrete now
+(freshG 0 on the pier, a 5 cm concrete deck, plow banks on the sides, `quayTop`/`walkFloor`); hard floors take no
+boot holes/trench and play `hardStep` (a knock) instead of the crunch.
+Numbers (`g1_hardwalk.mjs`, gameClock; before = origin/main 4297b8c): quay walk steady 2.30 → 1.79 m/s (1.4 for the
+first seconds), quay jog 3.80 → 3.00, depot yard 2.68 → 1.77, open powder walk 1.53 → 1.53 and jog 1.87 → 1.87
+(unchanged), smoke trench 2.25 → 1.84 (a packed trench now counts as walking ground). Planted-foot slide on the quay
+(heel/ball within 5 mm of the floor, deterministic 1/60 s capture) mean 145 → 6 mm per stance, max 282 → 9 mm; bob
+10.5 → 6.4 cm; cadence 158 → 136 spm brisk (116 at 1.4 m/s); knee 6–87° → 4–84°. Quay → yard snow → drift: hardW
+holds 1 on concrete/plowed and eases to 0.63 at 24 cm loose. Stills (side + front strips, 0.1 s apart):
+tlloop/tut/side8.jpg, front8.jpg (before: side_before.jpg) judged with vision: heel-toe walk, swing knee, legs apart,
+no clipping. smoke exit 0, page errors none.
+Harness: lib.mjs now hides the Mac's real gamepads from headless Chrome (a controller on the desk was steering the
+walker in circles mid-test) and offers `padSet()/padOff()` for a scripted pad. g1_hardwalk takes over the rAF loop to
+step the game exactly 1/60 s per frame for the foot-slide capture and strips (works under any machine load).
+Next: G2 ferry tutorial (needs the deck walk). Turning on the spot still shuffles with some foot slide.
+
 ## 2026-10-26 23:40 — Snow LOD line 9-12 m out: fine ripples fade by pixel footprint (G3, OWNER) — 33557bf
 Triage: 0089 (v150 pine caps clean at 7/14/30 m noon+night, no sliver) closes the pine item; 0090 (Ranger+flatbed heavy
 leg stalls on a climb, 4th failed autonav) folded into the coldRun item with a slope-aware-steer note.

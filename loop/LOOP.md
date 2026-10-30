@@ -123,7 +123,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G1 (OWNER, top): walking on snow-free ground at normal pace with a realistic gait, blended by snow depth (Owner notes 30 Oct).
+- [x] G1 (OWNER, top): walking on snow-free ground at normal pace with a realistic gait, blended by snow depth (Owner notes 30 Oct). Landed caa7afd (v158), see PROGRESS. Left: hard-ground jog judged only by numbers; turning on the spot still shuffles (feet slide while pivoting).
 - [ ] G2 (OWNER, top): new-player tutorial starting on foot aboard the ferry into Kjøllefjord (Owner notes 30 Oct). Needs the snow-free walking item.
 - [ ] G3 (OWNER): upgrade existing animations to the realistic-animation rule (walker/wader gait, climb on/off, crash/get-up, skier, passengers), one per pass (Owner notes 30 Oct).
 - [ ] G3 (OWNER, top): smooth the snow LOD line ~9-12 m from the player (see Owner notes 26 Oct 23:40).
