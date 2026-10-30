@@ -266,7 +266,11 @@ three viewpoints (Finnkirka lookout, Stjernevarden, Ifjordfjellet ridge). They p
 strong the lights are when you get there.
 
 Storms are weather fronts that sweep across the map, so the west coast gets hit before the
-quay. The tablet's Weather app (or **B**, for barometer) shows a 3-day forecast. Tomorrow's is usually right; days two and three carry a
+quay. The tablet's Weather app (or **B**, for barometer) opens on a radar: the peninsula's map with
+the storms painted over it where they are right now (pale blue showers, violet storm, magenta severe)
+and each front's leading line drawn with triangles pointing the way it's moving. It loops the next six
+hours so you can watch a front cross the map toward you; **SHOW NOW** holds it on the live picture.
+Below it is a 3-day forecast. Tomorrow's is usually right; days two and three carry a
 confidence figure and are sometimes wrong. It also shows whether the ferry's calls look
 on time, delayed or cancelled. A new game's first morning (1 November) stays clear until about
 13:00, with fronts easing in over the next two hours, so your first jobs aren't run in a storm.

@@ -4416,6 +4416,84 @@ const wxGlyph = (p, night) => {
   const n = p < 0.7 ? 4 : 7;
   return cloud + Array.from({ length: n }, (_, k) => { const x = 10 + k * (22 / (n - 1)); return `<line x1="${x + 3}" y1="28" x2="${x - 2}" y2="35" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`; }).join("");
 };
+/* ---------------- weather radar: the storms on the chart ----------------
+   Top of the Weather app: the peninsula's chart (same paper as the Map app) with WX's fronts painted over it
+   where they really are, sampled from WX.at on a 72x72 grid. By default it loops the next six hours (hold on
+   NOW, sweep to +6 h, hold, repeat) so you watch each front cross the map toward you; "SHOW NOW" holds it
+   live. Each front's peak line is drawn as a weather-map front (triangles point the way it travels). The
+   speckle inside the bands is cosmetic noise that rides along with its front. Nothing here is saved. */
+const WXR = { play: true, t: 0, cv: null, dt: 0, N: 72, img: null, buf: null };
+const WXR_KEY = ["rgba(150,205,255,.85)", "rgba(110,120,255,.9)", "rgba(220,80,230,.95)"];
+const WXR_HOLD0 = 1.2, WXR_RUN = 7, WXR_HOLD1 = 1.6, WXR_SPAN = 6;
+function wxrNoise(x, y) {   // smooth value noise, about -1..1
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const h = (a, b) => { let n = Math.imul(a, 374761393) + Math.imul(b, 668265263); n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) & 1023) / 511.5 - 1; };
+  const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function wxrColor(i) {   // radar ramp: clear → pale blue showers → violet storm → magenta severe
+  const stops = [[0.1, 150, 205, 255, 0], [0.2, 150, 205, 255, 0.38], [0.42, 120, 140, 255, 0.52], [0.7, 150, 90, 245, 0.64], [1, 230, 80, 225, 0.74]];
+  if (i <= stops[0][0]) return null;
+  for (let k = 1; k < stops.length; k++) if (i <= stops[k][0] || k === stops.length - 1) {
+    const A = stops[k - 1], B = stops[k], t = clamp((i - A[0]) / (B[0] - A[0]), 0, 1);
+    return [A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t, A[3] + (B[3] - A[3]) * t, A[4] + (B[4] - A[4]) * t];
+  }
+}
+function wxRadarOffset() {   // hours ahead of now the radar is showing
+  if (!WXR.play) return 0;
+  const L = WXR_HOLD0 + WXR_RUN + WXR_HOLD1; WXR.t %= L;
+  return clamp((WXR.t - WXR_HOLD0) / WXR_RUN, 0, 1) * WXR_SPAN;
+}
+function wxRadarTick(dt) {
+  WXR.t += dt; WXR.dt += dt; if (WXR.dt < 1 / 15 || !WXR.cv || !WXR.cv.isConnected) return; WXR.dt = 0;
+  const cv = WXR.cv, box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, Hh = box.clientHeight; if (W < 60 || Hh < 60) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(Hh * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr); cv.style.width = W + "px"; cv.style.height = Hh + "px"; }
+  const off = wxRadarOffset(), H = GS.hour + off, T = CAL.abs(H);
+  // the view: the whole peninsula, centred, letterboxed to the box
+  const sz = WORLD * Math.max(1, Hh / W), sx = sz * W / Hh, x0 = -sx / 2, z0 = -sz / 2;
+  const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, x0, z0, sx, sz);
+  g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; };
+  // the storm field
+  const N = WXR.N, img = WXR.img || (WXR.img = document.createElement("canvas")); if (img.width !== N) img.width = img.height = N;
+  const ig = img.getContext("2d"), id = WXR.buf || (WXR.buf = ig.createImageData(N, N)), px = id.data;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = -HALF + (i + 0.5) / N * WORLD, z = -HALF + (j + 0.5) / N * WORLD; let v = WX.at(x, z, H);
+    const f = WX.f; if (v > 0.1 && f) { const u = x * f.dx + z * f.dz - f.v * (T - f.t0), w = -x * f.dz + z * f.dx; v *= 1 + 0.22 * wxrNoise(u / 900, w / 900) + 0.1 * wxrNoise(u / 330 + 17, w / 330); }
+    const c = wxrColor(v), o = (j * N + i) * 4;
+    if (c) { px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = c[3] * 255; } else px[o + 3] = 0;
+  }
+  ig.putImageData(id, 0, 0);
+  const [ax, ay] = w2c(-HALF, -HALF), [bx, by] = w2c(HALF, HALF);
+  g.imageSmoothingEnabled = true; g.drawImage(img, ax, ay, bx - ax, by - ay);
+  // each front's peak line, as a weather-map front with triangles pointing the way it moves
+  if (!(WX.force && H < WX.force.until)) {
+    const D = Math.floor(T / 24);
+    for (let d = D - 2; d <= D + 1; d++) for (const f of WX.dayFronts(d)) {
+      const c = f.v * (T - f.t0); if (f.s * sstep(13, 15, T) < 0.2 || Math.abs(c) > HALF * 1.5) continue;   // (no weather on a new game's first afternoon: WX.atT's grace)   // peak line: x*dx + z*dz = c
+      const mx = f.dx * c, mz = f.dz * c, tx = -f.dz, tz = f.dx, ext = WORLD * 0.75;
+      const [p0x, p0y] = w2c(mx - tx * ext, mz - tz * ext), [p1x, p1y] = w2c(mx + tx * ext, mz + tz * ext);
+      g.save(); g.beginPath(); g.rect(ax, ay, bx - ax, by - ay); g.clip();
+      g.strokeStyle = "rgba(40,30,120,.85)"; g.lineWidth = 2.2; g.beginPath(); g.moveTo(p0x, p0y); g.lineTo(p1x, p1y); g.stroke();
+      const len = Math.hypot(p1x - p0x, p1y - p0y), ux = (p1x - p0x) / len, uy = (p1y - p0y) / len, nx = f.dx, ny = f.dz, step = 26, sz2 = 7;
+      g.fillStyle = "rgba(40,30,120,.85)";
+      for (let s = step / 2; s < len; s += step) { const qx = p0x + ux * s, qy = p0y + uy * s; g.beginPath(); g.moveTo(qx - ux * sz2, qy - uy * sz2); g.lineTo(qx + ux * sz2, qy + uy * sz2); g.lineTo(qx + nx * sz2 * 1.3, qy + ny * sz2 * 1.3); g.closePath(); g.fill(); }
+      g.restore();
+    }
+  }
+  // places, the quay and you
+  tabSites(g, w2c, 0.3, new Set());
+  const [yx, yy] = w2c(P.x, P.z);
+  g.save(); g.translate(yx, yy); g.rotate(Math.PI - P.yaw);
+  g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -11); g.lineTo(-8, 8); g.lineTo(8, 8); g.closePath(); g.fill();
+  g.fillStyle = CT_ACC; g.beginPath(); g.moveTo(0, -8); g.lineTo(-5, 5); g.lineTo(5, 5); g.closePath(); g.fill(); g.restore();
+  tabLabel(g, "YOU", yx, yy + 20, 11, CT_ACC);
+  // the clock and the loop's progress bar
+  const lbl = off < 0.05 ? `NOW · ${fmtTime(GS.hour)}` : `+${off.toFixed(1)} H · ${fmtTime(H)}`;
+  g.font = "700 13px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "left"; g.textBaseline = "middle";
+  const tw = g.measureText(lbl).width; g.fillStyle = "rgba(13,24,34,.86)"; g.fillRect(8, 8, tw + 18, 24); g.fillStyle = off < 0.05 ? "#eaf2f8" : "#ffc26b"; g.fillText(lbl, 17, 20.5);
+  if (WXR.play) { const bw = W - 16; g.fillStyle = "rgba(13,24,34,.7)"; g.fillRect(8, Hh - 10, bw, 4); g.fillStyle = "#ffc26b"; g.fillRect(8, Hh - 10, bw * off / WXR_SPAN, 4); }
+  g.restore();
+}
 function renderWx(el) {
   const f = WX.forecast(), o = WX.outlook(), n = CAL.now();
   const here = WX.at(P.x, P.z), nowW = here > 0.55 ? "storm" : here > 0.2 ? "snow showers" : "clear";
@@ -4426,7 +4504,9 @@ function renderWx(el) {
   const fchip = c => `<span class="bchip ${c.state === "cancelled" ? "due" : c.state === "delayed" ? "heavy" : "ok"}">${c.state === "delayed" ? "+" + c.delay + " H" : c.state.toUpperCase()}</span>`;
   const today = steamerCalls(GS.hour, Math.floor(GS.hour / 24) * 24 + 24, true).filter(c => c.dep >= GS.hour).map(c => `${c.dir} ${c.state === "cancelled" ? fmtTime(c.sArr) + " cancelled" : c.state === "delayed" ? `${fmtTime(c.sArr)} running ${c.delay} h late (sails ${fmtTime(c.dep)})` : `sails ${fmtTime(c.dep)} on time`}`);
   const ferryNow = today.length ? ` Ferry today: ${today.join("; ")}.` : "";
-  el.innerHTML = `<div class="wxnow"><b>${n.long}</b> · ${CAL.season().name}${CAL.isPolarNight() ? ` <span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}<p>${now} ${sun}${ferryNow}</p></div>
+  el.innerHTML = `<div class="wxtop"><div class="wxrad"><canvas id="wxRadC"></canvas><button type="button" class="tbtn ghost sm" data-tf="wx:loop" id="wxLoop">${WXR.play ? "SHOW NOW" : "PLAY NEXT 6 H"}</button></div>
+    <div class="wxnow"><b>${n.long}</b> · ${CAL.season().name}${CAL.isPolarNight() ? ` <span class="bchip polar">POLAR NIGHT ×1.5</span>` : ""}<p>${now} ${sun}${ferryNow}</p>
+    <div class="wxkey"><span><i style="background:${WXR_KEY[0]}"></i>Snow showers</span><span><i style="background:${WXR_KEY[1]}"></i>Storm</span><span><i style="background:${WXR_KEY[2]}"></i>Severe</span><span><i class="fr"></i>Front, moving the way it points</span></div></div></div>
     <div class="wxdays">${f.days.map(d => `<div class="wxd${d.peak > 0.55 ? " bad" : ""}">
       <div class="wxh"><span class="wxdow">${d.k === 1 ? "TOMORROW" : d.dow.toUpperCase()}</span><span class="wxdt">${d.label.slice(4)}</span><span class="bchip conf" title="Forecast confidence">${d.conf}%</span></div>
       <svg class="wxg" viewBox="0 0 40 38" aria-hidden="true">${wxGlyph(d.peak, d.polar)}</svg>
@@ -4437,6 +4517,8 @@ function renderWx(el) {
       ${d.aurora !== null && d.aurora !== undefined ? `<div class="wxa">Aurora: <b>${d.aurora > 0.6 ? "strong" : d.aurora > 0.35 ? "likely" : d.aurora > 0.15 ? "a chance" : "unlikely"}</b></div>` : ""}
     </div>`).join("")}</div>
     <p class="wxnote">Issued 00:00 ${f.issued} by the met office in Vardø. Tomorrow's is usually right. Days two and three are a guess with a percentage on it. Ferry times are her calls at Kjøllefjord.</p>`;
+  $("wxLoop").addEventListener("click", () => { WXR.play = !WXR.play; WXR.t = 0; TABLET.render(); });
+  WXR.cv = $("wxRadC"); WXR.dt = 1; wxRadarTick(0);
 }
 
 // Kjøllefjord is the hub: freight comes off the coastal steamer at the quay and goes out across the
@@ -7396,7 +7478,9 @@ TABLET.addLayer("rescue", () => GS.rescueJob && typeof RJ !== "undefined" ? RJ.v
 
 TABLET.register({
   id: "weather", name: "Weather", icon: TICON.weather, order: 3, live: 5,
-  render(el) { el.innerHTML = `<div class="tapp twx">${tabHead("MET · NORDKINN", "Forecast")}<div id="tabWx"></div></div>`; renderWx($("tabWx")); }
+  render(el) { el.innerHTML = `<div class="tapp twx">${tabHead("MET · NORDKINN", "Forecast")}<div id="tabWx"></div></div>`; renderWx($("tabWx")); },
+  onOpen() { WXR.t = 0; },
+  tick(dt) { wxRadarTick(dt); }
 });
 
 TABLET.register({

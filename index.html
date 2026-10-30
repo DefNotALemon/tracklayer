@@ -560,6 +560,15 @@
   #tabS .twx .wxa b{font-style:normal;font-weight:700}
   #tabS .twx .wxnow{margin-top:10px}#tabS .twx .wxdays{margin:12px 0}
   #tabS.small .twx .wxdays,#tabS.port .twx .wxdays{grid-template-columns:1fr}
+  #tabS .twx .wxtop{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;margin-top:10px;align-items:start}
+  #tabS .twx .wxtop .wxnow{margin-top:0}
+  #tabS .twx .wxrad{position:relative;aspect-ratio:1/1;border-radius:var(--r-md);overflow:hidden;box-shadow:0 0 0 1px rgba(234,242,248,.14);background:#2e4b63}
+  #tabS .twx .wxrad canvas{display:block}
+  #tabS .twx .wxrad .tbtn{position:absolute;top:8px;right:8px;background:rgba(13,24,34,.82)}
+  #tabS .twx .wxkey{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--slate)}
+  #tabS .twx .wxkey i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+  #tabS .twx .wxkey i.fr{width:16px;height:0;border-radius:0;border-top:2px solid #9a90ff;vertical-align:3px}
+  #tabS.small .twx .wxtop,#tabS.port .twx .wxtop{grid-template-columns:1fr}
   /* calendar */
   .tstrip{position:relative;height:42px;margin:14px 0 26px;border-radius:8px;background:rgba(234,242,248,.05);border:1px solid var(--rule)}
   .tsg{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:700;letter-spacing:.1em;white-space:nowrap}
@@ -919,5 +928,5 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=39"></script>
-<script src="tracklayer.js?v=156"></script>
+<script src="tracklayer.js?v=157"></script>
 </body></html>
