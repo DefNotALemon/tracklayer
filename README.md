@@ -33,7 +33,7 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
-- **R / F** gear up / down on a manual sled · **F** when stopped puts any sled in **reverse** (the throttle backs you up, about 9 mph tops; the brake holds it), **R** puts it back in forward. Either one while rolling just grinds.
+- **S / Down** brakes; hold it once you've stopped and the sled **reverses** (about 9 mph tops). There are no gears: every sled is stepless.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·

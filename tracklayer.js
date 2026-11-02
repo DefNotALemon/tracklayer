@@ -2292,8 +2292,6 @@ addEventListener("keydown", e => {
   if (FISH && (FISH.on || FISH.panelOpen()) && FISH.key(e)) return;      // out on the ice, or in the tackle shop / at the fish buyer
   if (e.code === "Space" && !FOOT.on) input.hop = true;
   if (e.code === "KeyN") resetSled();
-  if (e.code === "KeyR") shiftKey(1);
-  if (e.code === "KeyF") shiftKey(-1);
   if (e.code === "KeyV" || e.code === "KeyC") cycleView();
   if (e.code === "KeyM") TABLET.toggle(undefined, "map");   // M: the tablet up on its Map app (switches to Map from another app; on Map it puts the tablet away)
   if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
@@ -3071,79 +3069,13 @@ function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
   }
 }
 function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
-/* ---------------- gearbox ---------------- */
-// Sleds come in three transmissions. The old ones are manual: R slots up a gear, F back down,
-// and past the top of a gear the power just falls away. Newer sleds shift themselves, but you
-// still feel every change — a pause, a lurch, the note dropping. The newest chassis and the
-// electrics are stepless: one smooth pull from a standstill to flat out.
-// Touch controls have no shift keys, so a manual sled rides as an automatic on phones.
-// Reverse, on every sled: F at a standstill (in first, on a manual) drops it into R and the
-// throttle backs you up, slow and low-geared; R puts it back in forward. Both only go in
-// stopped: try it rolling and the box just grinds. GB.gear 0 is reverse.
-const GB = { gear: 1, n: 1, vTop: 0, mul: 1, dir: 1, shiftT: 0, hintT: 0, told: "" };
+/* ---------------- reverse ---------------- */
+// No gearbox: every sled is stepless. Reverse is just S / Down: brake to a stop and keep holding it
+// and the sled backs up (slow, low-geared, ~9 mph tops); let go or press W and you're forward again.
+// GB.dir is -1 while reversing, 1 otherwise (the thrust sign, the HUD tag and the engine note read it).
+const GB = { dir: 1 };
 const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops out ~9 mph; "stopped" is under ~2 mph
-const gbStill = () => Math.abs(P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)) < GB_STILL;
-const gbCount = sd => sd.trans === "manual" || sd.trans === "auto" ? sd.gears || 4 : 1;
-function gbReset() { GB.gear = 1; GB.dir = 1; GB.n = gbCount(sledDef()); GB.vTop = 0; GB.shiftT = 0; GB.mul = 1; GB.hintT = 0; }
-const gbTop = g => GB.vTop * Math.pow(g / GB.n, 0.85);
-function gbShift(d, quiet) {
-  const g = clamp(GB.gear + d, quiet ? 1 : 0, GB.n); if (g === GB.gear) return false;   // only a hand on the lever finds reverse
-  if ((g === 0 || GB.gear === 0) && !gbStill()) {              // in or out of reverse while rolling: it grinds
-    P.shake = Math.max(P.shake, 0.04); thud(0.1);
-    toast(g === 0 ? "Stop first, then F for reverse." : "Stop first, then R for forward.", "warn");
-    return false;
-  }
-  if (g === 0) toast("Reverse: throttle backs you up. R for forward.");
-  GB.gear = g; GB.dir = g === 0 ? -1 : 1; GB.shiftT = sledDef().trans === "auto" ? 0.34 : 0.22;
-  P.shake = Math.max(P.shake, quiet ? 0.055 : 0.03);          // you feel it slot in, the automatic most of all
-  thud(quiet ? 0.14 : 0.08);
-  return true;
-}
-function shiftKey(d) {
-  if (FOOT.on || GS.dead) return;
-  const sd = sledDef();
-  // the reverse lever works on everything; only a manual has forward gears to pick by hand
-  if (GB.gear === 0 || (d < 0 && GB.gear === 1)) { gbShift(d, false); return; }
-  if (sd.trans !== "manual" || TC.on) {
-    if (GB.told !== sd.id) {
-      GB.told = sd.id;
-      toast(sd.trans === "manual" ? "No shift keys on the touch controls — it's shifting itself." :
-        sd.trans === "auto" ? `The ${sd.name} shifts itself. You'll feel every one.` : "Stepless drive — one smooth pull, no gears at all.");
-    }
-    return;
-  }
-  gbShift(d, false);
-}
-function gbStep(dt, vf, thrE) {
-  const sd = sledDef();
-  GB.n = gbCount(sd);
-  GB.mul = 1;
-  GB.dir = GB.gear === 0 ? -1 : 1;
-  if (GB.gear === 0) {                                         // reverse: one short, pulling gear backwards
-    const over = Math.max(0, -vf) / GB_REV_TOP;
-    let m = 1.25 * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1);
-    if (GB.shiftT > 0) { GB.shiftT -= dt; m *= 0.45; }
-    GB.mul = m; return;
-  }
-  if (GB.n === 1) return;
-  if (GB.gear > GB.n) GB.gear = GB.n;
-  const auto = sd.trans === "auto" || TC.on;                  // phones get an automatic either way
-  const spd = Math.abs(vf);
-  if (!GB.vTop) GB.vTop = 23 * (0.7 + 0.5 * ST.power);        // a first guess; it learns the real top speed below
-  if (GB.gear === GB.n && spd > GB.vTop) GB.vTop = spd;       // whatever top gear actually reaches is the yardstick
-  if (auto) {
-    if (GB.gear < GB.n && thrE > 0.2 && spd > gbTop(GB.gear) * 0.96) gbShift(1, true);
-    else if (GB.gear > 1 && spd < gbTop(GB.gear - 1) * 0.72) gbShift(-1, true);
-  }
-  const top = gbTop(GB.gear), over = spd / top;
-  let m = lerp(1.32, 1.0, (GB.gear - 1) / Math.max(1, GB.n - 1));   // the low gears are the pulling gears
-  if (over > 1) {                                                 // past the redline the power falls away
-    m *= Math.max(0.14, 1 - (over - 1) * 6);
-    if (!auto && thrE > 0 && GB.gear < GB.n && (GB.hintT -= dt) <= 0) { GB.hintT = 4; toast("Top of the gear — R to shift up.", "warn"); }
-  }
-  if (GB.shiftT > 0) { GB.shiftT -= dt; m *= 0.45; }              // the dead beat between gears
-  GB.mul = m;
-}
+function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
@@ -3219,12 +3151,15 @@ function physCore(dt) {
     const trailK = ST.trail ? 1 + ST.trail * (P.ice ? 1 : sstep(0.3, 0.75, P.pack)) * (1 - P.rock) : 1;   // Sprint's trail gearing
     const pw = 47000 * PWR * SPEED_K * punch * trailK * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
-    gbStep(dt, vf, thrE);
-    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * GB.mul * GB.dir * (1 - 0.9 * P.rock);
-    if (input.brk > 0) {
-      if (GB.dir < 0) F += (vf < -0.6 ? 4200 : vf < 0 ? 1100 : 0) * input.brk;   // in reverse the brake just holds you
-      else F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
-    }
+    // S / Down: brake while rolling forward; once stopped (and W isn't held) keep holding it and you back up
+    const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && vf < GB_STILL;
+    GB.dir = rev ? -1 : 1;
+    if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
+    if (rev) {
+      const over = Math.max(0, -vf) / GB_REV_TOP;
+      F -= Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * input.brk * 1.25 * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1) * (1 - 0.9 * P.rock);
+      if (over > 1) F += 3000 * input.brk;                       // faster than reverse gear pulls: the brake holds you back
+    } else if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
     // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
@@ -3633,12 +3568,9 @@ function updVisuals(dt) {
   { const hid = VIEWS[camMode].fp && !showroomOn(); if (hid !== V.headHid) { V.headHid = hid; applyLoadout(); } }
   sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
   towVisual(dt);
-  // engine rpm: a geared sled revs out through its band and drops a beat between gears
+  // engine rpm
   let rpmT;
-  if (GB.n > 1) {
-    const lo = GB.gear > 1 ? gbTop(GB.gear - 1) : 0, hi = GB.gear === 0 ? GB_REV_TOP : Math.max(gbTop(GB.gear) - lo, 1);
-    rpmT = clamp(0.16 + clamp((spd - lo) / hi, 0, 1) * 0.7 + input.thr * 0.14 + (GB.shiftT > 0 ? -0.22 : 0) + (input.thr && !P.gnd ? 0.2 : 0), 0, 1.05);
-  } else rpmT = clamp(0.14 + input.thr * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
+  rpmT = clamp(0.14 + (input.thr + (GB.dir < 0 ? input.brk : 0)) * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
   // camera
   const view = (FOOT.on || CRASH.on) && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
@@ -3767,7 +3699,7 @@ function footBadge() {
 }
 function updHud(spd) {
   $("spd").textContent = Math.round(spd * 2.237);
-  const gv = $("gearV"), gt = GB.gear === 0 ? "REVERSE" : GB.n > 1 ? `GEAR ${GB.gear}/${GB.n}` : "";
+  const gv = $("gearV"), gt = GB.dir < 0 ? "REVERSE" : "";
   if (gv && gv.textContent !== gt) gv.textContent = gt;
   if (FOOT.on) {
     const [fs, fb] = footBadge(), pill = $("pill");
