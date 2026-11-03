@@ -109,13 +109,18 @@ function snowFieldGLSL() {
        q.y += (fdN(p * 0.004) - 0.5) * 140.0;
        return q + (vec2(fdN(p * 0.035), fdN(p * 0.035 + 17.0)) - 0.5) * vec2(22.0, 9.0);
      }
+     // fdFp: ground metres one pixel spans here (set by each shader before it samples). Every layer of the field fades to its
+     // mean as its wavelength nears 4 pixels, so layers hand over one after another instead of at one line.
+     float fdFp = 0.0;
      // near: weight of the close dunes; nc: crest weight, 0 where a pixel spans too much ground
      float fdH(vec2 p, float near, float nc) {
        vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
        q.y += (fdN(p * 0.004) - 0.5) * 140.0;
        vec2 w = fdW(p);
        float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);
-       return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near;
+       return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near
+         + mix(0.5, fdN(q * vec2(0.09, 0.22)), 1.0 - smoothstep(0.8, 3.0, fdFp)) * 0.25 * near     // 8-11 m undulations
+         + mix(0.5, fdN(q * vec2(0.3, 0.8)), 1.0 - smoothstep(0.3, 1.2, fdFp)) * 0.08 * near;    // 3 m wavelets
      }\n`;
 }
 
@@ -547,12 +552,13 @@ patchMat.onBeforeCompile = sh => {
        float base = fdH(p, 1.0, 1.0);
        vec2 w = fdW(p);
        float sw = fdN(p * 0.011);
-       return base + (mix(0.5, tlN(w * vec2(0.25, 1.1)), tlKc) * 0.025 + mix(0.5, tlN(w * vec2(0.7, 2.6)), tlKf) * 0.0075) * (0.35 + sw);
+       return base + (mix(0.5, tlN(w * vec2(0.25, 1.1)), tlKc) * 0.025 + mix(0.5, tlN(w * vec2(0.7, 2.6)), tlKf) * 0.0075 + mix(0.5, tlN(w * vec2(1.6, 6.5)), 1.0 - smoothstep(0.012, 0.075, fdFp) ) * 0.0022) * (0.35 + sw);
      }\n` +
     sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float tlSh = 1.0;
       // ground metres one pixel spans here (grows with distance and with how grazing the view is)
       float tlFp = max(length(dFdx(vWP.xz)), length(dFdy(vWP.xz)));
+      fdFp = tlFp;
       {
         tlKf = 1.0 - smoothstep(0.03, 0.17, tlFp); tlKc = 1.0 - smoothstep(0.15, 0.6, tlFp);
         float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
@@ -725,6 +731,7 @@ function buildFar() {
   geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
   const NL = LAKES.length;
+  mat.extensions = { derivatives: true };   // dFdx/dFdy for the snow field's pixel footprint (WebGL1 fallback)
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, farU, meltU, skyRefU);
     sh.vertexShader = `uniform vec4 uPatch; uniform float uMeltK; uniform float uThin; uniform float uLakeThr[${NL}]; attribute vec3 aMelt; attribute float aMeltT; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n` + sh.vertexShader.replace("#include <begin_vertex>", `
@@ -754,6 +761,7 @@ function buildFar() {
       float fdSh = 1.0;
       {
         float dist = length(vViewPosition);
+        fdFp = max(length(dFdx(vWxz)), length(dFdy(vWxz)));
         // lake skin (v109): scoured blue ice under wind-streaked thin snow. Lakes are flat, so the pixel footprint is
         // dist / cos(view) with cos from the geometric normal; streaks fade to their mean before they can alias.
         if (vLake > 0.01) {
@@ -769,7 +777,7 @@ function buildFar() {
           // the sharp crests alias into barcode stripes where one pixel spans metres of ground (far + grazing): fade
           // them on distance over the cosine of the view angle (a facing hillside at 200 m keeps them, flat fell at 300 m doesn't)
           float nc = near * (1.0 - smoothstep(350.0, 900.0, dist / max(abs(dot(normal, normalize(vViewPosition))), 0.02)));
-          float e = 2.0, h0 = fdH(vWxz, near, nc);
+          float e = clamp(fdFp * 3.0, 0.4, 2.0), h0 = fdH(vWxz, near, nc);
           vec2 g = vec2(fdH(vWxz + vec2(e, 0.0), near, nc) - h0, fdH(vWxz + vec2(0.0, e), near, nc) - h0) / e * fdSnow;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz * 6.0);
           float lee = fdSnow * clamp(0.45 - (g.x * 0.8 + g.y * 0.6) * 6.0, 0.0, 0.8);   // lee of the north-westerly (soft: the v88 dunes made ×10 blotchy)
