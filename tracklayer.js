@@ -96,6 +96,29 @@ function landAt(x, z) {
   LF.lobe = la + (lb - la) * fx + (lc - la) * fz + (la - lb - lc + ld) * fx * fz;
   return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
 }
+/* ---- One snow field for near and far (v160): the far-terrain shader and the close snow patch both build their
+   drifts from THIS height function, so dune direction, spacing, crest shape and lee shade are the same field at
+   every distance. The patch only adds finer ripples on top of it (tlDrift), warped by the same wind (fdW). */
+function snowFieldGLSL() {
+  return `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+     float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+       return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
+     // wind frame: x along the 0.8/0.6 axis, wandering by up to 140 m, plus the 20-35 m warp that frays the dune outlines
+     vec2 fdW(vec2 p) {
+       vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
+       q.y += (fdN(p * 0.004) - 0.5) * 140.0;
+       return q + (vec2(fdN(p * 0.035), fdN(p * 0.035 + 17.0)) - 0.5) * vec2(22.0, 9.0);
+     }
+     // near: weight of the close dunes; nc: crest weight, 0 where a pixel spans too much ground
+     float fdH(vec2 p, float near, float nc) {
+       vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
+       q.y += (fdN(p * 0.004) - 0.5) * 140.0;
+       vec2 w = fdW(p);
+       float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);
+       return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near;
+     }\n`;
+}
+
 function baseH(x, z) {
   const b = landAt(x, z);
   if (b <= 0) return -3 + b * 60;                                        // sea floor, sloping away from the shore
@@ -510,7 +533,7 @@ patchMat.onBeforeCompile = sh => {
   // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
   // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
   sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
-    `float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+    `${snowFieldGLSL()}float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
      // tlKf/tlKc: how much of the fine (0.38 m) and coarse (0.9 m) ripple octave this pixel can show. Each fades to its
@@ -519,10 +542,12 @@ patchMat.onBeforeCompile = sh => {
      float tlKf = 1.0, tlKc = 1.0;
      float tlSd = 0.0;
      float tlDrift(vec2 p) {
-       vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
-       q.y += (tlN(p * 0.03) - 0.5) * 22.0;                                 // the wind wanders: ripples bend across the fell
-       float sw = tlN(p * 0.06);                                            // ripples gather in patches, not everywhere
-       return (mix(0.5, tlN(q * vec2(0.25, 1.1)), tlKc) * 0.05 + mix(0.5, tlN(q * vec2(0.7, 2.6)), tlKf) * 0.015) * (0.35 + sw) + tlN(p * 0.09) * 0.35;
+       // the far-terrain drifts, exactly (coarse + close dunes), then ripples on top that run along the same wind
+       // frame and bend with the same warp, gathering where the dunes are tall
+       float base = fdH(p, 1.0, 1.0);
+       vec2 w = fdW(p);
+       float sw = fdN(p * 0.011);
+       return base + (mix(0.5, tlN(w * vec2(0.25, 1.1)), tlKc) * 0.025 + mix(0.5, tlN(w * vec2(0.7, 2.6)), tlKf) * 0.0075) * (0.35 + sw);
      }\n` +
     sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float tlSh = 1.0;
@@ -531,16 +556,19 @@ patchMat.onBeforeCompile = sh => {
       {
         tlKf = 1.0 - smoothstep(0.03, 0.17, tlFp); tlKc = 1.0 - smoothstep(0.15, 0.6, tlFp);
         float rk = 1.0 - smoothstep(0.55, 0.78, vSlopeY);
-        float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet)
-          * (1.0 - smoothstep(34.0, 50.0, distance(vWP, cameraPosition)));
+        float relief = (1.0 - vPack) * smoothstep(0.08, 0.3, vFresh) * (1.0 - min(vIce, 1.0)) * (1.0 - rk * 0.8) * (1.0 - 0.6 * uWet);
+        float tlRf = 1.0 - smoothstep(34.0, 50.0, distance(vWP, cameraPosition));   // the ripples fade out; the shared dunes carry on into the far terrain
+        tlKf *= tlRf; tlKc *= tlRf;
         if (relief > 0.01) {
           vec2 p = vWP.xz; float h0 = tlDrift(p);
-          vec2 g = vec2(tlDrift(p + vec2(0.12, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.12)) - h0) / 0.12 * relief * 2.0;
+          vec2 g = vec2(tlDrift(p + vec2(0.4, 0.0)) - h0, tlDrift(p + vec2(0.0, 0.4)) - h0) / 0.4 * relief * 6.0;
           normal = normalize(normal - (viewMatrix * vec4(g.x, 0.0, g.y, 0.0)).xyz);
+          float tlLee = relief * clamp(0.45 - (g.x * 0.8 + g.y * 0.6), 0.0, 0.8);   // lee of the north-westerly, same rule as the far terrain
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.87, 0.91, 0.98), tlLee);
           if (uMicroK > 0.01) {
             float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
             float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 0.3;
-            for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 4.0 - tE * d); d *= 1.75; }
+            for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 6.0 - tE * d); d *= 1.75; }
             tlSh = 1.0 - smoothstep(0.0, 0.04 + tlFp * 0.2, occ) * 0.8 * relief * uMicroK;   // lee edge softens with the footprint
           }
         }
@@ -721,18 +749,7 @@ function buildFar() {
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
     sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
-      `float fdH1(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
-       float fdN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-         return mix(mix(fdH1(i), fdH1(i + vec2(1.0, 0.0)), f.x), mix(fdH1(i + vec2(0.0, 1.0)), fdH1(i + vec2(1.0, 1.0)), f.x), f.y); }
-       float fdH(vec2 p, float near, float nc) {
-         vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
-         q.y += (fdN(p * 0.004) - 0.5) * 140.0;
-         // the close dunes: a 20-35 m warp frays their outlines and the ridged fold turns each value-noise bump into a
-         // sharp wind crest (seen from a rise, plain bumps read as rows of flat blue oval puddles)
-         vec2 w = q + (vec2(fdN(p * 0.035), fdN(p * 0.035 + 17.0)) - 0.5) * vec2(22.0, 9.0);
-         float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);   // nc: crest weight, 0 where a pixel spans too much ground
-         return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near;
-       }\n` +
+      snowFieldGLSL() +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float fdSh = 1.0;
       {
