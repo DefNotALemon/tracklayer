@@ -112,6 +112,20 @@ function snowFieldGLSL() {
      // fdFp: ground metres one pixel spans here (set by each shader before it samples). Every layer of the field fades to its
      // mean as its wavelength nears 4 pixels, so layers hand over one after another instead of at one line.
      float fdFp = 0.0;
+     // Snow shine (v162): a glossy sun lobe on the rippled normal (tight glare + broad satin, stronger at grazing view),
+     // forward-scattered glow when you look toward the sun, and cold subsurface blue in the shade. All gated by uMicroK
+     // (true sun up, clear) so nothing glows at night or in a storm, and by the drift shadow sh. The tight lobe fades
+     // out with the pixel footprint so far snow is satin, never speckle.
+     vec3 snowShine(vec3 n, vec3 vp, float mask, float sh) {
+       vec3 L = normalize((viewMatrix * vec4(uSunT, 0.0)).xyz), V = normalize(vp), H = normalize(L + V);
+       float nh = max(dot(n, H), 0.0), nl = max(dot(n, L), 0.0), nv = max(dot(n, V), 0.0);
+       float graze = 1.0 + 2.5 * pow(1.0 - nv, 3.0);
+       float spec = pow(nh, 260.0) * 2.6 * (1.0 - smoothstep(0.12, 0.9, fdFp)) + pow(nh, 36.0) * 0.4;
+       float fs = pow(max(dot(-V, L), 0.0), 7.0) * (0.35 + 0.65 * (1.0 - nl));
+       vec3 o = vec3(1.0, 0.93, 0.8) * (spec * graze * 0.55 + fs * 0.16) * sh * smoothstep(0.0, 0.2, nl + 0.15)
+              + vec3(0.012, 0.04, 0.075) * (1.0 - sh * nl) * (1.0 - 0.5 * nv);
+       return o * mask * uMicroK;
+     }
      // near: weight of the close dunes; nc: crest weight, 0 where a pixel spans too much ground
      float fdH(vec2 p, float near, float nc) {
        vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
@@ -622,13 +636,14 @@ patchMat.onBeforeCompile = sh => {
       float tw = fract(rnd*37.0 + dot(normalize(vWP - cameraPosition), vec3(4.0,6.0,5.0)));
       // glints are 11 cm cells: past the distance where a pixel spans a few of them they only speckle, so ease them out
       float spFp = max(length(dFdx(vWP.xz)), length(dFdy(vWP.xz)));
-      col += step(0.985, rnd) * step(0.72, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 0.9 * (1.0 - smoothstep(0.04, 0.2, spFp));
+      col += step(0.972, rnd) * step(0.65, tw) * (1.0 - vPack) * (1.0 - rock) * (1.0 - bare) * (1.0 - 0.8*uWet) * 1.5 * (1.0 - smoothstep(0.04, 0.2, spFp));
       diffuseColor.rgb *= col;
       float skyW = (1.0 - rock) * (1.0 - bare) * (1.0 - 0.7 * uWet);`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
       { outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         outgoingLight = outgoingLight * (1.0 - 0.05 * tlSd) + uSkyRef * 0.09 * tlSd;
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
-        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
+        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW);
+        outgoingLight += snowShine(normal, vViewPosition, skyW * (1.0 - 0.6 * vPack), tlSh); }
       ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= tlSh; reflectedLight.directSpecular *= tlSh;\n#include <aomap_fragment>");
 };
 patchMat.extensions = { derivatives: true };   // dFdx/dFdy pixel footprint on a WebGL1 fallback (built in on WebGL2)
@@ -808,7 +823,8 @@ function buildFar() {
       { float skyW = max(smoothstep(0.8, 0.9, vColor.r), lkW * (0.75 + 0.5 * lkB)) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
         outgoingLight += reflectedLight.directDiffuse * (uSunRef - 1.0) * uSunK * skyW * max(0.6 * (1.0 - smoothstep(40.0, 400.0, length(vViewPosition))), 1.2 * smoothstep(0.22, 0.45, dot((vec4(normal, 0.0) * viewMatrix).xyz, uSunW)));
         float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0); fr = fr * fr * fr;
-        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW); }
+        outgoingLight *= mix(vec3(1.0), uSkyRef, fr * uSkyK * skyW);
+        outgoingLight += snowShine(normal, vViewPosition, skyW, fdSh); }
       ${o}`).replace("#include <aomap_fragment>", "reflectedLight.directDiffuse *= fdSh; reflectedLight.directSpecular *= fdSh;\n#include <aomap_fragment>");
   };
   far = new THREE.Mesh(geo, mat); far.receiveShadow = false;
