@@ -175,6 +175,20 @@ takes them (the flatbed and wing tiller need the heavy-duty one). Sleds you ride
 goes in your pack. The garage's **Workshop** tab restores condition for a fee, but the wear marks
 stay. Fishing gear can't be restored.
 
+### Santa's Sled (rare)
+
+Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a
+kind and never a lemon (Bytteboden pings you when it's listed). Pay, bring a trailer or flatbed with
+a free bay to the seller's, and haul it home to the garage. It has no engine, and it won't move
+until its team is back: **nine runaway reindeer** in red harness and gold bells, loose round the
+peninsula. They're tame: ride or walk right up to one and it's found, and it trots off to wait at
+the garage. You hear their sleigh bells from a couple of hundred metres, louder as you close in, and
+once the sleigh's yours the Jobs app (and compass) points at where the nearest one was last seen.
+The ninth, **Rudolph**, only shows up once you've found the other eight: look for a red glow on the
+highest ground. With all nine, pick it in the garage (Sleds): the team runs in harness in front of
+you, Rudolph in the lead. It's the strongest pull on the peninsula, floats over powder, burns no
+fuel and makes no engine noise, just bells. Get it going fast enough and the team leaves the snow.
+
 ### Cross-country skis
 
 Three kinds turn up on Bytteboden: **Turski** touring skis (the all-rounder), **Fjellski** backcountry
@@ -241,6 +255,13 @@ Once you've wandered off, the on-foot prompt tells you where the sled is from th
 Past 30 m a slim pale-yellow light column also stands over the sled (fading in by 60 m), so you can spot it
 at night, in a storm or over a rise; when a ridge stands between you, it rises from behind the crest, and far out it
 grows taller and thicker so it still reads. It goes when you climb back on.
+
+## Wildlife
+
+Reindeer herds, moose, arctic foxes and mountain hares roam the open country away from the villages.
+They graze and wander, and most of them bolt when a sled comes at them (or when you walk right up),
+jinking out of your way, so you won't run them over. A moose is different: it stands its ground
+longer, and it's solid. Ride into one and you're the one who ends up in the snow.
 
 ## The ferry and the mail
 

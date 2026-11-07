@@ -1452,6 +1452,7 @@ function buildMachine(sd) {
   if (s.charge) { box(0.14, 0.1, 0.02, M.dark, -w / 2 - 0.02, s.pan + 0.12, H.z0 + 0.5, 0, Math.PI / 2, 0, m); box(0.08, 0.05, 0.01, std(0x2be08a, 0.3, 0, { emissive: 0x1fbf6e, emissiveIntensity: 1.2 }), -w / 2 - 0.035, s.pan + 0.12, H.z0 + 0.5, 0, Math.PI / 2, 0, m).castShadow = false; }   // charge port
   if (s.exhaust) { cyl(0.05, 0.05, 0.24, M.steel, s.exhaust * (tw / 2 + 0.05), 0.46, zBack + 0.3, Math.PI / 2, 0, 0, m, 10); }
   ud.skis = skis;
+  if (s.sleigh) sleighTrim(m, s, ud);
   return m;
 }
 function buildMachines() {
@@ -2881,6 +2882,13 @@ function buildTow() {
     for (const x of [-0.13, 0.13]) box(g, 0.22, 0.16, 0.4, std(0x3c4249, 0.5, 0.4), x, 0.58, 0);
     cyl(g, 0.13, 0.06, steel, -0.32, 0.32, 0.05, 0, 0, Math.PI / 2, 14); cyl(g, 0.045, 0.5, steel, 0.36, 0.38, -0.05, 0, 0, 0.6, 8); straps(g, 0.6, 0.66, 0.6);
     g.userData.engineLook = true;
+    // Santa's Sled going home from Bytteboden: red lacquer, gold runners curling up at the front, the sack on the back
+    { const sRed = std(0xb3121c, 0.35, 0.15), gold = std(0xd9a520, 0.3, 0.35), sack = std(0x7a2a1a, 0.9);
+      g = mk("sleigh"); box(g, 0.86, 0.42, 1.5, sRed, 0, 0.42, -0.05); box(g, 0.88, 0.05, 1.52, gold, 0, 0.64, -0.05);
+      box(g, 0.86, 0.5, 0.1, sRed, 0, 0.82, -0.76); box(g, 0.9, 0.05, 0.13, gold, 0, 1.08, -0.76); box(g, 0.86, 0.32, 0.1, sRed, 0, 0.6, 0.72, -0.5);
+      for (const s of [-1, 1]) { box(g, 0.05, 0.05, 1.9, gold, s * 0.38, 0.06, 0); box(g, 0.05, 0.05, 0.36, gold, s * 0.38, 0.2, 1.05, -1.0); box(g, 0.05, 0.05, 0.22, gold, s * 0.38, 0.36, 1.1, 0.6); for (const zz of [-0.5, 0.4]) box(g, 0.04, 0.2, 0.04, gold, s * 0.38, 0.17, zz); }
+      { const sk = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 9), sack); sk.scale.set(1, 1.1, 1.1); sk.position.set(0, 0.9, -0.4); sk.castShadow = true; g.add(sk); }
+      straps(g, 0.86, 0.66, 1.5); }
     return L;
   };
   for (const k of ["trailer", "flatbed"]) V2[k].userData.looks = V2[k].userData.slots.map(looks);
@@ -3161,7 +3169,7 @@ function physCore(dt) {
   const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
   bogStep(dt, Math.hypot(vx, vz), thrE, fr);
   const M = MASS + TOW.mass;                                         // a loaded trailer is weight the engine has to haul
-  if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + (wet ? 0.05 : 0) + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
+  if (started && !GS.dead && !sledDef().team) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + (wet ? 0.05 : 0) + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
   const whOn = input.wheelie && GS.fuel > 0 && (gnd ? Math.abs(vf) > 2.5 : P.wh > 0.3);
   P.wh = clamp(P.wh + (whOn ? 2.4 : -3.2) * dt, 0, 1);
   if (P.wh > 0.7 && gnd) { P.whRun += Math.abs(vf) * dt; if (P.whRun > P.whBest) P.whBest = P.whRun; }
@@ -3443,7 +3451,7 @@ function updAudio(spd) {
   audio.o2g.gain.setTargetAtTime(0.55 + r * 0.5, t, 0.08);
   audio.lp.frequency.setTargetAtTime(300 + r * 2200, t, 0.06);
   audio.lp.Q.setTargetAtTime(2.5 + r * 5, t, 0.08);
-  audio.eg.gain.setTargetAtTime(GS.fuel > 0 && !GS.dead ? 0.09 + r * 0.16 : 0, t, 0.15);
+  audio.eg.gain.setTargetAtTime(GS.fuel > 0 && !GS.dead && !sledDef().team ? 0.09 + r * 0.16 : 0, t, 0.15);
   audio.hiss.g.gain.setTargetAtTime(P.gnd ? Math.min(0.5, spd / 30 * (0.08 + P.exc * 1.6)) : 0, t, 0.08);
   audio.hiss.b.frequency.setTargetAtTime(P.wet ? 1700 : P.ice ? 2600 : P.bare > 0.5 ? 3600 : P.slush > 0.35 ? 700 : 1000, t, 0.2);
   if (P.gnd && P.bare > 0.5) audio.hiss.g.gain.setTargetAtTime(Math.min(0.45, 0.06 + spd / 40), t, 0.06);   // the scrape of carbides on gravel
@@ -8230,6 +8238,7 @@ function jobsList() {
     const f = j.from || depot;
     out.push({ obj: j, kind: "claim", tgt: f, col: f === depot ? "var(--ice)" : "var(--signal)", title: `Pick up: ${j.tour ? "tourists" : j.cargo}`, chips: chip("CLAIMED") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + (j.tour ? chip("AURORA", "aurora") : parcelChips(j)), meta: `waiting at ${f.name}, then to ${shortName(j.dest)}${j.bond ? ` · $${j.bond} bond at pickup` : ""}`, pay: fmtCash(j.pay * (j.tour ? tourMul(AUR.v) : 1) * payMul()), mini: `${f.id}|${j.dest.id}${j.tour ? "|t" : ""}`, hud: d => ({ title: `Pick up: ${j.tour ? "tourists" : j.cargo}${j.dest ? ` for ${shortName(j.dest)}` : ""}`, sub: `Waiting at ${f.name} · ${fmtMi(d)} · stop there to load` }) });
   }
+  if (santaBought() && santaN() < 9) { const t = rareHint(); if (t) out.push({ obj: "santa", kind: "santa", tgt: t, col: "#ff5a4a", title: `Santa's team: ${santaN()}/9 found`, chips: chip("RARE", "due"), meta: `${santaN() >= 8 ? "Rudolph's out there: a red glow" : "one was last seen"} near ${nearestSiteName(t.x, t.z)} · listen for sleigh bells`, pay: "", hud: d => ({ title: `Santa's team · ${santaN()}/9`, sub: `Last seen near ${nearestSiteName(t.x, t.z)} · ${fmtMi(d)} · listen for bells` }) }); }
   if (GS.mail.length) out.push({ obj: "mail", kind: "mail", tgt: depot, col: "var(--ice)", title: "Mail → Kjøllefjord quay", chips: chip("MAIL"), meta: `${mailCount()} letters to hand in at the quay`, pay: "~" + fmtCash(mailValue()), hud: d => ({ title: "Mail → Kjøllefjord quay", sub: `${mailCount()} letters · ${fmtMi(d)} · stop at the quay to hand in` }) });
   return out;
 }
@@ -8559,6 +8568,18 @@ const SLEDS = [
     perk: "Plugs in anywhere with a stove: every village, cabin, relay and home charges it at $0.75/L (under a third of the pump), so you never ride to a pump again. Regen on the downhills makes it 15% thriftier: the longest range on the ladder.",
     livery: { body: "#c6e6ea", panel: "#1d3557", trim: "#7cf2a0", seat: "#1d3557", name: "Glacier ice over navy, mint accent" },
     shape: { style: "smooth", w: 0.8, hoodL: 1.18, zPeak: 0.32, round: 0.5, yTop: 1.0, yPeak: 1.02, yNose: 0.7, yBelly: 0.4, pan: 0.64, tunnelW: 0.56, tunnelL: 2.0, seat: "sport", barY: 1.2, barZ: 0.36, lamp: "strip", bumper: "none", skis: "plastic", susp: "aarm", spoiler: true, charge: true, trackW: 1.08, extras: ["lightbar"] }
+  },
+  {
+    // Rare: never in the shop. Bytteboden only (cat "rare"), hauled home on a trailer, and it won't go until its
+    // nine reindeer are found (see "Santa's Sled and its runaway team"). No engine and no fuel: the team pulls it.
+    id: "santa", name: "Santa's Sled", year: "1823", cost: 0, need: 0, rare: true, team: true,
+    era: "One of a kind: the sleigh off the old Christmas cards",
+    blurb: "Red lacquer, gold scrollwork, a sack of something on the back and bells on everything. No engine. Nine reindeer, if you can find them.",
+    power: 2.7, fuel: 30, drag: 0.6, grip: 1.6, trackLen: 1.2,
+    perks: { light: 1.6 },
+    perk: "Pulled by nine reindeer: the strongest pull on the peninsula, floats over powder, burns no fuel and makes no engine noise. Rudolph's nose lights the way. Past about 70 km/h the team leaves the snow.",
+    livery: { body: "#b3121c", panel: "#f4efe2", trim: "#d4a52a", seat: "#1f5a32", name: "Lacquer red, snow white, gold leaf" },
+    shape: { style: "round", w: 0.94, hoodL: 1.25, zPeak: 0.36, round: 0.6, yTop: 1.0, yPeak: 1.05, yNose: 0.76, yBelly: 0.38, pan: 0.62, tunnelW: 0.62, tunnelL: 2.25, tailRound: true, chrome: true, seat: "twoup", barY: 1.2, barZ: 0.32, lamp: "round", bumper: "hoop", skis: "steel", susp: "aarm", sleigh: true, trackW: 1.05, extras: [] }
   }
 ];
 
@@ -8820,7 +8841,7 @@ const ENGINES = [
   { id: "t998", name: "998 four-stroke turbo triple", power: 2.41, burn: 0.95, price: 6200, turbo: true },
   { id: "t850", name: "850 turbo twin", power: 2.5, burn: 1.18, price: 6900, turbo: true }
 ];
-const STOCK_ENGINE = { frontier: "fan340", woodsman: "fan440", ranger: "lc500", sprint: "lc580", summit: "lc600", trekker: "fan550", apex: "efi800", matriarch: "t850", aurora: null };
+const STOCK_ENGINE = { frontier: "fan340", woodsman: "fan440", ranger: "lc500", sprint: "lc580", summit: "lc600", trekker: "fan550", apex: "efi800", matriarch: "t850", aurora: null, santa: null };
 const engDef = id => ENGINES.find(e => e.id === id);
 const isElectric = sd => STOCK_ENGINE[sd.id] === null;
 // what is actually bolted into a sled right now
@@ -8828,7 +8849,7 @@ function engineOf(sd) {
   const inst = GS.own && GS.own.engines && GS.own.engines[sd.id], e = inst && engDef(inst.eid);
   if (e) return { inst, def: e, name: e.name, pwr: inst.pwr, burn: e.burn, turbo: !!e.turbo, stock: false };
   const s0 = engDef(STOCK_ENGINE[sd.id]);
-  return { inst: null, def: s0, name: s0 ? s0.name : "Battery pack", pwr: sd.power * condMul(condOf("sled:" + sd.id)), burn: 1, turbo: !!(s0 && s0.turbo), stock: true, electric: !s0 };
+  return { inst: null, def: s0, name: s0 ? s0.name : sd.team ? "Nine reindeer" : "Battery pack", pwr: sd.power * condMul(condOf("sled:" + sd.id)), burn: 1, turbo: !!(s0 && s0.turbo), stock: true, electric: !s0 };
 }
 // can this forced-induction option run on that engine?
 function boostWhy(sd, id) {
@@ -8915,7 +8936,7 @@ function stats() {
   }
   // kit a sled comes with from the factory (SLEDS[].perks, e.g. the Trekker's touring kit): stacks with parts
   const pk = sd.perks || {};
-  st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0; st.trail = pk.trail || 0;
+  st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0; st.trail = pk.trail || 0; if (pk.light) st.light = Math.max(st.light, pk.light);
   let warm = 0;
   for (const slot of GEAR_ORDER) warm += gearDef(slot, GS.own.gear[slot]).warm;
   st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
@@ -8933,6 +8954,8 @@ let garageTab = "sleds";
 function canBuySled(s) { return GS.delivered >= s.need; }
 function buySled(id) {
   const s = SLEDS.find(x => x.id === id); if (!s) return;
+  if (s.rare && !GS.own.sleds.includes(id)) { toast(`The ${s.name} isn't for sale here. One turns up on Bytteboden now and then.`, "warn"); return; }
+  if (s.team && santaN() < 9) { toast(`The ${s.name} won't go anywhere without its team: ${santaN()}/9 reindeer found. They're loose round the peninsula in red harness and gold bells. Listen for sleigh bells.`, "warn"); return; }
   if (GS.own.sleds.includes(id)) { GS.own.sled = id; checkBoost(); restat(); toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
   if (!canBuySled(s)) { toast(`${s.name} is for proven couriers — ${s.need} deliveries.`, "warn"); return; }
   if (GS.cash < s.cost) { toast(`${s.name} is $${s.cost}. You have $${GS.cash}.`, "warn"); return; }
@@ -9004,6 +9027,8 @@ function renderGarage() {
   };
   if (garageTab === "sleds") {
     SLEDS.forEach(s => {
+      if (s.rare && !GS.own.sleds.includes(s.id)) return;                  // Santa's Sled: only listed once it's yours
+      const short = s.team && santaN() < 9;
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
       const spec = `${s.year} · ${Math.round(engineOf(s).pwr * 100)}% power${engineOf(s).stock ? "" : " (swapped)"} · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
       const opens = PART_ORDER.reduce((n, c) => n + PARTS[c].options.filter(o => o.tier === SLEDS.indexOf(s) && o.cost).length, 0);
@@ -9014,9 +9039,9 @@ function renderGarage() {
       const opn = [opens ? `opens ${opens} more parts in the shop` : "", work].filter(Boolean).join(" · ");
       const ask = locked ? `\n<span style="color:#e6c36a">$${s.cost} once you've made ${s.need} deliveries</span> (you have ${GS.delivered})${opn ? ` · ${opn}` : ""}`
         : !owned && opn ? `\n${opn[0].toUpperCase() + opn.slice(1)}` : "";
-      const perk = s.perk ? `\n<span style="color:#9fd8a8">${s.perk}</span>` : "";
-      tryOn(row(s.name, `${spec}${ask}${perk}\n${s.blurb}\n${s.era}`, on ? "Riding" : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
-        on ? "on" : locked ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
+      const perk = (s.perk ? `\n<span style="color:#9fd8a8">${s.perk}</span>` : "") + (short ? `\n<span style="color:#e6c36a">In the bay, but it won't go without its team: ${santaN()}/9 reindeer found. They're loose round the peninsula in red harness and gold bells, and the last one has a red nose. Listen for sleigh bells.</span>` : "");
+      tryOn(row(s.name, `${spec}${ask}${perk}\n${s.blurb}\n${s.era}`, on ? "Riding" : short ? `${santaN()}/9 reindeer` : owned ? "Owned" : locked ? `${s.need} deliveries` : "$" + s.cost,
+        on ? "on" : locked || short ? "locked" : "", () => buySled(s.id), s.year), { sled: s.id });
     });
     const note = document.createElement("div"); note.className = "bfoot";
     note.innerHTML = "Every part you own moves to whatever you ride. Deliveries unlock the newer generations.";
@@ -9066,7 +9091,7 @@ function renderEngines(body, row, tryOn) {
   const pct = v => Math.round(v * 100) + "%", cnd = c => c !== undefined && c < 0.995 ? ` · ${pct(c)} condition` : "";
   sec(`In the ${sd.name}`);
   if (eng.electric) {
-    row(eng.name, "Electric drive. No engine swaps and nothing to boost.", "Fitted", "on", () => { });
+    row(eng.name, sd.team ? "Nine reindeer in harness. No engine, no fuel, nothing to swap or boost." : "Electric drive. No engine swaps and nothing to boost.", "Fitted", "on", () => { });
   } else {
     row(eng.name, `${pct(eng.pwr)} power · ${burnTxt(eng.burn)}${eng.turbo ? " · factory turbo" : ""}${eng.inst ? cnd(eng.inst.cond) : cnd(condOf("sled:" + sd.id))}${ST.boost ? ` · ${pct(ST.power)} with everything bolted on` : ""}\n${eng.inst ? `${eng.inst.hrs} h on it · bought off ${eng.inst.seller} in ${eng.inst.from}` : "The motor it left the factory with."}`, "Fitted", "on", () => { });
     if (!eng.stock) { const fee = fitFee({ eid: STOCK_ENGINE[sd.id] }); actRow(body, `Stock ${engDef(STOCK_ENGINE[sd.id]).name}`, `${pct(sd.power * condMul(condOf("sled:" + sd.id)))} power · the ${sd.name}'s own motor, crated in the shop`, [{ label: `Refit $${fee}`, title: "Labour to swap it back in", fn: refitStock }]); }
@@ -9315,7 +9340,8 @@ const MKT_CATS = [
   { id: "trailer", name: "Trailers", w: 1 },
   { id: "groomer", name: "Groomers", w: 0.8 },
   { id: "fish", name: "Ice fishing", w: 2 },
-  { id: "ski", name: "Skis", w: 1.2 }
+  { id: "ski", name: "Skis", w: 1.2 },
+  { id: "rare", name: "Rare", w: 0.3 }
 ];
 const SELLER_P = {
   stubborn: { ask: 1.08, floor: 0.95, pat: 1, tag: "FIRM", w: 0.24 },
@@ -9330,6 +9356,7 @@ const MKT_WHY = {
   recv: ["Off my old Skandic. Pin and clip included.", "Came off a sled I parted out. Threads are good.", "Spare. Bought two by mistake.", "Took it off when I sold the trailer."],
   trailer: ["Hauled fish crates on it all last winter. Straps included.", "Too big for what I need now.", "Runners re-welded last year. Tracks straight.", "Selling with the sled gone. No use for it.", "Moved the cabin stuff in. Job done."],
   groomer: ["Did the lag's trails with it for years. They bought a proper one.", "Grooms fine. Takes some muscle to drag.", "My uncle's. He's 86 now and says he's retired.", "Comb's missing two teeth. Still leaves corduroy."],
+  rare: ["Found it in Grandad's barn under three tarps. That's real gold leaf. The reindeer that came with it ran off years ago; folk still hear bells up on the fell.", "Came with the house. The old man said it was Santa's and laughed. I'm not laughing, it weighs a tonne and it won't fit in the garage.", "Been in the family since before the road. Nobody alive has seen it pulled. Bring a trailer, it doesn't have an engine."],
   ski: ["Skied the Gamvik trail every Easter on these. Knees say no now.", "Bought skate skis, these just stand in the hall.", "Waxed in the autumn, never used. Poles included.", "The kids outgrew skiing, apparently. Poles included.", "Carried them on the sled to the cabin for years. Strap included."],
   fish: ["Upgraded. This did me fine for years.", "Selling my late father's ice gear. He'd want it used.", "Bought it, used it twice, it's not for me.", "Spare from the hytte. Clearing out.", "Fished Røyevatnet with it every Easter."]
 };
@@ -9339,6 +9366,7 @@ const MKT_TELL = {
   recv: ["The pin hole's wallowed out oval.", "The mounting plate's cracked behind the weld."],
   trailer: ["One runner's bent and it crabs sideways.", "The tongue's been welded back together.", "The hitch eye's worn thin."],
   groomer: ["The pan's warped and the comb's half gone.", "The frame's cracked and bodged with fence wire."],
+  rare: ["The gold's flaking off one rail."],
   ski: ["The base is gouged down to the core under the binding.", "One ski's lost its camber; it drags flat on the snow.", "The fishscale's worn smooth: they slip back on every kick."],
   fish: ["It's been dropped. Everything about it is a bit off.", "The bearings are full of grit.", "The blades are chipped and dull."]
 };
@@ -9364,6 +9392,7 @@ function mktInfo(l, c = l.adv) {
   if (l.cat === "sled") { const s = SLEDS.find(x => x.id === l.item); return { name: s.name, newP: Math.max(s.cost, 400), stat: `${s.year} · ${pct(s.power * condMul(c))} power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`, pwr: s.power * condMul(c), kind: "sled", sd: s }; }
   if (l.cat === "recv") { const o = partDef("recv", l.item); return { name: o.name, newP: o.cost, stat: o.id === "heavy" ? "takes the flatbed and the wing tiller too" : "takes the freight trailer and the groomer drag", kind: "recv" }; }
   if (l.cat === "trailer" || l.cat === "groomer") { const o = partDef("hitch", l.item); return { name: o.name, newP: o.cost, stat: l.cat === "trailer" ? `${o.stats.bays} big load${o.stats.bays > 1 ? "s" : ""} · tips ${c < 0.8 ? "a touch sooner" : "about like new"}` : `${l.item === "tiller" ? "5.8 m wings" : "2.4 m pan"} · ${c < 0.8 ? "leaves it a bit lumpy" : "leaves good corduroy"}`, kind: l.item }; }
+  if (l.cat === "rare") return { name: "Santa's Sled", newP: 9000, stat: `One of a kind · gold leaf and sleigh bells · ${c < 0.8 ? "lacquer's a bit tired" : "lacquer like new"} · no engine: its team ran off`, kind: "rare" };
   if (l.cat === "ski") { const k = xcDef(l.item); return { name: k.name, newP: k.price, stat: `${k.note} · ${c < 0.8 ? "base wants a wax" : "glides near new"}`, kind: "ski" }; }
   const g = mktFishDef(l.item) || { name: "?", price: 10 }, t = l.item.split(":")[0];
   return { name: t === "augers" && !/auger/i.test(g.name) ? g.name + " auger" : g.name, newP: g.price, stat: t === "augers" ? `${Math.round(g.dia / 2.5)}″ hole · ${c < 0.8 ? "drills a bit slower" : "drills near new"}${g.start === "pull" ? (c < 0.8 ? " · fussy to start" : " · starts fine") : ""}` : t === "reels" ? `${c < 0.8 ? "drag slips a little" : "smooth drag"}` : `${c < 0.8 ? "tip's a little tired" : "tip's lively"}`, kind: t };
@@ -9374,7 +9403,8 @@ const mktSites = () => SITES.filter(s => s.x !== undefined && (s.type === "cabin
 function mktPool(cat) {
   const o = myOwn(), cur = engineOf(SLEDS.find(s => s.id === o.sled) || SLEDS[0]).pwr;
   if (cat === "engine") return ENGINES.map(e => ({ item: e.id, w: Math.exp(-(((e.power - cur - 0.25) / 0.55) ** 2)) + 0.12 }));
-  if (cat === "sled") return SLEDS.filter(s => s.id !== "frontier" && !o.sleds.includes(s.id) && s.need <= GS.delivered + 14).map(s => ({ item: s.id, w: 1 }));
+  if (cat === "rare") return o.sleds.includes("santa") || (GS.mkt && GS.mkt.held.some(h => h.cat === "rare")) ? [] : [{ item: "santa", w: 1 }];
+  if (cat === "sled") return SLEDS.filter(s => s.id !== "frontier" && !s.rare && !o.sleds.includes(s.id) && s.need <= GS.delivered + 14).map(s => ({ item: s.id, w: 1 }));
   if (cat === "recv") return PARTS.recv.options.filter(x => x.id !== "none" && !o.partsOwned["recv:" + x.id]).map(x => ({ item: x.id, w: 1 }));
   if (cat === "trailer") return ["trailer", "flatbed"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "trailer" ? 1.4 : 1 }));
   if (cat === "groomer") return ["groomer", "tiller"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "groomer" ? 1.4 : 1 }));
@@ -9391,7 +9421,7 @@ function mktMake(now, age = 0) {
   const listed = new Set(GS.mkt.list.filter(q => q.cat === cat).map(q => q.item)), pool = pc.pool.map(p => listed.has(p.item) ? Object.assign({}, p, { w: cat === "engine" ? p.w * 0.25 : 0 }) : p).filter(p => p.w > 0);
   if (!pool.length) return null;
   const it = wpick(pool);
-  const lemon = Math.random() < 0.16, adv = 0.65 + Math.random() * 0.25, real = lemon ? clamp(adv - 0.2 - Math.random() * 0.16, 0.42, 0.6) : adv;
+  const lemon = cat !== "rare" && Math.random() < 0.16, adv = 0.65 + Math.random() * 0.25, real = lemon ? clamp(adv - 0.2 - Math.random() * 0.16, 0.42, 0.6) : adv;
   const pers = lemon && Math.random() < 0.5 ? pick(["desperate", "haggler"]) : wpick(Object.entries(SELLER_P).map(([k, v]) => ({ k, w: v.w }))).k;
   const S = SELLER_P[pers], l = { id: ++GS.mkt.seq, cat, item: it.item, pers, lemon, adv: +adv.toFixed(3), real: +real.toFixed(3) };
   const newP = mktInfo(l).newP, ask = mktRound(newP * (0.38 + 0.42 * adv) * (0.92 + Math.random() * 0.16) * S.ask);
@@ -9435,6 +9465,7 @@ function mktTick(dt) {
 }
 // a ping now and then for something worth a look: an engine that beats yours, or anything cheap
 function mktPing(l) {
+  if (started && l.cat === "rare") { TABLET.notify({ app: "market", title: "Bytteboden · something rare", body: `Santa's Sled · ${fmtCash(l.ask)} · ${l.seller} in ${shortName(mktSite(l))}. Bring a trailer.`, ttl: 10 }); return; }
   if (!started || GS.hour - MKT.pingT < 5) return;
   const inf = mktInfo(l), cur = engineOf(sledDef()).pwr;
   if ((l.cat === "engine" && inf.pwr > cur + 0.08) || l.ask < inf.newP * 0.5) {
@@ -9499,7 +9530,8 @@ function mktPay(l) {
   if (here) mktCollect(GS.near);
   TABLET.refresh("market");
 }
-const mktHowTo = h => h.cat === "engine" ? `Bring a trailer with a free bay to ${shortName(mktSite(h))} and it comes back to the garage as a load.`
+const mktHowTo = h => h.cat === "rare" ? `It's in ${h.seller}'s barn in ${shortName(mktSite(h))}. Bring a trailer or flatbed with a free bay and haul it to the garage. The reindeer aren't included: they ran off across the peninsula years ago.`
+  : h.cat === "engine" ? `Bring a trailer with a free bay to ${shortName(mktSite(h))} and it comes back to the garage as a load.`
   : h.cat === "recv" ? `It's waiting in ${shortName(mktSite(h))}: it rides home on the rack.`
   : h.cat === "sled" ? `It's in ${h.seller}'s shed in ${shortName(mktSite(h))}. Ride over and ride it home.`
   : h.cat === "fish" ? `Pick it up in ${shortName(mktSite(h))}: it goes in your pack.`
@@ -9508,7 +9540,7 @@ const mktHowTo = h => h.cat === "engine" ? `Bring a trailer with a free bay to $
 // why you can't take it away right now ("" = you can)
 function heldWhy(h) {
   if (SCHOOL.on) return "You're on a school course.";
-  if (h.cat === "engine") { const r = GS.own.parts.hitch; if (r !== "trailer" && r !== "flatbed") return "Needs a trailer or flatbed on the hitch."; if (ST.bays - baysUsed() < 1) return "Your trailer's full."; return ""; }
+  if (h.cat === "engine" || h.cat === "rare") { const r = GS.own.parts.hitch; if (r !== "trailer" && r !== "flatbed") return "Needs a trailer or flatbed on the hitch."; if (ST.bays - baysUsed() < 1) return "Your trailer's full."; return ""; }
   if (h.cat === "recv") return smallLoads().length >= ST.slots ? "Needs a free spot on the rack." : "";
   if (h.cat === "trailer" || h.cat === "groomer") { if (!recvOk(h.item)) return `Needs ${recvNeed(h.item)} on the sled first (garage, Parts).`; if (GS.own.parts.hitch !== "none") return `Your hitch is taken by the ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()}. Leave it at the garage first.`; return ""; }
   return "";
@@ -9530,6 +9562,9 @@ function mktCollect(site) {
     if (h.cat === "engine") {
       GS.load.push({ big: true, bays: 1, kg: 70 + Math.round(engDef(h.item).power * 30), look: "engine", cargo: h.name, dest: garageSite, cond: 100, hits: 0, pay: 0, fragile: false, crate: h });
       h.state = "aboard"; toast(`${h.seller} helps you strap the ${h.name} down on the trailer. Take it to Nordkinn Skuter & Service.`, "good");
+    } else if (h.cat === "rare") {
+      GS.load.push({ big: true, bays: 1, kg: 380, look: "sleigh", cargo: h.name, dest: garageSite, cond: 100, hits: 0, pay: 0, fragile: false, crate: h });
+      h.state = "aboard"; toast(`${h.seller} helps you winch Santa's Sled onto the trailer and throws a tarp over the gold. Take it to Nordkinn Skuter & Service.`, "good");
     } else if (h.cat === "recv") {
       GS.load.push({ dest: garageSite, cargo: h.name, crate: h, fragile: false, pay: 0, due: null, hits: 0 });
       h.state = "aboard"; toast(`The ${h.name.toLowerCase()} goes on the rack. The garage will bolt it on.`, "good");
@@ -9565,6 +9600,11 @@ function mktDeliver(j) {
     const inst = { eid: h.item, base: d.power, cond: +cond.toFixed(3), pwr: +(d.power * condMul(cond)).toFixed(3), hrs: h.hrs || 300, from: shortName(mktSite(h)), seller: h.seller, wear: { s: h.seed || 1, a: wearAmt(cond) } };
     o.shelf.push(inst);
     toast(`The ${d.name} is on the shelf${cond < h.cond - 0.01 ? `, a bit worse for the trip (${pctC(cond)})` : ""}. Fit it in the garage's Engines tab: ${fmtCash(fitFee(inst))} labour.`, "good");
+  } else if (h.cat === "rare") {
+    if (!o.sleds.includes("santa")) o.sleds.push("santa");
+    o.cond["sled:santa"] = h.cond; o.wear["sled:santa"] = { s: h.seed || 1, a: wearAmt(h.cond) };
+    const n = santaN();
+    toast(n >= 9 ? "Santa's Sled rolls into the bay, and nine reindeer step into their traces like they never left. Garage, Sleds to ride it." : `Santa's Sled is in the bay. It won't go anywhere without its team: ${n}/9 reindeer found. They're loose round the peninsula in red harness and gold bells, and the last one has a red nose. Listen for sleigh bells; the Jobs app knows where one was last seen.`, "good");
   } else if (h.cat === "recv") {
     const k = "recv:" + h.item, cur = o.parts.recv || "none"; o.partsOwned[k] = true; o.cond[k] = h.cond;
     if (cur === "none" || (cur === "ball" && h.item === "heavy")) { o.parts.recv = h.item; toast(`The shop bolts on the ${h.name.toLowerCase()}. No charge for that one.`, "good"); }
@@ -9616,6 +9656,16 @@ function mktPic(l) {
     R(cx - 16, gy - 62, 4, 18, "#2a2f34"); R(cx - 24, gy - 64, 18, 4, "#2a2f34");                           // bars
     g.fillStyle = lv.seat; g.beginPath(); g.moveTo(cx - 4, gy - 26); g.lineTo(cx + 74, gy - 26); g.quadraticCurveTo(cx + 84, gy - 26, cx + 84, gy - 16); g.lineTo(cx - 4, gy - 16); g.closePath(); g.fill();   // seat
     R(cx - 4, gy - 16, 96, 4, lv.panel);                                                                    // tunnel
+  } else if (l.cat === "rare") {
+    // Santa's Sled in a barn doorway: gold runners curling up at the front, red lacquer, a sack and a present
+    const gy = cy + 8;
+    g.strokeStyle = "#d9a520"; g.lineWidth = 5; g.beginPath(); g.moveTo(cx + 84, gy + 6); g.lineTo(cx - 70, gy + 6); g.quadraticCurveTo(cx - 108, gy + 4, cx - 100, gy - 22); g.quadraticCurveTo(cx - 94, gy - 40, cx - 80, gy - 28); g.stroke();
+    for (const x of [-50, 0, 50]) R(cx + x, gy - 14, 4, 20, "#d9a520");
+    g.fillStyle = "#b3121c"; g.beginPath(); g.moveTo(cx - 74, gy - 14); g.lineTo(cx + 70, gy - 14); g.lineTo(cx + 78, gy - 70); g.quadraticCurveTo(cx + 94, gy - 86, cx + 70, gy - 88); g.lineTo(cx + 40, gy - 50); g.lineTo(cx - 40, gy - 46); g.quadraticCurveTo(cx - 82, gy - 46, cx - 74, gy - 14); g.closePath(); g.fill();
+    g.strokeStyle = "#e8b830"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx - 68, gy - 24); g.lineTo(cx + 70, gy - 24); g.stroke();
+    g.fillStyle = "#7a2a1a"; g.beginPath(); g.ellipse(cx + 30, gy - 64, 26, 22, 0, 0, 6.283); g.fill();
+    R(cx - 16, gy - 66, 22, 20, "#1f6b3a"); R(cx - 7, gy - 66, 4, 20, "#e8b830");
+    g.fillStyle = "#f0c840"; for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(cx - 60 + i * 24, gy - 30, 4, 0, 6.283); g.fill(); }
   } else if (l.cat === "recv") {
     R(cx - 50, cy - 8, 100, 18, "#3a4048"); R(cx + 30, cy - 18, 26, 38, "#3a4048"); g.fillStyle = "#9aa3ab"; g.beginPath(); g.arc(cx - 50, cy + 1, 12, 0, 6.283); g.fill(); R(cx - 6, cy - 4, 8, 10, "#111");
   } else if (l.cat === "trailer") {
@@ -9710,7 +9760,7 @@ TABLET.register({
     const list = GS.mkt.list.filter(q => (MKT.cat === "all" || q.cat === MKT.cat) && mktVisible(q)).sort((a, b) => (b.t0 - a.t0));
     h += sec(MKT.cat === "all" ? "Near you and further out" : MKT_CATS.find(c => c.id === MKT.cat).name, `${list.length} listed · new ones come in all day`);
     h += list.length ? `<div class="tmkg">${list.map(mktCardHtml).join("")}</div>` : `<p class="tnote2">Nothing in this category right now. Check back in a few hours.</p>`;
-    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. Skis strap to the sled. The ad isn't always the truth: look before you pay.</p>`;
+    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Something rare turns up now and then. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. Skis strap to the sled. The ad isn't always the truth: look before you pay.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     for (const b of el.querySelectorAll("[data-mkc]")) b.addEventListener("click", () => { MKT.cat = b.dataset.mkc; TABLET.render(); });
     for (const b of el.querySelectorAll("[data-mk]")) b.addEventListener("click", () => { MKT.view = +b.dataset.mk; $("tabV").scrollTop = 0; TABLET.render(); });
@@ -11112,6 +11162,466 @@ function initFishing() {
   if (FISH) window.TLFish.ice.melt = (lake, date, cm) => MELT.kq > 0 ? Math.round(cm * (1 - 0.7 * MELT.kq)) : cm;
 }
 
+/* ---------------- wildlife: reindeer herds, moose, arctic foxes and mountain hares ----------------
+   Animals spawn out of sight in a ring 280-540 m round you (on land, off the sea and open water, away from the villages
+   and anything solid) and despawn past ~900 m, so only a handful of groups (WILD.max) are ever alive. They graze and
+   wander; reindeer, foxes and hares bolt from a moving sled (or a walker who gets close) and sidestep out of its path,
+   so they're scenery you can't run over. A moose stands its ground longer, trots off when you crowd it, and is SOLID:
+   ride into one faster than a jog and you come off (crashEject "moose"); the moose shrugs and trots away.
+   Every animal walks on one quadruped rig (quadMake/quadPose): a two-bone leg per corner solved by IK in the leg's
+   plane (forelegs fold at the knee, hind legs at the hock), feet planted through stance (stance travel = body speed x
+   stance time, so they don't slide), lifted on an arc in swing. The gait follows speed: lateral-sequence walk, trot on
+   diagonal pairs, transverse gallop (moose top out at a trot), and the hare's bound. Body bob, a head nod against the
+   forelimbs and the gallop's rocking pitch ride on the same cycle; the body pitches to the slope.
+   Nothing here is saved: the wildlife is regenerated round you each session. Santa's runaway team (below) is. */
+const QGAIT = {
+  walk: { off: [0.25, 0.75, 0, 0.5], duty: 0.64 },     // legs: LF, RF, LH, RH
+  trot: { off: [0, 0.5, 0.5, 0], duty: 0.42 },
+  gallop: { off: [0.45, 0.55, 0, 0.1], duty: 0.3 },
+  bound: { off: [0.5, 0.56, 0, 0.04], duty: 0.32 }
+};
+// legs: [hip x, hip z, upper, lower, hip y] for the fore and hind pair; S: body travel per stride (walk, trot, gallop);
+// vmax: walk→trot and trot→gallop speeds; neck0/neckG, head0/headG: neck and head pitch standing / grazing
+const QSP = {
+  reindeer: { hipY: 0.8, legs: [[0.12, 0.4, 0.36, 0.4, 0], [0.13, -0.42, 0.37, 0.4, 0]], hoof: 0.03, S: [1.35, 2.3, 3.1], vmax: [1.9, 5.2], top: 12.5, lift: 0.17, neck0: -0.75, neckG: 1.05, head0: 0.95, headG: 0.55, len: 1.25 },
+  moose: { hipY: 1.36, legs: [[0.2, 0.62, 0.64, 0.7, 0.04], [0.2, -0.72, 0.64, 0.7, 0.04]], hoof: 0.05, S: [2.2, 3.6, 4.4], vmax: [2.4, 8.5], top: 9, lift: 0.3, noGallop: true, neck0: -0.3, neckG: 0.95, head0: 0.55, headG: 0.6, len: 2.1 },
+  fox: { hipY: 0.31, legs: [[0.055, 0.17, 0.14, 0.16, 0], [0.06, -0.18, 0.15, 0.16, 0]], hoof: 0.015, S: [0.55, 0.95, 1.5], vmax: [0.9, 3.4], top: 11, lift: 0.07, neck0: -0.5, neckG: 0.9, head0: 0.55, headG: 0.6, len: 0.55 },
+  hare: { hipY: 0.2, legs: [[0.04, 0.1, 0.085, 0.1, -0.03], [0.06, -0.1, 0.12, 0.15, 0]], hoof: 0.012, S: [0.5, 0.8, 1.7], vmax: [0.01, 0.02], top: 13, lift: 0.08, bound: true, neck0: -0.4, neckG: 0.6, head0: 0.4, headG: 0.4, len: 0.4 }
+};
+const QGEO = {};
+let QM = null;
+function qMats() {
+  if (QM) return QM;
+  const m = (c, r = 0.95, x) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: 0, flatShading: true }, x || {}));
+  return (QM = {
+    rcoat: m(0x6b5746), rdark: m(0x46382c), rpale: m(0xd8cdbb), hoof: m(0x1c1a18, 0.6), eye: m(0x0d0d0f, 0.3), antler: m(0x9a8468, 0.85),
+    mcoat: m(0x33261c), mleg: m(0x9b8d7a), mnose: m(0x2a1f17), fox: m(0xeceef0), foxd: m(0xc9ccd0), hare: m(0xf2f3f4), tip: m(0x141414),
+    harness: m(0xb3161c, 0.55), gold: m(0xe0b030, 0.35, { metalness: 0.35 }),
+    rnose: new THREE.MeshStandardMaterial({ color: 0xff2a1a, emissive: 0xff1a0a, emissiveIntensity: 2.2, roughness: 0.3 })
+  });
+}
+const qIco = d => QGEO["ico" + d] || (QGEO["ico" + d] = new THREE.IcosahedronGeometry(1, d));
+const qP = (geo, mat, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) => ({ geo, mat, pos: [x, y, z], sc: [sx, sy, sz], q: new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)) });
+// a tapered rod from p1 (radius r1) to p2 (radius r2): necks, antler beams and tines
+function qRod(mat, x1, y1, z1, x2, y2, z2, r1, r2 = r1, seg = 5) {
+  const d = new THREE.Vector3(x2 - x1, y2 - y1, z2 - z1), len = d.length();
+  return { geo: new THREE.CylinderGeometry(r2, r1, len, seg), mat, pos: [(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2], sc: [1, 1, 1], q: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()) };
+}
+// bake a list of parts into one geometry per material (flat-shaded, so the normals don't matter much)
+function qMerge(parts) {
+  const by = new Map(), m4 = new THREE.Matrix4(), v = new THREE.Vector3(), s = new THREE.Vector3();
+  for (const p of parts) {
+    const g = p.geo.index ? p.geo.toNonIndexed() : p.geo.clone();
+    g.applyMatrix4(m4.compose(v.set(p.pos[0], p.pos[1], p.pos[2]), p.q, s.set(p.sc[0], p.sc[1], p.sc[2])));
+    if (!by.has(p.mat)) by.set(p.mat, []); by.get(p.mat).push(g);
+  }
+  const out = [];
+  for (const [mat, gs] of by) {
+    let n = 0; for (const g of gs) n += g.attributes.position.count;
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3); let o = 0;
+    for (const g of gs) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; g.dispose(); }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute("position", new THREE.BufferAttribute(pos, 3)); bg.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); bg.computeBoundingSphere();
+    out.push({ geo: bg, mat });
+  }
+  return out;
+}
+const qCyl = (rt, rb, h, seg = 6) => new THREE.CylinderGeometry(rt, rb, h, seg);
+const qCone = (r, h, seg = 4) => new THREE.ConeGeometry(r, h, seg);
+// the parts of each animal, in the frames of the rig (body at hip height, neck, head, tail, each leg segment)
+function qBuild(kind, variant) {
+  const M = qMats(), I = qIco(1), I0 = qIco(0), sp = QSP[kind];
+  const C = { body: [], neck: [], head: [], antler: [], tail: [], legF: [[], [], []], legH: [[], [], []], neckAt: [0, 0], headAt: 0, tailAt: [0, 0] };
+  const leg = (L, a, b, mu, ml, rU, rK, rL, hoof) => { L[0].push(qP(qCyl(rU, rK, a), mu, 0, -a / 2, 0)); L[1].push(qP(qCyl(rK * 0.8, rL, b), ml, 0, -b / 2, 0)); L[2].push(...hoof); };
+  if (kind === "reindeer") {
+    C.body.push(qP(I, M.rcoat, 0, 0.17, 0, 0.25, 0.27, 0.6), qP(I, M.rpale, 0, 0.04, 0.02, 0.2, 0.15, 0.46), qP(I, M.rcoat, 0, 0.22, 0.36, 0.23, 0.28, 0.26),
+      qP(I, M.rpale, 0, 0.1, 0.52, 0.17, 0.22, 0.17), qP(I, M.rcoat, 0, 0.19, -0.4, 0.23, 0.24, 0.25), qP(I, M.rpale, 0, 0.17, -0.57, 0.15, 0.17, 0.08));
+    for (const sx of [-1, 1]) C.body.push(qP(I, M.rcoat, sx * 0.12, 0.02, 0.4, 0.09, 0.2, 0.12), qP(I, M.rcoat, sx * 0.13, 0.03, -0.42, 0.1, 0.22, 0.16));
+    C.tailAt = [0.3, -0.62]; C.tail.push(qP(I0, M.rpale, 0, 0, -0.05, 0.05, 0.04, 0.08));
+    C.neckAt = [0.27, 0.5]; C.neck.push(qRod(M.rcoat, 0, 0, 0, 0, 0, 0.55, 0.13, 0.09, 7), qP(I, M.rpale, 0, -0.08, 0.18, 0.1, 0.13, 0.22));
+    C.headAt = 0.55;
+    C.head.push(qP(I, M.rcoat, 0, 0.02, 0.05, 0.1, 0.1, 0.13), qP(I, M.rdark, 0, -0.04, 0.2, 0.065, 0.07, 0.13), qP(I0, variant === "rudolph" ? M.rnose : M.hoof, 0, -0.035, 0.32, 0.042, 0.037, 0.03));
+    for (const sx of [-1, 1]) {
+      C.head.push(qP(qCone(0.035, 0.12), M.rcoat, sx * 0.085, 0.09, 0, 1, 1, 1, 0, 0, -sx * 1.1), qP(I0, M.eye, sx * 0.07, 0.04, 0.12, 0.016, 0.016, 0.016));
+      const k = variant === "rudolph" ? 0.75 : 1;   // Rudolph's a youngster: smaller antlers
+      C.antler.push(qRod(M.antler, sx * 0.05, 0.1, 0, sx * 0.17 * k, 0.1 + 0.22 * k, -0.12 * k, 0.022, 0.018), qRod(M.antler, sx * 0.17 * k, 0.1 + 0.22 * k, -0.12 * k, sx * 0.22 * k, 0.1 + 0.42 * k, -0.05 * k, 0.018, 0.014),
+        qRod(M.antler, sx * 0.22 * k, 0.1 + 0.42 * k, -0.05 * k, sx * 0.16 * k, 0.1 + 0.56 * k, 0.1 * k, 0.014, 0.007), qRod(M.antler, sx * 0.07, 0.14, 0, sx * 0.06, 0.2, 0.16 * k, 0.012, 0.006),
+        qRod(M.antler, sx * 0.17 * k, 0.1 + 0.22 * k, -0.12 * k, sx * 0.2 * k, 0.1 + 0.26 * k, 0.06 * k, 0.011, 0.005), qRod(M.antler, sx * 0.22 * k, 0.1 + 0.42 * k, -0.05 * k, sx * 0.3 * k, 0.1 + 0.5 * k, -0.14 * k, 0.01, 0.005));
+    }
+    const hoof = m => [qP(I0, M.hoof, 0, -0.012, 0.02, 0.055, 0.03, 0.075), qP(I0, M.rpale, 0, 0.035, 0, 0.042, 0.04, 0.045)];
+    leg(C.legF, 0.36, 0.4, M.rcoat, M.rdark, 0.065, 0.045, 0.03, hoof()); leg(C.legH, 0.37, 0.4, M.rcoat, M.rdark, 0.085, 0.045, 0.03, hoof());
+    if (variant) {   // Santa's team: a red girth, collar and back strap hung with gold bells
+      const T = new THREE.TorusGeometry(1, 0.08, 4, 14);
+      C.body.push(qP(T, M.harness, 0, 0.17, 0.24, 0.262, 0.29, 0.3), qP(T, M.harness, 0, 0.2, 0.5, 0.19, 0.25, 0.4, -0.5), qP(new THREE.BoxGeometry(1, 1, 1), M.harness, 0, 0.445, -0.05, 0.08, 0.02, 0.62));
+      for (let k = -2; k <= 2; k++) { const a = k * 0.55; C.body.push(qP(I0, M.gold, Math.sin(a) * 0.2, 0.2 - Math.cos(a) * 0.25, 0.54, 0.034, 0.034, 0.034)); }
+      for (const sx of [-1, 1]) C.body.push(qP(I0, M.gold, sx * 0.27, 0.17, 0.24, 0.03, 0.03, 0.03));
+    }
+  } else if (kind === "moose") {
+    C.body.push(qP(I, M.mcoat, 0, 0.32, -0.05, 0.38, 0.45, 0.95), qP(I, M.mcoat, 0, 0.55, 0.5, 0.33, 0.42, 0.42), qP(I, M.mcoat, 0, 0.25, 0.65, 0.32, 0.4, 0.3), qP(I, M.mcoat, 0, 0.32, -0.72, 0.33, 0.38, 0.32));
+    for (const sx of [-1, 1]) C.body.push(qP(I, M.mcoat, sx * 0.2, 0.08, 0.62, 0.15, 0.35, 0.2), qP(I, M.mcoat, sx * 0.21, 0.1, -0.72, 0.16, 0.38, 0.26));
+    C.tailAt = [0.5, -1.0]; C.tail.push(qP(I0, M.mcoat, 0, -0.04, -0.03, 0.06, 0.08, 0.05));
+    C.neckAt = [0.55, 0.85]; C.neck.push(qRod(M.mcoat, 0, 0, 0, 0, 0, 0.5, 0.26, 0.2, 7), qP(I, M.mnose, 0, 0.18, 0.18, 0.08, 0.13, 0.3));
+    C.headAt = 0.5;
+    C.head.push(qP(I, M.mcoat, 0, 0.04, 0.1, 0.16, 0.18, 0.2), qP(I, M.mcoat, 0, -0.02, 0.38, 0.13, 0.16, 0.3), qP(I, M.mnose, 0, -0.06, 0.62, 0.14, 0.15, 0.14), qP(qCone(0.06, 0.32, 5), M.mcoat, 0, -0.28, 0.12, 1, 1, 1, Math.PI, 0, 0));
+    for (const sx of [-1, 1]) {
+      C.head.push(qP(qCone(0.06, 0.2), M.mcoat, sx * 0.15, 0.17, 0, 1, 1, 1, 0, 0, -sx * 0.9), qP(I0, M.eye, sx * 0.14, 0.08, 0.2, 0.02, 0.02, 0.02));
+      C.antler.push(qRod(M.antler, sx * 0.1, 0.15, 0, sx * 0.25, 0.22, -0.02, 0.05, 0.04), qP(I, M.antler, sx * 0.44, 0.27, -0.02, 0.32, 0.04, 0.2, 0, 0, sx * 0.3));
+      for (let k = 0; k < 4; k++) { const x = sx * (0.3 + 0.12 * k), y = 0.25 + 0.035 * k; C.antler.push(qRod(M.antler, x, y, 0.1, x + sx * 0.05, y + 0.14, 0.2, 0.025, 0.01)); }
+    }
+    const hoof = () => [qP(I0, M.hoof, 0, -0.02, 0.03, 0.08, 0.05, 0.11)];
+    leg(C.legF, 0.64, 0.7, M.mcoat, M.mleg, 0.11, 0.07, 0.045, hoof()); leg(C.legH, 0.64, 0.7, M.mcoat, M.mleg, 0.14, 0.07, 0.045, hoof());
+  } else if (kind === "fox") {
+    C.body.push(qP(I, M.fox, 0, 0.06, 0, 0.1, 0.11, 0.25), qP(I, M.fox, 0, 0.05, 0.17, 0.1, 0.12, 0.11), qP(I, M.fox, 0, 0.06, -0.16, 0.1, 0.11, 0.12));
+    C.tailAt = [0.1, -0.25]; C.tail.push(qP(I, M.fox, 0, -0.04, -0.2, 0.085, 0.085, 0.24), qP(I, M.foxd, 0, -0.07, -0.4, 0.06, 0.06, 0.07));
+    C.neckAt = [0.09, 0.2]; C.neck.push(qRod(M.fox, 0, 0, 0, 0, 0, 0.12, 0.06, 0.05, 6));
+    C.headAt = 0.12;
+    C.head.push(qP(I, M.fox, 0, 0.02, 0.02, 0.07, 0.065, 0.075), qP(qCone(0.035, 0.12, 5), M.fox, 0, 0, 0.1, 1, 1, 1, Math.PI / 2, 0, 0), qP(I0, M.tip, 0, 0, 0.165, 0.016, 0.014, 0.014));
+    for (const sx of [-1, 1]) C.head.push(qP(qCone(0.03, 0.08), M.fox, sx * 0.04, 0.08, 0, 1, 1, 1, 0, 0, -sx * 0.3), qP(I0, M.eye, sx * 0.035, 0.03, 0.06, 0.01, 0.01, 0.01));
+    const paw = () => [qP(I0, M.fox, 0, -0.005, 0.01, 0.025, 0.015, 0.035)];
+    leg(C.legF, 0.14, 0.16, M.fox, M.foxd, 0.025, 0.018, 0.013, paw()); leg(C.legH, 0.15, 0.16, M.fox, M.foxd, 0.035, 0.018, 0.013, paw());
+  } else {   // mountain hare in its winter white, black ear tips
+    C.body.push(qP(I, M.hare, 0, 0.05, -0.02, 0.1, 0.11, 0.17), qP(I, M.hare, 0, 0.03, 0.09, 0.08, 0.09, 0.08));
+    for (const sx of [-1, 1]) C.body.push(qP(I, M.hare, sx * 0.065, 0.02, -0.09, 0.055, 0.1, 0.11));
+    C.tailAt = [0.1, -0.18]; C.tail.push(qP(I0, M.hare, 0, 0, 0, 0.035, 0.035, 0.035));
+    C.neckAt = [0.08, 0.1]; C.neck.push(qRod(M.hare, 0, 0, 0, 0, 0, 0.05, 0.05, 0.045, 6));
+    C.headAt = 0.05;
+    C.head.push(qP(I, M.hare, 0, 0.02, 0.03, 0.055, 0.06, 0.075));
+    for (const sx of [-1, 1]) C.head.push(qP(I, M.hare, sx * 0.025, 0.14, -0.03, 0.022, 0.1, 0.035, -0.25, 0, sx * 0.15), qP(I0, M.tip, sx * 0.04, 0.235, -0.055, 0.016, 0.03, 0.02), qP(I0, M.eye, sx * 0.04, 0.035, 0.06, 0.01, 0.01, 0.01));
+    leg(C.legF, 0.085, 0.1, M.hare, M.hare, 0.016, 0.013, 0.011, [qP(I0, M.hare, 0, -0.004, 0.01, 0.018, 0.012, 0.028)]);
+    leg(C.legH, 0.12, 0.15, M.hare, M.hare, 0.04, 0.02, 0.016, [qP(I0, M.hare, 0, -0.004, 0.02, 0.02, 0.012, 0.05)]);
+  }
+  for (const k of ["body", "neck", "head", "antler", "tail"]) C[k] = qMerge(C[k]);
+  for (const k of ["legF", "legH"]) C[k] = C[k].map(qMerge);
+  return C;
+}
+const qAdd = (par, list, shadow = true) => { for (const { geo, mat } of list) { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; par.add(m); } };
+let QGLOW = null;
+function qGlowMat() {
+  if (QGLOW) return QGLOW;
+  const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, "rgba(255,120,90,1)"); gr.addColorStop(0.25, "rgba(255,40,20,.55)"); gr.addColorStop(1, "rgba(255,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return (QGLOW = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+}
+// one animal: root (on the ground, turned to its heading) > body (at hip height, pitched) > neck > head; four legs
+function quadMake(kind, variant) {
+  const sp = QSP[kind], key = kind + ":" + (variant || ""), C = QGEO[key] || (QGEO[key] = qBuild(kind, variant));
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); body.position.y = sp.hipY;
+  qAdd(body, C.body);
+  const neck = new THREE.Group(); neck.position.set(0, C.neckAt[0], C.neckAt[1]); body.add(neck); qAdd(neck, C.neck);
+  const head = new THREE.Group(); head.position.z = C.headAt; neck.add(head); qAdd(head, C.head);
+  const ant = new THREE.Group(); head.add(ant); qAdd(ant, C.antler);
+  const tail = new THREE.Group(); tail.position.set(0, C.tailAt[0], C.tailAt[1]); body.add(tail); qAdd(tail, C.tail, false);
+  if (variant === "rudolph") { const s = new THREE.Sprite(qGlowMat()); s.scale.setScalar(0.75); s.position.set(0, -0.035, 0.34); head.add(s); }
+  const legs = [];
+  for (let i = 0; i < 4; i++) {
+    const front = i < 2, side = i % 2 === 0 ? 1 : -1, [hx, hz, a, b, hy] = sp.legs[front ? 0 : 1], parts = front ? C.legF : C.legH;
+    const hip = new THREE.Group(); hip.position.set(side * hx, hy, hz); body.add(hip); qAdd(hip, parts[0]);
+    const knee = new THREE.Group(); knee.position.y = -a; hip.add(knee); qAdd(knee, parts[1]);
+    const foot = new THREE.Group(); foot.position.y = -b; knee.add(foot); qAdd(foot, parts[2], kind === "moose" || kind === "reindeer");
+    legs.push({ hip, knee, foot, a, b, hz, hy, front });
+  }
+  g.visible = false; scene.add(g);
+  return { kind, variant: variant || "", sp, g, body, neck, head, tail, ant, legs, off: QGAIT.walk.off.slice(), duty: 0.64, cyc: Math.random(), gal: 0, t: Math.random() * 10, x: 0, z: 0, yaw: 0, v: 0, graze: 0 };
+}
+// two-bone IK in the leg's plane: tz forward, ty up, from the hip. Forelegs bend with the knee forward, hind legs with the hock back.
+function qLeg(lg, tz, ty) {
+  const a = lg.a, b = lg.b, D = clamp(Math.hypot(tz, ty), (a + b) * 0.35, (a + b) * 0.999);
+  const al = Math.atan2(tz, -ty), be = Math.acos(clamp((a * a + D * D - b * b) / (2 * a * D), -1, 1)), bend = Math.PI - Math.acos(clamp((a * a + b * b - D * D) / (2 * a * b), -1, 1));
+  if (lg.front) { lg.hip.rotation.x = -(al + be); lg.knee.rotation.x = bend; }
+  else { lg.hip.rotation.x = -(al - be); lg.knee.rotation.x = -bend; }
+}
+function qGait(sp, v) { if (sp.bound) return "bound"; if (v < sp.vmax[0]) return "walk"; if (v < sp.vmax[1] || sp.noGallop) return "trot"; return "gallop"; }
+function qStride(sp, gait, v) {
+  const S = sp.S;
+  return gait === "walk" ? S[0] * (0.7 + 0.3 * Math.min(1, v / sp.vmax[0])) : gait === "trot" ? S[1] * (0.8 + 0.25 * Math.min(1.4, v / sp.vmax[1])) : S[2] * (0.8 + 0.45 * Math.min(1, v / sp.top));
+}
+// pose the rig for a frame. v: signed speed in the rig's own units (world speed / scale), graze 0..1, gz: ground rise per metre ahead
+function quadPose(q, dt, v, graze, gz) {
+  const sp = q.sp, av = Math.abs(v), gait = qGait(sp, av), G = QGAIT[gait], m = sstep(0.04, 0.35, av), k = Math.min(1, dt * 5);
+  for (let i = 0; i < 4; i++) { let d = G.off[i] - q.off[i]; d -= Math.round(d); q.off[i] += d * k; }
+  q.duty += (G.duty - q.duty) * k;
+  q.gal += ((gait === "gallop" || gait === "bound" ? 1 : 0) - q.gal) * Math.min(1, dt * 4);
+  const S = qStride(sp, gait, Math.max(av, 0.2));
+  q.cyc = ((q.cyc + v / S * dt) % 1 + 1) % 1; q.t += dt;
+  const c = q.cyc, TAU = Math.PI * 2, H = sp.hipY;
+  // the body bobs twice a stride at the walk and trot, rocks once a stride at the gallop, and drops a little to graze
+  const bob = m * ((1 - q.gal) * 0.018 * H * Math.cos(c * 2 * TAU) + q.gal * 0.05 * H * Math.sin(c * TAU)) - graze * 0.03 * H;
+  const pitch = -Math.atan(gz) + m * q.gal * 0.09 * Math.sin(c * TAU + 1.2) + (sp.bound ? -0.08 * (1 - m) : 0);
+  q.body.position.y = H + bob; q.body.rotation.x = pitch;
+  const cp = Math.cos(pitch), sn = Math.sin(pitch), by = H + bob;
+  for (let i = 0; i < 4; i++) {
+    const lg = q.legs[i], L = S * q.duty * m; let p = (c + q.off[i]) % 1; if (p < 0) p += 1;
+    let fz, fy;
+    if (p < q.duty) { fz = L * (0.5 - p / q.duty); fy = 0; }                                   // stance: planted, the body walks over it
+    else { const s = (p - q.duty) / (1 - q.duty); fz = L * (-0.5 + s * s * (3 - 2 * s)); fy = sp.lift * m * Math.sin(Math.PI * s) * (0.5 + 0.5 * Math.min(1, L / (lg.a + lg.b))); }
+    // foot target in the root frame (ground follows the slope), into the pitched body frame, then from the hip
+    const zr = lg.hz + fz, yr = fy + gz * zr + sp.hoof - by, yy = yr * cp + zr * sn, zz = -yr * sn + zr * cp;
+    qLeg(lg, zz - lg.hz, yy - lg.hy);
+    lg.foot.rotation.x = -(lg.hip.rotation.x + lg.knee.rotation.x) - pitch + (p >= q.duty ? 0.5 * m * Math.sin(Math.PI * (p - q.duty) / (1 - q.duty)) * (lg.front ? 1 : -1) : 0);
+  }
+  // neck and head: up when it walks, nodding against the forelegs, stretched out at the gallop, down to the snow to graze
+  const nod = m * ((1 - q.gal) * 0.06 * Math.sin(c * 2 * TAU + 0.6) + q.gal * 0.12 * Math.sin(c * TAU));
+  q.neck.rotation.x = lerp(sp.neck0 + 0.35 * q.gal * m, sp.neckG, graze) + nod - pitch * 0.6;
+  q.head.rotation.x = lerp(sp.head0 - 0.2 * q.gal * m, sp.headG, graze) + (graze > 0.7 ? 0.05 * Math.sin(q.t * 9) * graze : 0);
+  q.tail.rotation.x = -0.2 * q.gal + 0.15 * Math.sin(q.t * (graze > 0.5 ? 2 : 6));
+  q.tail.rotation.y = 0.25 * Math.sin(q.t * 3.1) * (1 - m * 0.6);
+}
+
+const WILD = { groups: [], free: {}, spawnT: 0, max: 5, hitT: 0 };
+const WILD_KINDS = [{ k: "reindeer", w: 0.42, n: [3, 6] }, { k: "moose", w: 0.2, n: [1, 2] }, { k: "fox", w: 0.2, n: [1, 1] }, { k: "hare", w: 0.18, n: [1, 2] }];
+function wildRig(kind, variant) { const f = WILD.free[kind + ":" + (variant || "")], q = f && f.length ? f.pop() : quadMake(kind, variant); q.g.visible = true; q.g.scale.setScalar(1); return q; }
+function wildFree(q) { q.g.visible = false; const k = q.kind + ":" + q.variant; (WILD.free[k] || (WILD.free[k] = [])).push(q); }
+// somewhere an animal can stand: on land, inside the map, not in water and not in a building, tree or rock
+const wildOk = (x, z, r = 2.5) => Math.abs(x) < HALF - 60 && Math.abs(z) < HALF - 60 && !isSea(x, z) && !isWater(x, z) && groundAt(x, z) > SEA + 1 && !solidNear(x, z, r);
+function wildSpawn(px, pz) {
+  for (let k = 0; k < 10; k++) {
+    const a = Math.random() * 6.283, r = 280 + Math.random() * 260, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
+    if (!wildOk(x, z, 4) || slopeAt(x, z, 4) > 0.45) continue;
+    if (SITES.some(s => s.x !== undefined && Math.hypot(s.x - x, s.z - z) < (s.type === "depot" ? TOWN_R + 60 : 110))) continue;
+    if (WILD.groups.some(g => Math.hypot(g.x - x, g.z - z) < 200)) continue;
+    const K = wpick(WILD_KINDS), n = K.n[0] + Math.floor(Math.random() * (K.n[1] - K.n[0] + 1));
+    const G = { kind: K.k, sp: QSP[K.k], x, z, yaw: Math.random() * 6.283, state: "graze", t: 4 + Math.random() * 10, v: 0, m: [] };
+    for (let i = 0; i < n; i++) {
+      const q = wildRig(K.k), ang = Math.random() * 6.283, rr = i ? (1.5 + Math.random() * 2.5) * Math.sqrt(n) * G.sp.len : 0;
+      Object.assign(q, { x: x + Math.cos(ang) * rr, z: z + Math.sin(ang) * rr, yaw: Math.random() * 6.283, v: 0, ox: Math.cos(ang) * rr, oz: Math.sin(ang) * rr, graze: Math.random(), wT: Math.random() * 5 });
+      q.g.scale.setScalar(K.k === "moose" && i > 0 ? 0.62 : 0.92 + Math.random() * 0.16);                   // a cow moose has her calf with her
+      q.ant.visible = K.k === "moose" ? i === 0 && n === 1 && Math.random() < 0.7 : true;                      // a lone moose is usually a bull
+      G.m.push(q);
+    }
+    WILD.groups.push(G); return;
+  }
+}
+// stand the rig on the snow at its x/z and pose it (only near the camera; far ones just slide along, too small to see)
+function wildPlace(q, dt, cx, cz, hide, lift = 0) {
+  const dc = Math.hypot(q.x - cx, q.z - cz);
+  q.g.visible = !hide && dc < 650; if (!q.g.visible) return;
+  const s = q.g.scale.x, fx = Math.sin(q.yaw), fz = Math.cos(q.yaw), h = q.sp.len * 0.5 * s;
+  const gz = (groundAt(q.x + fx * h, q.z + fz * h) - groundAt(q.x - fx * h, q.z - fz * h)) / (2 * h);
+  q.g.position.set(q.x, surf(q.x, q.z) - 0.05 * s + lift, q.z); q.g.rotation.y = q.yaw;
+  if (dc < 240) quadPose(q, dt, q.v / s, q.graze, clamp(gz, -0.8, 0.8));
+}
+function wildGroup(G, dt, mx, mz, mv, cx, cz, hide) {
+  const sp = G.sp, d = Math.hypot(G.x - mx, G.z - mz), onSled = !FOOT.on;
+  const scare = G.kind === "moose" ? (onSled ? (d < 28 && mv > 2) || d < 12 : d < 9)
+    : G.kind === "hare" ? d < (onSled ? 30 : 10)
+    : onSled ? (d < 45 && mv > 2.5) || d < 16 : d < (G.kind === "fox" ? 18 : 14);
+  if (scare) { if (G.state !== "flee") G.yaw = Math.atan2(G.x - mx, G.z - mz) + (Math.random() - 0.5) * 0.9; G.state = "flee"; G.t = 5 + Math.random() * 4; }
+  G.t -= dt;
+  let gv = 0;
+  if (G.state === "flee") {
+    G.yaw += dAng(G.yaw, Math.atan2(G.x - mx, G.z - mz)) * Math.min(1, dt * 0.8);
+    gv = sp.top * 0.8 * (d < 60 ? 1 : 0.7);
+    if (G.t <= 0) { G.state = "walk"; G.t = 6 + Math.random() * 8; }
+  } else if (G.state === "walk") {
+    gv = G.kind === "hare" ? 1.2 : sp.vmax[0] * 0.65;
+    if (Math.random() < dt * 0.2) G.yaw += (Math.random() - 0.5) * 1.2;
+    if (G.t <= 0) { G.state = "graze"; G.t = 8 + Math.random() * 16; }
+  } else if (G.t <= 0) { G.state = "walk"; G.t = 5 + Math.random() * 10; G.yaw += (Math.random() - 0.5) * 2; }
+  // steer round water, the sea, buildings and trees: probe ahead and swing toward the clear side
+  if (gv > 0) {
+    const look = 4 + gv * 0.8;
+    if (!wildOk(G.x + Math.sin(G.yaw) * look, G.z + Math.cos(G.yaw) * look, 2)) {
+      let turned = false;
+      for (const da of [0.5, -0.5, 1, -1, 1.6, -1.6, 2.6, -2.6]) { const a = G.yaw + da; if (wildOk(G.x + Math.sin(a) * look, G.z + Math.cos(a) * look, 2)) { G.yaw += Math.sign(da) * Math.min(Math.abs(da), dt * 3); turned = true; break; } }
+      if (!turned) { gv = 0; G.yaw += Math.PI; }
+    }
+    G.x += Math.sin(G.yaw) * gv * dt; G.z += Math.cos(G.yaw) * gv * dt;
+  }
+  G.v = gv;
+  const cy = Math.cos(G.yaw), sy = Math.sin(G.yaw);
+  for (const q of G.m) {
+    if (G.state === "graze" && (q.wT -= dt) <= 0) { q.wT = 4 + Math.random() * 9; const a = Math.random() * 6.283, r = Math.random() * 2.5 * Math.sqrt(G.m.length) * sp.len; q.ox = Math.cos(a) * r; q.oz = Math.sin(a) * r; }
+    const tx = G.x + q.ox * cy + q.oz * sy, tz = G.z - q.ox * sy + q.oz * cy;
+    let dx = tx - q.x, dz = tz - q.z; const dd = Math.hypot(dx, dz);
+    for (const o of G.m) if (o !== q) { const ex = q.x - o.x, ez = q.z - o.z, e = Math.hypot(ex, ez), R = sp.len * 0.9 * q.g.scale.x; if (e < R && e > 1e-3) { dx += ex / e * (R - e) * 2; dz += ez / e * (R - e) * 2; } }
+    // a sled bearing down on it: jink sideways out of its path
+    if (onSled && mv > 4 && G.kind !== "moose") {
+      const rx = q.x - mx, rz = q.z - mz, fwd = (rx * P.vx + rz * P.vz) / mv, side = (rx * P.vz - rz * P.vx) / mv;
+      if (fwd > 0 && fwd < 12 + mv * 0.6 && Math.abs(side) < 3) { const s = side >= 0 ? 1 : -1; dx += P.vz / mv * s * 8; dz -= P.vx / mv * s * 8; }
+    }
+    let vt = Math.hypot(dx, dz) < 0.4 ? 0 : Math.min(sp.top, G.v + Math.max(0, Math.hypot(dx, dz) - 0.5) * 0.6);
+    if (G.state === "graze") vt = Math.min(vt, G.kind === "hare" ? 1 : sp.vmax[0] * 0.6);
+    q.v += clamp(vt - q.v, -8 * dt, 6 * dt);
+    if (vt > 0.05) { const tr = dt * (2 + q.v * 0.3); q.yaw += clamp(dAng(q.yaw, Math.atan2(dx, dz)), -tr, tr); }
+    const nx = q.x + Math.sin(q.yaw) * q.v * dt, nz = q.z + Math.cos(q.yaw) * q.v * dt;
+    if (wildOk(nx, nz, 0.6)) { q.x = nx; q.z = nz; } else q.v *= 0.5;
+    q.graze += ((G.state === "graze" && q.v < 0.3 && dd < 1.5 ? 1 : 0) - q.graze) * Math.min(1, dt * 1.5);
+    // a moose is solid: ride into one and you're the one who comes off
+    if (G.kind === "moose" && onSled && WILD.hitT <= 0 && mv > 4 && Math.hypot(q.x - P.x, q.z - P.z) < 1.9 * q.g.scale.x + 0.5) {
+      WILD.hitT = 3;
+      if (crashEject("moose", P.vx * 0.6, P.vy, P.vz * 0.6)) { thud(1); toast("You hit a moose. It staggers, snorts and trots off. You're the one lying in the snow.", "bad"); }
+      else { P.vx *= 0.3; P.vz *= 0.3; }
+      G.state = "flee"; G.t = 8; G.yaw = Math.atan2(q.x - P.x, q.z - P.z);
+    }
+    wildPlace(q, dt, cx, cz, hide);
+  }
+}
+// every frame from updGame
+function wildTick(dt) {
+  if (!started) return;
+  const mx = FOOT.on ? FOOT.x : P.x, mz = FOOT.on ? FOOT.z : P.z, mv = FOOT.on ? Math.abs(FOOT.sp || 0) : Math.hypot(P.vx, P.vz);
+  if ((WILD.spawnT -= dt) <= 0) {
+    WILD.spawnT = 1.5;
+    for (const G of WILD.groups.slice()) if (Math.hypot(G.x - mx, G.z - mz) > 900) { for (const q of G.m) wildFree(q); WILD.groups.splice(WILD.groups.indexOf(G), 1); }
+    if (WILD.groups.length < WILD.max) wildSpawn(mx, mz);
+  }
+  const cx = camera.position.x, cz = camera.position.z, hide = showroomOn();
+  WILD.hitT -= dt;
+  for (const G of WILD.groups) wildGroup(G, dt, mx, mz, mv, cx, cz, hide);
+  rareTick(dt, mx, mz, cx, cz, hide);
+  teamTick(dt, hide);
+}
+// sleigh bells: a few bright bell strikes, each a handful of inharmonic sine partials ringing down
+function bells(vol, n = 4) {
+  if (!audio || vol < 0.01) return;
+  const { AC, master } = audio, t0 = AC.currentTime;
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * (0.05 + Math.random() * 0.06), f = 2100 + Math.random() * 900, env = AC.createGain();
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.1 * vol, t + 0.004); env.gain.exponentialRampToValueAtTime(0.0001, t + 0.45); env.connect(master);
+    for (const [mul, w] of [[1, 1], [2.76, 0.45], [5.4, 0.2]]) { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = f * mul; g.gain.value = w; o.connect(g); g.connect(env); o.start(t); o.stop(t + 0.5); }
+  }
+}
+
+/* ---------------- Santa's Sled and its runaway team ----------------
+   A one-of-a-kind sled (SLEDS id "santa", rare: true, team: true) that only ever turns up on Bytteboden (category
+   "rare", one listing at a time, never a lemon). Pay, bring a trailer or flatbed with a free bay to the seller's, and it
+   rides home to the garage as a big load (look "sleigh"); delivered, it goes in the garage's Sleds list. It has no
+   engine: it won't move until its nine reindeer are back. They roam the peninsula in red harness and gold bells (the
+   "harness" reindeer, tame, they don't run): ride or walk right up to one and it's found, and trots off to the garage.
+   Rudolph (red glowing nose) only shows himself once the other eight are found, on the highest open ground there is.
+   Sleigh bells carry ~260 m, louder as you close in; once the sleigh's bought, the Jobs app/compass points at where the
+   nearest one was last seen (100-160 m off, so you still listen for the bells). With all nine, the sled rides with
+   the team in harness in front (teamTick): pairs on the arc you're steering, Rudolph in the lead, galloping on the snow,
+   and off the snow into the air past ~20 m/s (45 mph). No fuel, no engine noise, just bells.
+   Saved as GS.own.santa = { found: [ids] } (GS.own merges on load, so old saves just start at 0/9). */
+const SANTA_TEAM = [["dasher", "Dasher"], ["dancer", "Dancer"], ["prancer", "Prancer"], ["vixen", "Vixen"], ["comet", "Comet"], ["cupid", "Cupid"], ["donner", "Donner"], ["blitzen", "Blitzen"], ["rudolph", "Rudolph"]];
+const RARE = { spots: null, bellT: 0 };
+function santaSt() { const o = SCHOOL.saved || GS.own; if (!o.santa || !Array.isArray(o.santa.found)) o.santa = { found: [] }; return o.santa; }
+const santaN = () => santaSt().found.length;
+const santaOwned = () => (SCHOOL.saved || GS.own).sleds.includes("santa");
+const santaBought = () => santaOwned() || !!(GS.mkt && GS.mkt.held.some(h => h.cat === "rare"));
+// where the nine wait: fixed for the map (seeded), spread out, away from villages; Rudolph on the highest open ground
+function rareSpots() {
+  if (RARE.spots) return RARE.spots;
+  const r = mulberry32(40917), cand = [];
+  for (let k = 0; k < 1400 && cand.length < 220; k++) {
+    const x = (r() * 2 - 1) * 3500, z = (r() * 2 - 1) * 3600;
+    if (!wildOk(x, z, 6) || slopeAt(x, z, 4) > 0.3) continue;
+    if (SITES.some(s => s.x !== undefined && Math.hypot(s.x - x, s.z - z) < 180)) continue;
+    cand.push({ x, z, h: groundAt(x, z) });
+  }
+  cand.sort((a, b) => b.h - a.h);
+  const ru = cand.shift() || { x: 600, z: -300 };
+  for (let i = cand.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [cand[i], cand[j]] = [cand[j], cand[i]]; }
+  const pts = [];
+  for (const gap of [700, 500, 300, 0]) {
+    for (const c of cand) { if (pts.length >= 8) break; if (pts.includes(c)) continue; if (Math.hypot(c.x - ru.x, c.z - ru.z) < gap || pts.some(p => Math.hypot(p.x - c.x, p.z - c.z) < gap)) continue; pts.push(c); }
+    if (pts.length >= 8) break;
+  }
+  while (pts.length < 8) pts.push({ x: ru.x + 40 * pts.length, z: ru.z });
+  pts.push(ru);
+  return (RARE.spots = SANTA_TEAM.map(([id, name], i) => { const p = pts[i], a = r() * 6.283, hd = 100 + r() * 60; return { id, name, x: p.x, z: p.z, hx: p.x + Math.cos(a) * hd, hz: p.z + Math.sin(a) * hd, wx: p.x, wz: p.z, wT: 0, q: null, leaving: 0, ly: 0 }; }));
+}
+const rareLive = (s, st = santaSt()) => !st.found.includes(s.id) && (s.id !== "rudolph" || st.found.length >= 8);
+// for the compass: where the nearest one still out there was last seen
+function rareHint() {
+  const st = santaSt(), mx = FOOT.on ? FOOT.x : P.x, mz = FOOT.on ? FOOT.z : P.z; let best = null, bd = 1e9;
+  for (const s of rareSpots()) { if (!rareLive(s, st)) continue; const d = Math.hypot(s.hx - mx, s.hz - mz); if (d < bd) { bd = d; best = s; } }
+  return best ? { x: best.hx, z: best.hz, name: `where ${best.name} was seen` } : null;
+}
+function rareTick(dt, mx, mz, cx, cz, hide) {
+  const S = rareSpots(), st = santaSt(); let near = 1e9;
+  for (const s of S) {
+    const d = Math.hypot(s.x - mx, s.z - mz), live = rareLive(s, st);
+    if (s.q && s.leaving > 0) {   // found: it trots off toward the garage and out of sight
+      const q = s.q; s.leaving -= dt; q.v += (7 - q.v) * Math.min(1, dt * 2); q.yaw += clamp(dAng(q.yaw, s.ly), -dt * 2, dt * 2); q.graze = 0;
+      const nx = q.x + Math.sin(q.yaw) * q.v * dt, nz = q.z + Math.cos(q.yaw) * q.v * dt; if (wildOk(nx, nz, 0.6)) { q.x = nx; q.z = nz; } else s.ly += 1.2 * dt;
+      wildPlace(q, dt, cx, cz, hide);
+      if (s.leaving <= 0) { wildFree(q); s.q = null; }
+      continue;
+    }
+    if (live && d < 700 && !s.q) { s.q = wildRig("reindeer", s.id === "rudolph" ? "rudolph" : "harness"); Object.assign(s.q, { x: s.wx, z: s.wz, yaw: Math.random() * 6.283, v: 0, graze: 1 }); if (s.id === "rudolph") s.q.g.scale.setScalar(0.9); }
+    if (s.q && (!live || d > 850)) { wildFree(s.q); s.q = null; continue; }
+    if (!s.q) continue;
+    const q = s.q, dq = Math.hypot(q.x - mx, q.z - mz), watch = dq < 35;
+    near = Math.min(near, dq);
+    // tame: it ambles round its spot and grazes, and lifts its head to watch you come
+    if ((s.wT -= dt) <= 0) { s.wT = 6 + Math.random() * 10; const a = Math.random() * 6.283, rr = Math.random() * 18, x = s.x + Math.cos(a) * rr, z = s.z + Math.sin(a) * rr; if (wildOk(x, z, 1)) { s.wx = x; s.wz = z; } }
+    const ex = s.wx - q.x, ez = s.wz - q.z, vt = Math.hypot(ex, ez) > 0.6 && !watch ? 1.1 : 0;
+    q.v += clamp(vt - q.v, -3 * dt, 3 * dt);
+    if (watch) q.yaw += clamp(dAng(q.yaw, Math.atan2(mx - q.x, mz - q.z)), -dt * 1.5, dt * 1.5); else if (vt) q.yaw += clamp(dAng(q.yaw, Math.atan2(ex, ez)), -dt * 2, dt * 2);
+    q.x += Math.sin(q.yaw) * q.v * dt; q.z += Math.cos(q.yaw) * q.v * dt;
+    q.graze += ((!watch && q.v < 0.3 ? 1 : 0) - q.graze) * Math.min(1, dt * 1.5);
+    wildPlace(q, dt, cx, cz, hide);
+    if (dq < 3.6 && !GS.dead && !hide) rareCatch(s);
+  }
+  if (near < 260 && (RARE.bellT -= dt) <= 0) { RARE.bellT = 2.2 + Math.random() * 3; bells(Math.pow(clamp(1 - near / 260, 0, 1), 1.5) * 0.9, 3 + ((Math.random() * 3) | 0)); }
+}
+function rareCatch(s) {
+  const st = santaSt(); if (st.found.includes(s.id)) return;
+  st.found.push(s.id); const n = st.found.length, own = santaOwned(), bought = santaBought();
+  s.leaving = 7; s.ly = Math.atan2(garageSite.x - s.q.x, garageSite.z - s.q.z);
+  bells(1, 7); tabPing("good");
+  if (s.id === "rudolph") {
+    toast(`Rudolph! His nose glows like a coal. That's the whole team, all nine. ${own ? "They're waiting at the garage: Santa's Sled is ready to ride (garage, Sleds)." : bought ? "Get the sleigh home to the garage and they'll be in harness." : "Now somebody just has to find the sleigh they belong to. Keep an eye on Bytteboden."}`, "good");
+  } else {
+    toast(`${s.name}! A reindeer in a red harness hung with gold bells, tame as a dog. ${n} of 9. It trots off toward the garage to wait.${n === 1 && !bought ? " Somebody's lost a whole sleigh team." : ""}`, "good");
+    if (n === 8) { const ru = rareSpots()[8]; setTimeout(() => TABLET.notify({ app: "jobs", title: "A red light on the fell", body: `Sleigh bells on the wind, and a red glow up near ${nearestSiteName(ru.x, ru.z)}. Rudolph.`, ttl: 10 }), 3000); }
+  }
+  save(); TABLET.refresh();
+}
+// the nine in harness in front of Santa's Sled
+const TEAM = { q: [], lines: null, bellT: 0, idle: 0 };
+const _tmv = new THREE.Vector3(), _tmv2 = new THREE.Vector3();
+function teamTick(dt, hide) {
+  const sd = sledDef(), on = !!sd.team && santaN() >= 9 && !hide && !SCHOOL.on;
+  if (!on) { for (const q of TEAM.q) q.g.visible = false; if (TEAM.lines) TEAM.lines.visible = false; return; }
+  if (!TEAM.q.length) {
+    for (let i = 0; i < 9; i++) TEAM.q.push(quadMake("reindeer", i === 8 ? "rudolph" : "harness"));
+    TEAM.lines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x2a1a10 }));
+    TEAM.lines.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(15 * 6), 3)); TEAM.lines.frustumCulled = false; scene.add(TEAM.lines);
+  }
+  const spd = Math.hypot(P.vx, P.vz), fwdV = P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw), k = clamp(P.yr / Math.max(spd, 3), -0.08, 0.08), fly = sstep(20, 30, spd);
+  TEAM.idle = spd < 0.3 ? TEAM.idle + dt : 0;
+  const cx = camera.position.x, cz = camera.position.z, pos = TEAM.lines.geometry.attributes.position.array, chest = [];
+  for (let i = 0; i < 9; i++) {
+    const row = i === 8 ? 4 : i >> 1, side = i === 8 ? 0 : (i & 1 ? -1 : 1), d = 3.4 + row * 2.3, a = P.yaw + k * d, h = P.yaw + k * d * 0.5, q = TEAM.q[i];
+    q.x = P.x + Math.sin(h) * d + Math.cos(a) * side * 0.62; q.z = P.z + Math.cos(h) * d - Math.sin(a) * side * 0.62; q.yaw = a; q.v = fwdV;
+    q.graze += ((TEAM.idle > 4 && (i % 3) !== 1 ? 1 : 0) - q.graze) * Math.min(1, dt);
+    q.g.visible = true; wildPlace(q, dt, cx, cz, false, fly * (0.4 + row * 0.35));
+    q.g.updateMatrixWorld(); chest.push(q.g.localToWorld(new THREE.Vector3(0, 0.98, 0.3)));
+  }
+  // traces: a gangline from the sled's nose up the middle, each reindeer clipped to it, and the reins back to the bars
+  sledBody.updateMatrixWorld();
+  const nose = sledBody.localToWorld(_tmv.set(0, 0.62, 1.6)).clone(), seg = [], mid = r => r === 4 ? chest[8] : chest[r * 2].clone().add(chest[r * 2 + 1]).multiplyScalar(0.5);
+  let prev = nose; for (let r = 0; r < 5; r++) { const m = mid(r); seg.push(prev, m); prev = m; }
+  for (let i = 0; i < 8; i++) seg.push(chest[i], mid(i >> 1));
+  const ud = V.machineOf(sd.id).userData;
+  for (const sx of [-1, 1]) seg.push(sledBody.localToWorld(_tmv2.set(sx * 0.22, ud.barY, ud.barZ)).clone(), chest[sx > 0 ? 0 : 1]);
+  for (let i = 0; i < 15; i++) { const p = seg[i * 2], q = seg[i * 2 + 1]; pos.set([p.x, p.y, p.z, q.x, q.y, q.z], i * 6); }
+  TEAM.lines.geometry.attributes.position.needsUpdate = true; TEAM.lines.visible = true;
+  if (spd > 1 && (TEAM.bellT -= dt) <= 0) { TEAM.bellT = 0.3 + 1.1 / (1 + spd * 0.25); bells(0.22 + Math.min(0.25, spd / 60), 2 + ((Math.random() * 2) | 0)); }
+}
+// Santa's Sled's own bodywork on top of the sled chassis: lacquered sleigh sides, gold rails curling over at the back,
+// sleigh bells, and a sack of presents on the tail. Called from buildMachine (so it rides in that machine's group).
+function sleighTrim(m, s, ud) {
+  const gold = std(0xd9a520, 0.28, 0.85); gold.envMap = sledEnvCube; gold.envMapIntensity = 1.1;
+  const red = std(0xa3101a, 0.3, 0.1); red.envMap = sledEnvCube; red.envMapIntensity = 0.6;
+  const sack = std(0x7a2418, 0.95), green = std(0x1f6b3a, 0.6), white = std(0xf2eee4, 0.9);
+  const tw = ud.tw, zB = ud.zBack, z0 = -0.05, z1 = zB + 0.25, zc = (z0 + z1) / 2, L = z0 - z1;
+  for (const sx of [-1, 1]) {
+    const X = sx * (tw / 2 + 0.26);
+    box(0.035, 0.32, L, red, X, 0.64, zc, 0, 0, 0, m);
+    box(0.045, 0.03, L, gold, X, 0.5, zc, 0, 0, 0, m);
+    tube([[X, 0.8, z0 + 0.1], [X, 0.82, zc], [X, 0.88, z1 + 0.05], [X, 1.06, zB + 0.04], [X, 1.12, zB + 0.2], [X, 1.02, zB + 0.27]], 0.024, gold, m, 6);
+    tube([[X, 0.48, z0 - 0.02], [X, 0.6, z0 + 0.18], [X, 0.76, z0 + 0.18], [X, 0.82, z0 + 0.06]], 0.02, gold, m, 6);
+    for (let k = 0; k < 4; k++) ball(0.035, gold, X + sx * 0.03, 0.74, z1 + 0.15 + k * L / 4, m);
+  }
+  ball(0.3, sack, 0, 0.98, zB + 0.42, m, 1.05, 1.15, 1.0);
+  cyl(0.05, 0.1, 0.16, sack, 0, 1.33, zB + 0.42, 0, 0, 0, m, 8); box(0.13, 0.03, 0.13, gold, 0, 1.27, zB + 0.42, 0, 0.4, 0, m);
+  box(0.24, 0.2, 0.24, green, -0.17, 0.72, zB + 0.12, 0, 0.3, 0, m); box(0.25, 0.21, 0.05, gold, -0.17, 0.72, zB + 0.12, 0, 0.3, 0, m);
+  box(0.18, 0.16, 0.18, white, 0.19, 0.7, zB + 0.1, 0, -0.2, 0, m); box(0.05, 0.17, 0.19, red, 0.19, 0.7, zB + 0.1, 0, -0.2, 0, m);
+}
+
 /* ---------------- the town dog ---------------- */
 /* A scruffy spitz who lives by the quay. Come within ~25 m and it runs alongside you, barking, as far as the town
    sign at the edge of Kjøllefjord, where it gives up, sits, watches you leave and trots home.
@@ -11752,6 +12262,7 @@ function updGame(dt, spd) {
   mailTick(dt); updMailHud(dt);
   if (FISH) FISH.tick(dt, near, spd);
   mktTick(dt);
+  wildTick(dt);
   if (work && GS.mkt && GS.mkt.held.length) mktCollect(near);
   if (work && GS.groomJob && GS.groomJob.dest === near) finishGroom(near);
   if (GS.tour && spd < 5 && Math.hypot(P.x - GS.tour.view.x, P.z - GS.tour.view.z) < 26) tourArrive();
