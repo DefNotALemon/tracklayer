@@ -262,6 +262,17 @@ Reindeer herds, moose, arctic foxes and mountain hares roam the open country awa
 They graze and wander, and most of them bolt when a sled comes at them (or when you walk right up),
 jinking out of your way, so you won't run them over. A moose is different: it stands its ground
 longer, and it's solid. Ride into one and you're the one who ends up in the snow.
+Lemmings scurry about in little bands and vanish under the snow (with a squeak) when you get close;
+ermine, stoats in their winter white with a black tail tip, bound away.
+
+**Grizzlies** are the dangerous ones. Get too close (about 20 m on foot, less on a moving sled, more
+if she has a cub) and a bear stands its ground, huffing and swinging its head: back off. Keep coming,
+or bump it with the sled, and it charges at about 30 mph and chases you for half a minute or until
+you're well clear. If it catches you, a swipe knocks you off the sled or sends you sprawling; three
+in quick succession and you black out (the Red Cross crew brings you round at the quay). Sometimes
+it decides you're no threat once you're down and walks off. You can kill one with the sled, but you
+have to be going fast: about 49 mph or more and it goes down for good. Any slower and you're thrown
+off, and the bear is furious.
 
 ## The ferry and the mail
 

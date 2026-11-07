@@ -6052,7 +6052,7 @@ function blackout(kind) {
   GS.load = [];
   GS.jobs = []; GS.contracts = null; GS.claims = [];
   applyLoadout();                                     // clear the boxes off the tail (the trailer reads GS.load on its own)
-  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? (P.wl !== SEA ? "<b>THROUGH THE ICE</b>The Red Cross crew got a line on you from the shore. The sled came up on a winch, eventually. The lake kept everything else." : "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else.") : kind === "crash" ? "<b>KNOCKED OUT</b>You came off hard. The Red Cross crew scraped you out of the snow and drove you back to the quay." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
+  $("blackMsg").innerHTML = (tow ? "<b>TOWED IN</b>The Red Cross snowmobile crew hauled you and your sled back to the quay. No room for freight." : wet ? (P.wl !== SEA ? "<b>THROUGH THE ICE</b>The Red Cross crew got a line on you from the shore. The sled came up on a winch, eventually. The lake kept everything else." : "<b>INTO THE FJORD</b>A fishing boat fished you out. The sled came up on a winch, eventually. The fjord kept everything else.") : kind === "bear" ? "<b>MAULED</b>The grizzly left you in the snow. The Red Cross crew found you, patched you up and drove you back to the quay." : kind === "crash" ? "<b>KNOCKED OUT</b>You came off hard. The Red Cross crew scraped you out of the snow and drove you back to the quay." : "<b>YOU BLACKED OUT</b>The Red Cross crew found you half-buried in drift and dragged you back to the quay.") + `<span>−$${fee}.${lost}</span>`;
   $("black").hidden = false;
   setTimeout(() => {
     P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vz = P.vy = 0; P.yr = 0; P.y = surf(P.x, P.z) + 0.3;
@@ -11173,6 +11173,12 @@ function initFishing() {
    stance time, so they don't slide), lifted on an arc in swing. The gait follows speed: lateral-sequence walk, trot on
    diagonal pairs, transverse gallop (moose top out at a trot), and the hare's bound. Body bob, a head nod against the
    forelimbs and the gallop's rocking pitch ride on the same cycle; the body pitches to the slope.
+   Lemmings (Norway lemming: black head, golden back) scurry in little bands and dive under the snow when you come
+   close; ermine (stoats in winter white, black tail tip) bound away. Grizzlies (bear*, below) are the dangerous one:
+   get too close and a bear stands its ground huffing (warn); keep coming, or bump it with the sled, and it charges at
+   ~14 m/s and chases you for up to 35 s or until you're 130 m clear. A swipe throws you off the sled or knocks you
+   about on foot; three in a row (WILD.hurt, heals over time) and you black out ("bear"). Ride into one at BEAR_KILL
+   (22 m/s, ~49 mph) or more and it goes down for good; any slower and you're the one in the snow, with a furious bear.
    Nothing here is saved: the wildlife is regenerated round you each session. Santa's runaway team (below) is. */
 const QGAIT = {
   walk: { off: [0.25, 0.75, 0, 0.5], duty: 0.64 },     // legs: LF, RF, LH, RH
@@ -11186,6 +11192,9 @@ const QSP = {
   reindeer: { hipY: 0.8, legs: [[0.12, 0.4, 0.36, 0.4, 0], [0.13, -0.42, 0.37, 0.4, 0]], hoof: 0.03, S: [1.35, 2.3, 3.1], vmax: [1.9, 5.2], top: 12.5, lift: 0.17, neck0: -0.75, neckG: 1.05, head0: 0.95, headG: 0.55, len: 1.25 },
   moose: { hipY: 1.36, legs: [[0.2, 0.62, 0.64, 0.7, 0.04], [0.2, -0.72, 0.64, 0.7, 0.04]], hoof: 0.05, S: [2.2, 3.6, 4.4], vmax: [2.4, 8.5], top: 9, lift: 0.3, noGallop: true, neck0: -0.3, neckG: 0.95, head0: 0.55, headG: 0.6, len: 2.1 },
   fox: { hipY: 0.31, legs: [[0.055, 0.17, 0.14, 0.16, 0], [0.06, -0.18, 0.15, 0.16, 0]], hoof: 0.015, S: [0.55, 0.95, 1.5], vmax: [0.9, 3.4], top: 11, lift: 0.07, neck0: -0.5, neckG: 0.9, head0: 0.55, headG: 0.6, len: 0.55 },
+  lemming: { hipY: 0.055, legs: [[0.022, 0.045, 0.028, 0.026, 0], [0.025, -0.045, 0.03, 0.028, 0]], hoof: 0.005, S: [0.1, 0.17, 0.26], vmax: [0.12, 0.5], top: 1.7, lift: 0.018, neck0: -0.15, neckG: 0.5, head0: 0.2, headG: 0.3, len: 0.14, vis: 90, scare: [12, 5] },
+  ermine: { hipY: 0.085, legs: [[0.028, 0.09, 0.045, 0.045, 0], [0.032, -0.1, 0.055, 0.055, 0]], hoof: 0.007, S: [0.22, 0.38, 0.75], vmax: [0.01, 0.02], top: 6.5, lift: 0.05, bound: true, neck0: -0.7, neckG: 0.8, head0: 0.75, headG: 0.6, len: 0.32, vis: 150, scare: [26, 9] },
+  bear: { hipY: 0.92, legs: [[0.25, 0.6, 0.44, 0.46, -0.02], [0.26, -0.64, 0.46, 0.46, 0]], hoof: 0.05, S: [1.7, 2.8, 4.0], vmax: [1.7, 6], top: 14, lift: 0.22, neck0: -0.1, neckG: 0.75, head0: 0.3, headG: 0.45, len: 2.0 },
   hare: { hipY: 0.2, legs: [[0.04, 0.1, 0.085, 0.1, -0.03], [0.06, -0.1, 0.12, 0.15, 0]], hoof: 0.012, S: [0.5, 0.8, 1.7], vmax: [0.01, 0.02], top: 13, lift: 0.08, bound: true, neck0: -0.4, neckG: 0.6, head0: 0.4, headG: 0.4, len: 0.4 }
 };
 const QGEO = {};
@@ -11197,6 +11206,7 @@ function qMats() {
     rcoat: m(0x6b5746), rdark: m(0x46382c), rpale: m(0xd8cdbb), hoof: m(0x1c1a18, 0.6), eye: m(0x0d0d0f, 0.3), antler: m(0x9a8468, 0.85),
     mcoat: m(0x33261c), mleg: m(0x9b8d7a), mnose: m(0x2a1f17), fox: m(0xeceef0), foxd: m(0xc9ccd0), hare: m(0xf2f3f4), tip: m(0x141414),
     harness: m(0xb3161c, 0.55), gold: m(0xe0b030, 0.35, { metalness: 0.35 }),
+    bear: m(0x4a321f), bearD: m(0x2c1e15), bearT: m(0x7a5c3e), claw: m(0xd8ccb4, 0.5), lem: m(0xb88a4a), lemD: m(0x1e1814), erm: m(0xf4f4f2),
     rnose: new THREE.MeshStandardMaterial({ color: 0xff2a1a, emissive: 0xff1a0a, emissiveIntensity: 2.2, roughness: 0.3 })
   });
 }
@@ -11278,6 +11288,34 @@ function qBuild(kind, variant) {
     for (const sx of [-1, 1]) C.head.push(qP(qCone(0.03, 0.08), M.fox, sx * 0.04, 0.08, 0, 1, 1, 1, 0, 0, -sx * 0.3), qP(I0, M.eye, sx * 0.035, 0.03, 0.06, 0.01, 0.01, 0.01));
     const paw = () => [qP(I0, M.fox, 0, -0.005, 0.01, 0.025, 0.015, 0.035)];
     leg(C.legF, 0.14, 0.16, M.fox, M.foxd, 0.025, 0.018, 0.013, paw()); leg(C.legH, 0.15, 0.16, M.fox, M.foxd, 0.035, 0.018, 0.013, paw());
+  } else if (kind === "bear") {   // a grizzly: shoulder hump, dished face, small round ears, long claws on flat paws
+    C.body.push(qP(I, M.bear, 0, 0.14, -0.05, 0.54, 0.6, 0.95), qP(I, M.bearT, 0, 0.5, 0.38, 0.4, 0.34, 0.44), qP(I, M.bear, 0, 0.02, 0.5, 0.46, 0.54, 0.44), qP(I, M.bear, 0, 0.15, -0.62, 0.48, 0.52, 0.42), qP(I, M.bearD, 0, -0.22, 0.05, 0.42, 0.3, 0.74));
+    for (const sx of [-1, 1]) C.body.push(qP(I, M.bear, sx * 0.25, -0.06, 0.58, 0.2, 0.42, 0.26), qP(I, M.bear, sx * 0.26, -0.04, -0.64, 0.22, 0.44, 0.3));
+    C.tailAt = [0.25, -0.98]; C.tail.push(qP(I0, M.bear, 0, 0, -0.02, 0.07, 0.07, 0.06));
+    C.neckAt = [0.3, 0.84]; C.neck.push(qRod(M.bear, 0, 0, 0, 0, 0, 0.34, 0.3, 0.24, 7), qP(I, M.bearT, 0, 0.1, 0.12, 0.24, 0.2, 0.26));
+    C.headAt = 0.34;
+    C.head.push(qP(I, M.bear, 0, 0.05, 0.08, 0.24, 0.22, 0.25), qP(I, M.bearT, 0, -0.04, 0.33, 0.12, 0.11, 0.17), qP(I0, M.hoof, 0, -0.01, 0.5, 0.06, 0.045, 0.04), qP(I, M.bearD, 0, -0.1, 0.28, 0.1, 0.05, 0.14));
+    for (const sx of [-1, 1]) C.head.push(qP(I, M.bear, sx * 0.16, 0.24, 0.0, 0.075, 0.075, 0.04), qP(I0, M.eye, sx * 0.1, 0.1, 0.27, 0.022, 0.022, 0.022));
+    const paw = () => { const out = [qP(new THREE.BoxGeometry(1, 1, 1), M.bearD, 0, -0.01, 0.07, 0.2, 0.08, 0.32)]; for (let k = -1.5; k <= 1.5; k++) out.push(qP(qCone(0.014, 0.08, 4), M.claw, k * 0.045, -0.03, 0.26, 1, 1, 1, Math.PI / 2 + 0.3, 0, 0)); return out; };
+    leg(C.legF, 0.44, 0.46, M.bear, M.bearD, 0.2, 0.15, 0.12, paw()); leg(C.legH, 0.46, 0.46, M.bear, M.bearD, 0.24, 0.15, 0.12, paw());
+  } else if (kind === "lemming") {   // Norway lemming: black head and shoulders, golden-brown back, a stub of a tail
+    C.body.push(qP(I, M.lem, 0, 0.025, -0.01, 0.055, 0.05, 0.08), qP(I, M.lemD, 0, 0.035, 0.035, 0.045, 0.035, 0.04));
+    C.tailAt = [0.02, -0.085]; C.tail.push(qP(I0, M.lem, 0, 0, -0.01, 0.012, 0.012, 0.018));
+    C.neckAt = [0.035, 0.06]; C.neck.push(qRod(M.lemD, 0, 0, 0, 0, 0, 0.02, 0.035, 0.032, 6));
+    C.headAt = 0.02;
+    C.head.push(qP(I, M.lemD, 0, 0.005, 0.02, 0.04, 0.036, 0.045), qP(I0, M.lem, 0, -0.012, 0.045, 0.02, 0.016, 0.02));
+    for (const sx of [-1, 1]) C.head.push(qP(I0, M.eye, sx * 0.026, 0.015, 0.04, 0.007, 0.007, 0.007));
+    const paw = () => [qP(I0, M.lemD, 0, -0.002, 0.005, 0.009, 0.005, 0.012)];
+    leg(C.legF, 0.028, 0.026, M.lem, M.lemD, 0.012, 0.009, 0.007, paw()); leg(C.legH, 0.03, 0.028, M.lem, M.lemD, 0.015, 0.009, 0.007, paw());
+  } else if (kind === "ermine") {   // stoat in winter white: long low body, black tip to the tail
+    C.body.push(qP(I, M.erm, 0, 0.03, 0, 0.045, 0.05, 0.15), qP(I, M.erm, 0, 0.035, 0.1, 0.044, 0.048, 0.06), qP(I, M.erm, 0, 0.04, -0.11, 0.05, 0.055, 0.06));
+    C.tailAt = [0.05, -0.16]; C.tail.push(qRod(M.erm, 0, 0, 0, 0, 0.02, -0.12, 0.014, 0.012, 5), qP(I0, M.tip, 0, 0.025, -0.16, 0.018, 0.018, 0.04));
+    C.neckAt = [0.045, 0.14]; C.neck.push(qRod(M.erm, 0, 0, 0, 0, 0, 0.07, 0.034, 0.03, 6));
+    C.headAt = 0.07;
+    C.head.push(qP(I, M.erm, 0, 0.01, 0.02, 0.034, 0.03, 0.045), qP(I0, M.tip, 0, 0.0, 0.066, 0.008, 0.007, 0.007));
+    for (const sx of [-1, 1]) C.head.push(qP(I0, M.erm, sx * 0.025, 0.035, -0.005, 0.014, 0.014, 0.006), qP(I0, M.eye, sx * 0.02, 0.018, 0.045, 0.006, 0.006, 0.006));
+    const paw = () => [qP(I0, M.erm, 0, -0.003, 0.008, 0.012, 0.006, 0.016)];
+    leg(C.legF, 0.045, 0.045, M.erm, M.erm, 0.013, 0.01, 0.008, paw()); leg(C.legH, 0.055, 0.055, M.erm, M.erm, 0.018, 0.01, 0.008, paw());
   } else {   // mountain hare in its winter white, black ear tips
     C.body.push(qP(I, M.hare, 0, 0.05, -0.02, 0.1, 0.11, 0.17), qP(I, M.hare, 0, 0.03, 0.09, 0.08, 0.09, 0.08));
     for (const sx of [-1, 1]) C.body.push(qP(I, M.hare, sx * 0.065, 0.02, -0.09, 0.055, 0.1, 0.11));
@@ -11304,7 +11342,7 @@ function qGlowMat() {
 // one animal: root (on the ground, turned to its heading) > body (at hip height, pitched) > neck > head; four legs
 function quadMake(kind, variant) {
   const sp = QSP[kind], key = kind + ":" + (variant || ""), C = QGEO[key] || (QGEO[key] = qBuild(kind, variant));
-  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); body.position.y = sp.hipY;
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); body.position.y = sp.hipY; g.rotation.order = "YXZ";
   qAdd(body, C.body);
   const neck = new THREE.Group(); neck.position.set(0, C.neckAt[0], C.neckAt[1]); body.add(neck); qAdd(neck, C.neck);
   const head = new THREE.Group(); head.position.z = C.headAt; neck.add(head); qAdd(head, C.head);
@@ -11366,9 +11404,10 @@ function quadPose(q, dt, v, graze, gz) {
   q.tail.rotation.y = 0.25 * Math.sin(q.t * 3.1) * (1 - m * 0.6);
 }
 
-const WILD = { groups: [], free: {}, spawnT: 0, max: 5, hitT: 0 };
-const WILD_KINDS = [{ k: "reindeer", w: 0.42, n: [3, 6] }, { k: "moose", w: 0.2, n: [1, 2] }, { k: "fox", w: 0.2, n: [1, 1] }, { k: "hare", w: 0.18, n: [1, 2] }];
-function wildRig(kind, variant) { const f = WILD.free[kind + ":" + (variant || "")], q = f && f.length ? f.pop() : quadMake(kind, variant); q.g.visible = true; q.g.scale.setScalar(1); return q; }
+const WILD = { groups: [], free: {}, spawnT: 0, max: 6, hitT: 0, hurt: 0, msgT: -99 };
+const WILD_KINDS = [{ k: "reindeer", w: 0.34, n: [3, 6] }, { k: "moose", w: 0.16, n: [1, 2] }, { k: "fox", w: 0.14, n: [1, 1] }, { k: "hare", w: 0.13, n: [1, 2] }, { k: "lemming", w: 0.12, n: [4, 8] }, { k: "ermine", w: 0.1, n: [1, 1] }, { k: "bear", w: 0.11, n: [1, 2] }];
+const BEAR_KILL = 22;                          // m/s (~49 mph): hit a grizzly this fast or faster and it doesn't get up
+function wildRig(kind, variant) { const f = WILD.free[kind + ":" + (variant || "")], q = f && f.length ? f.pop() : quadMake(kind, variant); q.g.visible = true; q.g.scale.setScalar(1); q.dead = 0; q.deadK = 0; q.dive = 0; q.lunge = 0; q.g.rotation.z = 0; return q; }
 function wildFree(q) { q.g.visible = false; const k = q.kind + ":" + q.variant; (WILD.free[k] || (WILD.free[k] = [])).push(q); }
 // somewhere an animal can stand: on land, inside the map, not in water and not in a building, tree or rock
 const wildOk = (x, z, r = 2.5) => Math.abs(x) < HALF - 60 && Math.abs(z) < HALF - 60 && !isSea(x, z) && !isWater(x, z) && groundAt(x, z) > SEA + 1 && !solidNear(x, z, r);
@@ -11383,7 +11422,7 @@ function wildSpawn(px, pz) {
     for (let i = 0; i < n; i++) {
       const q = wildRig(K.k), ang = Math.random() * 6.283, rr = i ? (1.5 + Math.random() * 2.5) * Math.sqrt(n) * G.sp.len : 0;
       Object.assign(q, { x: x + Math.cos(ang) * rr, z: z + Math.sin(ang) * rr, yaw: Math.random() * 6.283, v: 0, ox: Math.cos(ang) * rr, oz: Math.sin(ang) * rr, graze: Math.random(), wT: Math.random() * 5 });
-      q.g.scale.setScalar(K.k === "moose" && i > 0 ? 0.62 : 0.92 + Math.random() * 0.16);                   // a cow moose has her calf with her
+      q.g.scale.setScalar((K.k === "moose" || K.k === "bear") && i > 0 ? (K.k === "bear" ? 0.5 : 0.62) : 0.92 + Math.random() * 0.16);   // a cow moose has her calf with her; a sow her cub
       q.ant.visible = K.k === "moose" ? i === 0 && n === 1 && Math.random() < 0.7 : true;                      // a lone moose is usually a bull
       G.m.push(q);
     }
@@ -11393,21 +11432,31 @@ function wildSpawn(px, pz) {
 // stand the rig on the snow at its x/z and pose it (only near the camera; far ones just slide along, too small to see)
 function wildPlace(q, dt, cx, cz, hide, lift = 0) {
   const dc = Math.hypot(q.x - cx, q.z - cz);
-  q.g.visible = !hide && dc < 650; if (!q.g.visible) return;
+  q.g.visible = !hide && dc < (q.sp.vis || 650) && !(q.dive > 0); if (!q.g.visible) return;
   const s = q.g.scale.x, fx = Math.sin(q.yaw), fz = Math.cos(q.yaw), h = q.sp.len * 0.5 * s;
   const gz = (groundAt(q.x + fx * h, q.z + fz * h) - groundAt(q.x - fx * h, q.z - fz * h)) / (2 * h);
-  q.g.position.set(q.x, surf(q.x, q.z) - 0.05 * s + lift, q.z); q.g.rotation.y = q.yaw;
-  if (dc < 240) quadPose(q, dt, q.v / s, q.graze, clamp(gz, -0.8, 0.8));
+  if (q.dead) q.deadK = Math.min(1, (q.deadK || 0) + dt * 2.2);
+  const dk = q.dead ? sstep(0, 1, q.deadK) : 0;
+  q.g.position.set(q.x, surf(q.x, q.z) - 0.05 * s + lift + dk * 0.42 * s, q.z); q.g.rotation.y = q.yaw; q.g.rotation.z = dk * 1.5;
+  if (dc < 240 && !(q.dead && q.deadK >= 1)) quadPose(q, dt, q.dead ? 0 : q.v / s, q.dead ? 0 : q.graze, q.dead ? 0 : clamp(gz, -0.8, 0.8));
+  if (q.lunge > 0) {   // a bear's swipe: it rears onto its hind legs and drops back with a paw out
+    q.lunge = Math.max(0, q.lunge - dt); const u = Math.sin(Math.PI * (1 - q.lunge / 0.6));
+    q.body.rotation.x -= 0.45 * u; q.body.position.y += 0.25 * u; q.legs[0].hip.rotation.x -= 1.1 * u; q.legs[1].hip.rotation.x -= 0.6 * u; q.neck.rotation.x -= 0.4 * u;
+  }
 }
 function wildGroup(G, dt, mx, mz, mv, cx, cz, hide) {
-  const sp = G.sp, d = Math.hypot(G.x - mx, G.z - mz), onSled = !FOOT.on;
-  const scare = G.kind === "moose" ? (onSled ? (d < 28 && mv > 2) || d < 12 : d < 9)
+  const sp = G.sp, d = Math.hypot(G.x - mx, G.z - mz), onSled = !FOOT.on && !CRASH.on;
+  const scare = G.kind === "bear" ? false : sp.scare ? d < (onSled && mv > 2 ? sp.scare[0] : sp.scare[1]) : G.kind === "moose" ? (onSled ? (d < 28 && mv > 2) || d < 12 : d < 9)
     : G.kind === "hare" ? d < (onSled ? 30 : 10)
     : onSled ? (d < 45 && mv > 2.5) || d < 16 : d < (G.kind === "fox" ? 18 : 14);
+  if (G.kind === "bear") bearThink(G, dt, mx, mz, mv);
   if (scare) { if (G.state !== "flee") G.yaw = Math.atan2(G.x - mx, G.z - mz) + (Math.random() - 0.5) * 0.9; G.state = "flee"; G.t = 5 + Math.random() * 4; }
   G.t -= dt;
   let gv = 0;
-  if (G.state === "flee") {
+  if (G.state === "dead") gv = 0;
+  else if (G.state === "charge") { G.yaw = Math.atan2(mx - G.x, mz - G.z); gv = d < 2 ? 0 : sp.top * (0.85 + 0.15 * Math.min(1, d / 30)); }
+  else if (G.state === "warn") { G.yaw += dAng(G.yaw, Math.atan2(mx - G.x, mz - G.z)) * Math.min(1, dt * 3); gv = 0; }
+  else if (G.state === "flee") {
     G.yaw += dAng(G.yaw, Math.atan2(G.x - mx, G.z - mz)) * Math.min(1, dt * 0.8);
     gv = sp.top * 0.8 * (d < 60 ? 1 : 0.7);
     if (G.t <= 0) { G.state = "walk"; G.t = 6 + Math.random() * 8; }
@@ -11429,12 +11478,16 @@ function wildGroup(G, dt, mx, mz, mv, cx, cz, hide) {
   G.v = gv;
   const cy = Math.cos(G.yaw), sy = Math.sin(G.yaw);
   for (const q of G.m) {
+    if (q.dead) { q.v = 0; wildPlace(q, dt, cx, cz, hide); continue; }
+    // lemmings live under the snow: come close and they're gone down a hole, and pop up again a bit later
+    if (q.dive > 0) q.dive -= dt;
+    else if (G.kind === "lemming" && Math.hypot(q.x - mx, q.z - mz) < (onSled ? 6 : 2.5)) { q.dive = 4 + Math.random() * 6; if (Math.random() < 0.5) squeak(0.5); }
     if (G.state === "graze" && (q.wT -= dt) <= 0) { q.wT = 4 + Math.random() * 9; const a = Math.random() * 6.283, r = Math.random() * 2.5 * Math.sqrt(G.m.length) * sp.len; q.ox = Math.cos(a) * r; q.oz = Math.sin(a) * r; }
     const tx = G.x + q.ox * cy + q.oz * sy, tz = G.z - q.ox * sy + q.oz * cy;
     let dx = tx - q.x, dz = tz - q.z; const dd = Math.hypot(dx, dz);
     for (const o of G.m) if (o !== q) { const ex = q.x - o.x, ez = q.z - o.z, e = Math.hypot(ex, ez), R = sp.len * 0.9 * q.g.scale.x; if (e < R && e > 1e-3) { dx += ex / e * (R - e) * 2; dz += ez / e * (R - e) * 2; } }
     // a sled bearing down on it: jink sideways out of its path
-    if (onSled && mv > 4 && G.kind !== "moose") {
+    if (onSled && mv > 4 && G.kind !== "moose" && G.kind !== "bear") {
       const rx = q.x - mx, rz = q.z - mz, fwd = (rx * P.vx + rz * P.vz) / mv, side = (rx * P.vz - rz * P.vx) / mv;
       if (fwd > 0 && fwd < 12 + mv * 0.6 && Math.abs(side) < 3) { const s = side >= 0 ? 1 : -1; dx += P.vz / mv * s * 8; dz -= P.vx / mv * s * 8; }
     }
@@ -11452,13 +11505,104 @@ function wildGroup(G, dt, mx, mz, mv, cx, cz, hide) {
       else { P.vx *= 0.3; P.vz *= 0.3; }
       G.state = "flee"; G.t = 8; G.yaw = Math.atan2(q.x - P.x, q.z - P.z);
     }
+    if (G.kind === "bear" && onSled && WILD.hitT <= 0 && Math.hypot(q.x - P.x, q.z - P.z) < 1.3 * q.g.scale.x + 0.9 && (mv > 4 || G.state !== "charge")) bearHit(G, q, mv);
     wildPlace(q, dt, cx, cz, hide);
   }
+}
+/* ---- grizzlies ---- */
+// how close is too close: on foot or lying in the snow it's ~20 m, stopped on the sled 16, riding past only 9.
+// A sow with her cub minds a lot more room. Too close = it stands its ground and huffs (warn); keep coming = it charges.
+function bearThink(G, dt, mx, mz, mv) {
+  const q = G.m[0], d = Math.hypot(q.x - mx, q.z - mz);
+  G.atkT = (G.atkT || 0) - dt;
+  if (G.state === "dead" || GS.dead) return;
+  if (G.calm > 0 && G.state !== "charge") { G.calm -= dt; return; }        // it's just walked away from you: it won't turn straight round
+  const close = (FOOT.on || CRASH.on ? 20 : mv < 3 ? 16 : 9) * (G.m.length > 1 ? 1.5 : 1);
+  if (G.state === "charge") {
+    G.chase = (G.chase || 0) + dt;
+    if (d > 130 || G.chase > 35) { G.state = "walk"; G.t = 25; G.calm = 20; G.yaw = Math.atan2(G.x - mx, G.z - mz); if (d < 300) toast("The grizzly gives up the chase and lumbers off.", "good"); }
+    else if (d < 2.6 * q.g.scale.x + 0.4 && G.atkT <= 0) bearSwipe(G, q, mx, mz);
+    return;
+  }
+  if (G.state === "warn") {
+    G.warnT -= dt; if ((G.huffT = (G.huffT || 0) - dt) <= 0) { G.huffT = 1 + Math.random(); huff(Math.max(0, 1 - d / 80)); }
+    if (d < close * 0.55 || (G.warnT <= 0 && d < close)) bearCharge(G, mx, mz);
+    else if (G.warnT <= 0) { G.state = "graze"; G.t = 6 + Math.random() * 6; }
+    return;
+  }
+  if (d < close * 0.5) bearCharge(G, mx, mz);
+  else if (d < close) {
+    G.state = "warn"; G.warnT = 2.5; G.huffT = 0;
+    if (gameClock - WILD.msgT > 8) { WILD.msgT = gameClock; toast(`A grizzly${G.m.length > 1 ? " with a cub" : ""}. It stands its ground, huffing and swinging its head. Back off, slowly.`, "warn"); }
+  }
+}
+function bearCharge(G, mx, mz) {
+  if (G.state === "charge" || G.state === "dead") return;
+  G.state = "charge"; G.chase = 0; G.atkT = 0.6; G.m[0].ox = G.m[0].oz = 0;
+  roar(clamp(1 - Math.hypot(G.x - mx, G.z - mz) / 150, 0.2, 1));
+  if (gameClock - WILD.msgT > 3) { WILD.msgT = gameClock; toast(FOOT.on || CRASH.on ? "The grizzly charges! Get back on the sled and go." : "The grizzly charges! Floor it: a bear runs 30 mph.", "bad"); }
+}
+// it caught you
+function bearSwipe(G, q, mx, mz) {
+  const onSled = !FOOT.on && !CRASH.on, down = CRASH.on;
+  G.atkT = down ? 2.6 : 1.5; q.lunge = 0.6; roar(0.8); thud(0.8);
+  const ax = mx - q.x, az = mz - q.z, al = Math.hypot(ax, az) || 1;
+  WILD.hurt += 1;
+  if (!FOOT.on && !CRASH.on) { if (!crashEject("bear", ax / al * 6 + P.vx * 0.3, 2.5, az / al * 6 + P.vz * 0.3)) { P.vx += ax / al * 3; P.vz += az / al * 3; } }
+  else if (FOOT.on) { const nx = FOOT.x + ax / al * 1.4, nz = FOOT.z + az / al * 1.4; if (!solidNear(nx, nz, 0.4)) { FOOT.x = nx; FOOT.z = nz; } FOOT.sp = 0; }
+  if (WILD.hurt >= 3) { WILD.hurt = 0; crashCancelSafe(); blackout("bear"); G.state = "walk"; G.t = 30; G.calm = 40; G.yaw += Math.PI; return; }
+  toast(WILD.hurt >= 2 ? "Another swipe. You can taste blood. One more and you're done: get on the sled and get out." : onSled ? "The grizzly's paw hooks you straight off the sled." : down ? "The grizzly's paw rakes you where you lie. Your jacket's in ribbons." : "The grizzly's paw knocks you sideways. Your jacket's in ribbons.", "bad");
+  // bears often bluff it out: once you're down it may decide you're no threat and wander off
+  if (Math.random() < (down ? 0.4 : 0.2)) { G.state = "walk"; G.t = 20; G.calm = 15; G.yaw = Math.atan2(q.x - mx, q.z - mz); setTimeout(() => toast("The grizzly huffs, turns and lumbers away. You lie still until it's gone.", "warn"), 1800); }
+}
+function crashCancelSafe() { if (CRASH.on && typeof crashCancel === "function") crashCancel(); }
+// the sled hits it: fast enough and it's dead; any slower and it throws you, then comes for you
+function bearHit(G, q, mv) {
+  WILD.hitT = 1.5; const mph = Math.round(mv * 2.237);
+  if (mv >= BEAR_KILL) {
+    q.dead = 1; q.deadK = 0; q.v = 0; thud(1); whump(1); P.vx *= 0.55; P.vz *= 0.55; P.shake = Math.max(P.shake || 0, 1.2);
+    if (q === G.m[0]) G.state = "dead";
+    toast(`You hit the grizzly at ${mph} mph. The whole sled shudders. It goes down and doesn't get up.`, "good");
+    return;
+  }
+  if (mv > 4) {
+    if (crashEject("bear", P.vx * 0.4, P.vy + 1, P.vz * 0.4)) thud(1); else { P.vx *= 0.3; P.vz *= 0.3; }
+    toast(`You hit the grizzly at ${mph} mph. Not nearly fast enough (it takes about ${Math.round(BEAR_KILL * 2.237)}): it's up, and it's furious.`, "bad");
+  }
+  bearCharge(G, P.x, P.z);
+}
+// a bear's roar: noise through a sweeping band-pass over a rough, vibrato'd sawtooth
+function roar(v) {
+  if (!audio || v < 0.02) return;
+  const { AC, master, buf } = audio, t = AC.currentTime, g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.55 * v, t + 0.09); g.gain.exponentialRampToValueAtTime(0.001, t + 1.25); g.connect(master);
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(); s.buffer = buf; f.type = "bandpass"; f.Q.value = 1.4;
+  f.frequency.setValueAtTime(240, t); f.frequency.linearRampToValueAtTime(520, t + 0.3); f.frequency.linearRampToValueAtTime(170, t + 1.2); s.connect(f); f.connect(g);
+  const o = AC.createOscillator(), og = AC.createGain(), lf = AC.createOscillator(), lg = AC.createGain(); o.type = "sawtooth"; og.gain.value = 0.3; lf.frequency.value = 27; lg.gain.value = 0.22;
+  o.frequency.setValueAtTime(80, t); o.frequency.linearRampToValueAtTime(125, t + 0.3); o.frequency.linearRampToValueAtTime(65, t + 1.2);
+  lf.connect(lg); lg.connect(og.gain); o.connect(og); og.connect(g);
+  s.start(t, Math.random()); o.start(t); lf.start(t); s.stop(t + 1.3); o.stop(t + 1.3); lf.stop(t + 1.3);
+}
+// the warning: a short, hard exhale
+function huff(v) {
+  if (!audio || v < 0.02) return;
+  const { AC, master, buf } = audio, t = AC.currentTime, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = buf; f.type = "lowpass"; f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(200, t + 0.35);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * v, t + 0.03); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + 0.45);
+}
+// a lemming's squeak as it dives
+function squeak(v) {
+  if (!audio) return;
+  const { AC, master } = audio, t = AC.currentTime;
+  for (let i = 0; i < 2; i++) { const o = AC.createOscillator(), g = AC.createGain(), t0 = t + i * 0.09; o.frequency.setValueAtTime(3600, t0); o.frequency.exponentialRampToValueAtTime(2600, t0 + 0.06);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.05 * v, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.08); }
 }
 // every frame from updGame
 function wildTick(dt) {
   if (!started) return;
-  const mx = FOOT.on ? FOOT.x : P.x, mz = FOOT.on ? FOOT.z : P.z, mv = FOOT.on ? Math.abs(FOOT.sp || 0) : Math.hypot(P.vx, P.vz);
+  const mx = CRASH.on ? CRASH.x : FOOT.on ? FOOT.x : P.x, mz = CRASH.on ? CRASH.z : FOOT.on ? FOOT.z : P.z, mv = CRASH.on ? 0 : FOOT.on ? Math.abs(FOOT.sp || 0) : Math.hypot(P.vx, P.vz);
+  WILD.hurt = Math.max(0, WILD.hurt - dt / 45);
   if ((WILD.spawnT -= dt) <= 0) {
     WILD.spawnT = 1.5;
     for (const G of WILD.groups.slice()) if (Math.hypot(G.x - mx, G.z - mz) > 900) { for (const q of G.m) wildFree(q); WILD.groups.splice(WILD.groups.indexOf(G), 1); }
