@@ -110,6 +110,14 @@ Viddastua. Tourists rent a depot on the nights you're not there, paid every Mond
 insulation and a sauna raise the rent. Each depot has a fuel cache: its pump fills you free, and
 the bill (a weekly standing charge plus the litres you took) comes out every Monday. Your depots
 show on the Map's Depots layer, and you can warm up in them.
+You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
+hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
+built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight
+flickers, lamps, bunks, a table, and the gear that cabin would keep (reindeer hides and nets in the herder cabins, the ice
+auger in Fjellbu, a long table for six in Viddastua, two tiers of benches round a stone stove in the sauna). The
+soapstone stove and triple glazing show once you've bought them. The camera follows close over your shoulder and a wall
+lifts out of the way when it has to back through it. Walk back into the lit ring at the door to go out. You can look
+round a cabin before you buy it.
 
 ## Search and rescue
 

@@ -3614,6 +3614,7 @@ function updVisuals(dt) {
   rpmT = clamp(0.14 + (input.thr + (GB.dir < 0 ? input.brk : 0)) * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
   P.rpm += (rpmT - P.rpm) * (1 - Math.exp(-4 * dt));
   // camera
+  if (INT.on) { intCam(dt); return spd; }                                // inside: the room's own tight camera, and nothing outdoors
   const view = (FOOT.on || CRASH.on) && VIEWS[camMode].fp ? VIEWS[1] : VIEWS[camMode];
   const velYaw = spd > 3 ? Math.atan2(P.vx, P.vz) : P.yaw;
   const fishing = FISH && FISH.on;
@@ -3732,6 +3733,7 @@ function placeBadge(x, z) {
 /* Snow badge on foot / on skis: the pill and its line describe the snow under the rider's own boots (same cell rules
    as footStep), not the parked sled's, which can sit in a plowed yard 100 m back (report 0085 F3). */
 function footBadge() {
+  if (INT.on) return ["INDOORS", shortName(INT.cab)];
   const F = FOOT, ix = Math.round((F.x + HALF) / CELL), iz = Math.round((F.z + HALF) / CELL);
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   if (bioAt(F.x, F.z) === 1 && f < 0.12) return ["ICE", F.ski ? "Gliding on ice" : "Slippery footing"];
@@ -9792,6 +9794,7 @@ function buildRE() {
     if (!c.built) c.pumpAt = { x: bx + 3.2, z: bz - 0.5 }; else c.pumpAt = { x: bx + 3.2, z: bz - 0.5 };
   }
   reSync();
+  intBuildBeacons();
 }
 // show what's owned: the sign comes down (well, turns into a DEPOT board), the cache goes up, the sauna if you built one
 function reSync() {
@@ -9808,18 +9811,619 @@ function reFuelSpot() {
   const c = reNearCab(P.x, P.z, 26); if (!c || !GS.re || !GS.re.own[c.id] || GS.re.arrears > 0) return null;
   return c.pump || (c.pump = { name: `${shortName(c)} fuel cache`, fuelPrice: 0, cache: true, cab: c });
 }
+/* ---------------- Interiors: the depots are real rooms now ----------------
+   GTA-style: a warm marker stands on the ground in front of every depot cabin's door (and the sauna hut's, once it's
+   been built). Get off the sled, walk the rider into the light: the screen dips, the door takes you through, and you
+   are standing inside a room built for that cabin — log walls, a boarded floor, windows onto the fell, a stove, bunks,
+   a table, and the gear that cabin would really keep. Walk back into the doorway from the inside and you're out again,
+   at the door, facing away. Have a look round a cabin before you buy it: the marker is there either way.
+   - The inside is its own scene (`INT.scene`) with its own lamps, so the outdoor world, the snow shader, the weather
+     and the far terrain never render while you're in there (and the interior's warm light costs nothing outdoors).
+   - Your outdoor FOOT position is kept for the visit: the parked sled, the warmth tick, the rent logic, the depot layer
+     and the map all still see you standing at the cabin. Only the body and the camera move into the room (INT.px/pz in
+     room space) — the walker figure is reparented into the interior scene until you step back out.
+   - Movement indoors is a plain floor walk: no snow depth, no skis, no trench, walking pace, with the furniture as
+     walls. The controls are the ones you already walk with outside.
+   - Upgrades show: the soapstone stove, the triple glazing, and the sauna hut's inside once it's built.
+   Saves nothing: it's a place, not a system. */
+const IM = {
+  log: std(0x6f4c30, 0.9), logD: std(0x48311f, 0.9), wall: std(0xd9d2c4, 0.96), ceil: std(0xd4cbb9, 0.96),
+  floor: std(0x8a6640, 0.8), floorD: std(0x5c432b, 0.85), stone: std(0x6a6b6e, 0.9), turf: std(0x453c2d, 0.95),
+  iron: std(0x2b2e33, 0.5, 0.55), steel: std(0x9aa3ab, 0.4, 0.7), wood: std(0xa87a4a, 0.8),
+  dark: std(0x2a2320, 0.9), cloth: std(0x9c3f2e, 1), cloth2: std(0x3a5a72, 1), wool: std(0xe0d6c6, 1),
+  hide: std(0x8a6b4a, 1), green: std(0x3c6152, 0.9), brass: std(0xc9a24a, 0.4, 0.7), white: std(0xeceff2, 0.9),
+  soap: std(0x7b8279, 0.8), paper: std(0xf2efe6, 0.95),
+  glass: new THREE.MeshBasicMaterial({ color: 0xbcd6e8, transparent: true, opacity: 0.13, depthWrite: false }),
+  glow: new THREE.MeshBasicMaterial({ color: 0xffd9a0 }), ember: new THREE.MeshBasicMaterial({ color: 0xff7a26 }),
+  ring: new THREE.MeshBasicMaterial({ color: 0xffc880, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }),
+  win: null, vista: null
+};
+const intScene = new THREE.Scene();
+intScene.background = new THREE.Color(0x0a0d11);
+intScene.fog = new THREE.FogExp2(0x0a0d11, 0.014);
+intScene.add(new THREE.AmbientLight(0x39414c, 0.16));                    // low fill: the lamps, the stove and the windows light the room
+intScene.add(new THREE.HemisphereLight(0x5a6676, 0x2a1d14, 0.22));
+const INT = { on: false, cab: null, room: null, px: 0, pz: 0, py: 0, cd: 0, ph: "", t: 0, rooms: {}, beacons: [], beaconK: "", scene: intScene, outY: 0, back: null, ski: false, shoe: false };
+
+/* the window view: a soft snowy vista (sky, hills, snow, a few pines) standing outside every window. Tinted from the
+   real sky each frame, so a window at midnight goes dark blue and a strong aurora greens it, without a second sky. */
+function intVistaTex() {
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 160; const g = cv.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, 96); sky.addColorStop(0, "#8fb2d8"); sky.addColorStop(0.72, "#dde7f0"); sky.addColorStop(1, "#f2f4f6");
+  g.fillStyle = sky; g.fillRect(0, 0, 256, 96);
+  g.fillStyle = "#c6d1dc"; g.beginPath(); g.moveTo(0, 74); g.lineTo(52, 42); g.lineTo(104, 70); g.lineTo(150, 38); g.lineTo(206, 70); g.lineTo(256, 50); g.lineTo(256, 96); g.lineTo(0, 96); g.fill();
+  g.fillStyle = "#aebbc8"; g.beginPath(); g.moveTo(0, 88); g.lineTo(70, 66); g.lineTo(140, 86); g.lineTo(210, 64); g.lineTo(256, 82); g.lineTo(256, 102); g.lineTo(0, 102); g.fill();
+  const snow = g.createLinearGradient(0, 92, 0, 160); snow.addColorStop(0, "#fbfdff"); snow.addColorStop(1, "#dde5ed");
+  g.fillStyle = snow; g.fillRect(0, 92, 256, 68);
+  g.fillStyle = "#2b3a34";
+  for (const [px, h] of [[34, 15], [48, 21], [62, 13], [182, 17], [196, 12], [212, 20]]) { g.beginPath(); g.moveTo(px, 96); g.lineTo(px + 7, 96 - h); g.lineTo(px + 14, 96); g.fill(); }
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
+}
+function intMats() {
+  if (IM.win) return;
+  IM.vista = intVistaTex();
+  IM.win = new THREE.MeshBasicMaterial({ map: IM.vista, fog: false }); IM.win.color.setScalar(0.9);
+}
+/* one lamp's worth of light. Lights are global to a scene, so a point light with a short range is the only way to keep
+   one room's lamps out of the next one's; only the visited room's lights are left visible (see intShow). */
+function intLight(R, x, y, z, col, inten, dist) {
+  const l = new THREE.PointLight(col, inten, dist, 2); l.position.set(x, y, z); R.g.add(l); R.lights.push(l); return l;
+}
+
+/* ---- walls: a piece of wall with its openings cut out of it ---- */
+function intSeg(R, dir, pos, a0, a1, y0, y1, mat) {
+  const L = a1 - a0, h = y1 - y0; if (L <= 0.004 || h <= 0.004) return;
+  const t = 0.16, cx = dir === "x" ? (a0 + a1) / 2 : pos, cz = dir === "x" ? pos : (a0 + a1) / 2;
+  const w = dir === "x" ? L : t, d = dir === "x" ? t : L;
+  box(w, h, d, mat, cx, y0 + h / 2, cz, 0, 0, 0, R.g);
+  if (mat === IM.log && h > 0.5) for (let y = y0 + 0.3; y < y1 - 0.12; y += 0.3) box(w * 1.002, 0.025, d * 1.002, IM.logD, cx, y, cz, 0, 0, 0, R.g);
+}
+function intWall(R, dir, pos, a0, a1, ops, mat) {
+  let cur = a0;
+  for (const o of (ops || []).slice().sort((p, q) => p.c - q.c)) {
+    const s = o.c - o.w / 2, e = o.c + o.w / 2;
+    if (s > cur) intSeg(R, dir, pos, cur, s, 0, R.h, mat);
+    if ((o.y0 || 0) > 0.01) intSeg(R, dir, pos, s, e, 0, o.y0, mat);
+    if ((o.y1 || R.h) < R.h - 0.01) intSeg(R, dir, pos, s, e, o.y1, R.h, mat);
+    cur = e;
+  }
+  if (cur < a1) intSeg(R, dir, pos, cur, a1, 0, R.h, mat);
+}
+/* a window: the frame and glass in the hole, and the vista card hanging outside it */
+function intWin(R, dir, pos, c, w, y0, y1, storm) {
+  const h = y1 - y0, cy = (y0 + y1) / 2, t = 0.1, out = dir === "x" ? Math.sign(pos) : 0, outz = dir === "z" ? Math.sign(pos) : 0;
+  if (dir === "x") {
+    for (const s of [-1, 1]) box(t, h, 0.26, IM.wood, c + s * (w / 2 - t / 2), cy, pos, 0, 0, 0, R.g);
+    box(w, t, 0.26, IM.wood, c, y1 - t / 2, pos, 0, 0, 0, R.g);
+    box(w + 0.14, t, 0.34, IM.wood, c, y0 + t / 2, pos, 0, 0, 0, R.g);
+    box(w - 0.06, h - 0.06, 0.02, IM.glass, c, cy, pos, 0, 0, 0, R.g);
+    if (storm) box(w - 0.06, h - 0.06, 0.02, IM.glass, c, cy, pos + out * 0.1, 0, 0, 0, R.g);
+  } else {
+    for (const s of [-1, 1]) box(0.26, h, t, IM.wood, pos, cy, c + s * (w / 2 - t / 2), 0, 0, 0, R.g);
+    box(0.26, t, w, IM.wood, pos, y1 - t / 2, c, 0, 0, 0, R.g);
+    box(0.34, t, w + 0.14, IM.wood, pos, y0 + t / 2, c, 0, 0, 0, R.g);
+    box(0.02, h - 0.06, w - 0.06, IM.glass, pos, cy, c, 0, 0, 0, R.g);
+    if (storm) box(0.02, h - 0.06, w - 0.06, IM.glass, pos + outz * 0.1, cy, c, 0, 0, 0, R.g);
+  }
+  const vx = dir === "x" ? c : pos + outz * 1.75, vz = dir === "x" ? pos + out * 1.75 : c;
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 3.6), IM.win);
+  pl.position.set(vx, cy, vz);
+  pl.rotation.y = dir === "x" ? (out > 0 ? Math.PI : 0) : (outz > 0 ? -Math.PI / 2 : Math.PI / 2);
+  R.g.add(pl);
+  intLight(R, dir === "x" ? c : pos - outz * 0.55, cy + 0.1, dir === "x" ? pos - out * 0.55 : c, 0xa9c8ea, 0.3, 5.5);                    // daylight off the snow: a soft cool spill by the window
+}
+
+/* ---- the shell: floor, ceiling, beams, walls with their openings, and the doorway you came in by ---- */
+function intShell(R, o) {
+  const hx = R.hx, hz = R.hz, H = R.h, g = R.g, wallMat = o.plaster ? IM.wall : IM.log;
+  R.doorX = o.doorX === undefined ? -2.3 : o.doorX;
+  box(2 * hx + 0.44, 0.14, 2 * hz + 0.44, IM.floor, 0, -0.07, 0, 0, 0, 0, g);
+  for (let x = -hx + 0.9; x < hx; x += 0.92) box(0.04, 0.02, 2 * hz + 0.3, IM.floorD, x, -0.002, 0, 0, 0, 0, g);
+  box(2 * hx + 0.44, 0.16, 2 * hz + 0.44, o.turfRoof ? IM.turf : IM.ceil, 0, H + 0.08, 0, 0, 0, 0, g);
+  for (const z of [-1.9, 0, 1.9]) box(2 * hx + 0.34, 0.15, 0.15, IM.logD, 0, H - 0.08, z, 0, 0, 0, g);
+  for (const w of (o.wins || [])) intWin(R, w[0], w[1], w[2], w[3], w[4], w[5], !!o.insul);
+  const dx = R.doorX, dz = -hz - 0.08;
+  intWall(R, "x", dz, -hx - 0.2, hx + 0.2, [{ c: dx, w: 1.08, y0: 0, y1: 2.04 }], wallMat);
+  // cut each window's hole out of the wall it sits in (back = +z, left = -x, right = +x)
+  const holes = { back: [], left: [], right: [] };
+  for (const w of (o.wins || [])) (w[0] === "x" ? holes.back : w[1] < 0 ? holes.left : holes.right).push({ c: w[2], w: w[3], y0: w[4], y1: w[5] });
+  intWall(R, "x", hz + 0.08, -hx - 0.2, hx + 0.2, holes.back, wallMat);
+  intWall(R, "z", -hx - 0.08, -hz - 0.2, hz + 0.2, holes.left, wallMat);
+  intWall(R, "z", hx + 0.08, -hz - 0.2, hz + 0.2, holes.right, wallMat);
+  for (const s of [-1, 1]) box(0.13, 2.1, 0.13, IM.wood, dx + s * 0.57, 1.05, dz, 0, 0, 0, g);
+  box(1.3, 0.16, 0.22, IM.wood, dx, 2.14, dz, 0, 0, 0, g);
+  box(1.2, 0.05, 0.55, IM.wood, dx, 0.025, -hz + 0.12, 0, 0, 0, g);
+  const dr = box(0.94, 1.96, 0.07, IM.logD, 0, 0, 0, 0, 0, 0, g); dr.rotation.y = -1.12; dr.position.set(-hx + 0.3, 1.0, -hz + 0.45); dr.userData.wall = "nz";
+  const dl = box(0.88, 1.88, 0.06, IM.logD, dx + 0.05, 1.0, -hz + 0.05, 0, 0, 0, g); dl.rotation.y = 1.06; dl.userData.wall = "nz";
+  // what's outside the open door: the same vista card, two and a half metres out
+  const op = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 3.6), IM.win); op.position.set(dx, 1.35, -hz - 2.5); g.add(op);
+  // the way out, lit: a ring and a soft glow just inside the threshold
+  const eg = new THREE.Group(); eg.position.set(dx, 0, -hz + 0.62); g.add(eg);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.52, 26), IM.ring.clone()); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; eg.add(ring);
+  const col = new THREE.Mesh(beaconGeo, beaconMat(0xffb347, 0.2)); col.scale.set(0.12, 0.0016, 0.12); col.frustumCulled = false; eg.add(col);
+  R.exit = { x: dx, z: -hz + 0.62, ring, col };
+}
+
+/* ---- the furniture kit (each piece is its own little group, so it can be turned as a whole) ---- */
+const intAA = (x, z, w, d, ry) => {
+  const c = Math.abs(Math.cos(ry || 0)), s = Math.abs(Math.sin(ry || 0));
+  return [x, z, w * c + d * s, w * s + d * c];
+};
+function intCol(R, x, z, w, d, ry, y1) { const a = intAA(x, z, w, d, ry); R.cols.push({ x0: a[0] - a[2] / 2, x1: a[0] + a[2] / 2, z0: a[1] - a[3] / 2, z1: a[1] + a[3] / 2, y1: y1 === undefined ? 3 : y1 }); }
+function intSub(R, x, z, ry) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry || 0; R.g.add(g); return g; }
+function intRug(R, x, z, w, d, mat, ry) { const g = intSub(R, x, z, ry); box(w, 0.022, d, mat || IM.cloth, 0, 0.014, 0, 0, 0, 0, g); }
+function intLamp(R, x, z, kind, h) {
+  const g = R.g, y = h === undefined ? R.h - 0.44 : h;
+  cyl(0.012, 0.012, 0.44, IM.dark, x, y + 0.36, z, 0, 0, 0, g, 6);
+  if (kind === "pendant") { const s = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.26, 14, 1, true), IM.iron); s.position.set(x, y + 0.16, z); g.add(s); }
+  ball(0.055, IM.glow, x, y, z, g);
+  if (kind === "kero") { cyl(0.075, 0.085, 0.2, IM.steel, x, y + 0.03, z, 0, 0, 0, g, 10); ball(0.035, IM.ember, x, y - 0.06, z, g); }
+  return intLight(R, x, y - 0.05, z, kind === "pendant" ? 0xffd2a0 : 0xffc98a, 0.95, 6.5);
+}
+function intBunk(R, x, z, ry) {
+  const g = intSub(R, x, z, ry), L = 2.0, W = 0.92;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.09, 1.76, 0.09, IM.wood, sx * (L / 2 - 0.06), 0.88, sz * (W / 2 - 0.06), 0, 0, 0, g);
+  for (const y of [0.42, 1.26]) {
+    box(L, 0.07, W, IM.wood, 0, y, 0, 0, 0, 0, g);
+    box(L - 0.12, 0.15, W - 0.08, IM.wool, 0, y + 0.11, 0, 0, 0, 0, g);
+    box(0.52, 0.06, W - 0.02, IM.cloth, -L / 2 + 0.62, y + 0.19, 0, 0, 0, 0, g);
+    box(0.6, 0.13, 0.44, IM.wool, L / 2 - 0.34, y + 0.2, 0, 0, 0, 0, g);
+  }
+  intCol(R, x, z, L, W, ry, 1.8);
+}
+function intBed(R, x, z, ry) {
+  const g = intSub(R, x, z, ry), L = 1.95, W = 0.95;
+  box(L, 0.34, W, IM.wood, 0, 0.17, 0, 0, 0, 0, g);
+  box(L - 0.1, 0.16, W - 0.08, IM.wool, 0, 0.4, 0, 0, 0, 0, g);
+  box(L - 0.55, 0.1, W - 0.02, IM.cloth, -0.2, 0.5, 0, 0, 0, 0, g);
+  box(0.62, 0.13, 0.46, IM.wool, L / 2 - 0.36, 0.45, 0, 0, 0, 0, g);
+  box(W, 0.62, 0.09, IM.wood, L / 2 - 0.04, 0.75, 0, 0, 0, 0, g);
+  intCol(R, x, z, L, W, ry, 1.1);
+}
+function intTable(R, x, z, w, d, h, ry) {
+  const g = intSub(R, x, z, ry); h = h || 0.74;
+  box(w, 0.07, d, IM.wood, 0, h, 0, 0, 0, 0, g);
+  box(w - 0.2, 0.09, 0.1, IM.wood, 0, h - 0.14, 0, 0, 0, 0, g);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.08, h - 0.05, 0.08, IM.wood, sx * (w / 2 - 0.14), (h - 0.05) / 2, sz * (d / 2 - 0.14), 0, 0, 0, g);
+  intCol(R, x, z, w, d, ry, h);
+}
+function intChair(R, x, z, ry) {
+  const g = intSub(R, x, z, ry);
+  box(0.42, 0.06, 0.42, IM.wood, 0, 0.45, 0, 0, 0, 0, g);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(0.06, 0.45, 0.06, IM.wood, sx * 0.17, 0.22, sz * 0.17, 0, 0, 0, g);
+  box(0.42, 0.46, 0.06, IM.wood, 0, 0.7, -0.18, 0, 0, 0, g);
+  intCol(R, x, z, 0.5, 0.5, ry, 0.9);
+}
+function intBench(R, x, z, len, ry, mat) {
+  const g = intSub(R, x, z, ry);
+  box(len, 0.07, 0.38, mat || IM.wood, 0, 0.46, 0, 0, 0, 0, g);
+  for (const s of [-1, 1]) box(0.36, 0.44, 0.34, IM.wood, s * (len / 2 - 0.26), 0.22, 0, 0, 0, 0, g);
+  intCol(R, x, z, len, 0.42, ry, 0.9);
+}
+function intStove(R, x, z, soap, ry) {
+  const g = intSub(R, x, z, ry), w = soap ? 0.8 : 0.58, d = soap ? 0.68 : 0.48, h = soap ? 1.16 : 0.84;
+  if (soap) { box(w, h, d, IM.soap, 0, h / 2, 0, 0, 0, 0, g); box(w + 0.08, 0.1, d + 0.08, IM.soap, 0, h + 0.05, 0, 0, 0, 0, g); }
+  else { box(w, h, d, IM.iron, 0, h / 2, 0, 0, 0, 0, g); box(w + 0.06, 0.06, d + 0.06, IM.iron, 0, h, 0, 0, 0, 0, g); }
+  const fd = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.03), IM.ember); fd.position.set(0, h * 0.45, d / 2 + 0.02); g.add(fd);
+  cyl(0.055, 0.055, 0.62, IM.dark, 0, h + 0.3, 0.12, 0, 0, 0, g, 8); cyl(0.07, 0.07, 0.24, IM.iron, 0, h + 0.6, 0.12, 0, 0, 0, g, 8);
+  intCol(R, x, z, w + 0.1, d + 0.1, ry, h + 0.1);
+  return intLight(R, x + Math.sin(ry || 0) * 0.3, h * 0.5, z + Math.cos(ry || 0) * 0.3, 0xff7a2a, 0.6, 4.2);
+}
+function intShelf(R, x, z, w, ry) {
+  const g = intSub(R, x, z, ry);
+  for (const y of [1.42, 1.88]) box(w, 0.05, 0.27, IM.wood, 0, y, 0, 0, 0, 0, g);
+  for (const s of [-1, 1]) box(0.05, 0.52, 0.27, IM.wood, s * (w / 2 - 0.03), 1.65, 0, 0, 0, 0, g);
+  for (let i = 0; i < Math.floor(w / 0.24); i++) {
+    const px = -w / 2 + 0.16 + i * 0.24, t = i % 3;
+    if (t === 0) cyl(0.045, 0.045, 0.15, IM.steel, px, 1.52, 0, 0, 0, 0, g, 8);
+    else if (t === 1) cyl(0.035, 0.045, 0.14, IM.green, px, 1.51, 0, 0, 0, 0, g, 8);
+    else box(0.06, 0.14, 0.06, IM.brass, px, 1.51, 0, 0, 0, 0, g);
+  }
+}
+function intWood(R, x, z, n, ry) {
+  const g = intSub(R, x, z, ry);
+  for (let i = 0; i < n; i++) {
+    const y = 0.09 + Math.floor(i / 5) * 0.165, t = i % 5;
+    cyl(0.075, 0.075, 1.0, i % 3 ? IM.wood : IM.logD, 0, y, (t - 2) * 0.17, 0, 0, Math.PI / 2, g, 8);
+  }
+  intCol(R, x, z, 1.05, 0.58, ry, 0.7);
+}
+function intCrate(R, x, z, w, h, d, mat, ry) { const g = intSub(R, x, z, ry); box(w, h, d, mat || IM.wood, 0, h / 2, 0, 0, 0, 0, g); box(w + 0.03, 0.05, d + 0.03, IM.logD, 0, h - 0.03, 0, 0, 0, 0, g); intCol(R, x, z, w, d, ry, h); }
+function intHooks(R, x, z, ry, n, coat) {
+  const g = intSub(R, x, z, ry);
+  for (let i = 0; i < n; i++) {
+    const a = n === 1 ? 0 : -0.55 + i * (1.1 / (n - 1));
+    cyl(0.02, 0.02, 0.13, IM.steel, a, 1.9, 0, 0, 0, 0, g, 6);
+    if (coat) box(0.44, 0.72, 0.12, i % 2 ? IM.cloth2 : IM.green, a, 1.5, -0.09, 0, 0, 0, g);
+  }
+}
+function intWallGear(R, x, z, ry, kind) {
+  const g = intSub(R, x, z, ry);
+  if (kind === "hide") box(1.1, 1.0, 0.04, IM.hide, 0, 1.5, 0, 0, 0, 0, g);
+  if (kind === "net") { box(2.0, 0.92, 0.05, IM.green, 0, 1.55, 0, 0, 0, 0, g); for (let i = 0; i < 4; i++) box(2.02, 0.03, 0.06, IM.dark, 0, 1.2 + i * 0.22, 0, 0, 0, 0, g); }
+  if (kind === "skis") for (const s of [-1, 1]) box(1.74, 0.07, 0.04, IM.wood, 0, 1.35, s * 0.17, 0, 0, 0, g);
+  if (kind === "shoes") for (const s of [-1, 1]) box(0.32, 0.52, 0.04, IM.hide, s * 0.22, 1.7, 0, 0, 0, 0, g);
+  if (kind === "chart") { box(1.34, 0.92, 0.03, IM.paper, 0, 1.6, 0, 0, 0, 0, g); for (let i = 0; i < 3; i++) box(1.24, 0.02, 0.035, IM.cloth2, -0.02 * i, 1.32 + i * 0.22, 0, 0, 0, 0, g); }
+  if (kind === "clock") cyl(0.16, 0.16, 0.05, IM.brass, 0, 1.86, 0, Math.PI / 2, 0, 0, g, 14);
+  if (kind === "mug") for (let i = 0; i < 5; i++) cyl(0.035, 0.035, 0.1, i % 2 ? IM.steel : IM.white, -0.26 + i * 0.13, 1.62, 0, 0, 0, 0, g, 8);
+  if (kind === "rod") cyl(0.02, 0.02, 1.2, IM.dark, 0, 1.4, 0, 0, 0, 0, g, 6);
+}
+function intCounter(R, x, z, w, ry) {
+  const g = intSub(R, x, z, ry);
+  box(w, 0.9, 0.62, IM.wood, 0, 0.45, 0, 0, 0, 0, g); box(w + 0.06, 0.07, 0.68, IM.dark, 0, 0.93, 0, 0, 0, 0, g);
+  box(w * 0.3, 0.13, 0.4, IM.steel, -w * 0.24, 0.9, 0, 0, 0, 0, g);
+  cyl(0.02, 0.02, 0.3, IM.steel, -w * 0.24, 1.1, -0.2, 0, 0, 0, g, 6);
+  cyl(0.13, 0.11, 0.14, IM.iron, w * 0.24, 1.04, 0, 0, 0, 0, g, 12);
+  box(w * 0.5, 0.5, 0.5, IM.wood, 0, 1.35, 0, 0, 0, 0, g);
+  intCol(R, x, z, w, 0.72, ry, 0.95);
+}
+function intFire(R, x, z, ry) {
+  const g = intSub(R, x, z, ry);
+  box(1.66, 2.3, 0.72, IM.stone, 0, 1.15, 0, 0, 0, 0, g); box(1.8, 0.16, 0.94, IM.stone, 0, 2.32, 0, 0, 0, 0, g);
+  box(0.94, 0.72, 0.1, IM.ember, 0, 0.52, 0.34, 0, 0, 0, g);
+  for (let i = 0; i < 3; i++) cyl(0.08, 0.08, 0.8, IM.logD, -0.25 + i * 0.25, 0.2, 0.38, Math.PI / 2, 0, 0.4 - i * 0.4, g, 6);
+  intCol(R, x, z, 1.75, 0.8, ry, 2.4);
+  return intLight(R, x + Math.sin(ry || 0) * 0.5, 0.65, z + Math.cos(ry || 0) * 0.5, 0xff8a3a, 1.0, 5.5);
+}
+
+/* ---- the rooms: what each depot would really keep inside ---- */
+function intRoomJig(id) { return { sandfjord: [-26, -22], risfjord: [0, -24], fjellbu: [26, -22], viddastua: [-28, 24], sauna: [24, 22] }[id] || [0, 0]; }
+function intBuildRoom(cab) {
+  const R = { cab, g: new THREE.Group(), cols: [], lights: [], hx: 3.8, hz: 2.8, h: 2.42 };
+  const p = intRoomJig(cab.id); R.g.position.set(p[0], 0, p[1]); INT.scene.add(R.g);
+  const o = GS.re && GS.re.own[cab.id], up = o ? o.up : {};
+  if (cab.id === "sauna") intSaunaRoom(R);
+  else if (cab.id === "sandfjord") intHerderRoom(R, up, 0);
+  else if (cab.id === "risfjord") intHerderRoom(R, up, 1);
+  else if (cab.id === "fjellbu") intHytteRoom(R, up);
+  else intLodgeRoom(R, up);
+  intCutTags(R);
+  return R;
+}
+/* the cutaway: every loose mesh standing in (or out past) one of the four walls is tagged with that wall, so when the
+   camera has to back out through a wall to keep the rider in frame, that wall and what hangs on it fade out of the
+   way (intCam), the way a dollhouse front comes off. Furniture is built in groups and is never cut. */
+const _intBox = new THREE.Box3(), _intC = new THREE.Vector3();
+function intCutTags(R) {
+  R.cut = { px: [], nx: [], pz: [], nz: [] };
+  R.g.updateMatrixWorld(true);
+  for (const o of R.g.children) {
+    if (!o.isMesh) continue;
+    if (o.userData.wall) { R.cut[o.userData.wall].push(o); continue; }    // the door leaves swing in off the front wall
+    _intBox.setFromObject(o).getCenter(_intC); _intC.sub(R.g.position);
+    const e = 0.12;
+    if (_intC.x > R.hx - e) R.cut.px.push(o); else if (_intC.x < -R.hx + e) R.cut.nx.push(o);
+    else if (_intC.z > R.hz - e) R.cut.pz.push(o); else if (_intC.z < -R.hz + e) R.cut.nz.push(o);
+  }
+}
+function intCutSet(R, cx, cz) {
+  const on = { px: cx > R.hx - 0.06, nx: cx < -R.hx + 0.06, pz: cz > R.hz - 0.06, nz: cz < -R.hz + 0.06 };
+  for (const k in R.cut) for (const o of R.cut[k]) o.visible = !on[k];
+}
+// the two herder cabins: turf-and-log, a stove, bunks, the gear of the trade (k 0 = Sandfjorddalen, 1 = Risfjord)
+function intHerderRoom(R, up, k) {
+  intShell(R, { turfRoof: true, doorX: -2.3, insul: up.insul, wins: [["x", 2.88, k ? 1.7 : 0.4, 1.4, 0.95, 1.8], ["z", -3.88, 0.6, 1.2, 0.95, 1.75]] });
+  intRug(R, 0.4, 0.3, 2.2, 1.6, k ? IM.cloth2 : IM.cloth);
+  R.fire = intStove(R, 2.9, -1.7, !!up.stove);
+  intWood(R, 1.5, -2.1, k ? 9 : 14, 0);
+  intShelf(R, -1.2, 2.55, 1.5, 0);
+  intTable(R, 0.6, 0.7, 1.1, 0.75, 0.72); intChair(R, 0.6, 1.5, 0); intChair(R, 1.65, 0.3, -Math.PI / 2);
+  if (k === 0) {
+    intBunk(R, 2.4, 1.9, 0); intBunk(R, 1.2, 2.35, 0);
+    intLamp(R, 0.6, 0.7, "kero", 1.75);
+    intWallGear(R, -2.6, 2.72, 0, "hide"); intWallGear(R, -3.72, -0.6, Math.PI / 2, "skis");
+    intHooks(R, 3.72, 0.9, Math.PI / 2, 3, true);
+    intCrate(R, -3.1, 1.2, 0.62, 0.5, 0.5); intCrate(R, -3.1, 1.2, 0.5, 0.4, 0.42, IM.logD);
+    cyl(0.16, 0.13, 0.34, IM.steel, -3.35, 0.17, -1.1, 0, 0, 0, R.g, 10);
+    intWallGear(R, -1.0, 2.72, 0, "clock");
+    intPot(R, 3.3, 0.4, 0.16, 0.24, IM.iron);
+  } else {
+    intBunk(R, 2.5, 1.9, 0); intBench(R, -2.4, 0.5, 1.6, Math.PI / 2);
+    intLamp(R, -0.6, -0.6, "pendant", 1.85);
+    intWallGear(R, -3.72, 1.0, Math.PI / 2, "net"); intWallGear(R, -1.6, 2.72, 0, "chart");
+    intHooks(R, 3.72, -1.4, Math.PI / 2, 4, true);
+    for (let i = 0; i < 3; i++) cyl(0.17, 0.17, 0.5, i === 1 ? IM.green : IM.cloth, -3.05, 0.25, -0.95 + i * 0.44, 0, 0, 0, R.g, 12);
+    intCol(R, -3.05, -0.5, 0.5, 1.5, 0, 0.6);
+    intCrate(R, 3.0, 2.2, 0.72, 0.56, 0.56);
+    box(0.5, 1.9, 0.5, IM.iron, 3.3, 0.95, 0.9, 0, 0, 0, R.g); intCol(R, 3.3, 0.9, 0.55, 0.55, 0, 1.9);
+    intPot(R, 2.9, -1.7, 0.15, 0.22, IM.iron);
+    intWallGear(R, 1.0, 2.72, 0, "clock");
+  }
+}
+function intPot(R, x, z, r, h, mat) { cyl(r, r * 0.86, h, mat || IM.steel, x, h / 2 + 0.76, z, 0, 0, 0, R.g, 12); }
+// Fjellbu: the red lakeside hytte. Room to sit, a bed by the window, the ice-fishing kit by the door
+function intHytteRoom(R, up) {
+  intShell(R, { doorX: -2.3, insul: up.insul, wins: [["x", 2.88, 1.2, 1.5, 0.95, 1.85], ["z", -3.88, 0.8, 1.2, 0.95, 1.75], ["z", 3.88, -0.5, 1.2, 0.95, 1.75]] });
+  intRug(R, 0.2, 0.2, 2.4, 1.8, IM.cloth2);
+  intBed(R, 2.6, 1.8, 0);
+  intTable(R, 0.2, 0.4, 1.25, 0.85, 0.74); intChair(R, 0.2, 1.35, 0); intChair(R, 0.2, -0.55, Math.PI);
+  R.fire = intStove(R, 2.9, -1.6, !!up.stove);
+  intShelf(R, -1.4, 2.55, 1.4, 0);
+  intLamp(R, 0.2, 0.4, "pendant", 1.9);
+  intHooks(R, 3.72, 0.6, Math.PI / 2, 2, true);
+  intWallGear(R, -3.72, 0.2, Math.PI / 2, "chart"); intWallGear(R, -2.4, 2.72, 0, "clock");
+  intCounter(R, -2.9, 1.9, 1.5, 0);
+  intCrate(R, -3.35, -1.55, 0.62, 0.5, 0.5); intWood(R, -3.45, -0.55, 7, Math.PI / 2);   // kept clear of the doorway
+  intPot(R, 2.9, -1.6, 0.15, 0.22, IM.iron);
+  cyl(0.045, 0.045, 1.5, IM.steel, -3.25, 0.75, -2.35, 0, 0, 0.12, R.g, 8);          // the auger
+  box(0.05, 1.4, 0.05, IM.dark, -2.98, 0.7, -2.4, 0, 0, -0.1, R.g);                   // and the short rod
+  intCrate(R, 1.6, -2.4, 0.45, 0.28, 0.34, IM.green);
+  intWallGear(R, 1.6, 2.72, 0, "skis");
+}
+// Viddastua: the plateau lodge. A long table for six, six berths, a hearth, the kitchen at the gable
+function intLodgeRoom(R, up) {
+  intShell(R, { plaster: true, doorX: -2.4, insul: up.insul, wins: [["x", 2.88, -1.9, 1.4, 0.95, 1.85], ["x", 2.88, 1.9, 1.4, 0.95, 1.85], ["z", -3.88, 0.4, 1.3, 0.95, 1.8], ["z", 3.88, 0.4, 1.3, 0.95, 1.8]] });
+  intRug(R, -0.1, 0.2, 3.2, 2.0, IM.cloth);
+  intTable(R, -0.5, 0.1, 2.6, 1.0, 0.76);
+  intChair(R, -1.5, 0.95, 0); intChair(R, -0.5, 1.0, 0); intChair(R, 0.5, 0.95, 0);
+  intChair(R, 0.5, -0.75, Math.PI); intChair(R, -0.5, -0.8, Math.PI); intChair(R, -1.5, -0.75, Math.PI);
+  R.fire = intFire(R, -3.35, 0.25, Math.PI / 2);                                            // the hearth on the gable wall, clear of the door
+  intStove(R, 3.2, -1.9, !!up.stove);
+  intBunk(R, 2.5, 0.9, 0); intBunk(R, 2.5, 2.0, 0);
+  intBunk(R, -2.7, 2.35, 0); intBunk(R, -1.5, 2.35, 0);
+  intCounter(R, 2.6, 2.5, 2.0, 0);
+  cyl(0.17, 0.14, 0.34, IM.steel, 1.6, 0.17, -2.25, 0, 0, 0, R.g, 12);
+  intLamp(R, -0.5, 0.1, "pendant", 1.95); intLamp(R, 2.4, 1.4, "pendant", 1.95);
+  intWallGear(R, -3.72, -1.45, Math.PI / 2, "chart"); intWallGear(R, 3.72, -0.6, Math.PI / 2, "shoes");
+  intWallGear(R, 0.7, 2.72, 0, "mug"); intWallGear(R, 1.9, 2.72, 0, "rod");
+  intHooks(R, 3.72, 2.0, Math.PI / 2, 5, true);
+  intShelf(R, -0.4, 2.55, 1.6, 0);
+  intWood(R, 3.25, 0.5, 10, 0);
+  intCrate(R, 1.9, -2.35, 0.8, 0.6, 0.6);
+}
+// the sauna hut (only enterable once it's built): low benches, a stove of stones, a bucket and a ladle
+function intSaunaRoom(R) {
+  R.hx = 1.75; R.hz = 1.6; R.h = 2.1;                        // a 3.5 x 3.2 m room: room to turn round between the door and the benches
+  const g = R.g, hx = R.hx, hz = R.hz;
+  box(2 * hx + 0.5, 0.14, 2 * hz + 0.5, IM.floor, 0, -0.07, 0, 0, 0, 0, g);
+  for (let x = -hx + 0.5; x < hx; x += 0.55) box(0.035, 0.02, 2 * hz + 0.4, IM.floorD, x, -0.002, 0, 0, 0, 0, g);
+  box(2 * hx + 0.5, 0.14, 2 * hz + 0.5, IM.wood, 0, R.h + 0.07, 0, 0, 0, 0, g);
+  intWall(R, "x", -hz - 0.08, -hx - 0.2, hx + 0.2, [{ c: 0, w: 0.92, y0: 0, y1: 1.86 }], IM.wood);
+  intWall(R, "x", hz + 0.08, -hx - 0.2, hx + 0.2, [], IM.wood);
+  intWall(R, "z", -hx - 0.08, -hz - 0.2, hz + 0.2, [], IM.wood);
+  intWall(R, "z", hx + 0.08, -hz - 0.2, hz + 0.2, [{ c: 0.3, w: 0.6, y0: 1.15, y1: 1.65 }], IM.wood);
+  intWin(R, "z", hx + 0.08, 0.3, 0.6, 1.15, 1.65, false);
+  intRug(R, 0.2, -0.5, 1.2, 0.7, IM.floorD);
+  R.doorX = 0;
+  for (const s of [-1, 1]) box(0.12, 1.9, 0.12, IM.wood, s * 0.5, 0.95, -hz - 0.08, 0, 0, 0, g);
+  const dl = box(0.8, 1.86, 0.06, IM.wood, 0.1, 0.93, -hz + 0.2, 0, 0, 0, g); dl.rotation.y = 1.0; dl.userData.wall = "nz";
+  const op = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 3.0), IM.win); op.position.set(0, 1.2, -hz - 2.2); g.add(op);   // the shore through the open door
+  const eg = new THREE.Group(); eg.position.set(0, 0, -hz + 0.55); g.add(eg);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.44, 24), IM.ring.clone()); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; eg.add(ring);
+  const col = new THREE.Mesh(beaconGeo, beaconMat(0xffb347, 0.18)); col.scale.set(0.11, 0.0015, 0.11); col.frustumCulled = false; eg.add(col);
+  R.exit = { x: 0, z: -hz + 0.55, ring, col };
+  // the two levels of bench along the far wall, the high one to sweat on
+  box(2.9, 0.36, 0.6, IM.wood, 0.1, 0.42, hz - 0.4, 0, 0, 0, g); intCol(R, 0.1, hz - 0.4, 2.9, 0.6, 0, 1.2);
+  box(2.9, 0.36, 0.5, IM.wood, 0.1, 0.98, hz - 0.98, 0, 0, 0, g); intCol(R, 0.1, hz - 0.98, 2.9, 0.5, 0, 1.5);
+  // the stove: a drum of stones with a fire under it
+  cyl(0.34, 0.36, 0.86, IM.iron, -hx + 0.62, 0.43, -0.25, 0, 0, 0, g, 14);
+  for (let i = 0; i < 9; i++) ball(0.075, IM.stone, -hx + 0.62 + Math.cos(i * 1.9) * 0.19, 0.9 + (i % 3) * 0.05, -0.25 + Math.sin(i * 1.9) * 0.19, g);
+  const fl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.03), IM.ember); fl.position.set(-hx + 0.62, 0.4, 0.1); g.add(fl);
+  intCol(R, -hx + 0.62, -0.25, 0.82, 0.82, 0, 1.0);
+  R.fire = intLight(R, -hx + 0.62, 0.5, -0.15, 0xff6a20, 1.0, 4.2);
+  cyl(0.16, 0.13, 0.3, IM.steel, -hx + 0.6, 1.36, hz - 0.45, 0, 0, 0, g, 12);
+  cyl(0.02, 0.02, 0.42, IM.wood, -hx + 0.95, 1.5, hz - 0.5, 0.5, 0, 0.3, g, 6);
+  intHooks(R, hx - 0.1, hz - 1.65, Math.PI / 2, 2, false);
+  box(0.4, 0.6, 0.05, IM.white, hx - 0.22, 1.4, hz - 1.65, 0, 0, 0, g);
+  intLamp(R, 0.7, -hz + 0.6, "kero", 1.5);
+}
+
+/* ---- the door beacons outdoors: where a cabin's door is, and the marker standing in front of it ---- */
+function intDoorOf(c) {
+  if (c.built) { const ry = 0.2, dz = 3.29; return { x: c.x + Math.sin(ry) * dz, z: c.z - 6 + Math.cos(ry) * dz, ry }; }
+  return { x: c.x - 11 + 5.5 / 2 + 0.03, z: c.z, ry: Math.PI / 2 };      // buildSites' herder cabin: door on the +x face
+}
+function intMakeBeacon(x, z, ry, col, big, cab) {
+  const g = new THREE.Group(); g.position.set(x, surf(x, z) + 0.02, z); scene.add(g);
+  const c = new THREE.Mesh(beaconGeo, beaconMat(col, big ? 0.3 : 0.26));
+  c.scale.set(big ? 0.15 : 0.13, big ? 0.0021 : 0.0018, big ? 0.15 : 0.13); c.frustumCulled = false; g.add(c);
+  const r = new THREE.Mesh(new THREE.RingGeometry(big ? 0.34 : 0.3, big ? 0.6 : 0.54, 28), IM.ring.clone());
+  r.rotation.x = -Math.PI / 2; r.position.y = 0.03; g.add(r);
+  return { g, col: c, ring: r, x, z, cab, ry };
+}
+function intBuildBeacons() {
+  INT.beaconK = "";
+  for (const c of RE_CABINS) {
+    if (c.x === undefined) continue;
+    const d = intDoorOf(c); c.door = d;
+    const b = intMakeBeacon(d.x + Math.sin(d.ry) * 1.25, d.z + Math.cos(d.ry) * 1.25, d.ry, 0xffb347, true, c);
+    c.beacon = b; INT.beacons.push(b);
+  }
+  for (const c of RE_CABINS) {
+    if (!c.vis || c.x === undefined) continue;
+    const bx = c.x + (c.built ? -7 : -9) - 4.5, bz = c.z + (c.built ? 3 : 6) - 6 + 1.11 + 1.05;
+    c.saunaBeacon = intMakeBeacon(bx, bz, 0, 0xff8a5a, false, { id: "sauna", name: shortName(c) + " sauna" });
+    INT.beacons.push(c.saunaBeacon);
+  }
+  intBeaconSync();
+}
+function intBeaconSync() {
+  const k = RE_CABINS.map(c => (GS.re && GS.re.own[c.id] ? (GS.re.own[c.id].up.sauna ? "s" : "o") : "-")).join("");
+  if (k === INT.beaconK) return; INT.beaconK = k;
+  for (const c of RE_CABINS) if (c.saunaBeacon) c.saunaBeacon.g.visible = !!(GS.re && GS.re.own[c.id] && GS.re.own[c.id].up.sauna);
+}
+function intBeaconTick() {
+  intBeaconSync();
+  const t = gameClock;
+  for (const b of INT.beacons) {
+    if (!b.g.visible) continue;
+    const s = 1 + 0.05 * Math.sin(t * 2.1 + b.x);
+    b.ring.scale.set(s, s, 1); b.ring.material.opacity = 0.5 + 0.22 * Math.sin(t * 2.1 + b.x);
+    b.col.material.opacity = 1.3 * (b.cab.id === "sauna" ? 0.26 : 0.3) * (0.85 + 0.15 * Math.sin(t * 3.3 + b.z));
+  }
+}
+function intDoorAt(x, z, r) {
+  let best = null, bd = r === undefined ? 0.95 : r;
+  for (const b of INT.beacons) {
+    if (!b.g.visible) continue;
+    const d = Math.hypot(x - b.x, z - b.z);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+/* ---- the prompts ---- */
+function intDoorHint() {
+  if (INT.on) return `${INT.cab.id === "sauna" ? "The sauna" : shortName(INT.cab)} · walk into the doorway to go out`;
+  if (!FOOT.on || INT.cd > 0) return "";
+  if (intDoorAt(FOOT.x, FOOT.z)) return "Stepping in…";
+  const b = intDoorNear(FOOT.x, FOOT.z); if (!b) return "";
+  const d = Math.round(Math.hypot(FOOT.x - b.x, FOOT.z - b.z));
+  const own = GS.re && GS.re.own[b.cab.id];
+  return `${b.cab.id === "sauna" ? "The sauna" : "The cabin door"} is ${d} m off: walk into the light to go in${own ? "" : " (have a look before you buy)"}`;
+}
+function intDoorNear(x, z, r) {
+  let best = null, bd = r === undefined ? 7.5 : r;
+  for (const b of INT.beacons) {
+    if (!b.g.visible) continue;
+    const d = Math.hypot(x - b.x, z - b.z);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+// on the sled, on your way to a door: a nudge to get off
+function intRideHint() {
+  if (FOOT.on || !started || GS.dead) return "";
+  const b = intDoorNear(P.x, P.z, 16); if (!b) return "";
+  return `Q: ${b.cab.id === "sauna" ? "the sauna" : "the cabin"} door is ${Math.round(Math.hypot(P.x - b.x, P.z - b.z))} m off — get off and walk in`;
+}
+
+/* ---- going in and out ---- */
+function intEnter(b) {
+  if (INT.on || INT.ph || INT.cd > 0 || !FOOT.on || GS.dead || MNT.on || DMT.on || (FISH && FISH.on)) return;
+  INT.cab = b.cab; INT.ph = "in"; INT.t = 0; INT.cd = 1.2;
+  INT.outY = FOOT.y; INT.ski = FOOT.ski; INT.shoe = FOOT.shoe;
+  INT.back = { x: b.x + Math.sin(b.ry) * 1.5, z: b.z + Math.cos(b.ry) * 1.5, ry: b.ry };
+}
+function intGoIn() {
+  const R = intRoom(INT.cab); INT.room = R;
+  INT.px = R.exit.x; INT.pz = R.exit.z + 0.95; INT.py = 0;                // a step in past the way-out ring
+  FOOT.sp = FOOT.go = FOOT.fwd = FOOT.turn = 0; FOOT.ski = false; FOOT.shoe = false; FOOT.dig = false; FOOT.tired = 0;
+  FOOT.yaw = 0; FOOT.half = Math.floor(FOOT.step / Math.PI);
+  INT.on = true;
+  if (FOOT.g) { INT.scene.add(FOOT.g); FOOT.g.visible = true; }
+  intShow(R);
+  const o = GS.re && GS.re.own[INT.cab.id];
+  if (INT.cab.id === "sauna") { toast("The sauna: the stove's still throwing heat. Walk back into the doorway to go out."); return; }
+  const nm = shortName(INT.cab);
+  toast(o ? `${nm}: ${o.up.stove ? "the soapstone stove is still warm." : "the stove is warm."} Walk back into the doorway to go out.`
+          : `${nm}: cold, and still for sale. Walk back into the doorway to go out.`);
+}
+function intGoOut() {
+  const R = INT.room, back = INT.back;
+  INT.on = false; INT.ph = ""; INT.room = null;
+  if (back) { FOOT.x = back.x; FOOT.z = back.z; FOOT.yaw = back.ry; }
+  FOOT.y = INT.outY; FOOT.ski = INT.ski; FOOT.shoe = INT.shoe;
+  FOOT.sp = FOOT.go = FOOT.fwd = FOOT.turn = 0; FOOT.crouch = 0;
+  if (FOOT.g) scene.add(FOOT.g);
+  camState.init = false;
+  intShow(null);
+}
+function intRoom(cab) {
+  let R = INT.rooms[cab.id];
+  if (!R) { intMats(); R = INT.rooms[cab.id] = intBuildRoom(cab); intShow(R); }
+  return R;
+}
+// only the visited room and its lamps are left in the render (a scene's lights are global: 25 point lights from five
+// rooms would otherwise sit in every shader)
+function intShow(R) {
+  for (const id in INT.rooms) {
+    const q = INT.rooms[id], on = q === R;
+    q.g.visible = on; for (const l of q.lights) l.visible = on;
+  }
+}
+// a bought upgrade or a new cabin changes what's inside: drop the cached room so it's rebuilt next visit
+function intDirty(id) {
+  const R = INT.rooms[id]; if (!R) return;
+  if (INT.on && INT.cab && INT.cab.id === id) return;
+  INT.scene.remove(R.g);
+  R.g.traverse(o => { if (o.geometry && o.geometry !== beaconGeo && o.geometry.dispose) o.geometry.dispose(); });
+  delete INT.rooms[id];
+}
+/* the walk inside: a plain floor walk — the same control values, no snow, no skis, the furniture as walls */
+function intStep(dt) {
+  const F = FOOT, R = INT.room, lim = 0.34;
+  F.yaw += -F.turn * 2.4 * dt;
+  const tgt = F.fwd > 0 ? 2.35 * F.fwd : F.fwd < 0 ? -1.5 * F.fwd : 0;
+  F.sp += (tgt - F.sp) * (1 - Math.exp(-6 * dt));
+  const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw);
+  let nx = INT.px + fx * F.sp * dt, nz = INT.pz + fz * F.sp * dt;
+  for (let pass = 0; pass < 2; pass++) {
+    nx = clamp(nx, -R.hx + lim, R.hx - lim); nz = clamp(nz, -R.hz + lim, R.hz - lim);
+    for (const c of R.cols) {
+      const x0 = c.x0 - lim, x1 = c.x1 + lim, z0 = c.z0 - lim, z1 = c.z1 + lim;
+      if (nx > x0 && nx < x1 && nz > z0 && nz < z1) {
+        const dl = nx - x0, dr = x1 - nx, db = nz - z0, df = z1 - nz, m = Math.min(dl, dr, db, df);
+        if (m === dl) nx = x0; else if (m === dr) nx = x1; else if (m === db) nz = z0; else nz = z1;
+      }
+    }
+  }
+  INT.px = nx; INT.pz = nz;
+  F.go = F.sp; F.hardW = 1; F.shoe = false; F.strain = 0.55; F.tired = clamp(F.tired - 0.05 * dt, 0, 1);
+  F.step += (Math.abs(F.sp) * 3.2 + (Math.abs(F.sp) < 0.3 ? Math.abs(F.turn) * 1.8 : 0)) * dt;
+  F.crouch += (0 - F.crouch) * (1 - Math.exp(-8 * dt));
+  const g = F.g; if (!g) return;
+  g.visible = true;
+  const bob = poseWalker(g, dt);
+  g.position.set(R.g.position.x + INT.px, INT.py + bob, R.g.position.z + INT.pz);
+}
+/* the camera inside: a tight walk-in view, clamped into the room so it can never end up in a wall */
+const _intWant = new THREE.Vector3();
+function intCam(dt) {
+  const R = INT.room; if (!R) return;
+  const fx = Math.sin(FOOT.yaw), fz = Math.cos(FOOT.yaw), ox = R.g.position.x, oz = R.g.position.z;
+  const hx = ox + INT.px, hz = oz + INT.pz;
+  // high over the shoulder and looking down a little (GTA's indoor camera): the rider sits low in the frame and the
+  // room shows over them; pulled in by the walls, never through them
+  _intWant.set(clamp(hx - fx * 2.5, ox - R.hx - 0.55, ox + R.hx + 0.55),
+               clamp(INT.py + 2.15, 1.5, R.h - 0.16),
+               clamp(hz - fz * 2.5, oz - R.hz - 0.55, oz + R.hz + 0.55));
+  if (!camState.init) { camera.position.copy(_intWant); camState.init = true; }
+  else camera.position.lerp(_intWant, 1 - Math.exp(-9 * Math.min(0.05, dt || 0.016)));
+  if (R.cut) intCutSet(R, camera.position.x - ox, camera.position.z - oz);   // backed out through a wall: lift that wall off
+  camera.lookAt(hx + fx * 1.6, INT.py + 1.05, hz + fz * 1.6);
+  if (Math.abs(camera.fov - 72) > 0.05) { camera.fov = 72; camera.updateProjectionMatrix(); }
+}
+/* the tick: the markers outdoors, the visit's fade, the walk, the doorway out, the lamp light */
+function intTick(dt) {
+  INT.t += dt; INT.cd = Math.max(0, INT.cd - dt);
+  intBeaconTick();
+  const fade = $("intFade");
+  if (INT.ph) {
+    if (fade) fade.style.opacity = "1";
+    if (INT.t > 0.34) {
+      if (INT.ph === "in") intGoIn(); else if (INT.ph === "out") intGoOut();
+      INT.ph = ""; INT.t = 0;
+    }
+  } else if (fade && fade.style.opacity !== "0") fade.style.opacity = "0";
+  if (!INT.on) {
+    // walk into the light: in you go (on foot, and not straight back out of the door you just left)
+    if (INT.cd <= 0 && FOOT.on && !GS.dead && !MNT.on && !DMT.on && !(FISH && FISH.on)) {
+      const b = intDoorAt(FOOT.x, FOOT.z);
+      if (b) intEnter(b);
+    }
+    return;
+  }
+  intStep(dt);
+  const R = INT.room;
+  if (!INT.ph && INT.cd <= 0 && Math.hypot(INT.px - R.exit.x, INT.pz - R.exit.z) < 0.5) { INT.ph = "out"; INT.t = 0; INT.cd = 1.2; }
+  const t = gameClock;
+  if (R.fire) { const f = R.fire; if (f.userData.base === undefined) f.userData.base = f.intensity; f.intensity = f.userData.base * (1 + 0.16 * Math.sin(t * 7.1) + 0.1 * Math.sin(t * 11.3 + 1.7)); }   // firelight flickers
+  const ey = sky.material.uniforms.uSun.value.y, day = sstep(-0.17, 0.07, ey), aur = clamp(AUR.v || 0, 0, 1);
+  IM.win.color.setRGB(lerp(0.16, 0.95, day) + aur * 0.08, lerp(0.2, 0.96, day) + aur * 0.3, lerp(0.32, 1.0, day) + aur * 0.18);
+}
+
 function reBuy(id) {
   const c = reCab(id); if (!c || GS.re.own[id]) return;
   if (SCHOOL.on) { toast("Finish the school course first.", "warn"); return; }
   if (GS.cash < c.price) { toast(`${c.name} is ${fmtCash(c.price)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
   GS.cash -= c.price; GS.re.own[id] = { up: {}, acc: 0, nights: 0, rented: 0, L: 0, since: CAL.dayIndex() };
-  reSync(); tabPing("good"); save(); TABLET.render();
+  reSync(); intDirty(id); tabPing("good"); save(); TABLET.render();
   toast(`${c.name} is yours. The fuel boat fills the cache this week; tourists start booking tonight.`, "good");
 }
 function reUpgrade(id, uid) {
   const c = reCab(id), o = GS.re.own[id], u = RE_UPS.find(x => x.id === uid); if (!c || !o || !u || o.up[uid]) return;
   if (GS.cash < u.cost) { toast(`${u.name} is ${fmtCash(u.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
-  GS.cash -= u.cost; o.up[uid] = 1; reSync(); save(); TABLET.render();
+  GS.cash -= u.cost; o.up[uid] = 1; reSync(); intDirty(id); save(); TABLET.render();
   toast(`${u.name} at ${shortName(c)}: +${fmtCash(u.rent)} a night from now on.`, "good");
 }
 function rePayArrears() {
@@ -13150,10 +13754,11 @@ function rjWalls(nx, nz, r) {
 /* ---- the frame hooks ---- */
 function rescueTick(dt) {
   if (!started) return;
+  intTick(dt);
   helpTick(dt); rjTick(dt);
   if (FOOT.on && !GS.dead && MNT.on) { mountTick(dt); }
   else if (FOOT.on && !GS.dead && DMT.on) { dismountTick(dt); }
-  else if (FOOT.on && !GS.dead) {
+  else if (FOOT.on && !GS.dead && !INT.on) {
     FOOT.dig = FOOT.dig && BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.2;
     footStep(dt);
     if (FOOT.dig && BOG.on) {
@@ -13161,7 +13766,7 @@ function rescueTick(dt) {
       BOG.dig += rate * dt; if (Math.random() < dt * 12) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.2, P.z + (Math.random() - 0.5) * 2, 0, 2, 0, 1.5, 0.8);
       if (BOG.dig >= 1) { FOOT.dig = false; freeBog("dug"); }
     }
-  } else if (FOOT.g && !CRASH.on) FOOT.g.visible = false;
+  } else if (FOOT.g && !CRASH.on && !INT.on) FOOT.g.visible = false;            // indoors intStep shows and poses the walker
   if (rider) rider.visible = !FOOT.on && !CRASH.on && !(FISH && FISH.on);
   if (V.xcRack) { V.xcRack.visible = !!xcOwn() && !(FOOT.on && FOOT.ski && !DMT.on) && !SCHOOL.on; if (V.xcRack.visible && V.machineOf) { const ud = V.machineOf(((PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef()).id).userData; V.xcRack.position.set(-(ud.tw / 2 + 0.06), 0.68, ud.zBack + 0.93); } }
   wnUpdate(dt);
@@ -13218,7 +13823,8 @@ function wnPrompt() {
   } else if (FOOT.on) {
     show = true;
     const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);
-    if (sarPrompt()) h = sarPrompt();
+    const ih = intDoorHint(); if (ih) h = ih;
+    else if (sarPrompt()) h = sarPrompt();
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
@@ -13232,6 +13838,7 @@ function wnPrompt() {
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
+  else if (intRideHint()) { show = true; h = intRideHint(); }
   else if (FISH && !FISH.on) { const fh = FISH.hint(); if (fh) { show = true; h = fh; } }
   if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
   WN.hint = h; WN.show = show;
@@ -14334,7 +14941,8 @@ function frame(t) {
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); } }
   tabView_sync(); tabDash(dt); TABLET.place();
-  if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
+  if (INT.on && INT.room) renderer.render(INT.scene, camera);                // inside a cabin: the room and its lamps
+  else if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
