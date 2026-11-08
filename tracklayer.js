@@ -2373,7 +2373,7 @@ function updTouch() {
   const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
   const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
   const wd = winchDef(), foot = FOOT.on;
-  const q = $("tQ"); q.hidden = !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
+  const q = $("tQ"); q.hidden = tutHidden() || !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
   const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
   $("tF").hidden = !(HELP.on && HELP.kind === "sea" && !HELP.called) && !(GS.fuel <= 0 && !HELP.on);
   $("tReel").hidden = !(wd && WN.state === "hooked");
@@ -3668,7 +3668,8 @@ function updVisuals(dt) {
     camera.position.y = Math.max(camera.position.y, rideSurf(camera.position.x, camera.position.z) + 1.0);
     if (view.d < 10) camTreeClip(camera.position);                       // not inside a pine's skirt either (report 0081)
     const wk = view.d < 10 ? camWallClip(FXp, FYp + 1.3, FZp, camera.position) : 1;   // not inside the house behind you (the drone view flies over)
-    camState.wallK = (camState.wallK ?? 1) + (wk - (camState.wallK ?? 1)) * (1 - Math.exp(-8 * dt));
+    if (!isFinite(camState.wallK)) camState.wallK = 1;
+    camState.wallK = camState.wallK + (wk - camState.wallK) * (1 - Math.exp(-8 * dt));
     const la = (4 + CLIMB.v * 4) * (0.35 + 0.65 * camState.wallK);   // pulled in close: aim nearer, so the rider stays in frame
     look = _camAim.set(FXp + cfx * la, FYp + 1.1 + CLIMB.v * 1.6 - CAMPAD.oy * 5, FZp + cfz * la);
     camState.cp = (camState.cp || new THREE.Vector3()).copy(camera.position); camState.cpOn = false;
@@ -5990,6 +5991,7 @@ function deliver(site) {
   }
   const here = GS.load.filter(j => j.dest === site);
   if (!here.length) return;
+  const tutD = here.some(j => j.tut);
   GS.load = GS.load.filter(j => j.dest !== site);
   let total = 0, notes = [], clean = true, lost = 0, fuelL = 0;
   const note = n => { if (!notes.includes(n)) notes.push(n); };
@@ -6025,7 +6027,7 @@ function deliver(site) {
   }
   if (site.type !== "depot") {
     if (clean) GS.fuel = Math.min(GS.cap, GS.fuel + GS.cap * 0.35);
-    if (!roaming() && smallLoads().length < ST.slots && Math.random() < 0.6) {
+    if (!tutD && !roaming() && smallLoads().length < ST.slots && Math.random() < 0.6) {
       const dist = Math.hypot(site.x - depot.x, site.z - depot.z);
       const back = { dest: depot, cargo: BACKHAUL[(Math.random() * BACKHAUL.length) | 0], fragile: false, pay: Math.round((20 + dist * 0.07) * 1.3 / 5) * 5, due: boatDue(site), boat: true, hits: 0 };
       setTimeout(() => {
@@ -6035,6 +6037,7 @@ function deliver(site) {
       }, 1400);
     } else setTimeout(() => toast(clean ? "They topped off your tank." : "No fuel for you after that."), 1400);
   }
+  if (tutD) tutDone();
   applyLoadout(); save(); TABLET.refresh();             // an open Parcels/Home page redraws: rack, count, ABOARD row, cash
 }
 function blackout(kind) {
@@ -6061,7 +6064,7 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
@@ -6072,6 +6075,8 @@ function load() {
     if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.sar && typeof d.sar === "object") { SAR.duty = !!d.sar.duty; SAR.rep = isFinite(+d.sar.rep) ? clamp(+d.sar.rep, 0, 100) : 10; SAR.n = d.sar.n | 0; SAR.lost = d.sar.lost | 0; SAR.ign = d.sar.ign | 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
+  // the first-ride tutorial: older saves (anyone who's played before) skip it
+  TUT.stage = d0 && typeof d0.tut === "number" ? d0.tut : (d0 || GS.delivered > 0) ? 99 : 0; TUT.a = d0 && d0.tutA || null; TUT.b = d0 && d0.tutB || null;
   migrateEngines(); migrateO6(d0);
   restat(); GS.fuel = GS.cap;
 }
@@ -8949,6 +8954,199 @@ function stats() {
 let ST = null;
 function restat() { ST = stats(); if (GOD.turbo) ST.power *= 2.2; GS.cap = ST.fuel; GS.fuel = Math.min(GS.fuel, GS.cap); applyLoadout(); }
 
+/* ---------------- the first ride: a tutorial for new couriers ----------------
+   A brand-new game starts on foot on the quay with no sled under you. Five steps, each one finished by the real
+   action, never by walking into a zone:
+     0  walk to Nordkinn Skuter & Service (the arrow and this card point there) and open the garage
+     1  collect your first sled, free, from the top of the Sleds tab (it's the Frontier you already own on paper)
+     2  climb on it out on the forecourt
+     3  a package job is claimed for you: drive to its pickup and stop, it loads the normal way (collectClaims)
+     4  deliver it the normal way (deliver): normal pay, and that ends the tutorial
+   Saved as tut (stage), tutA / tutB (pickup and drop-off site ids) in tracklayer.save.v2. Saves from before the
+   tutorial count as done (99). While stage < 2 the sled is parked hidden on the forecourt (tutHidden: no climbing
+   on, no locator pin, no bump), and the "where am I" site check reads the walker. The job lives in GS.claims /
+   GS.load like any parcel (flag tut); those aren't saved, so tutTick re-posts it after a reload or a blackout.
+   Settings > Controls > Skip tutorial (press twice) ends it and leaves the sled beside you. God menu: Restart tutorial.
+   Button names on the card come from the device you last touched (keyboard, Xbox / PlayStation / Nintendo pad, touch). */
+var TUT = { stage: 99, a: null, b: null, dev: "kbm", pad: "xbox", key: "", ttl: "", doneT: 0, park: null, padA: false, skipT: 0 };
+function tutHidden() { return !!TUT && TUT.stage < 2; }
+const TUT_L = {
+  walk: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
+  turn: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
+  jog: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "LEAN" },
+  garage: { kbm: "T", xbox: "B", ps: "○", nin: "A", touch: "GARAGE" },
+  pick: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "Tap" },
+  mount: { kbm: "Q", xbox: "LB", ps: "L1", nin: "L", touch: "GET ON" },
+  gas: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
+  brake: { kbm: "S", xbox: "LT", ps: "L2", nin: "ZL", touch: "BRAKE" },
+  steer: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
+  tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" }
+};
+function tutBtn(a) { const t = TUT_L[a]; return t[TUT.dev === "pad" ? TUT.pad : TUT.dev] || t.kbm; }
+addEventListener("keydown", () => { TUT.dev = "kbm"; }, true);
+addEventListener("pointerdown", e => { TUT.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
+function tutPadPoll() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let a = false;
+  for (const gp of pads) {
+    if (!gp || phantomPad(gp)) continue;
+    const any = gp.buttons.some(b => b && b.pressed) || gp.axes.some(v => Math.abs(v) > 0.5);
+    if (any) { TUT.dev = "pad"; TUT.pad = /054c|playstation|dualsense|dualshock/i.test(gp.id) ? "ps" : /057e|nintendo|switch|pro controller|joy-con/i.test(gp.id) ? "nin" : "xbox"; }
+    if (gp.buttons[0] && gp.buttons[0].pressed) a = true;
+  }
+  // the garage has no pad focus of its own: on the collect step the bottom face button signs for the sled
+  if (a && !TUT.padA && TUT.stage === 1 && GS.garageOpen) tutCollect();
+  TUT.padA = a;
+}
+// the forecourt spot the first sled waits on, nose to the quay
+function tutParkSpot() {
+  if (TUT.park) return TUT.park;
+  const gx = garageSite.x, gz = garageSite.z, yaw = Math.atan2(depot.x - gx, depot.z - gz);
+  for (const [ox, oz] of [[2, 0], [3, 3], [3, -3], [5, 0], [0, 6], [0, -6], [7, 4], [7, -4]]) {
+    const x = gx + ox, z = gz + oz;
+    if (!obNear(x, z, 1.4) && !isWater(x, z)) return (TUT.park = { x, z, yaw });
+  }
+  return (TUT.park = { x: gx + 2, z: gz, yaw });
+}
+function tutPark() {
+  const s = tutParkSpot();
+  P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
+  P.y = surf(s.x, s.z) + 0.3; P.safe = { x: s.x, z: s.z, yaw: s.yaw }; towSnap();
+  if (!FOOT.on) { recenter(P.x, P.z, true); camState.init = false; camState.yaw = P.yaw; }
+}
+// on foot on the quay, a couple of steps toward the garage and facing it
+function tutWalker() {
+  const gx = garageSite.x - SPAWN.x, gz = garageSite.z - SPAWN.z, gl = Math.hypot(gx, gz) || 1;
+  FOOT.x = SPAWN.x + gx / gl * 9; FOOT.z = SPAWN.z + gz / gl * 9; FOOT.yaw = Math.atan2(gx, gz); FOOT.y = surf(FOOT.x, FOOT.z);
+  FOOT.on = true; FOOT.sp = FOOT.fwd = FOOT.turn = 0; FOOT.dig = false; FOOT.crouch = 0; FOOT.ski = false; FOOT.shoe = false;
+  FOOT.kickW = FOOT.moveW = FOOT.plow = FOOT.tuck = 0; MNT.on = DMT.on = false;
+  if (FOOT.g && FOOT.g.userData.shoes) for (const s of FOOT.g.userData.shoes) s.visible = false;
+  camState.init = false; camState.yaw = FOOT.yaw;
+  recenter(FOOT.x, FOOT.z, true);
+}
+function tutStart() {
+  if (TC.on) TUT.dev = "touch";
+  if (TUT.stage < 2) { tutPark(); tutWalker(); }
+}
+function tutCollect() {
+  if (TUT.stage !== 1) return;
+  TUT.stage = 2; GS.fuel = GS.cap;
+  if (GS.garageOpen) closeGarage();
+  tutPark(); save();
+  toast(`Signed for: the ${sledDef().name}. It's yours, parked out front with a full tank.`, "good");
+}
+// pickup: an open place ~450 m from the garage; drop-off: another ~800 m on from there
+function tutPick() {
+  const ok = SITES.filter(s => s.x !== undefined && s !== depot && s !== garageSite && s.type !== "shop" && s.type !== "depot" && siteOpen(s));
+  const dG = s => Math.hypot(s.x - garageSite.x, s.z - garageSite.z);
+  let A = null, B = null, ba = 1e9, bb = 1e9;
+  for (const s of ok) { const d = dG(s); if (d >= 150 && Math.abs(d - 450) < ba) { ba = Math.abs(d - 450); A = s; } }
+  A = A || ok[0] || depot;
+  for (const s of ok) { if (s === A) continue; const d = Math.hypot(s.x - A.x, s.z - A.z); if (d >= 250 && Math.abs(d - 800) < bb) { bb = Math.abs(d - 800); B = s; } }
+  return [A, B || depot];
+}
+function tutPost() {
+  let A = SITES.find(s => s.id === TUT.a), B = SITES.find(s => s.id === TUT.b);
+  if (!A || !B || A.x === undefined || B.x === undefined) { [A, B] = tutPick(); TUT.a = A.id; TUT.b = B.id; }
+  GS.claims = GS.claims.filter(j => !j.tut);
+  const d = Math.hypot(A.x - B.x, A.z - B.z);
+  GS.claims.push({ tut: true, from: A, dest: B, cargo: "Package", fragile: false, pay: Math.round((40 + d * 0.06) / 5) * 5, local: true, due: null, hits: 0 });
+  TABLET.refresh(); save();
+}
+const tutJob = () => GS.load.find(j => j.tut) || GS.claims.find(j => j.tut);
+function tutDone() {
+  if (TUT.stage >= 99) return;
+  TUT.stage = 99; TUT.doneT = 9; save();
+}
+function tutSkip() {
+  if (TUT.stage >= 99) return;
+  const hid = tutHidden();
+  GS.claims = GS.claims.filter(j => !j.tut); GS.load = GS.load.filter(j => !j.tut);
+  TUT.stage = 99; TUT.doneT = 0;
+  if (hid && FOOT.on) {                                              // the sled was still "in the garage": it's beside you now
+    for (let i = 0; i < 12; i++) {
+      const a = FOOT.yaw + Math.PI / 2 + i * Math.PI / 6, x = FOOT.x + Math.cos(a) * 3, z = FOOT.z - Math.sin(a) * 3;
+      if (obNear(x, z, 1.3) || isWater(x, z)) continue;
+      P.x = x; P.z = z; P.yaw = FOOT.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.y = surf(x, z) + 0.3; P.safe = { x, z, yaw: P.yaw }; towSnap();
+      break;
+    }
+  }
+  applyLoadout(); TABLET.refresh(); save();
+  toast(FOOT.on ? "Tutorial skipped. Your sled's right beside you." : "Tutorial skipped.");
+}
+function tutRestart() {
+  GS.claims = GS.claims.filter(j => !j.tut); GS.load = GS.load.filter(j => !j.tut);
+  TUT.stage = 0; TUT.a = TUT.b = null; TUT.doneT = 0; TUT.key = "";
+  tutPark(); tutWalker(); applyLoadout(); TABLET.refresh(); save();
+  toast("Tutorial restarted: you're on the quay and your sled's back at the garage.");
+}
+$("tutSkip").addEventListener("click", () => {
+  const b = $("tutSkip");
+  if (TUT.skipT && performance.now() - TUT.skipT < 4000) { TUT.skipT = 0; b.textContent = "Skip tutorial"; tutSkip(); toggleSettings(false); return; }
+  TUT.skipT = performance.now(); b.textContent = "Sure? Press again to skip";
+  setTimeout(() => { if (TUT.skipT && performance.now() - TUT.skipT >= 3900) { TUT.skipT = 0; b.textContent = "Skip tutorial"; } }, 4000);
+});
+// what the compass points at for the step you're on (null when the tutorial isn't running)
+function tutTarget() {
+  if (!started || TUT.stage >= 99) return null;
+  const A = SITES.find(s => s.id === TUT.a), B = SITES.find(s => s.id === TUT.b);
+  if (TUT.stage < 2) return { x: garageSite.x, z: garageSite.z, col: "var(--signal)", title: GS.near === garageSite ? "Nordkinn Skuter & Service" : "To the garage", sub: d => `${fmtMi(d)} · your first sled is waiting` };
+  if (TUT.stage === 2) return { x: P.x, z: P.z, col: "#ffd860", title: "Your sled", sub: d => `${fmtMi(d)} · out front on the forecourt` };
+  if (TUT.stage === 3 && A) return { x: A.x, z: A.z, col: "var(--signal)", title: `Pick up: Package at ${shortName(A)}`, sub: d => `${A.name} · ${fmtMi(d)} · stop there to load` };
+  if (TUT.stage === 4 && B) return { x: B.x, z: B.z, col: "var(--signal)", title: `Package → ${B.name}`, sub: d => `${fmtMi(d)} · stop there to hand it over` };
+  return null;
+}
+function tutCopy() {
+  const A = SITES.find(s => s.id === TUT.a), B = SITES.find(s => s.id === TUT.b), at = GS.near === garageSite;
+  if (TUT.stage >= 99) return { step: "TUTORIAL DONE", title: "First delivery done", body: "That's the job. More work is posted in the Parcels app on your dash tablet, and the garage sells better kit as you earn.", keys: [["tablet", "tablet"]], done: true };
+  if (TUT.stage === 0 && !at) return { step: "STEP 1 / 5", title: "Head to the garage", body: "Your first sled is waiting at Nordkinn Skuter & Service, the shed across the road from the quay. Follow the arrow at the top.", keys: [["walk", "walk"], ["turn", "turn"], ["jog", "jog"]] };
+  if (TUT.stage === 0 || (TUT.stage === 1 && !GS.garageOpen && at)) return { step: TUT.stage ? "STEP 2 / 5" : "STEP 1 / 5", title: "Open the garage", body: "You're at the door.", keys: [["garage", "garage"]] };
+  if (TUT.stage === 1 && !GS.garageOpen) return { step: "STEP 2 / 5", title: "Back to the garage", body: "Your sled's still in the bay. Follow the arrow.", keys: [["walk", "walk"], ["turn", "turn"]] };
+  if (TUT.stage === 1) return { step: "STEP 2 / 5", title: "Collect your first sled", body: `The ${sledDef().name} is at the top of the Sleds list, on the house.`, keys: [["pick", "collect"]] };
+  if (TUT.stage === 2) return { step: "STEP 3 / 5", title: "Get on your sled", body: "It's parked out front on the forecourt. Walk up to it.", keys: [["walk", "walk"], ["mount", "climb on"]] };
+  if (TUT.stage === 3) return { step: "STEP 4 / 5", title: "Pick up the package", body: `A package is waiting at ${A ? A.name : "the pickup"}. Ride there and stop: it goes on your rack.`, keys: [["gas", "gas"], ["brake", "brake"], ["steer", "steer"]] };
+  return { step: "STEP 5 / 5", title: "Deliver the package", body: `Take it to ${B ? B.name : "the drop-off"} and stop there to hand it over. You're paid on delivery.`, keys: [["gas", "gas"], ["brake", "brake"], ["steer", "steer"]] };
+}
+function tutCard(dt) {
+  const el = $("tut"); if (!el) return;
+  if (TUT.doneT > 0) TUT.doneT -= dt;
+  const on = started && !GS.dead && (TUT.stage < 99 || TUT.doneT > 0);
+  if (el.hidden === on) el.hidden = !on;
+  if (!on) return;
+  const c = tutCopy(), keys = c.keys.map(([a, l]) => `<span><kbd>${tabEsc(tutBtn(a))}</kbd>${tabEsc(l)}</span>`).join(""), k = c.step + c.title + c.body + keys;
+  if (k !== TUT.key) {
+    TUT.key = k;
+    $("tuStep").textContent = c.step; $("tuTitle").textContent = c.title; $("tuBody").textContent = c.body; $("tuKeys").innerHTML = keys;
+    el.classList.toggle("done", !!c.done);
+    if (c.title !== TUT.ttl) { TUT.ttl = c.title; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+  }
+  const z = $("zone"), r = z && !z.hidden ? z.getBoundingClientRect() : null;
+  const top = Math.round(r && r.height ? r.bottom + 8 : 16) + "px", left = Math.round(r && r.width ? r.left : 16) + "px";
+  if (el.style.top !== top) el.style.top = top;
+  if (el.style.left !== left) el.style.left = left;
+}
+// every frame (from rescueTick): the hidden sled, the step changes, the card
+function tutTick(dt) {
+  sledRoot.visible = !(tutHidden() && !GS.garageOpen);                // in the garage the showroom shows it on the forecourt
+  const sk = $("tutSkip"); if (sk && sk.hidden !== TUT.stage >= 99) sk.hidden = TUT.stage >= 99;
+  tutPadPoll();
+  if (TUT.stage < 99 && !GS.dead) {
+    if (TUT.stage < 2) {
+      if (!FOOT.on && !MNT.on && !DMT.on) TUT.stage = 2;              // riding somehow (a reset, a rescue): count the sled as collected, never strand them
+      else if (!GS.garageOpen) { const s = tutParkSpot(); if (Math.hypot(P.x - s.x, P.z - s.z) > 4) tutPark(); }   // a blackout put the sled on the quay: back to the forecourt
+    }
+    if (TUT.stage === 2 && !FOOT.on && !MNT.on) {
+      TUT.stage = 3; tutPost();
+      const A = SITES.find(s => s.id === TUT.a);
+      toast(`The garage has a first job for you: a package to pick up at ${A ? A.name : "the pickup"}.`);
+    } else if (TUT.stage === 3) {
+      if (GS.load.some(j => j.tut)) { TUT.stage = 4; save(); }
+      else if (!tutJob()) tutPost();
+    } else if (TUT.stage === 4 && !GS.load.some(j => j.tut)) { TUT.stage = 3; tutPost(); }   // lost it (the fjord, a blackout, a reload): it's back at the pickup
+  }
+  tutCard(dt);
+}
+
 /* ---------------- the garage ---------------- */
 let garageTab = "sleds";
 function canBuySled(s) { return GS.delivered >= s.need; }
@@ -8956,7 +9154,7 @@ function buySled(id) {
   const s = SLEDS.find(x => x.id === id); if (!s) return;
   if (s.rare && !GS.own.sleds.includes(id)) { toast(`The ${s.name} isn't for sale here. One turns up on Bytteboden now and then.`, "warn"); return; }
   if (s.team && santaN() < 9) { toast(`The ${s.name} won't go anywhere without its team: ${santaN()}/9 reindeer found. They're loose round the peninsula in red harness and gold bells. Listen for sleigh bells.`, "warn"); return; }
-  if (GS.own.sleds.includes(id)) { GS.own.sled = id; checkBoost(); restat(); toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
+  if (GS.own.sleds.includes(id)) { GS.own.sled = id; checkBoost(); restat(); if (TUT.stage === 1) { tutCollect(); return; } toast(`Rolled the ${s.name} out of the bay.`); renderGarage(); save(); return; }
   if (!canBuySled(s)) { toast(`${s.name} is for proven couriers — ${s.need} deliveries.`, "warn"); return; }
   if (GS.cash < s.cost) { toast(`${s.name} is $${s.cost}. You have $${GS.cash}.`, "warn"); return; }
   GS.cash -= s.cost; GS.own.sleds.push(id); GS.own.sled = id; checkBoost(); restat();
@@ -9026,8 +9224,13 @@ function renderGarage() {
     b.addEventListener("mouseleave", off); b.addEventListener("blur", off);
   };
   if (garageTab === "sleds") {
+    if (TUT.stage === 1) {                                                // first-ride tutorial: the free sled sits at the top
+      const s0 = sledDef(), b = row(`Your first sled: ${s0.name}`, `On the house. Full tank, parked out front once you sign for it.\n${s0.blurb}`, "Collect", "", () => tutCollect(), "FREE");
+      b.classList.add("tutRow"); setTimeout(() => { if (b.isConnected && !TC.on) b.focus({ preventScroll: true }); }, 0);
+    }
     SLEDS.forEach(s => {
       if (s.rare && !GS.own.sleds.includes(s.id)) return;                  // Santa's Sled: only listed once it's yours
+      if (TUT.stage === 1 && s.id === GS.own.sled) return;                 // tutorial: the starter is the Collect row above
       const short = s.team && santaN() < 9;
       const owned = GS.own.sleds.includes(s.id), on = GS.own.sled === s.id, locked = !owned && !canBuySled(s);
       const spec = `${s.year} · ${Math.round(engineOf(s).pwr * 100)}% power${engineOf(s).stock ? "" : " (swapped)"} · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`;
@@ -9141,7 +9344,7 @@ function renderWorkshop(body) {
   } }]);
   foot("Restoring buys back the performance. It doesn't repaint anything: the wear marks on used machines are there for good. Ice-fishing tackle can't be restored.");
 }
-function openGarage() { TABLET.close(true); GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
+function openGarage() { TABLET.close(true); if (TUT.stage < 2) { garageTab = "sleds"; if (TUT.stage === 0) { TUT.stage = 1; save(); } } GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
 function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
   [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"]].forEach(([t, n]) => {
@@ -11022,7 +11225,7 @@ function buildLanes() {
    and eases back out with the camera's own lerp. Footprints the focus already stands inside are skipped, so leaning on
    a wall doesn't swallow the camera. */
 function camWallClip(fx, fy, fz, c) {
-  const dx = c.x - fx, dz = c.z - fz, L = Math.hypot(dx, dz); if (L < 0.8) return;
+  const dx = c.x - fx, dz = c.z - fz, L = Math.hypot(dx, dz); if (L < 0.8) return 1;   // (was a bare return: undefined turned wallK NaN for good and the view went flat blue)
   const ux = dx / L, uz = dz / L, seen = new Set(); let tMin = L;
   for (let j = Math.floor((Math.min(fz, c.z) - 4 + HALF) / OBC); j <= Math.floor((Math.max(fz, c.z) + 4 + HALF) / OBC); j++)
     for (let i = Math.floor((Math.min(fx, c.x) - 4 + HALF) / OBC); i <= Math.floor((Math.max(fx, c.x) + 4 + HALF) / OBC); i++) {
@@ -12370,7 +12573,8 @@ function updGame(dt, spd) {
     else if (GS.warned && ahead < 0.4 && wxT < 0.4) GS.warned = false;
   }
   GS.storm += (wxT - GS.storm) * (1 - Math.exp(-dt / 10));
-  let near = null; for (const s of SITES) if (Math.hypot(P.x - s.x, P.z - s.z) < 22) near = s;
+  const nX = FOOT.on && tutHidden() ? FOOT.x : P.x, nZ = FOOT.on && tutHidden() ? FOOT.z : P.z;   // tutorial: no sled yet, so where you're standing
+  let near = null; for (const s of SITES) if (Math.hypot(nX - s.x, nZ - s.z) < 22) near = s;
   if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near.fuelPrice ? `${near.name}. Warm stove inside, and jerry cans on the porch: fuel at ${fuelFmt(near.fuelPrice)}.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
   // your own depot cabins (O6) warm you like any cabin; the new lakeside ones aren't in SITES
@@ -12500,6 +12704,11 @@ function updGameHud() {
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   if (!tr) JOBT.auto = $("jobTitle").textContent;
+  { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
+    const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
+    $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;
+    $("jobTitle").textContent = tt.title; $("jobSub").textContent = tt.sub(td); $("jobPin").hidden = true;
+  } }
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
   const sh = steamerAt(GS.hour), shN = steamerNextCall(GS.hour, "arr"), shTxt = sh.s === "in" ? `Ferry in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Ferry sailing" : sh.s === "arriving" ? "Ferry arriving" : shN ? `Ferry ${fmtTime(shN.arr)}${shN.state === "delayed" ? " (late)" : ""}` : "No ferry";
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
@@ -12645,6 +12854,7 @@ function newGame() {
   sarAbort("quiet"); Object.assign(SAR, { duty: false, rep: 10, miss: 0, n: 0, lost: 0, ign: 0 });
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
   try { localStorage.removeItem("tracklayer.save.v1"); } catch (e) { }
+  TUT.stage = 0; TUT.a = TUT.b = null; TUT.doneT = 0; TUT.key = "";       // a new game gets the first-ride tutorial
   restat(); GS.fuel = GS.cap; applySettings(); save();
 }
 function titleWipe() {
@@ -12667,6 +12877,7 @@ function startRide() {
   for (const id of ["zone", "speedo", "mapWrap", "help", "job"]) $(id).hidden = false;
   setTouchUI();
   makeJobs(depot);
+  if (TUT.stage < 99) tutStart();
   setTimeout(() => { const f = ferryInfo(); toast(`Welcome to Kjøllefjord. ${f.st.s === "in" ? "The ferry's in." : f.c ? `Next ferry sails ${fmtTime(f.c.dep)}.` : ""}`); }, 1300);
   if (innerWidth <= 640 || TC.on) $("help").hidden = true;
   canvas.focus();
@@ -13286,6 +13497,7 @@ function dismount() {
 function mount() {
   if (!FOOT.on || MNT.on || DMT.on) return;
   if (FISH && FISH.on) return;
+  if (tutHidden()) { toast("Your sled's still in the garage. Collect it there first.", "warn"); return; }
   if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > (FOOT.ski ? 6 : 3.6)) { toast(FOOT.ski ? "Glide in closer to the sled." : "Get back to the sled first.", "warn"); return; }
   // start the climb-on: MNT drives the walker up, over and into the seat (mountTick), then finishMount swaps to the rider.
   // Off skis it's quick: click out, they go back on the rack, and you're on in about half the time.
@@ -13429,7 +13641,7 @@ function footBlock(F, nx, nz) {
     }
   }
   const w = rjWalls(nx, nz, 0.36); if (w[0] !== nx || w[1] !== nz) hit = true; [nx, nz] = w;
-  { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; hit = true; } }
+  if (!tutHidden()) { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; hit = true; } }
   return [nx, nz, hit];
 }
 function skiStep(dt) {
@@ -13687,7 +13899,7 @@ function footStep(dt) {
   }
   [nx, nz] = rjWalls(nx, nz, 0.36);
   // the sled itself is a wall
-  { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
+  if (!tutHidden()) { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
   // the waterline is a wall you slide along, like a house: a step that would land in the sea loses only its
   // seaward part (shore normal from a ring of isSea taps round you), so walking the quay or a beach at an angle
   // keeps going instead of freezing on the edge. Only a step straight out to sea stops you.
@@ -14428,13 +14640,14 @@ function rescueTick(dt) {
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
   wnPrompt();
   sledPinTick(dt);
+  tutTick(dt);
 }
 /* Sled locator: on foot, once you're 30+ m from the sled, a slim warm-yellow light column (the guide-beacon shader,
    scaled to ~150 m tall and under a metre wide) stands over it so you can find it at night, in a storm or behind
    a rise; it fades in over 30–60 m. Yellow so it never reads as a delivery (orange), depot (blue) or lookout (green). */
 function sledPinTick(dt) {
   const d = FOOT.on ? Math.hypot(P.x - FOOT.x, P.z - FOOT.z) : 0;
-  const k = FOOT.on && !GS.dead && !SCHOOL.on && !MNT.on ? Math.min(1, Math.max(0, (d - 30) / 30)) : 0;
+  const k = FOOT.on && !GS.dead && !SCHOOL.on && !MNT.on && !tutHidden() ? Math.min(1, Math.max(0, (d - 30) / 30)) : 0;
   if (!V.sledPin) { if (k <= 0) return; V.sledPin = new THREE.Mesh(beaconGeo, beaconMat(0xffd860, 0.26)); V.sledPin.scale.set(0.34, 0.15, 0.34); V.sledPin.frustumCulled = false; scene.add(V.sledPin); }
   V.sledPin.visible = k > 0;
   if (k <= 0) { V.sledPinB = undefined; return; }
@@ -14488,6 +14701,7 @@ function wnPrompt() {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
       h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
+    else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
     else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and press Q` : `${sledWhere()} · walk back and press Q`);
   } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
@@ -15636,6 +15850,7 @@ const GOD_ITEMS = [
   { id: "mkt", label: "Bytteboden: new listings", sub: "reshuffle the marketplace", do: () => { GS.mkt.list = []; mktReseed(CAL.abs()); TABLET.refresh("market"); save(); toast("Bytteboden: a fresh batch of listings."); } },
   { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.own.partsOwned[ownKey("hitch", "akja")] = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted, and the rescue toboggan."); } },
   { id: "sar", label: "Rescue callout now", sub: "on duty, licensed", do: () => { if (!licensed("rescue")) { toast("Grant the licences first.", "warn"); return; } if (SAR.cur || SAR.ping) { toast("Already on one.", "warn"); return; } SAR.duty = true; if (!sarOffer()) toast("No spot found for a callout here.", "warn"); } },
+  { id: "tut", label: "Restart tutorial", sub: "on foot at the quay, sled back in the garage", do: () => tutRestart() },
   { id: "reset", label: "Reset sled", sub: "Also pad Back / N", do: () => resetSled() }
 ];
 function godTeleport(s) {

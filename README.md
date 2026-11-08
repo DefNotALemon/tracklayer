@@ -32,6 +32,16 @@ The title menu sits over the live world: your sled parked at the quay in the low
 Continue (or Ride, first time), New game, Garage, Settings, How to play and Credits; the
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
+**Your first ride (tutorial).** A brand-new game (first visit, or New game) starts you on foot on the quay with no
+sled. A card under the top-left panel walks you through five steps, and the top compass points at each one:
+walk across the road to Nordkinn Skuter & Service and open the garage; collect your first sled (the Frontier 340,
+free, the highlighted row at the top of Sleds); walk out to it on the forecourt and climb on; ride to the package
+the garage has claimed for you and stop there to load it; ride it to the drop-off and stop to hand it over. You get
+normal delivery pay and the tutorial ends. The card names buttons for whatever you last touched: keyboard,
+an Xbox, PlayStation or Nintendo pad, or touch. If you lose the package (the fjord, a blackout, a reload) it waits at
+the pickup again. **Settings → Controls → Skip tutorial** (press twice) ends it and parks your sled beside you;
+the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
+
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **S / Down** brakes; hold it once you've stopped and the sled **reverses** (about 9 mph tops). There are no gears: every sled is stepless.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
