@@ -48,7 +48,37 @@ the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
   **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
-- Phones and tablets get touch controls: steer pad under the left thumb, the rest under the right.
+- Phones and tablets get their own touch controls, a different set for riding and for walking:
+  - **Left thumb:** a stick appears wherever your thumb lands in the lower left. On the sled it steers. On foot it
+    walks: push up to walk, down to step back, sideways to turn on the spot, out to the rim to jog (the ring turns
+    orange).
+  - **Right thumb, riding:** a tall **GAS** pedal (analog: press it higher up for more throttle, it fills as you
+    press), **BRAKE** beside it, and **HOP** (right above GAS, so you slide up into a jump), **LEAN**, **WHEELIE** and
+    **HORN** round them.
+  - **Right thumb, on foot:** one big button named for what you can do right there (**STRAP** a tree, **DIG** the sled
+    out, **UNHOOK**, **HOOK ON**, **HELP UP**, **RIG ROPE**, **TIE BACK**...), **GET ON** at the sled, and **SIZE UP** /
+    **DOUBLE** when there's a job to size up. **REEL** appears while the winch is hooked.
+  - **Drag anywhere else** to look around; the view springs back when you let go.
+  - **TABLET** and **MORE** sit by the map (MORE: map, camera, reset, wings, full screen, settings). **GARAGE**,
+    **FISH** / **SHOP** / **SELL**, **WIPE VISOR** and **CALL HELP** turn up when they apply. The prompts on screen name
+    these buttons instead of keys.
+
+**Graphics and phones.** The game knows when it's on a phone or tablet (including iPads, which report themselves as
+Macs, and Firefox / Chrome / Edge on iPhone). Phones start on the low preset, desktops on high, and on **Graphics:
+auto** (the default) it then watches its own frame rate and steps the detail down (render scale, how often the sun's
+shadows are redrawn, shadow map size, how far trees are drawn) until the frame rate holds steady, and back up when
+there's room. If dropping a step doesn't help (an iPhone in Low Power Mode is capped at 30 fps, for one) it puts the
+detail back and holds instead of blurring the picture for nothing. **Settings > Graphics** can pin **high** or **low**
+instead, and **Frame rate: shown** puts a small readout at the top (fps, and the step it's on out of seven). Trees past
+the draw distance aren't drawn at all (that alone cut a frame from ~21 million triangles to ~2.6 million on phones),
+and the sun's shadows follow you and the sled (they used to be drawn once at the title and never again).
+
+**Full screen.** On Android, iPad and desktop browsers, **MORE > FULL SCREEN** (or Settings > Graphics) hides the
+browser, and on a phone launching from the title goes full screen by itself. iPhone browsers can't hide their bars
+(Safari, and Firefox / Chrome / Edge, which are Safari underneath), so on an iPhone add Tracklayer to your Home Screen
+(in Firefox: menu **≡** > **Share** > **Add to Home Screen**) and open it from the icon: it runs edge to edge with no
+browser bars. A card on the title screen says how until you tap **Got it**. In landscape the controls stay clear of
+the notch.
 
 The panel at the top left names where you are, on the sled or on foot: **Kjøllefjord** anywhere in town (the quay,
 the garage, the shore road), a village, cabin, home or school by name when you're in its yard, and otherwise the
@@ -438,4 +468,4 @@ the same save.
 
 ## Winch and recovery
 Low on the throttle in deep, unpacked snow and the track digs a bog. Get off (**Q**), wade to a tree or boulder, hook the winch (**E**) and reel (hold **Space**); the cable drags you to your anchor, not the other way round. The hand winch is short and slow, the electric winch reaches further, and the heavy-duty winch has a snatch block (**X**) to double the line. Stall it and the line sings; overload the anchor and it parts or the tree comes out. **F** only calls a rescue sled when you go through the ice or run dry.
-On a pad the on-foot action (hook, unhook, dig, help a casualty up, rig a tow) is a click of the **left stick** and reeling is the bottom face button; on touch an orange button appears over the scene wearing the verb (**DIG**, **HOOK**, **HELP UP**) whenever there is something to use. The hint line names the control for whatever you last touched.
+On a pad the on-foot action (hook, unhook, dig, help a casualty up, rig a tow) is a click of the **left stick** and reeling is the bottom face button; on touch a button by the right thumb wears the verb (**DIG**, **HOOK**, **HELP UP**) whenever there is something to use. The hint line names the control for whatever you last touched.

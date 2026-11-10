@@ -13,6 +13,9 @@ src, dst = (os.path.expanduser(a) for a in sys.argv[1:3])
 os.makedirs(dst, exist_ok=True)
 for f in ["index.html"] + sorted(f for f in os.listdir(src) if f.endswith(".js") and f != "tracklayer.js"):
     shutil.copy(os.path.join(src, f), dst)
+for f in ("manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"):   # Home Screen web app bits
+    if os.path.exists(os.path.join(src, f)):
+        shutil.copy(os.path.join(src, f), dst)
 if os.path.isdir(os.path.join(src, "vendor")):
     shutil.copytree(os.path.join(src, "vendor"), os.path.join(dst, "vendor"), dirs_exist_ok=True)
 s = open(os.path.join(src, "tracklayer.js")).read()

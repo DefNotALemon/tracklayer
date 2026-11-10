@@ -1,5 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;background:#0d1822;color-scheme:dark}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>Tracklayer</title>
+<!-- Home Screen web app: on iPhone (any browser) this is the only way to run full screen; see FS in tracklayer.js -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d1822">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tracklayer">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&family=Caveat:wght@600&display=swap">
@@ -230,32 +239,15 @@
   #blackMsg{max-width:44ch;text-align:center;font-size:18px;line-height:1.5;display:grid;gap:10px}
   #blackMsg b{font-family:var(--display);font-weight:900;font-size:44px;letter-spacing:.06em;color:var(--frost)}
   #blackMsg span{color:#ff8a6b}
+  /* frame-rate readout (Settings > Graphics) and the iPhone "Add to Home Screen" card */
+  #fps{left:50%;transform:translateX(-50%);top:calc(4px + env(safe-area-inset-top,0px));font:600 11px/1 var(--body);letter-spacing:.08em;color:var(--frost);background:rgba(13,24,34,.55);padding:3px 8px;border-radius:3px;z-index:6;white-space:nowrap}
+  #fsTip{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 28px));box-sizing:border-box;padding:12px 14px;display:grid;gap:6px;font-size:14px;line-height:1.4}
+  #fsTip>b{font-family:var(--display);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--signal);font-size:13px}
+  #fsTip>div{display:flex;gap:8px;justify-content:flex-end}
   /* touch controls: shown on coarse pointers (phones, tablets) or when forced on in settings */
   #touch{position:fixed;inset:0;z-index:3;pointer-events:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:var(--display)}
   #touch *{touch-action:none;-webkit-user-select:none;user-select:none}
   #touch.modal>*{display:none}
-  .tb{position:absolute;pointer-events:auto;display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;border:1px solid rgba(234,242,248,.28);background:rgba(13,24,34,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:var(--frost);font:inherit;font-weight:800;font-size:13px;letter-spacing:.12em;padding:0;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.3)}
-  .tb.on{background:var(--frost);color:var(--ink);border-color:var(--frost)}
-  #tGas{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:96px;height:96px;font-size:16px;background:rgba(255,90,31,.82);border-color:rgba(255,150,110,.5)}
-  #tGas.on{background:#ff7a45;color:#fff;border-color:#fff}
-  #tBrk{right:126px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:72px;height:72px}
-  #tHorn{right:210px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px}
-  #tHop{right:16px;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
-  #tLean{right:92px;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
-  #tWh{right:168px;bottom:calc(128px + env(safe-area-inset-bottom,0px));font-size:11px}
-  #tSteer{position:absolute;box-sizing:border-box;pointer-events:auto;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(224px,calc(46vw - 24px));height:72px;border-radius:36px;border:1px solid rgba(234,242,248,.28);background:rgba(13,24,34,.62);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:var(--slate);font-size:18px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
-  #tSteer i{position:absolute;top:7px;left:50%;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:rgba(234,242,248,.2);border:1px solid rgba(234,242,248,.4);will-change:transform}
-  #tSteer.on i{background:var(--frost)}
-  #tTop{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:16px;display:flex;gap:8px;pointer-events:auto}
-  #tTop .tb{position:static;width:46px;height:46px;border-radius:10px;font-size:12px}
-  #tE{left:50%;top:calc(80px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:auto;height:44px;padding:0 22px;border-radius:22px;background:var(--signal);border-color:rgba(255,150,110,.5);color:#fff;font-size:14px}
-  #tE.on{background:#ff7a45}
-  #tWing.lit{background:#e0a820;color:#1a1400;border-color:rgba(255,220,120,.6)}
-  #tQ{left:16px;bottom:calc(100px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px}
-  #tX{left:120px;bottom:calc(100px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px}
-  #tF{left:16px;bottom:calc(160px + env(safe-area-inset-bottom,0px));width:auto;height:52px;padding:0 16px;border-radius:26px;font-size:12px;background:var(--signal);border-color:rgba(255,150,110,.5);color:#fff}
-  #tWipe{right:16px;bottom:calc(204px + env(safe-area-inset-bottom,0px));width:72px;height:72px;font-size:12px;background:rgba(127,200,224,.82);color:var(--ink);border-color:rgba(234,242,248,.55)}
-  #tReel{right:244px;bottom:calc(128px + env(safe-area-inset-bottom,0px));width:72px;height:72px;background:rgba(127,200,224,.8);color:var(--ink)}
   #wnHud{left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:10px 16px;text-align:center;font-family:var(--display);font-weight:700;letter-spacing:.06em;font-size:15px;max-width:min(560px,calc(100% - 32px))}
   #wnHud.tense{border-color:var(--signal)}
   #wnGauge{margin-top:8px;display:grid;gap:4px;font-size:13px;color:var(--slate)}
@@ -274,9 +266,7 @@
   @media (orientation:landscape){body.touch #speedo{left:calc(28px + min(224px,calc(46vw - 24px)))}}
   @media (orientation:portrait){body.touch #speedo{bottom:calc(212px + env(safe-area-inset-bottom,0px))}}
   @media (max-width:640px) and (orientation:portrait){
-    body.touch #tTop{top:calc(194px + env(safe-area-inset-top,0px))}
     body.touch #job{top:calc(250px + env(safe-area-inset-top,0px))}
-    body.touch #tE{top:calc(318px + env(safe-area-inset-top,0px))}
     body.touch #toasts{top:calc(372px + env(safe-area-inset-top,0px))}
   }
   @media (max-width:640px){
@@ -289,18 +279,6 @@
   }
   /* phones (touch + small screen): shrink the HUD and the touch pads so more of the snow shows */
   @media (max-width:640px),(max-height:500px){
-    body.touch .tb{width:52px;height:52px;font-size:11px}
-    body.touch #tGas{width:76px;height:76px;font-size:13px}
-    body.touch #tBrk{right:100px;width:58px;height:58px}
-    body.touch #tHorn{right:164px;font-size:10px;width:max(38px,min(52px,calc(58vw - 162px)));height:max(38px,min(52px,calc(58vw - 162px)))}   /* shrinks a little on 360px-wide phones so it keeps clear of the steer pad */
-    body.touch #tHop,body.touch #tLean,body.touch #tWh{bottom:calc(102px + env(safe-area-inset-bottom,0px))}
-    body.touch #tLean{right:76px}
-    body.touch #tWh{right:136px;font-size:9px}
-    body.touch #tSteer{width:min(180px,calc(42vw - 24px));height:58px;border-radius:29px;padding:0 12px;font-size:14px}
-    body.touch #tSteer i{top:6px;width:44px;height:44px;margin-left:-22px}
-    body.touch #tTop{gap:6px}
-    body.touch #tTop .tb{width:38px;height:38px;border-radius:8px;font-size:10px}
-    body.touch #tE{top:calc(64px + env(safe-area-inset-top,0px));height:36px;padding:0 16px;font-size:12px}
     body.touch #zone{padding:6px 10px}
     body.touch #zone .brand{font-size:10px}
     body.touch #zone .name{font-size:15px}
@@ -330,9 +308,7 @@
   }
   @media (max-width:640px) and (orientation:portrait){
     body.touch #speedo{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
-    body.touch #tTop{top:calc(164px + env(safe-area-inset-top,0px))}
     body.touch #job{top:calc(212px + env(safe-area-inset-top,0px))}
-    body.touch #tE{top:calc(262px + env(safe-area-inset-top,0px))}
     body.touch #toasts{top:calc(306px + env(safe-area-inset-top,0px))}
   }
   /* ==== ONE THEME (smooth): night-ink glass, one typeface (Barlow Semi Condensed), soft corners, eased motion ====
@@ -418,8 +394,6 @@
   .pill{border-radius:999px}
   .gauge .bar,#drag{border-radius:999px}
   #fuelFill,#warmFill,#heatFill,#dragFill{border-radius:999px;transition:width .35s var(--ease),background-color .3s}
-  .tb{transition:background-color .15s,transform .12s var(--ease)}
-  .tb.on{transform:scale(.94)}
   @media (orientation:landscape) and (max-height:500px){.ti .ts{font-size:calc(19px*var(--ts))}.tpanel .pt{font-size:26px}}
   @media (max-height:520px){.btitle{font-size:26px}.bti{font-size:28px}}
   @media (prefers-reduced-motion:reduce){#settings,#garage,#god,#bSheet,.tpanel,#board{animation:none!important}}
@@ -767,10 +741,138 @@
   body.tabOn #tut{opacity:.16}
   #garage .row.tutRow{border:1px solid var(--signal);box-shadow:0 0 0 1px var(--signal) inset}
   @media (max-width:640px){#tut{width:min(250px,calc(100% - 32px));padding:7px 10px 9px}#tut .tuTitle{font-size:15px}#tut .tuBody{font-size:11.5px}}
+
+  /* ==== touch controls: the mobile scheme (markup: #touch; behaviour: "touch controls" in tracklayer.js) ====
+     Dark glass with thin frost rings and line icons; whatever the thumb is on lights signal orange. The left thumb's
+     stick floats (it sits faded at its rest spot until a thumb lands anywhere in the lower left). The right thumb has
+     the pedals and the riding buttons arced round them, or on foot one big button that says what it will do.
+     Positions are from the corners of #touch, which is already inset by the safe area (the notch, in landscape). */
+  #touch{left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);--tcI:rgba(10,18,26,.5);--tcR:rgba(234,242,248,.4);--sb:env(safe-area-inset-bottom,0px);--st:env(safe-area-inset-top,0px)}
+  #touch .tc,#touch .pedal{position:absolute;pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    margin:0;padding:0;border:1.5px solid var(--tcR);background:var(--tcI);color:var(--frost);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+    font:800 11px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.28);transition:background-color .12s,border-color .12s,transform .1s}
+  #touch .tc svg,#touch .pedal svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #touch .tc small{font:700 7.5px/1 var(--display);letter-spacing:.14em;opacity:.85}
+  #touch .on{background:rgba(255,90,31,.88)!important;border-color:#ffb08f!important;color:#fff;transform:scale(.95)}
+  #touch.modal>*{display:none}
+  /* the stick */
+  #tcStick{position:absolute;width:112px;height:112px;left:24px;bottom:calc(24px + var(--sb));pointer-events:none;transition:opacity .2s}
+  #tcStick .ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--tcR);background:radial-gradient(circle,rgba(10,18,26,.15) 40%,rgba(10,18,26,.5));
+    box-shadow:inset 0 0 0 9px rgba(234,242,248,.05),0 4px 14px rgba(0,0,0,.25);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  #tcStick .ring::before{content:"";position:absolute;inset:-6px;border-radius:50%;border:1px dashed rgba(234,242,248,.18)}
+  #tcStick .knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(234,242,248,.9);box-shadow:0 3px 10px rgba(0,0,0,.35)}
+  #tcStick .cap{position:absolute;left:-20px;right:-20px;top:calc(100% + 6px);text-align:center;font:700 8px/1 var(--display);letter-spacing:.18em;color:var(--frost);opacity:.7}
+  #tcStick.rest{opacity:.45} #tcStick.rest .knob{background:rgba(234,242,248,.55)}
+  #tcStick.live .cap{opacity:0}
+  #tcStick.jog .ring{border-color:var(--signal);box-shadow:inset 0 0 0 9px rgba(255,90,31,.18),0 0 18px rgba(255,90,31,.35)}
+  #tcStick.jog .knob{background:var(--signal)}
+  /* top: tablet + the sheet */
+  #tcSys{position:absolute;display:flex;gap:8px;pointer-events:none}
+  #tcSys .tc{position:static;width:44px;height:44px;border-radius:12px}
+  #tcSys .tc svg{width:18px;height:18px}
+  #tcSheet{position:absolute;pointer-events:auto;display:grid;grid-template-columns:repeat(3,72px);gap:8px;padding:10px;z-index:2}
+  #tcSheet .tc{position:static;height:64px;border-radius:12px;gap:5px}
+  #tcSheet .tc small{font-size:8px}
+  #tcWing.lit{background:#e0a820;color:#1a1400;border-color:rgba(255,220,120,.6)}
+  /* pills: contextual, a word or two */
+  #touch .pill{height:40px;padding:0 16px;border-radius:20px;font-size:11.5px;white-space:nowrap}
+  #touch .pill.ctx{background:rgba(127,200,224,.88);color:var(--ink);border-color:rgba(234,242,248,.7)}
+  #touch .pill.warn{background:rgba(255,90,31,.9);border-color:#ffb08f}
+  #tcE{right:16px;bottom:calc(236px + var(--sb))}
+  #tcQ{left:24px;bottom:calc(168px + var(--sb))}
+  #tcWipe{left:24px;bottom:calc(216px + var(--sb))}
+  #tcF{left:24px;bottom:calc(264px + var(--sb))}
+  /* riding: pedals and the arc */
+  #tcRide,#tcFoot{position:absolute;inset:0;pointer-events:none}
+  #touch.foot #tcRide,#touch.ride #tcFoot{display:none}
+  #touch #tcGas{right:16px;bottom:calc(16px + var(--sb));width:72px;height:120px;border-radius:22px 22px 18px 18px;overflow:hidden;justify-content:flex-start;padding-top:14px;gap:4px;
+    border-color:rgba(255,160,120,.7);background:linear-gradient(rgba(255,90,31,.32),rgba(255,90,31,.55))}
+  #touch #tcGas .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:rgba(255,90,31,.9);transition:height .06s}
+  #tcGas svg,#tcGas span{position:relative}
+  #tcGas span,#tcBrk span{font-size:11px;letter-spacing:.16em}
+  #touch #tcGas.on{transform:none;background:linear-gradient(rgba(255,90,31,.32),rgba(255,90,31,.55))!important}
+  #tcBrk{right:98px;bottom:calc(16px + var(--sb));width:60px;height:84px;border-radius:16px}
+  #touch .chip{width:46px;height:46px;border-radius:50%}
+  #touch .chip.txt{width:auto;min-width:56px;height:46px;padding:0 12px;border-radius:23px;font-size:10px;white-space:nowrap}
+  #tcHop{right:29px;bottom:calc(142px + var(--sb))}
+  #tcLean{right:105px;bottom:calc(109px + var(--sb))}
+  #tcWh{right:173px;bottom:calc(17px + var(--sb))}
+  #tcHorn{right:173px;bottom:calc(81px + var(--sb))}
+  #touch.ride #tcReel{right:181px;bottom:calc(145px + var(--sb))}
+  /* on foot: one big button that says what it'll do */
+  #touch #tcUse{right:16px;bottom:calc(24px + var(--sb));width:84px;height:84px;border-radius:50%;font-size:12px;letter-spacing:.1em;text-align:center;line-height:1.1;padding:0 6px;
+    background:rgba(255,90,31,.85);border-color:#ffb08f}
+  #tcOn{right:112px;bottom:calc(24px + var(--sb))}
+  #tcX{right:22px;bottom:calc(122px + var(--sb))}
+  #touch.foot #tcReel{right:112px;bottom:calc(84px + var(--sb))}
+  #touch.foot #tcQ{display:none}
+  /* the HUD round them, all touch screens */
+  body.touch #speedo{left:calc(152px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));margin-left:0}
+  body.touch #tcSys{top:calc(16px + var(--st));right:calc(16px + var(--mapW,168px) + 8px)}
+  body.touch #tcSheet{top:calc(68px + var(--st));right:calc(16px + var(--mapW,168px) + 8px)}
+  body.touch #mapWrap{top:calc(16px + env(safe-area-inset-top,0px));bottom:auto}
+
+  /* phones, portrait: clock top left, map top right, TABLET / MORE under the map, then the job bar, the tutorial card
+     and the toasts down the left; the speedo sits above the stick. --tutB is the tutorial card's bottom edge (0 when
+     hidden; tutEdge in tracklayer.js) so the toasts hang under it rather than on it. */
+  @media (max-width:640px) and (orientation:portrait){
+    body.touch{--ph-top:calc(143px + env(safe-area-inset-top,0px))}
+    body.touch #zone{top:calc(12px + env(safe-area-inset-top,0px));left:12px}
+    body.touch #mapWrap{top:calc(12px + env(safe-area-inset-top,0px));right:12px}
+    body.touch #tcSys{top:var(--ph-top);right:12px}
+    body.touch #tcSheet{top:calc(var(--ph-top) + 52px);right:12px}
+    body.touch #job{top:var(--ph-top);left:12px;right:120px;transform:none;max-width:none}
+    body.touch #tut{top:calc(var(--ph-top) + 58px)!important;left:12px!important;right:12px;width:auto}
+    body.touch #toasts{top:max(calc(var(--ph-top) + 58px), calc(var(--tutB,0px) + 8px));left:12px;right:12px;width:auto;transform:none;justify-items:start}
+    body.touch #speedo{left:12px;bottom:calc(196px + env(safe-area-inset-bottom,0px))}
+    body.touch #tcQ{bottom:calc(150px + var(--sb))}
+    body.touch #tcWipe{left:auto;right:16px;bottom:calc(284px + var(--sb))}
+    body.touch #tcF{left:auto;right:16px;bottom:calc(332px + var(--sb))}
+  }
+  @media (max-width:640px) and (max-height:600px) and (orientation:portrait){        /* SE-size: a tighter card */
+    body.touch #tut{padding:6px 9px 7px;gap:2px}
+    body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    body.touch #speedo{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
+    body.touch #tcQ{left:auto;right:16px;bottom:calc(236px + var(--sb))}
+  }
+  /* phones, landscape: map top right with TABLET / MORE beside it, job bar and tutorial card top centre between the
+     clock and the map, the speedo between the stick and the pedals, GARAGE etc. bottom centre. */
+  @media (max-height:500px) and (orientation:landscape){
+    body.touch #map{width:72px;height:72px}
+    body.touch #job{max-width:min(420px,calc(100% - 2 * (24px + var(--mapW,128px) + 104px)))}
+    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;left:50%!important;transform:translateX(-50%);width:min(340px,calc(100% - 400px))}
+    body.touch #tut.pop{animation:none}
+    body.touch #tut .tuBody{font-size:11px;line-height:1.35}
+    body.touch #toasts{top:max(calc(74px + env(safe-area-inset-top,0px)), calc(var(--tutB,0px) + 8px));width:min(360px,calc(100% - 400px))}
+    body.touch #tcE{right:auto;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sb))}
+    body.touch #tcE.on{transform:translateX(-50%) scale(.95)}
+    body.touch #tcQ{bottom:calc(152px + var(--sb))}
+    body.touch #tcWipe{bottom:calc(198px + var(--sb))}
+    body.touch #tcF{left:auto;right:240px;bottom:calc(16px + var(--sb))}
+    body.touch #touch #tcGas{height:104px} body.touch #tcHop{bottom:calc(126px + var(--sb))}
+  }
+  @media (max-height:330px) and (orientation:landscape){       /* SE-size landscape under the browser bar */
+    body.touch #map{width:52px;height:52px}
+    body.touch #tcStick{width:96px;height:96px;bottom:calc(16px + var(--sb))}
+    body.touch #speedo{left:calc(130px + env(safe-area-inset-left,0px))}
+    body.touch #tcQ{bottom:calc(128px + var(--sb))}
+    body.touch #tcWipe{bottom:calc(174px + var(--sb))}
+    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;width:min(340px,calc(100% - 420px));padding:5px 10px 6px;gap:1px}
+    body.touch #tut .tuTitle{font-size:14px}
+    body.touch #tcE{left:calc(50% + 30px)}
+    body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  }
+  /* the notch and rounded corners: in landscape an iPhone's safe area is ~47 px in from each side */
+  #zone,#speedo,#srHint{margin-left:env(safe-area-inset-left,0px)}
+  #mapWrap,#help{margin-right:env(safe-area-inset-right,0px)}
+  #fps{font-size:10px;padding:1px 6px;top:env(safe-area-inset-top,0px)}
+
   </style>
 
 <canvas id="gl"></canvas>
 
+<div class="hud" id="fps" hidden></div>
+<div class="panel" id="fsTip" hidden><b>Play full screen</b><span>iPhone browsers can't hide their bars, but Tracklayer runs edge to edge from your Home Screen. <span id="fsHow"></span> Then open it from the new icon.</span><div><button class="sbtn" id="fsOk">Got it</button><button class="sbtn" id="fsLater">Later</button></div></div>
 <div class="hud panel" id="zone" hidden>
   <div class="brand">TRACKLAYER</div>
   <div class="cal" id="cal"><span class="cdate"><b id="calDate">SUN 1 NOV</b> <i id="calYear">2026</i></span><span class="ctime" id="calTime">09:36</span></div>
@@ -842,6 +944,8 @@
   <div class="setrow"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="100" value="35"><button id="muteBtn" class="sbtn">Sound: on</button></div>
   <div class="bsec">Camera</div>
   <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
+  <div class="bsec">Graphics</div>
+  <div class="setrow"><button id="gfxBtn" class="sbtn">Graphics: auto</button><button id="fpsBtn" class="sbtn">Frame rate: hidden</button><button id="fsBtn" class="sbtn" hidden>Full screen</button><span class="hint" id="gfxHint">auto lowers the detail by itself until the frame rate holds steady</span></div>
   <div class="bsec">Controls</div>
   <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">God menu</button><button id="tutSkip" class="sbtn" hidden>Skip tutorial</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
   <div class="bsec" id="optSec" hidden>Options</div>
@@ -902,28 +1006,41 @@
   <div id="wnGauge" hidden><div class="wnbar"><i id="wnTens"></i></div><span id="wnRead"></span></div>
 </div>
 
-<div id="touch" hidden>
-  <div id="tTop">
-    <button class="tb" data-k="menu" aria-label="Settings">≡</button>
-    <button class="tb" data-k="map">MAP</button>
-    <button class="tb" data-k="tablet" aria-label="Dash tablet">TABLET</button>
-    <button class="tb" data-k="view">CAM</button>
-    <button class="tb" data-k="reset" aria-label="Reset sled">↺</button>
-    <button class="tb" id="tWing" data-k="wings" hidden>WINGS</button>
+<!-- touch controls (phones and tablets). A stick appears wherever the left thumb lands (steer on the sled; walk, turn
+     and jog on foot), the right thumb gets pedals and action buttons for riding, or one big context button on foot;
+     a drag anywhere else looks around. Built and kept up to date by the "touch controls" block in tracklayer.js. -->
+<div id="touch" class="ride" hidden>
+  <div id="tcStick" class="rest"><div class="ring"><i class="knob"></i></div><span class="cap" id="tcStickCap">STEER</span></div>
+  <div id="tcSys">
+    <button class="tc sys" id="tcTablet" data-k="tablet" aria-label="Dash tablet"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="13" rx="2"/><path d="M9 21h6"/></svg><small>TABLET</small></button>
+    <button class="tc sys" id="tcMenu" data-k="sheet" aria-label="More"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg><small>MORE</small></button>
   </div>
-  <button class="tb" id="tE" data-k="garage" hidden>GARAGE</button>
-  <button class="tb" id="tQ" data-k="q" hidden>GET OFF</button>
-  <button class="tb" id="tX" data-k="x" hidden>DOUBLE</button>
-  <button class="tb" id="tF" data-k="help" hidden>HELP</button>
-  <button class="tb" id="tReel" data-k="reel" hidden>REEL</button>
-  <button class="tb" id="tWipe" data-k="wipe" hidden>WIPE</button>
-  <div id="tSteer"><span>◀</span><i></i><span>▶</span></div>
-  <button class="tb" id="tWh" data-k="wh">WHEELIE</button>
-  <button class="tb" id="tLean" data-k="lean">LEAN</button>
-  <button class="tb" id="tHop" data-k="hop">HOP</button>
-  <button class="tb" id="tBrk" data-k="brake">BRAKE</button>
-  <button class="tb" id="tHorn" data-k="horn">HORN</button>
-  <button class="tb" id="tGas" data-k="gas">GAS</button>
+  <div id="tcSheet" class="panel" hidden>
+    <button class="tc tile" data-k="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><small>MAP</small></button>
+    <button class="tc tile" data-k="view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg><small>CAMERA</small></button>
+    <button class="tc tile" data-k="reset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2-5"/><path d="M5 3v4h4"/></svg><small>RESET SLED</small></button>
+    <button class="tc tile" id="tcWing" data-k="wings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15l5-5 4 3 4-3 5 5"/><path d="M12 13v7"/></svg><small>WINGS</small></button>
+    <button class="tc tile" id="tcFull" data-k="full" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><small>FULL SCREEN</small></button>
+    <button class="tc tile" data-k="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg><small>SETTINGS</small></button>
+  </div>
+  <button class="tc pill" id="tcQ" data-k="q" hidden>GET OFF</button>
+  <button class="tc pill" id="tcWipe" data-k="wipe" hidden>WIPE VISOR</button>
+  <button class="tc pill warn" id="tcF" data-k="help" hidden>CALL HELP</button>
+  <button class="tc pill ctx" id="tcE" data-k="garage" hidden>GARAGE</button>
+  <div id="tcRide">
+    <div class="pedal" id="tcGas" data-k="gas"><b class="fill"></b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5M7 19l5-5 5 5"/></svg><span>GAS</span></div>
+    <div class="pedal" id="tcBrk" data-k="brake"><span>BRAKE</span></div>
+    <button class="tc chip" id="tcHop" data-k="hop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19c3-9 13-9 16 0"/><path d="M12 4v8M8.5 7.5 12 4l3.5 3.5"/></svg><small>HOP</small></button>
+    <button class="tc chip" id="tcLean" data-k="lean"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="15" cy="5" r="2"/><path d="M14 8l-4 6 4 2-2 5M10 14l-4 2"/></svg><small>LEAN</small></button>
+    <button class="tc chip" id="tcWh" data-k="wh"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="16" r="3"/><path d="M10 15l9-8M15 7h4v4"/></svg><small>WHEELIE</small></button>
+    <button class="tc chip" id="tcHorn" data-k="horn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg><small>HORN</small></button>
+  </div>
+  <div id="tcFoot">
+    <button class="tc act" id="tcUse" data-k="use" hidden>USE</button>
+    <button class="tc chip txt" id="tcOn" data-k="q" hidden>GET ON</button>
+    <button class="tc chip txt" id="tcX" data-k="x" hidden>SIZE UP</button>
+  </div>
+  <button class="tc chip txt" id="tcReel" data-k="reel" hidden>REEL</button>
 </div>
 
 <div id="title" class="boot">
@@ -950,5 +1067,5 @@
 <script src="icefish.js?v=39"></script>
 <script src="tlx.js?v=2"></script>
 <script src="tlx-vehicles.js?v=1"></script>
-<script src="tracklayer.js?v=171"></script>
+<script src="tracklayer.js?v=172"></script>
 </body></html>

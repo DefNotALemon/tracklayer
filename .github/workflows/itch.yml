@@ -38,6 +38,7 @@ jobs:
           # plus vendor/ if there is one. Fails the run if index.html names a script that isn't in the build.
           mkdir build
           cp index.html ./*.js build/
+          cp manifest.webmanifest icon-180.png icon-192.png icon-512.png build/
           if [ -d vendor ]; then cp -R vendor build/; fi
           for f in $(grep -o '<script src="[^"]*"' index.html | sed 's/<script src="//; s/"$//; s/?.*$//' | grep -v '^https\?:'); do
             [ -f "build/$f" ] || { echo "::error::index.html loads $f but it is not in the build"; exit 1; }

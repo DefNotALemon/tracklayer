@@ -28,7 +28,7 @@ await ev(`tutSkip(); true`); await sleep(600);
 await ev(`crashCancel(); FOOT.on = false; true`);
 
 // ---- 1. no pickup owned: the sled is untouched
-let s = await J(`({ cur: !!VEH.cur, owned: TLX.state("vehicles").owned.length, tabs: VEH.tabs.map(t => t.name), board: VEH.board, tq: $("tQ").hidden })`);
+let s = await J(`({ cur: !!VEH.cur, owned: TLX.state("vehicles").owned.length, tabs: VEH.tabs.map(t => t.name), board: VEH.board, tq: $("tcQ").hidden })`);
 ok(!s.cur && s.owned === 0 && s.board === "get on the sled", "no pickup owned: the sled is the vehicle and nothing is parked");
 ok(s.tabs.includes("Trucks"), "the garage has a Trucks tab");
 console.log("parked", JSON.stringify(await park()));
@@ -211,14 +211,15 @@ await padSet({ 4: 1 }); await sleep(250); await padSet(); await sleep(400);
 ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 10), "pad: LB gets in");
 await padOff(); await sleep(300);
 await ev(`SET.touch = "on"; setTouchUI(); INP.dev = "touch"; true`); await sleep(700);
-const tap1 = `(() => { const b = $("tQ"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, pointerType: "touch" })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch" })); return 1; })()`;
-s = await J(`({ hidden: $("tQ").hidden, label: $("tQ").textContent })`);
+const tapB = id => `(() => { const b = $("${id}"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, pointerType: "touch" })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch" })); return 1; })()`;
+const tap1 = tapB("tcQ"), tap2 = tapB("tcOn");
+s = await J(`({ hidden: $("tcQ").hidden, label: $("tcQ").textContent })`);
 ok(!s.hidden && s.label === "GET OFF", "touch: in the truck the GET OFF button is there");
 await ev(tap1); ok(await waitUntil("!DMT.on && FOOT.on", 10), "touch: GET OFF gets out");
 await sleep(600);
-s = await J(`({ label: $("tQ").textContent, hint: $("wnHint").textContent })`);
+s = await J(`({ label: $("tcOn").textContent, hint: $("wnHint").textContent })`);
 ok(s.label === "GET ON" && /tap GET ON/.test(s.hint), "touch: on foot it reads GET ON and the hint says tap GET ON: " + s.hint);
-await ev(tap1); ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 10), "touch: GET ON gets in");
+await ev(tap2); ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 10), "touch: GET ON gets in");
 
 console.log(fails ? `${fails} FAILED` : "all passed");
 await done(fails ? 1 : 0);

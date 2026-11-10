@@ -371,17 +371,31 @@ const smoothRide = (x, z) => { const s = smoothSurf(x, z), w = wlvAt(x, z); retu
 
 /* ---------------- three.js setup ---------------- */
 const canvas = $("gl");
-// Graphics profile. Phones and tablets get "low" unless Settings says otherwise: no MSAA, a smaller
-// hard-edged shadow map drawn every other frame, shorter tree and terrain draw distance behind a
-// touch more fog, and a render scale that drops on its own when the frame rate does.
+// Graphics profile. Phones and tablets start on "low" (no MSAA, a smaller hard-edged shadow map, shorter tree and
+// terrain draw distance behind a touch more fog); desktops on "high". On "auto" (the default) the frame-rate
+// governor (QG, below) then walks the live knobs (render scale, how often the sun's shadows are redrawn, shadow
+// map size, tree distance) down until the frame rate holds, and back up when there is room. Settings > Graphics
+// can pin High or Low instead (no governor); ?gfx=low / ?gfx=high in the URL does the same for one load.
 const GFX = (() => {
   let pick = "auto"; try { pick = (JSON.parse(localStorage.getItem("tracklayer.set.v1") || "{}").gfx) || "auto"; } catch (e) { }
-  const touchy = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || navigator.maxTouchPoints > 1;
-  const q = /[?&]gfx=low\b/.test(location.search) ? "low" : /[?&]gfx=high\b/.test(location.search) ? "high" : pick === "auto" ? (touchy ? "low" : "high") : pick;
-  const low = q === "low", dpr = window.devicePixelRatio || 1;
-  return { pick, low, prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: low ? 0.55 : 0.75, pr: Math.min(dpr, low ? 1 : 1.5),
-    treeR: low ? 750 : 1700, farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
+  const ua = navigator.userAgent || "", coarseP = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
+  // iPadOS reports a Mac, so a "Mac" with a multi-touch screen is an iPad. Firefox (FxiOS), Chrome (CriOS) and Edge
+  // (EdgiOS) on iOS are all WebKit underneath and share Safari's limits (no element fullscreen, 30 fps in Low Power Mode).
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const mobile = ios || /Android|Mobi|Silk|Kindle|PlayBook|BlackBerry|Opera Mini/i.test(ua) || (coarseP && navigator.maxTouchPoints > 0);
+  const phone = mobile && Math.min(screen.width, screen.height) < 600;
+  const standalone = !!((window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches)) || navigator.standalone);
+  const url = /[?&]gfx=(low|high)\b/.exec(location.search), q = url ? url[1] : pick === "auto" ? (mobile ? "low" : "high") : pick;
+  const low = q === "low", dpr = window.devicePixelRatio || 1, auto = !url && pick === "auto";
+  return { pick, auto, low, mobile, phone, ios, standalone, dpr,
+    prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: low ? 0.55 : 0.75, pr: Math.min(dpr, low ? 1 : 1.5),
+    treeR0: low ? 750 : 1900, treeR: low ? 750 : 1900, shMap0: low ? 1024 : 2048,
+    farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
 })();
+document.documentElement.classList.toggle("mobile", GFX.mobile);
+document.documentElement.classList.toggle("phone", GFX.phone);
+document.documentElement.classList.toggle("ios", GFX.ios);
+document.documentElement.classList.toggle("standalone", GFX.standalone);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX.low, powerPreference: "high-performance" });
 renderer.setPixelRatio(GFX.pr);
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -390,6 +404,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = GFX.low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+// The sun's shadow map is redrawn by hand, every GFX.shadowEvery frames (frame() asks). It used to be drawn once at
+// boot and never again (autoUpdate off, nothing ever set needsUpdate), so shadows stayed frozen where the title was.
 renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
@@ -403,7 +419,7 @@ const sunDir = new THREE.Vector3(-0.55, 0.3, 0.78).normalize();
 const hemi = new THREE.HemisphereLight(0xbcd4ec, 0xe9eef5, 0.62); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffd6ae, 1.75);
 sun.castShadow = true;
-sun.shadow.mapSize.set(GFX.low ? 1024 : 2048, GFX.low ? 1024 : 2048);
+sun.shadow.mapSize.set(GFX.shMap0, GFX.shMap0);
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 500 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
@@ -701,7 +717,7 @@ function markTrail(x, z, faint) {
 }
 
 /* ---------------- boot ---------------- */
-let far, capMesh, treeMesh, pineCells = [], cargoMesh = null, started = false, ready = false;
+let far, pineCells = [], birchCells = [], cargoMesh = null, started = false, ready = false;
 let FISH = null, FISHSITES = {};                                       // ice fishing (icefish.js) and where its shop and buyer stand
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
@@ -978,14 +994,15 @@ function buildPines(birch) {
   }
   window.PINE_COUNT = pines.length;
 }
-// pines past the fog are hidden outright, not just culled by the frustum
+// tree cells past the draw distance are hidden outright, not just culled by the frustum. GFX.treeR is the
+// preset's distance, pulled in further by the frame-rate governor when a phone is struggling.
 let _pineT = 0;
 function pineCull(dt) {
-  if ((_pineT -= dt) > 0 || !pineCells.length) return; _pineT = 0.5;
-  const R = 1900, cx = camera.position.x, cz = camera.position.z;
-  for (const c of pineCells) { const on = Math.hypot(c.x - cx, c.z - cz) < R + 400; c.tm.visible = c.cap.visible = on; }
+  if ((_pineT -= dt) > 0 || !(pineCells.length + birchCells.length)) return; _pineT = 0.5;
+  const R = GFX.treeR + 400, cx = camera.position.x, cz = camera.position.z;
+  for (const cells of [pineCells, birchCells]) for (const c of cells) { const on = Math.hypot(c.x - cx, c.z - cz) < R; c.tm.visible = c.cap.visible = on; }
 }
-const trunkOf = o => o.pine ? pineCells[o.cell].tm : treeMesh, capOf = o => o.pine ? pineCells[o.cell].cap : capMesh;
+const trunkOf = o => (o.pine ? pineCells : birchCells)[o.cell].tm, capOf = o => (o.pine ? pineCells : birchCells)[o.cell].cap;
 function buildProps() {
   const rnd = mulberry32(90210);
   // mountain birch: a pale crooked trunk, a handful of bare limbs, and snow lying along the tops of them
@@ -1019,17 +1036,32 @@ function buildProps() {
     if (nearSite(x, z, 24)) continue;
     trees.push([x, z, 0.7 + rnd() * 0.7]);
   }
-  const tm = treeMesh = new THREE.InstancedMesh(treeGeo, breezeMat(), trees.length);
-  capMesh = new THREE.InstancedMesh(capGeo, breezeMat(true), trees.length);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
-  trees.forEach(([x, z, s], i) => {
+  // Birches live in 512 m cells like the pines, so cells out past the tree draw distance (GFX.treeR) aren't drawn
+  // at all. They used to be one 25k-instance mesh drawn at every distance: ~18M triangles a frame, nearly all of them
+  // lost in the fog, and the main reason phones crawled. rnd() is still called per tree in the original order, so the
+  // yaws, tints and the rocks placed after this land exactly where they always did.
+  const NC = Math.ceil(WORLD / PINE_CELL), byCell = new Map(), trunkMat = breezeMat(), capMat = breezeMat(true);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  for (const [x, z, s] of trees) {
     const yaw = rnd() * 6.28, sy = s * (0.85 + rnd() * 0.35); q.setFromAxisAngle(up, yaw); sc.set(s, sy, s); p.set(x, groundAt(x, z) - 0.25, z);
-    m4.compose(p, q, sc); tm.setMatrixAt(i, m4); capMesh.setMatrixAt(i, m4);
-    const v = 0.85 + rnd() * 0.25; c.setRGB(v, v * (0.95 + rnd() * 0.1), v); tm.setColorAt(i, c);
-    addOb({ x, z, r: 0.3 * s, top: 1e9, tree: i, s, sy, yaw, y: p.y, snowy: true, wob: null });
-  });
-  tm.castShadow = true; scene.add(tm);
-  capMesh.castShadow = true; scene.add(capMesh);
+    const v = 0.85 + rnd() * 0.25, g = v * (0.95 + rnd() * 0.1);
+    const k = Math.floor((z + HALF) / PINE_CELL) * NC + Math.floor((x + HALF) / PINE_CELL);
+    let cell = byCell.get(k); if (!cell) byCell.set(k, cell = { ci: birchCells.length + byCell.size, list: [] });
+    cell.list.push({ x, z, y: p.y, m: m4.compose(p, q, sc).clone(), c: [v, g, v] });
+    addOb({ x, z, r: 0.3 * s, top: 1e9, tree: cell.list.length - 1, cell: cell.ci, s, sy, yaw, y: p.y, snowy: true, wob: null });
+  }
+  const col = new THREE.Color();
+  for (const { list } of byCell.values()) {
+    let cx = 0, cz = 0, lo = 1e9, hi = -1e9, r = 0;
+    for (const t of list) { cx += t.x; cz += t.z; lo = Math.min(lo, t.y); hi = Math.max(hi, t.y); } cx /= list.length; cz /= list.length;
+    for (const t of list) r = Math.max(r, Math.hypot(t.x - cx, t.z - cz));
+    const bs = new THREE.Sphere(new THREE.Vector3(cx, (lo + hi) / 2 + 3, cz), Math.hypot(r + 3, (hi - lo) / 2 + 8));
+    const share = gm => { const c = new THREE.BufferGeometry(); for (const a in gm.attributes) c.setAttribute(a, gm.attributes[a]); c.boundingSphere = bs; return c; };
+    const tm = new THREE.InstancedMesh(share(treeGeo), trunkMat, list.length), cap = new THREE.InstancedMesh(share(capGeo), capMat, list.length);
+    list.forEach((t, i) => { tm.setMatrixAt(i, t.m); cap.setMatrixAt(i, t.m); tm.setColorAt(i, col.setRGB(t.c[0], t.c[1], t.c[2])); });
+    tm.castShadow = cap.castShadow = true; scene.add(tm, cap);
+    birchCells.push({ tm, cap, x: cx, z: cz });
+  }
   buildPines(trees);
   WELLS_ON = true;                                                     // pines are in obGrid: freshBase digs their tree wells
 
@@ -2354,80 +2386,173 @@ function phantomPad(gp) {
 let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false;
 
 /* ---------------- touch controls ---------------- */
-// Steer pad under the left thumb, gas / brake / hop / lean / wheelie under the right, a
-// contextual button at the top for the board and garage. Pointer events with capture, so
-// a thumb can slide off a button without dropping it and two thumbs work at once.
-const TC = { thr: 0, brk: 0, lean: 0, wh: 0, reel: 0, steer: 0, active: false, on: false };
+// The mobile scheme (markup #touch in index.html, styles under "touch controls: the mobile scheme").
+//  Left thumb: a stick that appears where the thumb lands in the lower left. On the sled it steers; on foot it walks
+//    (up = walk, down = back, sideways = turn, out to the rim = jog).
+//  Right thumb, riding: GAS pedal (analog: the higher up it's pressed, the more throttle, 50 → 100 %), BRAKE beside it,
+//    HOP / LEAN / WHEELIE / HORN arced round them. On foot: one big button named for what E would do right now (STRAP,
+//    DIG, UNHOOK, HELP UP...), GET ON at the sled, SIZE UP when X has something to say. Those come from the on-foot
+//    hint line (wnPrompt), so they follow the same rules as the keyboard prompts.
+//  A drag anywhere else on the screen looks around (the right stick's job); the view springs back on release.
+//  Top: TABLET, and MORE for the sheet (map, camera, reset, wings, full screen, settings).
+// Pointer events with capture throughout, so a thumb can slide off a button without dropping it, and two thumbs work
+// at once. readInput merges TC with the keyboard and pads: thr/brk/lean/wh/reel come from the buttons and pedals,
+// sthr/sbrk/slean from the stick on foot, steer/active from the stick, lx/ly from a look drag.
+const TC = { thr: 0, brk: 0, lean: 0, wh: 0, reel: 0, steer: 0, active: false, on: false, foot: null,
+  sthr: 0, sbrk: 0, slean: 0, lx: 0, ly: 0, use: "", x: "", sheet: false };
 const coarse = (matchMedia && matchMedia("(pointer: coarse)").matches) || navigator.maxTouchPoints > 1;
 function touchWanted() { return SET.touch === "on" || (SET.touch !== "off" && (coarse || /[?&]touch\b/.test(location.search))); }
 function setTouchUI() {
   TC.on = touchWanted(); document.body.classList.toggle("touch", TC.on); $("touch").hidden = !(TC.on && started);
-  if (!TC.on) { TC.thr = TC.brk = TC.lean = TC.wh = TC.reel = TC.steer = 0; TC.active = false; }
+  if (!TC.on) touchRelease();
 }
+function touchRelease() {
+  TC.thr = TC.brk = TC.lean = TC.wh = TC.reel = TC.steer = TC.sthr = TC.sbrk = TC.slean = TC.lx = TC.ly = 0; TC.active = false;
+  for (const b of document.querySelectorAll("#touch .on")) b.classList.remove("on");
+}
+// What the on-foot buttons offer: { use: label for E or "", x: label for X or "", q: GET ON is wanted even away from the vehicle }.
+// E's verb is footUse() (the same read-only "what would E do here" the pad and hint line use), so a new on-foot action
+// needs its branch there and nothing here. X: DOUBLE / SINGLE at a strap with a snatch block, SIZE UP when stuck.
+function touchCtx() {
+  const r = { use: "", x: "", q: false };
+  if (!FOOT.on) return r;
+  r.use = footUse() || "";
+  const wd = winchDef();
+  if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) r.x = WN.dbl ? "SINGLE" : "DOUBLE";
+  else if (BOG.on) r.x = "SIZE UP";
+  r.q = WN.state === "hooked" && WN.mode === "self";                      // hooked on: the hint keeps offering GET ON from anywhere along the line
+  return r;
+}
+// the touch name of a control for the touch buttons themselves (they wear it whichever device the hint line last read)
+function tbtn(a) { const v = BTN[a].touch; return typeof v === "function" ? v() : v; }
 function updTouch() {
   if (!TC.on) return;
-  const modal = GS.garageOpen || !$("settings").hidden || godOpen || GS.dead;
-  $("touch").classList.toggle("modal", modal);
-  const lbl = GS.near === garageSite ? "GARAGE" : (FOOT.on && footUse()) || (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
-  const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
-  const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
-  const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
-  const wd = winchDef(), foot = FOOT.on;
-  const q = $("tQ"); q.hidden = tutHidden() || !(foot || (BOG.on && wd) || BOG.on || VEH.cur); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
-  const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
-  $("tF").hidden = !(HELP.on && HELP.kind === "sea" && !HELP.called) && !(GS.fuel <= 0 && !HELP.on);
-  $("tReel").hidden = !(wd && WN.state === "hooked");
-  $("tWipe").hidden = !(VZ.target > 0.12 || VZ.level > 0.08 || VZ.sweep >= 0);
+  const tc = $("touch"), modal = GS.garageOpen || !$("settings").hidden || godOpen || GS.dead;
+  tc.classList.toggle("modal", modal);
+  if (modal) { if (TC.sheet) sheetOpen(false); touchRelease(); stickEnd(); return; }
+  const foot = FOOT.on, wd = winchDef(), c = touchCtx(), show = (id, on) => { const e = $(id); if (e.hidden === on) e.hidden = !on; return e; };
+  const text = (e, s) => { if (e.textContent !== s) e.textContent = s; };
+  if (TC.foot !== foot) {                                             // on and off the sled: a different set under each thumb
+    TC.foot = foot; touchRelease(); stickEnd();
+    tc.classList.toggle("foot", foot); tc.classList.toggle("ride", !foot);
+    $("tcStickCap").textContent = foot ? "WALK · RIM TO JOG" : "STEER";
+  }
+  const lbl = GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
+  const e = show("tcE", !!lbl); if (lbl) text(e, lbl);
+  TC.use = c.use; TC.x = c.x;
+  const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);   // the vehicle you left (sled or pickup) decides how close is close
+  if (foot) {
+    const u = show("tcUse", !!c.use); if (c.use) text(u, c.use);
+    show("tcOn", !tutHidden() && (near || c.q));
+    text($("tcOn"), tbtn("mount"));
+    const x = show("tcX", !!c.x); if (c.x) text(x, c.x);
+  }
+  const q = show("tcQ", !foot && !tutHidden() && (BOG.on || !!VEH.cur)); text(q, tbtn("dismount"));
+  show("tcHorn", !foot);
+  show("tcReel", !!(wd && WN.state === "hooked"));
+  show("tcF", (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on));
+  show("tcWipe", VZ.target > 0.12 || VZ.level > 0.08 || VZ.sweep >= 0);
+  const w = $("tcWing"); w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn);
+  $("tcFull").hidden = !(typeof FSC !== "undefined" && FSC.api && !GFX.standalone);
+  $("tcGas").querySelector(".fill").style.height = Math.round(TC.thr * 100) + "%";
+  const mw = $("mapWrap"); if (mw && !mw.hidden) { const r = mw.getBoundingClientRect(); if (r.width && Math.abs((TC.mapW || 0) - r.width) > 1) { TC.mapW = r.width; tc.style.setProperty("--mapW", Math.round(r.width) + "px"); } }
+}
+function sheetOpen(on) { TC.sheet = on; $("tcSheet").hidden = !on; $("tcMenu").classList.toggle("on", on); }
+// the stick: lands where the thumb does (kept on screen), knob follows, values by mode
+const STK = { id: null, ox: 0, oy: 0, R: 46 };
+function stickStart(e) {
+  const s = $("tcStick"), z = $("touch").getBoundingClientRect(), d = s.offsetWidth;
+  STK.id = e.pointerId; STK.R = d * 0.42;
+  const x = clamp(e.clientX - z.left, d / 2 + 8, z.width * 0.5), y = clamp(e.clientY - z.top, z.height * 0.3, z.height - d / 2 - 8);
+  STK.ox = x + z.left; STK.oy = y + z.top;
+  s.style.left = (x - d / 2) + "px"; s.style.bottom = (z.height - y - d / 2) + "px";
+  s.classList.remove("rest"); s.classList.add("live"); TC.active = true; stickMove(e);
+}
+function stickMove(e) {
+  const s = $("tcStick"), k = s.querySelector(".knob");
+  let dx = (e.clientX - STK.ox) / STK.R, dy = (e.clientY - STK.oy) / STK.R; const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+  const ride = !FOOT.on;
+  if (ride) dy = 0;                                                       // on the sled it's a steering wheel: sideways only
+  k.style.transform = `translate(${(dx * STK.R).toFixed(1)}px,${(dy * STK.R).toFixed(1)}px)`;
+  const curve = v => Math.abs(v) < 0.08 ? 0 : Math.sign(v) * Math.pow((Math.abs(v) - 0.08) / 0.92, 1.35);   // gentle in the middle, full lock at the rim
+  TC.steer = curve(dx);
+  if (ride) { TC.sthr = TC.sbrk = TC.slean = 0; s.classList.remove("jog"); return; }
+  const mm = Math.min(1, Math.hypot(dx, dy)), up = -dy;
+  TC.sthr = up > 0.15 ? Math.min(1, (up - 0.15) / 0.75) : 0;
+  TC.sbrk = up < -0.25 ? Math.min(1, (-up - 0.25) / 0.65) : 0;
+  if (Math.abs(up) < 0.35) TC.steer = curve(dx) * 0.85;                   // pushing straight sideways: turn on the spot
+  TC.slean = mm > 0.93 && up > 0.5 ? 1 : 0; s.classList.toggle("jog", !!TC.slean);
+}
+function stickEnd() {
+  STK.id = null; TC.active = false; TC.steer = TC.sthr = TC.sbrk = TC.slean = 0;
+  const s = $("tcStick"); if (!s) return; s.style.left = s.style.bottom = ""; s.querySelector(".knob").style.transform = "";
+  s.classList.add("rest"); s.classList.remove("live", "jog");
+}
+// a drag on open screen: the left thumb's half below the top third is the stick, the rest looks around
+const LOOK = { id: null, x: 0, y: 0 };
+function touchCanvasDown(e) {
+  if (!TC.on || !started || $("touch").hidden || $("touch").classList.contains("modal") || (FISH && FISH.on) || SR.on || e.pointerType === "mouse") return;
+  if (TC.sheet) { sheetOpen(false); return; }
+  const z = $("touch").getBoundingClientRect(), lx = e.clientX - z.left, ly = e.clientY - z.top;
+  if (STK.id === null && lx < z.width * 0.5 && ly > z.height * 0.3) { e.preventDefault(); try { $("gl").setPointerCapture(e.pointerId); } catch (x) { } stickStart(e); return; }
+  if (LOOK.id === null && !TABLET.open) { LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; try { $("gl").setPointerCapture(e.pointerId); } catch (x) { } }
+}
+function touchCanvasMove(e) {
+  if (e.pointerId === STK.id) stickMove(e);
+  else if (e.pointerId === LOOK.id) { TC.lx = clamp((e.clientX - LOOK.x) / 110, -1, 1); TC.ly = clamp((e.clientY - LOOK.y) / 140, -1, 1); }
+}
+function touchCanvasUp(e) {
+  if (e.pointerId === STK.id) stickEnd();
+  if (e.pointerId === LOOK.id) { LOOK.id = null; TC.lx = TC.ly = 0; }
 }
 {
-  const HOLD = { gas: "thr", brake: "brk", lean: "lean", wh: "wh", reel: "reel" };
-  for (const b of document.querySelectorAll("#touch .tb")) {
-    const k = b.dataset.k;
-    const up = () => { b.classList.remove("on"); if (HOLD[k]) TC[HOLD[k]] = 0; };
+  const gl = $("gl");
+  gl.addEventListener("pointerdown", touchCanvasDown);
+  gl.addEventListener("pointermove", touchCanvasMove);
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) gl.addEventListener(ev, touchCanvasUp);
+  const HOLD = { brake: "brk", lean: "lean", wh: "wh", reel: "reel" };
+  for (const b of document.querySelectorAll("#touch .tc, #touch .pedal")) {
+    const k = b.dataset.k; if (!k) continue;
+    const up = () => { b.classList.remove("on"); if (HOLD[k]) TC[HOLD[k]] = 0; if (k === "gas") TC.thr = 0; };
+    const gas = e => { const r = b.getBoundingClientRect(); TC.thr = clamp(0.5 + 0.5 * (r.bottom - e.clientY) / (r.height * 0.8), 0.5, 1); };
     b.addEventListener("pointerdown", e => {
       e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) { } b.classList.add("on");
+      if (k === "gas") { gas(e); return; }
       if (HOLD[k]) { TC[HOLD[k]] = 1; return; }
+      if (k !== "sheet" && b.classList.contains("tile")) sheetOpen(false);
       if (!started) return;
       if (k === "hop") { if (!GS.dead && !FOOT.on) input.hop = true; }
+      else if (k === "sheet") sheetOpen(!TC.sheet);
       else if (k === "reset") resetSled();
       else if (k === "view") cycleView();
       else if (k === "map") TABLET.toggle(undefined, "map");
       else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
-      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FOOT.on && footUse()) gameKey({ code: "KeyE" }); else if (FISH) FISH.ctx(); }
+      else if (k === "full") { if (FSC.on()) FSC.exit(); else FSC.go(); }
+      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FISH) FISH.ctx(); }
       else if (k === "horn") horn();
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
+      else if (k === "use") gameKey({ code: "KeyE" });
       else if (k === "x") gameKey({ code: "KeyX" });
       else if (k === "help") gameKey({ code: "KeyP" });
       else if (k === "wipe") wipeVisor();
     });
+    if (k === "gas") b.addEventListener("pointermove", e => { if (b.classList.contains("on")) gas(e); });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
     b.addEventListener("touchend", e => e.preventDefault(), { passive: false });   // no synthetic click: a panel that just opened under the thumb must not get it
     b.addEventListener("contextmenu", e => e.preventDefault());
   }
-  const sp = $("tSteer"), th = sp.querySelector("i"); let spId = null;
-  const spSet = e => {
-    const r = sp.getBoundingClientRect(), half = r.width / 2 - th.offsetWidth / 2 - 8;   // thumb size changes with the phone layout
-    let v = clamp((e.clientX - (r.left + r.width / 2)) / half, -1, 1);
-    th.style.transform = `translateX(${(v * half).toFixed(1)}px)`;
-    TC.steer = Math.abs(v) < 0.06 ? 0 : Math.sign(v) * Math.pow(Math.abs(v), 1.35);   // gentle in the middle, full lock at the ends
-  };
-  sp.addEventListener("pointerdown", e => { e.preventDefault(); spId = e.pointerId; try { sp.setPointerCapture(e.pointerId); } catch (x) { } sp.classList.add("on"); TC.active = true; spSet(e); });
-  sp.addEventListener("pointermove", e => { if (e.pointerId === spId) spSet(e); });
-  const spEnd = e => { if (e.pointerId !== spId) return; spId = null; TC.active = false; TC.steer = 0; th.style.transform = ""; sp.classList.remove("on"); };
-  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) sp.addEventListener(ev, spEnd);
-  sp.addEventListener("touchend", e => e.preventDefault(), { passive: false });
-  sp.addEventListener("contextmenu", e => e.preventDefault());
 }
 function cycleView() { camMode = (camMode + 1) % VIEWS.length; camState.init = false; toast(VIEWS[camMode].n + " view"); }
 function readInput(dt) {
   let thr = (keys.has("KeyW") || keys.has("ArrowUp")) ? 1 : 0, brk = (keys.has("KeyS") || keys.has("ArrowDown")) ? 1 : 0;
   let st = ((keys.has("KeyD") || keys.has("ArrowRight")) ? 1 : 0) - ((keys.has("KeyA") || keys.has("ArrowLeft")) ? 1 : 0);
   let lean = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 1 : 0, analog = null, wh = (keys.has("ControlLeft") || keys.has("ControlRight")) ? 1 : 0;
-  if (TC.on) { thr = Math.max(thr, TC.thr); brk = Math.max(brk, TC.brk); if (TC.lean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
+  if (TC.on) { thr = Math.max(thr, TC.thr, TC.sthr); brk = Math.max(brk, TC.brk, TC.sbrk); if (TC.lean || TC.slean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   CAMPAD.x = 0; CAMPAD.y = 0;
+  if (TC.on && (TC.lx || TC.ly) && started && !TABLET.open) { CAMPAD.x = TC.lx; CAMPAD.y = TC.ly; }   // a look drag on the touch screen
   WN.held = keys.has("Space") || !!TC.reel; WN.padReel = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
@@ -2999,7 +3124,6 @@ function updWobble(dt) {
     const env = Math.exp(-2.4 * w.t), tilt = w.amp * env * Math.sin(w.t * 8.5 / Math.sqrt(o.s));
     if (env < 0.01) { setTree(o, 0); o.wob = null; wobbling.splice(i, 1); } else setTree(o, tilt);
   }
-  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
 }
 function pile(x, z, R, amt) {
   for (let iz = Math.floor((z - R + HALF) / CELL); iz <= Math.ceil((z + R + HALF) / CELL); iz++)
@@ -3052,7 +3176,6 @@ function flattenTree(o) {
   const wi = wobbling.indexOf(o); if (wi >= 0) wobbling.splice(wi, 1);
   o.wob = { t: 0, amp: 0, ax: pz, az: -px };                            // tips over the way the sled was going
   o.y -= 0.18 * o.s; setTree(o, 1.5 + Math.random() * 0.06);
-  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
   o.top = -Infinity; o.down = true; felled.push(o); LOG.trees++;         // no longer an obstacle for anyone
   for (let k = 0; k < 30; k++) emit(o.x, o.y + 0.4 + Math.random() * 0.6, o.z, P.vx * 0.3, 1 + Math.random() * 1.5, P.vz * 0.3, 2.2, 0.8);
   P.vx *= 0.93; P.vz *= 0.93;
@@ -6723,7 +6846,7 @@ const TABLET = {
       let top = 24, bot = 24, L = 24, R = 24;
       if (TC.on && !$("touch").hidden) {
         const rc = id => { const e = $(id); return e && !e.hidden ? e.getBoundingClientRect() : null; };
-        const tt = rc("tTop"), st = rc("tSteer"), right = ["tWh", "tLean", "tHop", "tHorn", "tBrk", "tGas"].map(rc).filter(Boolean);
+        const tt = rc("tcSys"), st = rc("tcStick"), right = ["tcWh", "tcLean", "tcHop", "tcHorn", "tcBrk", "tcGas", "tcUse", "tcOn", "tcX"].map(rc).filter(r => r && r.width);
         top = (tt ? tt.bottom : 56) + 8;
         if (W > H) { L = (st ? st.right : 170) + 10; R = W - Math.min(...right.map(r => r.left), W - 220) + 10; bot = 10; }
         else { L = R = 10; bot = H - Math.min(...right.map(r => r.top), st ? st.top : H - 220) + 8; }
@@ -8377,7 +8500,7 @@ const STYLES = [["solid", "Solid"], ["twotone", "Two-tone"], ["racer", "Racing s
 const SEAT_COLORS = ["stock", "#1a2027", "#5a3a24", "#8c1f2f", "#c9b48a", "#2f4a6b", "#eef2f5"];
 const HELMET_COLORS = ["#f2f5f8", "#111820", "#ff5a1f", "#d8c23a", "#38b6ff", "#8c1f2f", "#4fd06a"];
 const DECALS = [["none", "Clean"], ["stripe", "Twin stripes"], ["wide", "Wide stripe"], ["flash", "Side flash"]];
-const SET = { paint: {}, jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", helmet: "#f2f5f8", decal: "none", canMatch: false, vol: 0.35, hud: true, touch: "auto" };
+const SET = { paint: {}, jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", helmet: "#f2f5f8", decal: "none", canMatch: false, vol: 0.35, hud: true, touch: "auto", gfx: "auto", fps: false };
 function loadSettings() { try { const d = JSON.parse(localStorage.getItem("tracklayer.set.v1") || "null"); if (d) Object.assign(SET, d); } catch (e) { } if (!SET.paint || typeof SET.paint !== "object") SET.paint = {}; }
 function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.stringify(SET)); } catch (e) { } }
 // the sled the settings are painting: whatever the garage is previewing, else the one you own
@@ -8470,10 +8593,58 @@ function buildSettings() {
   if (!TL[SET.touch]) SET.touch = "auto";
   tb.textContent = TL[SET.touch];
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
+  // Graphics: Auto (the preset for this device plus the frame-rate governor), or High / Low pinned. The live knobs
+  // switch at once; MSAA and the shader detail follow the preset at the next launch.
+  const GL = { auto: "Graphics: auto", high: "Graphics: high", low: "Graphics: low" }, gb = $("gfxBtn");
+  if (!GL[SET.gfx]) SET.gfx = "auto";
+  const gfxSync = () => { gb.textContent = GL[SET.gfx]; $("fpsBtn").textContent = SET.fps ? "Frame rate: shown" : "Frame rate: hidden"; $("fps").hidden = !SET.fps; };
+  gb.addEventListener("click", () => {
+    SET.gfx = SET.gfx === "auto" ? "high" : SET.gfx === "high" ? "low" : "auto"; saveSettings(); gfxSync();
+    GFX.auto = QG.on = SET.gfx === "auto"; QG.cap = 0; QG.prev = null; QG.apply(SET.gfx === "high" ? 1 : SET.gfx === "low" ? 2 : GFX.low ? 2 : 1);
+  });
+  $("fpsBtn").addEventListener("click", () => { SET.fps = !SET.fps; saveSettings(); gfxSync(); });
+  gfxSync(); fullscreenUI();
   $("godBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); toggleGod(true); });
   $("towBtn").addEventListener("click", () => { if (!started || GS.dead) return; toggleSettings(false); gameKey({ code: "KeyP" }); });
   setTouchUI();
   applySettings();
+}
+// Full screen. Android, iPad and desktop browsers have the Fullscreen API: a Settings button, and on phones the first
+// tap that starts a ride goes full screen by itself. iPhone browsers (Safari, and Firefox / Chrome / Edge, which are
+// WebKit underneath) have no element full screen at all, so there the only way is the Home Screen: the page ships a
+// web-app manifest and Apple's tags, and opened from a Home Screen icon it runs edge to edge with no browser bars.
+// Until then a small card on the title screen says how, once per launch, until "Got it". On a phone with the API, the
+// tap that launches the ride from the title menu goes full screen (titleLaunch).
+const FSC = {
+  api: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled),
+  on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
+  go() {
+    const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq || FSC.on()) return; try { const r = rq.call(el, { navigationUI: "hide" }); if (r && r.catch) r.catch(() => { }); } catch (e) { }
+  },
+  exit() { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && FSC.on()) try { const r = ex.call(document); if (r && r.catch) r.catch(() => { }); } catch (e) { } },
+  how() {                                                   // the Add to Home Screen steps for this iPhone browser
+    const ua = navigator.userAgent;
+    return /FxiOS/.test(ua) ? "In Firefox tap the menu <b>≡</b>, then <b>Share</b>, then <b>Add to Home Screen</b>."
+      : /CriOS/.test(ua) ? "In Chrome tap <b>Share</b> (top right), then <b>Add to Home Screen</b>."
+      : /EdgiOS/.test(ua) ? "In Edge tap the menu <b>…</b>, then <b>Share</b>, then <b>Add to Home Screen</b>."
+      : "Tap <b>Share</b> in the toolbar, then <b>Add to Home Screen</b>.";
+  },
+};
+function fullscreenUI() {
+  const b = $("fsBtn"), ios = GFX.ios && !FSC.api;
+  const sync = () => { b.textContent = ios ? "Full screen: how" : FSC.on() ? "Full screen: on" : "Full screen: off"; };
+  b.hidden = GFX.standalone || !(FSC.api || ios);
+  b.addEventListener("click", () => { if (ios) fsTip(true); else if (FSC.on()) FSC.exit(); else FSC.go(); });
+  for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => { sync(); renderer.setSize(innerWidth, innerHeight); });
+  sync();
+  if (ios && !GFX.standalone) { let seen = false; try { seen = localStorage.getItem("tracklayer.fstip") === "1"; } catch (e) { } if (!seen) fsTip(false); }
+}
+function fsTip(force) {
+  const t = $("fsTip"); $("fsHow").innerHTML = FSC.how();
+  t.hidden = false; if (force) t.classList.add("forced");
+  $("fsOk").onclick = () => { t.hidden = true; try { localStorage.setItem("tracklayer.fstip", "1"); } catch (e) { } };
+  $("fsLater").onclick = () => { t.hidden = true; };
 }
 function toggleSettings(force) {
   const open = force !== undefined ? force : $("settings").hidden;
@@ -9029,16 +9200,16 @@ function tutHidden() { return !!TUT && TUT.stage < 2; }
    binding first, then the row. Started as the tutorial's own table; the expansion's systems get it through the api. */
 const INP = { dev: "kbm", pad: "xbox" };
 const BTN = {
-  walk: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
-  turn: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
-  jog: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "LEAN" },
+  walk: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "Stick up" },
+  turn: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Stick sideways" },
+  jog: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "Stick to the rim" },
   garage: { kbm: "T", xbox: "B", ps: "○", nin: "A", touch: "GARAGE" },
   pick: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "Tap" },
   mount: { kbm: "Q", xbox: "LB", ps: "L1", nin: "L", touch: "GET ON" },
   dismount: { kbm: "Q", xbox: "LB", ps: "L1", nin: "L", touch: "GET OFF" },
   gas: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
   brake: { kbm: "S", xbox: "LT", ps: "L2", nin: "ZL", touch: "BRAKE" },
-  steer: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
+  steer: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Stick" },
   lean: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "LEAN" },
   hop: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "HOP" },
   tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" },
@@ -9180,7 +9351,7 @@ function tutCard(dt) {
   if (TUT.doneT > 0) TUT.doneT -= dt;
   const on = started && !GS.dead && (TUT.stage < 99 || TUT.doneT > 0);
   if (el.hidden === on) el.hidden = !on;
-  if (!on) return;
+  if (!on) { tutEdge(0); return; }
   const c = tutCopy(), keys = c.keys.map(([a, l]) => `<span><kbd>${tabEsc(btn(a))}</kbd>${tabEsc(l)}</span>`).join(""), k = c.step + c.title + c.body + keys;
   if (k !== TUT.key) {
     TUT.key = k;
@@ -9188,11 +9359,20 @@ function tutCard(dt) {
     el.classList.toggle("done", !!c.done);
     if (c.title !== TUT.ttl) { TUT.ttl = c.title; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
   }
-  const z = $("zone"), r = z && !z.hidden ? z.getBoundingClientRect() : null;
-  const top = Math.round(r && r.height ? r.bottom + 8 : 16) + "px", left = Math.round(r && r.width ? r.left : 16) + "px";
-  if (el.style.top !== top) el.style.top = top;
-  if (el.style.left !== left) el.style.left = left;
+  if (TC.on && PHONE_UI.matches) {                                     // phone with touch controls: the phone layout's CSS places it
+    if (el.style.top || el.style.left) el.style.top = el.style.left = "";
+  } else {
+    const z = $("zone"), r = z && !z.hidden ? z.getBoundingClientRect() : null;
+    const top = Math.round(r && r.height ? r.bottom + 8 : 16) + "px", left = Math.round(r && r.width ? r.left : 16) + "px";
+    if (el.style.top !== top) el.style.top = top;
+    if (el.style.left !== left) el.style.left = left;
+  }
+  tutEdge(el.getBoundingClientRect().bottom);
 }
+// the card's bottom edge as --tutB on <body>, so the phone layout can hang the toasts under it instead of on top of it
+const PHONE_UI = window.matchMedia ? matchMedia("(max-width:640px),(max-height:500px)") : { matches: false };
+let _tutB = -1;
+function tutEdge(y) { y = Math.round(y); if (y !== _tutB) { _tutB = y; document.body.style.setProperty("--tutB", y + "px"); } }
 // every frame (from rescueTick): the hidden sled, the step changes, the card
 function tutTick(dt) {
   sledRoot.visible = !(tutHidden() && !GS.garageOpen);                // in the garage the showroom shows it on the forecourt
@@ -12893,7 +13073,7 @@ function titlePanel(kind) {
       <div class="pbtns"><button type="button" class="pbtn" data-a="back">KEEP MY SAVE</button><button type="button" class="pbtn go" data-a="wipe">START OVER</button></div>`;
   } else if (kind === "howto") {
     const col = (t, list) => `<div><div class="pl">${t}</div>${list.map(([k, a]) => `<div class="pk"><b>${k}</b><span>${a}</span></div>`).join("")}</div>`;
-    const touchNote = `<p class="pnote">On a phone or tablet: the steer pad sits under your left thumb, gas, brake, hop, lean and wheelie under your right. TABLET at the top dips your head to the dash screen for parcels, the map and the weather (you can still steer). GARAGE comes up at the top when you're at the shop, and HORN sits beside BRAKE. When your visor ices over, a WIPE button shows up above HOP.</p>`;
+    const touchNote = `<p class="pnote">On a phone or tablet: put your left thumb down anywhere in the lower left and a stick appears there. On the sled it steers; on foot it walks (push it to the rim to jog). Riding, your right thumb has the GAS pedal (press higher for more throttle), BRAKE, and HOP, LEAN, WHEELIE and HORN round them. On foot it gets one big button named for whatever you can do right there (STRAP, DIG, UNHOOK, HELP UP...), and GET ON at the sled. Drag anywhere else to look around. TABLET dips your head to the dash screen for parcels, the map and the weather (you can still steer); MORE has the map, camera, reset and settings. GARAGE, FISH and WIPE VISOR show up when they apply.</p>`;
     label = "How to play";
     h = `<div class="ph"><div><div class="pe">KJØLLEFJORD QUAY</div><div class="pt">How to play</div></div>${x}</div>
       <p>When the road over Ifjordfjellet shuts, everything the Nordkinn needs comes off the coastal steamer at the quay and goes out by sled: to Mehamn and Gamvik on the Barents coast, Lebesby and Ifjord down the fjord, the herders' cabins up on the fell, the light out at Slettnes. Fresh powder drags at your sled and burns fuel. Every trail you cut stays packed, fast and cheap, until new snow buries it. The sun barely clears the hills, the nights are long and the storms come straight off the sea. Keep your tank and your body warm enough to make it back.</p>
@@ -12955,6 +13135,8 @@ function startRide() {
 function titleLaunch() {
   if (TT.mode !== "menu") return;
   TT.mode = "launch";
+  if (FSC.api && GFX.phone && !GFX.standalone) FSC.go();        // inside the tap's gesture, so the browser allows it
+  $("fsTip").hidden = true;
   initAudio(); if (audio && audio.AC.state === "suspended") audio.AC.resume();
   const tr = $("tTread").getBoundingClientRect(), lay = document.createElement("div");
   lay.className = "tlay";
@@ -13136,7 +13318,6 @@ function uproot(o, dx, dz) {
   const wi = wobbling.indexOf(o); if (wi >= 0) wobbling.splice(wi, 1);
   o.wob = { t: 0, amp: 0, ax: dz / d, az: -dx / d };
   o.y -= 0.18 * o.s; setTree(o, 1.5 + Math.random() * 0.06);
-  treeMesh.instanceMatrix.needsUpdate = true; capMesh.instanceMatrix.needsUpdate = true;
   o.top = -Infinity; o.down = true; felled.push(o);
   for (let k = 0; k < 30; k++) emit(o.x, o.y + 0.4 + Math.random() * 0.6, o.z, dx * 0.3, 1 + Math.random() * 1.5, dz * 0.3, 2.2, 0.8);
   crack(0.9); thud(0.4);
@@ -13563,7 +13744,7 @@ function dismount() {
   FOOT.shoe = !FOOT.ski && shoesOwn();
   if (FOOT.g && FOOT.g.userData.shoes) for (const s of FOOT.g.userData.shoes) s.visible = FOOT.shoe;
   if (FOOT.shoe && !GS.shoeTold) { GS.shoeTold = true; toast("Snowshoes on, out of the recovery kit: you float on fresh powder instead of wading. Packed snow's no quicker in them."); }
-  if (FOOT.ski) { xcLook(); if (!xcTold) { xcTold = true; toast(`Skis on. ${TC.on ? "Push the stick" : "W"} to kick: slow to get going, then they run. Let go and glide, ${TC.on ? "pull back" : "S"} to plough. Glide back to the sled and ${TC.on ? "tap Q" : "Q"} gets you straight on.`); } }
+  if (FOOT.ski) { xcLook(); if (!xcTold) { xcTold = true; toast(`Skis on. ${TC.on ? "Push the stick" : "W"} to kick: slow to get going, then they run. Let go and glide, ${TC.on ? "pull back" : "S"} to plough. Glide back to the sled and ${INP.dev === "touch" ? "tap " + btn("mount") : btn("mount")} gets you straight on.`); } }
   if (winchDef()) WN.state = "out";
 }
 function mount() {
@@ -15781,7 +15962,7 @@ function crashGetUp() {
   const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
   const line = C.inj < 1.5 ? C.tied ? `Came off at ${mph} mph and nothing hurts.` : `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
   if (C.tied) toast(`${line} The tether caught you and pulled the kill cord: the sled's right beside you. ${TC.on ? "Tap Q" : "Press Q"} to get back on.`, C.inj < 4.5 ? "warn" : "bad");
-  else toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${TC.on ? "tap Q" : "press Q"} to get on.`, C.inj < 4.5 ? "warn" : "bad");
+  else toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${INP.dev === "touch" ? "tap " + btn("mount") : "press " + btn("mount")} to get on.`, C.inj < 4.5 ? "warn" : "bad");
   LOG.crashes = (LOG.crashes || 0) + 1;
 }
 // into the water mid-crash: the existing fjord/through-the-ice blackout takes it from here
@@ -15928,9 +16109,76 @@ function optSync() {
 
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
+/* ---------------- frame-rate governor ---------------- */
+// On "auto" graphics the game watches its own frame times and walks a quality ladder: down a rung whenever the
+// median frame over a ~1.5 s window misses the goal (55 fps), back up one rung after a long steady spell. It stops
+// dropping when a drop didn't help (the frame rate is capped by the screen or the phone, e.g. an iPhone in Low Power
+// Mode runs every page at 30 fps): it puts that rung back and holds the cap as the goal instead of blurring the
+// picture for nothing. A failed step back up doubles the wait before the next try. The rungs change only the knobs
+// that are cheap to change live; MSAA and the shader loop counts come from the preset at load.
+const QG = {
+  rungs: [                                                  // pr: x the preset's pixel ratio (clamped prMin..prMax); sh: shadow
+    { pr: 1.25, sh: 1, map: 1, tree: 1 },                   // redraw every N frames; map: x shadow map size; tree: x tree distance
+    { pr: 1, sh: 1, map: 1, tree: 1 },                      // 1: the "high" preset as built (desktops start here)
+    { pr: 1, sh: 2, map: 1, tree: 0.85 },                   // 2: the "low" preset (phones start here)
+    { pr: 0.85, sh: 3, map: 1, tree: 0.75 },
+    { pr: 0.75, sh: 4, map: 0.5, tree: 0.62 },
+    { pr: 0.65, sh: 6, map: 0.5, tree: 0.5 },
+    { pr: 0.55, sh: 8, map: 0.5, tree: 0.42 },
+  ],
+  rung: 1, on: false, win: [], winT: 0, settle: 0, prev: null, cap: 0, capT: 0, good: 0, probe: false, upWait: 15, upT: 0,
+  med: 16.7, fps: 60, sh: 0,
+  start() {
+    this.on = GFX.auto; this.rung = GFX.low ? 2 : 1; this.apply(this.rung);
+  },
+  apply(i) {
+    this.rung = i = clamp(i, 0, this.rungs.length - 1); const r = this.rungs[i];
+    const pr = clamp(GFX.pr * r.pr, GFX.prMin, GFX.prMax);
+    if (Math.abs(renderer.getPixelRatio() - pr) > 0.01) renderer.setPixelRatio(pr);
+    GFX.shadowEvery = r.sh; GFX.treeR = GFX.treeR0 * r.tree; _pineT = 0;
+    const ms = Math.max(512, GFX.shMap0 * r.map);
+    if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    renderer.shadowMap.needsUpdate = true;
+    this.win.length = 0; this.winT = 0; this.settle = 0.8;          // let the new setting bed in before judging it
+  },
+  // called once per frame with the real interval (ms) since the last one
+  tick(ms) {
+    if (document.hidden || ms > 2000) { this.win.length = 0; this.winT = 0; return; }  // tab away or a load stall: start the window over
+    if (this.settle > 0) { this.settle -= ms / 1000; return; }
+    this.win.push(ms); this.winT += ms;                         // the median shrugs off single hitches; a slow phone still gets judged
+    if (!(this.winT >= 1500 && this.win.length >= 12) && !(this.winT >= 4000 && this.win.length >= 4)) return;
+    const w = this.win.slice().sort((a, b) => a - b), med = w[w.length >> 1]; this.win.length = 0; this.winT = 0;
+    this.med = med; this.fps = 1000 / med;
+    if (!this.on || !ready) return;
+    const goal = this.cap ? this.cap * 1.08 : 1000 / 55, now = performance.now() / 1000;
+    if (this.cap && now > this.capT) this.cap = 0;            // re-test the cap now and then (Low Power Mode may be off now)
+    if (this.prev) {                                           // judge the last step
+      const p = this.prev; this.prev = null;
+      if (p.dir > 0 && med > p.med * 0.92 && med > goal) {    // went down a rung and it barely helped: capped, not overloaded
+        this.cap = Math.max(p.med, med); this.capT = now + 180; this.apply(p.rung); return;
+      }
+      if (p.dir < 0 && med > goal) {                            // went up a rung and lost the frame rate: back down, wait longer next time
+        this.upWait = Math.min(240, this.upWait * 2); this.upT = now + this.upWait; this.apply(p.rung); return;
+      }
+    }
+    if (med > goal && this.rung < this.rungs.length - 1) {
+      this.good = 0; this.prev = { dir: 1, med, rung: this.rung };
+      this.apply(this.rung + (med > goal * 1.8 ? 2 : 1)); return;
+    }
+    if (med <= goal) {
+      if (++this.good >= 4 && this.rung > 0 && now > this.upT) {
+        this.good = 0; this.upT = now + this.upWait; this.prev = { dir: -1, med, rung: this.rung }; this.apply(this.rung - 1);
+      }
+    } else this.good = 0;
+  },
+  label() { return (this.on ? "auto " : GFX.low ? "low " : "high ") + (this.rungs.length - this.rung) + "/" + this.rungs.length + (this.cap ? " · held" : ""); },
+};
+QG.start();
+let hudFpsT = 0;
 let last = performance.now(), acc = 0, live = false;
 function frame(t) {
   requestAnimationFrame(frame);
+  QG.tick(t - last);
   const dt = Math.min(0.05, (t - last) / 1000); last = t;
   if (TT.on) titleTick(dt, t);
   if (!ready) return;
@@ -15953,6 +16201,8 @@ function frame(t) {
   trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); } }
   tabView_sync(); tabDash(dt); TABLET.place();
+  if (++QG.sh >= GFX.shadowEvery) { QG.sh = 0; renderer.shadowMap.needsUpdate = true; }
+  if (SET.fps && (hudFpsT += dt) > 0.5) { hudFpsT = 0; $("fps").textContent = Math.round(QG.fps) + " fps · " + QG.label(); }
   if (INT.on && INT.room) renderer.render(INT.scene, camera);                // inside a cabin: the room and its lamps
   else if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }

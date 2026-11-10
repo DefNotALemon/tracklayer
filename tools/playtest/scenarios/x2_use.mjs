@@ -3,7 +3,7 @@
 import { boot, ev, tap, sleep, done, park, padSet, padOff, shot } from "../lib.mjs";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const S = async () => JSON.parse(await ev(`JSON.stringify({ foot: FOOT.on, dig: !!FOOT.dig, bog: BOG.on, use: footUse(), dev: INP.dev, hint: $("wnHint").textContent,
-  tE: $("tE").hidden ? null : $("tE").textContent, d: +Math.hypot(FOOT.x - P.x, FOOT.z - P.z).toFixed(2) })`));
+  tE: $("tcUse").hidden ? null : $("tcUse").textContent, d: +Math.hypot(FOOT.x - P.x, FOOT.z - P.z).toFixed(2) })`));
 await boot();
 await ev(`tutSkip(); true`); await sleep(500);
 await ev(`crashCancel(); FOOT.on = false; true`);
@@ -32,7 +32,7 @@ await ev(`SET.touch = "on"; setTouchUI(); INP.dev = "touch"; true`); await sleep
 s = await S(); console.log("touch", JSON.stringify(s));
 ok(s.tE === "DIG", "touch: the orange button reads DIG"); ok(/tap DIG/.test(s.hint) && /tap GET ON/.test(s.hint), "touch hint says tap DIG and tap GET ON");
 await shot("x2_use_touch");
-const fire = `(() => { const b = $("tE"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, pointerType: "touch" })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch" })); return true; })()`;
+const fire = `(() => { const b = $("tcUse"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, pointerType: "touch" })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch" })); return true; })()`;
 await ev(fire); await sleep(500); s = await S(); ok(s.dig && s.tE === "STOP", "touch: tapping it digs, and it reads STOP");
 await ev(fire); await sleep(500); s = await S(); ok(!s.dig && s.tE === "DIG", "touch: tapping again stops");
 await ev(`BOG.on = false; true`); await sleep(400); s = await S(); ok(s.tE === null && s.use === null, "freed: the button goes away");
