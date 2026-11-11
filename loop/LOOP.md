@@ -82,6 +82,33 @@ enemy power, gunrunning contracts with ambush chases, enlisting or fighting as a
 The brief, what it waits on and the build rules are in **`loop/NORTHERN-FRONT.md`**. It starts only when G4 has
 landed, and it is built the G4 way (`tlx-<system>.js`, options as switches, one slice at a time).
 
+### G6 Living enemy NPCs (the update after G5)
+Lemon's brief of 11 Nov 2026, queued right behind the Northern Front: make enemy NPCs feel alive, Gray Zone
+Warfare style. Applies to the Directorate combatants G5 introduces (and any other hostile NPC, e.g. the
+poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists by then).
+- **Idle behaviour**: when not alerted, NPCs run idle task animations instead of standing like statues —
+  smoking, drinking, eating, leaning against a wall/vehicle/railing, and eventually nodding off/falling asleep
+  on a long idle. Picked by a per-NPC idle-behaviour timer/state, highly realistic animation per the standing
+  rule (weight shifts, no snapping between poses).
+- **Hearing**: an NPC within earshot of a quiet scene can hear a nearby enemy's death scream if one is
+  released (i.e. one of their own silently killed close by) and react — this is the alert trigger, not
+  gunfire/vehicle noise (those presumably already alert at longer range; don't touch that if it exists).
+  Needs a sound-event system with a radius/volume check per NPC, gated by ambient noise level if the game
+  already models one.
+- **Memory + investigation**: on losing track of the player, an NPC keeps a vague/fuzzy memory of the
+  player's last seen position (not a precise pin — enough to search near, not snap back to the live player).
+  A "ballsy" NPC (vs. a cautious one — needs some per-NPC trait or role split) then runs an investigation
+  period: moves to investigate the last-known area for a while before giving up and returning to idle/patrol.
+  Cautious NPCs might instead fall back, call it in, or just stay alert without approaching — exact split is
+  open for whoever plans this slice.
+- This is new NPC AI infrastructure, not a one-off: build it so any future enemy/hostile NPC type can plug
+  into the same idle/hearing/memory/investigation state machine rather than each getting bespoke code.
+- Build it the G4/G5 way: `tlx-<system>.js` behind `tlx.js`, options as Settings > Options switches where it
+  makes sense (e.g. a difficulty-flavored toggle for how sharp NPC hearing/memory is), one slice at a time,
+  each with an asserting `scenarios/nN_*.mjs` or follow-on numbering, smoke + `x1_save.mjs` before landing.
+- Starts only once G5 (The Northern Front) has landed — plan its slices then, the G4/G5 way, probably in its
+  own `loop/LIVING-NPCS.md` brief doc mirroring NORTHERN-FRONT.md's shape.
+
 ## Rules (both bots)
 - Work only in your own worktree: builder `~/Documents/GitHub/tracklayer-loop-build` (branch `loop`),
   playtester `~/Documents/GitHub/tracklayer-loop-play` (detached, reset to `origin/main` each pass).
@@ -99,6 +126,12 @@ landed, and it is built the G4 way (`tlx-<system>.js`, options as switches, one 
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **11 Nov, Lemon: Living enemy NPCs (goal G6), after the Northern Front.** Next on the docket after G5: enemy
+  NPCs feel alive, Gray Zone Warfare style — idle task animations when not alerted (smoking, drinking, eating,
+  leaning against something, falling asleep); they hear a nearby enemy's death scream if one is released quietly
+  and they're in range, and react; and they keep a vague memory of the player's last-seen location with an
+  investigation period afterward if that particular NPC is ballsy (cautious ones presumably hang back instead).
+  Don't start before G5 lands; don't fold into G5. See goal G6 above for the full brief and build approach.
 - **11 Nov 2026, minimalist HUD + survival stats + bleed/bandage (done, v174; tlx-hud.js, tlx-survival.js, tlx-wounds.js, scenarios/x4_hud.mjs; the bandage control is U / D-pad down / BANDAGE button).** Full HUD redesign: bottom-left
   vertical stack (bottom→top) red warmth / brown hunger / yellow fuel / blue thirst bars, each fades out after
   a few idle seconds and fades back in on change; bottom-right speed number with a rev-bar arc around its
@@ -173,6 +206,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 
 - [ ] G4 (OWNER): the expansion. Take the next unticked slice in `loop/EXPANSION.md` (its Status table says which).
 - [ ] G5 (OWNER): The Northern Front, after G4 has landed. Plan its slices in `loop/NORTHERN-FRONT.md` first.
+- [ ] G6 (OWNER): Living enemy NPCs (idle animations, hearing death screams, last-seen-location memory +
+  investigation), after G5 has landed. See goal G6 above and the Owner note for the brief.
 - [x] G1 (OWNER, top): walking on snow-free ground at normal pace with a realistic gait, blended by snow depth (Owner notes 30 Oct). Landed caa7afd (v158), see PROGRESS. Left: hard-ground jog judged only by numbers; turning on the spot still shuffles (feet slide while pivoting).
 - [ ] G2 (OWNER, top): new-player tutorial starting on foot aboard the ferry into Kjøllefjord (Owner notes 30 Oct). Needs the snow-free walking item.
 - [ ] G3 (OWNER): upgrade existing animations to the realistic-animation rule (walker/wader gait, crash/get-up, skier, passengers), one per pass (Owner notes 30 Oct). Climb on/off done 11 Nov (the swing, v173).
