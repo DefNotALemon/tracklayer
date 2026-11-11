@@ -3,6 +3,31 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 12:10 — Expansion slice 2.6a: the sled trailer (G4) — 7cb2029
+Builder pass (full throttle, no budget gate; the cron prompt's `usage_budget.py begin/done` bookkeeping was skipped per the skill:
+the gate is retired). Triage: no reports above 94, so the next unticked slice. 2.6 was too big for one pass: split into 2.6a (the
+trailer), 2.6b (drive on/off, strap) and 2.6c (towing a strapped sled), designs written into EXPANSION.md; this pass built 2.6a.
+Before: nothing could carry a sled. Now `state.haul` in tlx-vehicles.js (null = not owned, every older save) holds the Fjordhenger
+deck trailer: bought on the Trucks tab ($950, one per player, parked on the forecourt), a merged model (deck, rails, fenders, A-frame
+tongue, coupler, jack whose leg drops when free, tie-down rings, tail lights lit by the towing truck at night, ramp gate on a hinge,
+two spinning wheels; ~6 draw calls). A truck's ball holds the rig or the trailer (rigCands skips a truck with the trailer, haulCands
+a truck with the rig); the sled never takes it. Use at the coupler HITCH/UNHITCH, at the tail LOWER/RAISE RAMP: `haulFoot` runs ahead
+of `rigFoot` inside VEH.rigFoot, so footUse/footAction, pad L3, the touch button and the on-foot hint needed no tracklayer.js change.
+Follow: single-axle kinematics in the TLX tick (axle stays 3.6 m from the ball, jackknife stop 70°), pitch from the coupler height,
+roll from the ground under each wheel. Truck core: +420 kg inertia, + rolling drag 420 g (0.02 + 0.95 * tyre sink). One tracklayer.js
+line: the chase cam's tow pull-back takes `VEH.camTow()` (6.65 m with the trailer on), found from the first chase stills, where the
+trailer filled the screen.
+`x2_haul.mjs` (31 asserts): new save haul null; Trucks row $950; bought, free, ramp up, on the forecourt; second click refused; hint
+"E: hitch the sled trailer to the pickup"; pad L3 hitches (coupler 0.000 m from the ball); the rig's tongue at that ball finds none;
+4 s of throttle moves truck and trailer 24.5 m each, coupler 0.000 m, truck 2,320 kg; through a turn it trails at an angle; reversing
+hard over stays inside the stop; slewed 100° it is held at exactly 70.0°; at the tail "E: lower the trailer's ramp", gate at -21°;
+VEH.block pushes a step onto the deck out; Map pin "Sled trailer"; touch UNHITCH; the truck pulls away, the trailer stays (0.000 m);
+reload keeps it free with the ramp down (0.000 m); keyboard E re-hitches; reload keeps it on the pickup. Stills (free, side, ramp,
+chase, turn) judged: attached on the ball, wheels on the snow, gate on the snow when down, whole trailer in the chase shot.
+Gate: smoke, x1_save, x2_haul, x2_hitch, x2_pickup, x2_cab all exit 0, fails 0, page errors none.
+Left: the sled drives through it (2.6b), truck/trailer don't collide, no hitch animation.
+In progress: nothing. Next: 2.6b (drive the sled up the ramp, strap it down).
+
 ## 2026-11-11 04:40 — Expansion slice 2.5: the universal hitch (G4) — ef9d751
 Builder pass (full throttle, no budget gate). Triage: report 0093 (2.4 cab tablet beta) has three POLISH and no BLOCKER/BUG, 0094
 (HUD/survival beta) is on the session-built HUD, not on an expansion slice; Last triaged report 92 -> 94. So the pass took slice 2.5.

@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); next: 2.6 |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); next: 2.6b |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -150,7 +150,28 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
       Left: no hitch/unhitch animation (the walker stands at the tongue, the coupler drops on: a toast says what happened);
       the rig doesn't block the walker; a parked truck's big loads don't show on the trailer while you're on the sled until
       you drive it (they're there: drawn from GS.load); camera pull-back while towing uses the sled's numbers in a truck too.
-- [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off.
+- [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off. Split 11 Nov
+      (too big for one pass) into:
+  - [x] 2.6a (v177) The sled trailer itself: the Fjordhenger deck trailer ($950, 420 kg, one per player) on the garage's
+        Trucks tab, parked on the forecourt. Single axle, 3.9 m deck at 0.55 m, A-frame tongue to a coupler 3.6 m ahead
+        of the axle, jack, fenders, tie-down rings, tail lights, a full-width ramp gate hinged at the deck's tail. It is a
+        second thing a truck's ball can hold (not a `GS.own.parts.hitch` rig: the sled can't tow its own carrier): a truck
+        holds the rig OR the trailer, never both, and the sled never takes it. On foot at its coupler, use (E / L3 / touch)
+        HITCHes it to a truck whose ball is within 1.6 m, or UNHITCHes it (stands on its jack); at its tail, use LOWERs or
+        RAISEs the ramp (only unhitched or with the truck parked). Behind a truck it follows by single-axle trailer
+        kinematics (axle stays 3.6 m from the ball, jackknife stop at ±70°), pitch from the coupler height, roll from the
+        ground under each wheel; the truck carries its 420 kg (inertia) and its rolling drag (sink of its tyres in the
+        snow). The walker is stopped by it; a Map pin "Sled trailer" when you aren't towing it. Saved as
+        `state.haul = { on: truck uid | null, x, z, yaw, ramp }` in tlx-vehicles.js (null = not owned; every older
+        save). Assert scenario `x2_haul.mjs`.
+        Left: the sled drives through it (2.6b makes ramp + deck a ride surface); the truck and the trailer don't collide
+        (jackknife stop only); no hitch animation (toast); no trailer tyre tracks.
+  - [ ] 2.6b Drive on and off: with the ramp down the ramp and deck are a ride surface for the sled (the sled climbs
+        them under its own power; skis on the deck), a stop at the front rail; on foot beside a sled on the deck use
+        STRAPs it down (and UNSTRAPs it). Strapped, it cannot be ridden off (throttle does nothing, a hint says so).
+  - [ ] 2.6c Towing it: a strapped sled rides the trailer (pose glued to the deck, its weight on the truck's hitch and
+        rating), reload keeps it strapped on, the Map pin follows; drive off down the ramp after unstrapping. Hints on
+        keyboard, each pad brand and touch; README row.
 - [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
 
 #### Design notes for 2.2 to 2.6 (worked out 10 Nov from reading the code; follow unless the code proves them wrong)
