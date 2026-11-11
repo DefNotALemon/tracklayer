@@ -4,6 +4,8 @@ Lemon's brief of 10 Nov 2026, condensed, with the plan for building it. This fil
 intent lives in the "What it is" and "Rules" sections, the build order in "Milestones", and the state of the work
 in "Status". `loop/LOOP.md` goal G4 and its Owner note point here. Owner notes in LOOP.md win over this file.
 
+What comes after this expansion is already decided: The Northern Front, `loop/NORTHERN-FRONT.md` (goal G5).
+
 ## Status
 
 | # | Milestone | State |
