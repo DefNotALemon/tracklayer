@@ -45,10 +45,10 @@ the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **Q** gets you off the sled and back on. Nothing slides you through the air: from wherever you stand within a few metres you walk to the nearer running board on your own feet, take the near grip, step a boot up onto the board, drive up over it, and throw the other leg back and over the seat as your hips turn to face forward; it lands on the far board and you drop into the seat. Getting off is the same body the other way: up off the seat, far leg back over, down to the snow, then the other boot. The body is simulated as it goes (a pelvis with weight on a muscle, a trunk that lags and catches up, loose arms, boots that stay exactly where they are planted), so it is a little different every time, on deep powder or a plowed yard, and the sled tips toward the loaded board and settles as you sit. Push a direction during the walk over to call it off.
 - **S / Down** brakes; hold it once you've stopped and the sled **reverses** (about 9 mph tops). There are no gears: every sled is stepless.
-- **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
+- **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor · **U** put a bandage on a bleeding wound (see *Wounds*, below)
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
+  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **D-pad down** bandage · **L3** horn (or E's fish / shop / sell) · **R3** camera · **D-pad right** weather · **Y** god menu
 - Phones and tablets get their own touch controls, a different set for riding and for walking:
   - **Left thumb:** a stick appears wherever your thumb lands in the lower left. On the sled it steers. On foot it
     walks: push up to walk, down to step back, sideways to turn on the spot, out to the rim to jog (the ring turns
@@ -95,7 +95,15 @@ redraws the moment a drop-off pays, so the rack, your delivered count and what's
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
 you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
-The compass at the top middle of the screen (the arrow with two lines of text) points at one job at a time. On
+**The HUD is minimal.** Bottom-left, four thin bars (bottom to top: red warmth, brown hunger, yellow fuel, blue thirst) that
+fade to nearly invisible after a few seconds without a change and come back the moment one moves; a bar under a quarter
+stays lit and pulses. Bottom-right, your speed as a plain number with an arc round its top-left that follows engine rpm
+(red at the redline). Top-middle, a compass strip in the Elder Scrolls style: N, E, S, W and the points between slide
+along it as you turn the camera, a small triangle under the middle marks where you're facing, and the tracked job is a
+diamond on the strip. When the job is right under the triangle its name and distance fade in below it for about three
+seconds, then fade out again. The compass below picks the job the way it always did; only how it's shown changed.
+
+The compass at the top middle of the screen points at one job at a time. On
 its own it picks: a rescue first, then a tour, the nearest drop-off aboard, grooming, a Bytteboden pickup, the
 nearest claimed pickup, the quay. The **Jobs** app on the tablet lists everything you've accepted (aboard, claimed
 pickups, tours, grooming, recovery and search-and-rescue call-outs, Bytteboden pickups, mail for the quay) with its
@@ -328,6 +336,19 @@ at the quay before she sails. Miss a sailing and it rides the next one free. Mis
 there's a 10% fine. Miss a third and you pay the full value and the post office takes it back. The
 countdown, the piece count and the value are on the minimap (the ring round the dial is the ferry
 clock) and in the Map app's corner. It's the mail, not the jobs, that brings you back to town.
+
+**Hunger and thirst** are two more stats (0-100, both start full). They drain slowly with game time (about 90 and 60
+minutes from full to empty, so a delivery run never feels like a survival game) and refill at the quay and the garage the
+way the fuel tank does. Empty is a mild penalty: you lose warmth a bit faster. They live in `tlx-survival.js`.
+
+**Wounds** (`tlx-wounds.js`; Settings > Options > *Poachers on the fell*, on by default). Rarely, and only on the open
+backcountry far (600 m+) from every village, cabin and the quay, with the tutorial and the licence schools done, a shot
+cracks across the fell and you take a wound. There's no enemy to see or fight: it's a hazard, not a combat system. Up to
+three wounds can be open at once and each bleeds your health (0-100) down; the red health bar pours up from the bottom of
+the screen only while you're bleeding. **U** (D-pad down on a pad, the BANDAGE button on touch) puts a bandage on one
+wound, but only in the first six seconds after the hit; a wound that old has soaked through, and keeps bleeding until the
+quay, the garage or the hospital patches you up. You carry three bandages and the quay restocks them. If your health
+hits zero it's the same defeat as any other: the Red Cross crew tows you back to the quay.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee. A freight card whose leg would

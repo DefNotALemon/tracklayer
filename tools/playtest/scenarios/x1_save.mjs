@@ -20,8 +20,8 @@ let a = await J(`{ tlx: typeof TLX, api: !!TLX.api, surf: isFinite(TLX.api.world
   optHidden: $("optSec").hidden && $("optRows").hidden, scripts: [...document.scripts].map(s => s.getAttribute("src")).filter(Boolean) }`);
 console.log("1", JSON.stringify(a));
 ok(a.tlx === "object" && a.api && a.surf, "TLX booted with the game's api");
-ok(a.region === "nordkinn" && a.dump.v === 1 && Object.keys(a.dump.opt).length === 0 && Object.keys(a.dump.sys).every(k => k === "vehicles") && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "fresh game: empty expansion state on the Nordkinn (the vehicles system is registered and owns nothing)");
-ok(a.optHidden, "no Options page while no option is registered");
+ok(a.region === "nordkinn" && a.dump.v === 1 && Object.keys(a.dump.opt).length === 0 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "fresh game: empty expansion state on the Nordkinn (the vehicles system is registered and owns nothing)");
+ok(!a.optHidden, "the Options page lists the wounds switch (the only registered option before the test adds one)");
 ok(Math.abs(a.lat * 180 / Math.PI - 70.9) < 0.5, "world latitude comes through the api (" + (a.lat * 180 / Math.PI).toFixed(1) + " N)");
 
 // 2: a pre-expansion save
@@ -33,7 +33,7 @@ await reload(old);
 a = await J(`{ cash: GS.cash, del: GS.delivered, sled: GS.own.sled, app: GS.apps.freight, tut: TUT.stage, dump: TLX.dump() }`);
 console.log("2", JSON.stringify(a));
 ok(a.cash === 4444 && a.del === 9 && a.sled === "woodsman" && a.app === 1 && a.tut === 99, "old save (no x) loads intact");
-ok(a.dump.v === 1 && Object.keys(a.dump.sys).every(k => k === "vehicles") && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "old save: expansion starts fresh");
+ok(a.dump.v === 1 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "old save: expansion starts fresh");
 
 // 3 + 4: a system, an option, and a stranger's state
 await ev(SYS);
@@ -56,12 +56,12 @@ ok(a.cash === 4444, "the rest of the save is still there");
 
 // 6: options page, tick, Monday
 await tap("Escape"); await sleep(600);
-a = await J(`{ open: !$("settings").hidden, secHidden: $("optSec").hidden, rows: [...$("optRows").querySelectorAll("button")].map(b => b.textContent), hint: $("optRows").querySelector(".hint").textContent }`);
+a = await J(`{ open: !$("settings").hidden, secHidden: $("optSec").hidden, rows: [...$("optRows").querySelectorAll("button")].map(b => b.textContent), hint: [...$("optRows").querySelectorAll(".hint")].pop().textContent }`);
 console.log("6 options", JSON.stringify(a));
-ok(a.open && !a.secHidden && a.rows.length === 1 && a.rows[0] === "Test option: off", "Settings shows the option, off");
-await ev(`$("optRows").querySelector("button").scrollIntoView(); true`); await sleep(200); await shot("x1_options");
-await ev(`$("optRows").querySelector("button").click(); true`);
-a = await J(`{ row: $("optRows").querySelector("button").textContent, on: TLX.on("t1opt"), saved: JSON.parse(localStorage.getItem("tracklayer.save.v2")).x.opt }`);
+ok(a.open && !a.secHidden && a.rows.includes("Test option: off"), "Settings shows the option, off");
+await ev(`[...$("optRows").querySelectorAll("button")].find(b => b.dataset.opt === "t1opt").scrollIntoView(); true`); await sleep(200); await shot("x1_options");
+await ev(`[...$("optRows").querySelectorAll("button")].find(b => b.dataset.opt === "t1opt").click(); true`);
+a = await J(`{ row: [...$("optRows").querySelectorAll("button")].find(b => b.dataset.opt === "t1opt").textContent, on: TLX.on("t1opt"), saved: JSON.parse(localStorage.getItem("tracklayer.save.v2")).x.opt }`);
 ok(a.row === "Test option: on" && a.on === true && !("t1opt" in a.saved), "the switch turns it back on and saves");
 await tap("Escape"); await sleep(400);
 const t0 = await raw("window.__t1 || 0"); await sleep(600); const t1 = await raw("window.__t1 || 0");

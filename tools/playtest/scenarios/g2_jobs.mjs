@@ -32,7 +32,7 @@ console.log("deliver", await ev(`(() => { const j = JOBT.sel; if (!j || !j.dest)
 await sleep(600);
 console.log("after deliver", await hud());
 // clicking the compass opens the Jobs app
-const box = await ev(`JSON.stringify($("job").getBoundingClientRect())`); const b = JSON.parse(box);
+const box = await ev(`JSON.stringify($("compass").getBoundingClientRect())`); const b = JSON.parse(box);
 const { click } = await import("../lib.mjs"); await click(b.x + b.width / 2, b.y + b.height / 2); await sleep(1500);
 console.log("compass click opens", await ev(`TABLET.open + " " + TABLET.app`));
 await done();

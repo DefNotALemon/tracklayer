@@ -2383,7 +2383,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false;
+let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false, padBand = false;
 
 /* ---------------- touch controls ---------------- */
 // The mobile scheme (markup #touch in index.html, styles under "touch controls: the mobile scheme").
@@ -2452,6 +2452,7 @@ function updTouch() {
   show("tcReel", !!(wd && WN.state === "hooked"));
   show("tcF", (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on));
   show("tcWipe", VZ.target > 0.12 || VZ.level > 0.08 || VZ.sweep >= 0);
+  show("tcBand", !!(TLX.wounds && TLX.wounds.open()));
   const w = $("tcWing"); w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn);
   $("tcFull").hidden = !(typeof FSC !== "undefined" && FSC.api && !GFX.standalone);
   $("tcGas").querySelector(".fill").style.height = Math.round(TC.thr * 100) + "%";
@@ -2537,6 +2538,7 @@ function touchCanvasUp(e) {
       else if (k === "x") gameKey({ code: "KeyX" });
       else if (k === "help") gameKey({ code: "KeyP" });
       else if (k === "wipe") wipeVisor();
+      else if (k === "bandage") gameKey({ code: "KeyU" });
     });
     if (k === "gas") b.addEventListener("pointermove", e => { if (b.classList.contains("on")) gas(e); });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
@@ -2560,7 +2562,7 @@ function readInput(dt) {
       settingsPad(gp, dt); analog = null; thr = brk = lean = wh = 0; CAMPAD.x = CAMPAD.y = 0;
       const pb = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
       padHop = pb(0); padB = pb(1); padX = pb(2); padGod = pb(3); padLB = pb(4); padMenu = pb(9); padReset = pb(8); padView = pb(11); padHorn = pb(10);
-      padTab = pb(12); padWipe = pb(14); padWx = pb(15); TOW.padWing = pb(4);
+      padTab = pb(12); padBand = pb(13); padWipe = pb(14); padWx = pb(15); TOW.padWing = pb(4);
       TT.padA = pb(0); TT.padB = pb(1); TT.nav = 0;
       break;
     }
@@ -2597,6 +2599,7 @@ function readInput(dt) {
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
+    const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: "KeyU" }); padBand = dd;   // D-pad down: bandage
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!(FISH && FISH.ctx())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
@@ -8482,7 +8485,7 @@ TABLET.register({
     tabMinis(el);
   }
 });
-$("job").addEventListener("click", () => { if (started && !TABLET.open) TABLET.toggle(true, "jobs"); else if (TABLET.open) TABLET.go("jobs"); });   // tap the compass: the Jobs app
+for (const _id of ["job", "compass"]) $(_id).addEventListener("click", () => { if (started && !TABLET.open) TABLET.toggle(true, "jobs"); else if (TABLET.open) TABLET.go("jobs"); });   // tap the compass: the Jobs app
 
 /* ---- Rescue: the app is registered with the search-and-rescue block (O5), near the end of the file ---- */
 
@@ -8501,6 +8504,7 @@ function gameKey(e) {
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyP") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
+  if (e.code === "KeyU") { if (TLX.wounds && !e.repeat) TLX.wounds.use(); return; }   // U: a bandage on an open wound (tlx-wounds.js)
 }
 
 /* settings: paint, rider kit, volume */
@@ -9233,7 +9237,8 @@ const BTN = {
   reset: { kbm: "N", xbox: "View", ps: "Create", nin: "−", touch: "↺" },
   menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" },
   use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
-  reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" }
+  reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
+  bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" }   // tlx-wounds.js: dress an open wound, fast
 };
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
 // a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
@@ -12937,7 +12942,7 @@ function updGameHud() {
   const jl = jobsList(), tr = jobTracked(jl);
   if (tr) tgt = tr.tgt;
   const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
-  const rel = Math.atan2(dx, dz) - camState.yaw;
+  let rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
   $("arrow").style.color = tr ? tr.col : GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
   { const pin = $("jobPin"), on = !!tr || (jl.length > 1 && !SCHOOL.on); pin.hidden = !on; if (on) { const i = tr ? jl.indexOf(tr) : -1; pin.textContent = tr ? `TRACKED ${i + 1}/${jl.length}` : `AUTO · ${jl.length} JOBS`; pin.classList.toggle("on", !!tr); } }
@@ -12973,9 +12978,10 @@ function updGameHud() {
   if (!tr) JOBT.auto = $("jobTitle").textContent;
   { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
     const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
-    $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;
+    rel = rl; $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;
     $("jobTitle").textContent = tt.title; $("jobSub").textContent = tt.sub(td); $("jobPin").hidden = true;
   } }
+  if (TLX.hud) TLX.hud.compass(camState.yaw, rel, $("jobTitle").textContent, $("jobSub").textContent, $("arrow").style.color);   // the compass strip (tlx-hud.js) shows the same target and text
   const wx = GS.stormPhase === "storm" ? "Storm" : GS.warned ? "Storm coming" : GS.storm > 0.2 ? "Snow showers" : "Clear";
   const sh = steamerAt(GS.hour), shN = steamerNextCall(GS.hour, "arr"), shTxt = sh.s === "in" ? `Ferry in till ${fmtTime(sh.c.dep)}` : sh.s === "leaving" ? "Ferry sailing" : sh.s === "arriving" ? "Ferry arriving" : shN ? `Ferry ${fmtTime(shN.arr)}${shN.state === "delayed" ? " (late)" : ""}` : "No ferry";
   $("clock").textContent = `${wx} · ${shTxt} · $${GS.cash}${godAny() ? " · GOD" : ""}`;
@@ -16385,7 +16391,7 @@ function initExpansion() {
   TLX.boot({
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
-    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on,
+    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, blackout, hospHere, tutDone: () => TUT.stage >= 99,
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt,
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin },
     mesh: { box, cyl, ball, std },
@@ -16527,6 +16533,7 @@ let godOpen = false, godSel = 0, godTp = 0, padGodA = false, padGodB = false, pa
 const GOD_ITEMS = [
   { id: "fuel", label: "Infinite fuel", toggle: true },
   { id: "warm", label: "Never cold", toggle: true },
+  { id: "wound", label: "Take a pot-shot", sub: "Test a bleed + bandage", do: () => { if (TLX.wounds) TLX.wounds.hit(); } },
   { id: "turbo", label: "Turbo engine", sub: "Power ×2.2", toggle: true },
   { id: "lowg", label: "Low gravity", sub: "Moon jumps", toggle: true },
   { id: "freeze", label: "Freeze the clock", toggle: true },
