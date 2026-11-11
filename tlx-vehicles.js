@@ -817,29 +817,36 @@ function save() {
   const rg = rigS(), TOW = api.tow;
   if (rg.on !== "sled" && TOW.kind && TOW.kind === rg.kind) { rg.x = NUM(TOW.x); rg.z = NUM(TOW.z); rg.yaw = NUM(TOW.yaw); }
   const h = haulS();
-  if (h) { h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0; if (h.on != null && !rec(h.on)) h.on = null; }
+  if (h) { h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0; h.cond = Number.isFinite(h.cond) ? clamp(h.cond, 0, 100) : 100; if (h.on != null && !rec(h.on)) h.on = null; }
   else s.haul = null;
   if (s.sled) { s.sled.fuel = NUM(s.sled.fuel); s.sled.x = NUM(s.sled.x); s.sled.z = NUM(s.sled.z); s.sled.yaw = NUM(s.sled.yaw); const live = LIVE.get("sled"); if (live) s.sled.load = serLoad(live); }
 }
 
 /* ---------------- buying: the garage's Trucks tab ---------------- */
 function forecourtSpot(d) {
-  const w = api.world, g = w.garage(), P = api.P, FOOT = api.FOOT, s = S();
-  const dep = w.depot, base = Math.atan2(dep.x - g.x, dep.z - g.z), cands = [];
-  for (let r = 8; r <= 30; r += 3) for (let a = 0; a < 6.283; a += 0.35) cands.push([g.x + Math.cos(a) * r, g.z + Math.sin(a) * r, r]);
+  const w = api.world, g = w.garage(), dep = w.depot, base = Math.atan2(dep.x - g.x, dep.z - g.z);
+  return spotNear(g.x, g.z, d, true, () => base);
+}
+// a clear, level-enough spot 8-30 m from (cx, cz) for something d.len long: off the water, clear of obstacles, 7 m from you,
+// your sled and every other vehicle. yard: only on plowed ground. yawOf(x, z) gives the way it faces.
+function spotNear(cx, cz, d, yard, yawOf) {
+  const w = api.world, P = api.P, FOOT = api.FOOT, s = S(), cands = [];
+  for (let r = 8; r <= 30; r += 3) for (let a = 0; a < 6.283; a += 0.35) cands.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r, r]);
   cands.sort((a, b) => a[2] - b[2]);
   const others = [[P.x, P.z]]; if (FOOT.on) others.push([FOOT.x, FOOT.z]); for (const r of s.owned) others.push([r.x, r.z]); if (api.veh.sled) others.push([api.veh.sled.x, api.veh.sled.z]);
   if (s.haul && typeof s.haul === "object") others.push([s.haul.x, s.haul.z], haulCoupler(s.haul));
   for (const [x, z] of cands) {
-    if (w.isWater(x, z) || w.obNear(x, z, d.len / 2 + 0.6) ) continue;
+    if (w.isWater(x, z) || (!yard && w.isSea(x, z)) || w.obNear(x, z, d.len / 2 + 0.6) ) continue;
     let ok = true; for (const [ox, oz] of others) if (Math.hypot(x - ox, z - oz) < 7) { ok = false; break; }
     if (!ok) continue;
-    if (w.yardAt(x, z) < 0.5) continue;                                       // on the plowed forecourt, not the drift
+    if (yard && w.yardAt(x, z) < 0.5) continue;                               // on the plowed forecourt, not the drift
     // room for the whole truck: no obstacle at nose or tail either, and the ground is level
+    const yaw = yawOf(x, z);
     let clear = true;
-    for (const yaw of [base, base + 0.0]) for (const off of [-2.4, 2.4]) { const px = x + Math.sin(yaw) * off, pz = z + Math.cos(yaw) * off; if (w.isWater(px, pz) || w.obNear(px, pz, 1.2)) clear = false; }
+    for (const off of [-2.4, 2.4]) { const px = x + Math.sin(yaw) * off, pz = z + Math.cos(yaw) * off; if (w.isWater(px, pz) || w.obNear(px, pz, 1.2)) clear = false; }
     if (!clear) continue;
-    return { x, z, yaw: base };
+    if (!yard && Math.abs(w.groundAt(x + Math.sin(yaw) * 2.4, z + Math.cos(yaw) * 2.4) - w.groundAt(x - Math.sin(yaw) * 2.4, z - Math.cos(yaw) * 2.4)) > 0.9) continue;   // not parked across a steep bank
+    return { x, z, yaw };
   }
   return null;
 }
@@ -871,8 +878,18 @@ function garageRows(body, row) {
   {                                                                              // the sled trailer (2.6a): one per player
     const h = haulS(), spec = `Single axle · ${HAUL.mass} kg · 3.9 m wooden deck with a full-width ramp gate · hitches to a truck's ball, not to the sled`;
     const how = `Back a truck up to its coupler and use it on foot to hitch it; use at its tail to drop or raise the ramp. Drive the sled up the ramp, get off and use beside the deck to strap it down; then tow it anywhere.`;
-    row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>`, h ? "Owned" : "$" + HAUL.cost, !h && GS.cash < HAUL.cost ? "locked" : "", () => buyHaul(), "trailer");
+    row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>`, h ? `Owned · ${Math.round(h.cond)}%` : "$" + HAUL.cost, !h && GS.cash < HAUL.cost ? "locked" : "", () => buyHaul(), "trailer");
   }
+  // the shop puts a worn truck or trailer right (2.7: dents from trees, or a used one off Bytteboden); it has to be here
+  for (const r of s.owned) {
+    const d = byId(r.id); if (!d || r.cond >= 99.5) continue;
+    const c = repairCost("truck", r), here = nearGarage(s.cur === r.uid ? api.P : r);
+    row(`Repair the ${d.name}`, here ? `${Math.round(r.cond)}% now. Panel beating, an alignment and a service: back to 100%.` : `${Math.round(r.cond)}%. Bring it within ${REPAIR_R} m of the garage first.`, "$" + c, !here || GS.cash < c ? "locked" : "", () => repair("truck", r), "service");
+  }
+  { const h = haulS(); if (h && h.cond < 99.5) {
+    const c = repairCost("haul", h), here = nearGarage(h);
+    row(`Repair the ${HAUL.name.toLowerCase()}`, here ? `${Math.round(h.cond)}% now: it rolls heavy. New bearings and a straight axle: back to 100%.` : `${Math.round(h.cond)}%. Bring it within ${REPAIR_R} m of the garage first.`, "$" + c, !here || GS.cash < c ? "locked" : "", () => repair("haul", h), "service");
+  } }
   const note = document.createElement("div"); note.className = "bfoot"; note.textContent = "Walk up to a truck and get in. Your sled stays where you left it.";
   body.appendChild(note);
 }
@@ -1015,7 +1032,9 @@ function carriedKg(h) {
 }
 function haulKg(uid) { const h = haulS(); return h && h.on != null && h.on === uid ? HAUL.mass + carriedKg(h) : 0; }
 let HSINK = 0;                                                                  // the trailer tyres' mean sink, for its drag
-function haulDrag(uid) { const k = haulKg(uid); return k ? k * GR * (0.02 + 0.95 * HSINK) + (haulS().ramp > 0.5 ? RAMP_DRAG : 0) : 0; }
+function haulDrag(uid) { const k = haulKg(uid); return k ? k * GR * (0.02 + 0.95 * HSINK) * haulWear() + (haulS().ramp > 0.5 ? RAMP_DRAG : 0) : 0; }
+// a worn trailer (a used one off Bytteboden, 2.7) rolls heavier: dry bearings, a bent axle. 100% = as built, 50% = +30% drag.
+function haulWear() { const h = haulS(); return 1 + 0.6 * (1 - (h && Number.isFinite(h.cond) ? clamp(h.cond, 0, 100) : 100) / 100); }
 function haulCoupler(h) { return [h.x + Math.sin(h.yaw) * HAUL.L, h.z + Math.cos(h.yaw) * HAUL.L]; }
 function haulTail(h) { const k = HAUL.deckZ0 - 0.4; return [h.x + Math.sin(h.yaw) * k, h.z + Math.cos(h.yaw) * k]; }
 function haulFollow() {
@@ -1230,10 +1249,107 @@ function buyHaul() {
   const spot = forecourtSpot({ len: HAUL.L - HAUL.deckZ0 + 0.6 }); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
   GS.cash -= HAUL.cost;
   const mid = (HAUL.L + HAUL.deckZ0) / 2;                                       // the spot is its middle; x, z is its axle
-  s.haul = { on: null, x: spot.x - Math.sin(spot.yaw) * mid, z: spot.z - Math.cos(spot.yaw) * mid, yaw: spot.yaw, ramp: 0 };
+  s.haul = { on: null, x: spot.x - Math.sin(spot.yaw) * mid, z: spot.z - Math.cos(spot.yaw) * mid, yaw: spot.yaw, ramp: 0, cond: 100 };
   api.toast("Bought the sled trailer. It stands on its jack on the forecourt: back a truck up to the coupler to hitch it.", "good");
   api.save(); api.garageRefresh();
 }
+
+/* ---------------- wear and repair (slice 2.7) ----------------
+   A truck's cond (0-100) already trims its power (condK in core) and drops when it hits trees; the trailer's cond makes it roll
+   heavier (haulWear). Used ones off Bytteboden arrive at the seller's real condition. The shop puts either back to 100% for
+   so much a point, with the machine within REPAIR_R m of the garage. */
+const REPAIR_R = 40, REPAIR_PT = { truck: 20, haul: 4 };                            // $ per condition point
+function nearGarage(p) { const g = api.world.garage(); return !!p && Math.hypot(p.x - g.x, p.z - g.z) <= REPAIR_R; }
+function repairCost(kind, o) { return Math.max(5, Math.round((100 - clamp(o.cond, 0, 100)) * REPAIR_PT[kind] / 5) * 5); }
+function repair(kind, o) {
+  const GS = api.GS, c = repairCost(kind, o), name = kind === "truck" ? byId(o.id).name : HAUL.name.toLowerCase();
+  if (!nearGarage(kind === "truck" && S().cur === o.uid ? api.P : o)) { api.toast(`Bring the ${name} to the garage first.`, "warn"); return; }
+  if (GS.cash < c) { api.toast(`That repair is ${api.fmtCash(c)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
+  GS.cash -= c; o.cond = 100;
+  api.toast(`The shop puts the ${name} right: 100% again, ${api.fmtCash(c)}.`, "good");
+  api.save(); api.garageRefresh();
+}
+
+/* ---------------- Bytteboden's "Vehicles" category (slice 2.7) ----------------
+   tracklayer.js owns the marketplace (listings, haggling, inspecting, lemons, paying); this answers for the two machines it
+   can't know: a used Fjellvogn pickup and a used Fjordhenger sled trailer, through VEH.mkt. Wear, the seller's haggling and
+   the 1-in-6 lemon come from the marketplace as for every category. A listing's condition is l.adv (the ad) and l.real (the
+   truth, lower on a lemon); collected, the machine is set down in the seller's yard at the real condition (a pickup with the
+   quarter tank they left in it) and you walk over and take it. The pool respects MAX_OWNED trucks (counting ones paid for and
+   not yet collected) and one sled trailer per player. Pickups list from 6 deliveries on, so a new player's board stays
+   sleds and gear. */
+const MKT_V = {
+  pickup: {
+    why: ["Bought a new one when the dealer gave me a good trade. This has never let me down on the lane.", "Moving south. Down there it's a car country, they tell me.",
+      "It's been the fish plant's yard truck. Winter tyres on, chains in the bed.", "Dad's. He can't get up into the cab any more.", "Got a side-by-side for the cabin, the wife says one truck is plenty."],
+    tell: ["The transfer case grinds going into four-wheel drive.", "There's rust right through the cab floor under the mat.", "The head gasket weeps: it's losing coolant.", "It's been rolled and pulled straight. The doors don't line up."]
+  },
+  haul: {
+    why: ["Sold the sled, so there's nothing to put on it.", "Built it for the cabin trips. We sold the cabin.", "Too long for my yard. The neighbour keeps complaining.", "Hauled the race sled on it two winters. Ramp's solid."],
+    tell: ["The axle's bent: it crabs down the road.", "The deck boards are soft at the back, over the ramp hinge.", "The wheel bearings are dry and growl."]
+  }
+};
+const usedTrucks = held => S().owned.length + held.filter(h => h.cat === "veh" && h.item === "pickup").length;
+const MKTV = {
+  pool(held) {
+    const out = [];
+    if (api.tutHidden()) return out;
+    if (api.GS.delivered >= 6 && usedTrucks(held) < MAX_OWNED) out.push({ item: "pickup", w: S().owned.length ? 0.4 : 1 });
+    if (!haulS() && !held.some(h => h.cat === "veh" && h.item === "haul")) out.push({ item: "haul", w: 0.9 });
+    return out;
+  },
+  info(item, c) {
+    const pct = Math.round(c * 100);
+    if (item === "haul") return { name: HAUL.name, newP: HAUL.cost, stat: `Single axle · 3.9 m deck · ramp gate · ${c < 0.8 ? "rolls a bit heavy" : "rolls like new"}`, kind: "haul" };
+    const d = byId("pickup");
+    return { name: d.name + " pickup", newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · heated cab · ${pct < 80 ? "dented" : "tidy"}`, kind: "pickup" };
+  },
+  why: item => MKT_V[item === "haul" ? "haul" : "pickup"].why,
+  tell: item => MKT_V[item === "haul" ? "haul" : "pickup"].tell,
+  howTo: (h, place) => h.item === "haul" ? `It stands in ${h.seller}'s yard in ${place}. Collect it there, then back a truck up to the coupler and hitch it.`
+    : `It's parked in ${h.seller}'s yard in ${place}. Collect it there, walk over and drive it away; your sled waits where you left it.`,
+  blocked(h) {
+    if (h.item === "haul") return haulS() ? "You already own a sled trailer." : "";
+    return S().owned.length >= MAX_OWNED ? `That's enough trucks (${MAX_OWNED}).` : "";
+  },
+  collect(h, site) {                                                             // "" = no room right now (the marketplace nags and retries)
+    const s = S(), cx = site.x, cz = site.z, away = (x, z) => Math.atan2(x - cx, z - cz);
+    if (h.item === "haul") {
+      const spot = spotNear(cx, cz, { len: HAUL.L - HAUL.deckZ0 + 0.6 }, false, away); if (!spot) return "";
+      const mid = (HAUL.L + HAUL.deckZ0) / 2;
+      s.haul = { on: null, x: spot.x - Math.sin(spot.yaw) * mid, z: spot.z - Math.cos(spot.yaw) * mid, yaw: spot.yaw, ramp: 0, cond: Math.round(h.cond * 100) };
+      return `${h.seller} wheels the sled trailer out of the yard. It's yours: ${Math.round(h.cond * 100)}% condition. Back a truck up to the coupler to hitch it.`;
+    }
+    const d = byId(h.item); if (!d) return "";
+    const spot = spotNear(cx, cz, d, false, away); if (!spot) return "";
+    const r = { uid: "v" + (++s.seq), id: d.id, x: spot.x, z: spot.z, yaw: spot.yaw, fuel: Math.round(d.fuel * 0.25), cond: Math.round(h.cond * 100), load: [] };
+    s.owned.push(r);
+    return `${h.seller} hands you the keys. The ${d.name} is parked in the yard: ${r.cond}% condition, a quarter tank. Walk over and get in.`;
+  },
+  pic(g, l, cx, cy, R) {                                                         // the listing's photo: side view, nose to the left
+    const gy = cy + 8, wheel = (x, rr) => { g.fillStyle = "#14171a"; g.beginPath(); g.arc(x, gy, rr, 0, 6.283); g.fill(); g.fillStyle = "#8d99a6"; g.beginPath(); g.arc(x, gy, rr * 0.45, 0, 6.283); g.fill(); };
+    if (l.item === "haul") {
+      R(cx - 70, gy - 22, 140, 8, "#7a5a3a");                                     // deck
+      R(cx - 70, gy - 14, 140, 4, "#2b2f34");                                     // frame
+      g.strokeStyle = "#2b2f34"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 70, gy - 12); g.lineTo(cx - 108, gy - 6); g.stroke();   // A-frame tongue
+      R(cx - 106, gy - 8, 4, 16, "#3a4048");                                      // jack
+      g.save(); g.translate(cx + 70, gy - 18); g.rotate(-1.35); R(0, -3, 34, 6, "#5c4630"); g.restore();   // ramp gate up
+      g.fillStyle = "#30343a"; g.beginPath(); g.arc(cx + 6, gy - 10, 20, Math.PI, 0); g.fill();            // fender
+      wheel(cx + 6, 14); R(cx + 64, gy - 22, 6, 4, "#c0221c");
+      return;
+    }
+    const col = "#" + byId("pickup").paint.toString(16).padStart(6, "0");
+    g.fillStyle = col; g.beginPath();
+    g.moveTo(cx - 104, gy - 10); g.lineTo(cx - 104, gy - 34); g.lineTo(cx - 70, gy - 40); g.lineTo(cx - 46, gy - 70); g.lineTo(cx + 4, gy - 72);
+    g.lineTo(cx + 12, gy - 40); g.lineTo(cx + 100, gy - 40); g.lineTo(cx + 100, gy - 10); g.closePath(); g.fill();          // body + cab
+    g.fillStyle = "rgba(190,225,255,.6)"; g.beginPath(); g.moveTo(cx - 64, gy - 42); g.lineTo(cx - 44, gy - 66); g.lineTo(cx - 20, gy - 66); g.lineTo(cx - 20, gy - 42); g.closePath(); g.fill();
+    R(cx - 16, gy - 66, 16, 24, "rgba(190,225,255,.6)");                                                                   // windows
+    R(cx + 12, gy - 40, 88, 4, "#1d2024");                                                                                // bed rail
+    R(cx - 106, gy - 22, 8, 10, "#1d2024"); R(cx - 102, gy - 32, 6, 6, "#f6f2d8"); R(cx + 96, gy - 34, 4, 8, "#c0221c");  // bumper, headlight, tail
+    g.fillStyle = "#14171a"; for (const x of [cx - 70, cx + 64]) { g.beginPath(); g.arc(x, gy - 10, 22, Math.PI, 0); g.fill(); }   // wheel arches
+    wheel(cx - 70, 18); wheel(cx + 64, 18);
+  }
+};
 // the model: one merged body, two wheels, the ramp gate on its hinge, the jack's leg, tail lights that light with the truck's
 let HR = null;
 function haulRuntime() {
@@ -1387,11 +1503,12 @@ TLX.register({
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
+    api.veh.mkt = MKTV;                                                          // Bytteboden's Vehicles category (2.7)
     Object.assign(api.veh, { rigOn, rigLive, rigAt, rigBall, rigFoot: anyFoot });  // the universal hitch (2.5); the sled trailer's use comes first (2.6a)
     Object.assign(api.veh, { deck: deckAt, deckClamp, strapped: () => { const h = haulS(); return !!(h && h.strap); } });   // the sled on the trailer (2.6b)
     api.veh.camTow = () => { const h = haulS(); return h && h.on != null && S().cur === h.on && !api.FOOT.on ? HAUL.L - HAUL.deckZ0 + 1.4 : 0; };   // the chase cam backs off to show it
     if (s.haul && typeof s.haul === "object") {                                  // the sled trailer from the save
-      const h = s.haul; h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0;
+      const h = s.haul; h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0; h.cond = Number.isFinite(h.cond) ? clamp(h.cond, 0, 100) : 100;
       const st = h.strap; h.strap = st && typeof st === "object" && [st.x, st.z, st.yaw].every(Number.isFinite) ? { x: st.x, z: st.z, yaw: st.yaw } : null;
       if (h.strap) { const q = h.strap; q.x = clamp(q.x, -0.3, 0.3); q.z = clamp(q.z, HAUL.deckZ0 + 1.05, HAUL.deckZ1 - 0.06 - SLED_NOSE); q.yaw = clamp(wrapA(q.yaw), -0.35, 0.35); }   // a strap spot is always on the deck, nose forward (report 0100)
       if (h.on != null && (!rec(h.on) || rigOn() === h.on)) h.on = null;
@@ -1421,5 +1538,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, mkt: MKTV, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

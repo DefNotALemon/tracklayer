@@ -9834,6 +9834,8 @@ function wearSync() {
      shelves them; fitting is labour); hitch receivers go on the rack to the garage; trailers and groomers hook straight
      on if you have a receiver that'll take them; sleds are ridden away (the seller runs your old one back to the
      garage); rods, reels and augers go in your pack.
+   - Vehicles (cat "veh", G4 2.7): used pickups and the sled trailer, answered by tlx-vehicles.js through VEH.mkt. Paid
+     for and collected, the truck or trailer is set down in the seller's yard at its real condition; walk over and take it.
    Saved as `mkt` ({ list, held, seq, next, last }). */
 const MKT_CATS = [
   { id: "all", name: "All" },
@@ -9844,8 +9846,11 @@ const MKT_CATS = [
   { id: "groomer", name: "Groomers", w: 0.8 },
   { id: "fish", name: "Ice fishing", w: 2 },
   { id: "ski", name: "Skis", w: 1.2 },
+  { id: "veh", name: "Vehicles", w: 0.8 },           // used pickups and sled trailers (G4 2.7): tlx-vehicles.js answers through VEH.mkt
   { id: "rare", name: "Rare", w: 0.3 }
 ];
+// the vehicles category lives in tlx-vehicles.js (VEH.mkt: pool, info, why, tell, howTo, blocked, collect, pic); without it the category is empty
+const mktV = () => VEH.mkt || null;
 const SELLER_P = {
   stubborn: { ask: 1.08, floor: 0.95, pat: 1, tag: "FIRM", w: 0.24 },
   fair: { ask: 1.0, floor: 0.87, pat: 2, tag: "", w: 0.36 },
@@ -9895,6 +9900,7 @@ function mktInfo(l, c = l.adv) {
   if (l.cat === "sled") { const s = SLEDS.find(x => x.id === l.item); return { name: s.name, newP: Math.max(s.cost, 400), stat: `${s.year} · ${pct(s.power * condMul(c))} power · ${s.fuel} L · ${s.drag < 1 ? "floats" : "ploughs"} in powder`, pwr: s.power * condMul(c), kind: "sled", sd: s }; }
   if (l.cat === "recv") { const o = partDef("recv", l.item); return { name: o.name, newP: o.cost, stat: o.id === "heavy" ? "takes the flatbed and the wing tiller too" : "takes the freight trailer and the groomer drag", kind: "recv" }; }
   if (l.cat === "trailer" || l.cat === "groomer") { const o = partDef("hitch", l.item); return { name: o.name, newP: o.cost, stat: l.cat === "trailer" ? `${o.stats.bays} big load${o.stats.bays > 1 ? "s" : ""} · tips ${c < 0.8 ? "a touch sooner" : "about like new"}` : `${l.item === "tiller" ? "5.8 m wings" : "2.4 m pan"} · ${c < 0.8 ? "leaves it a bit lumpy" : "leaves good corduroy"}`, kind: l.item }; }
+  if (l.cat === "veh") return mktV() ? mktV().info(l.item, c) : { name: "Vehicle", newP: 100, stat: "", kind: "veh" };
   if (l.cat === "rare") return { name: "Santa's Sled", newP: 9000, stat: `One of a kind · gold leaf and sleigh bells · ${c < 0.8 ? "lacquer's a bit tired" : "lacquer like new"} · no engine: its team ran off`, kind: "rare" };
   if (l.cat === "ski") { const k = xcDef(l.item); return { name: k.name, newP: k.price, stat: `${k.note} · ${c < 0.8 ? "base wants a wax" : "glides near new"}`, kind: "ski" }; }
   const g = mktFishDef(l.item) || { name: "?", price: 10 }, t = l.item.split(":")[0];
@@ -9911,6 +9917,7 @@ function mktPool(cat) {
   if (cat === "recv") return PARTS.recv.options.filter(x => x.id !== "none" && !o.partsOwned["recv:" + x.id]).map(x => ({ item: x.id, w: 1 }));
   if (cat === "trailer") return ["trailer", "flatbed"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "trailer" ? 1.4 : 1 }));
   if (cat === "groomer") return ["groomer", "tiller"].filter(id => !o.partsOwned["hitch:" + id]).map(id => ({ item: id, w: id === "groomer" ? 1.4 : 1 }));
+  if (cat === "veh") return mktV() ? mktV().pool(GS.mkt ? GS.mkt.held : []) : [];
   if (cat === "ski") return XC_SKIS.filter(k => !(o.xc && o.xc.id === k.id)).map(k => ({ item: k.id, w: o.xc ? 0.5 : 1.6 }));
   if (cat === "fish") { if (!window.TLFish) return []; const out = []; for (const t of ["rods", "reels", "augers"]) for (const g of window.TLFish.GEAR[t]) if (g.tier > 1 && !mktHasFish(t + ":" + g.id)) out.push({ item: t + ":" + g.id, w: t === "augers" ? 1.2 : 1 }); return out; }
   return [];
@@ -9931,7 +9938,7 @@ function mktMake(now, age = 0) {
   return Object.assign(l, {
     site: pick(mktSites()).id, seller: pick(MKT_NAMES), t0: now - age, life: 48 + Math.random() * 72,
     ask, ask0: ask, floor: Math.round(ask * S.floor), pat: S.pat, thread: [], deal: null, insp: false, mute: false,
-    why: pick(MKT_WHY[cat]), tell: pick(MKT_TELL[cat]), hrs: cat === "engine" || cat === "sled" ? Math.round(lerp(60, 1400, 1 - adv) / 10) * 10 : 0, seed: (Math.random() * 1e6) | 0
+    why: pick(cat === "veh" ? mktV().why(it.item) : MKT_WHY[cat]), tell: pick(cat === "veh" ? mktV().tell(it.item) : MKT_TELL[cat]), hrs: cat === "engine" || cat === "sled" ? Math.round(lerp(60, 1400, 1 - adv) / 10) * 10 : 0, seed: (Math.random() * 1e6) | 0
   });
 }
 // a fresh board: about ten listings of all ages, so they won't all expire together
@@ -10033,7 +10040,8 @@ function mktPay(l) {
   if (here) mktCollect(GS.near);
   TABLET.refresh("market");
 }
-const mktHowTo = h => h.cat === "rare" ? `It's in ${h.seller}'s barn in ${shortName(mktSite(h))}. Bring a trailer or flatbed with a free bay and haul it to the garage. The reindeer aren't included: they ran off across the peninsula years ago.`
+const mktHowTo = h => h.cat === "veh" ? (mktV() ? mktV().howTo(h, shortName(mktSite(h))) : "")
+  : h.cat === "rare" ? `It's in ${h.seller}'s barn in ${shortName(mktSite(h))}. Bring a trailer or flatbed with a free bay and haul it to the garage. The reindeer aren't included: they ran off across the peninsula years ago.`
   : h.cat === "engine" ? `Bring a trailer with a free bay to ${shortName(mktSite(h))} and it comes back to the garage as a load.`
   : h.cat === "recv" ? `It's waiting in ${shortName(mktSite(h))}: it rides home on the rack.`
   : h.cat === "sled" ? `It's in ${h.seller}'s shed in ${shortName(mktSite(h))}. Ride over and ride it home.`
@@ -10043,6 +10051,7 @@ const mktHowTo = h => h.cat === "rare" ? `It's in ${h.seller}'s barn in ${shortN
 // why you can't take it away right now ("" = you can)
 function heldWhy(h) {
   if (SCHOOL.on) return "You're on a school course.";
+  if (h.cat === "veh") return mktV() ? mktV().blocked(h) : "Not available.";
   if (h.cat === "engine" || h.cat === "rare") { const r = GS.own.parts.hitch; if (r !== "trailer" && r !== "flatbed") return "Needs a trailer or flatbed on the hitch."; if (ST.bays - baysUsed() < 1) return "Your trailer's full."; return ""; }
   if (h.cat === "recv") return smallLoads().length >= ST.slots ? `Needs a free spot ${rackW("on")}.` : "";
   if (h.cat === "trailer" || h.cat === "groomer") { if (!recvOk(h.item)) return `Needs ${recvNeed(h.item)} on the sled first (garage, Parts).`; if (GS.own.parts.hitch !== "none") return `Your hitch is taken by the ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()}. Leave it at the garage first.`; return ""; }
@@ -10085,6 +10094,12 @@ function mktCollect(site) {
       o.xc = { id: k.id, cond: +h.cond.toFixed(3) };
       GS.mkt.held = GS.mkt.held.filter(q => q !== h); xcLook();
       toast(`${h.seller} helps you strap the ${k.name.toLowerCase()} along the tunnel${old ? `; your old ${old.name.toLowerCase()} stay in ${shortName(mktSite(h))}` : ""}. ${pctC(h.cond)} condition. Q off the sled and you're on them.`, "good");
+    } else if (h.cat === "veh") {
+      // the seller's truck or trailer goes on the ground beside their place; you walk over and drive it away (tlx-vehicles.js)
+      const msg = mktV() ? mktV().collect(h, site) : "";
+      if (!msg) { if (gameClock - MKT.nagT > 10) { MKT.nagT = gameClock; toast(`${h.seller}: "No room to get it out of the yard with you parked there. Pull forward a bit."`, "warn"); } continue; }
+      GS.mkt.held = GS.mkt.held.filter(q => q !== h);
+      toast(msg, "good");
     } else if (h.cat === "fish") {
       const [t, id] = h.item.split(":"), c1 = MKT_GEAR[t];
       if (GS.fish && GS.fish.own && GS.fish.own[c1]) GS.fish.own[c1][id] = { c: +h.cond.toFixed(3) };
@@ -10182,6 +10197,8 @@ function mktPic(l) {
     for (let i = 0; i < 14; i++) R(cx - 86 + i * 11, cy + 8, 5, 8, "#15191e");
     if (t) { g.fillStyle = "#6a3a00"; g.fillRect(cx - 20, cy - 46, 10, 10); }
     g.strokeStyle = "#8d99a6"; g.lineWidth = 4; g.beginPath(); g.moveTo(cx + 70, cy - 10); g.lineTo(cx + 108, cy - 4); g.stroke();
+  } else if (l.cat === "veh") {
+    if (mktV()) mktV().pic(g, l, cx, cy, R);
   } else if (l.cat === "ski") {
     const k = xcDef(l.item), col = "#" + k.col.toString(16).padStart(6, "0");
     for (const [dx, a] of [[-18, -0.16], [4, -0.12]]) {
@@ -10263,7 +10280,7 @@ TABLET.register({
     const list = GS.mkt.list.filter(q => (MKT.cat === "all" || q.cat === MKT.cat) && mktVisible(q)).sort((a, b) => (b.t0 - a.t0));
     h += sec(MKT.cat === "all" ? "Near you and further out" : MKT_CATS.find(c => c.id === MKT.cat).name, `${list.length} listed · new ones come in all day`);
     h += list.length ? `<div class="tmkg">${list.map(mktCardHtml).join("")}</div>` : `<p class="tnote2">Nothing in this category right now. Check back in a few hours.</p>`;
-    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Something rare turns up now and then. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. Skis strap to the sled. The ad isn't always the truth: look before you pay.</p>`;
+    h += `<p class="tnote2">Private sales: used, a bit worn, cheaper than new. Something rare turns up now and then. Engines come back to the garage on a trailer and the shop fits them for labour. Trailers and groomers hook straight on if you've a receiver for them. Skis strap to the sled. Trucks and sled trailers wait in the seller's yard: walk over and take them. The ad isn't always the truth: look before you pay.</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     for (const b of el.querySelectorAll("[data-mkc]")) b.addEventListener("click", () => { MKT.cat = b.dataset.mkc; TABLET.render(); });
     for (const b of el.querySelectorAll("[data-mk]")) b.addEventListener("click", () => { MKT.view = +b.dataset.mk; $("tabV").scrollTop = 0; TABLET.render(); });

@@ -231,6 +231,15 @@ takes them (the flatbed and wing tiller need the heavy-duty one). Sleds you ride
 goes in your pack. The garage's **Workshop** tab restores condition for a fee, but the wear marks
 stay. Fishing gear can't be restored.
 
+**Vehicles.** From six deliveries on, sellers list used **Fjellvogn pickups** (roughly $2,400–3,800
+against $4,200 new), and anyone without one sees the odd used **Fjordhenger sled trailer** (about
+$550–850 against $950). They haggle and hide faults like everything else: a lemon pickup is down at
+40–60% condition, which costs it power (a 50% truck pulls 83%), and a worn trailer rolls heavier
+behind the truck. Collect it at the seller's: they set it down in their yard (a pickup comes with a
+quarter tank) and you walk over and take it. The garage's Trucks tab repairs a truck ($20 a
+condition point) or the trailer ($4 a point) back to 100% when it's within 40 m of the garage;
+that also mends the dents a truck takes from trees. Three trucks is the limit, used or new.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a
