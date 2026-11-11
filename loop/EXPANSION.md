@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); next: 2.7 |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; next: 3 (roads and traffic) |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -189,7 +189,18 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
         hitched trailer. `x2_tow.mjs` (33 asserts). README "Towing the sled".
         Left: mounting a sled that stands on the deck still uses the ground swing (the walker climbs on from the snow
         beside the deck); no hitch / strap animations (toasts); the trailer has no tyre tracks.
-- [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
+- [x] 2.7 (v185) Bytteboden "Vehicles" category: used Fjellvogn pickups (from 6 deliveries, up to 3 trucks counting paid-for
+      ones) and a used Fjordhenger sled trailer (anyone without one). tracklayer.js only bridges (`MKT_CATS` "veh" + `mktV()`
+      branches in mktInfo / mktPool / mktMake / mktHowTo / heldWhy / mktCollect / mktPic); tlx-vehicles.js answers through
+      `VEH.mkt` (pool, info, why/tell texts, howTo, blocked, collect, pic). Wear, haggling and the 1-in-6 lemon are the
+      marketplace's own. Collected at the seller's, the machine is set down in their yard (`spotNear`, generalised from
+      forecourtSpot: 8-30 m out, dry, clear, level, facing away) at the real condition, a pickup with a quarter tank; you walk
+      over and get in. Wear: a truck's cond already trims power (50% = 83%); the trailer now has `haul.cond` (missing = 100,
+      every older save) and rolls heavier (`haulWear`, 50% = +30% rolling drag). Repair on the garage's Trucks tab ($20 / point
+      truck, $4 / point trailer) within 40 m of the garage, which also mends tree dents. README "Vehicles"; Progression-map
+      row for the pickup in LOOP.md. `x2_vehmkt.mjs` (34 asserts).
+      Left: no wear look on the truck or trailer models (the listing photo shows specks); no Workshop-style "wear marks stay";
+      a used pickup is always the blue Fjellvogn.
 
 #### Design notes for 2.2 to 2.6 (worked out 10 Nov from reading the code; follow unless the code proves them wrong)
 **P is the vehicle you are using.** The whole game reads `P` (camera, HUD, site detection, warmth, deliveries, bog,

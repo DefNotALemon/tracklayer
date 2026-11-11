@@ -3,6 +3,37 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 17:10 — 2.7 Bytteboden Vehicles category, wear and repair (G4) — c3744de
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0107 (2.6b every sled on the deck) has no BLOCKER or BUG: #1 (same front-rail stop for every sled) and
+#2 (scenario hazard) are POLISH, #3 repeats the top-left vehicle-name POLISH. Last triaged report 106 -> 107. So the next
+unticked slice: 2.7, the last of milestone 2.
+Built: Bytteboden category "Vehicles" (cat "veh"). tracklayer.js only bridges through `mktV()` = `VEH.mkt` (pool, info,
+why/tell texts, howTo, blocked, collect, pic) in mktInfo / mktPool / mktMake / mktHowTo / heldWhy / mktCollect / mktPic;
+tlx-vehicles.js holds the rest. Pool: the sled trailer for anyone without one (and none paid for), the pickup from 6
+deliveries while trucks owned + paid-for < 3. Haggling, inspection and the 1-in-6 lemon are the marketplace's own. Collected
+at the seller's, it is set down 8-30 m out in their yard (`spotNear`, forecourtSpot generalised: dry, off the sea, clear,
+not across a bank, facing away) at the real condition, a pickup with a quarter tank; no room = a throttled nag and a retry.
+Wear: truck cond already trims power (50% -> 83%); new `haul.cond` (missing = 100 for every older save) makes the trailer
+roll heavier (`haulWear`, 50% -> x1.30 rolling drag). Repair rows on the garage's Trucks tab, $20/point truck and $4/point
+trailer, only within 40 m of the garage (also mends tree dents, which had no repair before). Prices seen: used pickup $2,800
+(new $4,200), lemon after inspection $2,380; used trailer $575 (new $950). README "Vehicles"; Progression-map row for the
+pickup in LOOP.md. tlx-vehicles.js v8.
+Assert scenario `x2_vehmkt.mjs`: 34/34 ok (pool gating by deliveries / ownership / 3-truck cap, Vehicles tab + photos,
+detail page, a 90% offer answered, SEND then collect at the seller (trailer set down at its condition, dry, 7 m out), remote
+inspect refused, in-person lemon inspect drops the ask, pay in person -> pickup parked 8 m out at 50% with 18 L, hint
+"Q: get in the pickup", Q gets you in, repair locked away from the garage and $1,000 at it, reload keeps conditions, a
+cond-less trailer rolls as built). Stills judged (b27 sheet): the pickup photo reads as a pickup, cards lay out clean, the
+collected truck sits on the snow.
+Milestone 2 (vehicle core) is done. Next: milestone 3, roads and traffic (`tlx-roads.js`): its slices aren't written yet,
+so the next pass writes them into EXPANSION.md.
+Left: no wear look on the truck / trailer models; a used pickup is always the blue Fjellvogn.
+Gate: smoke 0, x1_save 0, x2_vehmkt 0, x2_haul 0, page errors none. x2_pickup is flaky on unchanged origin/main too
+(base: 1 fail "Q gets back on the sled", then a clean pass; this build: 4 runs, 1 clean, the others one timing assert each,
+a different one each run: "Q gets back on the sled" x2, "S backs it up" once, "the sled stays where it was left" once).
+Nothing in this slice touches mounting or driving; follow-up: x2_pickup should poll FOOT.on / DMT.on after Q instead of
+sleeping a fixed time (the skill's mount-timing pitfall).
+
 ## 2026-11-11 16:35 — Beta fix 0106: WIPE VISOR / BANDAGE / CALL HELP pills apart on phones (G4) — 827c676
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0106 (phone HUD v183 worst-case pills) has two BUGs on landed work, taken ahead of 2.7: #1 WIPE VISOR

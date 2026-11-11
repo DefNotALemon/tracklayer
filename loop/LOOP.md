@@ -180,6 +180,7 @@ sampled 40× per level). Part `tier` = SLEDS index the part needs (Woodsman = ti
 | Apex 800 | 5200 | 32 | 2.02 | 0.78 | 1.3 | 26 | 2.59 | no parts; since v85 the only class insured for fell freight (rank 32, $3.9–7.6k avg $5.6k) |
 | Matriarch 850T | 9800 | 46 | 2.50 | 0.66 | 1.8 | 30 | 3.79 | no parts; since v86 the only sled rated for tonne loads (rank 46, 920–1,050 kg, $9.6–10.4k avg $9.9k) |
 | Aurora E | 14500 | 60 | 2.24 | 0.72 | 1.6 | 34 | 3.11 | since v87 the only sled let on NILU clean-air runs (rank 60, quay → 4–5 km out, 110–220 kg trailer, $8.7–11.7k avg $10.2k); since v75 plugs in at any village/cabin/relay/home/pump for $0.75/L, burn 0.85 (range 40 L-eq, longest; Matriarch 30) |
+| Fjellvogn pickup (G4, v171) | 4200 new; used ~2400–3800 on Bytteboden from 6 (v185) | 0 | 105 kW, 8.2 kN | wheels: sinks in powder | mu 0.42 hard / 0.22 loose / 0.12 ice | 70 | n/a | not a sled: plowed yards, lanes, hard pack only; heated cab (cold 0.12), 8 parcels in the bed, 1,500 kg hitch (rigs, Fjordhenger sled trailer $950, used ~550–850); cond trims power (50% = 83%), repair $20/point at the garage; up to 3 owned |
 
 Ranks/contracts (pay = average offered): 3 deliveries grooming ~$900 (needs groomer $700 + receiver $150, both
 Woodsman-tier, so really opens at 4); 5 heavy freight ~$1500 (trailer $900 + Freight licence); 12 priority
@@ -462,4 +463,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 106
+Last triaged report: 107
