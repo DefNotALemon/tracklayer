@@ -3,6 +3,31 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 02:55 — Getting on and off the sled: the swing (Owner note 11 Nov, G3 climb on/off) — 92d74f7
+Lemon: "rethink the animation for the player getting on and off the snowmobile to be a dynamic natural swing of a ragdoll over and
+onto a snowmobile, not this teleport slide move through the air until your character is in position." The old mountTick / dismountTick
+lerped FOOT.x/y/z from wherever you stood to the seat with a sine arc on top and posed limbs over it. Replaced by `SWG` (block comment
+"getting on and off: the swing"): `mount()` picks the nearer side and `swgWalk` steers the walker's own gait (footStep with synthetic
+input) to the spot beside the footwell; then `swgStep` runs a small body: pelvis = a mass on a spring with a 26 m/s^2 / 2.8 m/s limit,
+kept within a leg (0.848 m) of every pinned boot and above the cushion; yaw, trunk pitch / roll / twist and head on springs that take
+the pelvis's acceleration as an input (the trunk lags and catches up); ankles and hands as point masses (pinned in world space on the
+snow, in sledBody space on a board or grip; a boot in the air follows a Bezier handle through a spring with gravity, leg length, and
+the seat / boards / snow as colliders; a loose arm hangs on a soft spring and swings). Phases on: step (near boot to the board, near
+hand to its grip) > drive (up on the toe of the snow boot) > over (that leg back and over the seat behind the hips while yaw turns
+forward and the far hand takes its grip) > sit (underdamped drop into the seat). Off: rise > back > down > stand, ending turned ~40
+degrees toward the sled's nose. `swgPose` sets the walker rig by two-bone IK (ik2) with full quaternions; walker arms stretch x1.36 as
+they take the grips so hips, boots and hands coincide with the seated rider at the swap. `SWG.roll` / `SWG.dip` (springs) tip and press
+sledBody from the load on the boards. Camera: no `camState.init = false` unless the view is first person. The walker gets the rider's
+head kit and pack (`walkerLook`, from GS.own.gear.head). Input to the sled is zeroed while MNT / DMT are on; pushing a direction during
+the walk-over cancels it. Ski mount range 6 > 4.5 m (you walk the rest). Trucks keep their own sequence.
+Measured (`scenarios/g2_swing.mjs`, rAF stepped at 1/60): swing 1.40-1.47 s on, 1.40-1.45 s off on all 10 sleds; pelvis never over
+2.4 m/s frame to frame (limit 3.2); planted boots creep under 1 cm; ankle clears the cushion by 14-25 cm; hips within 2.5 cm of the
+rider's at the swap, both hands on the grips; sled roll peak 0.05 rad. From a ring round the sled (8 bearings x 1 / 2 / 3.4 m) riding
+in 2.0-4.4 s. Depot yard (snow level with the sled's base, a 0.47 m step): same asserts pass. Stills judged from rear and front-quarter
+strips at 0.1 s. Gate: smoke, x1_save, g2_swing, g2_tutorial (its Q step now polls FOOT.on instead of sleeping 3.5 s), x2_pickup.
+Not done: a passenger behind you is not avoided by the leg; the pickup's door sequence is still the posed kind; the walk-over inherits
+footStep's snap in height where the snow steps (15 cm at a ski groove edge), seen in one test as a jump just before the swing.
+
 ## 2026-11-11 00:25 — Expansion slices 2.2 + 2.3: the vehicle core and the Fjellvogn pickup (G4) — 004faa4
 New `tlx-vehicles.js` (own `?v=1`; `tlx.js` ?v=2 for a small `save()` hook) plus a small `VEH` bridge in tracklayer.js, every hook behind
 `if (VEH.cur)`: physStep, restat, updVisuals (the parked sled and its tow rig are drawn from their own pose through `parkedSled`, the
