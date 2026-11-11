@@ -6064,7 +6064,7 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null })); } catch (e) { } }
+function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null, x: TLX.dump() })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
@@ -6078,6 +6078,7 @@ function load() {
   // the first-ride tutorial: older saves (anyone who's played before) skip it
   TUT.stage = d0 && typeof d0.tut === "number" ? d0.tut : (d0 || GS.delivered > 0) ? 99 : 0; TUT.a = d0 && d0.tutA || null; TUT.b = d0 && d0.tutB || null;
   migrateEngines(); migrateO6(d0);
+  TLX.load(d0 && d0.x);                                                  // the expansion's systems (tlx.js): an old save has none and starts them fresh
   restat(); GS.fuel = GS.cap;
 }
 // O6: Bytteboden and the depots. Old garage pickups become Bytteboden buys; anyone already towing gets a receiver free.
@@ -8427,7 +8428,7 @@ function buildSettings() {
 function toggleSettings(force) {
   const open = force !== undefined ? force : $("settings").hidden;
   $("settings").hidden = !open;
-  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); }
+  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); optSync(); }
 }
 
 // Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of
@@ -12849,7 +12850,7 @@ function newGame() {
   Object.assign(LOG, LOG0());
   GS.mail = []; GS.mailT = {}; GS.mailSeq = 0; GS.mailH = undefined;
   if (SCHOOL.on) schoolEnd("quiet"); GS.apps = {}; GS.lic = {}; GS.signed = {}; GS.sdone = {}; SCHOOL.guide = null;
-  mktInit(null); reInit(null);
+  mktInit(null); reInit(null); TLX.load(null);
   if (FISH) { FISH.abort(); FISH.setData(null); }                       // starter tackle: hand auger, short rod, plastic reel, 4 lb mono, maggots
   sarAbort("quiet"); Object.assign(SAR, { duty: false, rep: 10, miss: 0, n: 0, lost: 0, ign: 0 });
   GS.hour = 9.6; CAL.off = 0; CAL.lastDay = null; WX.seed = (Math.random() * 2 ** 31) | 0; WX.fc = null; WX.force = null;                 // a new game starts at 09:36 on 1 November
@@ -15783,6 +15784,43 @@ function crashVisual(dt) {
   U.torso.rotation.set(air ? 0.25 : 0, 0, 0); U.torso.position.y = 0.93; if (U.head) U.head.rotation.set(0, 0, 0);
 }
 
+/* ---------------- the expansion: the bridge to tlx.js ----------------
+   Four Seasons & Enterprise (loop/EXPANSION.md). Every big new system lives in its own file (tlx-<system>.js),
+   registers with TLX (tlx.js) and reaches the game only through the api handed over here, the way icefish.js gets
+   its api from initFishing. Add to the api as systems need more; don't let a system file reach for a global.
+   Saved as x in tracklayer.save.v2 (TLX.dump / TLX.load, called from save() and load()). The suggested additions
+   are switches on the Settings options page (optBuild), saved with the game, on by default.
+   The api's `world` is everything tied to the place: a system reads the ground, snow, sea, sites and latitude
+   from it and never from a Nordkinn constant, so it runs unchanged in the regions that come later. */
+function initExpansion() {
+  TLX.boot({
+    THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
+    toast, save, fmtCash, clamp, lerp, sstep,
+    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on,
+    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt },
+    mesh: { box, cyl, ball, std }
+  });
+  optBuild();
+}
+CAL.onDayChange((n, prev) => { if (prev !== null && n.dow === 1) TLX.monday(n); });   // Mondays: wages, stipends and upkeep settle with the rent
+// Settings > Options: one switch per suggested addition, grouped by the system it belongs to. No options, no page.
+function optBuild() {
+  const sec = $("optSec"), box = $("optRows"); if (!sec || !box) return;
+  box.textContent = ""; sec.hidden = box.hidden = !TLX.options.length;
+  for (const o of TLX.options) {
+    const row = document.createElement("div"); row.className = "setrow";
+    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.opt = o.id;
+    const h = document.createElement("span"); h.className = "hint"; h.textContent = o.hint || "";
+    b.addEventListener("click", () => { TLX.setOn(o.id, !TLX.on(o.id)); optSync(); if (started) save(); });
+    row.appendChild(b); row.appendChild(h); box.appendChild(row);
+  }
+  optSync();
+}
+function optSync() {
+  const box = $("optRows"); if (!box) return;
+  for (const b of box.querySelectorAll("button[data-opt]")) { const o = TLX.options.find(x => x.id === b.dataset.opt), on = TLX.on(b.dataset.opt); b.textContent = (o ? o.name : b.dataset.opt) + ": " + (on ? "on" : "off"); b.classList.toggle("on", on); }
+}
+
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
 let last = performance.now(), acc = 0, live = false;
@@ -15801,7 +15839,7 @@ function frame(t) {
   if (FISH && FISH.on) FISH.frame(dt);                                  // out on the ice: the walker, rod, line and the side-view camera
   wnVisual(dt);
   dogTick(dt);
-  if (started && !SEASON.card) updGame(dt, spd); else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
+  if (started && !SEASON.card) { updGame(dt, spd); TLX.tick(dt); } else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
   meltTick(dt);
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updChimSmoke(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
@@ -15928,7 +15966,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
-  buildFishShops(); buildHospital(); initFishing(); buildLanes();
+  buildFishShops(); buildHospital(); initFishing(); buildLanes(); initExpansion();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);

@@ -407,6 +407,9 @@ Open `index.html`, or play the hosted copy at
 
 Built with three.js (r128, from a CDN). Everything else — terrain generation, snow
 deformation, physics, weather, audio — is hand-rolled in `tracklayer.js`.
+Ice fishing is `icefish.js`. `tlx.js` is the socket the Four Seasons & Enterprise
+expansion plugs into: each of its systems gets a file of its own, and its state rides in
+the same save.
 
 
 ## Winch and recovery

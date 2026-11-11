@@ -96,6 +96,9 @@ export async function boot({ width = 1280, height = 720 } = {}) {
   // buttons: [{ pressed, value } x17], axes: [0, 0, 0, 0], timestamp } (see padSet()).
   await send("Page.addScriptToEvaluateOnNewDocument", { source: "navigator.getGamepads = () => window.__fakePad ? [window.__fakePad] : [];" });
   await send("Page.navigate", { url: URL });
+  await launch();
+}
+async function launch() {
   let ok = false;
   for (let i = 0; i < 120; i++) { await sleep(500); try { if (await raw("typeof window.__tl === 'function' && window.__tl(\"typeof titleLaunch === 'function' && TT.mode === 'menu'\")")) { ok = true; break; } } catch (e) { } }
   if (!ok) { console.log("BOOT FAILED: title menu never appeared.", errors.join("\n")); await done(3); }
@@ -103,6 +106,14 @@ export async function boot({ width = 1280, height = 720 } = {}) {
   await ev("titleLaunch(); true"); await sleep(3000);
   await tap("KeyH");          // hide the help panel
   await sleep(500);
+}
+// Reload the page and carry on from the save: how a scenario checks that a save loads. reload() keeps the save the
+// game wrote; reload(obj) plants obj as the save instead (the game saves again as the page goes away, so its save()
+// is switched off first).
+export async function reload(plant) {
+  if (plant !== undefined) { await ev("save = function () { }; true"); await raw(`localStorage.setItem("tracklayer.save.v2", ${JSON.stringify(JSON.stringify(plant))}); true`); }
+  await send("Page.reload"); await sleep(800);
+  await launch();
 }
 
 // a scripted standard-mapping gamepad (the real ones are hidden in boot): padSet({ 7: 1 }, [0, 0]) holds RT with the
