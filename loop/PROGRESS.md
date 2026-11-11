@@ -3,6 +3,22 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 16:15 — Beta fix 0104: GET OFF clear of GARAGE on 320-wide phones (G4) — 7da657e
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0104 (phone HUD v181: cab, tablet open, 320 px) #1 is a BUG on landed work, taken ahead of 2.7: at
+320x568 the SE-size rule moved GET OFF (tcQ) to right:16 bottom:236, exactly where the GARAGE pill (tcE) sits, so parked by the
+garage you could not see or tap GET OFF. Also fixed its POLISH #2 (stick over HORN/WHEELIE at 320 wide) and #3 (GARAGE pill
+over the open tablet's text). #4 (toasts over the small dash tablet at 320) left for a polish pass: toasts are often the answer
+to a tablet action. #5 is a scenario false positive (the sheet's empty grid cell). Report 0105 (2.6c rig/strap fix beta) has no
+findings. Last triaged report 103 -> 105.
+Fix: index.html drops the SE-size tcQ override (GET OFF stays left above the stick) and adds a <=340 px portrait block (stick
+96 px at left 12, GET OFF left 12 bottom 140, HORN/WHEELIE right 160, REEL 166); tracklayer.js `updTouch` gives tcE no label
+while `TABLET.open`.
+Before (x4_mobilehud2.mjs): 7 FAIL (sled/sledtoast/tabopen 320: tcStick x tcHorn/tcWh; cab/cabtoast/cabmore/cabtab 320: also
+tcQ x tcE). After: all passed (26 checks, incl. a new assert per size that GARAGE shows before and hides with the tablet open),
+page errors none. Still cab_320x568 judged: GET OFF left above STEER, GARAGE right, HORN/WHEELIE clear of the stick ring.
+Gate: smoke 0, x1_save 0, x4_mobilehud 0, x4_mobilehud2 0, x3_mobile 0, page errors none.
+
 ## 2026-11-11 15:50 — Beta fix 0102: no hitch rig on a strapped sled (G4) — 490f242
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0102 (2.6c tow break test) #1 is a BUG on landed work, taken ahead of 2.7: setting
