@@ -205,10 +205,6 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G4 (BUG, report 0108 #1): the pickup (with or without the sled trailer) braked to a standstill on snow off the lane
-      at (-1357, -319) ignores held S for 8 s (0.002 m/s, `BOG.on` false, no hint). Rerun `x2_haulreverse.mjs`, log `rev`,
-      `Fx`, `Fres`, `T0` in tlx-vehicles.js's drive step (~line 345); if deep snow holds it, bog it or hint STUCK. 0108 #2
-      (two messages for one dig-in) folds into the same fix.
 - [ ] G4 (OWNER): the expansion. Take the next unticked slice in `loop/EXPANSION.md` (its Status table says which).
 - [ ] G5 (OWNER): The Northern Front, after G4 has landed. Plan its slices in `loop/NORTHERN-FRONT.md` first.
 - [ ] G6 (OWNER): Living enemy NPCs (idle animations, hearing death screams, last-seen-location memory +
@@ -467,4 +463,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 110
+Last triaged report: 111

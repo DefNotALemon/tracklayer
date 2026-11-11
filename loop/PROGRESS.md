@@ -3,6 +3,31 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 18:40 — Beta fix 0108: trucks reverse off the lane (G4) — 489b7d0
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0111 (2.7 collect at every seller yard): #1 repeats 0110 #1, already fixed by e0f270e (0111 was
+written against ea0a96d, before it); #2 is a scenario note. Last triaged report 110 -> 111. Took the top BUG, 0108 #1
+(+ #2 folded in).
+Cause (logged in drive step at the report's spot): at a standstill `sgn` = +1, so every tyre read the cell 0.42 m IN FRONT
+(the bank it braked into: front sink 0.67 m) even in reverse, and the belly drag was read at the chassis centre in snow the
+belly never pressed (emb past the clearance -> cb ~1.6): drag 44 kN against a 4.9 kN reverse pull. Reverse effort also never
+fed the dig/bog meter (only throttle did), so nothing was ever said.
+Fix (tlx-vehicles.js v10 only): at a crawl the tyres read the way the driver asks (S, no throttle = behind); belly drag read
+1.5 m out at the leading edge in the rolling direction; the belly presses a trench to chassis height along the centre line
+(`BELLY` points 0.6/-0.6/-1.6 m, kept clear of the forward sample so forward deep-snow handling is unchanged: ploughed 3.1 m
+into 0.4 m powder from 9 m/s before, 2.7-3.8 m after); reverse pull 0.6 -> 0.8 of fmax (still capped by tyre grip); S in
+reverse spins/digs like the throttle, with its own toast ("The wheels spin in reverse and dig in...") and then the game's bog
++ STUCK hint. README "Vehicles" line.
+Before -> after (new `x2_vehreverse.mjs`, same scenario on origin/main vs this): truck + trailer stopped off the lane, S 4 s:
+0.0 m -> 7.1-7.8 m; truck alone 0.0 -> 11-16 m; trench behind after ploughing: none (depth = fresh) -> pressed to 0.26-0.33 of
+0.40-0.52 m, and S backs out along it 1.5-3.7 m; dead still in 0.6 m untouched powder: silent -> reverse dig toast then bog.
+`x2_haulreverse.mjs` (ramp down + full-lock skid) still can't back out (ramp lip 2.2 kN + slewed tyres in fresh snow, fair),
+so its assert now accepts the dig warning; it gets one. Stills (b_rev13 sheet) judged: truck sits right, STUCK hint shows.
+Gate: smoke 0, x1_save 0, x2_vehreverse 0, x2_haulreverse 0, x2_pickup 0, page errors none. x2_haul failed once in the gate
+(3 asserts round the walker at the trailer tail, "Pickup 7 m straight ahead" hint), then passed 3 of 3 reruns on this build
+and 1 of 1 on origin/main: timing flake, nothing here touches the walker or the tail.
+Left: 0108 #3/#4 POLISH unchanged.
+
 ## 2026-11-11 17:45 — Beta fix 0110: paid-for vehicles count as owned (G4) — e0f270e
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: reports 0108-0110. Two BUGs on landed work: 0110 #1 (money locked in a Bytteboden vehicle order that can
