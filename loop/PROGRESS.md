@@ -3,6 +3,19 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-10 23:25 — Expansion slice 2.1b: the on-foot use action on pad and touch (G4) — 0f32f27
+E on foot (`footAction`) had no pad or touch binding, so a pad or touch player could not dig a bogged sled out, hook
+the winch, or help a SAR casualty up. Now: pad L3 on foot = E (it was the horn, which is off on foot anyway); the touch
+context button (`#tE`) shows whenever `footUse()` has something and wears its verb. `BTN.use` / `BTN.reel`, `hk(a, what)`
+("Q: get on" / "tap GET ON"); the on-foot hint line, the BOGGED line and the SAR prompts go through them. The BOGGED
+line also said "R: reset" where reset is N (pad View): now `btn("reset")`.
+`x2_use.mjs` (24 asserts, pass): bogged sled, dig start/stop by keyboard E, Xbox / DualSense / Switch Pro stick click,
+touch tap; hint reads "E: stop", "L3: stop", "Left stick click: stop", "tap DIG · tap GET ON". Gate: smoke, x1_save,
+x2_btn, g2_tutorial all exit 0, page errors none.
+Not verified by play: the winch HOOK / UNHOOK and SAR labels (logic mirrors footAction line for line; only DIG was
+driven). Left: X is still keyboard + Xbox X in text; ~30 older toasts hard-code keys.
+In progress: nothing. Next: 2.2.
+
 ## <date time> — <short title> (Gn) — <landed hash | not landed: why>
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```

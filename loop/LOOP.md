@@ -135,7 +135,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
-- [ ] G4 (OWNER): the expansion. Next slice: 2.1b ("use" on pad and touch), then 2.2 (the vehicle interface, nearest-vehicle mounting) in `loop/EXPANSION.md` order. Landed: milestone 1 (v167), slice 2.1 `btn(action)` (v168).
+- [ ] G4 (OWNER): the expansion. Take the next unticked slice in `loop/EXPANSION.md` (its Status table says which).
 - [x] G1 (OWNER, top): walking on snow-free ground at normal pace with a realistic gait, blended by snow depth (Owner notes 30 Oct). Landed caa7afd (v158), see PROGRESS. Left: hard-ground jog judged only by numbers; turning on the spot still shuffles (feet slide while pivoting).
 - [ ] G2 (OWNER, top): new-player tutorial starting on foot aboard the ferry into Kjøllefjord (Owner notes 30 Oct). Needs the snow-free walking item.
 - [ ] G3 (OWNER): upgrade existing animations to the realistic-animation rule (walker/wader gait, climb on/off, crash/get-up, skier, passengers), one per pass (Owner notes 30 Oct).
