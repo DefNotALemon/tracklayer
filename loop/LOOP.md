@@ -99,7 +99,7 @@ landed, and it is built the G4 way (`tlx-<system>.js`, options as switches, one 
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
-- **11 Nov 2026, minimalist HUD + survival stats + bleed/bandage (in progress).** Full HUD redesign: bottom-left
+- **11 Nov 2026, minimalist HUD + survival stats + bleed/bandage (done, v174; tlx-hud.js, tlx-survival.js, tlx-wounds.js, scenarios/x4_hud.mjs; the bandage control is U / D-pad down / BANDAGE button).** Full HUD redesign: bottom-left
   vertical stack (bottom→top) red warmth / brown hunger / yellow fuel / blue thirst bars, each fades out after
   a few idle seconds and fades back in on change; bottom-right speed number with a rev-bar arc around its
   top-left; top-middle an Elder-Scrolls-style compass strip (N/E/S/W letters drifting as you turn, a triangle

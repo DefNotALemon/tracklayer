@@ -3,6 +3,21 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 — Minimalist HUD, hunger/thirst, wounds + bandages (Owner note 11 Nov) — 66f9b98
+Built in a session from Lemon's brief (defaults in LOOP.md: he never answered the clarifying questions). Three new TLX files, small hooks in tracklayer.js.
+`tlx-hud.js`: bottom-left four thin bars (warmth, hunger, fuel, thirst bottom to top; fade after 4 s without a 2-point change, light on change, stay lit under 25%),
+bottom-right speed number with an rpm arc round its top-left (P.rpm), top-middle Elder-Scrolls compass strip (letters drift with camState.yaw, fixed triangle,
+target diamond, job title fades in 2.8 s when the target is under the triangle). updGameHud keeps the same job-selection chain and hands title/sub/rel to `TLX.hud.compass`;
+the old #job panel and #speedo gauges stay in the DOM (other code writes to them) but are hidden. `tlx-survival.js`: GS.hunger/GS.thirst (accessors onto saved state),
+drain 100/5400 and 100/3600 per game second, refill at quay/garage, mild warmth penalty when empty. `tlx-wounds.js`: option "Poachers on the fell" (on), ~4.5%/min chance
+when 600 m+ from every site and tutorial done, WOUND_CAP 3, BLEED 0.55 hp/s each, BANDAGE_WINDOW 6 s (named constant), 3 bandages restocked at the quay, health 0 ->
+`blackout("tow")` (existing failure path), pouring red bar at screen bottom only while bleeding. New control `bandage`: U / D-pad down / BANDAGE touch pill (BTN row +
+gameKey + pad poll + tcBand). GOD menu "Take a pot-shot" and `TLX.wounds.hit()` force a wound. Script v175.
+Tests: `scenarios/x4_hud.mjs` (48 asserts: layout, fade, rev arc, compass slide + label timing, drain/refill/save/old save, wound/bandage by key, pad, touch, too-late, cap, quay,
+death path, hazard gating + option) pass; smoke, x1_save (updated: Options page now lists the wounds switch, sys keys), x2_btn, x3_mobile, g2_tutorial, g2_jobs (compass click now targets #compass) pass.
+Corners cut: no bandage shop row (a flat count restocked at the quay); touch layout only checked for the BANDAGE pill and x3_mobile, not stills of the new bars on a phone;
+no hit audio beyond the existing thud.
+
 ## 2026-11-11 03:40 — Expansion slice 2.4: tablet, map, jobs and parcels from the pickup's cab (G4) — afb0a2a
 Spare-usage build pass 1. Triage: reports 0091 (chimney smoke, all info) and 0092 (swing beta, three POLISH: Santa hot-swap race,
 Q ignored mid-swing, touch buttons possibly hidden in headless) hold no BLOCKER or BUG; Last triaged report 90 -> 92, so the pass took
