@@ -3,6 +3,33 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 15:10 — Expansion slice 2.6c: tow the strapped sled behind the pickup (G4) — 2569d1a
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Orient: a dead pass had left an uncommitted 2.6c start in tlx-vehicles.js (haulKg + ramp drag calling a
+`carriedKg`/`RAMP_DRAG` it never wrote): stashed as "dead pass 2.6c start" and rebuilt here. Triage: reports 0097 (2.6a), 0098
+(2.1b), 0099 (2.4), 0100 (2.6b) carry only POLISH, no BLOCKER/BUG. Taken now: 0100 #1/#2 (a saved strap spot 40 m off the deck or
+facing backwards was accepted) — clamped on load. Left for a polish pass: corrupt/absurd trailer positions (0097 #1-2), the HUD
+naming the sled while in the truck (0095/0097/0099/0100 repeat), ramp gate look (0097 #4), E digging with the tablet open (0098),
+tablet left open after Q out of the truck and the bog toast over it (0099 #1-2), no touch MAP button on foot (0099 #4). Last
+triaged report 96 -> 100.
+Before: a strapped sled weighed nothing to the truck (mass 2,320 kg loaded or not), the ramp could be towed down for free, a sled
+towing its own rig could be strapped, the receiver check ignored the sled. After (x2_tow.mjs, 33 asserts): truck mass 2,320 ->
+2,600 kg strapped; 3 s pull from rest on a plowed lane 13.1 m empty -> 12.0 m loaded; towed and turning the sled stays on its
+strap point (drift 0.000 m over ~30 samples, yaw 0.000); the Map's Sled pin sits on the sled, 0.69 m from the axle; a reload
+while driving brings back truck + hitch + strap at 2,600 kg; ramp down while towing at 4.8 m/s: one toast "The trailer's ramp is
+down and dragging in the snow. Stop, get out and raise it: E at the tail." and resistance drops ~2,200 N the moment it's raised;
+a 600 kg receiver refuses "the trailer with the sled on it is 700 kg", 1,500 kg takes it; with a rig on the sled the hint reads
+"Unhitch the trailer from the sled first: it can't ride on the trailer"; strap/unstrap on keyboard (E), Xbox (L3, "LB: get on"),
+DualSense (L3, "L1: get on") and touch (STRAP / UNSTRAP button); unstrapped it reverses down the ramp off the hitched trailer
+(lz -9.2); a corrupt strap {x 0.9, z 40, yaw 3} loads clamped onto the deck. Still judged: sled on the boards, nose to the truck,
+four yellow straps, ramp up. Code: tlx-vehicles.js (`carriedKg`, `haulKg`/`haulDrag`, `RAMP_DRAG`, `rampDragTick`, `sledRig`,
+rating checks in `haulHitch`/`strap`, strap clamp on load, garage row text), tracklayer.js only `sledKg: MASS` on the api.
+README "Towing the sled". Gate: smoke, x1_save, x2_tow, x2_deck, x2_haul green (see below).
+Decisions: sled weight = the game's MASS (280 kg, every sled) + 6 kg a small parcel, same per-parcel figure the truck uses; no
+rider weight (you're in the cab). Ramp drag is a flat 2,200 N (a steel lip ploughing snow) rather than a depth model. Strapping a
+sled with a rig is refused rather than carrying the rig along (it would hang off the trailer). G4 milestone 2 now has only 2.7
+(Bytteboden vehicles category) left.
+
 ## 2026-11-11 12:45 — Expansion slice 2.6b: drive the sled onto the trailer and strap it down (G4) — 1e459b1
 Builder pass (full throttle, no budget gate; the cron prompt's `usage_budget.py begin/done` bookkeeping was skipped per the skill:
 the gate is retired). Triage: report 0096 (2.2/2.3 pickup break test) has four POLISH and no BLOCKER/BUG (garage row "Fjellvogn

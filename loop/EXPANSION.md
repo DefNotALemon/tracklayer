@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); next: 2.6c |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); next: 2.7 |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -150,7 +150,7 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
       Left: no hitch/unhitch animation (the walker stands at the tongue, the coupler drops on: a toast says what happened);
       the rig doesn't block the walker; a parked truck's big loads don't show on the trailer while you're on the sled until
       you drive it (they're there: drawn from GS.load); camera pull-back while towing uses the sled's numbers in a truck too.
-- [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off. Split 11 Nov
+- [x] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off. Split 11 Nov
       (too big for one pass) into:
   - [x] 2.6a (v177) The sled trailer itself: the Fjordhenger deck trailer ($950, 420 kg, one per player) on the garage's
         Trucks tab, parked on the forecourt. Single axle, 3.9 m deck at 0.55 m, A-frame tongue to a coupler 3.6 m ahead
@@ -179,9 +179,16 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
         under a sled on it. `x2_deck.mjs` (28 asserts).
         Left for 2.6c: the strapped sled's weight on the truck (inertia, hitch rating), towing it at speed checked
         end to end (pin, camera, reload while hitched), mounting a sled on the deck still uses the ground swing.
-  - [ ] 2.6c Towing it: a strapped sled rides the trailer (pose glued to the deck: done in 2.6b; its weight on the truck's
-        hitch and rating), reload keeps it strapped on, the Map pin follows; drive off down the ramp after unstrapping. Hints on
-        keyboard, each pad brand and touch; README row.
+  - [x] 2.6c (v180) Towing it: a strapped sled is weight on the truck's ball (`carriedKg`: the sled's 280 kg + 6 kg a parcel
+        in its rack) as inertia and through the trailer's tyres as rolling drag, and it counts against the receiver's rating
+        when you hitch (or strap onto a hitched trailer). Towed with the ramp gate down its lip drags (`RAMP_DRAG` 2,200 N) and
+        a toast says so once per tow. A sled towing its own rig can't be strapped (the hint says to unhitch it first). A
+        saved strap spot is clamped onto the deck, nose forward (report 0100). Already working from 2.6b and now asserted end
+        to end: sled glued to its strap point while towing and turning, the Map's Sled pin rides with it, reload while
+        driving keeps truck + hitch + strap, unstrap/strap on keyboard, Xbox, DualSense and touch, backing off the ramp of a
+        hitched trailer. `x2_tow.mjs` (33 asserts). README "Towing the sled".
+        Left: mounting a sled that stands on the deck still uses the ground swing (the walker climbs on from the snow
+        beside the deck); no hitch / strap animations (toasts); the trailer has no tyre tracks.
 - [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
 
 #### Design notes for 2.2 to 2.6 (worked out 10 Nov from reading the code; follow unless the code proves them wrong)
