@@ -31,7 +31,7 @@ const VEHICLES = [
   { id: "pickup", name: "Fjellvogn", kind: "pickup", year: 2019, cost: 4200,
     blurb: "A four-wheel-drive pickup with a heated cab. Good on plowed ground and hard pack, hopeless in fresh powder: it floats on nothing.",
     mass: 1900, power: 105000, fmax: 8200, top: 30, revTop: 4.8,           // W, N at the wheels in first, m/s
-    fuel: 70, burn: 1, slots: 8, cabCold: 0.12, hitchKg: 1500,              // litres, parcels in the bed, cold drained as fast as the sled's baseline
+    fuel: 70, burn: 1, slots: 8, cabCold: 0.12, hitchKg: 1500, hitchZ: -3.1, // litres, parcels in the bed, cold drained as fast as the sled's baseline; kg the receiver takes, where its ball sits
     zf: 1.5, zr: -1.55, track: 1.66, tyreR: 0.38, tyreW: 0.27, clearance: 0.26, len: 5.3, wid: 1.96,
     mu: { hard: 0.42, loose: 0.22, ice: 0.12, wet: 0.06 },
     paint: 0x244f69, eye: [0.4, 1.63, -0.1], door: { x: 0.925, z: 0.7 } }
@@ -296,7 +296,8 @@ function core(R, dt) {
   const P = api.P, input = api.input, FOOT = api.FOOT, BOG = api.BOG, HELP = api.HELP, GS = api.GS, d = R.def, w = api.world, ST = api.ST();
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(w.rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
-  const M = R.mass = d.mass + 6 * Math.min(8, api.GS.load.length), W = M * GR, started = api.started();
+  const tw = api.towLive() ? api.tow : null;                                 // the rig on this truck's hitch (slice 2.5): its weight and its drag
+  const M = R.mass = d.mass + 6 * Math.min(8, smallN(api.GS.load)) + (tw ? tw.mass : 0), W = (M - (tw ? tw.mass : 0)) * GR, started = api.started();   // the rig adds inertia; its own drag stands for its rolling
   const wl0 = w.wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;
   let vx = P.vx, vz = P.vz;
   const parked = FOOT.on || GS.dead;                                         // standing or climbing in/out: the brake is on
@@ -341,7 +342,7 @@ function core(R, dt) {
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
-  const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero);
+  const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0);
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
   R.drag = Fres; R.fx = Fx;
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
@@ -731,6 +732,8 @@ function makeDriver(R) {
       R.baseCold = ST.coldMul;
       ST.fuel = d.fuel; ST.slots = d.slots; ST.bays = 0; ST.winch = 0; ST.camp = 0; ST.campCap = 0; ST.burn = d.burn; ST.power = 1; ST.light = Math.max(ST.light, 1.4);
       ST.coldMul = d.cabCold; ST.armor = Math.max(ST.armor, 0.1); ST.cool = 0;
+      ST.groom = 0;
+      if (rigOn() === R.rec.uid) { const o = api.hitchStats(); ST.bays = o.bays || 0; ST.groom = o.groom || 0; ST.burn += o.burn || 0; }   // the rig on this truck's hitch
     },
     visual(dt) { place(R, api.P, dt, true); },
     eye(v) { R.grp.updateMatrixWorld(true); return R.grp.localToWorld(v.set(d.eye[0], d.eye[1], d.eye[2])); },
@@ -764,7 +767,7 @@ function blockWalker(nx, nz) {
 function serLoad(arr) {
   const out = [], SITES = api.world.SITES;
   for (const j of arr || []) {
-    if (!j || j.crate || j.tut || j.school || j.boat || j.big) continue;
+    if (!j || j.crate || j.tut || j.school || j.boat) continue;              // big loads too: since 2.5 a trailer on a truck carries them
     const o = {};
     for (const k in j) {
       const v = j[k];
@@ -798,6 +801,8 @@ function save() {
     const live = s.cur === r.uid ? api.GS.load : LIVE.get(r.uid);
     if (live) r.load = serLoad(live);
   }
+  const rg = rigS(), TOW = api.tow;
+  if (rg.on !== "sled" && TOW.kind && TOW.kind === rg.kind) { rg.x = NUM(TOW.x); rg.z = NUM(TOW.z); rg.yaw = NUM(TOW.yaw); }
   if (s.sled) { s.sled.fuel = NUM(s.sled.fuel); s.sled.x = NUM(s.sled.x); s.sled.z = NUM(s.sled.z); s.sled.yaw = NUM(s.sled.yaw); const live = LIVE.get("sled"); if (live) s.sled.load = serLoad(live); }
 }
 
@@ -850,6 +855,117 @@ function garageRows(body, row) {
   body.appendChild(note);
 }
 
+/* ---------------- the universal hitch (slice 2.5) ----------------
+   One coupling for every machine. The rig you own (GS.own.parts.hitch: groomer, tiller, trailer, flatbed or akja) is hooked
+   to exactly one vehicle, or stands free on its tongue: state.rig = { on: "sled" | truck uid | null, kind, x, z, yaw }.
+   "sled" is the default and every save before 2.5, i.e. the game as it was. Receivers are weight ratings: the sled's receiver
+   part (recvOk: the light one takes the trailer, drag and toboggan, the heavy one everything) or a truck's hitchKg against the
+   rig plus what is on it. On foot at the tongue, use (E / L3 / the touch button) unhitches it, or hitches it to whichever
+   machine has its ball within HITCH_REACH of the coupler: back up to it, get out, drop it on. Big loads ride on the trailer, so
+   they go where it goes; you can't unhitch with one strapped on (or a casualty in the toboggan). Fitting a rig at the garage
+   puts it on the sled. tracklayer.js asks VEH.rigOn / rigLive / rigAt / rigBall / rigFoot; towStep runs for whichever machine
+   is P when the rig is on it, so the trailer tracks, tips and grooms behind a truck exactly as it does behind the sled. */
+const HITCH_REACH = 1.6, TONGUE_REACH = 2.1;                                    // m: ball to coupler to drop it on; you to the coupler
+const RIG_NOUN = { groomer: "groomer drag", tiller: "wing tiller", trailer: "trailer", flatbed: "flatbed", akja: "toboggan" };
+const smallN = arr => (Array.isArray(arr) ? arr.filter(j => j && !j.big).length : 0);
+function rigS() { const s = S(); if (!s.rig || typeof s.rig !== "object") s.rig = { on: "sled" }; if (s.rig.on === undefined) s.rig.on = "sled"; return s.rig; }
+function rigOn() { return rigS().on; }
+function rigLive() { const on = rigOn(), s = S(); return on === "sled" ? s.cur == null : on != null && s.cur === on; }
+function hostPose(on) {                                                         // { x, z, yaw, back } of the machine with that key
+  const s = S(), P = api.P;
+  if (on === "sled") { const p = s.cur == null ? P : s.sled; return p ? { x: p.x, z: p.z, yaw: p.yaw, back: api.hitchBack(), kg: 1e9 } : null; }
+  const r = rec(on); if (!r) return null; const d = byId(r.id), p = s.cur === on ? P : r;
+  return { x: p.x, z: p.z, yaw: p.yaw, back: -d.hitchZ, kg: d.hitchKg };
+}
+function ballOf(on) { const h = hostPose(on); return h ? [h.x - Math.sin(h.yaw) * h.back, h.z - Math.cos(h.yaw) * h.back] : null; }
+function tongueTip() {
+  const TOW = api.tow, H = api.HITCH[TOW.kind]; if (!H) return null;
+  return [TOW.x + Math.sin(TOW.yaw) * H.len, TOW.z + Math.cos(TOW.yaw) * H.len];
+}
+function rigAt() { const on = rigOn(); if (on === "sled") return null; return (on != null && ballOf(on)) || tongueTip(); }
+function rigBall(v) {                                                           // world point the tongue reaches to; false = the sled's own ball
+  const on = rigOn(); if (on === "sled") return false;
+  if (on != null) { const r = rec(on), R = r && RT.get(on); if (R) { R.grp.updateMatrixWorld(true); R.grp.localToWorld(v.set(0, 0.42, R.def.hitchZ)); return true; } }
+  const t = tongueTip(); if (!t) return false;
+  v.set(t[0], api.world.rideSurf(t[0], t[1]) + 0.32, t[1]); return true;      // resting on its jack
+}
+function loadOf(key) {
+  const s = S(), cur = key === "sled" ? s.cur == null : s.cur === key;
+  if (cur) return api.GS.load;
+  if (LIVE.has(key)) return LIVE.get(key);
+  const r = key === "sled" ? s.sled : rec(key);
+  return r && Array.isArray(r.load) ? r.load : [];
+}
+function hostName(on) { if (on === "sled") return "sled"; const r = rec(on); return r ? byId(r.id).kind : "truck"; }
+function rigCands() {                                                           // machines whose ball is within reach of the coupler, nearest first
+  const t = tongueTip(); if (!t) return [];
+  const s = S(), out = [];
+  for (const key of ["sled"].concat(s.owned.map(r => r.uid))) {
+    if (key === "sled" && s.cur != null && !s.sled) continue;
+    const b = ballOf(key); if (!b) continue;
+    const dd = Math.hypot(b[0] - t[0], b[1] - t[1]); if (dd <= HITCH_REACH) out.push({ key, d: dd, b });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+function rigFoot() {                                                            // what use does at the rig's tongue, or null
+  const GS = api.GS, F = api.FOOT, kind = GS.own.parts.hitch, TOW = api.tow;
+  if (!F.on || !api.HITCH[kind] || TOW.kind !== kind || api.tutHidden() || api.MNT.on || api.DMT.on) return null;
+  const t = tongueTip(); if (!t || Math.hypot(F.x - t[0], F.z - t[1]) > TONGUE_REACH) return null;
+  const on = rigOn(), noun = RIG_NOUN[kind] || "rig";
+  if (on != null) return { label: "UNHITCH", what: `unhitch the ${noun} from the ${hostName(on)}`, act: unhitch };
+  const c = rigCands()[0];
+  if (!c) return { label: null, what: `The ${noun} stands on its jack · back the sled or a truck up to the tongue to hitch it` };
+  return { label: "HITCH", what: `hitch the ${noun} to the ${hostName(c.key)}`, act: () => hitch(c) };
+}
+function unhitch() {
+  const GS = api.GS, kind = GS.own.parts.hitch, on = rigOn(), noun = RIG_NOUN[kind] || "rig", TOW = api.tow;
+  if (on == null) return;
+  const big = loadOf(on).filter(j => j && j.big);
+  if (big.length) { api.toast(`The ${big[0].cargo} is strapped down on the ${noun}. Deliver it before you unhitch.`, "warn"); return; }
+  if (kind === "akja" && api.sarPatientKg() > 0) { api.toast("There's a casualty strapped into the toboggan. Get them to help first.", "warn"); return; }
+  const rg = rigS(); rg.on = null; rg.kind = kind; rg.x = TOW.x; rg.z = TOW.z; rg.yaw = TOW.yaw;
+  TOW.wingOn = false; TOW.spd = 0; TOW.yr = 0; TOW.tipT = 0; TOW.mass = 0; TOW.drag = 0;
+  api.restat(); api.whump && api.whump(0.2);
+  api.toast(`You lift the coupler off the ${hostName(on)}'s ball and wind the jack down. The ${noun} stands free.`);
+  api.save();
+}
+function hitch(c) {
+  const GS = api.GS, kind = GS.own.parts.hitch, H = api.HITCH[kind], noun = RIG_NOUN[kind] || "rig", TOW = api.tow;
+  if (!H || rigOn() != null) return;
+  if (c.key === "sled" && !api.recvOk(kind)) { api.toast(`The ${noun} needs ${api.recvNeed(kind)} on the sled (garage, Parts).`, "warn"); return; }
+  const hp = hostPose(c.key), kg = H.mass + loadOf(c.key).filter(j => j && j.big).reduce((a, j) => a + (j.kg || 0), 0);
+  if (hp && kg > hp.kg) { api.toast(`The ${hostName(c.key)}'s receiver is rated for ${hp.kg} kg. That's ${Math.round(kg)} kg.`, "warn"); return; }
+  // lift the tongue onto the ball: it pivots round its runners until the coupler sits on it
+  const dx = c.b[0] - TOW.x, dz = c.b[1] - TOW.z, dd = Math.hypot(dx, dz) || 1;
+  TOW.x = c.b[0] - dx / dd * H.len; TOW.z = c.b[1] - dz / dd * H.len; TOW.yaw = Math.atan2(dx, dz);
+  TOW.spd = 0; TOW.yr = 0; TOW.tipT = 0; TOW.ghostT = 1; TOW.snagT = 0;
+  const rg = rigS(); rg.on = c.key; rg.kind = kind;
+  api.restat(); api.whump && api.whump(0.3);
+  api.toast(`Coupler down on the ${hostName(c.key)}'s ball, pin in, chains crossed. The ${noun} is hitched.`, "good");
+  api.save();
+}
+function rigTick() {                                                            // every frame, trucks or not
+  const rg = rigS(), kind = api.GS.own.parts.hitch;
+  if (rg.kind !== kind) {                                                       // the garage (or a seller) put a different rig on: it goes on the sled
+    const first = rg.kind === undefined; rg.kind = kind;
+    if (rg.on !== "sled") { rg.on = "sled"; if (!first) api.tow.kind = null; api.restat(); }
+    return;
+  }
+  if (rg.on != null && rg.on !== "sled" && !rec(rg.on)) { rg.on = null; api.restat(); }   // the truck is gone: the rig stays where it stood
+}
+function rigRestore() {                                                         // after a load: put a rig that isn't on the sled back where it was
+  const rg = rigS(), kind = api.GS.own.parts.hitch, TOW = api.tow, H = api.HITCH[kind];
+  if (!H || rg.kind !== kind) { rg.on = "sled"; rg.kind = kind; return; }
+  if (rg.on === "sled") return;
+  if (rg.on != null && !rec(rg.on)) rg.on = null;
+  const ok = [rg.x, rg.z, rg.yaw].every(v => typeof v === "number" && isFinite(v));
+  if (ok) { TOW.x = rg.x; TOW.z = rg.z; TOW.yaw = rg.yaw; }
+  else if (rg.on != null) { const b = ballOf(rg.on), h = hostPose(rg.on); TOW.x = b[0] - Math.sin(h.yaw) * H.len; TOW.z = b[1] - Math.cos(h.yaw) * H.len; TOW.yaw = h.yaw; }
+  else { rg.on = "sled"; return; }
+  TOW.kind = kind; TOW.y = api.world.surf(TOW.x, TOW.z); TOW.spd = 0; TOW.yr = 0; TOW.tipT = 0; TOW.ghostT = 1;
+  api.restat();
+}
+
 /* ---------------- the frame hooks ---------------- */
 function nearestTick() {
   const s = S(), FOOT = api.FOOT, P = api.P;
@@ -879,6 +995,7 @@ let parkClock = 0;
 function tick(dt) {
   if (!api) return;
   const s = S(), P = api.P, ST = api.ST(), FOOT = api.FOOT, cam = api.camera;
+  rigTick();
   if (!s.owned.length) return;
   nearestTick();
   syncRecords();
@@ -894,7 +1011,7 @@ function tick(dt) {
     R.doorPivot.rotation.y = -R.door * DOOR_OPEN;
     const on = night > 0.35 && (isCur ? GSfuel() : false);
     lights(R, on, isCur && R.brake, isCur && R.rev);
-    bedBoxes(R, isCur ? api.GS.load.length : (r.load ? r.load.length : 0));
+    bedBoxes(R, isCur ? smallN(api.GS.load) : smallN(r.load));
     if (isCur) {
       const seated = !FOOT.on, fp = api.fp();
       R.drvBody.visible = R.drvArms.visible = seated && !fp;
@@ -919,6 +1036,7 @@ TLX.register({
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
+    Object.assign(api.veh, { rigOn, rigLive, rigAt, rigBall, rigFoot });           // the universal hitch (2.5)
     api.veh.tabs.push({ id: "trucks", name: "Trucks", render: garageRows });
     // the tablet's Map: a pin on every vehicle you aren't in (the sled while you drive, the trucks while you ride the sled)
     a.TABLET.addLayer("vehicles", () => {
@@ -938,8 +1056,9 @@ TLX.register({
       const R = runtime(to); R.drvBody.visible = R.drvArms.visible = true;
       bogRestore(to.bog, to.x, to.z);
     }
+    rigRestore();
   },
   tick, save
 });
-window.TLXV = { VEHICLES, swapTo: uid => swapTo(uid), state: S, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

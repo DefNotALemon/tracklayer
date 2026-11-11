@@ -425,8 +425,18 @@ the Map). The dash glass is on the sled, so in a truck the tablet comes up as th
 hold, the same as on foot, and the HUD minimap stays up in first person. Parcels work the same:
 claim them anywhere, load at the quay (the pickup's bed holds 8), and they deliver when you stop at
 the drop-off. The Map pins every vehicle you aren't in (**S** the sled, **T** a truck), and on foot
-the YOU arrow is you, not the vehicle you got out of. Hitching a trailer to it and carrying a sled
-come later.
+the YOU arrow is you, not the vehicle you got out of. Carrying a sled on a trailer comes later.
+
+**One hitch for everything.** Every rig (groomer drag, wing tiller, freight trailer, heavy flatbed,
+rescue toboggan) has the same small coupler, so it hooks to the sled or to the pickup. Stand at the
+rig's tongue on foot and use it (the on-foot use control: E, the left stick click on a pad, or the
+UNHITCH / HITCH button on touch) to unhitch it: it stands on its jack where you left it. Back any
+machine up until its ball is near the coupler, get out, and use it again to hitch it on. The
+receiver is a weight rating: the sled's light receiver takes the trailer, the drag and the
+toboggan, its heavy-duty one takes everything, and the pickup's takes 1,500 kg. Behind the pickup
+a rig tracks, tips, grooms and carries big loads just as it does behind the sled (its bays become
+the truck's), and the truck feels its weight and drag. You can't unhitch with a big load strapped
+on or a casualty in the toboggan. A rig fitted at the garage goes on the sled.
 
 ## The hitch and bigger work
 

@@ -2752,15 +2752,26 @@ const towWidth = H => H.wide ? H.w + (H.wide - H.w) * TOW.wing : H.w;
 function toggleWings() {
   if (!started || GS.dead) return;
   if (GS.own.parts.hitch !== "tiller") { if (isGroomer(GS.own.parts.hitch)) toast("The drag has no wings. The wing tiller at the garage folds out to almost six metres.", "warn"); return; }
+  if (!towLive()) { toast("The wing tiller isn't hitched to this machine.", "warn"); return; }
   TOW.wingOn = !TOW.wingOn; if (typeof whump === "function") whump(0.25);
   toast(TOW.wingOn ? "Wings out: grooming 5.8 m of trail. Mind the trees." : "Wings folded: back to 2.6 m.");
 }
 function hitchBack(rack) { return 2.1 + (rack === "freight" ? 0.3 : rack === "stretch" ? 0.15 : 0); }
 function hitchPt() { const b = hitchBack(GS.own.parts.rack); return [P.x - Math.sin(P.yaw) * b, P.z - Math.cos(P.yaw) * b]; }
+// The universal hitch (expansion 2.5, tlx-vehicles.js): the rig is coupled to the sled, to a truck, or stands free on its tongue.
+// VEH.rigOn() says which ("sled" when there is no expansion); towLive() is true when the rig hangs off the vehicle that is P,
+// the only case in which towStep moves it. rigHitch() is where its coupler sits now (the sled's ball, a truck's, or the tongue).
+function rigOnSled() { return !VEH.rigOn || VEH.rigOn() === "sled"; }
+function towLive() { return VEH.rigLive ? VEH.rigLive() : !VEH.cur; }
+function rigHitch() { const h = VEH.rigAt && VEH.rigAt(); return h || hitchPt(); }
+function rigHint(near) {
+  const r = !BOG.on && VEH.rigFoot ? VEH.rigFoot() : null; if (!r) return "";
+  return (r.label ? keyHint("use", r.what) : r.what) + (near ? " · " + keyHint("mount", VEH.board) : "");
+}
 function towSnap() {
-  if (VEH.cur) return;                                   // in a vehicle the rig stays behind with the sled
+  if (!towLive()) return;                                // the rig stays where it is: on a parked vehicle, or standing free
   const H = HITCH[TOW.kind]; if (!H) return;
-  const [hx, hz] = hitchPt();
+  const [hx, hz] = rigHitch();
   TOW.x = hx - Math.sin(P.yaw) * H.len; TOW.z = hz - Math.cos(P.yaw) * H.len; TOW.yaw = P.yaw;
   TOW.y = surf(TOW.x, TOW.z); TOW.spd = 0; TOW.yr = 0; TOW.tipT = 0; TOW.ghostT = 1.5; TOW.snagT = 0;
 }
@@ -2802,10 +2813,11 @@ function groomStamp(x, z, fx, fz, w) {
 function towStep(dt) {
   const kind = GS.own.parts.hitch, H = HITCH[kind];
   if (!H) { TOW.kind = null; TOW.mass = 0; TOW.drag = 0; return; }
+  if (!towLive()) { TOW.kind = kind; TOW.mass = 0; TOW.drag = 0; TOW.spd = 0; TOW.yr = 0; TOW.wingOn = false; TOW.tipT = 0; return; }   // on another machine, or standing free
   if (TOW.kind !== kind) { TOW.kind = kind; towSnap(); }
   if (!H.wide) TOW.wingOn = false;
   TOW.wing += clamp((TOW.wingOn ? 1 : 0) - TOW.wing, -dt / 1.6, dt / 1.6);   // hydraulics take a moment
-  const [hx, hz] = hitchPt();
+  const [hx, hz] = rigHitch();
   let tx = TOW.x, tz = TOW.z;
   // side-hill: nothing brakes a trailer sideways, so it creeps downhill while it moves
   if (TOW.spd > 0.5) {
@@ -3064,7 +3076,7 @@ const _hw = new THREE.Vector3(), _hw2 = new THREE.Vector3();
 function towVisual(dt) {
   const kind = PV.cat === "hitch" ? PV.id : GS.own.parts.hitch;
   for (const k in TOW.vis) TOW.vis[k].visible = k === kind;
-  if (V.hitchBar) { V.hitchBar.visible = !!HITCH[kind] || (PV.cat === "recv" ? PV.id : GS.own.parts.recv || "none") !== "none"; V.hitchBar.position.z = -(hitchBack(PV.cat === "rack" ? PV.id : GS.own.parts.rack) - 2.1); }
+  if (V.hitchBar) { V.hitchBar.visible = (!!HITCH[kind] && rigOnSled()) || (PV.cat === "recv" ? PV.id : GS.own.parts.recv || "none") !== "none"; V.hitchBar.position.z = -(hitchBack(PV.cat === "rack" ? PV.id : GS.own.parts.rack) - 2.1); }
   const H = HITCH[kind], g = TOW.vis[kind]; if (!H || !g) return;
   let x = TOW.x, z = TOW.z, yaw = TOW.yaw;
   if (kind !== TOW.kind) {                                   // a garage preview: hang it straight off the back
@@ -3096,7 +3108,7 @@ function towVisual(dt) {
   const tg = g.userData.tongue, arm = g.userData.arm;
   sledRoot.updateMatrixWorld(); g.updateMatrixWorld();
   const back = hitchBack(PV.cat === "rack" ? PV.id : GS.own.parts.rack);
-  sledBody.localToWorld(_hw.set(0, 0.36, -back));
+  if (!(kind === TOW.kind && VEH.rigBall && VEH.rigBall(_hw))) sledBody.localToWorld(_hw.set(0, 0.36, -back));   // a truck's ball, or the tongue on its jack
   const d = tg.getWorldPosition(_hw2).distanceTo(_hw);
   tg.lookAt(_hw); arm.scale.set(1, 1, Math.max(0.3, d));
   // cargo
@@ -3285,7 +3297,7 @@ const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops 
 function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
-  if (VEH.cur) { VEH.cur.core(dt); return; }              // in a vehicle: its own physics drives P
+  if (VEH.cur) { VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
   input.thr = input.brk = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false;
@@ -3835,7 +3847,7 @@ function updVisuals(dt) {
     if (TABLET.e > 0.001 && TABLET.mode === "dash") tabCam();            // the dip onto the dash tablet
   } else {
     // towing: back the chase cam off so the rig behind you is in the shot
-    camState.tow = (camState.tow || 0) + ((TOW.kind ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
+    camState.tow = (camState.tow || 0) + ((TOW.kind && towLive() ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
     const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1 + CAMPAD.oy * 1.5, FZp - cfz * (view.d + td));
     if (camState.shOn) { camera.position.copy(camState.shBase); camState.shOn = false; }   // undo last frame's shoulder offset before the lerp, or it piles up
@@ -9174,6 +9186,7 @@ function stats() {
   const st = { zip: sd.zip || 1, boost: 0, power: eng.pwr, fuel: sd.fuel, drag: sd.drag, grip: sd.grip, burn: eng.burn, cold: 0, soak: 0, care: 0, light: 1, slots: 1, bays: 0, groom: 0, armor: 0, rescue: 0, camp: 0, campCap: 0, winch: 0, cool: 0 };
   for (const cat of PART_ORDER) {
     if (cat === "boost" && boostWhy(sd, GS.own.parts.boost || "none")) continue;
+    if (cat === "hitch" && !rigOnSled()) continue;                 // the rig is on a truck or standing free: its bays and burn aren't the sled's
     const o = partDef(cat, GS.own.parts[cat]).stats || {};
     st.boost += o.boost || 0;
     st.power += o.power || 0; st.fuel += o.fuel || 0; st.drag += o.drag || 0; st.grip += o.grip || 0;
@@ -12415,7 +12428,7 @@ function dogTick(dt) {
   const live = started && !GS.dead, sv = Math.hypot(P.vx, P.vz);
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx, vf = P.vx * fx + P.vz * fz;
   // the keep-clear zone: the sled, plus whatever it's towing, plus the ground it will cover in the next second or so
-  const hasRig = !!TOW.kind, rigLen = hasRig ? Math.min(14, Math.hypot(TOW.x - P.x, TOW.z - P.z)) + 2.5 : 0;
+  const hasRig = !!TOW.kind && towLive(), rigLen = hasRig ? Math.min(14, Math.hypot(TOW.x - P.x, TOW.z - P.z)) + 2.5 : 0;
   const half = Math.max(1.5, hasRig && TOW.kind === "tiller" ? 1.7 + 1.6 * TOW.wing : 1.5);
   const zBack = -(2.4 + rigLen), zFront = 3.0 + Math.max(0, vf) * 0.9;
   if (ds > 40) D.armed = true;
@@ -14586,6 +14599,7 @@ function footUse() {
   }
   if (WN.state === "hooked" && WN.mode === "self") { const a = WN.anchor; return a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8 ? "UNHOOK" : null; }
   if (wd && WN.state === "out" && WN.snapT <= 0 && anchorsNear(FOOT.x, FOOT.z, 2.6).length) return "HOOK";
+  if (!BOG.on && VEH.rigFoot) { const r = VEH.rigFoot(); if (r && r.label) return r.label; }   // at the rig's tongue: HITCH / UNHITCH (tlx-vehicles.js)
   if (BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6) return FOOT.dig ? "STOP" : "DIG";
   return null;
 }
@@ -14609,6 +14623,7 @@ function footAction() {
     }
     if (cands.length) { toast(`The ${anchorName(cands[0].o)} is out of reach of your ${wd.len} m line.`, "warn"); return; }
   }
+  if (!BOG.on && VEH.rigFoot) { const r = VEH.rigFoot(); if (r && r.label) { r.act(); return; } }   // mirrors footUse: the rig's tongue
   if (BOG.on && near() && WN.state !== "hooked") { FOOT.dig = !FOOT.dig; toast(FOOT.dig ? "Digging. Hold still." : "Stopped digging."); return; }
   if (!wd && !BOG.on) { toast(`Nothing to do out here. ${keyHint("mount", "get back on")} at the sled.`, "warn"); return; }
   toast(wd ? "Walk up to a tree or a boulder to hook the line." : "Nothing to hook.", "warn");
@@ -15295,6 +15310,7 @@ function wnPrompt() {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
       h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
+    else if (!tutHidden() && rigHint(near)) h = rigHint(near);         // at the rig's tongue: hitch or unhitch it
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
     else h = (FISH && FISH.hint()) || (near ? keyHint("mount", VEH.board) : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
   } else if (BOG.on) { show = true; h = VEH.cur ? `STUCK · ${keyHint("dismount", "get out")} and dig · ${btn("reset")}: reset` : `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
@@ -15567,7 +15583,7 @@ function sarRig() {
 }
 // where the tow rope ties on: your hitch, or the back of whatever's already on it
 function sarTowAnchor() {
-  if (TOW.kind && HITCH[TOW.kind]) { const H = HITCH[TOW.kind], b = H.len * 0.9; return [TOW.x - Math.sin(TOW.yaw) * b, TOW.z - Math.cos(TOW.yaw) * b]; }
+  if (TOW.kind && HITCH[TOW.kind] && towLive()) { const H = HITCH[TOW.kind], b = H.len * 0.9; return [TOW.x - Math.sin(TOW.yaw) * b, TOW.z - Math.cos(TOW.yaw) * b]; }
   return hitchPt();
 }
 // every physics step while towing: the dead sled follows on a 7 m rope, drags, and snags on trees
@@ -16399,6 +16415,8 @@ function initExpansion() {
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
     getG: () => G, ST: () => ST, restat, now: () => gameClock, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
+    // the universal hitch (2.5): the rig's state and the sled's receiver rules
+    tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,
     newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
