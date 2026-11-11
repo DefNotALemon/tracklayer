@@ -867,7 +867,7 @@
     body.touch #tcWipe{bottom:calc(174px + var(--sb))}
     body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;width:min(340px,calc(100% - 280px));padding:5px 10px 6px;gap:1px}
     body.touch #tut .tuTitle{font-size:14px}
-    body.touch #tcE{left:calc(50% + 30px)}
+    body.touch #tcE{left:calc(50% + 20px)}                     /* +30 put GARAGE 4 px onto WHEELIE at 568x320 (0106) */
     body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   }
   /* the notch and rounded corners: in landscape an iPhone's safe area is ~47 px in from each side */
@@ -939,12 +939,22 @@
     body.touch #tut{top:calc(100px + env(safe-area-inset-top,0px))!important;left:12px!important;right:124px!important;width:auto;transform:none}
     body.touch #toasts{top:max(calc(100px + env(safe-area-inset-top,0px)), calc(var(--tutB,0px) + 8px));left:12px;right:124px}
     body.touch #tcF{right:auto;left:16px;bottom:calc(196px + var(--sb))}
+    /* WIPE VISOR used to sit exactly under BANDAGE (right 16, bottom 284): a crash in a storm shows both (0106 #1).
+       It joins the left column above CALL HELP; BANDAGE keeps the right column above GARAGE. */
+    body.touch #tcWipe{right:auto;left:16px;bottom:calc(244px + var(--sb))}
   }
   @media (max-height:500px) and (orientation:landscape){
+    /* 0106 #2: BANDAGE (right 16, bottom 284) ran into the top-right speedo, CALL HELP (right 240) into the centred
+       GARAGE on a 667-wide phone. BANDAGE joins the left column above WIPE VISOR; CALL HELP steps up a row. */
+    body.touch #tcBand{right:auto;left:24px;bottom:calc(246px + var(--sb))}
+    body.touch #tcF{bottom:calc(64px + var(--sb))}
     body.touch #tcSys{top:calc(16px + var(--st));right:calc(152px + env(safe-area-inset-right,0px))}
     body.touch #tcSheet{top:calc(68px + var(--st));right:calc(152px + env(safe-area-inset-right,0px))}
     body.touch #compass{left:calc(138px + env(safe-area-inset-left,0px));right:calc(260px + env(safe-area-inset-right,0px));width:auto;max-width:300px;min-width:0;margin:0 auto;transform:none}
     body.touch #toasts{left:calc(138px + env(safe-area-inset-left,0px));right:calc(260px + env(safe-area-inset-right,0px));width:auto;transform:none}
+  }
+  @media (max-height:330px) and (orientation:landscape){
+    body.touch #tcBand{bottom:calc(220px + var(--sb))}         /* SE-size: under the vitals bars (0106) */
   }
   body.showroom #vit,body.showroom #compass{visibility:hidden}
   body.tabOn #vit,body.tabOn #compass{opacity:.16}
@@ -1156,5 +1166,5 @@
 <script src="tlx-survival.js?v=1"></script>
 <script src="tlx-hud.js?v=1"></script>
 <script src="tlx-wounds.js?v=1"></script>
-<script src="tracklayer.js?v=183"></script>
+<script src="tracklayer.js?v=184"></script>
 </body></html>
