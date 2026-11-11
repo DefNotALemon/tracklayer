@@ -438,6 +438,16 @@ a rig tracks, tips, grooms and carries big loads just as it does behind the sled
 the truck's), and the truck feels its weight and drag. You can't unhitch with a big load strapped
 on or a casualty in the toboggan. A rig fitted at the garage goes on the sled.
 
+**The sled trailer.** The Trucks tab also sells the **Fjordhenger sled trailer** ($950, 420 kg): a
+single-axle trailer with a 3.9 m wooden deck and a full-width ramp gate at the back. It goes on a
+truck's ball, not the sled's, and a ball holds one thing, so a truck pulls either a rig or the sled
+trailer. Back a truck up to its coupler, get out and use it at the coupler (E, the left stick
+click, or HITCH / UNHITCH on touch) to hitch or unhitch it; use it at the tail (LOWER RAMP /
+RAISE RAMP) to swing the ramp gate down onto the snow or pin it up. Behind the truck it follows on
+its single axle: it cuts the inside of corners, reversing pushes it round until the tongue binds at
+about 70°, and the truck feels its weight and the drag of its tyres in the snow. The chase camera
+backs off so you can see it. Driving a sled up the ramp and strapping it down comes next.
+
 ## The hitch and bigger work
 
 The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**

@@ -297,7 +297,8 @@ function core(R, dt) {
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(w.rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const tw = api.towLive() ? api.tow : null;                                 // the rig on this truck's hitch (slice 2.5): its weight and its drag
-  const M = R.mass = d.mass + 6 * Math.min(8, smallN(api.GS.load)) + (tw ? tw.mass : 0), W = (M - (tw ? tw.mass : 0)) * GR, started = api.started();   // the rig adds inertia; its own drag stands for its rolling
+  const hk = haulKg(R.rec.uid);                                              // the sled trailer on this ball (2.6a): inertia here, its rolling in Fres
+  const M = R.mass = d.mass + 6 * Math.min(8, smallN(api.GS.load)) + (tw ? tw.mass : 0) + hk, W = (M - (tw ? tw.mass : 0) - hk) * GR, started = api.started();   // the rig adds inertia; its own drag stands for its rolling
   const wl0 = w.wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;
   let vx = P.vx, vz = P.vz;
   const parked = FOOT.on || GS.dead;                                         // standing or climbing in/out: the brake is on
@@ -342,7 +343,7 @@ function core(R, dt) {
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
-  const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0);
+  const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
   R.drag = Fres; R.fx = Fx;
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
@@ -758,6 +759,17 @@ function blockWalker(nx, nz) {
       nx = px + fz * lx + fx * lz; nz = pz - fx * lx + fz * lz;
     }
   }
+  const h = haulS();
+  if (h) {                                                                       // the sled trailer: a box from its tail to its coupler
+    const fx = Math.sin(h.yaw), fz = Math.cos(h.yaw), zc = (HAUL.L + HAUL.deckZ0) / 2, dx = nx - h.x, dz = nz - h.z;
+    let lx = dx * fz - dz * fx, lz = dx * fx + dz * fz - zc;
+    const hx = HAUL.wid / 2 + d0, hz = (HAUL.L - HAUL.deckZ0) / 2 + d0;
+    if (Math.abs(lx) < hx && Math.abs(lz) < hz) {
+      const ox = hx - Math.abs(lx), oz = hz - Math.abs(lz);
+      if (ox < oz) lx = Math.sign(lx || 1) * hx; else lz = Math.sign(lz || 1) * hz;
+      lz += zc; nx = h.x + fz * lx + fx * lz; nz = h.z - fx * lx + fz * lz;
+    }
+  }
   const sl = S().cur != null ? api.veh.sled : null;
   if (sl) { const dx = nx - sl.x, dz = nz - sl.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = sl.x + dx / dd * 0.7; nz = sl.z + dz / dd * 0.7; } }
   return [nx, nz];
@@ -803,6 +815,9 @@ function save() {
   }
   const rg = rigS(), TOW = api.tow;
   if (rg.on !== "sled" && TOW.kind && TOW.kind === rg.kind) { rg.x = NUM(TOW.x); rg.z = NUM(TOW.z); rg.yaw = NUM(TOW.yaw); }
+  const h = haulS();
+  if (h) { h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0; if (h.on != null && !rec(h.on)) h.on = null; }
+  else s.haul = null;
   if (s.sled) { s.sled.fuel = NUM(s.sled.fuel); s.sled.x = NUM(s.sled.x); s.sled.z = NUM(s.sled.z); s.sled.yaw = NUM(s.sled.yaw); const live = LIVE.get("sled"); if (live) s.sled.load = serLoad(live); }
 }
 
@@ -813,6 +828,7 @@ function forecourtSpot(d) {
   for (let r = 8; r <= 30; r += 3) for (let a = 0; a < 6.283; a += 0.35) cands.push([g.x + Math.cos(a) * r, g.z + Math.sin(a) * r, r]);
   cands.sort((a, b) => a[2] - b[2]);
   const others = [[P.x, P.z]]; if (FOOT.on) others.push([FOOT.x, FOOT.z]); for (const r of s.owned) others.push([r.x, r.z]); if (api.veh.sled) others.push([api.veh.sled.x, api.veh.sled.z]);
+  if (s.haul && typeof s.haul === "object") others.push([s.haul.x, s.haul.z], haulCoupler(s.haul));
   for (const [x, z] of cands) {
     if (w.isWater(x, z) || w.obNear(x, z, d.len / 2 + 0.6) ) continue;
     let ok = true; for (const [ox, oz] of others) if (Math.hypot(x - ox, z - oz) < 7) { ok = false; break; }
@@ -850,6 +866,11 @@ function garageRows(body, row) {
     const d = byId(r.id); if (!d) continue;
     const e = document.createElement("div"); e.className = "bfoot"; e.textContent = `${d.name}: ${Math.round(r.cond)}% condition, ${r.fuel.toFixed(0)} of ${d.fuel} L, parked ${Math.round(Math.hypot(r.x - api.world.garage().x, r.z - api.world.garage().z))} m from the garage.`;
     body.appendChild(e);
+  }
+  {                                                                              // the sled trailer (2.6a): one per player
+    const h = haulS(), spec = `Single axle · ${HAUL.mass} kg · 3.9 m wooden deck with a full-width ramp gate · hitches to a truck's ball, not to the sled`;
+    const how = `Back a truck up to its coupler and use it on foot to hitch it; use at its tail to drop or raise the ramp. Driving a sled up the ramp and strapping it down comes next.`;
+    row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>`, h ? "Owned" : "$" + HAUL.cost, !h && GS.cash < HAUL.cost ? "locked" : "", () => buyHaul(), "trailer");
   }
   const note = document.createElement("div"); note.className = "bfoot"; note.textContent = "Walk up to a truck and get in. Your sled stays where you left it.";
   body.appendChild(note);
@@ -902,6 +923,7 @@ function rigCands() {                                                           
   const s = S(), out = [];
   for (const key of ["sled"].concat(s.owned.map(r => r.uid))) {
     if (key === "sled" && s.cur != null && !s.sled) continue;
+    if (s.haul && s.haul.on === key) continue;                                  // that ball holds the sled trailer (2.6a)
     const b = ballOf(key); if (!b) continue;
     const dd = Math.hypot(b[0] - t[0], b[1] - t[1]); if (dd <= HITCH_REACH) out.push({ key, d: dd, b });
   }
@@ -966,6 +988,170 @@ function rigRestore() {                                                         
   api.restat();
 }
 
+/* ---------------- the sled trailer (slice 2.6a) ----------------
+   A single-axle deck trailer that will carry a sled behind a truck (2.6b drives the sled up its ramp, 2.6c tows it strapped
+   down). It is not a GS.own.parts.hitch rig: the sled can't tow its own carrier. So it is a second thing a truck's ball can
+   hold, and a truck holds the rig OR the trailer, never both. Saved as state.haul = { on: truck uid | null, x, z, yaw, ramp }
+   (null = not owned, every older save). x, z is the middle of the axle on the ground; the coupler sits HAUL.L ahead of it.
+   Behind a truck it follows by single-axle kinematics: each frame the axle is pulled along the line to the ball so it stays
+   HAUL.L from it (it cuts corners like a real trailer, and reversing pushes it round), with a jackknife stop at HAUL.jack.
+   On foot: use at the coupler hitches / unhitches it (haulFoot, ahead of rigFoot in VEH.rigFoot), use at its tail lowers or
+   raises the ramp. The truck carries its mass (inertia) and its rolling drag (its tyres' sink in the snow). */
+const HAUL = { name: "Fjordhenger sled trailer", cost: 950, mass: 420, L: 3.6, deckY: 0.55, deckZ0: -1.65, deckZ1: 2.25, deckW: 1.56,
+  wheelX: 0.98, tyreR: 0.3, wid: 2.16, cH: 0.42, rampL: 1.5, jack: 70 * Math.PI / 180, tailReach: 1.9 };
+const wrapA = a => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+function haulS() { const h = S().haul; return h && typeof h === "object" ? h : null; }
+function haulKg(uid) { const h = haulS(); return h && h.on != null && h.on === uid ? HAUL.mass : 0; }
+let HSINK = 0;                                                                  // the trailer tyres' mean sink, for its drag
+function haulDrag(uid) { return haulKg(uid) ? HAUL.mass * GR * (0.02 + 0.95 * HSINK) : 0; }
+function haulCoupler(h) { return [h.x + Math.sin(h.yaw) * HAUL.L, h.z + Math.cos(h.yaw) * HAUL.L]; }
+function haulTail(h) { const k = HAUL.deckZ0 - 0.4; return [h.x + Math.sin(h.yaw) * k, h.z + Math.cos(h.yaw) * k]; }
+function haulFollow() {
+  const h = haulS(); if (!h) return;
+  if (h.on != null && !rec(h.on)) h.on = null;                                  // the truck is gone: it stays where it stood
+  if (h.on == null) return;
+  const b = ballOf(h.on), hp = hostPose(h.on); if (!b || !hp) return;
+  let a = Math.atan2(h.x - b[0], h.z - b[1]);                                   // ball -> axle
+  const back = hp.yaw + Math.PI, rel = wrapA(a - back);
+  if (Math.abs(rel) > HAUL.jack) a = back + Math.sign(rel) * HAUL.jack;          // jackknife stop: the tongue binds on the bumper
+  h.x = b[0] + Math.sin(a) * HAUL.L; h.z = b[1] + Math.cos(a) * HAUL.L; h.yaw = Math.atan2(b[0] - h.x, b[1] - h.z);
+}
+function haulCands() {                                                          // trucks whose ball is within reach of the coupler
+  const h = haulS(); if (!h) return [];
+  const c = haulCoupler(h), s = S(), out = [];
+  for (const r of s.owned) {
+    if (rigOn() === r.uid) continue;                                            // that ball already holds the rig
+    const b = ballOf(r.uid); if (!b) continue;
+    const dd = Math.hypot(b[0] - c[0], b[1] - c[1]); if (dd <= HITCH_REACH) out.push({ key: r.uid, d: dd, b });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+function haulFoot() {
+  const h = haulS(), F = api.FOOT;
+  if (!h || !F.on || api.tutHidden() || api.MNT.on || api.DMT.on) return null;
+  const c = haulCoupler(h);
+  if (Math.hypot(F.x - c[0], F.z - c[1]) <= TONGUE_REACH) {
+    if (h.on != null) return { label: "UNHITCH", what: `unhitch the sled trailer from the ${hostName(h.on)}`, act: haulUnhitch };
+    const k = haulCands()[0];
+    if (!k) return { label: null, what: "The sled trailer stands on its jack · back a truck up to the coupler to hitch it" };
+    return { label: "HITCH", what: `hitch the sled trailer to the ${hostName(k.key)}`, act: () => haulHitch(k) };
+  }
+  const t = haulTail(h);
+  if (Math.hypot(F.x - t[0], F.z - t[1]) <= HAUL.tailReach) {
+    const down = h.ramp > 0.5;
+    return { label: down ? "RAISE RAMP" : "LOWER RAMP", what: down ? "raise the trailer's ramp" : "lower the trailer's ramp", act: () => haulRamp(!down) };
+  }
+  return null;
+}
+function anyFoot() { return haulFoot() || rigFoot(); }                          // VEH.rigFoot: the trailer first, then the rig
+function haulRamp(down) {
+  const h = haulS(); if (!h) return;
+  h.ramp = down ? 1 : 0; api.whump && api.whump(0.15);
+  api.toast(down ? "You pull the pins and swing the ramp gate down onto the snow." : "You swing the ramp gate up and pin it.");
+  api.save();
+}
+function haulUnhitch() {
+  const h = haulS(); if (!h || h.on == null) return;
+  const who = hostName(h.on); h.on = null; api.whump && api.whump(0.2);
+  api.toast(`You lift the trailer's coupler off the ${who}'s ball and wind the jack down. The sled trailer stands free.`);
+  api.save();
+}
+function haulHitch(k) {
+  const h = haulS(); if (!h || h.on != null) return;
+  const hp = hostPose(k.key); if (hp && HAUL.mass > hp.kg) { api.toast(`The ${hostName(k.key)}'s receiver is rated for ${hp.kg} kg.`, "warn"); return; }
+  const dx = k.b[0] - h.x, dz = k.b[1] - h.z, dd = Math.hypot(dx, dz) || 1;   // the trailer pivots on its wheels until the coupler is on the ball
+  h.x = k.b[0] - dx / dd * HAUL.L; h.z = k.b[1] - dz / dd * HAUL.L; h.yaw = Math.atan2(dx, dz);
+  h.on = k.key; api.whump && api.whump(0.3);
+  api.toast(`Coupler down on the ${hostName(k.key)}'s ball, pin in, chains crossed. The sled trailer is hitched.`, "good");
+  api.save();
+}
+function buyHaul() {
+  const s = S(), GS = api.GS;
+  if (haulS()) { api.toast("You already own the sled trailer. It's on the Map.", "warn"); return; }
+  if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
+  if (GS.cash < HAUL.cost) { api.toast(`The sled trailer is ${api.fmtCash(HAUL.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
+  const spot = forecourtSpot({ len: HAUL.L - HAUL.deckZ0 + 0.6 }); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
+  GS.cash -= HAUL.cost;
+  const mid = (HAUL.L + HAUL.deckZ0) / 2;                                       // the spot is its middle; x, z is its axle
+  s.haul = { on: null, x: spot.x - Math.sin(spot.yaw) * mid, z: spot.z - Math.cos(spot.yaw) * mid, yaw: spot.yaw, ramp: 0 };
+  api.toast("Bought the sled trailer. It stands on its jack on the forecourt: back a truck up to the coupler to hitch it.", "good");
+  api.save(); api.garageRefresh();
+}
+// the model: one merged body, two wheels, the ramp gate on its hinge, the jack's leg, tail lights that light with the truck's
+let HR = null;
+function haulRuntime() {
+  if (HR) return HR;
+  const M = mats(), it = [], gate = [], leg = [], lit = [];
+  const B = (arr, w, h, d, x, y, z, c, rx = 0, ry = 0, rz = 0) => arr.push({ g: box(w, h, d), c, m: tf(x, y, z, rx, ry, rz) });
+  const bar = (a, b, t, c) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L = Math.hypot(dx, dy, dz);
+    it.push({ g: box(t, t, L), c, m: _m4().compose(new T.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), new T.Quaternion().setFromEuler(new T.Euler(-Math.atan2(dy, Math.hypot(dx, dz)), Math.atan2(dx, dz), 0, "YXZ")), new T.Vector3(1, 1, 1)) }); };
+  const GALV = 0x8e959c, WOOD = 0x6e5b44, SEAM = 0x45392b, DARK = 0x24272b, YEL = 0xd8a21c;
+  const z0 = HAUL.deckZ0, z1 = HAUL.deckZ1, zc = (z0 + z1) / 2, dl = z1 - z0, y = HAUL.deckY, hw = HAUL.deckW / 2, W = HAUL.wheelX;
+  B(it, HAUL.deckW - 0.04, 0.04, dl - 0.02, 0, y - 0.02, zc, WOOD);                                    // deck boards
+  for (let i = 1; i < 6; i++) B(it, 0.012, 0.004, dl - 0.04, -hw + i * HAUL.deckW / 6, y + 0.001, zc, SEAM);   // seams between them
+  for (const sg of [1, -1]) {
+    B(it, 0.07, 0.13, dl, sg * (hw + 0.01), y - 0.06, zc, GALV); B(it, 0.04, 0.05, dl, sg * (hw - 0.03), y + 0.025, zc, GALV);   // side rails, lip
+    B(it, 0.06, 0.06, 0.95, sg * (hw - 0.12), y - 0.16, 0, DARK);                                      // leaf spring
+    B(it, 0.32, 0.03, 0.84, sg * W, 0.72, 0, GALV); B(it, 0.32, 0.14, 0.03, sg * W, 0.65, 0.44, GALV, -0.45); B(it, 0.32, 0.14, 0.03, sg * W, 0.65, -0.44, GALV, 0.45);   // fender
+    for (const zz of [z0 + 0.15, z1 - 0.2]) it.push({ g: new T.TorusGeometry(0.035, 0.009, 5, 10), c: YEL, m: tf(sg * (hw - 0.03), y + 0.06, zz, 0, Math.PI / 2, 0) });   // tie-down rings
+    B(it, 0.16, 0.06, 0.03, sg * 0.66, y - 0.06, z0 - 0.03, DARK);                                     // light housings
+    B(lit, 0.13, 0.045, 0.02, sg * 0.66, y - 0.06, z0 - 0.05, 0xff2a1a);
+  }
+  for (let i = 0; i < 6; i++) B(it, HAUL.deckW, 0.07, 0.06, 0, y - 0.09, z0 + 0.1 + i * (dl - 0.2) / 5, GALV);   // cross members
+  B(it, HAUL.deckW, 0.06, 0.06, 0, y + 0.3, z1 - 0.03, GALV); for (const xx of [hw - 0.03, -hw + 0.03, 0]) B(it, 0.05, 0.32, 0.05, xx, y + 0.15, z1 - 0.03, GALV);   // front stop rail
+  B(it, 2 * W - 0.12, 0.07, 0.07, 0, HAUL.tyreR, 0, DARK);                                             // axle
+  // tongue: an A-frame to the coupler, a jack tube on its right
+  for (const sg of [1, -1]) bar([sg * 0.72, y - 0.08, z1 - 0.5], [sg * 0.05, HAUL.cH + 0.02, HAUL.L - 0.28], 0.08, GALV);
+  bar([0, y - 0.08, z1 - 0.1], [0, HAUL.cH + 0.02, HAUL.L - 0.28], 0.07, GALV);
+  B(it, 0.13, 0.1, 0.36, 0, HAUL.cH + 0.03, HAUL.L - 0.12, DARK); B(it, 0.15, 0.04, 0.18, 0, HAUL.cH + 0.09, HAUL.L - 0.05, DARK);   // coupler head
+  const jx = -0.22, jz = HAUL.L - 0.75, tube = new T.CylinderGeometry(0.035, 0.035, 0.46, 10);
+  it.push({ g: tube, c: DARK, m: tf(jx, 0.55, jz) }); B(it, 0.2, 0.03, 0.03, jx + 0.1, 0.8, jz, DARK); B(it, 0.12, 0.05, 0.05, jx + 0.08, 0.46, jz, DARK);   // tube, crank, bracket
+  leg.push({ g: new T.CylinderGeometry(0.026, 0.026, 0.42, 8), c: GALV, m: tf(jx, 0.23, jz) }); leg.push({ g: box(0.14, 0.02, 0.14), c: DARK, m: tf(jx, 0.01, jz) });
+  // the ramp gate, built down its own -z from the hinge
+  const rl = HAUL.rampL;
+  B(gate, HAUL.deckW - 0.1, 0.03, rl, 0, 0, -rl / 2, GALV);
+  for (const sg of [1, -1]) B(gate, 0.05, 0.07, rl, sg * (hw - 0.07), 0.02, -rl / 2, GALV);
+  for (let k = 0.12; k < rl; k += 0.17) B(gate, HAUL.deckW - 0.16, 0.025, 0.03, 0, 0.025, -k, DARK);   // grip slats
+  const grp = new T.Group(); grp.rotation.order = "YXZ";
+  grp.add(mesh(bake(it), M.solid, true));
+  const lm = new T.Mesh(bake(lit), M.tail.clone()); grp.add(lm);
+  const hinge = new T.Group(); hinge.position.set(0, y, z0); hinge.add(mesh(bake(gate), M.solid, true)); grp.add(hinge);
+  const jleg = mesh(bake(leg), M.solid, true); grp.add(jleg);
+  // the wheels: tyre and steel rim, one geometry, axle along x
+  const tyre = new T.CylinderGeometry(HAUL.tyreR, HAUL.tyreR, 0.19, 22); tyre.rotateZ(Math.PI / 2);
+  const rim = new T.CylinderGeometry(0.17, 0.17, 0.2, 14); rim.rotateZ(Math.PI / 2);
+  const lugs = []; for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; lugs.push({ g: box(0.21, 0.04, 0.04), c: 0x2a2d31, m: tf(0, Math.cos(a) * 0.1, Math.sin(a) * 0.1) }); }
+  const wg = bake([{ g: tyre, c: 0x1b1d20 }, { g: rim, c: 0xb8bcc0 }].concat(lugs));
+  const wheels = [W, -W].map(x => { const m = mesh(wg, M.solid, true); m.position.set(x, HAUL.tyreR, 0); grp.add(m); return m; });
+  grp.visible = false; api.scene.add(grp);
+  return (HR = { grp, lm, hinge, jleg, wheels, ramp: 0, spin: 0, px: null, pz: 0 });
+}
+function haulVisual(dt) {
+  const h = haulS(); if (!h) { if (HR) HR.grp.visible = false; return; }
+  const R = haulRuntime(), w = api.world, cam = api.camera;
+  if (Math.hypot(h.x - cam.position.x, h.z - cam.position.z) > 500) { R.grp.visible = false; return; }
+  R.grp.visible = true;
+  const fx = Math.sin(h.yaw), fz = Math.cos(h.yaw), lx = fz, lz = -fx, W = HAUL.wheelX;
+  const yl = w.rideSurf(h.x + lx * W, h.z + lz * W), yr = w.rideSurf(h.x - lx * W, h.z - lz * W), ya = (yl + yr) / 2;
+  let sk = 0;                                                                   // tyre sink in the snow: its drag on the truck
+  for (const sg of [1, -1]) { const x = h.x + lx * W * sg, z = h.z + lz * W * sg, db = depthBi(x, z), f = w.freshAt(Math.round((x + HALF) / CELL), Math.round((z + HALF) / CELL)), pk = f > 0.02 ? clamp(1 - db / f, 0, 1) : 1; sk += db * (0.35 + 0.65 * (1 - pk)) / 2; }
+  HSINK = sk;
+  const c = haulCoupler(h), T2 = h.on != null ? RT.get(h.on) : null; let yc;
+  if (T2 && T2.grp.visible) { T2.grp.updateMatrixWorld(true); const v = T2.grp.localToWorld(new T.Vector3(0, 0.42, T2.def.hitchZ)); yc = v.y; }
+  else yc = w.rideSurf(c[0], c[1]) + HAUL.cH;
+  const pitch = Math.atan2(yc - (ya + HAUL.cH), HAUL.L), roll = Math.atan2(yl - yr, 2 * W);
+  R.grp.position.set(h.x, ya - sk * 0.6, h.z); R.grp.rotation.set(-pitch, h.yaw, roll);
+  if (R.px !== null) { const mv = (h.x - R.px) * fx + (h.z - R.pz) * fz; R.spin += mv / HAUL.tyreR; }
+  R.px = h.x; R.pz = h.z;
+  for (const m of R.wheels) m.rotation.x = R.spin;
+  R.ramp += (h.ramp - R.ramp) * (1 - Math.exp(-4 * dt));
+  const e = R.ramp * R.ramp * (3 - 2 * R.ramp), down = -Math.asin(Math.min(0.95, (HAUL.deckY - 0.02) / HAUL.rampL));
+  R.hinge.rotation.x = lerp(Math.PI / 2 + 0.08, down, e);
+  R.jleg.position.y = h.on != null ? 0.27 : 0;
+  const night = 1 - api.dayFactor(), s = S();
+  R.lm.visible = h.on != null && s.cur === h.on && night > 0.35 && api.GS.fuel > 0 && !api.FOOT.on;
+}
+
 /* ---------------- the frame hooks ---------------- */
 function nearestTick() {
   const s = S(), FOOT = api.FOOT, P = api.P;
@@ -996,6 +1182,7 @@ function tick(dt) {
   if (!api) return;
   const s = S(), P = api.P, ST = api.ST(), FOOT = api.FOOT, cam = api.camera;
   rigTick();
+  haulFollow(); haulVisual(dt);                                                 // the sled trailer (2.6a), owned with or without a truck
   if (!s.owned.length) return;
   nearestTick();
   syncRecords();
@@ -1027,7 +1214,7 @@ const GSfuel = () => api.GS.fuel > 0;
 
 TLX.register({
   id: "vehicles", v: 1,
-  state0: () => ({ owned: [], cur: null, sled: null, seq: 0 }),
+  state0: () => ({ owned: [], cur: null, sled: null, seq: 0, haul: null }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; CELL = a.world.cell; HALF = a.world.half;
@@ -1036,13 +1223,19 @@ TLX.register({
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
-    Object.assign(api.veh, { rigOn, rigLive, rigAt, rigBall, rigFoot });           // the universal hitch (2.5)
+    Object.assign(api.veh, { rigOn, rigLive, rigAt, rigBall, rigFoot: anyFoot });  // the universal hitch (2.5); the sled trailer's use comes first (2.6a)
+    api.veh.camTow = () => { const h = haulS(); return h && h.on != null && S().cur === h.on && !api.FOOT.on ? HAUL.L - HAUL.deckZ0 + 1.4 : 0; };   // the chase cam backs off to show it
+    if (s.haul && typeof s.haul === "object") {                                  // the sled trailer from the save
+      const h = s.haul; h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0;
+      if (h.on != null && (!rec(h.on) || rigOn() === h.on)) h.on = null;
+    } else s.haul = null;
     api.veh.tabs.push({ id: "trucks", name: "Trucks", render: garageRows });
     // the tablet's Map: a pin on every vehicle you aren't in (the sled while you drive, the trucks while you ride the sled)
     a.TABLET.addLayer("vehicles", () => {
       const s = S(), out = [], noun = r => { const d = byId(r.id); return d.kind[0].toUpperCase() + d.kind.slice(1); };
       if (s.cur != null && s.sled) out.push({ x: s.sled.x, z: s.sled.z, name: "Sled", kind: "sled" });
       for (const r of s.owned) if (r.uid !== s.cur) out.push({ x: r.x, z: r.z, name: noun(r), kind: "truck" });
+      const h = haulS(); if (h && (h.on == null || h.on !== s.cur || api.FOOT.on)) out.push({ x: h.x, z: h.z, name: "Sled trailer", kind: "truck" });
       return out;
     });
     if (s.cur != null && (!rec(s.cur) || !s.sled || a.tutHidden())) { s.cur = null; s.sled = null; }
@@ -1060,5 +1253,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

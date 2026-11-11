@@ -3847,7 +3847,7 @@ function updVisuals(dt) {
     if (TABLET.e > 0.001 && TABLET.mode === "dash") tabCam();            // the dip onto the dash tablet
   } else {
     // towing: back the chase cam off so the rig behind you is in the shot
-    camState.tow = (camState.tow || 0) + ((TOW.kind && towLive() ? HITCH[TOW.kind].len + 1.4 : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
+    camState.tow = (camState.tow || 0) + (Math.max(TOW.kind && towLive() ? HITCH[TOW.kind].len + 1.4 : 0, VEH.camTow ? VEH.camTow() : 0) - (camState.tow || 0)) * (1 - Math.exp(-2 * dt));
     const td = camState.tow * (view.d < 10 ? 1 : 0.35);
     const want = _camWant.set(FXp - cfx * (view.d + td), FYp + view.h + td * 0.4 + CLIMB.v * 1.1 + CAMPAD.oy * 1.5, FZp - cfz * (view.d + td));
     if (camState.shOn) { camera.position.copy(camState.shBase); camState.shOn = false; }   // undo last frame's shoulder offset before the lerp, or it piles up
