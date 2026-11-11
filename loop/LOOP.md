@@ -160,6 +160,14 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
+- [ ] (OWNER, 11 Nov) Delivery rewards with flavor dialogue: delivering jobs should sometimes reward snacks,
+  spare parts, or sled upgrades to fit at home, handed over with a bit of characterful NPC dialogue — e.g.
+  "my [distant relative] had one of those and my son worked on it once, here, I think I have an upgrade you
+  can have — oh, here it is." Not started; queued behind the in-progress minimalist HUD + survival/wound slice
+  (see Owner note above) so they don't collide in the same worktree. Needs: a small reward table per job
+  type/destination, a line of dialogue per NPC/location pulled from a short pool (not every delivery, so it
+  stays special), and hooking the reward into the existing claim/parts-ownership system (`GS.own.partsOwned`,
+  grep `fitPart`) so a "free" upgrade behaves like one bought at the garage.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
