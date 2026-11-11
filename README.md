@@ -61,7 +61,9 @@ the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
     **DOUBLE** when there's a job to size up. **REEL** appears while the winch is hooked.
   - **Drag anywhere else** to look around; the view springs back when you let go.
   - **TABLET** and **MORE** sit by the map (MORE: map, camera, reset, wings, full screen, settings). **GARAGE**,
-    **FISH** / **SHOP** / **SELL**, **WIPE VISOR** and **CALL HELP** turn up when they apply. The prompts on screen name
+    **FISH** / **SHOP** / **SELL**, **WIPE VISOR** and **CALL HELP** turn up when they apply (GARAGE and the rest step
+    aside while the tablet is open; on 320-wide phones the stick is a little smaller so HORN and WHEELIE stay clear of
+    it, and GET OFF keeps its place above the stick). The prompts on screen name
     these buttons instead of keys.
 
 **Graphics and phones.** The game knows when it's on a phone or tablet (including iPads, which report themselves as

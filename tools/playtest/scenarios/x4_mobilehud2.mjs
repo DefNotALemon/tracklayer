@@ -58,7 +58,9 @@ if (s0) {
     await stage(() => ev(`toast("Test toast one: a longish line that wraps maybe"); toast("Second toast"); true`)); await check("cabtoast", w, h);
     await stage(() => ev(`(document.getElementById("tcMenu")).dispatchEvent(new PointerEvent("pointerdown", {bubbles:true})); true`)); await check("cabmore", w, h);
     await ev(`(document.getElementById("tcMenu")).dispatchEvent(new PointerEvent("pointerdown", {bubbles:true})); true`);
+    const eBefore = await ev(`!$("tcE").hidden`);
     await stage(() => ev(`TABLET.toggle(true, "jobs"); true`)); await check("cabtab", w, h);
+    ok(eBefore && await ev(`$("tcE").hidden`), `cabtab ${w}x${h}: GARAGE pill showed before (${eBefore}) and hides while the tablet is open`);
     await ev(`TABLET.close(true); true`); await sleep(300);
   }
   await ev(`GS.fuel = 0; true`); await sleep(600); await view(390, 664); await check("cabnofuel", 390, 664); await ev(`GS.fuel = 40; true`);

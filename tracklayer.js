@@ -2439,7 +2439,8 @@ function updTouch() {
     tc.classList.toggle("foot", foot); tc.classList.toggle("ride", !foot);
     $("tcStickCap").textContent = foot ? "WALK · RIM TO JOG" : "STEER";
   }
-  const lbl = GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
+  // the GARAGE / fishing pill hides while the tablet is open: on a phone it sat on the tablet card's text (report 0104 #3)
+  const lbl = TABLET.open ? null : GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
   const e = show("tcE", !!lbl); if (lbl) text(e, lbl);
   TC.use = c.use; TC.x = c.x;
   const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);   // the vehicle you left (sled or pickup) decides how close is close

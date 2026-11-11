@@ -834,7 +834,13 @@
     body.touch #tut{padding:6px 9px 7px;gap:2px}
     body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
     body.touch #speedo{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
-    body.touch #tcQ{left:auto;right:16px;bottom:calc(236px + var(--sb))}
+    /* GET OFF stays on the left above the stick (it used to move to right:16 bottom:236, under the GARAGE pill: 0104 #1) */
+  }
+  @media (max-width:340px) and (orientation:portrait){         /* 320-wide phones: a smaller stick, HORN / WHEELIE clear of it (0104 #2) */
+    body.touch #tcStick{width:96px;height:96px;left:12px}
+    body.touch #tcQ{left:12px;bottom:calc(140px + var(--sb))}
+    body.touch #tcHorn{right:160px} body.touch #tcWh{right:160px}
+    body.touch #touch.ride #tcReel{right:166px}
   }
   /* phones, landscape: map top right with TABLET / MORE beside it, job bar and tutorial card top centre between the
      clock and the map, the speedo between the stick and the pedals, GARAGE etc. bottom centre. */
@@ -1150,5 +1156,5 @@
 <script src="tlx-survival.js?v=1"></script>
 <script src="tlx-hud.js?v=1"></script>
 <script src="tlx-wounds.js?v=1"></script>
-<script src="tracklayer.js?v=182"></script>
+<script src="tracklayer.js?v=183"></script>
 </body></html>
