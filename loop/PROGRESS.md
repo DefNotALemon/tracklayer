@@ -3,6 +3,24 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 17:45 — Beta fix 0110: paid-for vehicles count as owned (G4) — e0f270e
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: reports 0108-0110. Two BUGs on landed work: 0110 #1 (money locked in a Bytteboden vehicle order that can
+never be collected) taken this pass; 0108 #1 (pickup ignores S at a standstill off the lane) is now the top backlog line
+with 0108 #2 folded in. POLISH left as is: 0108 #3 (scenario hazard, wait for !DMT.on), #4 (top-left "Frontier 340" while
+driving, repeat); 0109 #1 (first-frame keyboard hint on a fresh pad), #2 (hardening, unreachable), #3 (known coupler snap);
+0110 #2 is fixed by this change. Last triaged report 107 -> 110.
+Fix (tlx-vehicles.js v9 only): `buyHaul` refuses while a used trailer is held ("You've already paid for a sled trailer:
+it's waiting in <seller>'s yard in <place>."), `buy` counts held pickups (`usedTrucks`) against the 3-truck cap; the Trucks
+tab's trailer row reads "Paid for" (locked) and the truck rows say where the held pickup waits and lock at 3; `heldRefund`
+(every 2 s from tick) refunds any held vehicle order `MKTV.blocked` says can never be handed over (saves already stuck).
+TLXV exposes buy/buyHaul for scenarios.
+Before (report 0110's `x2_vehmktbreak.mjs`): the garage sold a $950 trailer over a held one and the held order stayed at
+"You already own a sled trailer." forever. After: new `x2_vehheld.mjs` 21/21 ok (row text + lock, refusals take no money,
+1-2 trucks still sell beside a held pickup, collect still hands both over, stuck save refunded +$3000 with nothing owned
+removed); `x2_vehmktbreak.mjs` updated to expect the refusal: all ok. Logic only, no stills.
+Gate: smoke 0, x1_save 0, x2_vehheld 0, x2_vehmkt 0, x2_vehmktbreak 0 (after the update), page errors none.
+
 ## 2026-11-11 17:10 — 2.7 Bytteboden Vehicles category, wear and repair (G4) — c3744de
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0107 (2.6b every sled on the deck) has no BLOCKER or BUG: #1 (same front-rail stop for every sled) and
