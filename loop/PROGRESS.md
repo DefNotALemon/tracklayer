@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-11 12:10 — Expansion slice 2.6a: the sled trailer (G4) — 7cb2029
+## 2026-11-11 12:10 — Expansion slice 2.6a: the sled trailer (G4) — c8eb0c3
 Builder pass (full throttle, no budget gate; the cron prompt's `usage_budget.py begin/done` bookkeeping was skipped per the skill:
 the gate is retired). Triage: no reports above 94, so the next unticked slice. 2.6 was too big for one pass: split into 2.6a (the
 trailer), 2.6b (drive on/off, strap) and 2.6c (towing a strapped sled), designs written into EXPANSION.md; this pass built 2.6a.
@@ -26,6 +26,8 @@ reload keeps it free with the ramp down (0.000 m); keyboard E re-hitches; reload
 chase, turn) judged: attached on the ball, wheels on the snow, gate on the snow when down, whole trailer in the chase shot.
 Gate: smoke, x1_save, x2_haul, x2_hitch, x2_pickup, x2_cab all exit 0, fails 0, page errors none.
 Left: the sled drives through it (2.6b), truck/trailer don't collide, no hitch animation.
+Triage: report 0095 (2.5 hitch beta) has three POLISH, no BLOCKER/BUG (HUD names the rig while in the truck; TOW.mass after a garage
+rig swap from the cab; an unrelated shop prompt beside the parked truck): left for a polish pass. Last triaged report 94 -> 95.
 In progress: nothing. Next: 2.6b (drive the sled up the ramp, strap it down).
 
 ## 2026-11-11 04:40 — Expansion slice 2.5: the universal hitch (G4) — ef9d751
