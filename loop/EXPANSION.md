@@ -22,10 +22,13 @@ Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
   If the patch turns up, do not apply it: it will conflict with this.
 - `btn(action)` was not on main at v166 (only the tutorial's private `TUT_L` / `tutBtn` table). Slice 2.1 (v168)
   made it the general helper.
-- The builder and playtester loops are retired (Lemon, 6 Nov: no AI runs unless he asks). Nothing pushes to main
-  unattended any more. This expansion is built in sessions Lemon starts, one slice at a time, in the worktree
-  `~/Documents/GitHub/tracklayer-expansion` (branch `expansion`, lands on main). Fetch and rebase before a push
-  anyway: Lemon and other sessions still commit.
+- The old full-time builder and playtester loops are retired (Lemon, 6 Nov). Since 11 Nov Lemon has this expansion
+  built, and every small part beta-tested, on the Claude usage he is forecast not to spend that week: a governor
+  (`~/.hermes/scripts/usage_budget.py`) opens one pass at a time, a Sonnet beta tester and an Opus builder taking
+  turns. Beta reports land in `loop/reports/` (title starts with the slice id; findings marked BLOCKER, BUG or
+  POLISH); a BLOCKER or BUG on landed work is fixed before the next slice. Sessions Lemon starts still build here
+  too, in the same worktree `~/Documents/GitHub/tracklayer-expansion` (branch `expansion`, lands on main): fetch
+  and rebase before a push, and check `usage_budget.py status` for a running pass before editing.
 
 ## What it is
 
