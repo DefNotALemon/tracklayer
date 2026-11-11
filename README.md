@@ -448,7 +448,16 @@ click, or HITCH / UNHITCH on touch) to hitch or unhitch it; use it at the tail (
 RAISE RAMP) to swing the ramp gate down onto the snow or pin it up. Behind the truck it follows on
 its single axle: it cuts the inside of corners, reversing pushes it round until the tongue binds at
 about 70°, and the truck feels its weight and the drag of its tyres in the snow. The chase camera
-backs off so you can see it. Driving a sled up the ramp and strapping it down comes next.
+backs off so you can see it.
+
+**Loading the sled.** With the ramp down, line the sled up behind the trailer and ease it up: the
+ramp and the deck carry it like any other ground, and the front stop rail holds its nose (come in
+hot and you bang into the rail, which your fragile parcels feel). Coming at the side, or at the
+tail with the ramp up, the trailer is a wall. Get off, stand beside the deck and use it (E, the left
+stick click, or STRAP / UNSTRAP on touch) to ratchet four straps over the skis and the rear bumper.
+Strapped, the sled won't drive (the throttle does nothing and it tells you so), it goes where the
+trailer goes, and it stays strapped through a reload. Unstrap it and back it down the ramp to
+unload. You can't raise the ramp while the sled is standing on it.
 
 ## The hitch and bigger work
 

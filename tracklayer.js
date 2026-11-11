@@ -2764,6 +2764,11 @@ function hitchPt() { const b = hitchBack(GS.own.parts.rack); return [P.x - Math.
 // VEH.rigOn() says which ("sled" when there is no expansion); towLive() is true when the rig hangs off the vehicle that is P,
 // the only case in which towStep moves it. rigHitch() is where its coupler sits now (the sled's ball, a truck's, or the tongue).
 function rigOnSled() { return !VEH.rigOn || VEH.rigOn() === "sled"; }
+// The sled trailer's deck and ramp (expansion 2.6b, tlx-vehicles.js) are a ride surface for the sled only: VEH.deck(x, z, yRef)
+// is their height there, or null off them or when it is a step too high to climb from yRef (the side of the deck is a wall:
+// VEH.deckClamp pushes the sled out of it, and holds it at the front stop rail). VEH.strapped() = strapped down, can't drive.
+let deckRef = 0;
+function sledRide(x, z) { const s = rideSurf(x, z); if (!VEH.deck) return s; const d = VEH.deck(x, z, deckRef); return d === null ? s : Math.max(s, d); }
 function towLive() { return VEH.rigLive ? VEH.rigLive() : !VEH.cur; }
 function rigHitch() { const h = VEH.rigAt && VEH.rigAt(); return h || hitchPt(); }
 function rigHint(near) {
@@ -3310,14 +3315,18 @@ function physCore(dt) {
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, and waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const wl0 = wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;   // the sea, or a lake the melt has opened
-  const hs = rideSurf(P.x, P.z), gnd = P.y <= hs + 0.12;
-  const wet = sea && gnd && waterLine() >= surf(P.x, P.z) - 0.02;         // riding on the water, not the seabed
-  const e = 0.8, gx = (smoothRide(P.x + e, P.z) - smoothRide(P.x - e, P.z)) / (2 * e), gz = (smoothRide(P.x, P.z + e) - smoothRide(P.x, P.z - e)) / (2 * e);
+  deckRef = P.y;
+  const dk = VEH.deck ? VEH.deck(P.x, P.z, P.y) : null, onDk = dk !== null && dk > rideSurf(P.x, P.z) + 0.02;   // up on the sled trailer (2.6b)
+  const strapOn = !!(VEH.strapped && VEH.strapped());
+  const hs = sledRide(P.x, P.z), gnd = P.y <= hs + 0.12;
+  const wet = !onDk && sea && gnd && waterLine() >= surf(P.x, P.z) - 0.02;         // riding on the water, not the seabed
+  const e = onDk ? 0.25 : 0.8, RS = onDk ? sledRide : smoothRide, gx = (RS(P.x + e, P.z) - RS(P.x - e, P.z)) / (2 * e), gz = (RS(P.x, P.z + e) - RS(P.x, P.z - e)) / (2 * e);
   let vx = P.vx, vz = P.vz;
   const vf = vx * fx + vz * fz;
-  const exc = plough(fx, fz, lx, lz);
-  const fr = freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL));
-  P.ice = bioAt(P.x, P.z) === 1 && fr < 0.12;
+  let exc = plough(fx, fz, lx, lz);
+  const fr = onDk ? 0.2 : freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL));   // the deck's boards ride like hard pack
+  if (onDk) { exc = 0; P.pack = 1; }
+  P.ice = !onDk && bioAt(P.x, P.z) === 1 && fr < 0.12;
   // only very steep bare rock matters: the sled loses its footing and slides down the mountain
   P.rock = P.ice || wet ? 0 : (1 - sstep(0.05, 0.16, fr)) * sstep(0.7, 0.95, Math.hypot(gx, gz));
   // the spring melt: slush (heavy, wet, sloppy) and ground the snow has gone off (scrapes, sparks, stops you)
@@ -3339,7 +3348,7 @@ function physCore(dt) {
   // steering
   const spf = clamp(Math.abs(vf) / 5, 0, 1) / (1 + Math.abs(vf) / 45);
   // wheelie: skis come up off the snow, track does all the work
-  const thrE = GS.fuel > 0 && !GS.dead ? input.thr : 0;
+  const thrE = GS.fuel > 0 && !GS.dead && !strapOn ? input.thr : 0;   // strapped to the trailer: the throttle does nothing
   bogStep(dt, Math.hypot(vx, vz), thrE, fr);
   const M = MASS + TOW.mass;                                         // a loaded trailer is weight the engine has to haul
   if (started && !GS.dead && !sledDef().team) GS.fuel = Math.max(0, GS.fuel - (0.003 + thrE * (0.018 + 0.3 * exc + (wet ? 0.05 : 0) + TOW.drag / 9000) * ST.burn * (1 + TOW.mass / 900)) * dt);
@@ -3374,7 +3383,7 @@ function physCore(dt) {
     const pw = 47000 * PWR * SPEED_K * punch * trailK * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     // S / Down: brake while rolling forward; once stopped (and W isn't held) keep holding it and you back up
-    const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && vf < GB_STILL;
+    const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && !strapOn && vf < GB_STILL;
     GB.dir = rev ? -1 : 1;
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (rev) {
@@ -3390,7 +3399,7 @@ function physCore(dt) {
     const grip = (wet ? 1.6 + ST.grip * 0.2 : lerp(P.ice ? 1.2 + ST.grip * 0.35 : lerp(5.5, 9.5, P.pack) + ST.grip, 0.8, P.rock) * lerp(1, 0.75, P.wh)) * (1 - 0.35 * slush);
     // ruts: a packed trail is a groove, and the sled settles into it unless you steer out
     let rut = 0;
-    if (!P.ice && !wet) {
+    if (!P.ice && !wet && !onDk) {
       const sp0 = Math.hypot(vx, vz);
       if (sp0 > 2.5) {
         const o = 0.7, bx = P.x + fx * 1.1, bz = P.z + fz * 1.1;
@@ -3454,7 +3463,7 @@ function physCore(dt) {
     }
   } else P.drag *= 0.9;
   if (WN.pullV) { vx = WN.pullV.x; vz = WN.pullV.z; }                         // the winch has the sled
-  else if (FOOT.on) { vx = vz = 0; }                                             // parked with the brake on
+  else if (FOOT.on || strapOn) { vx = vz = 0; }                                  // parked with the brake on, or strapped down
   else if (BOG.on) {                                                             // in a hole: whatever you do with the throttle, it digs deeper
     const k = Math.exp(-12 * dt); vx *= k; vz *= k;
     if (thrE > 0.2) {
@@ -3479,8 +3488,8 @@ function physCore(dt) {
   P.vy -= G * dt;
   P.x += vx * dt; P.z += vz * dt; P.y += P.vy * dt;
   P.vx = vx; P.vz = vz;
-  if (gnd && !wet) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
-  const hs2 = rideSurf(P.x, P.z);
+  if (gnd && !wet && dk === null) { stamp(fx, fz, lx, lz, Math.min(1, Math.abs(P.yr) * Math.hypot(vx, vz) / 8)); markTrail(P.x, P.z); }
+  const hs2 = sledRide(P.x, P.z);
   let sv = vx * gx + vz * gz;
   const impact = Math.max(0, sv - P.vy);
   // coming down onto a rising face: the snow takes the speed you drove into it. It used to hand you the
@@ -3493,7 +3502,7 @@ function physCore(dt) {
     sv = vx * gx + vz * gz;
   }
   // arcade bounce: the terrain shoving the skis up loads the springs, and when it falls away over a crest they kick back
-  if (gnd && !wet && !FOOT.on && !BOG.on) {
+  if (gnd && !wet && !FOOT.on && !BOG.on && dk === null) {
     const dsv = sv - P.lastSv;
     if (dsv > 0) { P.comp = Math.min(6, P.comp + dsv); P.sV -= dsv * 0.12; }
     else if (dsv < -0.4 && P.comp > 0.8 && Math.hypot(vx, vz) > 4) { P.vy = Math.max(P.vy, sv) + P.comp * BOUNCE.pop; P.y += 0.02; P.comp = 0; }
@@ -3543,6 +3552,7 @@ function physCore(dt) {
   // the visual suspension: a soft, underdamped spring the body rides on
   P.sV += (-BOUNCE.k * P.sY - BOUNCE.c * P.sV) * dt; P.sY = clamp(P.sY + P.sV * dt, -0.28, 0.2);
   collide(fx, fz);
+  if (VEH.deckClamp) VEH.deckClamp(P);               // the sled trailer: its sides are a wall, its front rail a stop (2.6b)
   towStep(dt);
   sarTowStep(dt);                                     // a dead sled on a tow rope (rescue callouts)
   P.odo += Math.abs(vf) * dt; P.dist += Math.hypot(vx, vz) * dt; LOG.m += Math.hypot(vx, vz) * dt;
@@ -3760,7 +3770,8 @@ function parkedSled(dt) {
   const k = { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, roll: P.roll };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw;
   const fx = Math.sin(s.yaw), fz = Math.cos(s.yaw), lx = fz, lz = -fx;
-  const hF = rideSurf(s.x + fx * 1.3, s.z + fz * 1.3), hR = rideSurf(s.x - fx * 1.2, s.z - fz * 1.2), hL = rideSurf(s.x + lx * 0.6, s.z + lz * 0.6), hT = rideSurf(s.x - lx * 0.6, s.z - lz * 0.6);
+  deckRef = Infinity;                                  // a parked sled inside the trailer's footprint is up on its deck
+  const hF = sledRide(s.x + fx * 1.3, s.z + fz * 1.3), hR = sledRide(s.x - fx * 1.2, s.z - fz * 1.2), hL = sledRide(s.x + lx * 0.6, s.z + lz * 0.6), hT = sledRide(s.x - lx * 0.6, s.z - lz * 0.6);
   s.y = (hF + hR) / 2; P.y = s.y; P.pitch = Math.atan2(hF - hR, 2.5); P.roll = Math.atan2(hL - hT, 1.2);
   sledRoot.position.set(s.x, s.y, s.z); sledRoot.rotation.set(-P.pitch, s.yaw, P.roll);
   sledBody.rotation.z = 0; sledBody.position.y = 0;
@@ -3775,8 +3786,9 @@ function updVisuals(dt) {
   let pT, rT, gr = 0;
   if (VEH.cur) { VEH.cur.visual(dt); CLIMB.v = CLIMB.stand = 0; parkedSled(dt); } else {
   if (P.gnd) {
-    const hF = rideSurf(P.x + fx * 1.3, P.z + fz * 1.3), hR = rideSurf(P.x - fx * 1.2, P.z - fz * 1.2);
-    const hL = rideSurf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = rideSurf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
+    deckRef = P.y + 0.3;
+    const hF = sledRide(P.x + fx * 1.3, P.z + fz * 1.3), hR = sledRide(P.x - fx * 1.2, P.z - fz * 1.2);
+    const hL = sledRide(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = sledRide(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
     pT = Math.atan2(hF - hR, 2.5) + (P.wet ? 0.07 + P.sink * 0.5 : 0) + input.thr * 0.05 * (1 - clamp(spd / 20, 0, 1)) + P.exc * 0.25;
     rT = Math.atan2(hL - hRt, 1.2); gr = (hF - hR) / 2.5;
   } else { pT = Math.atan2(P.vy, Math.max(spd, 1)) * 0.35 + P.airP; rT = P.airR; }
