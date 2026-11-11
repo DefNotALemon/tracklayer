@@ -3,6 +3,26 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 15:25 — Beta fix 0101: TABLET / MORE off the phone speedometer, toasts off the MORE sheet (G4) — 737d5c3
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0101 (mobile HUD v178 break test) has two BUGs on landed work, taken this pass ahead of 2.7: #1
+TABLET / MORE sat on the top-right speedometer in every portrait size (the speed number unreadable), #2 toasts ran under the
+open MORE sheet. Also fixed its POLISH #3 (vitals/speedo through the compass strip in portrait, compass behind TABLET / MORE in
+landscape) and #4 (a toast over HORN at 667x375). #5 (full warmth/fuel bars fade to ~0.1 opacity) is the minimalist-HUD
+intent: kept. Last triaged report 100 -> 101.
+Before (x4_mobilehud.mjs, 5 sizes x 6 states + low vitals): 31 of 31 layout checks FAIL (speedo x tcTablet/tcMenu everywhere in
+portrait, tcSheet x toasts in every size, cpStrip x vit/speedo/tcTablet, tcHorn x toast at 667x375). After: all pass, page
+errors none. Layout (index.html only, a block after the minimalist-HUD rules): portrait = compass alone on the top row, vitals
+and speedo at top 52, TABLET / MORE at top 172 under the speedo, MORE sheet at 224 (buttons 54 px tall on <=600 px-high phones
+so it clears HOP), tutorial card and toasts at top 100 down the left with right:124 px clear of that column, CALL HELP moved
+to the left above the stick (it would have landed on TABLET / MORE at 375x548). Landscape = TABLET / MORE and the sheet at
+right 152 px (left of the speedo ring), compass and toasts boxed between the vitals (138 px) and TABLET / MORE (260 px).
+tracklayer.js: `sheetOpen` toggles `body.tcMore`, which hides `#toasts` while the sheet is open (they're not queued: one that
+expires meanwhile is missed, judged fine for a menu that's open a few seconds). x4 gained an out-of-fuel (CALL HELP) stage.
+Stills judged (portrait 375/390/430 riding, toasts, tutorial; landscape 667/844 riding, toasts, sheet): speed readable, nothing
+covered. Gate: smoke, x1_save, x4_mobilehud, x3_mobile (see the pass reply).
+Not covered: a real notch safe-area inset, tablets wider than 640 px in portrait (unchanged rules), the cab HUD on phones.
+
 ## 2026-11-11 15:10 — Expansion slice 2.6c: tow the strapped sled behind the pickup (G4) — 2569d1a
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Orient: a dead pass had left an uncommitted 2.6c start in tlx-vehicles.js (haulKg + ramp drag calling a
