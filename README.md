@@ -459,6 +459,14 @@ Strapped, the sled won't drive (the throttle does nothing and it tells you so), 
 trailer goes, and it stays strapped through a reload. Unstrap it and back it down the ramp to
 unload. You can't raise the ramp while the sled is standing on it.
 
+**Towing the sled.** Strapped down, the sled is weight on the truck: the pickup's receiver takes
+1,500 kg, and the trailer (420 kg) plus the sled (280 kg, a little more with parcels in its rack)
+is well inside that, but the truck pulls it slower off the line and its tyres drag in deep snow.
+Raise the ramp before you drive off: towed with the ramp down, its lip drags through the snow and
+you're told so. The Map shows the sled and its trailer where they are, and everything stays
+hitched and strapped through a reload. Unhitch the sled's own drag or trailer before loading it:
+a sled towing a rig can't be strapped on.
+
 ## The hitch and bigger work
 
 The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**

@@ -870,7 +870,7 @@ function garageRows(body, row) {
   }
   {                                                                              // the sled trailer (2.6a): one per player
     const h = haulS(), spec = `Single axle · ${HAUL.mass} kg · 3.9 m wooden deck with a full-width ramp gate · hitches to a truck's ball, not to the sled`;
-    const how = `Back a truck up to its coupler and use it on foot to hitch it; use at its tail to drop or raise the ramp. Driving a sled up the ramp and strapping it down comes next.`;
+    const how = `Back a truck up to its coupler and use it on foot to hitch it; use at its tail to drop or raise the ramp. Drive the sled up the ramp, get off and use beside the deck to strap it down; then tow it anywhere.`;
     row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>`, h ? "Owned" : "$" + HAUL.cost, !h && GS.cash < HAUL.cost ? "locked" : "", () => buyHaul(), "trailer");
   }
   const note = document.createElement("div"); note.className = "bfoot"; note.textContent = "Walk up to a truck and get in. Your sled stays where you left it.";
@@ -1002,9 +1002,18 @@ const HAUL = { name: "Fjordhenger sled trailer", cost: 950, mass: 420, L: 3.6, d
   wheelX: 0.98, tyreR: 0.3, wid: 2.16, cH: 0.42, rampL: 1.5, jack: 70 * Math.PI / 180, tailReach: 1.9 };
 const wrapA = a => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
 function haulS() { const h = S().haul; return h && typeof h === "object" ? h : null; }
-function haulKg(uid) { const h = haulS(); return h && h.on != null && h.on === uid ? HAUL.mass : 0; }
+/* Towing a sled on it (2.6c): a strapped sled is weight on the truck's ball (the sled, 6 kg a parcel in its rack), checked
+   against the receiver's rating when you hitch or strap, carried as inertia and through the trailer's tyres as rolling drag.
+   A ramp left down while towing drags its lip through the snow (RAMP_DRAG N) and a toast says so once per tow. */
+const RAMP_DRAG = 2200;
+function carriedKg(h) {
+  if (!h || !h.strap) return 0;
+  const s = S(), ld = s.cur == null ? api.GS.load : (LIVE.get("sled") || (s.sled && s.sled.load));
+  return (api.sledKg || 280) + 6 * Math.min(8, smallN(ld));
+}
+function haulKg(uid) { const h = haulS(); return h && h.on != null && h.on === uid ? HAUL.mass + carriedKg(h) : 0; }
 let HSINK = 0;                                                                  // the trailer tyres' mean sink, for its drag
-function haulDrag(uid) { return haulKg(uid) ? HAUL.mass * GR * (0.02 + 0.95 * HSINK) : 0; }
+function haulDrag(uid) { const k = haulKg(uid); return k ? k * GR * (0.02 + 0.95 * HSINK) + (haulS().ramp > 0.5 ? RAMP_DRAG : 0) : 0; }
 function haulCoupler(h) { return [h.x + Math.sin(h.yaw) * HAUL.L, h.z + Math.cos(h.yaw) * HAUL.L]; }
 function haulTail(h) { const k = HAUL.deckZ0 - 0.4; return [h.x + Math.sin(h.yaw) * k, h.z + Math.cos(h.yaw) * k]; }
 function haulFollow() {
@@ -1124,6 +1133,7 @@ function strapFoot() {                                                          
   const W = haulLocal(h, F.x, F.z), hw = HAUL.deckW / 2;
   if (Math.abs(W.x) < hw || Math.abs(W.x) > hw + STRAP_REACH || W.z < HAUL.deckZ0 - 0.2 || W.z > HAUL.deckZ1 + 0.4) return null;
   if (h.strap) return { label: "UNSTRAP", what: "unstrap the sled from the trailer", act: unstrap };
+  const rk = sledRig(); if (rk) return { label: null, what: `Unhitch the ${rk} from the sled first: it can't ride on the trailer` };
   const dy = Math.abs(wrapA(sp.yaw - h.yaw)), lim = HAUL.deckZ1 - 0.06 - SLED_NOSE;
   if (on.ramp || on.z < HAUL.deckZ0 + 1.05 || dy > 0.35 || Math.abs(on.x) > 0.3 || on.z > lim + 0.05)
     return { label: null, what: "Drive the sled straight up onto the deck, nose to the front rail, to strap it down" };
@@ -1131,6 +1141,9 @@ function strapFoot() {                                                          
 }
 function strap() {
   const h = haulS(), sp = sledPose(); if (!h || !sp || h.strap) return;
+  if (sledRig()) return;
+  const hp = h.on != null ? hostPose(h.on) : null;
+  if (hp && HAUL.mass + carriedKg({ strap: 1 }) > hp.kg) { api.toast(`Trailer and sled together are more than the ${hostName(h.on)}'s receiver is rated for (${hp.kg} kg).`, "warn"); return; }
   const L = haulLocal(h, sp.x, sp.z);
   h.strap = { x: L.x, z: L.z, yaw: wrapA(sp.yaw - h.yaw) };
   if (sp.live) { const P = api.P; P.vx = P.vz = 0; P.yr = 0; }
@@ -1174,6 +1187,17 @@ function strapTick() {                                                          
     }
   } else { sp.rec.x = w[0]; sp.rec.z = w[1]; sp.rec.yaw = yaw; }
 }
+// the sled's own rig, if one is hooked to it: a sled can't ride the trailer towing a drag (its noun, or null)
+function sledRig() { const kind = api.GS.own.parts.hitch; return api.HITCH[kind] && rigOn() === "sled" ? (RIG_NOUN[kind] || "rig") : null; }
+// towing with the ramp gate down: it drags (haulDrag), and a toast says so once until it's raised or the trailer unhitched
+let rampWarned = false;
+function rampDragTick() {
+  const h = haulS(), s = S();
+  if (!h || h.on == null || h.ramp < 0.5) { rampWarned = false; return; }
+  if (rampWarned || s.cur !== h.on || api.FOOT.on || Math.hypot(api.P.vx, api.P.vz) < 1.5) return;
+  rampWarned = true;
+  api.toast(`The trailer's ramp is down and dragging in the snow. Stop, get out and raise it: ${api.INP.dev === "touch" ? "tap RAISE RAMP" : api.btn("use")} at the tail.`, "warn");
+}
 function haulRamp(down) {
   const h = haulS(); if (!h) return;
   h.ramp = down ? 1 : 0; api.whump && api.whump(0.15);
@@ -1188,7 +1212,8 @@ function haulUnhitch() {
 }
 function haulHitch(k) {
   const h = haulS(); if (!h || h.on != null) return;
-  const hp = hostPose(k.key); if (hp && HAUL.mass > hp.kg) { api.toast(`The ${hostName(k.key)}'s receiver is rated for ${hp.kg} kg.`, "warn"); return; }
+  const kg = HAUL.mass + carriedKg(h), hp = hostPose(k.key);                    // the trailer and a sled strapped on it (2.6c)
+  if (hp && kg > hp.kg) { api.toast(`The ${hostName(k.key)}'s receiver is rated for ${hp.kg} kg; the trailer${h.strap ? " with the sled on it" : ""} is ${Math.round(kg)} kg.`, "warn"); return; }
   const dx = k.b[0] - h.x, dz = k.b[1] - h.z, dd = Math.hypot(dx, dz) || 1;   // the trailer pivots on its wheels until the coupler is on the ball
   h.x = k.b[0] - dx / dd * HAUL.L; h.z = k.b[1] - dz / dd * HAUL.L; h.yaw = Math.atan2(dx, dz);
   h.on = k.key; api.whump && api.whump(0.3);
@@ -1319,7 +1344,7 @@ function tick(dt) {
   if (!api) return;
   const s = S(), P = api.P, ST = api.ST(), FOOT = api.FOOT, cam = api.camera;
   rigTick();
-  haulFollow(); haulVisual(dt); strapTick();                                    // the sled trailer (2.6a), owned with or without a truck; a sled strapped on it (2.6b)
+  haulFollow(); haulVisual(dt); strapTick(); rampDragTick();                                   // the sled trailer (2.6a), owned with or without a truck; a sled strapped on it (2.6b)
   if (!s.owned.length) return;
   nearestTick();
   syncRecords();
@@ -1366,6 +1391,7 @@ TLX.register({
     if (s.haul && typeof s.haul === "object") {                                  // the sled trailer from the save
       const h = s.haul; h.x = NUM(h.x); h.z = NUM(h.z); h.yaw = NUM(h.yaw); h.ramp = h.ramp > 0.5 ? 1 : 0;
       const st = h.strap; h.strap = st && typeof st === "object" && [st.x, st.z, st.yaw].every(Number.isFinite) ? { x: st.x, z: st.z, yaw: st.yaw } : null;
+      if (h.strap) { const q = h.strap; q.x = clamp(q.x, -0.3, 0.3); q.z = clamp(q.z, HAUL.deckZ0 + 1.05, HAUL.deckZ1 - 0.06 - SLED_NOSE); q.yaw = clamp(wrapA(q.yaw), -0.35, 0.35); }   // a strap spot is always on the deck, nose forward (report 0100)
       if (h.on != null && (!rec(h.on) || rigOn() === h.on)) h.on = null;
     } else s.haul = null;
     api.veh.tabs.push({ id: "trucks", name: "Trucks", render: garageRows });
