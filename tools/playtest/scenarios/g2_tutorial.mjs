@@ -33,7 +33,7 @@ await ev(`document.querySelector("#garage .row.tutRow").click(); true`);
 await sleep(1500); s = await log("05 collected"); ok(s.stage === 2 && s.sledVis, "collected: sled visible"); await shot("03_collected");
 // walk to the sled and climb on
 await ev(`FOOT.x = P.x + 2; FOOT.z = P.z; FOOT.y = surf(FOOT.x, FOOT.z); true`); await sleep(500);
-await tap("KeyQ"); await sleep(3500); s = await log("06 mounted"); ok(s.stage === 3 && s.claims === 1 && !s.onFoot, "mounted: one tutorial claim"); await shot("04_mounted");
+await tap("KeyQ"); for (let i = 0; i < 40 && await ev("FOOT.on"); i++) await sleep(400); await sleep(400); s = await log("06 mounted");   // the walk to the board and the swing take a few seconds ok(s.stage === 3 && s.claims === 1 && !s.onFoot, "mounted: one tutorial claim"); await shot("04_mounted");
 // drive to the pickup: drop the sled 8 m from it and let it stop
 const tp = id => ev(`(() => { const s = SITES.find(x => x.id === "${id}"); const x = s.x + 8, z = s.z; P.x = x; P.z = z; P.vx = P.vy = P.vz = 0; P.y = surf(x, z) + 0.3; recenter(x, z, true); camState.init = false; towSnap(); return true; })()`);
 await tp(s.a); await sleep(9000); s = await log("07 at pickup"); ok(s.stage === 4 && s.load === 1 && s.claims === 0, "package loaded"); await shot("05_pickup");

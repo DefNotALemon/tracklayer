@@ -43,6 +43,7 @@ the pickup again. **Settings → Controls → Skip tutorial** (press twice) ends
 the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
 
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
+- **Q** gets you off the sled and back on. Nothing slides you through the air: from wherever you stand within a few metres you walk to the nearer running board on your own feet, take the near grip, step a boot up onto the board, drive up over it, and throw the other leg back and over the seat as your hips turn to face forward; it lands on the far board and you drop into the seat. Getting off is the same body the other way: up off the seat, far leg back over, down to the snow, then the other boot. The body is simulated as it goes (a pelvis with weight on a muscle, a trunk that lags and catches up, loose arms, boots that stay exactly where they are planted), so it is a little different every time, on deep powder or a plowed yard, and the sled tips toward the loaded board and settles as you sit. Push a direction during the walk over to call it off.
 - **S / Down** brakes; hold it once you've stopped and the sled **reverses** (about 9 mph tops). There are no gears: every sled is stepless.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **T** garage (across the road) · **F** call a rescue sled (only for a dunking in the fjord or an empty tank) · **R** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
@@ -241,7 +242,7 @@ and glide a long way (the hill they feel is the snow under you, not the groove y
 ground skis flat). Your sled tracks are the fast lanes, and the skis leave grooves of their own.
 Skiing through a forest stand, a trunk in the way turns you round it like walking does: a glancing one
 just slides you along it with a little speed lost, and only running square into one at speed stops you.
-Getting back on is quick: **Q** puts you on the sled from 6 m away, still moving.
+Getting back on: **Q** within about 4 m clicks you out, the pair goes back on the rack, and you walk to the board and swing on.
 
 On foot without skis you break trail: every step leaves a boot hole and your legs plough a
 trench about half a metre wide behind you. It shows on the minimap. Wading fresh powder you make
