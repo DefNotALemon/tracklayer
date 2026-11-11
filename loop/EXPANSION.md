@@ -9,7 +9,7 @@ in "Status". `loop/LOOP.md` goal G4 and its Owner note point here. Owner notes i
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | next: slice 2.1 |
+| 2 | Vehicle core | 2.1 landed (v168); next: 2.1b, then 2.2 |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -18,8 +18,8 @@ Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
   its three commits were rebuilt here from the brief: this file + G4 + Owner note, the itch fix, and the harness
   change (here: `mksite.py` copies every top-level script; the Linux-only part was not needed and is not done).
   If the patch turns up, do not apply it: it will conflict with this.
-- `btn(action)` is not on main. The only adaptive-prompt code is the tutorial's private `TUT_L` / `tutBtn` table.
-  Slice 2.1 generalises it into `btn(action)` before any new prompt is written.
+- `btn(action)` was not on main at v166 (only the tutorial's private `TUT_L` / `tutBtn` table). Slice 2.1 (v168)
+  made it the general helper.
 - The builder and playtester loops are retired (Lemon, 6 Nov: no AI runs unless he asks). Nothing pushes to main
   unattended any more. This expansion is built in sessions Lemon starts, one slice at a time, in the worktree
   `~/Documents/GitHub/tracklayer-expansion` (branch `expansion`, lands on main). Fetch and rebase before a push
@@ -99,8 +99,13 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
 - [x] 1.2 This file, LOOP.md G4 + Owner note.
 
 ### 2. Vehicle core (`tlx-vehicles.js`)
-- [ ] 2.1 `btn(action)`: lift the tutorial's label table into a general helper (keyboard, Xbox, PlayStation,
-      Nintendo, touch); the tutorial uses it; no visible change. Scenario: every action under each scheme.
+- [x] 2.1 `btn(action)` (v168): the tutorial's label table lifted into `INP` / `BTN` / `btn(action)` (keyboard, Xbox,
+      PlayStation, Nintendo, touch), the tutorial card uses it, the api carries it. `x2_btn.mjs`. No visible change.
+- [ ] 2.1b Found while doing 2.1: on foot, E (`footAction`: hook the winch, dig) has no pad or touch binding at all
+      (pad L3 only sounds the horn, which is off on foot; touch has no button for it). Bind "use" on all three
+      (pad L3 on foot, a touch USE button), add a `use` row to `BTN`. Every walk-up-and-hold job in milestones 6
+      and 7 needs it. Separately, about 40 older toasts and hints still hard-code Q / E / R / Space: move them to
+      `btn()` a system at a time as each is touched (the on-foot hint line goes first, in 2.2).
 - [ ] 2.2 The vehicle interface: a `VEHICLES` table and a vehicle object (pose, seats, fuel, damage, warmth, mount
       points, `step`, `pose`) with the sled wrapped as the first one, unchanged. Nearest-vehicle mounting: Q / LB /
       GET ON picks the closest, the on-foot prompt names it. Scenario: smoke numbers identical, sled still mounts.

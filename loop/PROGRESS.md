@@ -7,6 +7,18 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-11-10 22:15 — Expansion slice 2.1: btn(action) for every control name (G4) — 4b1e1b5
+The adaptive-prompt helper LOOP.md's Owner notes call for was never on main; only the tutorial had a private table.
+Lifted it out: `INP` (device last touched: kbm / pad + brand / touch), `BTN` (16 actions, each bound on all three
+schemes today) and `btn(action)`; the tutorial card reads from it and the expansion api carries it. No visible change.
+`x2_btn.mjs` (33 asserts, pass): names for keyboard, Xbox, DualSense, Switch Pro (scripted pads) and touch (CDP touch
+event), the tutorial card showing the same names under each, back to keyboard on a key press. smoke exit 0, page
+errors none; `g2_tutorial.mjs` 0 fails; `x1_save.mjs` all pass.
+Found: on foot, E (`footAction`: hook the winch, dig) has no pad or touch binding (pad L3 only sounds the horn, touch
+has no button). Logged as slice 2.1b; milestones 6-7 need it. About 40 older toasts and hints hard-code Q / E / R /
+Space; they move to `btn()` as each system is touched, not in one sweep (too many strings to verify in one pass).
+In progress: nothing. Next: 2.1b, then 2.2.
+
 ## 2026-11-10 22:00 — Expansion milestone 1: plan and scaffolding (G4, OWNER) — 64d1010 (+ itch fix 42091c5)
 Lemon's Four Seasons & Enterprise brief (interactive session, worktree `tracklayer-expansion`, branch `expansion`).
 Nothing changes in play. Landed: `loop/EXPANSION.md` (the brief condensed, 19 milestones, slices for 2-9, rules, open
