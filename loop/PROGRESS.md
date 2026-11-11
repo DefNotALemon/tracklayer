@@ -3,6 +3,32 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 04:40 — Expansion slice 2.5: the universal hitch (G4) — ef9d751
+Builder pass (full throttle, no budget gate). Triage: report 0093 (2.4 cab tablet beta) has three POLISH and no BLOCKER/BUG, 0094
+(HUD/survival beta) is on the session-built HUD, not on an expansion slice; Last triaged report 92 -> 94. So the pass took slice 2.5.
+Before: the rig belonged to the sled: in the pickup it stayed frozen behind the parked sled (towStep never ran in a vehicle), and
+nothing could move it to another machine. Now `state.rig` in tlx-vehicles.js says which machine holds it ("sled", a truck uid, or
+null = standing free). tracklayer.js bridges, all behind VEH hooks with sled-only fallbacks: `towLive()` (the rig hangs off P),
+`rigHitch()` (the holder's ball, or the tongue on its jack), `rigOnSled()` (stats() skips the hitch part otherwise), `rigHint()`;
+towStep's not-live branch freezes it (mass/drag 0), physStep calls towStep after `VEH.cur.core` when the rig is on that truck,
+towVisual stretches the tongue to `VEH.rigBall` (the truck's ball, or a jack point on the snow), the sled's receiver bar only
+shows a rig when it's on the sled, toggleWings refuses a tiller that isn't on this machine, camera pull-back / farm-dog
+keep-clear / SAR tow anchor use towLive. Truck: `hitchZ -3.1` (its ball), the rig's mass in its inertia (not its traction or
+rolling), TOW.drag in its resistance, restat takes the hitch part's bays / groom / burn when the rig is on it. serLoad keeps big
+loads now (they ride the trailer), bed boxes and bed mass count parcels only.
+`x2_hitch.mjs` (27 asserts): trailer on the sled follows 4.85 m back (4.85 expected); keyboard E at the tongue unhitches (hint "E:
+unhitch the trailer from the sled", bays 1 -> 0), it stands still while the sled drives 20 m off; backed up to the pickup on a 70 m
+plowed lane, the hint says "E: hitch the trailer to the pickup" and pad L3 hitches it (coupler on the ball, 0.000 m); in the truck
+bays 1, 4 s of throttle moves truck and trailer 27 m with the coupler on the ball, truck mass 1,970 kg (1,900 + 70); a strapped stove
+blocks unhitching; a reload keeps it on the pickup (moved 0.00 m); touch shows UNHITCH and the tap works; with no receiver the sled
+refuses it ("needs a hitch receiver"), with the light one it hitches and the sled's bay comes back; fitting the groomer puts it on
+the sled. Stills (free trailer, chase, side view with the A-frame on the truck's ball) judged: attached, nothing floating.
+Gate: smoke, x1_save, x2_hitch, x2_pickup, x2_cab, x2_use all exit 0, fails 0, page errors none. g2_fell_tow reads 0 m on both main and this branch (stale scenario, not a regression).
+Decision: hitch/unhitch is the on-foot use action at the tongue (not a garage button) so it works anywhere and on all three
+schemes through footUse; no animation this slice (toast only).
+Left: hitch animation; the rig doesn't block the walker; in a truck the chase camera pulls back by the sled's rig numbers.
+In progress: nothing. Next: 2.6 (a trailer that carries a sled).
+
 ## 2026-11-11 — Minimalist HUD, hunger/thirst, wounds + bandages (Owner note 11 Nov) — 66f9b98
 Built in a session from Lemon's brief (defaults in LOOP.md: he never answered the clarifying questions). Three new TLX files, small hooks in tracklayer.js.
 `tlx-hud.js`: bottom-left four thin bars (warmth, hunger, fuel, thirst bottom to top; fade after 4 s without a 2-point change, light on change, stay lit under 25%),

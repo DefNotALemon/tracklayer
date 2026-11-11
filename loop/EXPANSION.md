@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); next: 2.5 |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); next: 2.6 |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -138,8 +138,18 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
       Left: a cab-mounted tablet with the dip (a holder on the truck's dash) instead of the overlay; the Parcels board's
       own route chart and the sled's dash minimap still centre on P (the vehicle) when on foot; aurora tourists still
       auto-board at the quay in a truck and are posed on the parked sled's seat.
-- [ ] 2.5 The universal hitch: one small coupling for sled, pickup and every small trailer; receivers stay as
-      weight ratings. The five existing rigs hook to the pickup.
+- [x] 2.5 (v176) The universal hitch: one small coupling for sled, pickup and every small trailer; receivers stay as
+      weight ratings. The five existing rigs hook to the pickup. `state.rig = { on: "sled" | uid | null, kind, x, z, yaw }`
+      in tlx-vehicles.js (default "sled" = every older save). On foot at the tongue, use (E / L3 / touch) UNHITCHes it (it
+      stands on its jack) or HITCHes it to whichever machine's ball is within 1.6 m of the coupler; `footUse`/`footAction`
+      branches + the on-foot hint. Ratings: the sled's receiver part (`recvOk`), the pickup's `hitchKg` 1,500. `towStep` runs
+      for whichever machine is P when the rig is on it (physStep calls it after `VEH.cur.core`), the truck adds the rig's
+      mass (inertia only) and drag; `stats()` skips the hitch part when the rig is off the sled and the truck's `restat`
+      takes its bays / groom / burn. Big loads ride with the trailer (serLoad keeps them now) and block unhitching, as does a
+      casualty in the toboggan. A rig fitted at the garage (or bought on Bytteboden) goes on the sled. `x2_hitch.mjs`.
+      Left: no hitch/unhitch animation (the walker stands at the tongue, the coupler drops on: a toast says what happened);
+      the rig doesn't block the walker; a parked truck's big loads don't show on the trailer while you're on the sled until
+      you drive it (they're there: drawn from GS.load); camera pull-back while towing uses the sled's numbers in a truck too.
 - [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off.
 - [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
 
