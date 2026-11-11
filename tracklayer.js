@@ -2460,7 +2460,7 @@ function updTouch() {
   $("tcGas").querySelector(".fill").style.height = Math.round(TC.thr * 100) + "%";
   const mw = $("mapWrap"); if (mw && !mw.hidden) { const r = mw.getBoundingClientRect(); if (r.width && Math.abs((TC.mapW || 0) - r.width) > 1) { TC.mapW = r.width; tc.style.setProperty("--mapW", Math.round(r.width) + "px"); } }
 }
-function sheetOpen(on) { TC.sheet = on; $("tcSheet").hidden = !on; $("tcMenu").classList.toggle("on", on); }
+function sheetOpen(on) { TC.sheet = on; $("tcSheet").hidden = !on; $("tcMenu").classList.toggle("on", on); document.body.classList.toggle("tcMore", !!on); }
 // the stick: lands where the thumb does (kept on screen), knob follows, values by mode
 const STK = { id: null, ox: 0, oy: 0, R: 46 };
 function stickStart(e) {

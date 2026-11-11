@@ -85,7 +85,10 @@ The panel at the top left names where you are, on the sled or on foot: **Kjølle
 the garage, the shore road), a village, cabin, home or school by name when you're in its yard, and otherwise the
 country itself (open backcountry, boreal forest, high country, a frozen lake, open water). On a phone that panel and
 the minimap are left off; the vitals bars move to the top left and the speedometer to the top right instead, out of
-the way of the touch stick and pedals.
+the way of the touch stick and pedals. Upright, the compass has the top row to itself, the vitals and speedometer sit
+under it, TABLET / MORE under the speedometer and the tutorial card and messages down the left; on its side, TABLET /
+MORE sit beside the speedometer with the compass between them and the vitals. Messages are hidden while the MORE sheet is
+open.
 
 Work comes in on the **dash tablet**, an iPad-style screen on the bars that shows a live map while
 you ride. **Tab** (pad **d-pad up**, touch **TABLET**) dips your head down to it: the world keeps

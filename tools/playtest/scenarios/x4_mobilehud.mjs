@@ -47,6 +47,9 @@ for (const [w, h] of SIZES) {
   // 5 bleeding with bandage button
   await stage(() => ev(`FOOT.on = false; const s = TLX.state("wounds"); s.wounds = [{ age: 0.5 }]; s.bandages = 3; s.cd = 999; true`)); await check("bleed", w, h);
   await ev(`TLX.state("wounds").wounds = []; GS.health = 100; true`);
+  // 5b out of fuel: CALL HELP pill (builder, after 0101)
+  await stage(() => ev(`GS.fuel = 0; true`)); await check("nofuel", w, h);
+  await ev(`GS.fuel = 40; true`);
   // 6 tutorial card (re-open)
   await ev(`(typeof TUT !== "undefined") && (TUT.stage = 1); true`); await sleep(800); await check("tut", w, h);
   await ev(`tutSkip(); true`); await sleep(400);
