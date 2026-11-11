@@ -3,6 +3,20 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 15:50 — Beta fix 0102: no hitch rig on a strapped sled (G4) — 490f242
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0102 (2.6c tow break test) #1 is a BUG on landed work, taken ahead of 2.7: setting
+`GS.own.parts.hitch` to a rig while the sled was strapped left rigOn "sled" + strap set, the state `strap()` refuses. Report
+0103 (2.2/2.3 truck swap) has only POLISH: #1 the on-foot "tap GET ON" hint doesn't name the vehicle (same as 0096 #4, left
+for a polish pass), #2 reload on foot puts you back in the truck (judged fine: the save stores the current vehicle, not the
+walker), #3 forecourt top-up is by design. Last triaged report 101 -> 103.
+Fix, three layers: `fitPart` refuses a rig while `VEH.strapped()` (toast: unstrap first); `rigTick`'s "a different rig went on"
+branch drops the strap with a toast (covers Bytteboden collect and the schools, which set the part directly); the vehicles init
+drops a strap after `rigRestore` when the sled holds a rig (damaged saves).
+Before: x2_towbreak C FAIL ("STILL strapped with a rig"). After: new `x2_rigstrap.mjs` 12/12 ok (garage refusal + toast, direct
+set drops straps + toast, hint says unhitch first, reload and a rig+strap damaged save load consistent, rig off -> E straps
+again); x2_towbreak all ok; x2_tow ok. tlx-vehicles.js v7. No visual change, no stills to judge.
+
 ## 2026-11-11 15:25 — Beta fix 0101: TABLET / MORE off the phone speedometer, toasts off the MORE sheet (G4) — 737d5c3
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0101 (mobile HUD v178 break test) has two BUGs on landed work, taken this pass ahead of 2.7: #1
