@@ -854,6 +854,7 @@ function buy(id) {
   const s = S(), GS = api.GS, d = byId(id); if (!d) return;
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
   if (s.owned.length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
+  { const hp = heldVeh("pickup"); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the pickup you paid for is waiting in ${heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
   if (GS.cash < d.cost) { api.toast(`The ${d.name} is ${api.fmtCash(d.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   const spot = forecourtSpot(d); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
   GS.cash -= d.cost;
@@ -864,11 +865,13 @@ function buy(id) {
 }
 function garageRows(body, row) {
   const s = S(), GS = api.GS;
+  const full = usedTrucks(heldList()) >= MAX_OWNED, hp = heldVeh("pickup");          // report 0110: a pickup paid for at Bytteboden counts
   for (const d of VEHICLES) {
     const n = s.owned.filter(r => r.id === d.id).length;
     const spec = `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · closed, heated cab · ${d.mass} kg`;
     const how = `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
-    row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, GS.cash < d.cost ? "locked" : "", () => buy(d.id), String(d.year));
+    const wait = hp ? `\n<span style="color:#f0c674">You've paid for a used pickup: it's waiting in ${heldWhere(hp)}.${full ? ` That makes ${MAX_OWNED} trucks, the most the forecourt takes.` : ""}</span>` : "";
+    row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${wait}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost ? "locked" : "", () => buy(d.id), String(d.year));
   }
   for (const r of s.owned) {
     const d = byId(r.id); if (!d) continue;
@@ -876,9 +879,10 @@ function garageRows(body, row) {
     body.appendChild(e);
   }
   {                                                                              // the sled trailer (2.6a): one per player
-    const h = haulS(), spec = `Single axle · ${HAUL.mass} kg · 3.9 m wooden deck with a full-width ramp gate · hitches to a truck's ball, not to the sled`;
+    const h = haulS(), hh = !h && heldVeh("haul"), spec = `Single axle · ${HAUL.mass} kg · 3.9 m wooden deck with a full-width ramp gate · hitches to a truck's ball, not to the sled`;
     const how = `Back a truck up to its coupler and use it on foot to hitch it; use at its tail to drop or raise the ramp. Drive the sled up the ramp, get off and use beside the deck to strap it down; then tow it anywhere.`;
-    row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>`, h ? `Owned · ${Math.round(h.cond)}%` : "$" + HAUL.cost, !h && GS.cash < HAUL.cost ? "locked" : "", () => buyHaul(), "trailer");
+    const wait = hh ? `\n<span style="color:#f0c674">You've paid for a used one: it's waiting in ${heldWhere(hh)}.</span>` : "";
+    row(HAUL.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>${wait}`, h ? `Owned · ${Math.round(h.cond)}%` : hh ? "Paid for" : "$" + HAUL.cost, hh || (!h && GS.cash < HAUL.cost) ? "locked" : "", () => buyHaul(), "trailer");
   }
   // the shop puts a worn truck or trailer right (2.7: dents from trees, or a used one off Bytteboden); it has to be here
   for (const r of s.owned) {
@@ -1244,6 +1248,7 @@ function haulHitch(k) {
 function buyHaul() {
   const s = S(), GS = api.GS;
   if (haulS()) { api.toast("You already own the sled trailer. It's on the Map.", "warn"); return; }
+  { const hh = heldVeh("haul"); if (hh) { api.toast(`You've already paid for a sled trailer: it's waiting in ${heldWhere(hh)}.`, "warn"); return; } }   // report 0110
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
   if (GS.cash < HAUL.cost) { api.toast(`The sled trailer is ${api.fmtCash(HAUL.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   const spot = forecourtSpot({ len: HAUL.L - HAUL.deckZ0 + 0.6 }); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
@@ -1290,6 +1295,24 @@ const MKT_V = {
   }
 };
 const usedTrucks = held => S().owned.length + held.filter(h => h.cat === "veh" && h.item === "pickup").length;
+/* Report 0110: an order paid for and not yet collected counts as owned, so the garage won't sell a second trailer or a 4th
+   truck over it (buy / buyHaul refuse, the rows say why). A save already stuck that way (held order that can never be
+   collected) gets the seller's refund: heldRefund, every couple of seconds from tick. */
+function heldList() { const m = api.GS.mkt; return (m && Array.isArray(m.held)) ? m.held : []; }
+function heldVeh(item) { return heldList().find(h => h.cat === "veh" && h.item === item) || null; }
+function heldWhere(h) { const st = api.world.SITES.find(q => q.id === h.site); return `${h.seller || "the seller"}'s yard${st ? " in " + st.name : ""}`; }
+let refundT = 0;
+function heldRefund(dt) {
+  if ((refundT -= dt) > 0) return; refundT = 2;
+  const m = api.GS.mkt; if (!m || !Array.isArray(m.held)) return;
+  for (const h of m.held.slice()) {
+    if (h.cat !== "veh") continue;
+    const why = MKTV.blocked(h); if (!why) continue;
+    m.held = m.held.filter(q => q !== h); api.GS.cash += h.paid || 0;
+    api.toast(`${h.seller || "The seller"} refunds the ${api.fmtCash(h.paid || 0)} you paid for the ${h.item === "haul" ? "sled trailer" : "pickup"}: ${why.replace(/\.$/, "")}.`, "good");
+    api.save();
+  }
+}
 const MKTV = {
   pool(held) {
     const out = [];
@@ -1461,7 +1484,7 @@ let parkClock = 0;
 function tick(dt) {
   if (!api) return;
   const s = S(), P = api.P, ST = api.ST(), FOOT = api.FOOT, cam = api.camera;
-  rigTick();
+  rigTick(); heldRefund(dt);
   haulFollow(); haulVisual(dt); strapTick(); rampDragTick();                                   // the sled trailer (2.6a), owned with or without a truck; a sled strapped on it (2.6b)
   if (!s.owned.length) return;
   nearestTick();
@@ -1538,5 +1561,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, mkt: MKTV, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

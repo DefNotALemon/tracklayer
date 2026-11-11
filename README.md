@@ -238,7 +238,10 @@ $550–850 against $950). They haggle and hide faults like everything else: a le
 behind the truck. Collect it at the seller's: they set it down in their yard (a pickup comes with a
 quarter tank) and you walk over and take it. The garage's Trucks tab repairs a truck ($20 a
 condition point) or the trailer ($4 a point) back to 100% when it's within 40 m of the garage;
-that also mends the dents a truck takes from trees. Three trucks is the limit, used or new.
+that also mends the dents a truck takes from trees. Three trucks is the limit, used or new, and one
+you've paid for but not collected yet counts: the garage won't sell you a second trailer or a fourth
+truck over it (its Trucks tab says where the paid-for one is waiting). If an older save already has an
+order that can never be handed over, the seller refunds it.
 
 ### Santa's Sled (rare)
 

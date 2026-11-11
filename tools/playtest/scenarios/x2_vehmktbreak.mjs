@@ -29,14 +29,14 @@ const gcash = await ev(`GS.cash`);
 const clicked = await ev(`(() => { garageTab = "trucks"; openGarage(); const r = [...document.querySelectorAll("#garageBody .row")].find(e => /sled trailer/i.test(e.textContent) && /\\$\\d/.test(e.textContent)); if (r) r.click(); closeGarage(); return !!r; })()`);
 console.log("garage trailer row clicked:", clicked, "cash spent", gcash - await ev(`GS.cash`));
 const garageHaul = await J(`TLXV.haul() ? { x: TLXV.haul().x, z: TLXV.haul().z, cond: TLXV.haul().cond } : null`);
-ok(!!garageHaul, "A: garage trailer bought (or note: row not offered while a remote one is held)");
+ok(!garageHaul && !clicked, "A: the garage won't sell a trailer while a paid-for one waits (fix 0110: row locked)");
 // strap a sled / put a marker on the deck (B)
 await ev(`(() => { const h = TLXV.haul(); if (h) h.on = null; return 1; })()`);
 const s1 = await toSite(LH.site);
 await waitUntil(`!GS.mkt.held.some(h => h.item === "haul")`, 10);
 const afterA = await J(`({ held: GS.mkt.held.length, haul: TLXV.haul() && { x: TLXV.haul().x, z: TLXV.haul().z, cond: TLXV.haul().cond } })`);
 ok(garageHaul && afterA.held === 0 ? true : true, `A: after collect: ${JSON.stringify(afterA)}`);
-ok(garageHaul && afterA.haul && Math.hypot(afterA.haul.x - garageHaul.x, afterA.haul.z - garageHaul.z) < 1, "A BUG? collect REPLACED the trailer you already own (it moved from the forecourt to the seller's, the other one is gone)");
+ok(afterA.held === 0 && !!afterA.haul, "A: the paid-for trailer is handed over at the seller's (no dead money)");
 ok(!(afterA.held === 0 && garageHaul && afterA.haul && Math.hypot(afterA.haul.x - garageHaul.x, afterA.haul.z - garageHaul.z) > 1 && true) || false, "A: no trailer was silently deleted (one paid-for trailer vanished)");
 
 // ---- C: held pickup, then fill the trucks at the garage, then collect
