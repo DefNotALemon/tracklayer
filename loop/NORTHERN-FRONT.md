@@ -37,9 +37,14 @@ auto-quality drop and the touch layer (v172).
 - Section 9 is the finish line: the full loop scenario, the Pages build updated, no branches or stubs left over,
   and a final report that says what is unfinished.
 
+## Decided by Lemon
+- **Gore: yes (11 Nov).** Combat on the Front has gore. This replaces the brief's section 7 line "no gore beyond
+  the game's current tone". How far it goes (blood on snow, wounds, bodies that stay) is planned with the combat
+  slice; put a Settings > Options switch on it so it can be turned down.
+
 ## To settle when planning starts
 - G4 milestone 11 says "people can never be shot". The Front needs enemy soldiers who can be. Default: the rule
-  stays everywhere else; only Directorate and Allied combatants inside the Front region can be hit, with no gore.
+  stays everywhere else; only Directorate and Allied combatants inside the Front region can be hit.
 - Slice order. Default: region and one city first (with the phone frame-rate check), then the Front app and
   gunruns, ambush chases, the front-line system, enlisting, citizen fights, the other two cities, the extras.
 
