@@ -7,6 +7,36 @@ Newest first. One entry per builder pass:
 What changed for the player, numbers before → after (gameClock), smoke result, stills judged (paths), what's next.
 ```
 
+## 2026-11-10 22:00 — Expansion milestone 1: plan and scaffolding (G4, OWNER) — 64d1010 (+ itch fix 42091c5)
+Lemon's Four Seasons & Enterprise brief (interactive session, worktree `tracklayer-expansion`, branch `expansion`).
+Nothing changes in play. Landed: `loop/EXPANSION.md` (the brief condensed, 19 milestones, slices for 2-9, rules, open
+decisions), goal G4 + Owner note in LOOP.md, and the scaffolding every later system uses:
+- `tlx.js`: `TLX.register` (a system: state0 / migrate / init(api) / tick / monday), `TLX.option` (suggested additions),
+  `TLX.load` / `dump`. State rides in `tracklayer.save.v2` under `x` (`{ v, region, opt, sys }`). `tracklayer.js` gets
+  only a bridge (`initExpansion` hands over the api, like `initFishing`), one call each in save / load / newGame /
+  frame, and a Monday hook on `CAL.onDayChange`.
+- Settings > Options: one switch per registered option, hidden while there are none (so: hidden today).
+- itch workflow: staged only index.html + tracklayer.js, so the itch build has been missing icefish.js since ice
+  fishing landed. Now copies every top-level script + vendor/ and fails if index.html names one that isn't there.
+  Not run (manual workflow, needs the BUTLER_API_KEY secret); the shell lines were checked locally.
+- Harness: `mksite.py` copies every top-level .js; `lib.mjs` gains `reload()` / `reload(save)`.
+Numbers (`x1_save.mjs`, 21 asserts, all pass): a pre-expansion save (no `x`) loads with cash, deliveries, sled, apps
+and tutorial stage intact; a system's state and a switched-off option survive save → reload through a v1 → v2
+migration; a system the build doesn't know has its state written back untouched; `x` = string / array / wrong inner
+types / null all load the save and fall back to fresh; tick runs per frame; Monday hook fired 2× in 8 days.
+smoke before (10c6d62, no env vars set): exit 0, powder 1.70 m/s, trench 1.66. After: exit 0, 1.70 / 1.68, page
+errors none. `g2_tutorial.mjs` 0 fails. Still: tlloop/x1/x1_options.jpg (Options row matches the panel's style).
+Decisions: (1) the cloud session's `tracklayer-expansion-m1.patch` was not on the Mac or on origin, so its three
+commits were rebuilt here from the brief instead of applied; its Linux harness change was skipped (the Mac harness
+is unchanged apart from mksite). (2) File layout `tlx.js` + `tlx-<system>.js`, each an IIFE that reaches the game only
+through the api object: tracklayer.js's internals stay private and the regions can swap `api.world`. (3) Options are
+saved with the game (in `x.opt`), not in `tracklayer.set.v1`, because they change rules, and only switches the player
+has flipped are stored, so a default can change later. (4) Unknown systems' state is kept, so a build with a system
+switched off can't eat its data. (5) LOOP.md says two bots work this file; they were retired on 6 Nov, so G4 is built
+in sessions Lemon starts. EXPANSION.md says so.
+In progress: nothing. No stashes; one worktree (`~/Documents/GitHub/tracklayer-expansion`, kept for the next slice).
+Deferred: all game code from milestone 2 on. Next: slice 2.1, `btn(action)` lifted out of the tutorial's `tutBtn`.
+
 ## 2026-10-30 15:00 — Walking off the snow: a real walk at a person's pace (G1, OWNER) — caa7afd
 Owner note 30 Oct (interactive session, not a loop pass). New hard-ground gait (`hgPose` block above poseWalker): the
 walker has ankle joints now (makeWalker U.ank; snowshoes ride on them), and off the snow each foot is placed by two-bone

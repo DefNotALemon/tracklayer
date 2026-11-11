@@ -14,7 +14,7 @@ Two unattended bots work on the web game full time (Lemon's order, Mon 26 Oct 20
 Neither bot asks Lemon anything. Decide, log the reasoning, move on. Lemon steers by editing this file
 (the **Owner notes** section wins over everything else here) or by talking to a Hermes session.
 
-## The three goals
+## The goals
 
 ### G1 Walking: easier to traverse
 On foot is where the game fights you hardest. Make getting around on foot pleasant without losing the
@@ -67,6 +67,15 @@ the FPS readout or `renderer.info` before/after anything heavy, and respect the 
 Day and night both matter (polar night is most of the game's daylight), and so does the first view on
 the title screen and at the quay.
 
+### G4 Four Seasons & Enterprise (the expansion)
+Lemon's brief of 10 Nov 2026: a year-round life on the Nordkinn with businesses to own (lighthouses, inns, a hotel,
+plowing, fire towers, workshops) run from tablet apps and staffed by people; four playable seasons; trucks, trailers,
+roads and traffic, boats and bush planes; then two generated regions, Greenland and a Maine-style county.
+The plan, the 19 milestones, their slices, the rules and the open decisions are in **`loop/EXPANSION.md`**: read it
+before any G4 work and keep its Status table and slice ticks current. New systems go in their own `tlx-<system>.js`
+files behind `tlx.js`, never into tracklayer.js. `scenarios/x1_save.mjs` (old saves load) must pass with smoke.
+G4's backlog is EXPANSION.md's slice list, taken in order; the Backlog below carries one pointer line for it.
+
 ## Rules (both bots)
 - Work only in your own worktree: builder `~/Documents/GitHub/tracklayer-loop-build` (branch `loop`),
   playtester `~/Documents/GitHub/tracklayer-loop-play` (detached, reset to `origin/main` each pass).
@@ -84,6 +93,7 @@ the title screen and at the quay.
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **10 Nov, Lemon: Four Seasons & Enterprise (goal G4).** Tracklayer becomes a four-season game with businesses to own, more machines, boats, aircraft and two new regions. My brief is condensed in `loop/EXPANSION.md`, with the build order (19 milestones, landed in order, one slice at a time) and the open decisions and their defaults. The two new regions, Greenland and a Maine-style American county, are my decision: "keep the Norwegian Finnmark setting" still holds for the Nordkinn, which stays hand-built and home. Nothing existing is removed or retuned; a player who only delivers parcels should find the game as good as today. Everything the brief calls a suggested addition is built as a switch on Settings > Options, on by default.
 - **6 Nov, Lemon: no more Roblox.** Web game only. This overrides the 30 Oct "web first, then Roblox" rule: don't port anything, don't add PORT.md lines, don't work in tracklayer-roblox.
 - **6 Nov, Lemon: Santa's Sled, runaway reindeer and wildlife (landed v163/164, c1c222f).** Built in-session: rare Bytteboden listing (cat "rare"), trailer pickup to the garage, nine harnessed reindeer roaming the map (Rudolph after eight), team pulls the sled once all nine are found; reindeer herds, moose (solid), arctic foxes, mountain hares on the shared IK quadruped rig (`quadMake`/`quadPose`, test `tools/playtest/scenarios/g2_santa.mjs`, gait strips `g2_gaits.mjs`). Follow-ons for the bots: judge the gaits against the realistic-animation rule (turning on the spot, gait blend at walk/trot boundary, hare idle sit-up), a minimap/Map marker or Logbook line for wildlife seen, more creatures (ptarmigan flocks, wolverine), and a sleigh tow/harness pass so traces sag and the team follows the actual path rather than an arc.
 - **30 Oct, Lemon: web first, then Roblox (standing rule).** Every change to Tracklayer from now on ships in BOTH games: it is designed and built on the website first, and once it lands on main it is ported to the Roblox alpha (tracklayer-roblox, its own map Ravnøya). Builder: when you land a player-facing change, add a matching line to the Roblox repo's `loop/PORT.md` backlog (`- [ ] PORT web vN <hash>: what the player gets`) so the port loop picks it up.
@@ -125,6 +135,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
+- [ ] G4 (OWNER): the expansion. Next slice: 2.1 `btn(action)`, then the rest of milestone 2 (vehicle core) in `loop/EXPANSION.md` order. Milestone 1 landed v167.
 - [x] G1 (OWNER, top): walking on snow-free ground at normal pace with a realistic gait, blended by snow depth (Owner notes 30 Oct). Landed caa7afd (v158), see PROGRESS. Left: hard-ground jog judged only by numbers; turning on the spot still shuffles (feet slide while pivoting).
 - [ ] G2 (OWNER, top): new-player tutorial starting on foot aboard the ferry into Kjøllefjord (Owner notes 30 Oct). Needs the snow-free walking item.
 - [ ] G3 (OWNER): upgrade existing animations to the realistic-animation rule (walker/wader gait, climb on/off, crash/get-up, skier, passengers), one per pass (Owner notes 30 Oct).
