@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); next: 2.4 |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); next: 2.5 |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -129,7 +129,15 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
       `cond` only trims engine power a little and is not shown in the HUD; no engine or door sound of its own (the sled's
       engine note plays); tyre tracks and spray are the sled's particles; the mount animation was judged from stills at
       0.1 s, not tuned further; steering wheel hands are baked static (the arms sway a little with the wheel).
-- [ ] 2.4 Tablet, map, jobs and parcels from the pickup's cab (the tablet must open in every vehicle and on foot).
+- [x] 2.4 (v174) Tablet, map, jobs and parcels from the pickup's cab. In any vehicle (`VEH.cur`) the tablet is the held
+      overlay (`modeNow()`), since the dash glass belongs to the parked sled and the dip would fly the camera to it; first
+      person in a cab keeps the HUD minimap (`tabView_sync`). Map: `tabMe()` (the walker on foot, else P) for YOU and the
+      around-me centre, `tabVehPts()` pins every vehicle you aren't in (layer "vehicles" from tlx-vehicles.js + P when on
+      foot). Parcel toasts / board say "in the bed" in a truck (`rackW()`). `x2_cab.mjs` (keyboard, pad, touch, claim,
+      quay load, Jobs, delivery, on foot, back on the sled).
+      Left: a cab-mounted tablet with the dip (a holder on the truck's dash) instead of the overlay; the Parcels board's
+      own route chart and the sled's dash minimap still centre on P (the vehicle) when on foot; aurora tourists still
+      auto-board at the quay in a truck and are posed on the parked sled's seat.
 - [ ] 2.5 The universal hitch: one small coupling for sled, pickup and every small trailer; receivers stay as
       weight ratings. The five existing rigs hook to the pickup.
 - [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off.

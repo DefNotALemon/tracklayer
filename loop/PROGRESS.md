@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 03:40 — Expansion slice 2.4: tablet, map, jobs and parcels from the pickup's cab (G4) — afb0a2a
+Spare-usage build pass 1. Triage: reports 0091 (chimney smoke, all info) and 0092 (swing beta, three POLISH: Santa hot-swap race,
+Q ignored mid-swing, touch buttons possibly hidden in headless) hold no BLOCKER or BUG; Last triaged report 90 -> 92, so the pass took
+the next slice. Before: in the truck `TABLET.modeNow()` said "dash", so Tab dipped the camera onto the parked sled's dash glass
+(wherever the sled was), and first person in the cab set `fpv`, hiding the HUD minimap with no dash tablet in view. Now: in any vehicle
+the tablet is the held overlay (same as on foot), `tabView_sync` keeps the minimap in a cab, the Map app takes YOU and the around-me
+centre from `tabMe()` (walker on foot, else P) and pins every vehicle you aren't in via `tabVehPts()` (layer "vehicles" registered by
+tlx-vehicles.js for the parked sled / parked trucks, plus P itself when on foot). `rackW()` words the parcel toasts and board for a bed.
+`x2_cab.mjs` (36 asserts): sled Tab = dash; in the truck Tab / pad d-pad up (B backs out and closes) / touch TABLET open the overlay with
+the camera 8.4 m from the truck; FP minimap display block; M -> Map, YOU = truck, sled pinned within 0.5 m of where it was left; CLAIM
+tapped on the Parcels row away from sites, the claim loads at the quay, LOAD tapped at the quay, toasts "1/8 in the bed", "2/8 in the
+bed"; jobsList 2 rows and the compass titled; delivery from the truck pays (800 -> 940) and bumps delivered; on foot YOU = walker, pins
+sled + truck; back on the sled Tab = dash again and the truck is pinned. Stills (overlay home, Map around-me with the S pin, touch)
+in ~/.hermes/cache/scratch/tlx/cab2/sheet.jpg, judged: centred, readable, pin and label visible.
+Gate: smoke, x1_save, x2_cab, x2_pickup, x2_use all exit 0, fails 0, page errors none.
+Decision: overlay rather than a cab-mounted tablet with the dip, because the dip rig (tabTarget / tabCorners / V.tabScr) is built round
+the sled's glass and "every vehicle" then works for free; a dash holder in the truck is left as a follow-up.
+Left: the cab tablet holder; the Parcels board's route chart and the sled's dash minimap still centre on P on foot; aurora tourists still
+auto-board at the quay while you sit in a truck and are posed on the parked sled (gate the quay auto-board on `!VEH.cur` or seat them in
+the cab).
+In progress: nothing. Next: 2.5 (the universal hitch).
+
 ## 2026-11-11 02:55 — Getting on and off the sled: the swing (Owner note 11 Nov, G3 climb on/off) — 92d74f7
 Lemon: "rethink the animation for the player getting on and off the snowmobile to be a dynamic natural swing of a ragdoll over and
 onto a snowmobile, not this teleport slide move through the air until your character is in position." The old mountTick / dismountTick
