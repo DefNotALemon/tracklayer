@@ -9000,7 +9000,7 @@ const BTN = {
 };
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
 // a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
-function hk(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a) + ": " + what; }
+function keyHint(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a) + ": " + what; }
 addEventListener("keydown", () => { INP.dev = "kbm"; }, true);
 addEventListener("pointerdown", e => { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
 function tutPadPoll() {
@@ -14055,7 +14055,7 @@ function footAction() {
     if (cands.length) { toast(`The ${anchorName(cands[0].o)} is out of reach of your ${wd.len} m line.`, "warn"); return; }
   }
   if (BOG.on && near() && WN.state !== "hooked") { FOOT.dig = !FOOT.dig; toast(FOOT.dig ? "Digging. Hold still." : "Stopped digging."); return; }
-  if (!wd && !BOG.on) { toast(`Nothing to do out here. ${hk("mount", "get back on")} at the sled.`, "warn"); return; }
+  if (!wd && !BOG.on) { toast(`Nothing to do out here. ${keyHint("mount", "get back on")} at the sled.`, "warn"); return; }
   toast(wd ? "Walk up to a tree or a boulder to hook the line." : "Nothing to hook.", "warn");
 }
 // X: size the job up
@@ -14735,14 +14735,14 @@ function wnPrompt() {
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
-      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · X at the strap: double the line") : ""}${close ? " · " + hk("use", "unhook") : ""} · ${hk("mount", "get on")}`;
+      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · X at the strap: double the line") : ""}${close ? " · " + keyHint("use", "unhook") : ""} · ${keyHint("mount", "get on")}`;
     } else if (wd && WN.state === "out") {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
-      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + hk("mount", "get on") : ""}`;
-    } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${hk("use", "stop")}` : `${hk("use", "dig her out (slow)")} · ${hk("mount", "get on")}`;
+      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
+    } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
-    else h = (FISH && FISH.hint()) || (near ? hk("mount", "get on the sled") : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
-  } else if (BOG.on) { show = true; h = `BOGGED · ${hk("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
+    else h = (FISH && FISH.hint()) || (near ? keyHint("mount", "get on the sled") : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
+  } else if (BOG.on) { show = true; h = `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
@@ -15229,10 +15229,10 @@ function sarFootAction() {
 function sarPrompt() {
   const c = SAR.cur; if (!c || c.res || !FOOT.on) return "";
   const v = c.v, dF = Math.hypot(v.x - FOOT.x, v.z - FOOT.z);
-  if (v.state === "rig") return c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4 ? hk("use", "rig the tow rope to your hitch") : `Walk to ${c.name}'s sled and rig the tow rope`;
-  if (v.state === "waiting" && dF < 2.8) return c.kind === "save" ? hk("use", "bag them and load the toboggan") : hk("use", `help ${c.name} up`);
+  if (v.state === "rig") return c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4 ? keyHint("use", "rig the tow rope to your hitch") : `Walk to ${c.name}'s sled and rig the tow rope`;
+  if (v.state === "waiting" && dF < 2.8) return c.kind === "save" ? keyHint("use", "bag them and load the toboggan") : keyHint("use", `help ${c.name} up`);
   if (v.state === "waiting" && dF < 25) return `Walk up to ${c.name}`;
-  if (v.state === "follow") return `Walk back to the sled: they're with you. ${hk("mount", "get on")}.`;
+  if (v.state === "follow") return `Walk back to the sled: they're with you. ${keyHint("mount", "get on")}.`;
   if (v.state === "loading") return `Loading the toboggan… ${Math.min(100, Math.round(v.loadT / 3.5 * 100))}%`;
   if (v.state === "lost") return "Searching on foot. Watch for prints.";
   return "";

@@ -118,6 +118,41 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
 - [ ] 2.6 A trailer that carries a sled: ramp, drive on, strap down, tow behind the pickup, drive off.
 - [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
 
+#### Design notes for 2.2 to 2.6 (worked out 10 Nov from reading the code; follow unless the code proves them wrong)
+**P is the vehicle you are using.** The whole game reads `P` (camera, HUD, site detection, warmth, deliveries, bog,
+reset, minimap), so a second vehicle does not get its own body: the *active* vehicle owns `P`, and every other owned
+vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.state("vehicles")`. Swapping vehicles
+= write P's pose, `GS.fuel` and `GS.load` into the record of the one you leave, read the other's into P / GS,
+`restat()`. `VEH.cur` (in tracklayer.js) is `null` for the sled or the driver object of the active vehicle.
+- **Nearest vehicle wins, on foot**: each frame on foot, if another owned vehicle is nearer to the walker than P
+  (1 m hysteresis; not mid-mount, not with the winch line hooked, not in the tutorial, not indoors), swap to it. Then
+  `mount()`, the on-foot hint, dig, GS.near and the sled pin all refer to the nearest vehicle with no other change,
+  and Q / LB / GET ON keep working as they are. The hint names it: `keyHint("mount", "get in the pickup")`.
+- **Hooks tracklayer.js needs** (keep them few, all behind `if (VEH.cur)`): `physStep` → `VEH.cur.core(dt)` instead
+  of `physCore`; `restat()` → `VEH.cur.restat(ST)` overrides (fuel, burn, slots, coldMul for a heated cab);
+  `updVisuals` → draw `sledRoot` and `towVisual` at the sled's parked pose (swap P's pose fields in and out round
+  those lines), call `VEH.cur.visual(dt)`, take the first-person eye from `VEH.cur.eye()`; `rider.visible` false;
+  `winchDef()` → null (the winch is the sled's); `towStep` skipped (the sled's rig stays with the sled until 2.5);
+  `enterBog` / hint text say "stuck to the axles" not "bogged to the skis"; mount / dismount animations are the
+  vehicle's (`VEH.cur.mountTick`), the sled's stay as they are.
+- **Wheels on the snow field** (realism-first, the sled keeps the fell): per wheel read depth `d` and fresh `f`
+  (`depthAt` / `freshAt`); sink = `d * (0.35 + 0.65 * (1 - pack))`. Rolling resistance rises with sink; past ground
+  clearance (about 0.24 m) the belly drags hard. Traction is `mu * M * G` with mu about 0.4 on plowed or hard-packed
+  ground, 0.22 in loose snow, 0.15 on ice. Ackermann steering from wheelbase, lateral grip capped by mu (it
+  understeers on ice). Engine force beyond traction is wheelspin: it digs, and enough of it calls the game's own
+  `enterBog` so digging (use), reset and the stuck UI all work unchanged. Each wheel presses a rut (a new small
+  `pressSnow(x, z, r, k)` helper beside `stampAt`), so reversing out along your own ruts works, as in life.
+  Thin lake ice goes through `thinIceStep` with the truck's mass. Open water sinks it: the existing dunk and rescue.
+  Trees and buildings stop it (no ejection in a cab: damage to `cond`, shake, thud).
+- **Tunables** in a `VEHICLES` table at the top of `tlx-vehicles.js` (id, name, cost, mass, power, fuel, burn,
+  wheelbase, track, clearance, tyre radius, mu table, bed slots, cab warmth, hitch rating).
+- **Model**: an extruded side silhouette with a bevel (not a stack of boxes), glass, four wheels that turn, steer
+  and ride the ground one by one, lights that follow `updSky` like every unlit thing, a seated driver built with
+  `makeWalker`. Getting in: walk to the driver's door, door opens, step up, sit, door shuts (realistic-animation
+  rule: judge from still strips).
+- **Price**: the pickup is a mid-ladder buy (about the Trekker, $3,400 to $5,200): in today's winter it is only good
+  on plowed yards, lanes and hard pack, and it comes into its own with roads (milestone 3) and summer.
+
 ### 3. Roads and traffic (`tlx-roads.js`)
 - [ ] 3.1 The network: streets in Kjøllefjord and the villages, roads between towns on sensible lines (graph +
       meshes), shown on the Map. Static first.
