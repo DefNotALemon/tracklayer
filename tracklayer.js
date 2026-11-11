@@ -8969,30 +8969,43 @@ function restat() { ST = stats(); if (GOD.turbo) ST.power *= 2.2; GS.cap = ST.fu
    GS.load like any parcel (flag tut); those aren't saved, so tutTick re-posts it after a reload or a blackout.
    Settings > Controls > Skip tutorial (press twice) ends it and leaves the sled beside you. God menu: Restart tutorial.
    Button names on the card come from the device you last touched (keyboard, Xbox / PlayStation / Nintendo pad, touch). */
-var TUT = { stage: 99, a: null, b: null, dev: "kbm", pad: "xbox", key: "", ttl: "", doneT: 0, park: null, padA: false, skipT: 0 };
+var TUT = { stage: 99, a: null, b: null, key: "", ttl: "", doneT: 0, park: null, padA: false, skipT: 0 };
 function tutHidden() { return !!TUT && TUT.stage < 2; }
-const TUT_L = {
+/* ---- button names: btn(action) ----
+   Every control named in player-facing text goes through btn(action), never a hard-coded key (Lemon's standing rule,
+   27 Oct). It answers for the device last touched: keyboard and mouse, a pad by brand (Xbox, PlayStation, Nintendo;
+   anything else reads as Xbox), or touch. INP.dev / INP.pad hold which; the listeners below and tutPadPoll keep them
+   current, so text built each frame switches live. Only actions bound on all three schemes belong in BTN: add the
+   binding first, then the row. Started as the tutorial's own table; the expansion's systems get it through the api. */
+const INP = { dev: "kbm", pad: "xbox" };
+const BTN = {
   walk: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
   turn: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
   jog: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "LEAN" },
   garage: { kbm: "T", xbox: "B", ps: "○", nin: "A", touch: "GARAGE" },
   pick: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "Tap" },
   mount: { kbm: "Q", xbox: "LB", ps: "L1", nin: "L", touch: "GET ON" },
+  dismount: { kbm: "Q", xbox: "LB", ps: "L1", nin: "L", touch: "GET OFF" },
   gas: { kbm: "W", xbox: "RT", ps: "R2", nin: "ZR", touch: "GAS" },
   brake: { kbm: "S", xbox: "LT", ps: "L2", nin: "ZL", touch: "BRAKE" },
   steer: { kbm: "A / D", xbox: "Left stick", ps: "Left stick", nin: "Left stick", touch: "Steer pad" },
-  tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" }
+  lean: { kbm: "Shift", xbox: "RB", ps: "R1", nin: "R", touch: "LEAN" },
+  hop: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "HOP" },
+  tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" },
+  view: { kbm: "V", xbox: "R3", ps: "R3", nin: "Right stick click", touch: "CAM" },
+  reset: { kbm: "N", xbox: "View", ps: "Create", nin: "−", touch: "↺" },
+  menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" }
 };
-function tutBtn(a) { const t = TUT_L[a]; return t[TUT.dev === "pad" ? TUT.pad : TUT.dev] || t.kbm; }
-addEventListener("keydown", () => { TUT.dev = "kbm"; }, true);
-addEventListener("pointerdown", e => { TUT.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
+function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } return t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; }
+addEventListener("keydown", () => { INP.dev = "kbm"; }, true);
+addEventListener("pointerdown", e => { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
 function tutPadPoll() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let a = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
     const any = gp.buttons.some(b => b && b.pressed) || gp.axes.some(v => Math.abs(v) > 0.5);
-    if (any) { TUT.dev = "pad"; TUT.pad = /054c|playstation|dualsense|dualshock/i.test(gp.id) ? "ps" : /057e|nintendo|switch|pro controller|joy-con/i.test(gp.id) ? "nin" : "xbox"; }
+    if (any) { INP.dev = "pad"; INP.pad = /054c|playstation|dualsense|dualshock/i.test(gp.id) ? "ps" : /057e|nintendo|switch|pro controller|joy-con/i.test(gp.id) ? "nin" : "xbox"; }
     if (gp.buttons[0] && gp.buttons[0].pressed) a = true;
   }
   // the garage has no pad focus of its own: on the collect step the bottom face button signs for the sled
@@ -9026,7 +9039,7 @@ function tutWalker() {
   recenter(FOOT.x, FOOT.z, true);
 }
 function tutStart() {
-  if (TC.on) TUT.dev = "touch";
+  if (TC.on) INP.dev = "touch";
   if (TUT.stage < 2) { tutPark(); tutWalker(); }
 }
 function tutCollect() {
@@ -9114,7 +9127,7 @@ function tutCard(dt) {
   const on = started && !GS.dead && (TUT.stage < 99 || TUT.doneT > 0);
   if (el.hidden === on) el.hidden = !on;
   if (!on) return;
-  const c = tutCopy(), keys = c.keys.map(([a, l]) => `<span><kbd>${tabEsc(tutBtn(a))}</kbd>${tabEsc(l)}</span>`).join(""), k = c.step + c.title + c.body + keys;
+  const c = tutCopy(), keys = c.keys.map(([a, l]) => `<span><kbd>${tabEsc(btn(a))}</kbd>${tabEsc(l)}</span>`).join(""), k = c.step + c.title + c.body + keys;
   if (k !== TUT.key) {
     TUT.key = k;
     $("tuStep").textContent = c.step; $("tuTitle").textContent = c.title; $("tuBody").textContent = c.body; $("tuKeys").innerHTML = keys;
@@ -15795,7 +15808,7 @@ function crashVisual(dt) {
 function initExpansion() {
   TLX.boot({
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
-    toast, save, fmtCash, clamp, lerp, sstep,
+    toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on,
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt },
     mesh: { box, cyl, ball, std }
