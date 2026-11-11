@@ -34,8 +34,14 @@ jobs:
       - name: Stage build
         if: steps.key.outputs.ok == 'true'
         run: |
+          # everything the page loads: index.html and every top-level script (tracklayer.js, icefish.js, tlx*.js),
+          # plus vendor/ if there is one. Fails the run if index.html names a script that isn't in the build.
           mkdir build
-          cp index.html tracklayer.js build/
+          cp index.html ./*.js build/
+          if [ -d vendor ]; then cp -R vendor build/; fi
+          for f in $(grep -o '<script src="[^"]*"' index.html | sed 's/<script src="//; s/"$//; s/?.*$//' | grep -v '^https\?:'); do
+            [ -f "build/$f" ] || { echo "::error::index.html loads $f but it is not in the build"; exit 1; }
+          done
 
       - name: Install butler
         if: steps.key.outputs.ok == 'true'
