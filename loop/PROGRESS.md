@@ -3,6 +3,36 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 12:45 — Expansion slice 2.6b: drive the sled onto the trailer and strap it down (G4) — 1e459b1
+Builder pass (full throttle, no budget gate; the cron prompt's `usage_budget.py begin/done` bookkeeping was skipped per the skill:
+the gate is retired). Triage: report 0096 (2.2/2.3 pickup break test) has four POLISH and no BLOCKER/BUG (garage row "Fjellvogn
+20192019" with no separator; a corrupt truck record is repaired to x = 0 instead of the forecourt; HUD names the sled while in the
+truck, same as 0095; two pickups side by side get one ambiguous hint): left for a polish pass. Last triaged report 95 -> 96.
+Before: the sled drove straight through the trailer (it wasn't a surface or an obstacle) and nothing could hold a sled on it. Now
+with the ramp down a sled eased up the ramp climbs onto the deck under its own power (feathered throttle: 3-4 m/s, 7-10 samples
+on the ramp, ends 0.53 m above the snow, on the deck plane within 0.01 m) and the front stop rail holds it (middle at lz 0.69 =
+deck front - nose, 2 s more throttle moves it 0). tracklayer.js bridges, all fall back to the old code with no expansion:
+`sledRide()` = max(rideSurf, `VEH.deck`) in physCore (height, gradient with a 0.25 m probe on the deck), the ridden sled's pitch
+samples and parkedSled; on the deck the sled rides as hard pack (no plough, ruts, snow stamps, trail marks or arcade bounce);
+`VEH.deckClamp(P)` after collide(); `VEH.strapped()` zeroes throttle, reverse and motion. tlx-vehicles.js: the deck plane comes
+from the trailer model's pose each frame (built on demand before the first frame, so a reload finds it); a low sled is pushed out
+of the trailer box (side: closest 1.63 m from the centre line, never on the deck; tail with the ramp up: nose stops 0.1 m short);
+rail/side hits thud over 2 m/s and knock fragile parcels over 4. On foot beside a sled on the deck, use STRAPs / UNSTRAPs it
+(`strapFoot` inside haulFoot, so footUse, pad L3, the touch button and the hint came free); it asks you to drive it straight up to
+the rail first if it's crooked or short. Strapped: `state.haul.strap = { x, z, yaw }` in the trailer frame, four yellow straps
+drawn, throttle moves it 0.000 m with a toast, `strapTick` glues it to the deck (moved the trailer 1.5 m and 0.2 rad: it stayed
+put on the deck), and since the parked sled record is glued too a hitched trailer already carries it. Reload keeps it strapped on
+the deck (y = deck). Unstrapped, holding reverse backs it down the ramp onto the snow. The ramp won't rise under a sled standing
+on it. swapTo back to the sled starts it at its own height (so a sled on the deck doesn't drop through it).
+`x2_deck.mjs` (28 asserts) incl. keyboard E strap, pad L3 unstrap, touch STRAP, a junk strap field loading as unstrapped. Stills
+(behind, on the ramp pitched up, on the deck, strapped with straps) judged: sled sits on the boards, no sinking or floating.
+Gate: smoke, x1_save, x2_deck, x2_haul, x2_hitch, x2_pickup all exit 0, fails 0, page errors none.
+Decisions: no crash for hitting the rail fast (a thud, a shake and the parcel knock; a crash state on a 0.5 m deck looked worse
+than it was worth); strapping is instant (toast + straps), no animation, like hitching.
+Left (2.6c): the strapped sled's weight on the truck (inertia, receiver rating), a full tow run checked end to end (Map pin,
+camera, reload while hitched), mounting a sled on the deck still walks the ground swing.
+In progress: nothing. Next: 2.6c.
+
 ## 2026-11-11 12:10 — Expansion slice 2.6a: the sled trailer (G4) — c8eb0c3
 Builder pass (full throttle, no budget gate; the cron prompt's `usage_budget.py begin/done` bookkeeping was skipped per the skill:
 the gate is retired). Triage: no reports above 94, so the next unticked slice. 2.6 was too big for one pass: split into 2.6a (the

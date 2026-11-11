@@ -11,7 +11,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); next: 2.6b |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); next: 2.6c |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -166,11 +166,21 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
         save). Assert scenario `x2_haul.mjs`.
         Left: the sled drives through it (2.6b makes ramp + deck a ride surface); the truck and the trailer don't collide
         (jackknife stop only); no hitch animation (toast); no trailer tyre tracks.
-  - [ ] 2.6b Drive on and off: with the ramp down the ramp and deck are a ride surface for the sled (the sled climbs
+  - [x] 2.6b (v178) Drive on and off: with the ramp down the ramp and deck are a ride surface for the sled (the sled climbs
         them under its own power; skis on the deck), a stop at the front rail; on foot beside a sled on the deck use
         STRAPs it down (and UNSTRAPs it). Strapped, it cannot be ridden off (throttle does nothing, a hint says so).
-  - [ ] 2.6c Towing it: a strapped sled rides the trailer (pose glued to the deck, its weight on the truck's hitch and
-        rating), reload keeps it strapped on, the Map pin follows; drive off down the ramp after unstrapping. Hints on
+        Built: `VEH.deck(x, z, yRef)` (deck plane from the drawn trailer pose, ramp from the hinge at its own angle; a step
+        over 0.35 m isn't climbable) read through `sledRide()` in physCore, the sled's pitch and a parked sled; on the deck
+        the sled rides as hard pack (no plough, ruts, stamps or bounce). `VEH.deckClamp(P)` after collide(): the front stop
+        rail, and a low sled is pushed out of the trailer's box (sides, front, tail with the ramp up); a hit over 2 m/s
+        thuds, over 4 knocks fragile parcels. `state.haul.strap = { x, z, yaw }` (trailer frame) or null: strapped,
+        physCore gives no throttle or motion and `strapTick` glues the sled (P or its parked record) to the deck, so a
+        hitched trailer already carries it; four yellow straps drawn; a toast on throttle. The ramp refuses to rise
+        under a sled on it. `x2_deck.mjs` (28 asserts).
+        Left for 2.6c: the strapped sled's weight on the truck (inertia, hitch rating), towing it at speed checked
+        end to end (pin, camera, reload while hitched), mounting a sled on the deck still uses the ground swing.
+  - [ ] 2.6c Towing it: a strapped sled rides the trailer (pose glued to the deck: done in 2.6b; its weight on the truck's
+        hitch and rating), reload keeps it strapped on, the Map pin follows; drive off down the ramp after unstrapping. Hints on
         keyboard, each pad brand and touch; README row.
 - [ ] 2.7 Bytteboden "vehicles" category (wear, haggling, lemons), README, Progression-map row for the pickup.
 
