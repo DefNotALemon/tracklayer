@@ -397,7 +397,15 @@ driver's door, opens it, steps up, sits and pulls it shut. Getting out is the sa
 Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
 the brake at a standstill to reverse. Each vehicle keeps its own fuel and its own parcels, and
 stays where you left it, including across a save and a reload (reload while sitting in the pickup
-and you are still in it). The tablet, hitching a trailer to it and carrying a sled come later.
+and you are still in it).
+
+The tablet works from the cab on every control scheme (Tab, d-pad up, the TABLET button; M for
+the Map). The dash glass is on the sled, so in a truck the tablet comes up as the big screen you
+hold, the same as on foot, and the HUD minimap stays up in first person. Parcels work the same:
+claim them anywhere, load at the quay (the pickup's bed holds 8), and they deliver when you stop at
+the drop-off. The Map pins every vehicle you aren't in (**S** the sled, **T** a truck), and on foot
+the YOU arrow is you, not the vehicle you got out of. Hitching a trailer to it and carrying a sled
+come later.
 
 ## The hitch and bigger work
 

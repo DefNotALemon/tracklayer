@@ -6033,12 +6033,14 @@ function tourArrive() {
   save();
 }
 const smallLoads = () => GS.load.filter(j => !j.big);
+// what your parcels ride on: the sled's rack, or a truck's bed (rackW("on") = "on the rack" / "in the bed")
+function rackW(prep) { const w = VEH.cur ? "bed" : "rack"; return prep ? (VEH.cur ? "in the " : "on the ") + w : w; }
 const baysUsed = () => bigLoads().reduce((a, j) => a + j.bays, 0);
 function acceptJob(k) {
   const j = GS.jobs[k]; if (!j) return;
   if (smallLoads().length >= ST.slots) { toast(ST.slots === 1 ? "Your rack holds one parcel. The garage sells longer decks." : `You're full at ${ST.slots} parcels.`, "warn"); return; }
   j.hits = 0; GS.load.push(j); GS.jobs.splice(k, 1);
-  toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} on the rack.`);
+  toast(`Loaded: ${j.cargo} for ${j.dest.name}. ${smallLoads().length}/${ST.slots} ${rackW("on")}.`);
   if (GS.near && GS.near !== depot) mailVisit(GS.near);
   TABLET.refresh(); applyLoadout(); save();
 }
@@ -6865,8 +6867,8 @@ const TABLET = {
     this.render();
   },
   // riding, in any view, the OS goes on the real glass under the bars (first person leans in, the chase views swing over the
-  // rider's shoulder); on foot, fishing or in the showroom it's the big centred overlay
-  modeNow() { return !FOOT.on && !(FISH && FISH.on) && !showroomOn() ? "dash" : "overlay"; },
+  // rider's shoulder); on foot, fishing, in the showroom or in a cab (VEH.cur: the dash glass is on the sled you left) it's the big centred overlay
+  modeNow() { return !FOOT.on && !VEH.cur && !(FISH && FISH.on) && !showroomOn() ? "dash" : "overlay"; },
   viewK() { return this.modeNow() + (VIEWS[camMode].fp ? "f" : "t"); },
   // before the camera: ease the dip in or out (0.3 s, smoothstep), and keep the mode in step with the view
   step(dt) {
@@ -6986,7 +6988,7 @@ function tabHomography(w, h, q) {
 // The tablet itself is on the sled in every view: in the others its screen shows the home screen, not a map (tabHomeFace)
 let tvFP = null, tvDip = null;
 function tabView_sync() {
-  const fp = !!(VIEWS[camMode].fp && !FOOT.on), dip = TABLET.open && TABLET.mode === "dash";
+  const fp = !!(VIEWS[camMode].fp && !FOOT.on && !VEH.cur), dip = TABLET.open && TABLET.mode === "dash";   // a cab has no dash tablet in view: it keeps the HUD minimap
   tabCull();
   if (dip !== tvDip) { tvDip = dip; document.body.classList.toggle("tabdip", dip); }
   if (fp === tvFP) return;
@@ -7233,7 +7235,7 @@ const atPickup = j => GS.near === (j.from || depot);
 function takeParcel(k) {
   const j = GS.jobs[k]; if (!j) return;
   if (atPickup(j)) { acceptJob(k); return; }
-  if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your rack's spoken for: ${smallLoads().length} aboard and ${claimSmall()} claimed.`, "warn"); return; }
+  if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your ${rackW()}'s spoken for: ${smallLoads().length} aboard and ${claimSmall()} claimed.`, "warn"); return; }
   j.from = j.from || depot; GS.claims.push(j); GS.jobs.splice(k, 1);
   toast(`Claimed: ${j.cargo} for ${shortName(j.dest)}. Pick it up at ${j.from.name}.`);
   TABLET.refresh(); save();
@@ -7310,6 +7312,15 @@ function tabView(g, W, H, x0, z0, sx, sz) {
   g.fillStyle = "#2e4b63"; g.fillRect(0, 0, W, H);
   if (p) { g.imageSmoothingEnabled = true; g.drawImage(p, (x0 + HALF) * k, (z0 + HALF) * k, sx * k, sz * k, 0, 0, W, H); }
   return (x, z) => [(x - x0) / sx * W, (z - z0) / sz * H];
+}
+/* where "you" are on the tablet's chart: the walker while on foot (P is then the vehicle you left), else the vehicle you're in */
+function tabMe() { return FOOT.on ? { x: FOOT.x, z: FOOT.z, yaw: FOOT.yaw } : { x: P.x, z: P.z, yaw: P.yaw }; }
+/* the vehicles you aren't in, as chart pins { x, z, name, kind: "sled" | "truck" }: parked ones come from tlx-vehicles.js
+   (layer "vehicles"), and on foot the one you got out of is P itself */
+function tabVehPts() {
+  const out = TABLET.layerPts("vehicles");
+  if (FOOT.on && !tutHidden()) out.push({ x: P.x, z: P.z, name: VEH.cur ? VEH.noun : "Sled", kind: VEH.cur ? "truck" : "sled" });
+  return out;
 }
 function tabPin(g, x, y, col, glyph, r = 9) {
   g.save(); g.translate(x, y);
@@ -7463,7 +7474,7 @@ TABLET.register({
     const rk = rankOf(GS.delivered), used = this.slots.length, free = Math.max(0, ST.slots - used), nSlots = Math.min(ST.slots, 8);
     const cell = i => { const r = this.slots[i]; return r ? `<button type="button" class="pbs ${r.kind}${r.obj === this.sel ? " sel" : ""}" data-tf="ps:${i}" data-r="s${i}"><b>${r.kind === "ab" ? "Aboard" : "Claimed"}</b><span>${tabEsc(r.title)}</span></button>` : `<div class="pbs"><b>Free</b><span>slot ${i + 1}</span></div>`; };
     el.innerHTML = `<div class="pb${TABLET.h < 420 ? " c" : ""}"><div class="pbl">
-      <div class="pbtop"><b>Slots · ${used}/${ST.slots}</b><span>${free ? free + (free === 1 ? " slot free" : " slots free") : "rack's full"} · ${tabEsc(rk.name)} · ${GS.delivered} delivered${CAL.isPolarNight() ? " · polar night ×1.5" : ""}</span></div>
+      <div class="pbtop"><b>Slots · ${used}/${ST.slots}</b><span>${free ? free + (free === 1 ? " slot free" : " slots free") : rackW() + "'s full"} · ${tabEsc(rk.name)} · ${GS.delivered} delivered${CAL.isPolarNight() ? " · polar night ×1.5" : ""}</span></div>
       <div class="pbslots">${Array.from({ length: nSlots }, (_, i) => cell(i)).join("")}</div>
       <div class="pbrows" id="pbRows"></div><div class="pbpg" id="pbPg"></div></div>
       <div class="pbm"><canvas id="pbCv"></canvas><div class="pbcap" id="pbCap"></div></div></div>`;
@@ -7565,7 +7576,8 @@ TABLET.register({
     const cv = this.cv, box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, H = box.clientHeight; if (W < 60 || H < 60) return;
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; }
     const S = Math.min(W, H), sz = this.zoom ? 1800 : WORLD * 0.98 * Math.max(1, H / W * 1.02), sx = sz * W / H;   // the whole peninsula fits; around-me is 1.8 km tall
-    const cx = this.zoom ? clamp(P.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = this.zoom ? clamp(P.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
+    const me = tabMe();                                                            // you: the walker on foot, else the vehicle you're in
+    const cx = this.zoom ? clamp(me.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = this.zoom ? clamp(me.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
     const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, this.zoom && sx > WORLD ? -sx / 2 : cx - sx / 2, cz - sz / 2, sx, sz), span = sz;
     g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; }, sc = H / span * 10;   // px per 10 m
     const L = this.layersOn, hot = new Set();
@@ -7591,8 +7603,9 @@ TABLET.register({
       tabPin(g, x, y, p.col, "S", 10); tabLabel(g, p.name, x, y + 14, 12, p.col);
     }
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
-    const [px, py] = w2c(P.x, P.z);
-    g.save(); g.translate(px, py); g.rotate(Math.PI - P.yaw);
+    for (const p of tabVehPts()) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b4a5e", p.kind === "sled" ? "S" : "T", 9); tabLabel(g, p.name, x, y + 14, 12, "#2b4a5e"); }   // where you left the sled / the truck
+    const [px, py] = w2c(me.x, me.z);
+    g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw);
     g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -14); g.lineTo(-10, 10); g.lineTo(10, 10); g.closePath(); g.fill();
     g.fillStyle = CT_ACC; g.beginPath(); g.moveTo(0, -10); g.lineTo(-6.5, 6.5); g.lineTo(6.5, 6.5); g.closePath(); g.fill(); g.restore();
     // scale bar
@@ -9997,7 +10010,7 @@ const mktHowTo = h => h.cat === "rare" ? `It's in ${h.seller}'s barn in ${shortN
 function heldWhy(h) {
   if (SCHOOL.on) return "You're on a school course.";
   if (h.cat === "engine" || h.cat === "rare") { const r = GS.own.parts.hitch; if (r !== "trailer" && r !== "flatbed") return "Needs a trailer or flatbed on the hitch."; if (ST.bays - baysUsed() < 1) return "Your trailer's full."; return ""; }
-  if (h.cat === "recv") return smallLoads().length >= ST.slots ? "Needs a free spot on the rack." : "";
+  if (h.cat === "recv") return smallLoads().length >= ST.slots ? `Needs a free spot ${rackW("on")}.` : "";
   if (h.cat === "trailer" || h.cat === "groomer") { if (!recvOk(h.item)) return `Needs ${recvNeed(h.item)} on the sled first (garage, Parts).`; if (GS.own.parts.hitch !== "none") return `Your hitch is taken by the ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()}. Leave it at the garage first.`; return ""; }
   return "";
 }
@@ -10023,7 +10036,7 @@ function mktCollect(site) {
       h.state = "aboard"; toast(`${h.seller} helps you winch Santa's Sled onto the trailer and throws a tarp over the gold. Take it to Nordkinn Skuter & Service.`, "good");
     } else if (h.cat === "recv") {
       GS.load.push({ dest: garageSite, cargo: h.name, crate: h, fragile: false, pay: 0, due: null, hits: 0 });
-      h.state = "aboard"; toast(`The ${h.name.toLowerCase()} goes on the rack. The garage will bolt it on.`, "good");
+      h.state = "aboard"; toast(`The ${h.name.toLowerCase()} goes ${rackW("on")}. The garage will bolt it on.`, "good");
     } else if (h.cat === "trailer" || h.cat === "groomer") {
       const k = "hitch:" + h.item; o.partsOwned[k] = true; o.cond[k] = h.cond; o.wear[k] = a; o.parts.hitch = h.item; TOW.kind = null;
       GS.mkt.held = GS.mkt.held.filter(q => q !== h); restat();

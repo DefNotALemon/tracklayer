@@ -920,6 +920,13 @@ TLX.register({
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
     api.veh.tabs.push({ id: "trucks", name: "Trucks", render: garageRows });
+    // the tablet's Map: a pin on every vehicle you aren't in (the sled while you drive, the trucks while you ride the sled)
+    a.TABLET.addLayer("vehicles", () => {
+      const s = S(), out = [], noun = r => { const d = byId(r.id); return d.kind[0].toUpperCase() + d.kind.slice(1); };
+      if (s.cur != null && s.sled) out.push({ x: s.sled.x, z: s.sled.z, name: "Sled", kind: "sled" });
+      for (const r of s.owned) if (r.uid !== s.cur) out.push({ x: r.x, z: r.z, name: noun(r), kind: "truck" });
+      return out;
+    });
     if (s.cur != null && (!rec(s.cur) || !s.sled || a.tutHidden())) { s.cur = null; s.sled = null; }
     if (s.cur != null) {                                                       // reloaded while in a vehicle: back in it, the sled where it was left
       const to = rec(s.cur), sl = s.sled, P = a.P, GS = a.GS;
