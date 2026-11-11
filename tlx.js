@@ -13,6 +13,7 @@
 //     migrate(st, fromV) { ... },     // optional: bring an older saved state up to v (returns the state)
 //     init(api) { ... },              // once, at boot, after the world is built and the save is loaded
 //     tick(dt) { ... },               // optional: every frame while the game is running
+//     save() { ... },                 // optional: just before the state is written out, bring it up to date
 //     monday(week) { ... }            // optional: the weekly settle-up, with the rent and fuel bills
 //   });
 //   TLX.option({ id: "ships", name: "Passing ships", hint: "...", sys: "lights" });   // a suggested addition
@@ -102,7 +103,7 @@ const TLX = {
   dump() {
     const sys = {};
     for (const k in kept) sys[k] = kept[k];
-    for (const d of SYS) sys[d.id] = { v: d.v, s: live[d.id] };
+    for (const d of SYS) { if (d.save) try { d.save(); } catch (e) { console.error("TLX " + d.id + " save", e); } sys[d.id] = { v: d.v, s: live[d.id] }; }
     return { v: SAVE_V, region, opt: optSaved, sys };
   },
 

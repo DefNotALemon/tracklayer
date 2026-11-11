@@ -2373,7 +2373,7 @@ function updTouch() {
   const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
   const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
   const wd = winchDef(), foot = FOOT.on;
-  const q = $("tQ"); q.hidden = tutHidden() || !(foot || (BOG.on && wd) || BOG.on); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
+  const q = $("tQ"); q.hidden = tutHidden() || !(foot || (BOG.on && wd) || BOG.on || VEH.cur); const ql = foot ? "GET ON" : "GET OFF"; if (q.textContent !== ql) q.textContent = ql;
   const x = $("tX"); x.hidden = !(wd && wd.block && WN.state === "hooked"); const xl = WN.dbl ? "SINGLE" : "DOUBLE"; if (x.textContent !== xl) x.textContent = xl;
   $("tF").hidden = !(HELP.on && HELP.kind === "sea" && !HELP.called) && !(GS.fuel <= 0 && !HELP.on);
   $("tReel").hidden = !(wd && WN.state === "hooked");
@@ -2501,6 +2501,12 @@ var SAR = {
   cur: null, ping: null, coolT: -999, rollT: false, pill: null, foot: null, prints: null, glove: null, rope: null, seq: 0, odT: 0
 };
 const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, yr: 0, pitch: 0, roll: 0, odo: 0, rut: 0, airP: 0, airR: 0, airPV: 0, airRV: 0, airT: 0, airPeak: 0, launched: 0, wh: 0, whVis: 0, whRun: 0, whBest: 0, rock: 0, dumped: 0, gnd: true, pack: 0, ice: false, exc: 0, drag: 0, shake: 0, dist: 0, stuckT: 0, safe: null, rpm: 0.15, wet: false, sink: 0, wetT: 0, wl: SEA, bare: 0, slush: 0, thin: 0, comp: 0, lastSv: 0, sY: 0, sV: 0 };
+/* ---- vehicles (tlx-vehicles.js) ----
+   P is the vehicle you are using. VEH.cur is null on the sled (everything below then runs exactly as before) or the
+   driver object of the vehicle you are in (core, restat, visual, eye, mount, dismount, mountTick, dismountTick,
+   nearMount, noun). VEH.sled is the sled's pose while you are in something else. VEH.tabs are extra garage tabs,
+   VEH.block bounces a walker off every parked vehicle. All of it is filled in by tlx-vehicles.js. */
+var VEH = { cur: null, sled: null, tabs: [], block: null, board: "get on the sled", noun: "Sled" };
 function resetSled() {
   if (CRASH.on) return;                               // no resetting your way out of a crash
   if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press P to call it.", "warn"); return; }
@@ -2564,6 +2570,29 @@ function stampAt(x, z, fx, fz) {
     }
   }
 }
+// a tyre pressing a rut: cells within r of (x, z) settle to a fraction k of the fresh snow (0.3 = pressed to under a third).
+// Only ever presses down: a rut you drive along is firmer than the powder either side, and so is the way back.
+function pressSnow(x, z, r, k) {
+  const R = r + CELL * 0.6;
+  for (let iz = Math.max(0, Math.floor((z - R + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((z + R + HALF) / CELL)); iz++) {
+    const wz = iz * CELL - HALF - z;
+    for (let ix = Math.max(0, Math.floor((x - R + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((x + R + HALF) / CELL)); ix++) {
+      const wx = ix * CELL - HALF - x, w = 1 - sstep(r * 0.6, r + CELL * 0.5, Math.hypot(wx, wz));
+      if (w < 0.05) continue;
+      const c = getChunk(ix >> 5, iz >> 5), kk = (iz & 31) * CH + (ix & 31), f = c.f[kk], d0 = c.d[kk];
+      const tg = lerp(d0, Math.min(d0, f * k), w);
+      if (tg < d0 - 0.002) { c.d[kk] = tg; writeCell(ix, iz, d0, tg, f); }
+    }
+  }
+}
+// every obstacle (tree, building, rock) whose cell is within R of the point; the caller does the exact test
+function obstaclesNear(x, z, R) {
+  const out = [];
+  for (let j = Math.floor((z - R + HALF) / OBC); j <= Math.floor((z + R + HALF) / OBC); j++) for (let i = Math.floor((x - R + HALF) / OBC); i <= Math.floor((x + R + HALF) / OBC); i++) {
+    const a = obGrid.get(j * OBW + i); if (a) for (const o of a) out.push(o);
+  }
+  return out;
+}
 function crater(x, z, amt) {
   const R = 1.8, RR = R + 0.5;
   for (let iz = Math.floor((z - RR + HALF) / CELL); iz <= Math.ceil((z + RR + HALF) / CELL); iz++)
@@ -2599,6 +2628,7 @@ function toggleWings() {
 function hitchBack(rack) { return 2.1 + (rack === "freight" ? 0.3 : rack === "stretch" ? 0.15 : 0); }
 function hitchPt() { const b = hitchBack(GS.own.parts.rack); return [P.x - Math.sin(P.yaw) * b, P.z - Math.cos(P.yaw) * b]; }
 function towSnap() {
+  if (VEH.cur) return;                                   // in a vehicle the rig stays behind with the sled
   const H = HITCH[TOW.kind]; if (!H) return;
   const [hx, hz] = hitchPt();
   TOW.x = hx - Math.sin(P.yaw) * H.len; TOW.z = hz - Math.cos(P.yaw) * H.len; TOW.yaw = P.yaw;
@@ -3127,6 +3157,7 @@ const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops 
 function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
+  if (VEH.cur) { VEH.cur.core(dt); return; }              // in a vehicle: its own physics drives P
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
   input.thr = input.brk = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false;
@@ -3581,10 +3612,26 @@ const camState = { yaw: SPAWN.yaw, init: false, fpYaw: SPAWN.yaw, fpPitch: 0, fp
 const _camEye = new THREE.Vector3(), _camAim = new THREE.Vector3(), _camWant = new THREE.Vector3();
 let hudT = 0, safeT = 0;
 function angLerp(a, b, t) { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * t; }
+// in a vehicle the sled stands where it was left: drawn from its own pose, with its tow rig, while P belongs to the vehicle
+function parkedSled(dt) {
+  const s = VEH.sled; if (!s) return;
+  const k = { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, roll: P.roll };
+  P.x = s.x; P.z = s.z; P.yaw = s.yaw;
+  const fx = Math.sin(s.yaw), fz = Math.cos(s.yaw), lx = fz, lz = -fx;
+  const hF = rideSurf(s.x + fx * 1.3, s.z + fz * 1.3), hR = rideSurf(s.x - fx * 1.2, s.z - fz * 1.2), hL = rideSurf(s.x + lx * 0.6, s.z + lz * 0.6), hT = rideSurf(s.x - lx * 0.6, s.z - lz * 0.6);
+  s.y = (hF + hR) / 2; P.y = s.y; P.pitch = Math.atan2(hF - hR, 2.5); P.roll = Math.atan2(hL - hT, 1.2);
+  sledRoot.position.set(s.x, s.y, s.z); sledRoot.rotation.set(-P.pitch, s.yaw, P.roll);
+  sledBody.rotation.z = 0; sledBody.position.y = 0;
+  for (const pv of skiPivots) pv.rotation.y *= 0.8;
+  barPivot.rotation.y *= 0.8;
+  towVisual(dt);
+  P.x = k.x; P.y = k.y; P.z = k.z; P.yaw = k.yaw; P.pitch = k.pitch; P.roll = k.roll;
+}
 function updVisuals(dt) {
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const spd = Math.hypot(P.vx, P.vz);
   let pT, rT, gr = 0;
+  if (VEH.cur) { VEH.cur.visual(dt); CLIMB.v = CLIMB.stand = 0; parkedSled(dt); } else {
   if (P.gnd) {
     const hF = rideSurf(P.x + fx * 1.3, P.z + fz * 1.3), hR = rideSurf(P.x - fx * 1.2, P.z - fz * 1.2);
     const hL = rideSurf(P.x + lx * 0.6 + fx * 0.4, P.z + lz * 0.6 + fz * 0.4), hRt = rideSurf(P.x - lx * 0.6 + fx * 0.4, P.z - lz * 0.6 + fz * 0.4);
@@ -3617,6 +3664,7 @@ function updVisuals(dt) {
   { const hid = VIEWS[camMode].fp && !showroomOn(); if (hid !== V.headHid) { V.headHid = hid; applyLoadout(); } }
   sledBody.position.y = P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0;
   towVisual(dt);
+  }
   // engine rpm
   let rpmT;
   rpmT = clamp(0.14 + (input.thr + (GB.dir < 0 ? input.brk : 0)) * 0.35 + spd / 34 * 0.55 + (input.thr && !P.gnd ? 0.3 : 0), 0, 1.15);
@@ -3638,8 +3686,9 @@ function updVisuals(dt) {
   let look = null;
   if (view.fp) {
     // rider's eye: follows the sled's position and yaw, but the horizon stays mostly level
-    sledRoot.updateMatrixWorld();
-    const eye = sledRoot.localToWorld(_camEye.set(0, 1.66 + CLIMB.stand * 0.7, -0.14));
+    let eye;
+    if (VEH.cur) eye = VEH.cur.eye(_camEye);
+    else { sledRoot.updateMatrixWorld(); eye = sledRoot.localToWorld(_camEye.set(0, 1.66 + CLIMB.stand * 0.7, -0.14)); }
     camState.shOn = false; camState.shK = 0;                             // the chase cam's shoulder slide doesn't carry over
     if (!camState.init) { camera.position.copy(eye); camState.fpYaw = P.yaw + Math.PI; camState.fpPitch = -0.13; camState.fpRoll = 0; camState.fpBob = 0; camState.fpEyeY = eye.y; camState.init = true; }
     // the head sits exactly where the rider's head is — no smoothing along the ground, or
@@ -7734,6 +7783,7 @@ function schoolCanStart(sc) {
   return "";
 }
 function schoolBegin(id) {
+  if (VEH.cur) { toast("The course runs on the school's sled. Come back on your own sled.", "warn"); return; }
   const sc = SCHOOLS[id], why = schoolCanStart(sc); if (why) { toast(why, "warn"); return; }
   // park your sled where it stands, cargo and all
   SCHOOL.park = { x: P.x, z: P.z, yaw: P.yaw };
@@ -8953,7 +9003,7 @@ function stats() {
   return st;
 }
 let ST = null;
-function restat() { ST = stats(); if (GOD.turbo) ST.power *= 2.2; GS.cap = ST.fuel; GS.fuel = Math.min(GS.fuel, GS.cap); applyLoadout(); }
+function restat() { ST = stats(); if (VEH.cur) VEH.cur.restat(ST); if (GOD.turbo) ST.power *= 2.2; GS.cap = ST.fuel; GS.fuel = Math.min(GS.fuel, GS.cap); applyLoadout(); }
 
 /* ---------------- the first ride: a tutorial for new couriers ----------------
    A brand-new game starts on foot on the quay with no sled under you. Five steps, each one finished by the real
@@ -9269,6 +9319,8 @@ function renderGarage() {
     body.appendChild(note);
   } else if (garageTab === "engines") {
     renderEngines(body, row, tryOn);
+  } else if (VEH.tabs.some(t => t.id === garageTab)) {
+    VEH.tabs.find(t => t.id === garageTab).render(body, row);
   } else if (garageTab === "workshop") {
     renderWorkshop(body);
   } else if (garageTab === "parts") {
@@ -9365,7 +9417,7 @@ function renderWorkshop(body) {
 function openGarage() { TABLET.close(true); if (TUT.stage < 2) { garageTab = "sleds"; if (TUT.stage === 0) { TUT.stage = 1; save(); } } GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
 function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
-  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"]].forEach(([t, n]) => {
+  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"]].concat(VEH.tabs.map(t => [t.id, t.name])).forEach(([t, n]) => {
     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
     b.addEventListener("click", () => { garageTab = t; renderGarage(); });
     $("garageTabs").appendChild(b);
@@ -13058,7 +13110,7 @@ const WINCH = [null,
   { id: "elec", name: "electric winch", len: 26, pull: 13000, speed: 0.9, fuel: 0.012 },
   { id: "heavy", name: "expedition winch", len: 42, pull: 22000, speed: 1.15, fuel: 0.018, block: true }
 ];
-const winchDef = () => (ST && WINCH[ST.winch]) || null;
+const winchDef = () => (ST && !VEH.cur && WINCH[ST.winch]) || null;
 const lbf = n => Math.round(n / 4.448 / 10) * 10;
 // what a strap round it will take, in newtons: a pine or a boulder is a proper anchor, a birch is a gamble
 const anchorCap = o => o.tree === undefined ? 42000 : o.pine ? 30000 * Math.min(1.3, o.s) : 9500 * o.s * o.s;
@@ -13099,12 +13151,13 @@ function hollowAt(x, z) {
 }
 function enterBog(depth) {
   BOG.on = true; BOG.depth = depth; BOG.x = P.x; BOG.z = P.z; BOG.r = 2.6 + 2.4 * depth; BOG.moved = 0; BOG.dig = 0; BOG.t = 0; BOG.acc = 0; BOG.warned = false;
-  BOG.r0 = (MASS + TOW.mass) * GR * (0.5 + 1.1 * depth); BOG.resist = BOG.r0;
+  BOG.r0 = (VEH.cur ? VEH.cur.mass : MASS + TOW.mass) * GR * (0.5 + 1.1 * depth); BOG.resist = BOG.r0;
   P.vx = P.vz = 0;
   for (let k = 0; k < 44; k++) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.3, P.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 7, 2 + Math.random() * 4, (Math.random() - 0.5) * 7, 1.6, 1.3);
   crater(P.x, P.z, 0.22); whump(0.9);
   const wd = winchDef();
-  toast(wd ? "Bogged to the skis. Get off (Q), wade to a tree and hook your winch (E)." : "Bogged to the skis. Get off (Q) and dig (hold E), or press R.", "bad");
+  if (VEH.cur) toast(`Stuck to the axles. ${keyHint("dismount", "get out")}, then ${btn("use")} to dig, or ${btn("reset")} to reset.`, "bad");
+  else toast(wd ? "Bogged to the skis. Get off (Q), wade to a tree and hook your winch (E)." : "Bogged to the skis. Get off (Q) and dig (hold E), or press R.", "bad");
 }
 function freeBog(how) {
   if (!BOG.on) return;
@@ -13497,6 +13550,7 @@ function sledSide() { return [Math.cos(P.yaw), -Math.sin(P.yaw)]; }   // the sle
 function dismount() {
   if (!started || GS.dead || FOOT.on || HELP.on || CRASH.on) return;
   if (GS.garageOpen || godOpen) return;
+  if (VEH.cur) { VEH.cur.dismount(); return; }
   if (Math.hypot(P.vx, P.vz) > 2.2 || !P.gnd || P.wet) { toast("Stop the sled first.", "warn"); return; }
   const [sx, sz] = sledSide(), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
   // start the climb-off: the walker takes over on the seat and DMT drives it out and down (dismountTick)
@@ -13516,6 +13570,7 @@ function mount() {
   if (!FOOT.on || MNT.on || DMT.on) return;
   if (FISH && FISH.on) return;
   if (tutHidden()) { toast("Your sled's still in the garage. Collect it there first.", "warn"); return; }
+  if (VEH.cur) { VEH.cur.mount(); return; }
   if (Math.hypot(FOOT.x - P.x, FOOT.z - P.z) > (FOOT.ski ? 6 : 3.6)) { toast(FOOT.ski ? "Glide in closer to the sled." : "Get back to the sled first.", "warn"); return; }
   // start the climb-on: MNT drives the walker up, over and into the seat (mountTick), then finishMount swaps to the rider.
   // Off skis it's quick: click out, they go back on the rack, and you're on in about half the time.
@@ -13527,6 +13582,7 @@ function mount() {
 /* -- the climb-on: one second of theatre between walking and riding -- */
 const MNT = { on: false, t: 0, dur: 1.25, x0: 0, y0: 0, z0: 0, yaw0: 0, stepped: false };
 function mountTick(dt) {
+  if (VEH.cur) { VEH.cur.mountTick(dt); return; }
   MNT.t += dt;
   const k = clamp(MNT.t / MNT.dur, 0, 1), e = _sm(k);
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
@@ -13564,6 +13620,7 @@ function finishMount() {
 /* -- the climb-off: the mirror of the mount, seat to snow over about a second -- */
 const DMT = { on: false, t: 0, dur: 1.15, x1: 0, y1: 0, z1: 0, stepped: false };
 function dismountTick(dt) {
+  if (VEH.cur) { VEH.cur.dismountTick(dt); return; }
   DMT.t += dt;
   const k = clamp(DMT.t / DMT.dur, 0, 1), e = _sm(k);
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
@@ -13917,7 +13974,8 @@ function footStep(dt) {
   }
   [nx, nz] = rjWalls(nx, nz, 0.36);
   // the sled itself is a wall
-  if (!tutHidden()) { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
+  if (!tutHidden() && !VEH.cur) { const dx = nx - P.x, dz = nz - P.z, d2 = dx * dx + dz * dz; if (d2 < 0.7 * 0.7 && d2 > 1e-6) { const dd = Math.sqrt(d2); nx = P.x + dx / dd * 0.7; nz = P.z + dz / dd * 0.7; } }
+  if (VEH.block && !tutHidden() && !MNT.on && !DMT.on) [nx, nz] = VEH.block(nx, nz);
   // the waterline is a wall you slide along, like a house: a step that would land in the sea loses only its
   // seaward part (shore normal from a ring of isSea taps round you), so walking the quay or a beach at an angle
   // keeps going instead of freezing on the edge. Only a step straight out to sea stops you.
@@ -14673,7 +14731,7 @@ function rescueTick(dt) {
       if (BOG.dig >= 1) { FOOT.dig = false; freeBog("dug"); }
     }
   } else if (FOOT.g && !CRASH.on && !INT.on) FOOT.g.visible = false;            // indoors intStep shows and poses the walker
-  if (rider) rider.visible = !FOOT.on && !CRASH.on && !(FISH && FISH.on);
+  if (rider) rider.visible = !FOOT.on && !CRASH.on && !(FISH && FISH.on) && !VEH.cur;
   if (V.xcRack) { V.xcRack.visible = !!xcOwn() && !(FOOT.on && FOOT.ski && !DMT.on) && !SCHOOL.on; if (V.xcRack.visible && V.machineOf) { const ud = V.machineOf(((PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef()).id).userData; V.xcRack.position.set(-(ud.tw / 2 + 0.06), 0.68, ud.zBack + 0.93); } }
   wnUpdate(dt);
   BOG.sink += ((BOG.on ? BOG.depth * 0.42 : 0) - BOG.sink) * (1 - Math.exp(-3 * dt));
@@ -14719,7 +14777,7 @@ function sledWhere() {
   const a = Math.abs(r) * 180 / Math.PI, side = r > 0 ? "left" : "right";
   const way = a < 20 ? "straight ahead" : a < 65 ? `ahead on your ${side}` : a < 115 ? `on your ${side}` : a < 160 ? `behind you on your ${side}` : "behind you";
   const m = d < 50 ? Math.round(d) : d < 500 ? Math.round(d / 10) * 10 : Math.round(d / 50) * 50;
-  return `Sled ${m < 1000 ? m + " m" : (m / 1000).toFixed(1) + " km"} ${way}`;
+  return `${VEH.noun} ${m < 1000 ? m + " m" : (m / 1000).toFixed(1) + " km"} ${way}`;
 }
 function wnPrompt() {
   let h = "", show = false;
@@ -14729,7 +14787,7 @@ function wnPrompt() {
     h = HELP.called ? `RESCUE SLED INBOUND · ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : "IN THE WATER · F: CALL FOR HELP";
   } else if (FOOT.on) {
     show = true;
-    const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);
+    const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);
     const ih = intDoorHint(); if (ih) h = ih;
     else if (sarPrompt()) h = sarPrompt();
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
@@ -14741,9 +14799,9 @@ function wnPrompt() {
       h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
-    else h = (FISH && FISH.hint()) || (near ? keyHint("mount", "get on the sled") : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
-  } else if (BOG.on) { show = true; h = `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
-  else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
+    else h = (FISH && FISH.hint()) || (near ? keyHint("mount", VEH.board) : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
+  } else if (BOG.on) { show = true; h = VEH.cur ? `STUCK · ${keyHint("dismount", "get out")} and dig · ${btn("reset")}: reset` : `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
+  else if (BOG.acc > 0.4) { show = true; h = VEH.cur ? "WHEELS DIGGING IN · ease off the throttle" : "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
   else if (intRideHint()) { show = true; h = intRideHint(); }
@@ -15589,6 +15647,7 @@ function crashOk() {
 }
 // throw the rider off with the sled's velocity. skip: the trunk you hit, ignored for a moment so you sail past it
 function crashEject(why, vx, vy, vz, skip) {
+  if (VEH.cur) return;                                   // a cab keeps you in: damage and a thud instead (tlx-vehicles.js)
   if (!crashOk()) return false;
   const C = CRASH, spd = Math.hypot(vx, vz), fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
   C.on = true; C.st = "fly"; C.t = 0; C.t2 = 0; C.still = 0; C.inj = 0; C.why = why; C.spd = spd; C.skip = skip || null; C.bounce = 0; C.lastHit = -9; C.solid = 0;
@@ -15835,8 +15894,16 @@ function initExpansion() {
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on,
-    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt },
-    mesh: { box, cyl, ball, std }
+    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt,
+      cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin },
+    mesh: { box, cyl, ball, std },
+    // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
+    veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
+    getG: () => G, ST: () => ST, restat, now: () => gameClock, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
+    enterBog, freeBog, thinIceStep, emit, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
+    newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
+    garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
+    swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();
 }

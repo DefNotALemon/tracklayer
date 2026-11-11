@@ -344,6 +344,30 @@ out they close: the Map app shows each one as open, melting or closed, and work 
 only goes where the trail still holds (melting trails pay a little extra). At the end of May
 there's a summer montage, then it all freezes over again for the next winter.
 
+## The pickup
+
+The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive
+pickup for $4,200. It is a bought-new machine like the sleds: pay, and it is parked on the plowed
+forecourt with a full 70 L tank, clear of your sled. You can own up to three.
+
+It is a truck, not a bigger sled. On plowed yards, village lanes and hard pack it grips, pulls
+away properly and carries eight parcels in the bed. The cab is closed and heated, so you lose a
+fraction of the warmth you lose on the sled. In fresh powder it has nothing to float on: each tyre
+sinks, the belly drags, and the more you spin the wheels the deeper they dig. Hold the throttle and
+it ends stuck to the axles. Then you get out and dig (there is no winch on it), or reset. Drive in
+the ruts you have already pressed and it is easier, which also means you can usually back out the
+way you came. It understeers on ice, hits trees and houses like a ton and a half of truck (a dented
+panel, not a crash), and goes through thin lake ice quicker than the sled does. It is for roads once
+there are roads. The open fell is still the sled's.
+
+Walk up to a truck and the on-foot line says **get in the pickup** instead of **get on the sled**:
+whichever vehicle is nearest is the one the get-on button takes. The walker goes round to the
+driver's door, opens it, steps up, sits and pulls it shut. Getting out is the same in reverse.
+Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
+the brake at a standstill to reverse. Each vehicle keeps its own fuel and its own parcels, and
+stays where you left it, including across a save and a reload (reload while sitting in the pickup
+and you are still in it). The tablet, hitching a trailer to it and carrying a sled come later.
+
 ## The hitch and bigger work
 
 The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**
