@@ -9,7 +9,7 @@ in "Status". `loop/LOOP.md` goal G4 and its Owner note point here. Owner notes i
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); next: 2.2 |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); next: 2.4 |
 | 3-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -106,12 +106,24 @@ Land in order. Each milestone is playable and complete when it lands. 2 to 8 all
       the on-foot hint line, bogged line and rescue prompts name the right control. `x2_use.mjs`.
       Left: X (size it up / double the line) is keyboard + Xbox X only in text; about 30 older toasts still
       hard-code keys (crash, bog, rescue call-out, help). Move each when its system is next touched.
-- [ ] 2.2 The vehicle interface: a `VEHICLES` table and a vehicle object (pose, seats, fuel, damage, warmth, mount
-      points, `step`, `pose`) with the sled wrapped as the first one, unchanged. Nearest-vehicle mounting: Q / LB /
-      GET ON picks the closest, the on-foot prompt names it. Scenario: smoke numbers identical, sled still mounts.
-- [ ] 2.3 One pickup: model, wheeled physics on the snow field (grips on plowed/packed, bogs in powder by wheel
-      load and depth; realism-first), enter/exit animation, closed-cab warmth, fuel, headlights, camera. Bought new
-      at the garage. Parked position saved. Scenario: speed on plowed lane vs 0.6 m powder, bog, warmth in cab.
+- [x] 2.2 (v171) The vehicle interface: `tlx-vehicles.js`, a `VEHICLES` table and a driver object (core, restat, visual,
+      eye, mount, dismount, mountTick, dismountTick, nearMount) behind a small `VEH` bridge in tracklayer.js, every hook
+      behind `if (VEH.cur)`. P is the active vehicle; parked ones are records in `TLX.state("vehicles")`; `swapTo` is the one
+      place P, GS.fuel, GS.load and the bog state change hands. The nearest vehicle becomes P while you are on foot (1 m
+      hysteresis), so Q / LB / GET ON and the hint ("get in the pickup" / "get on the sled") talk about it. The sled is
+      untouched with nothing owned. `x2_pickup.mjs`.
+- [x] 2.3 (v171) One pickup, the Fjellvogn ($4,200, 1,900 kg, 70 L, 8 parcels, heated cab): extruded bevelled body, glass,
+      bed, four wheels that steer, spin and ride the ground one by one (one InstancedMesh), a seated driver baked from the real
+      walker (2 draw calls), lights that follow night, door that swings, walk-up / step-in / sit / pull-shut and the reverse.
+      Wheeled physics on the snow field (sink from depth and pack, rolling resistance, belly drag, mu-limited traction and
+      grip, Ackermann, wheelspin digs into the game's own bog, ruts pressed by each tyre via `pressSnow`, thin ice with the
+      truck's mass, water through the existing dunk), trees and buildings dent it instead of ejecting you. Garage "Trucks"
+      tab, parked on the plowed forecourt, saved with fuel / cond / parcels, reload while seated returns you to the seat.
+      About ten draw calls for the truck. `x2_pickup.mjs`.
+      Left over (not done, not hidden from the player): the garage preview does not show the truck (the showroom orbits P);
+      `cond` only trims engine power a little and is not shown in the HUD; no engine or door sound of its own (the sled's
+      engine note plays); tyre tracks and spray are the sled's particles; the mount animation was judged from stills at
+      0.1 s, not tuned further; steering wheel hands are baked static (the arms sway a little with the wheel).
 - [ ] 2.4 Tablet, map, jobs and parcels from the pickup's cab (the tablet must open in every vehicle and on foot).
 - [ ] 2.5 The universal hitch: one small coupling for sled, pickup and every small trailer; receivers stay as
       weight ratings. The five existing rigs hook to the pickup.

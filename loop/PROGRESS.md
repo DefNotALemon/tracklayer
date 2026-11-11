@@ -3,6 +3,52 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 00:25 — Expansion slices 2.2 + 2.3: the vehicle core and the Fjellvogn pickup (G4) — 004faa4
+New `tlx-vehicles.js` (own `?v=1`; `tlx.js` ?v=2 for a small `save()` hook) plus a small `VEH` bridge in tracklayer.js, every hook behind
+`if (VEH.cur)`: physStep, restat, updVisuals (the parked sled and its tow rig are drawn from their own pose through `parkedSled`, the
+first-person eye comes from the vehicle), rescueTick (rider hidden), winchDef null, towSnap skipped, mount / dismount / mountTick /
+dismountTick, enterBog wording and mass, the on-foot and stuck hints ("get in the pickup", "STUCK", noun in the sled-locator line),
+footStep's wall (`VEH.block`), the touch GET OFF button, crashEject (a cab keeps you in), schoolBegin (refuses in a truck), garage
+extra tabs, and api additions (`pressSnow` beside stampAt, `obstaclesNear`, the walker, headlight, bog, thin ice...). P is the active
+vehicle; parked vehicles are records `{uid, id, x, z, yaw, fuel, cond, load, bog, safe}` in `TLX.state("vehicles")`; `swapTo` is the one
+place P, GS.fuel, GS.load and the bog state change hands (live parcels wait in a side map, the save gets plain JSON with sites by id).
+The nearest vehicle becomes P while you are on foot (1 m hysteresis, not mid-mount, not with the winch hooked, not in the tutorial /
+school / indoors), so Q / LB / GET ON take it and the hint names it. The sled with nothing owned runs the old code paths untouched.
+The pickup (VEHICLES row "pickup", Fjellvogn, $4,200, 1,900 kg, 70 L, 8 parcels, heated cab, coldMul 0.12): ExtrudeGeometry bevelled body
+with arches, hollow cab you see the driver through, glass, bed with parcel boxes, bumpers, mirrors, lights (heads / tails separate,
+brake lights, unlit things dim at night; the game's one SpotLight is re-parented onto the truck so no shader recompiles), four wheels
+in one InstancedMesh that steer, spin and follow the ground one by one, a driver baked from the real walker in the seated pose
+(2 draw calls), a door that swings. Getting in: walk round to the door (round the nose or tail from the far side), turn, reach, door
+opens, lead foot in, duck, sit, turn forward, pull it shut (~3 s); out is the mirror and the door closes itself as you leave.
+Physics: per wheel the snow in front of it (depth d, fresh f, pack = 1 - d/f): sink = d (0.35 + 0.65 (1 - pack)), rolling resistance
+0.016 + 0.95 sink + 5 max(0, sink - 0.2)^2, belly drag past 0.26 m, mu 0.42 hard / 0.22 loose / 0.12 ice / 0.06 water, engine force
+capped by traction, excess is wheelspin and digs into the game's own bog, Ackermann steering with lateral grip capped by mu (it
+understeers), reverse by holding S at a standstill, slope gravity at real g, ruts pressed by each tyre, fuel 0.0012 + throttle,
+thin ice through thinIceStep with the truck's mass, water through the existing startDrown, trees / buildings push it out and dent `cond`.
+Measured by gameClock (x2_pickup): plowed lane 15.3 m/s after 4 s, 17.3 m/s after 5 s, 47 m, not bogged; 0.65 m of unpacked powder
+0.0 m/s, bogged inside 14 s of throttle; rut cell under a tyre 0.15 -> 0.05 m; reverse -1.5 m/s or better along the ruts; night warmth
+drain in the cab 0.09/s against 0.90/s on the sled at the same spot; sled 18.4 m/s after 4 s (unchanged by the truck's presence).
+Draw calls: the truck costs 10 (588 with, 578 without; 742 / 732 in the night run), 17k triangles.
+Gate: smoke, x1_save, x2_pickup (49 asserts), x2_use, x2_btn, g2_tutorial, g2_garage all exit 0, fails 0, page errors none; g2_bears
+passes. `x1_save.mjs` changed: its two "no systems yet" asserts now allow the registered, empty vehicles system. g2_santa fails the
+same way on origin/main (rareSpots()[0] null in the harness), so it is not from this change.
+Stills judged (all under ~/.hermes/cache/scratch/tlx/pickup/): o9/sheet_all.jpg (chase, side, rear-low, first person, bogged, night front /
+rear / chase), o7/sheet_in_s.jpg, sheet_in_f.jpg, sheet_in_q.jpg (in), o7/sheet_out_s.jpg (out), o5/park_*.jpg and cab_*.jpg (parked
+model and the seated driver). Found and fixed from them: lenses and grille buried in the nose bevel, the A pillar and instrument hood
+filling the first-person view, wheelspin digging too fast, full throttle killing all steering.
+Decisions: pickup is 4x4 (all four wheels share traction); slope force at real g, not the sled's game g (32.4), so it climbs
+what its tyres can hold and the sled keeps the open fell; throttle coupling to lateral grip is 0.7 of the friction circle so a
+full-throttle corner still steers; parcels serialised as JSON with sites by id and the live objects kept in memory so Bytteboden
+crate jobs survive a swap (they are not saved, like the sled's); the sled's headlight moves to the truck instead of adding a light.
+NOT verified: sled byte-for-byte identical (smoke / det runs differ run to run on the base too because of Math.random in the
+particles; the sled path is unchanged behind `if (VEH.cur)` and its smoke numbers agree to noise: walk 1.69 vs 1.70 m/s);
+thin-lake-ice and open-water behaviour of the truck were not driven (code reuses thinIceStep / startDrown); a truck up a steep
+slope against the sled was not measured; the pad and touch paths were driven only for get in / get out; tyre contact through
+bumps and landings was judged in stills of flat ground, not a jump; the garage preview does not show the truck.
+Left: the tablet in the cab (2.4), hitching trailers (2.5), carrying a sled (2.6), Bytteboden listings (2.7); cond is not shown in the
+HUD; no truck-specific engine or door sound; the showroom camera orbits P (the truck when you are in it).
+In progress: nothing. Next: 2.4.
+
 ## 2026-11-10 23:25 — Expansion slice 2.1b: the on-foot use action on pad and touch (G4) — 0f32f27
 E on foot (`footAction`) had no pad or touch binding, so a pad or touch player could not dig a bogged sled out, hook
 the winch, or help a SAR casualty up. Now: pad L3 on foot = E (it was the horn, which is off on foot anyway); the touch
