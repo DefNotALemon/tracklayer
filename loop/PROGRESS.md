@@ -26,7 +26,7 @@ the deck (y = deck). Unstrapped, holding reverse backs it down the ramp onto the
 on it. swapTo back to the sled starts it at its own height (so a sled on the deck doesn't drop through it).
 `x2_deck.mjs` (28 asserts) incl. keyboard E strap, pad L3 unstrap, touch STRAP, a junk strap field loading as unstrapped. Stills
 (behind, on the ramp pitched up, on the deck, strapped with straps) judged: sled sits on the boards, no sinking or floating.
-Gate: smoke, x1_save, x2_deck, x2_haul, x2_hitch, x2_pickup all exit 0, fails 0, page errors none.
+Gate: smoke, x1_save, x2_deck, x2_haul, x2_hitch, x2_pickup all exit 0, fails 0, page errors none; after the rebase onto the mobile-HUD commit (68df8e5, which had also taken v178) smoke, x1_save, x2_deck re-run green and the script bumped to v179.
 Decisions: no crash for hitting the rail fast (a thud, a shake and the parcel knock; a crash state on a 0.5 m deck looked worse
 than it was worth); strapping is instant (toast + straps), no animation, like hitching.
 Left (2.6c): the strapped sled's weight on the truck (inertia, receiver rating), a full tow run checked end to end (Map pin,
