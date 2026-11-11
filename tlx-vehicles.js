@@ -287,6 +287,7 @@ const wheelXZ = (R, i, P, out) => {                                          // 
   out[0] = P.x + fz * sx + fx * az; out[1] = P.z - fx * sx + fz * az; return out;
 };
 const _w = [0, 0];
+const BELLY = [0.6, -0.6, -1.6];                                               // where the chassis bottom ploughs, m along the centre line
 // a point in the vehicle's frame -> world
 const toWorld = (P, lx, lz, out) => { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw); out[0] = P.x + fz * lx + fx * lz; out[1] = P.z - fx * lx + fz * lz; return out; };
 
@@ -303,7 +304,10 @@ function core(R, dt) {
   let vx = P.vx, vz = P.vz;
   const parked = FOOT.on || GS.dead;                                         // standing or climbing in/out: the brake is on
   // --- the four wheels: the snow in front of each sets its sink, rolling resistance and grip; its own cell sets where it sits
-  const sgn = Math.sign(vx * fx + vz * fz) || 1, ahead = 0.42 * sgn;
+  // which way the tyres are about to roll: the way it's moving, or at a crawl the way the driver is asking (S held with no
+  // throttle = reverse), so backing out reads the truck's own ruts behind it, not the unbroken bank it just braked into (0108 #1)
+  const vf_ = vx * fx + vz * fz, wantRev = input.brk > 0 && !(input.thr > 0) && !FOOT.on && vf_ < 0.8;
+  const sgn = Math.abs(vf_) < 0.5 ? (wantRev ? -1 : 1) : Math.sign(vf_), ahead = 0.42 * sgn;
   let sinkS = 0, packS = 0, muS = 0, crS = 0, wetN = 0;
   for (let i = 0; i < 4; i++) {
     wheelXZ(R, i, P, _w); const x = _w[0], z = _w[1], g = gnd(x, z), db = depthBi(x, z), ix = Math.round((x + HALF) / CELL), iz = Math.round((z + HALF) / CELL);
@@ -328,7 +332,10 @@ function core(R, dt) {
   if (P.thin > 0 && started && !GS.dead) api.thinIceStep(dt, Math.hypot(vx, vz), M, fx, fz);
   else api.MELT.crack = Math.max(0, api.MELT.crack - 0.8 * dt);
   // belly drag: the snow the chassis has to push once it is past the clearance
-  const sc = gnd(P.x, P.z) + depthBi(P.x, P.z), emb = Math.max(0, sc - (Hc + d.clearance)), cb = 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.2);
+  // read at the chassis' leading edge (the way it is rolling): the belly ploughs a trench behind it (pressed below), so the
+  // way back along it is clear and only fresh snow in front pushes back
+  const bx = P.x + fx * 1.5 * sgn, bz = P.z + fz * 1.5 * sgn;   /* clear of the pressing (BELLY) going forward */
+  const sc = gnd(bx, bz) + depthBi(bx, bz), emb = Math.max(0, sc - (Hc + d.clearance)), cb = 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.2);
   const condK = 0.65 + 0.35 * R.rec.cond / 100;
   // --- longitudinal: engine, brake, reverse against traction and resistance
   let vf = vx * fx + vz * fz, vl = vx * lx + vz * lz;
@@ -338,7 +345,8 @@ function core(R, dt) {
   let Fe = 0;
   if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = thrE * Math.min(d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }
   let Fx = 0, spin = 0;
-  if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.6, T0) * input.brk * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
+  /* reverse is geared about as low as first: 0.8 of fmax (was 0.6, too weak to back a trailer out of soft snow, 0108) */
+  if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * input.brk * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
   else if (input.brk > 0 && !parked) Fx = -Math.min(9500, T0 * 0.98) * input.brk * (vf > 0.4 ? 1 : 0.25);
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
@@ -377,12 +385,13 @@ function core(R, dt) {
   // --- wheelspin digs: spin in the soft stuff, or a truck that cannot move at all, builds toward the game's own bog
   if (BOG.immune > 0) BOG.immune -= dt;
   const stuck = Fres > T0 * 0.92 ? 1 : 0, spd0 = Math.hypot(vx, vz);
-  R.spinK = thrE > 0.2 ? Math.min(1.6, spin + stuck * 0.8) : 0;
+  const eff = thrE > 0 ? thrE : rev ? input.brk : 0;                         // S in reverse spins the wheels too (0108 #1)
+  R.spinK = eff > 0.2 ? Math.min(1.6, spin + stuck * 0.8) : 0;
   if (!BOG.on && !parked && gndOK && !P.ice && P.wet === false && BOG.immune <= 0 && !HELP.on) {
-    const dig = thrE > 0.25 && spd0 < 3.5 && sinkS > 0.07 ? (spin * 0.6 + stuck * 0.55) * 0.2 * thrE * clamp(sinkS / 0.3, 0.25, 1.5) : 0;
+    const dig = eff > 0.25 && spd0 < 3.5 && sinkS > 0.07 ? (spin * 0.6 + stuck * 0.55) * 0.2 * eff * clamp(sinkS / 0.3, 0.25, 1.5) : 0;
     if (dig > 0.01) {
       BOG.acc += dig * dt;
-      if (BOG.acc > 0.45 && !BOG.warned) { BOG.warned = true; toastDig(); }
+      if (BOG.acc > 0.45 && !BOG.warned) { BOG.warned = true; toastDig(rev); }
       if (BOG.acc >= 1) api.enterBog(clamp(0.3 + 0.9 * sinkS, 0.3, 0.85));
     } else { BOG.acc = Math.max(0, BOG.acc - 0.6 * dt); if (BOG.acc < 0.2) BOG.warned = false; }
   } else if (!BOG.on) BOG.acc = Math.max(0, BOG.acc - 1.2 * dt);
@@ -409,6 +418,13 @@ function core(R, dt) {
   if (gndOK && wetN === 0 && !P.ice) {
     const kp = 0.3 + 0.1 * Math.min(1, sinkS / 0.3);
     for (let i = 0; i < 4; i++) { wheelXZ(R, i, P, _w); w.pressSnow(_w[0], _w[1], d.tyreW * 0.62, kp); if (spd0 > 1) w.markTrail(_w[0], _w[1], true); }
+    // the belly ploughs: snow above the chassis bottom along the centre line is pushed down to it (0108 #1: the trench is
+    // the way back out)
+    if (spd0 > 0.2) for (const o of BELLY) {
+      const x = P.x + fx2 * o, z = P.z + fz2 * o, fr = w.freshAt(Math.round((x + HALF) / CELL), Math.round((z + HALF) / CELL));
+      if (fr < 0.05) continue;
+      const lvl = Hc + d.clearance - gnd(x, z); if (lvl < fr) w.pressSnow(x, z, d.wid * 0.3, clamp(lvl / fr, 0.05, 1));
+    }
   }
   // spray off the tyres: powder when it is deep or when they spin, a little dust of snow otherwise
   if (gndOK && wetN === 0) {
@@ -428,7 +444,7 @@ function core(R, dt) {
   const roll = vf / d.tyreR * dt; for (let i = 0; i < 4; i++) R.spin[i] += roll + (i < 2 && !(R.spinK > 0) ? 0 : R.spinK * 18 * dt);
   R.brake = input.brk > 0 && vf > 0.5 ? 1 : 0; R.rev = rev ? 1 : 0;
 }
-function toastDig() { api.toast("The wheels are digging in. Ease off, or back out along your own ruts.", "warn"); }
+function toastDig(rev) { api.toast(rev ? "The wheels spin in reverse and dig in. Ease off before it's stuck to the axles." : "The wheels are digging in. Ease off, or back out along your own ruts.", "warn"); }
 
 // trees, buildings and boulders stop it: no ejection from a cab, a dent in the paint and a thud instead
 function collide(R, dt, fx, fz) {

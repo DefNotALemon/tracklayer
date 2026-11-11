@@ -435,7 +435,9 @@ Walk up to a truck and the on-foot line says **get in the pickup** instead of **
 whichever vehicle is nearest is the one the get-on button takes. The walker goes round to the
 driver's door, opens it, steps up, sits and pulls it shut. Getting out is the same in reverse.
 Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
-the brake at a standstill to reverse. Each vehicle keeps its own fuel and its own parcels, and
+the brake at a standstill to reverse. Off the plowed lanes a truck backs out along its own ruts
+and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
+reverse and dig in) and then bogs like the sled, with the usual dig-out. Each vehicle keeps its own fuel and its own parcels, and
 stays where you left it, including across a save and a reload (reload while sitting in the pickup
 and you are still in it).
 

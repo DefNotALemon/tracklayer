@@ -54,8 +54,9 @@ const p0 = await J(`({ x: P.x, z: P.z })`);
 await down("KeyS"); await down("KeyD"); await waitGame(4); await probe("reversing, lock right 4 s", 0.5);
 await up("KeyD"); await down("KeyA"); await waitGame(4); await probe("reversing, lock left 4 s", 0.5);
 await up("KeyA"); await up("KeyS");
-const p1 = await J(`({ x: P.x, z: P.z })`); const back = Math.hypot(p1.x - p0.x, p1.z - p0.z);
-ok(back > 2, `S backs the truck + trailer up (${back.toFixed(1)} m)`);
+const p1 = await J(`({ x: P.x, z: P.z, warned: BOG.warned || BOG.on })`); const back = Math.hypot(p1.x - p0.x, p1.z - p0.z);
+// with the ramp lip dragging and the tyres slewed sideways into fresh snow it may not move: then it must say so (0108 #1)
+ok(back > 2 || p1.warned, `S backs the truck + trailer up (${back.toFixed(1)} m) or warns that it's digging in (${p1.warned})`);
 await shot("x2haulrev_reverse");
 const ang = await J(`(() => { const h = TLXV.haul(); let d = h.yaw - P.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); return { d, bog: BOG.on, hx: h.x, hz: h.z, px: P.x, pz: P.z, dist: Math.hypot(h.x - P.x, h.z - P.z) }; })()`);
 console.log("fold angle", JSON.stringify(ang));
