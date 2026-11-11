@@ -468,7 +468,8 @@ is well inside that, but the truck pulls it slower off the line and its tyres dr
 Raise the ramp before you drive off: towed with the ramp down, its lip drags through the snow and
 you're told so. The Map shows the sled and its trailer where they are, and everything stays
 hitched and strapped through a reload. Unhitch the sled's own drag or trailer before loading it:
-a sled towing a rig can't be strapped on.
+a sled towing a rig can't be strapped on, and the garage won't fit a rig to a sled that's strapped
+down (unstrap it first; a rig put on any other way takes the straps off and says so).
 
 ## The hitch and bigger work
 

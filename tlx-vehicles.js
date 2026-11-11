@@ -972,6 +972,8 @@ function rigTick() {                                                            
   if (rg.kind !== kind) {                                                       // the garage (or a seller) put a different rig on: it goes on the sled
     const first = rg.kind === undefined; rg.kind = kind;
     if (rg.on !== "sled") { rg.on = "sled"; if (!first) api.tow.kind = null; api.restat(); }
+    const h = haulS();                                                          // a sled with a rig can't ride strapped (strap() refuses it): the straps come off
+    if (h && h.strap && api.HITCH[kind]) { h.strap = null; api.toast(`The ${RIG_NOUN[kind] || "rig"} went on the sled, so its straps on the trailer came off. Unhitch the ${RIG_NOUN[kind] || "rig"} to strap it down again.`, "warn"); api.save(); }
     return;
   }
   if (rg.on != null && rg.on !== "sled" && !rec(rg.on)) { rg.on = null; api.restat(); }   // the truck is gone: the rig stays where it stood
@@ -1415,6 +1417,7 @@ TLX.register({
       bogRestore(to.bog, to.x, to.z);
     }
     rigRestore();
+    { const h = haulS(); if (h && h.strap && sledRig()) h.strap = null; }        // a damaged save with a rig on the strapped sled: the strap goes (report 0102)
   },
   tick, save
 });

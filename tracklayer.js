@@ -9461,6 +9461,7 @@ function fitPart(cat, id) {
   const o = partDef(cat, id), tierOK = sledTier() >= o.tier;
   const bw = cat === "boost" ? boostWhy(sledDef(), id) : "";
   if (bw) { toast(bw, "warn"); return; }
+  if (cat === "hitch" && id !== "none" && VEH.strapped && VEH.strapped()) { toast(`The sled is strapped to the trailer. Unstrap it before you put a ${o.name.toLowerCase()} on it.`, "warn"); return; }
   if (cat === "hitch" && id !== "none" && !recvOk(id)) { toast(`The ${o.name.toLowerCase()} needs ${recvNeed(id)} first (Hitch receiver, above).`, "warn"); return; }
   if (cat === "recv" && !recvOk(GS.own.parts.hitch, { parts: Object.assign({}, GS.own.parts, { recv: id }) })) { toast(`The ${partDef("hitch", GS.own.parts.hitch).name.toLowerCase()} needs ${recvNeed(GS.own.parts.hitch)}. Unhitch it first.`, "warn"); return; }
   if (GS.own.partsOwned[ownKey(cat, id)] || o.cost === 0) { GS.own.parts[cat] = id; restat(); renderGarage(); save(); return; }
