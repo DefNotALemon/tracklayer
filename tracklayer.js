@@ -396,7 +396,9 @@ document.documentElement.classList.toggle("mobile", GFX.mobile);
 document.documentElement.classList.toggle("phone", GFX.phone);
 document.documentElement.classList.toggle("ios", GFX.ios);
 document.documentElement.classList.toggle("standalone", GFX.standalone);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !GFX.low, powerPreference: "high-performance" });
+// MSAA is cheap even on the low-end rung (the canvas itself stays capped by GFX.pr), and the jaggy edges it fixes
+// are what phones notice most, so it's always on now (used to be off for GFX.low).
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(GFX.pr);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;

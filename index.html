@@ -741,6 +741,7 @@
   body.tabOn #tut{opacity:.16}
   #garage .row.tutRow{border:1px solid var(--signal);box-shadow:0 0 0 1px var(--signal) inset}
   @media (max-width:640px){#tut{width:min(250px,calc(100% - 32px));padding:7px 10px 9px}#tut .tuTitle{font-size:15px}#tut .tuBody{font-size:11.5px}}
+  body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
   /* ==== touch controls: the mobile scheme (markup: #touch; behaviour: "touch controls" in tracklayer.js) ====
      Dark glass with thin frost rings and line icons; whatever the thumb is on lights signal orange. The left thumb's
@@ -817,13 +818,12 @@
      and the toasts down the left; the speedo sits above the stick. --tutB is the tutorial card's bottom edge (0 when
      hidden; tutEdge in tracklayer.js) so the toasts hang under it rather than on it. */
   @media (max-width:640px) and (orientation:portrait){
-    body.touch{--ph-top:calc(143px + env(safe-area-inset-top,0px))}
-    body.touch #zone{top:calc(12px + env(safe-area-inset-top,0px));left:12px}
-    body.touch #mapWrap{top:calc(12px + env(safe-area-inset-top,0px));right:12px}
+    /* zone/map are gone on touch now, so this only has to clear the vit/speedo corner pods, not a full card. */
+    body.touch{--ph-top:calc(64px + env(safe-area-inset-top,0px))}
     body.touch #tcSys{top:var(--ph-top);right:12px}
     body.touch #tcSheet{top:calc(var(--ph-top) + 52px);right:12px}
     body.touch #job{top:var(--ph-top);left:12px;right:120px;transform:none;max-width:none}
-    body.touch #tut{top:calc(var(--ph-top) + 58px)!important;left:12px!important;right:12px;width:auto}
+    body.touch #tut{top:calc(var(--ph-top) + 58px)!important;left:50%!important;right:auto!important;transform:translateX(-50%);width:min(280px,calc(100% - 32px))}
     body.touch #toasts{top:max(calc(var(--ph-top) + 58px), calc(var(--tutB,0px) + 8px));left:12px;right:12px;width:auto;transform:none;justify-items:start}
     body.touch #speedo{left:12px;bottom:calc(196px + env(safe-area-inset-bottom,0px))}
     body.touch #tcQ{bottom:calc(150px + var(--sb))}
@@ -841,7 +841,7 @@
   @media (max-height:500px) and (orientation:landscape){
     body.touch #map{width:72px;height:72px}
     body.touch #job{max-width:min(420px,calc(100% - 2 * (24px + var(--mapW,128px) + 104px)))}
-    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;left:50%!important;transform:translateX(-50%);width:min(300px,calc(100% - 400px));padding:6px 10px 7px}
+    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;left:50%!important;transform:translateX(-50%);width:min(300px,calc(100% - 260px));padding:6px 10px 7px}
     body.touch #tut.pop{animation:none}
     body.touch #tut .tuTitle{font-size:15px}
     body.touch #tut .tuBody{font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
@@ -859,7 +859,7 @@
     body.touch #speedo{left:calc(130px + env(safe-area-inset-left,0px))}
     body.touch #tcQ{bottom:calc(128px + var(--sb))}
     body.touch #tcWipe{bottom:calc(174px + var(--sb))}
-    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;width:min(340px,calc(100% - 420px));padding:5px 10px 6px;gap:1px}
+    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;width:min(340px,calc(100% - 280px));padding:5px 10px 6px;gap:1px}
     body.touch #tut .tuTitle{font-size:14px}
     body.touch #tcE{left:calc(50% + 30px)}
     body.touch #tut .tuBody{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -888,15 +888,19 @@
   #rev .arc.red{stroke:#ff3b2a}
   #vit{position:fixed;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:2;pointer-events:none;
     display:flex;flex-direction:column-reverse;gap:6px;width:150px}
+  body.touch #vit{flex-direction:column}
   #vit[hidden]{display:none}
+  /* mobile (11 Nov 2026): drop the old "where you are" zone card and the minimap, and move the vitals/speed pods
+     up to the top corners so they're never still fighting the touch stick and pedals for the same bottom strip. */
+  body.touch #zone,body.touch #mapWrap{display:none!important}
   .vb{height:5px;border-radius:3px;background:rgba(10,18,26,.5);box-shadow:0 0 0 1px rgba(234,242,248,.08);overflow:hidden;opacity:.06;transition:opacity 1.1s ease-out}
   .vb.on{opacity:.92;transition:opacity .12s ease-out}
   .vb i{display:block;height:100%;width:100%;border-radius:3px;transform-origin:left center;background:var(--c)}
   .vb.low i{animation:vbLow 1s ease-in-out infinite}
   @keyframes vbLow{50%{filter:brightness(1.6)}}
   .vb.warm{--c:#e0392e}.vb.hunger{--c:#8b5a2b}.vb.fuel{--c:#f1c232}.vb.thirst{--c:#3b9ae1}
-  body.touch #vit{width:110px;bottom:calc(128px + env(safe-area-inset-bottom,0px))}
-  body.touch #speedo{right:16px!important;bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
+  body.touch #vit{width:110px;top:calc(16px + env(safe-area-inset-top,0px));bottom:auto;left:calc(16px + env(safe-area-inset-left,0px))}
+  body.touch #speedo{right:calc(16px + env(safe-area-inset-right,0px))!important;top:calc(32px + env(safe-area-inset-top,0px))!important;bottom:auto!important}
   #compass{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:2;width:min(420px,calc(100vw - 460px));min-width:220px;pointer-events:auto;cursor:pointer;display:grid;justify-items:center}
   #compass[hidden]{display:none}
   #cpStrip{position:relative;width:100%;height:26px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent);
@@ -1125,5 +1129,5 @@
 <script src="tlx-survival.js?v=1"></script>
 <script src="tlx-hud.js?v=1"></script>
 <script src="tlx-wounds.js?v=1"></script>
-<script src="tracklayer.js?v=177"></script>
+<script src="tracklayer.js?v=178"></script>
 </body></html>
