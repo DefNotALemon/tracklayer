@@ -3,6 +3,26 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 16:35 — Beta fix 0106: WIPE VISOR / BANDAGE / CALL HELP pills apart on phones (G4) — 827c676
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: report 0106 (phone HUD v183 worst-case pills) has two BUGs on landed work, taken ahead of 2.7: #1 WIPE VISOR
+sat exactly under BANDAGE at every portrait size (right 16, bottom 284; both live after a crash in a storm), #2 landscape
+BANDAGE on the speedometer (667x375, 844x390) and CALL HELP on GARAGE (667x375). #3 (REEL near HORN/LEAN with all six pills
+forced) is POLISH: the new layout leaves REEL clean at every size tested, no change. #4 is a confirmed non-bug. Last triaged
+report 105 -> 106.
+Fix (index.html CSS only): portrait WIPE VISOR joins the left column (left 16, bottom 244, above CALL HELP at 196 and GET OFF);
+landscape BANDAGE goes to the left column above WIPE VISOR (left 24, bottom 246; 220 on <=330 px-high phones, under the vitals
+bars), CALL HELP steps up a row (bottom 64); on <=330 px-high landscape GARAGE sits at 50%+20 px (it was 4 px onto WHEELIE).
+Before (x4_mobilehud4.mjs, the report's scenario): 5 FAIL (tcWipe x tcBand at 320x568/360x640/390x844, tcF x tcE + tcBand x
+speedo at 667x375, tcBand x speedo at 844x390). After: new `x4_pills.mjs` all passed: a REAL wound (TLX.wounds.hit) + iced
+visor shows BANDAGE and WIPE VISOR both hit-testable (elementFromPoint) at 7 sizes, and all six pills forced on overlap
+nothing (pills vs each other, stick, pedals, chips, TABLET/MORE, speedo, vitals, compass) at 320x568, 360x640, 390x844,
+430x932, 568x320, 667x375, 844x390. Contact sheet judged: pills clear everywhere.
+Follow-up seen in the stills (not fixed, for a beta pass): while bleeding, the wound HUD's "BLEEDING" / "BANDAGE · 3 bandages"
+label and red health pool at the bottom of the screen draw across BRAKE / WHEELIE and the stick caption in portrait and over
+GARAGE in landscape (visual only; the pills stay tappable).
+Gate: smoke 0, x1_save 0, x4_pills 0, x4_mobilehud2 0, x4_mobilehud 0, page errors none.
+
 ## 2026-11-11 16:15 — Beta fix 0104: GET OFF clear of GARAGE on 320-wide phones (G4) — 7da657e
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0104 (phone HUD v181: cab, tablet open, 320 px) #1 is a BUG on landed work, taken ahead of 2.7: at
