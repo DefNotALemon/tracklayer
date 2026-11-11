@@ -21,8 +21,8 @@ sledBody from the load on the boards. Camera: no `camState.init = false` unless 
 head kit and pack (`walkerLook`, from GS.own.gear.head). Input to the sled is zeroed while MNT / DMT are on; pushing a direction during
 the walk-over cancels it. Ski mount range 6 > 4.5 m (you walk the rest). Trucks keep their own sequence.
 Measured (`scenarios/g2_swing.mjs`, rAF stepped at 1/60): swing 1.40-1.47 s on, 1.40-1.45 s off on all 10 sleds; pelvis never over
-2.4 m/s frame to frame (limit 3.2); planted boots creep under 1 cm; ankle clears the cushion by 14-25 cm; hips within 2.5 cm of the
-rider's at the swap, both hands on the grips; sled roll peak 0.05 rad. From a ring round the sled (8 bearings x 1 / 2 / 3.4 m) riding
+2.4 m/s frame to frame (limit 3.2); planted boots creep under 1 cm; ankle clears the cushion by 13-24 cm; hips within 2.8 cm of the
+rider's at the swap, both hands on the grips; sled roll peak 0.05-0.06 rad. From a ring round the sled (8 bearings x 1 / 2 / 3.4 m) riding
 in 2.0-4.4 s. Depot yard (snow level with the sled's base, a 0.47 m step): same asserts pass. Stills judged from rear and front-quarter
 strips at 0.1 s. Gate: smoke, x1_save, g2_swing, g2_tutorial (its Q step now polls FOOT.on instead of sleeping 3.5 s), x2_pickup.
 Not done: a passenger behind you is not avoided by the leg; the pickup's door sequence is still the posed kind; the walk-over inherits
