@@ -2368,7 +2368,7 @@ function updTouch() {
   if (!TC.on) return;
   const modal = GS.garageOpen || !$("settings").hidden || godOpen || GS.dead;
   $("touch").classList.toggle("modal", modal);
-  const lbl = GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
+  const lbl = GS.near === garageSite ? "GARAGE" : (FOOT.on && footUse()) || (FISH && !FISH.blocking() && FISH.ctxLabel()) || null;
   const e = $("tE"); e.hidden = !lbl; if (lbl && e.textContent !== lbl) e.textContent = lbl;
   const hb = $("tHorn"); if (hb) hb.hidden = FOOT.on;
   const w = $("tWing"); if (w) { w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn); }
@@ -2394,7 +2394,7 @@ function updTouch() {
       else if (k === "map") TABLET.toggle(undefined, "map");
       else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
-      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FISH) FISH.ctx(); }
+      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (FOOT.on && footUse()) gameKey({ code: "KeyE" }); else if (FISH) FISH.ctx(); }
       else if (k === "horn") horn();
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
@@ -2472,7 +2472,7 @@ function readInput(dt) {
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
-    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started && !(FISH && FISH.ctx())) horn(); padHorn = l3;   // L3 is E: fish / shop / sell, else the horn
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!(FISH && FISH.ctx())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
@@ -8994,9 +8994,13 @@ const BTN = {
   tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" },
   view: { kbm: "V", xbox: "R3", ps: "R3", nin: "Right stick click", touch: "CAM" },
   reset: { kbm: "N", xbox: "View", ps: "Create", nin: "−", touch: "↺" },
-  menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" }
+  menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" },
+  use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
+  reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" }
 };
-function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } return t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; }
+function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
+// a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
+function hk(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a) + ": " + what; }
 addEventListener("keydown", () => { INP.dev = "kbm"; }, true);
 addEventListener("pointerdown", e => { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
 function tutPadPoll() {
@@ -14009,6 +14013,27 @@ function wnStow(mountAgain) {
 }
 const anchorPt = a => [a.x, surf(a.x, a.z) + 0.5, a.z];
 // E on foot: hook, unhook, or start digging
+// What E would do right here on foot, as one word (the touch button wears it), or null when there's nothing to use.
+// Reads only: the doing is footAction. Keep the two in step.
+function footUse() {
+  if (!FOOT.on || GS.dead || GS.garageOpen || tutHidden()) return null;
+  const c = SAR.cur;
+  if (c && !c.res) {
+    const v = c.v;
+    if (v.state === "rig" && c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4) return "RIG TOW";
+    if (v.state === "waiting" && Math.hypot(v.x - FOOT.x, v.z - FOOT.z) <= 2.8) return c.kind === "save" ? "LOAD" : "HELP UP";
+  }
+  const wd = winchDef();
+  if (RJ.on && wd) {
+    const nv = rjNearest(FOOT.x, FOOT.z), eye = nv && rjEye(nv.v), de = nv ? Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z) : 99;
+    if (WN.state === "hooked" && WN.mode === "rescue") { if (nv && nv.v.hooked && de < 2.6) return "UNHOOK"; if (treesIn(FOOT.x, FOOT.z, 2.6).length || anchorsNear(FOOT.x, FOOT.z, 2.6).length) return "STRAP"; }
+    else if (WN.state === "out" && WN.snapT <= 0 && nv && de < 2.6) return "HOOK";
+  }
+  if (WN.state === "hooked" && WN.mode === "self") { const a = WN.anchor; return a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8 ? "UNHOOK" : null; }
+  if (wd && WN.state === "out" && WN.snapT <= 0 && anchorsNear(FOOT.x, FOOT.z, 2.6).length) return "HOOK";
+  if (BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6) return FOOT.dig ? "STOP" : "DIG";
+  return null;
+}
 function footAction() {
   if (!FOOT.on) return;
   const wd = winchDef(), near = () => Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6;
@@ -14024,14 +14049,14 @@ function footAction() {
     const ok = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
     if (ok) {
       WN.anchor = ok.o; WN.state = "hooked"; WN.mode = "self"; WN.stall = 0; WN.dbl = false;
-      toast(`Strap round the ${anchorName(ok.o)} (${anchorTag(ok.o)}, ${lbf(anchorCap(ok.o)).toLocaleString("en-US")} lb). ${BOG.on ? "Hold Space to reel." : "You're not stuck, but the line's on."}`);
+      toast(`Strap round the ${anchorName(ok.o)} (${anchorTag(ok.o)}, ${lbf(anchorCap(ok.o)).toLocaleString("en-US")} lb). ${BOG.on ? "Hold " + btn("reel") + " to reel." : "You're not stuck, but the line's on."}`);
       return;
     }
     if (cands.length) { toast(`The ${anchorName(cands[0].o)} is out of reach of your ${wd.len} m line.`, "warn"); return; }
   }
   if (BOG.on && near() && WN.state !== "hooked") { FOOT.dig = !FOOT.dig; toast(FOOT.dig ? "Digging. Hold still." : "Stopped digging."); return; }
-  if (!wd && !BOG.on) { toast("Nothing to do out here. Press Q at the sled to get back on.", "warn"); return; }
-  toast(wd ? "Walk up to a tree or a boulder and press E." : "Nothing to hook.", "warn");
+  if (!wd && !BOG.on) { toast(`Nothing to do out here. ${hk("mount", "get back on")} at the sled.`, "warn"); return; }
+  toast(wd ? "Walk up to a tree or a boulder to hook the line." : "Nothing to hook.", "warn");
 }
 // X: size the job up
 function footAssess() {
@@ -14710,14 +14735,14 @@ function wnPrompt() {
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
-      h = `Hold SPACE to reel${wd && wd.block ? " · X at the strap: double the line" : ""}${close ? " · E: unhook" : ""} · Q: get on`;
+      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · X at the strap: double the line") : ""}${close ? " · " + hk("use", "unhook") : ""} · ${hk("mount", "get on")}`;
     } else if (wd && WN.state === "out") {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
-      h = reach ? `E: strap the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder · X: size it up${near ? " · Q: get on" : ""}`;
-    } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · E: stop` : "E: dig her out (slow) · Q: get on";
+      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + hk("mount", "get on") : ""}`;
+    } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${hk("use", "stop")}` : `${hk("use", "dig her out (slow)")} · ${hk("mount", "get on")}`;
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
-    else h = (FISH && FISH.hint()) || (near ? "Q: get on the sled" : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and press Q` : `${sledWhere()} · walk back and press Q`);
-  } else if (BOG.on) { show = true; h = wd ? "BOGGED · Q: get off, wade to a tree and hook the winch (E) · R: reset" : "BOGGED · Q: get off and dig (hold E) · R: reset"; }
+    else h = (FISH && FISH.hint()) || (near ? hk("mount", "get on the sled") : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
+  } else if (BOG.on) { show = true; h = `BOGGED · ${hk("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
   else if (BOG.acc > 0.4) { show = true; h = "TRACK'S DIGGING IN · ease off the throttle"; }
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
@@ -15204,10 +15229,10 @@ function sarFootAction() {
 function sarPrompt() {
   const c = SAR.cur; if (!c || c.res || !FOOT.on) return "";
   const v = c.v, dF = Math.hypot(v.x - FOOT.x, v.z - FOOT.z);
-  if (v.state === "rig") return c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4 ? "E: rig the tow rope to your hitch" : `Walk to ${c.name}'s sled and rig the tow rope (E)`;
-  if (v.state === "waiting" && dF < 2.8) return c.kind === "save" ? "E: bag them and load the toboggan" : `E: help ${c.name} up`;
-  if (v.state === "waiting" && dF < 25) return `Walk up to ${c.name} and press E`;
-  if (v.state === "follow") return "Walk back to the sled: they're with you. Q to get on.";
+  if (v.state === "rig") return c.rv && Math.hypot(c.rv.x - FOOT.x, c.rv.z - FOOT.z) < 3.4 ? hk("use", "rig the tow rope to your hitch") : `Walk to ${c.name}'s sled and rig the tow rope`;
+  if (v.state === "waiting" && dF < 2.8) return c.kind === "save" ? hk("use", "bag them and load the toboggan") : hk("use", `help ${c.name} up`);
+  if (v.state === "waiting" && dF < 25) return `Walk up to ${c.name}`;
+  if (v.state === "follow") return `Walk back to the sled: they're with you. ${hk("mount", "get on")}.`;
   if (v.state === "loading") return `Loading the toboggan… ${Math.min(100, Math.round(v.loadT / 3.5 * 100))}%`;
   if (v.state === "lost") return "Searching on foot. Watch for prints.";
   return "";

@@ -414,3 +414,4 @@ the same save.
 
 ## Winch and recovery
 Low on the throttle in deep, unpacked snow and the track digs a bog. Get off (**Q**), wade to a tree or boulder, hook the winch (**E**) and reel (hold **Space**); the cable drags you to your anchor, not the other way round. The hand winch is short and slow, the electric winch reaches further, and the heavy-duty winch has a snatch block (**X**) to double the line. Stall it and the line sings; overload the anchor and it parts or the tree comes out. **F** only calls a rescue sled when you go through the ice or run dry.
+On a pad the on-foot action (hook, unhook, dig, help a casualty up, rig a tow) is a click of the **left stick** and reeling is the bottom face button; on touch an orange button appears over the scene wearing the verb (**DIG**, **HOOK**, **HELP UP**) whenever there is something to use. The hint line names the control for whatever you last touched.
