@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;background:#0d1822;color-scheme:dark}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><style>html,body{margin:0;background:#0d1822;color-scheme:dark;-webkit-text-size-adjust:100%;text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
 <title>Tracklayer</title>
 <!-- Home Screen web app: on iPhone (any browser) this is the only way to run full screen; see FS in tracklayer.js -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -840,9 +840,10 @@
   @media (max-height:500px) and (orientation:landscape){
     body.touch #map{width:72px;height:72px}
     body.touch #job{max-width:min(420px,calc(100% - 2 * (24px + var(--mapW,128px) + 104px)))}
-    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;left:50%!important;transform:translateX(-50%);width:min(340px,calc(100% - 400px))}
+    body.touch #tut{top:calc(74px + env(safe-area-inset-top,0px))!important;left:50%!important;transform:translateX(-50%);width:min(300px,calc(100% - 400px));padding:6px 10px 7px}
     body.touch #tut.pop{animation:none}
-    body.touch #tut .tuBody{font-size:11px;line-height:1.35}
+    body.touch #tut .tuTitle{font-size:15px}
+    body.touch #tut .tuBody{font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
     body.touch #toasts{top:max(calc(74px + env(safe-area-inset-top,0px)), calc(var(--tutB,0px) + 8px));width:min(360px,calc(100% - 400px))}
     body.touch #tcE{right:auto;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--sb))}
     body.touch #tcE.on{transform:translateX(-50%) scale(.95)}
