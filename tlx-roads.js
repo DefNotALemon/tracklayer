@@ -15,6 +15,8 @@
 // clears its own corridor), and cells an earlier road already uses are cheap, so routes share a trunk and branch at
 // junctions instead of running side by side. The cell path is simplified, rounded with Chaikin passes and resampled
 // every 6 m; a rounding that would cut into the sea or a house, or steepen a hairpin, is dropped for a plainer one.
+// A switchback's tip then swings out round a loop (bulbs) and no bend is left under ROADS.minR (widen); bends are
+// plowed wider (beta 0127: the pickup couldn't follow the old 6 m hairpins and bogged in the berm).
 // A road stops at the edge of a village (a ring at 3/4 of its clear radius, on the side it comes in and leaves by) or
 // beside a station's forecourt, and a street (the lanes' fine routing) threads between the houses from there.
 //
@@ -39,6 +41,9 @@ const ROADS = {
   grade: 0.08,              // the steepest the bed is eased toward along the line
   bank: 14,                 // the widest the cut/fill bank eases back to the natural ground over, m
   cutMax: 8,                // the deepest cutting / highest embankment, m (a hairpin landing on a 40% hillside needs ~7)
+  bulb: 16,                 // the loop a switchback turns on, m (radius; tried at minR + 0.5 where 16 does not fit)
+  wide: 2.6, wideR: 26,     // bends tighter than wideR m are plowed wide m further out each side
+  minR: 13,                 // the tightest bend an open road may turn, m (radius through points 12 m either side)
   pair: 18,                 // two roads closer than this share one bed height (hairpin legs, a branch off the trunk), m
   ease: 36,                 // how far from a road's end (a village edge, a forecourt) the bed eases back to the ground, m
   routes: [
@@ -52,7 +57,7 @@ const ROADS = {
   mapCol: "#c4692e", mapClosed: "rgba(196,105,46,.75)"
 };
 let api = null;
-const R = { routes: [], poles: 0, ms: 0, cleared: 0, streets: 0, ready: false, ROADS };
+const R = { routes: [], poles: 0, ms: 0, cleared: 0, bulbs: 0, wideN: 0, streets: 0, ready: false, ROADS };
 window.TLXR = R;
 
 function place(id, W) {
@@ -197,8 +202,87 @@ function roadLeg(a, b, W) {
   // hairpin into a ramp); the bare cell path if none does
   const bare = resample(raw, 6), lim = steep(bare, W) + 0.02;
   const line = [resample(chaikin(simplify(raw, 5), 3), 6), resample(chaikin(raw, 2), 6), resample(chaikin(raw, 1), 6)].find(l => lineOk(l, W) && steep(l, W) <= lim);
-  return line || shove(resample(shove(bare, W), 6), W);
+  // (the last shove: a loop or a widened bend runs between checked points, and the 6 m resample can put one on a wall)
+  return shove(widen(bulbs(line || shove(resample(shove(bare, W), 6), W), W), W), W);
 }
+// a switchback's turn, built the way a mountain road's is: the search climbs a hillside in V-shaped zigzags whose legs
+// meet at a point, and rounding the V inside (drawing the tip back between the legs) cuts the climb short and steepens
+// it (tried first: Lebesby lost 800 m of road and went to 18-24%). So each tip turning more than ~100 degrees gets a
+// loop out past the point instead: a circle of ROADS.bulb m beyond the tip, joined to both legs where they leave it,
+// the radius eased from the leg onto the circle and back. It adds road on the landing (which bed() levels, the legs
+// standing side by side) and keeps the legs where the search put them. A loop that would reach the sea, a house or
+// another stretch of the same road is tried smaller, then left to widen().
+function bulbs(p, W) {
+  const n = p.length, turn = new Float32Array(n);
+  const dir = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1; return [dx / L, dz / L]; };
+  for (let i = 3; i < n - 3; i++) { const u = dir(p[i - 3], p[i]), v = dir(p[i], p[i + 3]); turn[i] = Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1]))); }
+  const tips = [];
+  for (let i = 6; i < n - 6; i++) if (turn[i] > 1.75 && turn[i] >= turn[i - 1] && turn[i] > turn[i + 1] && (!tips.length || i - tips[tips.length - 1] > 8)) tips.push(i);
+  if (!tips.length) return p;
+  const out = []; let from = 0;
+  for (const i of tips) {
+    if (i - 4 < from) continue;
+    const T = p[i], ui = dir(p[i - 4], T), uo = dir(T, p[i + 4]);
+    let bx = ui[0] - uo[0], bz = ui[1] - uo[1]; const bl = Math.hypot(bx, bz); if (bl < 0.3) continue; bx /= bl; bz /= bl;
+    let arc = null, j1 = 0, j2 = 0;
+    for (const [Rb, off] of [[ROADS.bulb, 0.7], [ROADS.minR + 0.5, 0.5]]) {
+      const C = [T[0] + bx * Rb * off, T[1] + bz * Rb * off], dC = q => Math.hypot(q[0] - C[0], q[1] - C[1]);
+      j1 = i; while (j1 > from + 1 && dC(p[j1]) < Rb + 4) j1--;
+      j2 = i; while (j2 < n - 2 && dC(p[j2]) < Rb + 4) j2++;
+      if (j1 <= from + 1 || j2 >= n - 2 || j2 - j1 > 40) continue;
+      const a1 = Math.atan2(p[j1][1] - C[1], p[j1][0] - C[0]), a2 = Math.atan2(p[j2][1] - C[1], p[j2][0] - C[0]), ab = Math.atan2(bz, bx);
+      // the way round that passes the outward side (the bisector beyond the tip)
+      const norm = a => { while (a < 0) a += Math.PI * 2; while (a >= Math.PI * 2) a -= Math.PI * 2; return a; };
+      const ccw = norm(a2 - a1), passes = norm(ab - a1) < ccw, sweep = passes ? ccw : ccw - Math.PI * 2;
+      const r1 = dC(p[j1]), r2 = dC(p[j2]), m = Math.max(4, Math.ceil(Math.abs(sweep) * Rb / 6)), pts = [];
+      for (let k = 1; k < m; k++) { const t = k / m, a = a1 + sweep * t, e = t < 0.25 ? t / 0.25 : t > 0.75 ? (1 - t) / 0.25 : 1, s = e * e * (3 - 2 * e), r = (t < 0.5 ? r1 : r2) + (Rb - (t < 0.5 ? r1 : r2)) * s;
+        pts.push([C[0] + Math.cos(a) * r, C[1] + Math.sin(a) * r]); }
+      if (!lineOk(pts, W) || pts.some(q => W.isWater(q[0], q[1]))) continue;
+      let clash = false;
+      for (const q of pts) { for (let k = 0; k < n; k += 2) { if (k > j1 - 12 && k < j2 + 12) continue; if (Math.hypot(p[k][0] - q[0], p[k][1] - q[1]) < 14) { clash = true; break; } } if (clash) break; }
+      if (clash) continue;
+      arc = pts; break;
+    }
+    if (!arc) continue;
+    for (let k = from; k <= j1; k++) out.push(p[k]);
+    for (const q of arc) out.push(q);
+    from = j2; R.bulbs++;
+  }
+  for (let k = from; k < n; k++) out.push(p[k]);
+  return resample(out, 6);
+}
+// no bend tighter than ROADS.minR (beta 0127): the rounded A* line still turned its switchbacks on a 6 m radius,
+// which a 3 m-wheelbase pickup can't follow at any speed, so it cut the inside onto unplowed snow and bogged. Each
+// pass finds the points whose turning circle (through the points 2 back and 2 on, 12 m each way) is under the limit
+// and draws them toward the chord's middle (their neighbours a little with them), a move dropped if it lands in the
+// sea or on a house; then the line is resampled to 6 m again. A hairpin opens into a U as wide as its legs allow
+// (the A* keeps the legs ~32 m apart), a bend becomes an arc; the ends (the village edge, the forecourt) stay put.
+function turnR(p, i) {
+  const a = p[i - 2], b = p[i], c = p[i + 2];
+  const ab = Math.hypot(b[0] - a[0], b[1] - a[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]), ca = Math.hypot(c[0] - a[0], c[1] - a[1]);
+  const cr = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  return cr < 1e-6 ? 1e9 : ab * bc * ca / (2 * cr);
+}
+function widen(p, W) {
+  const ok = (x, z) => lineOk([[x, z]], W);
+  for (let it = 0; it < 80; it++) {
+    let bad = 0;
+    const q = p.map(v => v.slice());
+    for (let i = 3; i < p.length - 3; i++) {
+      if (turnR(p, i) >= ROADS.minR) continue;
+      bad++;
+      for (const [j, w] of [[i, 0.5], [i - 1, 0.25], [i + 1, 0.25]]) {
+        const mx = (p[j - 2][0] + p[j + 2][0]) / 2, mz = (p[j - 2][1] + p[j + 2][1]) / 2;
+        const nx = q[j][0] + (mx - q[j][0]) * w, nz = q[j][1] + (mz - q[j][1]) * w;
+        if (ok(nx, nz)) { q[j][0] = nx; q[j][1] = nz; }
+      }
+    }
+    if (!bad) break;
+    p = resample(q, 6);
+  }
+  return p;
+}
+R.turnR = turnR;
 // the bare cell path can still pass a corner of a shed between two cells: push those points out to the road's clearance
 function shove(p, W) {
   p = p.map(q => q.slice());
@@ -266,6 +350,14 @@ function build(W) {
     if (sg.street) { W.addLane(sg.pts, ROADS.street); continue; }
     for (const [x, z] of sg.pts) for (const o of W.obstaclesNear(x, z, ROADS.half + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - x, o.z - z) < ROADS.half + 1.6 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
     if (!rt.closed) W.addLane(sg.pts, ROADS.half, ROADS.plow);
+    // a bend is plowed wider, the way a plow swings round a hairpin: a driver who runs a little wide or cuts in on a
+    // switchback's loop stays on hard pack instead of dropping a wheel into the berm (beta 0127 #2/#4)
+    const p = sg.pts;
+    for (let i = 2; i < p.length - 2; i++) {
+      if (turnR(p, i) >= ROADS.wideR) continue;
+      for (const o of W.obstaclesNear(p[i][0], p[i][1], ROADS.half + ROADS.wide + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - p[i][0], o.z - p[i][1]) < ROADS.half + ROADS.wide + 1.2 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
+      if (!rt.closed) { W.addLane([p[i - 1], p[i], p[i + 1]], ROADS.half + ROADS.wide, ROADS.plow); R.wideN++; }
+    }
   }
   streets(W);
   poles(W);

@@ -422,7 +422,9 @@ Gartefjellet wind farm and over the fell to Mehamn, then on to Gamvik and the Sl
 a branch leaves it for Skjånes in the east; another goes north-west to Dyfjord; and one heads south
 past the Lebesby station to Lebesby. They wind the way real roads do, round the lakes and houses and
 along the slopes rather than straight up them. Where one climbs a steep hillside it does it in proper
-hairpins, with a level landing at each turn. Each road is built like a real one: cut into the
+switchbacks: each turn swings out round a level loop, never tighter than about 13 m, and the plowed
+strip is wider through the bends, so a pickup taken round at a sensible crawl (about 20 km/h) stays
+on the hard pack. Each road is built like a real one: cut into the
 hillside and banked up over the dips, so it sits level from side to side and keeps to a gentle
 grade, with snowy banks easing back to the natural slope either side. Each village has plowed
 streets from the road's end to every door.

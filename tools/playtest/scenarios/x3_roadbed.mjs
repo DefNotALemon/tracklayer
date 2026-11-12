@@ -70,11 +70,15 @@ for (const g of geo.filter(g => !g.closed && g.top.lo)) {
     P.x = a[0]; P.z = a[1]; P.yaw = Math.atan2(b[0] - a[0], b[1] - a[1]); P.vx = P.vz = P.vy = 0; P.y = surf(a[0], a[1]) + 0.2; recenter(a[0], a[1], true); const c = r.pts[idx + (hi > idx ? 2 : -2)], l = Math.hypot(c[0] - a[0], c[1] - a[1]), nx = -(c[1] - a[1]) / l, nz = (c[0] - a[0]) / l; return { idx, g12: +((groundAt(c[0], c[1]) - groundAt(a[0], a[1])) / l).toFixed(3), cross: +((groundAt(a[0] + nx * 3, a[1] + nz * 3) - groundAt(a[0] - nx * 3, a[1] - nz * 3)) / 6).toFixed(3), depth: +depthAt(Math.floor((a[0] + HALF) / CELL), Math.floor((a[1] + HALF) / CELL)).toFixed(2), yard: +yardAt(a[0], a[1]).toFixed(2) }; })()`);
   await waitGame(1.5);
   const p0 = await J(`[P.x, P.z]`); await down("KeyW"); await waitGame(3);
+  /* also read at 5 s (0127 fix): traction-limited on packed snow a 12% pitch gives ~1.4 m/s2, 6 m in the first 3 s, so a
+     straight 12.4% climb (where the switchback loops moved Lebesby's steepest 48 m) passes at 5 s; W is held straight,
+     so on a stretch that bends within ~15 m the 3 s reading is the one that counts */
+  const s3 = await J(`({ x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz) })`); await waitGame(2);
   const s = await J(`({ x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz), bog: BOG.on, onRoad: TLXR.onRoad(P.x, P.z), hint: (document.getElementById("wnHint") || {}).textContent })`); await up("KeyW");
   const mv = Math.hypot(s.x - p0[0], s.z - p0[1]);
   await shot("climb_" + g.id);
-  console.log("climb", JSON.stringify(info), "onRoad", s.onRoad, g.id, info.idx, "grade", g.top.g.toFixed(3), "moved", mv.toFixed(1), "v", s.v.toFixed(1), "bog", s.bog, JSON.stringify(s.hint));
-  drives.push({ id: g.id + " steepest " + g.top.g.toFixed(3) + " (3 s)", idx: info.idx, mv: mv >= 8 && s.v >= 4 ? 99 : 0, bog: s.bog });
+  console.log("climb", JSON.stringify(info), "onRoad", s.onRoad, g.id, info.idx, "grade", g.top.g.toFixed(3), "moved 3s", Math.hypot(s3.x - p0[0], s3.z - p0[1]).toFixed(1), "v", s3.v.toFixed(1), "5s", mv.toFixed(1), "v", s.v.toFixed(1), "bog", s.bog, JSON.stringify(s.hint));
+  drives.push({ id: g.id + " steepest " + g.top.g.toFixed(3) + " (3 or 5 s)", idx: info.idx, mv: (mv >= 8 && s.v >= 4) || (Math.hypot(s3.x - p0[0], s3.z - p0[1]) >= 8 && s3.v >= 4) ? 99 : 0, bog: s.bog });
 }
 if (hasBed) {
   for (const g of geo.filter(g => !g.closed)) {
