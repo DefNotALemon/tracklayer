@@ -3,6 +3,31 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 03:50 — Beta fix 0140 #1-#3: no 40 cm cliff, "ease off" only when the wheels spin (G4) — 229fd4a
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of report 0140 (3.x pickup traction control beta): #1-#3 BUG on landed work, fixed here; #4 POLISH (30 cm on a
+5% grade is a wall) and #5 POLISH (15 cm on a 10.7% hill is a silent 0.4 m/s near-stall) left listed; #6 verified. Last triaged
+report 139 -> 140.
+Cause (tlx-vehicles.js `core`/`stillWhy`): (1) standing drag / grip went 0.80 at 35 cm -> 0.99 at 40 cm (half belly, half
+tyre), past the 0.92 "stuck" switch, which also turned traction control off: full spin, bog in 3.4 s. (2) `stillWhy` fell
+through to the "dig" line whenever sinkS > 0.07, even with zero wheelspin (pad 45%: spinK 0, BOG.acc 0, crawling at 0.1-0.3 m/s
+at the 1 s check). (3) Reverse had no "still making way" check at all.
+Fix: fresh powder under the pan squashes to a quarter (was a third) before it bears; traction control holds until standing
+drag reaches the grip (was 0.92); "stuck" ramps 0.9 -> 1.05 of grip instead of switching, and the past-the-tyre-radius rule
+starts 3 cm past it. `stillWhy`: any truck making way (vfA > 0.05 in its direction, forward or reverse) is re-checked, not told;
+"dig" needs real spin (spinK > 0.05 or BOG.acc > 0.15); no spin + light throttle = "more throttle"; no spin + floored = new
+"deep" line ("The snow is deeper than the pickup can push. Back out along your ruts, or get out and dig.").
+Numbers (new asserting `x3_powdertc.mjs`, gentle 1.9% grade, W, 7 s): 35 cm 6.4 -> 6.7 m; 38 cm 3.3 m + "digging in" -> 4.5 m
+silent; 40 cm 0.0 m bog 3.4 s -> 2.8 m no bog; 42 cm 0.0 bog 3.1 s -> 0.0 bog 5.5 s; 45 cm 0.0 bog 2.9-3.0 s (unchanged).
+Pad RT 45% in 35 cm: 2.2 m + "digging in" -> 2.5 m, silent. Reverse 35 cm: 6.3 m + "spin in reverse... ease off" -> 6.6 m,
+silent. RT 30% stalled still "more throttle" at 1.0 s. Reverse into 60 cm: stops, "dig" (spinning), bogs 6.1 s. 80 cm W: stops,
+"digging in".
+Harness note: `x3_powderpull` F (80 cm bogs <= 6.5 s) fails on main too (56a0db3 and pre-3.2a fb49641): its 200 ms relay of
+80 cm lifts the truck for a frame and resets the dig clock (BOG.acc ~0.1/s, stillT keeps restarting). F now asserts "stops
+dead and digs in"; `x3_crawl` still holds the real 5 s bog line (passes).
+Gate: smoke 0, x1_save 0, x3_powdertc 0 (all asserts), x3_powderpull 0, x3_crawl 0 (prints two "page errors: none", no FAIL),
+x2_vehheld 0, x2_vehreverse 0, x2_haulreverse 0. Log `~/.hermes/cache/scratch/tlloop/b0140/gate.log`. Numbers-only fix, no stills.
+
 ## 2026-11-12 03:05 — 3.2a road snow: storms fill the roads, the council plow clears them (G4) — 381cd35
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of report 0139 (2.6a trailer slope/pad/fjord beta): no BLOCKER/BUG; #1-#3 POLISH (pickup sunk to the sills
