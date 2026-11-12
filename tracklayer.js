@@ -582,8 +582,8 @@ patchMat.onBeforeCompile = sh => {
         float gx = 0.5 * ((sNE.r + 2.0*sE.r + sSE.r) - (sNW.r + 2.0*sW.r + sSW.r)) / ${(8 * CELL).toFixed(2)} + 0.5 * (e2 - w2) / ${(4 * CELL).toFixed(2)};
         float gz = 0.5 * ((sNE.r + 2.0*sN.r + sNW.r) - (sSE.r + 2.0*sS.r + sSW.r)) / ${(8 * CELL).toFixed(2)} + 0.5 * (n2 - s2) / ${(4 * CELL).toFixed(2)};
         vec3 objectNormal = normalize(vec3(-gx, 1.0, -gz));
-        float hB = blur.x;
-        vPack = blur.y; vFresh = sC.b; vIce = sC.a; vSlopeY = objectNormal.y;`)
+        float hB = mix(sC.r, blur.x, 0.4);   // less blur on height: twin ski ruts and tread cleats stay readable
+        vPack = mix(sC.g, blur.y, 0.55); vFresh = sC.b; vIce = sC.a; vSlopeY = objectNormal.y;`)
       .replace("#include <begin_vertex>", `vec3 transformed = vec3(position.x, hB - position.y*1.4, position.z); vWP = (modelMatrix*vec4(transformed,1.0)).xyz;`);
   // Wind-packed relief: untouched snow is never a flat sheet. Fresh snow gets sastrugi (ripples drawn out
   // across a prevailing north-westerly) plus slow drift swells, as a per-pixel normal tilt only (no geometry,
@@ -659,6 +659,8 @@ patchMat.onBeforeCompile = sh => {
       vec3 powder = vec3(0.93,0.955,1.0), packedC = vec3(0.70,0.76,0.85), iceC = vec3(0.38,0.58,0.72), rockC = vec3(0.26,0.25,0.27);
       float ice = min(vIce, 1.0), thin = clamp(vIce - 1.0, 0.0, 1.0);          // 1..2 is ice the melt is eating (dark, grey, wet)
       vec3 col = mix(powder, packedC, vPack);
+      // heavily pressed snow (sled belt and ski ruts, pack > ~0.7) goes denser and a touch bluer than a walked path (0.5-0.8) or a ski groove (< 0.4), so a track reads as track; eases into packedC below that
+      col *= mix(vec3(1.0), vec3(0.9, 0.94, 1.0), smoothstep(0.62, 0.95, vPack) * (1.0 - smoothstep(0.03, 0.12, fdFp) * 0.8));
       float lkB = ice > 0.01 ? lkBare(vWP.xz, 1.0) : 0.0;                     // lake skin: scoured ice vs snow streaks (v109)
       col = mix(col, iceC, ice*clamp(0.08 + 0.72*lkB + 0.7*vPack, 0.0, 1.0));
       col = mix(col, vec3(0.17,0.25,0.31), thin*0.8);
@@ -2724,7 +2726,12 @@ function stamp(fx, fz, lx, lz, carve) {
       if (wT < 0.002 && wS < 0.002 && wB < 0.02) continue;
       const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
       let d = d0;
-      if (wT > 0.002 || wS > 0.002) { const tg = Math.min(lerp(f, f * 0.22, wT), lerp(f, f * 0.5, wS)); if (tg < d) d = tg; }
+      if (wT > 0.002 || wS > 0.002) {
+        // tread cleats: a ridge pattern fixed in world space along the heading (so every pass lays the same one), plus
+        // ski ruts pressed deeper with a raised ridge between ski and belt, so the track reads as track and skis, not one ditch
+        const cl = 0.5 + 0.5 * Math.cos(((ix * fx + iz * fz) * CELL) * 10.5);
+        const tg = Math.min(lerp(f, f * (0.17 + 0.12 * cl), wT), lerp(f, f * 0.34, wS)); if (tg < d) d = tg;
+      }
       else if (d >= f * 0.85) { const b = f + bh * wB; if (d < b) d += (b - d) * 0.25; }
       if (d !== d0) { c.d[k] = d; writeCell(ix, iz, d0, d, f); }
     }
@@ -14524,9 +14531,10 @@ function xcGroove(x, z, fx, fz) {
     const ix = Math.round((x + lx * sd + HALF) / CELL), iz = Math.round((z + lz * sd + HALF) / CELL);
     if (ix < 0 || iz < 0 || ix >= FN || iz >= FN) continue;
     const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k];
-    const tg = Math.max(f * 0.45, d0 - 0.05);
+    const tg = Math.max(f * 0.4, d0 - 0.09);
     if (tg < d0 - 0.002) { c.d[k] = tg; writeCell(ix, iz, d0, tg, f); }
   }
+  markTrail(x, z, true);   // like footPath: the ski trail survives once the near patch window moves on
 }
 /* ---------------- the walker's path ----------------
    Wading through on foot cuts a trench: the shins plough a narrow lane about half a metre wide,
