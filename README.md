@@ -456,6 +456,13 @@ it: the carbides grind (more drag, about a fifth off your speed), sparks come of
 says "Scraped road". The hard pack between the ruts and out on the shoulders rides as well as ever. It
 lasts the best part of a day after the plow (or until fresh snow covers it), and is saved with the game.
 
+People live in the towns, so their cars are parked outside: about every other house in Kjøllefjord and
+the villages has one nosed in by the door, off the road. They're solid (ride into one and you stop; a
+good jump clears it). A storm buries them: snow on the roof first, then a drift up the doors, and after
+six hours or so a rounded heap where the car was. Once the weather eases the owners dig out, each in
+their own time, so the morning after a storm some cars stand clear and some are still drifts (a few
+owners are away for a day or two). Which cars are snowed in is saved with the game.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive
