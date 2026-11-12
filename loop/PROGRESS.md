@@ -3,6 +3,25 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 01:40 — Beta fix 0133 #1: no school course with your sled strapped to the trailer (G4) — d468c8f
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of report 0136 (3.x switchback loops beta): #1-#3 verified, #4 harness note, #5/#6 POLISH (plowed strip
+invisible from above + banded cut slope, same as 0127 #5; sharp bends on village streets only) left listed. Last triaged
+report 135 -> 136. Took 0133 #1 BUG, queued ahead of 0129 #1/#2.
+Cause: `schoolBegin` swaps GS.own and moves P to the yard start, but two things still treated P as the strapped sled:
+`strapTick` (tlx-vehicles.js) glued P back onto the deck every frame, and `physCore`'s `strapOn` (VEH.strapped()) zeroed
+thrust. Fix: `schoolCanStart` refuses while `VEH.strapped()` ("Your sled is strapped to the trailer. Unstrap it and ride it
+off the deck first."; the app card's Start Course greys out through the same check); backstops: `strapTick` leaves P alone
+while `api.busy()` (SCHOOL.on), and `strapOn` is false while SCHOOL.on.
+Numbers (new asserting `x2_schoolstrap.mjs`; before = 0133's `x2_schoolstrap_break.mjs` on v195): strapped start: course
+started with the school sled 0.7 m from the trailer and 0.0 m moved under throttle -> refused, own sled kept and still
+strapped, toast shown, card blocked. Backstop (check bypassed in the scenario): school sled 0.0 m from the yard start and 8.2 m
+from the trailer, drives under W; quit -> own sled back, strapped, 0.7 m from the trailer. Unstrapped: course starts as before.
+Not done: the yard-arrival ping still offers START COURSE while strapped (pressing it gives the refusal toast); 0133 #2 POLISH
+needed nothing. Next: 0129 #1/#2 (pickup in 35 cm powder), then 3.2.
+Gate: smoke 0, x1_save 0, x2_schoolstrap 0 (all asserts), x2_deck 0, page errors none. Still
+`~/.hermes/cache/scratch/tlloop/bss/x2st_refused.jpg` (refusal toast over the Freight app, Start Course greyed).
+
 ## 2026-11-12 01:10 — Beta fix 0131 #1/#2: the fjord rescue never sets you down on a cliff face (G4) — 1bb9e2c
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0131-0135: 0131 #1 BLOCKER (cliff coasts: rescued back into the water, -$140 a cycle) and #2 BUG
