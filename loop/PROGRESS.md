@@ -3,6 +3,20 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 04:15 — Beta fix 0144 #1: a fully drifted road is full depth, road depth rises with its snow (G4) — 877d91d
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 144: #1 BUG fixed here; #2/#3 verified/fine; #4 POLISH (NaN `st.h`) folded in (one-line guard). Last triaged 143 -> 144.
+Cause: tlx-roads sets a stretch's legs to `Y.k = 0.9 * (1 - q)`, so q = 1 (snow >= 0.975) gives k = 0; `yardOf` read
+`(Y.k || 1)` and treated 0 as "unset" = a fully plowed yard (85% cut), deeper-plowed than an open road. 0.5 at 0.59 m was
+correct for the formula (half the cut on ~0.95 m of pack); the report's "monotone" ask was broken only at the top end.
+Fix: `Y.k ?? 1` in yardOf; `snowInit` also resets a non-finite `st.h` (0144 #4). tlx-roads v5.
+Numbers (new asserting `x3_roadsnowdepth.mjs`, restCell at 9 road spots off the villages, snow 0/.25/.5/.75/.9/1):
+fv888#7 before 0.221/0.40/0.58/0.76/0.867/**0.141** -> after .../0.867/**0.939** (= snowpack); all 9 spots monotone after,
+none before. A road chunk loaded at snow 1: 0.129 of 0.863 m -> 0.863 of 0.863.
+Follow-up noted under the 0141 backlog line: the pickup (stops ~42 cm) bogs from ~snow 0.25 (~0.40 m), before the 0.35
+"snowed in" line paints the road blue.
+Gate: smoke 0, x1_save 0, x3_roadsnowdepth 0, x3_roadsnow 0. Numbers-only fix, no stills.
+
 ## 2026-11-12 04:00 — Beta fix 0142 #1: a boulder winch anchor no longer freezes the screen (G4) — 2661538
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 141-143: 0142 #1 BLOCKER fixed here. Queued as backlog lines in LOOP.md: 0143 #1 BUG (pad D-pad down calls help over a
