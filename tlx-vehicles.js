@@ -342,12 +342,13 @@ function core(R, dt) {
   // read at the chassis' leading edge (the way it is rolling): the belly ploughs a trench behind it (pressed below), so the
   // way back along it is clear and only fresh snow in front pushes back
   const bx = P.x + fx * 1.5 * sgn, bz = P.z + fz * 1.5 * sgn;   /* clear of the pressing (BELLY) going forward */
-  /* fresh powder under the pan squashes to about a third before it holds the truck up, so loose snow a hand above the
+  /* fresh powder under the pan squashes to about a quarter before it holds the truck up (a third until beta 0140 #1:
+     35 cm crawled 9 m and 40 cm bogged in 3.5 s without moving; now 38-40 cm creeps a few metres, 45 cm stops), so loose snow a hand above the
      clearance only drags a little and the truck crawls; past ~15 cm over the clearance the pan is buried and every cm
      more bears in full (a rolling truck must not crawl on through half a metre on momentum); set snow (a berm, a plowed
      bank) bears from the first cm (0121 #2) */
   const bdb = depthBi(bx, bz), bf = w.freshAt(Math.round((bx + HALF) / CELL), Math.round((bz + HALF) / CELL)), bpk = bf > 0.02 ? clamp(1 - bdb / bf, 0, 1) : 1;
-  const sc = gnd(bx, bz) + bdb, e0 = Math.max(0, sc - (Hc + d.clearance)), emb = (Math.min(e0, 0.15) * (0.35 + 0.65 * bpk) + Math.max(0, e0 - 0.15)) - 0.02 * (1 - bpk), cb = emb > 0 ? 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.3) : 0;
+  const sc = gnd(bx, bz) + bdb, e0 = Math.max(0, sc - (Hc + d.clearance)), emb = (Math.min(e0, 0.15) * (0.25 + 0.75 * bpk) + Math.max(0, e0 - 0.15)) - 0.02 * (1 - bpk), cb = emb > 0 ? 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.3) : 0;
   const condK = 0.65 + 0.35 * R.rec.cond / 100;
   // --- longitudinal: engine, brake, reverse against traction and resistance
   let vf = vx * fx + vz * fz, vl = vx * lx + vz * lz;
@@ -366,10 +367,10 @@ function core(R, dt) {
   /* traction control (beta 0129 #2): a 2019 pickup's ECU trims the throttle when the driven wheels slip while the truck can
      still make way, so a floored pedal (keyboard W is all or nothing) crawls on through powder it can beat instead of
      spinning itself into a hole the moment a 2% grade slows it. It can't help a truck whose snow alone outweighs its
-     grip (sPre >= 0.92 of traction, the "stuck" test below): there the wheels spin and dig as before. The push is the same
+     grip (sPre >= traction: 0.92 until beta 0140 #1, which made 40 cm a cliff): there the wheels spin and dig as before. The push is the same
      either way (min(Fe, T0)); only the spin that digs changes */
   const sPre = W * (crS - crB + cb) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);   // the standing drag: no bow wave
-  if (Fe > T0 * 1.12 && d.tc !== false && sPre < T0 * 0.92) Fe = T0 * 1.12;
+  if (Fe > T0 * 1.12 && d.tc !== false && sPre < T0) Fe = T0 * 1.12;
   R.fe = Fe; R.t0 = T0; R.fsnow = sPre;
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
@@ -413,7 +414,9 @@ R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = v
      crawl and a 1.4 m/s crawl up a 2% grade dug itself in at ~7 s (beta 0129 #2). Once the tyres sink past their own radius
      (40 cm+) the bank stands above the axles and a bow-wave-limited crawl churns itself down as before, so a run-up into a
      50 cm bank still ends in a bog and a belly-deep bank counts in full */
-  const spd0 = Math.hypot(vx, vz), stuck = sPre > T0 * 0.92 || (Math.max(R.sink[0], R.sink[1], R.sink[2], R.sink[3]) > d.tyreR && Fres > T0 * 0.92) ? 1 : 0;
+  /* it ramps in from 0.9 to 1.05 of the grip rather than switching on at 0.92, and the past-the-radius rule starts 3 cm
+     past it, so a drift a few cm deeper is a shorter creep and a slower dig, not a 9 m crawl turned into a 3 s bog (0140 #1) */
+  const spd0 = Math.hypot(vx, vz), stuck = Math.max(clamp((sPre / Math.max(T0, 1) - 0.9) / 0.15, 0, 1), Math.max(R.sink[0], R.sink[1], R.sink[2], R.sink[3]) > d.tyreR + 0.03 && Fres > T0 * 0.92 ? 1 : 0);
   const eff = thrE > 0 ? thrE : rev ? input.brk : 0;                         // S in reverse spins the wheels too (0108 #1)
   R.spinK = eff > 0.2 ? Math.min(1.6, spin + stuck * 0.8) : 0;
   if (!BOG.on && !parked && gndOK && !P.ice && P.wet === false && BOG.immune <= 0 && !HELP.on) {
@@ -492,12 +495,17 @@ function stillWhy(R, rev, sinkS, sf) {
   /* a light pedal that can't push the snow and the grade isn't digging at all (beta 0129 #1: pad RT 30% in 35 cm sat dead
      still and the old line said "ease off", the opposite of what helps): if the tyres have grip to spare, ask for more */
   const avail = Math.min(R.t0 || 0, R.def.fmax * (0.65 + 0.35 * R.rec.cond / 100)), need = (R.fsnow || 0) + Math.max(0, sf) * R.mass * GR;
-  /* the push beats the snow and the grade: it is only slow getting going (35 cm from rest covers ~0.2 m in the first
-     second), so say nothing yet and look again next frame (before, a crawl that went on to make 6 m opened with "ease off") */
-  if (!rev && R.stillT < 3 && (Math.min(R.fe || 0, R.t0 || 0) > need * 1.005 || (R.vfA || 0) > 0.15)) { R.stillTold = false; return; }   // held 3 s and still no 0.4 m: something unseen holds it, say so below
-  if (!rev && R.fe > 0 && R.fe < need && need < avail * 0.95) { R.why = "pull"; api.toast(`Not enough throttle to push through ${sinkS > 0.07 ? "this snow" : "here"}. Give it more, smooth and steady.`, "warn"); }
+  /* the push beats the snow and the grade, or the truck is making way at all (forward or in reverse): it is only slow
+     getting going (35 cm from rest covers ~0.2 m in the first second), so say nothing yet and look again next frame. Before,
+     a crawl that went on to make 6 m opened with "ease off", and reverse never had this check (beta 0140 #2/#3) */
+  const mov = rev ? -(R.vfA || 0) : (R.vfA || 0);
+  if (R.stillT < 3 && (mov > 0.05 || (!rev && Math.min(R.fe || 0, R.t0 || 0) > need * 1.005))) { R.stillTold = false; return; }   // held 3 s and still no 0.4 m: something unseen holds it, say so below
+  /* "ease off" is only right when the wheels spin and dig; a truck that pushes without spin is short of push, not digging */
+  const spinning = (R.spinK || 0) > 0.05 || BOG.acc > 0.15;
+  if (!rev && R.fe > 0 && (R.fe < need || (!spinning && sinkS > 0.07)) && R.fe < avail * 0.95) { R.why = "pull"; api.toast(`Not enough throttle to push through ${sinkS > 0.07 ? "this snow" : "here"}. Give it more, smooth and steady.`, "warn"); }
   else if (sinkS > 0.07 && (rev ? sf < -0.04 : sf > 0.04) && (R.fsnow || 0) < avail * 0.92) { R.why = "steep"; api.toast(`Too steep to ${rev ? "back up" : "climb"} in this snow. ${rev ? "Pull forward" : "Back down"} and take a run at it, or go round.`, "warn"); }
-  else if (sinkS > 0.07) { R.why = "dig"; BOG.warned = true; toastDig(rev); }
+  else if (sinkS > 0.07 && spinning) { R.why = "dig"; BOG.warned = true; toastDig(rev); }
+  else if (sinkS > 0.07) { R.why = "deep"; api.toast(rev ? `Too much snow behind the ${R.def.kind} to back through. Pull forward along your ruts, or get out and dig.` : `The snow is deeper than the ${R.def.kind} can push. Back out along your ruts, or get out and dig.`, "warn"); }
   else if (rev ? sf < -0.04 : sf > 0.04) { R.why = "steep"; api.toast(`Too steep to ${rev ? "back up" : "climb"} here on this grip. Take a run at it, or go round.`, "warn"); }
   else { R.why = "grip"; api.toast(`The wheels can't find grip ${rev ? "backing up" : "here"}. Rock it ${rev ? "forward" : "back"} a little and try again.`, "warn"); }
 }
