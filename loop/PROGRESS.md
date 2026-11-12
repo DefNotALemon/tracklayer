@@ -3,6 +3,36 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 21:45 — Beta fix 0123 #1/#2: the roads get a graded bed, no tight hairpins (G4) — 4b30d5e
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0123-0125: 0123 #1/#2 (BUG, one cause: roads laid on 20-40% sidehills with no grading; the
+30 m along-line grade check hid it and cross slope was never checked) taken this pass. 0123 #3 (generic "STUCK ... dig"
+hint on a plowed road) left: with the bed graded the case no longer comes up on the open roads; #4 (closed road poles
+over a cliff) improved by the same bed (closed road is graded too, worst 48 m grade 0.30 -> 0.11); #5 harness. 0124
+#1-3 and 0125 #1-2 all POLISH (stillWhy catch-all wording with W+S held, grade tested after sink, harness limits), left.
+Last triaged report 122 -> 125. Still owed before 3.2: 0121 #2/0122 #2 (no crawl between 25 and 35 cm of powder).
+Cause, measured with new `x3_roadbed.mjs` (+ throwaway probes plotting the lines): the A* path on the steep coastal
+slopes zigzagged in V-spikes and hairpins whose legs were 8-13 m apart and 3-5 m apart in height, and nothing graded the
+ground, so the road tipped across. Fix (`tlx-roads.js`): (1) `bed()` grades the road: each open stretch's height is
+smoothed along the line (±30 m), its grade relaxed toward 8%, stretches within 18 m of each other (hairpin legs, a branch
+leaving the trunk) pulled to one height, then the 4 m ground grid is set to that level out to 6.8 m each side, easing back
+over a ~1:1.6 bank (cut/fill max 8 m; not under lake ice or sea; ground under houses, sheds, turbines, boulders and fuel
+stations untouched; last 36 m into a village/forecourt eases to the old ground; trees the bank moves > 0.3 m are cleared).
+The far terrain is re-read (`farRefresh`, new `api.world.terrain`). (2) The A* pays 20 cells for stepping next to one of
+its own last 16 cells, which removes the V-spikes and keeps hairpin legs ~32 m apart (routes changed shape on the steep
+climbs only; Dyfjord/Gamvik/Skjånes unchanged).
+Numbers (before = origin/main v190, after): cross slope ±3 m p95: fv888 0.48 -> 0.05, lebesby 0.38 -> 0.03, skjanes
+0.39 -> 0.01, dyfjord 0.86 -> 0.002, gamvik 0.19 -> 0.02 (share over 0.15: 0-1.2%); worst 48 m grade: fv888 0.12 -> 0.12,
+lebesby 0.10 -> 0.18 (a hairpin landing pushes it onto the leg; the truck climbs it at 7.8 m/s), closed road 0.30 -> 0.11.
+Pickup from rest, W 5 s at 0123's spots (before = 0123's own numbers): fv888 (-1235,-745) 0.1 -> 34 m, lebesby (-1429,-75) 0.1 -> 29 m, fv888 0.5
+41 -> 50 m, skjanes 36 -> 45 m; every open road's steepest stretch climbed from rest (3 s: 9-15 m, 6-10 m/s). Ground
+under 572 houses/boulders and 3 stations near roads: 0 m change; 898 standing trees within 26 m: max 0.30 m. Boot cost of
+the roads 538 -> 837 ms. Stills `~/.hermes/cache/scratch/tlloop/bbed_after/` (truck level in snowy cuttings).
+Not done: 2.5% of fv888 / 0.6% of lebesby points still tilt > 0.15 at a few tight landings (worst 0.31 / 0.69 at one
+spot each); the Map relief under the roads isn't re-shaded (cosmetic); not tested by night or on pad/touch (no input
+code changed).
+Gate: smoke 0, x1_save 0, x3_roadbed 0 (all asserts), x3_roads 0 (3.1's own, routes changed shape), page errors none.
+
 ## 2026-11-11 21:00 — Beta fix 0116 #1/#4: a held truck that can't move says why (G4) — 0356eda
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0120-0122: 0120 all POLISH (Map road legibility, walking on the road no faster, night poles,

@@ -12,7 +12,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done |
-| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); next: beta BUG 0121 #2/0122 #2 (no crawl between 25 and 35 cm of powder), then 3.2 (dynamic road snow) |
+| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); next: beta BUG 0121 #2/0122 #2 (no crawl between 25 and 35 cm of powder), then 3.2 (dynamic road snow) |
 | 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -249,6 +249,10 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       dashed). Nothing saved (same terrain, same roads). `TLXR.near/onRoad` for later slices. Test `x3_roads.mjs`.
       Not done here (later slices or follow-ups): no road surface mesh of its own (the plowed snow is the road), poles
       are not obstacles, no bridges (the Gamvik leg finds a land neck), the Kjøllefjord-to-station hop is a street.
+      Beta fix 0123 (v191): the road bed is graded (`bed()`: profile smoothed + grade relaxed to 8%, side-by-side
+      stretches share a height, 4 m ground grid cut/filled level to 6.8 m each side with ~1:1.6 banks, max 8 m, not
+      under houses/boulders/stations/ice/sea, far mesh re-read via `api.world.terrain.refresh`), and the A* pays 20
+      cells for a cell next to one of its last 16 (no V-spikes or hairpin legs closer than ~32 m). Test `x3_roadbed.mjs`.
 - [ ] 3.2 Dynamic road snow: per-segment depth through the same snow field, storms fill it, saved; yards stay
       as they are. Map shows open / snowed in / closed. Sled on hard pack vs scraped bare.
 - [ ] 3.3 Parked cars, some buried after a storm. Option: dig a buried car out for pay.
