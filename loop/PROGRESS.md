@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-12 12:58 — G5 snow on the sled: tuning, chunky coat, scenario — (hash below)
+## 2026-11-12 12:58 — G5 snow on the sled: tuning, chunky coat, scenario — 6cafd5e
 Lemon-session fix pass on the half-built sled-snow coat (the SNS block itself had been swept into the v212 Map commit 0935f58).
 Root cause hunt: the "cold, cool engine just sits" assert did NOT reproduce in isolation (logged hot/warm/fill/cap/spd/bump/blow every
 tick: all 0, h stayed 0.8 over 6 s); it was carry-over from the hot-engine step before it. The real defect was that step: hood
