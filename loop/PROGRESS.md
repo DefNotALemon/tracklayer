@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 09:30 — 3.4b2a headlight beams, a passing car's hum; the sunk-car finding was a probe artifact (G4) — 4dffbf6
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 160: no BLOCKER/BUG. 0160 #3 (bump toast cooldown swallows a harder second hit) and #4 (160 km/h into a car
+doesn't eject; CRASH_AT.hard canon applies, same reasoning as 0156 #1) left as POLISH; #6 (no `VEH.give` for a truck in
+tests) noted; #1/#2/#5 verified; #7 harness note. Last triaged 159 -> 160.
+3.4b2 split into 3.4b2a (here) and 3.4b2b (village-street cars). Sunk cars: not a bug. The 3.4b1 probe raycast the near
+snow patch, whose CPU positions are a flat y=0 grid (the shader lifts vertices from snowTex); `x3_carsink3_probe.mjs`
+compares the patch's drawn heights (pdata) with surf(): 0 of 10201 cells off by > 5 cm, 0.00 under the car. Low stills
+(`x3_carsink_look.mjs`) show whole wheels on the snow; only a camera beyond the plowed berm loses the lower wheels.
+Built (tlx-traffic v3): headlight cones (additive instanced mesh, front faces, vertex fall-off) + a pool of light laid on
+surf() 1.2-20 m ahead of each car every night frame (a flat sheet sank into the first rise and showed as a blown blob
+at the bumper; the first build also showed nothing at all: setColorAt after count = 0 makes a 0-length colour buffer),
+faded by darkness and camera distance (0 past 520 m), hidden by day. Engine + tyre-crunch hum on the audio master for
+the loudest car within 150 m, x0.25 indoors, watchdog fade when the tick stops. api gained `audio()`.
+Numbers (new asserting `x3_beams.mjs`, all pass): road luma ahead of a car at night 9.7 -> 41.1 with beams, sky 18.2 ->
+18.2; day: hidden, 0; car 699 m off: 0; car going by 12 m away at 12.5 m/s: gain 0.093 (sled idle is 0.09), 87 Hz, node
+following; 211 m: 0; option off: 0.031 -> 0 within 1.5 s; old save loads, 7 traffic meshes (2 of them hidden by day).
+Stills `~/.hermes/cache/scratch/tlloop/shots/1112-085005-28912/sheet.jpg` (behind, oncoming, side at night): soft pool
+following the road, faint cone haze, no hard edges.
+Gate: smoke, x1_save, x3_beams pass; x3_pass all ok; x3_traffic A updated to 7 meshes. x3_traffic D ("stopped 312.6 m
+short of the drift") fails on origin/main too (312.8 m, `git archive` + TL_SRC): pre-existing, not this slice: queued.
+
 ## 2026-11-12 08:30 — 3.4b1 drivers pull out round a stopped obstacle, wheels turn (G4) — 9852f64
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 158-159: no BLOCKER/BUG. 0159 #1 (x3_traffic step F fails on main: a car overshoots its 7.5 m gap by 1.8 m when a

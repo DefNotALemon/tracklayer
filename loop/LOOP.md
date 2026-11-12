@@ -194,6 +194,11 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
+- [ ] G4 (builder 3.4b2a, BUG in a test or the drivers): `x3_traffic.mjs` step D fails on origin/main too: the car "stopped
+      312.6 m short of the drift" (reported why "shut", s 1578) instead of ~22 m. Either the planted drift isn't the stretch the
+      driver reads as shut (TLXR seg.shut vs the step's spot) or stopAhead sees an earlier shut segment; check before trusting D.
+- [ ] G4 (beta 0160 #3/#4, POLISH): a > 9 m/s hit on a car skips the 6 s bump-toast cooldown; 160 km/h into a car still never
+      ejects (CRASH_AT.hard canon, same as boulders) - leave unless Lemon asks.
 - [x] G4 (beta 0143 #1, BUG, fixed v200): on a pad, D-pad down calls help (empty tank / fjord) instead of bandaging a fresh wound;
       while a wound is younger than BANDAGE_WINDOW, D-pad down bandages first. Also 0143 #3: "Press P for a fuel
       delivery" toast is a hard-coded key, already goes through btn() (the toast reads "Press D-pad down" once the pad is the active input; a toast fired before the first pad press keeps the keyboard name). No change.
@@ -501,4 +506,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 159
+Last triaged report: 160
