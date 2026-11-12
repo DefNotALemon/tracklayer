@@ -3,6 +3,16 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 12:58 — G5 snow on the sled: tuning, chunky coat, scenario — (hash below)
+Lemon-session fix pass on the half-built sled-snow coat (the SNS block itself had been swept into the v212 Map commit 0935f58).
+Root cause hunt: the "cold, cool engine just sits" assert did NOT reproduce in isolation (logged hot/warm/fill/cap/spd/bump/blow every
+tick: all 0, h stayed 0.8 over 6 s); it was carry-over from the hot-engine step before it. The real defect was that step: hood
+(melt 0.06 + shed coupling) hit zero in ~6 s, leaving no hood<tail gap. Heat melt now 0.045 so the hood is ~0.2 and the tail ~0.5 after 6 s.
+Look: grid 14x12; thickness 0.02 + 0.1 b + 0.14 b^2 (full coat ~0.26 m); lump noise is low-frequency mounds scaled by b^2, so a
+dusting stays even and a storm cap reads as irregular multi-peaked mounds (first try with 0.26 b^2 and one big lobe looked like a haystack spike; toned down).
+Verified: gate smoke + x1_save + g5_sledsnow all exit 0, no page errors; stills judged (light = thin patch, storm = lumpy mounds).
+New scenario `g5_sledsnow.mjs`; README line; script v213.
+
 ## 2026-11-12 10:20 — 3.4b2b a car now and then drives a village street home and parks (G4) — 5f7d00e
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 161-163: no BLOCKER/BUG. 0161 #6 / 0162 #6 (`why` "end" mid pull-out, debug only) and 0163 #1 (car 23 by the

@@ -3366,12 +3366,12 @@ function snsMesh() {
 // drape one zone: z0..z1 along the sled, half-width hw, surface height yAt(z), thickness grows with b, cover spreads from the middle
 function snsLay(me, b, z0, z1, hw, yAt, sink, seed) {
   const NX = me.userData.NX, NZ = me.userData.NZ, p = me.geometry.attributes.position.array;
-  const cov = 0.45 + 0.55 * Math.min(1, b * 1.15), ch = b * b, tmax = 0.02 + 0.12 * b + 0.26 * ch, zm = (z0 + z1) / 2, hz = (z1 - z0) / 2;
+  const cov = 0.45 + 0.55 * Math.min(1, b * 1.15), ch = b * b, tmax = 0.02 + 0.1 * b + 0.14 * ch, zm = (z0 + z1) / 2, hz = (z1 - z0) / 2;
   for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) {
     const u = (i / NX) * 2 - 1, v = (j / NZ) * 2 - 1, k = (j * (NX + 1) + i) * 3;
     const fx = Math.abs(u) / cov, fz = Math.abs(v) / cov, e = Math.max(0, 1 - fx * fx) * Math.max(0, 1 - fz * fz);
-    const mound = Math.abs(Math.sin(u * 2.3 + seed) * Math.cos(v * 1.9 + seed * 1.7)), fine = Math.abs(Math.sin(i * 12.9 + j * 7.3 + seed)),
-      lump = Math.max(0.2, 1 - ch * 0.5 + ch * (1.3 * mound + 0.35 * fine) - (1 - ch) * 0.2 * (1 - fine));   // chunky mounds only as b climbs; a dusting stays even
+    const mound = Math.abs(Math.sin(u * 3.6 + seed) * Math.cos(v * 3.1 + seed * 1.7)), fine = Math.abs(Math.sin(i * 12.9 + j * 7.3 + seed)),
+      lump = Math.max(0.2, 1 - ch * 0.45 + ch * (0.85 * mound + 0.3 * fine) - (1 - ch) * 0.2 * (1 - fine));   // chunky mounds only as b climbs; a dusting stays even
     const z = zm + v * hz, x = u * hw;
     p[k] = x; p[k + 2] = z; p[k + 1] = yAt(z) - sink * u * u + tmax * Math.sqrt(e) * lump * (b > 0 ? 1 : 0) - 0.015 * (e > 0 ? 0 : 1);
   }

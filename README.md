@@ -25,6 +25,7 @@ pine's snow-laden tiers the green branch tips hang out ragged and drooping, not 
 and the snow on each tier sags down onto those tips in a ragged zigzag edge instead of a smooth band.
 
 Loose snow is never still: in any wind the surface shows spindrift, pale filaments of powder that skim downwind in gusty bands (faster and denser as the wind picks up, absent on packed trails, ice and rock, and faded by distance like the ripples).
+Your own sled gets snowed on: a coat on the hood and tail seat fills with snowfall (a light fall dusts it thin, a storm builds a thick, lumpy drift of mounds), melts in warm air and off the hot engine (the hood first), and sheds with speed and bumps, throwing a few run-off flakes. Not saved.
 
 ## Playing
 
