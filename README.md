@@ -161,7 +161,10 @@ into the hood, clear of it, so from the seat you see the column stand on the hoo
 
 ## Apps and licences
 
-The **App Store** sells three more apps: **Freight** ($120), **Rescue** ($90) and **Real Estate**
+The **App Store** is laid out like Apple's: a **Recommended order** strip at the top numbers the four apps
+(1 Trail Crew, which you already have, 2 Freight, 3 Real Estate, 4 Rescue), ticks the ones you own and rings
+the next one to get ("start here"), and the full list below is in that same order with GET / OPEN pills.
+It sells three more apps: **Freight** ($120), **Rescue** ($90) and **Real Estate**
 ($50). Freight and Rescue each come with a sign-up for their licence school: the **Nordkinn Frakt
 training yard** south-east of town, under Gartefjellet, and the **Nordkinn Redning base** out west
 toward Lebesby. Sign up and the school is pinned on the Map and the arrow takes you there; stop in

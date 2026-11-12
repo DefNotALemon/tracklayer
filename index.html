@@ -580,6 +580,32 @@
   .tstore{display:grid;gap:8px;margin-top:12px}
   .tsto{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;border-radius:var(--r-md);border:1px solid var(--rule);background:rgba(234,242,248,.035)}
   .tsto .tic{color:#6ff0b8}
+  /* App Store: featured "recommended order" strip + listing rows */
+  .tsfeat{padding:14px;border-radius:var(--r-lg,18px);border:1px solid var(--rule);background:linear-gradient(160deg,rgba(127,200,224,.14),rgba(234,242,248,.03))}
+  .tsey{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--ice)}
+  .tstt{font-size:22px;font-weight:800;line-height:1.1;margin:2px 0 12px}
+  .tssteps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .tsstep{position:relative;display:grid;justify-items:center;gap:4px;padding:12px 4px 8px;border-radius:var(--r-md);border:1px solid transparent;text-align:center;opacity:.55;min-width:0}
+  .tsstep b{font-size:13px;line-height:1.1;overflow-wrap:anywhere}.tsstep i{font-style:normal;font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--slate)}
+  .tsstep .tsq{width:52px;height:52px;border-radius:24%}
+  .tsnum{position:absolute;top:4px;left:6px;font-size:11px;font-weight:800;color:var(--slate)}
+  .tsstep.got{opacity:1}.tsstep.got .tsnum,.tsstep.got i{color:var(--pay)}
+  .tsstep.next{opacity:1;border-color:var(--signal);background:rgba(255,90,31,.1);box-shadow:0 0 0 3px rgba(255,90,31,.22),0 8px 22px -10px var(--signal)}
+  .tsstep.next .tsnum,.tsstep.next i{color:var(--signal)}
+  .tswhy{margin-top:12px;font-size:13px;color:var(--frost2);line-height:1.35}.tswhy b{color:var(--frost)}
+  .tshd{font-size:19px;font-weight:800;margin:10px 2px 0;padding-top:4px}
+  .tsto{grid-template-columns:72px minmax(0,1fr) auto;align-items:start;border-radius:var(--r-lg,18px)}
+  .tsto.next{border-color:var(--signal)}
+  .tsto .tsic{width:72px;height:72px;border-radius:22%}.tsto .tsic svg{width:38px;height:38px}
+  .tsto .tcn{margin-top:6px}
+  .tschips{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+  .tsto .tsget{align-self:center;min-height:32px;padding:0 20px;border-radius:999px;font-size:13px;background:rgba(127,200,224,.18);color:var(--ice);border:0;box-shadow:none}
+  .tsto .tsget.ghost{background:transparent;border:1px solid var(--rule);color:var(--slate)}
+  .tsto .tsget.blocked{background:rgba(234,242,248,.05);color:var(--slate);border:0}
+  #tabS.small .tssteps,#tabS.port .tssteps{gap:4px}#tabS.small .tsstep .tsq,#tabS.port .tsstep .tsq{width:40px;height:40px}#tabS.small .tsstep b,#tabS.port .tsstep b{font-size:11.5px}
+  #tabS.small .tstt{font-size:18px}
+  #tabS.small .tsto,#tabS.port .tsto{grid-template-columns:56px minmax(0,1fr)}#tabS.small .tsto .tsic,#tabS.port .tsto .tsic{width:56px;height:56px}
+  #tabS.small .tsto .tsget,#tabS.port .tsto .tsget{grid-column:1/-1;width:100%}
   /* licence schools (O4): the mission list under the school card */
   .tsml2{display:grid;gap:0;margin:2px 0 6px;border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden}
   .tsm2{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--rule);font-size:13.5px;font-weight:600}
@@ -1180,5 +1206,5 @@
 <script src="tlx-roads.js?v=9"></script>
 <script src="tlx-cars.js?v=5"></script>
 <script src="tlx-traffic.js?v=4"></script>
-<script src="tracklayer.js?v=215"></script>
+<script src="tracklayer.js?v=216"></script>
 </body></html>

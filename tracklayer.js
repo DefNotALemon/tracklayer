@@ -1154,6 +1154,9 @@ const V = {};   // swappable parts, machines and rider kit, toggled by the garag
 const SR = { on: false, a: 0, drag: false, lx: 0 };           // garage / settings showroom camera
 const PV = { sled: null, cat: null, slot: null, id: null };   // what the mouse is trying on
 function showroomOn() { return GS.garageOpen || !document.getElementById("settings").hidden; }
+// nobody's hands are on the controls: garage, settings or the god menu are up, or the rider is dead.
+// Riding (or coasting) through a menu like this used to keep whatever thr/brk was held when it opened.
+function noControl() { return GS.garageOpen || godOpen || !document.getElementById("settings").hidden || GS.dead; }
 addEventListener("pointerdown", e => { if (SR.on && e.target.tagName === "CANVAS") { SR.drag = true; SR.lx = e.clientX; } });
 addEventListener("pointermove", e => { if (SR.drag) { SR.a -= (e.clientX - SR.lx) * 0.008; SR.lx = e.clientX; } });
 addEventListener("pointerup", () => { SR.drag = false; });
@@ -2646,7 +2649,7 @@ function readInput(dt) {
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
-  if (!started) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu
+  if (!started || noControl()) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu (garage, settings, god) or dead
   FOOT.fwd = 0; FOOT.turn = 0; FOOT.jog = 0;
   if (FOOT.on && typeof MNT !== "undefined" && MNT.on) MNT.want = Math.max(Math.abs(thr - brk), Math.abs(analog !== null ? analog : st));   // pushing a direction during the walk to the sled calls the climb off
   if (FOOT.on && ((typeof MNT !== "undefined" && MNT.on) || (typeof DMT !== "undefined" && DMT.on))) { thr = brk = lean = wh = 0; st = 0; analog = null; }   // and none of it reaches the sled while you're half on it
@@ -3432,6 +3435,7 @@ const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops 
 function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
+  if (noControl()) { P.vx = P.vy = P.vz = 0; P.yr = 0; return; }   // garage/settings/god menu up, or dead: hands off, sled stops dead instead of coasting on whatever was held
   if (VEH.cur) { P.scr = 0; VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
@@ -8504,13 +8508,18 @@ SCHOOL.addMission("freight", {
   hud(ctx) { return `${(ctx.plan.loop.L / 1000).toFixed(1)} km loop`; }
 });
 
-/* ---- the App Store: Freight, Rescue and Real Estate are downloads; Trail Crew came with the tablet ---- */
+/* ---- the App Store: Freight, Rescue and Real Estate are downloads; Trail Crew came with the tablet ----
+   rec = recommended install order (1 first), recWhy = one line on why, cat = the chip on the listing row.
+   The "Recommended order" strip and the list both sort by rec; the first not-yet-installed step is the "start here" one. */
 const STORE = [
-  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority, expedition and fell freight, each with its own pickup and drop-off." },
-  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." },
-  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent." },
-  { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true }
+  { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, cat: "Work", rec: 1, recWhy: "Came with your tablet. The baseline grooming and call-out work.", about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true },
+  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, cat: "Courier", rec: 2, recWhy: "The main courier work. Sign up and start earning.", about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority, expedition and fell freight, each with its own pickup and drop-off." },
+  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, cat: "Income", rec: 3, recWhy: "Cheap passive income once you have a little cash. No school.", about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent." },
+  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, cat: "Specialist", rec: 4, recWhy: "Specialist work. Best with a winch and some miles behind you.", about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." }
 ];
+const storeSorted = () => STORE.slice().sort((a, b) => a.rec - b.rec);
+const storeHave = s => !!(s.builtin || GS.apps[s.id]);
+const storeNext = () => storeSorted().find(s => !storeHave(s));
 function storeGet(id) {
   const s = STORE.find(x => x.id === id); if (!s || s.builtin || GS.apps[id]) return;
   if (GS.cash < s.price) { toast(`${s.name} costs $${s.price}. You have $${GS.cash}.`, "warn"); return; }
@@ -8522,9 +8531,17 @@ TABLET.register({
   id: "store", name: "App Store", icon: TICON.store, order: 9,
   badge: () => STORE.filter(s => !s.builtin && !GS.apps[s.id]).length || "",
   render(el) {
-    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work", fmtCash(GS.cash))}<div class="tstore">${STORE.map(s => {
-      const have = s.builtin || GS.apps[s.id], poor = !have && GS.cash < s.price;
-      return `<div class="tsto" data-tf="st:${s.id}"><span class="tic">${s.icon}</span><div><div class="tct"><span>${s.name}</span>${have ? chip("INSTALLED", "ok") : chip(s.price ? "$" + s.price : "FREE")}</div><div class="tcm">${s.by}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn${have ? " ghost" : poor ? " blocked" : ""}" data-get="${s.id}">${have ? "OPEN" : "GET"}</button></div>`;
+    const list = storeSorted(), nxt = storeNext();
+    const steps = list.map(s => {
+      const have = storeHave(s), isNext = nxt && nxt.id === s.id;
+      return `<div class="tsstep${have ? " got" : ""}${isNext ? " next" : ""}" data-step="${s.rec}" data-sid="${s.id}"><span class="tsnum">${have ? "✓" : s.rec}</span><span class="tsq tic">${s.icon}</span><b>${s.name}</b><i>${have ? "GOT IT" : isNext ? "START HERE" : s.price ? "$" + s.price : "FREE"}</i></div>`;
+    }).join("");
+    const why = nxt ? `<b>${nxt.rec}. ${nxt.name}:</b> ${nxt.recWhy}` : `You have all four. Nothing left to download.`;
+    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work", fmtCash(GS.cash))}<div class="tstore">
+      <div class="tsfeat"><div class="tsey">RECOMMENDED ORDER</div><div class="tstt">Four apps, in the order that pays</div><div class="tssteps">${steps}</div><div class="tswhy">${why}</div></div>
+      <div class="tshd">All apps</div>${list.map(s => {
+      const have = storeHave(s), poor = !have && GS.cash < s.price, isNext = nxt && nxt.id === s.id;
+      return `<div class="tsto${isNext ? " next" : ""}" data-tf="st:${s.id}" data-sid="${s.id}"><span class="tic tsic">${s.icon}</span><div class="tsbd"><div class="tct"><span>${s.name}</span></div><div class="tcm">${s.by}</div><div class="tschips">${chip("#" + s.rec + " to get", isNext ? "ok" : "")}${chip(s.cat)}${have ? chip("INSTALLED", "ok") : chip(s.price ? "$" + s.price : "FREE")}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn tsget${have ? " ghost" : poor ? " blocked" : ""}" data-get="${s.id}">${have ? "OPEN" : "GET"}</button></div>`;
     }).join("")}</div><p class="tnote2">One-off prices, no subscriptions. Freight and Rescue each come with a sign-up for their licence school.</p></div>`;
     for (const b of el.querySelectorAll("[data-get]")) b.addEventListener("click", () => { const id = b.dataset.get; if (GS.apps[id] || id === "crew") TABLET.go(id); else storeGet(id); });
   }
