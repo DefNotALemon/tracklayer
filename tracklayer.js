@@ -3338,6 +3338,87 @@ function heatStep(dt, thr, spd, fr, exc, wet, gnd) {
   }
 }
 function heatCool() { HEAT.t = 50; HEAT.limp = false; HEAT.warned = false; HEAT.mul = 1; HEAT.feed = 1; }
+/* ---- snow on the sled: the player's machine gets snowed on, melts and sheds it ----
+   Same idea as the parked cars (tlx-cars.js): a 0..1 amount b per zone, filled by the weather where the sled stands,
+   shown as a thin dusting that thickens and spreads into a drift-cap as b rises, re-laid only when b moves a step
+   (SNS.qb). Two zones, each one draped mesh (a 10 x 8 grid hugging the surface, 80 verts, no per-frame cost):
+   the hood (over the hot engine) and the tail seat behind the rider. Only the active sled (GS.own.sled), the rider,
+   column, bars and hands are never coated; the cap is a thin skin the column and cargo poke through.
+   FILL: WX.at(P.x, P.z) is the snowfall. Nothing under SNS.minW. The ceiling SNS.cap(w) and the rate both climb with
+   it: a light fall dusts slowly to a thin coat (about 0.2), a storm builds fast (~15 s) to a thick cap (1). Wind
+   at speed blows most of it off before it lands (fill falls with speed).
+   MELT: air temp = WX.temp(month) + 3 w (what the Weather app quotes). Above 0 C it melts, faster the warmer; below
+   about -1 C it just sits. The hood also melts by engine heat (HEAT.t above 62, even in frost); the tail half as much.
+   RUN-OFF: melt, speed and bumps shed extra (wet melt slides faster); the amount lost spawns a few particles (emit())
+   off the shedding edges: a trickle in a dusting, chunky bursts off a thick coat. Not saved (a fresh boot is clear).
+   Not done: other owned sleds parked in the yard, windshield top edge. */
+const _snv = new THREE.Vector3();
+const SNS = { h: 0, t: 0, qh: -1, qt: -1, key: "", acc: 0, hood: null, tail: null, g: null, minW: 0.12, air: 0, cap: w => 0.16 + 0.84 * sstep(0.2, 0.95, w) };
+function snsMesh() {
+  const NX = 14, NZ = 12, g = new THREE.BufferGeometry(), idx = [];
+  g.setAttribute("position", new THREE.BufferAttribute(new Float32Array((NX + 1) * (NZ + 1) * 3), 3));
+  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i, b = a + NX + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  g.setIndex(idx);
+  const m = new THREE.Mesh(g, SNS.mat || (SNS.mat = new THREE.MeshStandardMaterial({ color: 0xf1f5fa, roughness: 0.95, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
+  m.frustumCulled = false; m.castShadow = false; m.receiveShadow = false; m.visible = false; m.userData.NX = NX; m.userData.NZ = NZ;
+  return m;
+}
+// drape one zone: z0..z1 along the sled, half-width hw, surface height yAt(z), thickness grows with b, cover spreads from the middle
+function snsLay(me, b, z0, z1, hw, yAt, sink, seed) {
+  const NX = me.userData.NX, NZ = me.userData.NZ, p = me.geometry.attributes.position.array;
+  const cov = 0.45 + 0.55 * Math.min(1, b * 1.15), ch = b * b, tmax = 0.02 + 0.12 * b + 0.26 * ch, zm = (z0 + z1) / 2, hz = (z1 - z0) / 2;
+  for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) {
+    const u = (i / NX) * 2 - 1, v = (j / NZ) * 2 - 1, k = (j * (NX + 1) + i) * 3;
+    const fx = Math.abs(u) / cov, fz = Math.abs(v) / cov, e = Math.max(0, 1 - fx * fx) * Math.max(0, 1 - fz * fz);
+    const mound = Math.abs(Math.sin(u * 2.3 + seed) * Math.cos(v * 1.9 + seed * 1.7)), fine = Math.abs(Math.sin(i * 12.9 + j * 7.3 + seed)),
+      lump = Math.max(0.2, 1 - ch * 0.5 + ch * (1.3 * mound + 0.35 * fine) - (1 - ch) * 0.2 * (1 - fine));   // chunky mounds only as b climbs; a dusting stays even
+    const z = zm + v * hz, x = u * hw;
+    p[k] = x; p[k + 2] = z; p[k + 1] = yAt(z) - sink * u * u + tmax * Math.sqrt(e) * lump * (b > 0 ? 1 : 0) - 0.015 * (e > 0 ? 0 : 1);
+  }
+  me.geometry.attributes.position.needsUpdate = true; me.geometry.computeVertexNormals(); me.geometry.computeBoundingSphere();
+}
+function snsFit() {
+  if (!V.machineOf) return; const id = GS.own.sled; if (SNS.key === id) return; SNS.key = id; SNS.qh = SNS.qt = -1;
+  if (!SNS.g) { SNS.g = new THREE.Group(); SNS.hood = snsMesh(); SNS.tail = snsMesh(); SNS.g.add(SNS.hood, SNS.tail); sledBody.add(SNS.g); }
+  const sd = SLEDS.find(x => x.id === id), ud = V.machineOf(id).userData; if (!sd || !ud.hoodPts) { SNS.zone = null; return; }
+  const hp = ud.hoodPts, hz0 = Math.min(...hp.map(q => q[0])), hz1 = Math.max(...hp.map(q => q[0]));
+  SNS.zone = { hz0: hz0 + 0.1, hz1: hz1 - 0.12, hw: ud.hoodW * 0.46, sink: 0.12 * (sd.shape.round || 0.3), hy: z => ud.hoodY(z) - 0.004, ty: z => (ud.seatTopAt ? ud.seatTopAt(z) : 0.6) - 0.005, tz0: ud.zBack + 0.22, tz1: ud.hip.z - 0.3, tw: (ud.seatW || 0.44) * 0.46 };
+}
+function snsTick(dt) {
+  if (!started || !V.machineOf || GS.dead || INT.on || VEH.cur || tutHidden() || dt <= 0) return;
+  snsFit(); const Z = SNS.zone; if (!Z) return;
+  const w = WX.at(P.x, P.z), spd = Math.hypot(P.vx || 0, P.vz || 0), air = WX.temp(CAL.day().m) + 3 * w; SNS.air = air;
+  const hot = clamp((HEAT.t - 62) / 38, 0, 1), warm = clamp((air + 1) / 6, 0, 1.6);
+  const fill = w > SNS.minW ? (0.004 + 0.066 * Math.pow(w, 2.5)) * (1 - 0.85 * clamp(spd / 12, 0, 1)) : 0, cap = SNS.cap(w);
+  const bump = clamp(Math.abs(P.vy || 0) * 0.25, 0, 1), blow = clamp((spd - 2.5) / 20, 0, 1) * 0.1 + bump * 0.04;
+  let lost = 0;
+  for (const z of ["h", "t"]) {
+    let b = SNS[z]; const b0 = b, heat = z === "h" ? hot : hot * 0.5;
+    if (b < cap) b = Math.min(cap, b + fill * dt);
+    const melt = 0.03 * warm + 0.045 * heat;                                  // per second
+    const shed = blow + melt * 1.2 * (0.3 + b);                              // wet snow slides; thick coats slough off
+    b = Math.max(0, b - (melt + shed) * dt * (b < 0.06 ? 1.6 : 1)); SNS[z] = b; lost += Math.max(0, b0 - b) * (b0 > 0 ? 1 : 0);
+  }
+  // run-off: droplets / chunks off the edges, in step with what was lost (a thick coat sheds in bursts)
+  const thick = Math.max(SNS.h, SNS.t);
+  if (lost > 0 && thick > 0.01) {
+    SNS.acc += lost * (14 + 90 * thick) * 1.0;
+    let n = 0; sledBody.updateWorldMatrix(true, false);
+    while (SNS.acc >= 1 && n < 3) {
+      SNS.acc -= 1; n++;
+      const hood = Math.random() < (SNS.h >= SNS.t ? 0.65 : 0.3), side = Math.random() < 0.5 ? -1 : 1;
+      const zz = hood ? Z.hz0 + Math.random() * (Z.hz1 - Z.hz0) : Z.tz0 + Math.random() * Math.max(0.1, Z.tz1 - Z.tz0), lx = side * (hood ? Z.hw : Z.tw), ly = (hood ? Z.hy(zz) : Z.ty(zz)) + 0.02;
+      _snv.set(lx, ly, zz).applyMatrix4(sledBody.matrixWorld);
+      const sx = Math.cos(P.yaw) * side, sz = -Math.sin(P.yaw) * side;         // sled-left = +x: (cos yaw, -sin yaw) in world
+      emit(_snv.x, _snv.y, _snv.z, P.vx * 0.7 + sx * (0.5 + 1.2 * thick), 0.2 + 0.6 * thick, P.vz * 0.7 + sz * (0.5 + 1.2 * thick), 0.25 + 0.5 * thick, 0.35 + 0.5 * thick);
+    }
+    if (SNS.acc > 3) SNS.acc = 3;
+  }
+  const qh = Math.round(SNS.h * 40) / 40, qt = Math.round(SNS.t * 40) / 40;
+  if (qh !== SNS.qh) { SNS.qh = qh; SNS.hood.visible = qh > 0; if (qh > 0) snsLay(SNS.hood, qh, Z.hz0, Z.hz1, Z.hw, Z.hy, Z.sink, 1.7); }
+  const room = Z.tz1 - Z.tz0 > 0.14 && !(cargoMesh && cargoMesh.visible);
+  if (qt !== SNS.qt || SNS.room !== room) { SNS.qt = qt; SNS.room = room; SNS.tail.visible = qt > 0 && room; if (qt > 0 && room) snsLay(SNS.tail, qt, Z.tz0, Z.tz1, Z.tw, Z.ty, 0.02, 4.1); }
+}
 /* ---------------- reverse ---------------- */
 // No gearbox: every sled is stepless. Reverse is just S / Down: brake to a stop and keep holding it
 // and the sled backs up (slow, low-geared, ~9 mph tops); let go or press W and you're forward again.
@@ -7644,36 +7725,72 @@ TABLET.register({
 // a custom waypoint, set by tapping the Map (like a GTA marker): session-only, like JOBT.sel. The compass follows it
 // whenever nothing more pressing is going on (a job, a rescue, a tracked pickup all still win).
 const WP = { x: null, z: null };
-const MAP_ZOOMS = [0, 1800, 900, 450, 220];   // 0 = whole peninsula; the rest are "around me" box heights in metres
+const MAP_SPAN_MIN = 180, MAP_SPAN_MAX = WORLD * 0.98;   // how tall a view can get: closest in, and the whole peninsula
 TABLET.register({
   id: "map", name: "Map", icon: TICON.map, order: 2,
-  onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoomLv = this.zoomLv ?? (this.zoom ? 1 : 0); },
+  onOpen() {
+    tabWork(); ctRoutes(); this.t = 0;
+    this.spanT = this.spanT ?? MAP_SPAN_MAX; this.span = this.span ?? this.spanT;   // spanT eases toward span every tick: smooth zoom, not a snap
+    this.panX = this.panX ?? 0; this.panZ = this.panZ ?? 0;                          // dragged off the player, in world metres
+  },
   layersOn: { del: true, pins: true, rescue: true, depots: true, routes: true, fuel: true },
+  // zoom in/out or wheel only move the TARGET (this.spanT); tick() eases this.span toward it every frame, so the
+  // chart zooms smoothly instead of jumping. Small, cheap DOM pokes here (label text, disabled state) — never a
+  // full TABLET.render(), which would tear down and rebuild the canvas + every listener and feel janky.
+  zoomBy(f) { this.spanT = clamp(this.spanT * f, MAP_SPAN_MIN, MAP_SPAN_MAX); this.syncZoomUI(); },
+  syncZoomUI() {
+    const lbl = $("tabZoomLbl"); if (!lbl) return;
+    const s = this.spanT;
+    lbl.textContent = s >= MAP_SPAN_MAX * 0.995 ? "WHOLE MAP" : s >= 1000 ? (s / 1000).toFixed(1).replace(/\.0$/, "") + " KM" : Math.round(s) + " M";
+    $("tabZoomOut").disabled = this.spanT >= MAP_SPAN_MAX * 0.995; $("tabZoomIn").disabled = this.spanT <= MAP_SPAN_MIN * 1.01;
+    $("tabCenter").disabled = !this.panX && !this.panZ;
+  },
   render(el) {
     const L = this.layersOn, ch = (id, t, n) => `<button type="button" class="tml${L[id] ? " on" : ""}" data-tf="lay:${id}" data-lay="${id}"><i class="k ${id}"></i>${t}${n !== undefined ? ` <b>${n}</b>` : ""}</button>`;
     const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots"), fue = TABLET.layerPts("fuel");
-    const zLbl = this.zoomLv === 0 ? "WHOLE MAP" : MAP_ZOOMS[this.zoomLv] >= 1000 ? (MAP_ZOOMS[this.zoomLv] / 1000) + " KM" : MAP_ZOOMS[this.zoomLv] + " M";
-    // the chart fills the page; the layer chips, the zoom controls and the ferry/mail widget float on top of it
+    // the chart fills the page; the layer chips, the zoom/pan controls and the ferry/mail widget float on top of it
     el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
       <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${ch("fuel", "Fuel", fue.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
-        <div class="tzoom"><button type="button" class="tbtn ghost sm" data-tf="zoom:out" id="tabZoomOut"${this.zoomLv === 0 ? " disabled" : ""}>–</button><span class="tzlbl">${zLbl}</span><button type="button" class="tbtn ghost sm" data-tf="zoom:in" id="tabZoomIn"${this.zoomLv === MAP_ZOOMS.length - 1 ? " disabled" : ""}>+</button></div></div>
+        <div class="tzoom"><button type="button" class="tbtn ghost sm" data-tf="zoom:out" id="tabZoomOut">–</button><span class="tzlbl" id="tabZoomLbl"></span><button type="button" class="tbtn ghost sm" data-tf="zoom:in" id="tabZoomIn">+</button><button type="button" class="tbtn ghost sm" data-tf="zoom:center" id="tabCenter" title="Centre on me">◎</button></div></div>
       <div class="twid" id="tabWid"></div><div class="trleg" id="tabRoadLeg"></div>
-      <div class="tmhint" id="tabMapHint">${WP.x !== null ? `Marker set · <button type="button" class="tbtn ghost sm" data-tf="wp:clear" id="tabWpClear">CLEAR MARKER</button>` : "Tap the chart to drop a marker"}</div></div>`;
+      <div class="tmhint" id="tabMapHint"></div></div>`;
     for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
-    $("tabZoomOut").addEventListener("click", () => { this.zoomLv = Math.max(0, this.zoomLv - 1); TABLET.render(); });
-    $("tabZoomIn").addEventListener("click", () => { this.zoomLv = Math.min(MAP_ZOOMS.length - 1, this.zoomLv + 1); TABLET.render(); });
-    const wpClear = $("tabWpClear"); if (wpClear) wpClear.addEventListener("click", e => { e.stopPropagation(); WP.x = WP.z = null; toast("Marker cleared.", "info"); TABLET.render(); });
-    this.cv = $("tabMapC"); this.t = 1; this.tick(0); this.widget();
-    this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomLv = clamp(this.zoomLv + (e.deltaY < 0 ? 1 : -1), 0, MAP_ZOOMS.length - 1); TABLET.render(); }, { passive: false });
-    this.cv.addEventListener("click", e => {
-      if (!this._mv) return;
-      const r = this.cv.getBoundingClientRect(), relX = e.clientX - r.left, relY = e.clientY - r.top;
-      if (relX < 0 || relY < 0 || relX > r.width || relY > r.height) return;
-      const { ox, oz, sx, sz, W, H } = this._mv;
-      WP.x = clamp(ox + relX / W * sx, -HALF, HALF); WP.z = clamp(oz + relY / H * sz, -HALF, HALF);
-      toast("Marker set. The compass points to it until you clear it, track a job, or a rescue comes in.", "info");
-      TABLET.render();
+    $("tabZoomOut").addEventListener("click", () => this.zoomBy(1 / 0.6));
+    $("tabZoomIn").addEventListener("click", () => this.zoomBy(0.6));
+    $("tabCenter").addEventListener("click", () => { this.panX = 0; this.panZ = 0; this.syncZoomUI(); });
+    this.cv = $("tabMapC"); this.t = 1; this.syncZoomUI(); this.syncHint(); this.tick(0); this.widget();
+    this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomBy(Math.exp(e.deltaY * 0.0015)); }, { passive: false });
+    // drag to pan (mouse or touch, via Pointer Events); a tap that didn't move drops a marker instead
+    let drag = null;
+    this.cv.addEventListener("pointerdown", e => { if (!this._mv) return; drag = { x: e.clientX, y: e.clientY, panX: this.panX, panZ: this.panZ, moved: false }; try { this.cv.setPointerCapture(e.pointerId); } catch (err) { } });
+    this.cv.addEventListener("pointermove", e => {
+      if (!drag || !this._mv) return;
+      const dxp = e.clientX - drag.x, dyp = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dxp, dyp) > 4) drag.moved = true;
+      if (!drag.moved) return;
+      const { sx, sz, W, H, zoomedIn } = this._mv; if (!zoomedIn) return;
+      this.panX = drag.panX - dxp / W * sx; this.panZ = drag.panZ - dyp / H * sz; this.syncZoomUI();
     });
+    const endDrag = e => {
+      if (!drag) return;
+      if (!drag.moved && this._mv) {
+        const r = this.cv.getBoundingClientRect(), relX = e.clientX - r.left, relY = e.clientY - r.top;
+        if (relX >= 0 && relY >= 0 && relX <= r.width && relY <= r.height) {
+          const { ox, oz, sx, sz, W, H } = this._mv;
+          WP.x = clamp(ox + relX / W * sx, -HALF, HALF); WP.z = clamp(oz + relY / H * sz, -HALF, HALF);
+          toast("Marker set. The compass points to it until you clear it, track a job, or a rescue comes in.", "info");
+          this.syncHint();
+        }
+      }
+      drag = null;
+    };
+    this.cv.addEventListener("pointerup", endDrag); this.cv.addEventListener("pointercancel", endDrag);
+  },
+  // the "tap to drop / clear marker" hint: its own tiny element, poked directly so a marker tap never needs a full render
+  syncHint() {
+    const el = $("tabMapHint"); if (!el) return;
+    el.innerHTML = WP.x !== null ? `Marker set · <button type="button" class="tbtn ghost sm" data-tf="wp:clear" id="tabWpClear">CLEAR MARKER</button>` : "Drag to pan · scroll or +/– to zoom · tap to drop a marker";
+    const wpClear = $("tabWpClear"); if (wpClear) wpClear.addEventListener("click", e => { e.stopPropagation(); WP.x = WP.z = null; toast("Marker cleared.", "info"); this.syncHint(); });
   },
   widget() {
     { const lg = $("tabRoadLeg"); if (lg) { const h = window.TLXR && TLXR.legend ? TLXR.legend() : ""; if (lg._h !== h) { lg._h = h; lg.innerHTML = h; } lg.hidden = !h; } }   // the road legend (tlx-roads.js, 3.2b)
@@ -7685,15 +7802,16 @@ TABLET.register({
     el.innerHTML = (rt ? `<div class="twr"><span>Trails · the melt</span><b>${rt.filter(v => v !== "closed").length}/${rt.length}</b><i>open · ${rt.filter(v => v === "melting").length} melting · <em class="bad">${rt.filter(v => v === "closed").length} closed</em></i></div>` : "") + `<div class="twr"><span>${f.label}${c ? " · " + c.dir : ""}</span><b>${f.at !== null ? fmtTime(f.at) : "—"}</b><i>${f.left !== null ? (f.alongside ? "alongside · " : "") + "in " + fmtLeft(f.left) : "no sailings"}${stTxt}${f.cancelled ? ` · <em class="bad">${fmtTime(f.cancelled.sDep)} cancelled</em>` : ""}</i></div><div class="twr"><span>Mail sack</span><b>${m ? m.count : 0}</b><i>${m ? `piece${m.count > 1 ? "s" : ""}${m.batches > 1 ? " · " + m.batches + " batches" : ""}` : "empty"}</i></div><div class="twr"><span>Mail value</span><b>${fmtCash(m ? m.value * payMul() : 0)}</b><i>${risk}</i></div>`;
   },
   tick(dt) {
-    this.t += dt; if (this.t < 0.2 || !this.cv) return; this.t = 0;
-    if ((this.wt = (this.wt || 0) + 0.2) > 1) { this.wt = 0; this.widget(); }
+    this.t += dt; if (this.t < 0.05 || !this.cv) return; const t = this.t; this.t = 0;
+    if ((this.wt = (this.wt || 0) + t) > 1) { this.wt = 0; this.widget(); }
+    this.span += (this.spanT - this.span) * (1 - Math.exp(-10 * t));   // eases toward the zoom target: smooth, not stepped
     const cv = this.cv, box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, H = box.clientHeight; if (W < 60 || H < 60) return;
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; }
-    const zm = MAP_ZOOMS[this.zoomLv] || 0, S = Math.min(W, H), sz = zm ? zm : WORLD * 0.98 * Math.max(1, H / W * 1.02), sx = sz * W / H;   // 0 = the whole peninsula fits; else an "around me" box zm metres tall
+    const zoomedIn = this.span < MAP_SPAN_MAX * 0.9, sz = this.span, sx = sz * W / H;   // near MAP_SPAN_MAX: the whole peninsula, centred, no pan
     const me = tabMe();                                                            // you: the walker on foot, else the vehicle you're in
-    const cx = zm ? clamp(me.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = zm ? clamp(me.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
-    const ox = zm && sx > WORLD ? -sx / 2 : cx - sx / 2, oz = cz - sz / 2;
-    this._mv = { ox, oz, sx, sz, W, H };                                           // cached for the click handler (world coords from a screen tap)
+    const cx = zoomedIn ? clamp(me.x + this.panX, -HALF + sx / 2, HALF - sx / 2) : 0, cz = zoomedIn ? clamp(me.z - sz * 0.05 + this.panZ, -HALF + sz / 2, HALF - sz / 2) : 0;
+    const ox = !zoomedIn && sx > WORLD ? -sx / 2 : cx - sx / 2, oz = cz - sz / 2;
+    this._mv = { ox, oz, sx, sz, W, H, zoomedIn };                                 // cached for the pointer handlers (world coords from a screen tap/drag)
     const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, ox, oz, sx, sz), span = sz;
     g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; }, sc = H / span * 10;   // px per 10 m
     const L = this.layersOn, hot = new Set();
@@ -16734,7 +16852,7 @@ function frame(t) {
   wnVisual(dt);
   dogTick(dt);
   if (started && !SEASON.card) { updGame(dt, spd); TLX.tick(dt); } else if (!started && VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false;
-  meltTick(dt);
+  meltTick(dt); snsTick(dt);
   updSky(); seaU.uTime.value += dt;
   updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updChimSmoke(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
