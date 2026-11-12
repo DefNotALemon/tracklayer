@@ -359,7 +359,7 @@ function core(R, dt) {
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
   const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
-  R.drag = Fres; R.fx = Fx;
+  R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = vf; R.gok = P.y <= Hc + 0.12 ? 1 : 0;   /* telemetry: slope pull along the nose (m/s2, + = rolls it forward) */
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
   const sp = Math.abs(vf), dmax = 0.52 / Math.sqrt(1 + (sp / 10) * (sp / 10));
   R.steer += (-input.steer * dmax - R.steer) * (1 - Math.exp(-7 * dt));
@@ -402,6 +402,16 @@ function core(R, dt) {
       if (BOG.acc >= 1) api.enterBog(clamp(0.3 + 0.9 * sinkS, 0.3, 0.85));
     } else { BOG.acc = Math.max(0, BOG.acc - 0.6 * dt); if (BOG.acc < 0.2) BOG.warned = false; }
   } else if (!BOG.on) BOG.acc = Math.max(0, BOG.acc - 1.2 * dt);
+  /* a truck that sits still with the pedal held says why within a second (beta 0116 #1/#4): before, the dig warning
+     needed ~2.7 s of spin to build, and a truck held by a grade on firm snow or by something solid said nothing at all.
+     "Still" is ground covered (under 0.4 m in the second), not speed: against a wall the truck jitters at 0-0.3 m/s */
+  const held = eff > 0.25 && !BOG.on && !parked && gndOK && !HELP.on && !P.wet;
+  if (!held) { R.stillT = 0; R.hold0 = null; R.stillTold = false; }
+  else {
+    if (!R.hold0 || Math.hypot(P.x - R.hold0[0], P.z - R.hold0[1]) > 0.4) { R.hold0 = [P.x, P.z]; R.stillT = 0; if (spd0 > 1.5) R.stillTold = false; }
+    R.stillT += dt;
+    if (R.stillT > 1 && !R.stillTold) { R.stillTold = true; stillWhy(R, rev, sinkS, gx * fx + gz * fz); }
+  }
   // --- fuel: a quiet idle, and the throttle against the load
   if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.0012 + thrE * (0.010 + 0.014 * clamp(Fres / 6000, 0, 2))) * d.burn * dt);
   // --- vertical: follow the four contact heights, leave the ground over a crest, land with a thump
@@ -451,6 +461,16 @@ function core(R, dt) {
   const roll = vf / d.tyreR * dt; for (let i = 0; i < 4; i++) R.spin[i] += roll + (i < 2 && !(R.spinK > 0) ? 0 : R.spinK * 18 * dt);
   R.brake = input.brk > 0 && vf > 0.5 ? 1 : 0; R.rev = rev ? 1 : 0;
 }
+// why the held truck isn't moving: something solid against it, deep snow, or a grade its tyres can't hold (sf = rise per
+// metre along the nose: backing up a hill is sf < 0)
+function stillWhy(R, rev, sinkS, sf) {
+  const BOG = api.BOG, end = rev ? "behind" : "in front of";
+  R.why = "";
+  if (api.now() - (R.touchT || -9) < 0.5 && (rev ? R.touchS < 0 : R.touchS > 0)) { R.why = "solid"; api.toast(`Something solid is ${end} the ${R.def.kind}. ${rev ? "Pull forward" : "Back up"} and steer round it.`, "warn"); }
+  else if (sinkS > 0.07) { R.why = "dig"; BOG.warned = true; toastDig(rev); }
+  else if (rev ? sf < -0.04 : sf > 0.04) { R.why = "steep"; api.toast(`Too steep to ${rev ? "back up" : "climb"} here on this grip. Take a run at it, or go round.`, "warn"); }
+  else { R.why = "grip"; api.toast(`The wheels can't find grip ${rev ? "backing up" : "here"}. Rock it ${rev ? "forward" : "back"} a little and try again.`, "warn"); }
+}
 function toastDig(rev) { api.toast(rev ? "The wheels spin in reverse and dig in. Ease off before it's stuck to the axles." : "The wheels are digging in. Ease off, or back out along your own ruts.", "warn"); }
 
 // trees, buildings and boulders stop it: no ejection from a cab, a dent in the paint and a thud instead
@@ -466,6 +486,7 @@ function collide(R, dt, fx, fz) {
       if (d2 >= rr * rr || d2 < 1e-6) continue;
       const dist = Math.sqrt(d2), nx = dx / dist, nz = dz / dist, pen = rr - dist;
       P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02);
+      R.touchT = api.now(); R.touchS = -(nx * fx + nz * fz);                       // < 0: the thing is behind it (stillWhy)
       const vn = P.vx * nx + P.vz * nz;
       if (vn < 0) {
         const hit = -vn;

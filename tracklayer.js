@@ -15375,7 +15375,7 @@ function wnPrompt() {
 function updWinchHud() {
   const el = $("wnHud"); if (!el) return;
   const wd = winchDef(), on = !!WN.show && !GS.dead && !showroomOn();
-  el.hidden = !on; if (!on) return;
+  el.hidden = !on; if (!on) { const t = $("wnHint"); if (t && t.textContent) t.textContent = ""; return; }   // no stale STUCK line left behind a hidden hud (beta 0121 #1)
   const hooked = WN.state === "hooked" && wd;
   el.classList.toggle("tense", hooked && WN.tens > 0.85);
   $("wnHint").textContent = WN.hint;
