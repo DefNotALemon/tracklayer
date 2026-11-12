@@ -54,7 +54,15 @@ const ROADS = {
     { id: "lebesby", name: "Lebesby road", via: ["depot", "@st_lebesby", "lebesby"] },
     { id: "ifjordfjellet", name: "Ifjordfjellet road", via: ["lebesby", "ifjord"], closed: true }
   ],
-  mapCol: "#c4692e", mapClosed: "rgba(196,105,46,.75)"
+  mapCol: "#c4692e", mapClosed: "rgba(196,105,46,.75)",
+  // road snow (3.2): each open road is cut into seg m stretches, each with its own snow (0 = plowed, 1 = drifted level
+  // with the snowpack either side). A storm fills a stretch at fill per game hour at full strength (nothing under ~0.3,
+  // light showers); at shut and over the stretch is snowed in (the Map paints it mapSnow). The council plow sets out
+  // from the route's first end once the route has plowAt of snow and the weather there has eased under plowWx for
+  // plowWait game hours, and works along at plowV m per game hour, clearing each stretch as it reaches it. A jump of
+  // more than skip game hours (a night's sleep, the summer skip) finds every road plowed.
+  seg: 400, fill: 0.16, shut: 0.35, plowAt: 0.12, plowWx: 0.45, plowWait: 0.75, plowV: 5000, skip: 2,
+  mapSnow: "#6f9fd0"
 };
 let api = null;
 const R = { routes: [], poles: 0, ms: 0, cleared: 0, bulbs: 0, wideN: 0, streets: 0, ready: false, ROADS };
@@ -346,18 +354,32 @@ function build(W) {
   index();
   bed(W);
   // the corridor: trees out, snow plowed (not on a closed road; a village's streets are plowed whatever the road does)
-  for (const rt of R.routes) for (const sg of rt.segs) {
-    if (sg.street) { W.addLane(sg.pts, ROADS.street); continue; }
-    for (const [x, z] of sg.pts) for (const o of W.obstaclesNear(x, z, ROADS.half + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - x, o.z - z) < ROADS.half + 1.6 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
-    if (!rt.closed) W.addLane(sg.pts, ROADS.half, ROADS.plow);
-    // a bend is plowed wider, the way a plow swings round a hairpin: a driver who runs a little wide or cuts in on a
-    // switchback's loop stays on hard pack instead of dropping a wheel into the berm (beta 0127 #2/#4)
-    const p = sg.pts;
-    for (let i = 2; i < p.length - 2; i++) {
-      if (turnR(p, i) >= ROADS.wideR) continue;
-      for (const o of W.obstaclesNear(p[i][0], p[i][1], ROADS.half + ROADS.wide + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - p[i][0], o.z - p[i][1]) < ROADS.half + ROADS.wide + 1.2 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
-      if (!rt.closed) { W.addLane([p[i - 1], p[i], p[i + 1]], ROADS.half + ROADS.wide, ROADS.plow); R.wideN++; }
+  for (const rt of R.routes) {
+    // road snow (3.2): the open road's plowed legs are filed by stretch (distance along the route), so a stretch's snow
+    // can set how hard its legs are plowed; the map draws each stretch's own runs
+    rt.seg = [];
+    const segOf = d => { const i = Math.max(0, Math.floor(d / ROADS.seg)); while (rt.seg.length <= i) rt.seg.push({ i: rt.seg.length, a: rt.seg.length * ROADS.seg, legs: [], runs: [], q: 0, shut: false }); return rt.seg[i]; };
+    let acc = 0, last = null;
+    for (const sg of rt.segs) {
+      const cum = sg.pts.map(q => { if (last) acc += Math.hypot(q[0] - last[0], q[1] - last[1]); last = q; return acc; });
+      if (sg.street) { W.addLane(sg.pts, ROADS.street); continue; }
+      for (const [x, z] of sg.pts) for (const o of W.obstaclesNear(x, z, ROADS.half + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - x, o.z - z) < ROADS.half + 1.6 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
+      if (!rt.closed) {
+        const legs = W.addLane(sg.pts, ROADS.half, ROADS.plow) || [];
+        legs.forEach((Y, k) => segOf((cum[k] + cum[k + 1]) / 2).legs.push(Y));
+        let cur = null, run = null;
+        for (let k = 1; k < sg.pts.length; k++) { const g = segOf((cum[k - 1] + cum[k]) / 2); if (g !== cur) { cur = g; g.runs.push(run = [sg.pts[k - 1]]); } run.push(sg.pts[k]); }
+      }
+      // a bend is plowed wider, the way a plow swings round a hairpin: a driver who runs a little wide or cuts in on a
+      // switchback's loop stays on hard pack instead of dropping a wheel into the berm (beta 0127 #2/#4)
+      const p = sg.pts;
+      for (let i = 2; i < p.length - 2; i++) {
+        if (turnR(p, i) >= ROADS.wideR) continue;
+        for (const o of W.obstaclesNear(p[i][0], p[i][1], ROADS.half + ROADS.wide + 3)) if (o.tree !== undefined && !o.down && Math.hypot(o.x - p[i][0], o.z - p[i][1]) < ROADS.half + ROADS.wide + 1.2 + (o.r || 0)) { if (W.clearTree(o)) R.cleared++; }
+        if (!rt.closed) { segOf(cum[i]).legs.push(...(W.addLane([p[i - 1], p[i], p[i + 1]], ROADS.half + ROADS.wide, ROADS.plow) || [])); R.wideN++; }
+      }
     }
+    for (const g of rt.seg) { const r0 = g.runs[Math.floor(g.runs.length / 2)] || [[rt.pts[0][0], rt.pts[0][1]]], m = r0[Math.floor(r0.length / 2)]; g.mx = m[0]; g.mz = m[1]; }
   }
   streets(W);
   poles(W);
@@ -513,25 +535,113 @@ function poles(W) {
   R.poles = list.length; R.poleList = list; R.poleMesh = mesh;
 }
 
-// ---- the chart: roads painted onto the relief under the Map app and the minimap
+// ---- the chart: roads painted onto the relief under the Map app and the minimap. The dark casing goes on once and a
+// copy of the chart is kept; the road colours are drawn over that copy again whenever a stretch snows in or is plowed
+// (3.2): open roads orange, snowed-in stretches ice blue, the shut fell road dashed.
 function paintMap(W) {
   const cv = W.map && W.map.canvas; if (!cv) return;
   const g = cv.getContext("2d"), k = W.map.scale;
-  g.save(); g.lineCap = g.lineJoin = "round";
-  for (const pass of [0, 1]) for (const rt of R.routes) for (const sg of rt.segs) {
-    const closed = rt.closed && !sg.street;
-    g.beginPath();
-    sg.pts.forEach(([x, z], i) => { const px = (x + W.half) * k, pz = (z + W.half) * k; if (i) g.lineTo(px, pz); else g.moveTo(px, pz); });
-    if (pass === 0) { g.strokeStyle = "rgba(20,30,40,.35)"; g.lineWidth = 3.2; g.setLineDash([]); }
-    else { g.strokeStyle = closed ? ROADS.mapClosed : ROADS.mapCol; g.lineWidth = 1.7; g.setLineDash(closed ? [4, 3] : []); }
-    if (!(pass === 0 && closed)) g.stroke();
-  }
+  g.save(); g.lineCap = g.lineJoin = "round"; g.strokeStyle = "rgba(20,30,40,.35)"; g.lineWidth = 3.2;
+  for (const rt of R.routes) for (const sg of rt.segs) if (!(rt.closed && !sg.street)) line(g, sg.pts, k, W.half);
   g.restore();
+  R.mapBase = document.createElement("canvas"); R.mapBase.width = cv.width; R.mapBase.height = cv.height;
+  R.mapBase.getContext("2d").drawImage(cv, 0, 0);
+  paintRoads();
+}
+function line(g, pts, k, half) { g.beginPath(); pts.forEach(([x, z], i) => { const px = (x + half) * k, pz = (z + half) * k; if (i) g.lineTo(px, pz); else g.moveTo(px, pz); }); g.stroke(); }
+function paintRoads() {
+  const W = api && api.world, cv = W && W.map && W.map.canvas; if (!cv || !R.mapBase) return;
+  const g = cv.getContext("2d"), k = W.map.scale, h = W.half;
+  g.save(); g.globalCompositeOperation = "copy"; g.drawImage(R.mapBase, 0, 0); g.restore();
+  g.save(); g.lineCap = g.lineJoin = "round"; g.lineWidth = 1.7;
+  for (const rt of R.routes) {
+    for (const sg of rt.segs) {
+      if (rt.closed && !sg.street) { g.strokeStyle = ROADS.mapClosed; g.setLineDash([4, 3]); line(g, sg.pts, k, h); g.setLineDash([]); }
+      else if (sg.street || rt.closed) { g.strokeStyle = ROADS.mapCol; line(g, sg.pts, k, h); }
+    }
+    if (!rt.closed) for (const s of rt.seg) { g.strokeStyle = s.shut ? ROADS.mapSnow : ROADS.mapCol; for (const r of s.runs) line(g, r, k, h); }
+  }
+  g.restore(); R.paints = (R.paints || 0) + 1;
 }
 
+/* ---- road snow (3.2): storms fill the roads, the council plow clears them, saved.
+   State (save key x.sys.roads): { r: { routeId: { s: [snow per stretch 0..1], p: plow metres along the route or -1,
+   w: hours the plow has been waiting for the weather } }, h: the game hour last settled, warned }. Each open road's
+   stretch (ROADS.seg m) sets how hard its legs are plowed: k = ROADS.plow x (1 - snow), in steps of 0.05 so the snow
+   field is re-read only when it has moved; the yard system then lets the snow drift back in (refill, at the storm's
+   rate) or cuts it down at once when the plow comes through. Village streets, house yards and the quay stay plowed
+   (they are separate legs, and the plow map takes the hardest plow over a cell). Nothing here touches the closed fell
+   road. TLXR.status(id) -> "open" | "snowed in" | "closed"; TLXR.setSnow(id, v[, i]) for tests. */
+const RS = () => TLX.state("roads");
+function snowInit() {
+  const st = RS(); if (!st) return;
+  if (!st.r || typeof st.r !== "object") st.r = {};
+  for (const rt of R.routes) {
+    if (rt.closed) continue;
+    let o = st.r[rt.id]; if (!o || typeof o !== "object" || !Array.isArray(o.s)) o = st.r[rt.id] = { s: [], p: -1, w: 0 };
+    o.s = rt.seg.map((g, i) => Math.max(0, Math.min(1, +o.s[i] || 0)));     // a build with different stretches: pad / trim
+    if (!(o.p >= 0 && o.p < rt.len)) o.p = -1; o.w = +o.w || 0;
+    rt.st = o;
+  }
+  if (typeof st.h !== "number") st.h = -1;
+  snowApply(true);
+}
+function snowStep(dh) {
+  const WX = api.WX;
+  for (const rt of R.routes) {
+    const o = rt.st; if (!o) continue;
+    let max = 0;
+    rt.seg.forEach((g, i) => { if (!g.legs.length) return; const w = WX.at(g.mx, g.mz); o.s[i] = Math.min(1, o.s[i] + dh * ROADS.fill * api.sstep(0.3, 0.9, w)); if (o.s[i] > max) max = o.s[i]; });
+    if (o.p < 0) {
+      if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; } }
+      else o.w = 0;
+    }
+    if (o.p >= 0) {
+      const p0 = o.p; o.p += dh * ROADS.plowV;
+      rt.seg.forEach((g, i) => { if (g.a >= p0 - 1e-6 && g.a < o.p) o.s[i] = 0; });
+      if (o.p >= rt.len) o.p = -1;
+    }
+  }
+}
+function snowApply(all) {
+  const legs = []; let paint = !!all;
+  for (const rt of R.routes) {
+    const o = rt.st; if (!o) continue;
+    rt.seg.forEach((g, i) => {
+      const q = Math.round(o.s[i] * 20) / 20;
+      if (q !== g.q || (all && q > 0)) { g.q = q; const k = ROADS.plow * (1 - q); for (const Y of g.legs) Y.k = k; legs.push(...g.legs); }
+      const shut = g.legs.length > 0 && o.s[i] >= ROADS.shut; if (shut !== g.shut) { g.shut = shut; paint = true; }
+    });
+  }
+  if (legs.length) R.replowed = (R.replowed || 0) + api.world.replow(legs);
+  if (paint) paintRoads();
+  // a word when the roads drift shut, and when the plow has opened them again
+  const st = RS(), shutR = R.routes.filter(rt => rt.seg.some(g => g.shut));
+  if (!all && api.started()) {
+    if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + " drifting shut. The council plow goes out once the storm eases."); }
+    else if (!shutR.length && st.warned && R.routes.every(rt => !rt.st || rt.st.p < 0)) { st.warned = false; api.toast("The plow's been round: the roads are open again."); }
+  } else if (all) st.warned = shutR.length > 0;
+}
+function snowTick() {
+  const st = RS(); if (!R.ready || !st || !st.r) return;
+  const H = api.GS.hour;
+  if (st.h < 0 || H < st.h) { st.h = H; return; }
+  const dh = H - st.h; if (dh < 0.02) return;
+  st.h = H;
+  if (dh > ROADS.skip) { for (const rt of R.routes) if (rt.st) { rt.st.s.fill(0); rt.st.p = -1; rt.st.w = 0; } }
+  else snowStep(dh);
+  snowApply(false);
+}
+R.status = id => { const rt = R.routes.find(r => r.id === id); return !rt ? null : rt.closed ? "closed" : rt.seg.some(g => g.shut) ? "snowed in" : "open"; };
+R.setSnow = (id, v, i) => { for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) rt.st.s.forEach((_, j) => { if (i === undefined || i === j) rt.st.s[j] = Math.max(0, Math.min(1, v)); }); snowApply(false); };
+R.snowAt = (x, z) => { const n = R.near(x, z); if (!n.route || !n.route.st) return n.route && n.route.closed ? 1 : 0; let b = 0, bd = Infinity; n.route.seg.forEach((g, i) => { if (!g.legs.length) return; const d = Math.hypot(g.mx - x, g.mz - z); if (d < bd) { bd = d; b = i; } }); return n.route.st.s[b]; };
+
 TLX.register({
-  id: "roads", v: 1,
-  state0: () => ({}),
-  init(a) { api = a; try { build(a.world); } catch (e) { console.error("TLX roads", e); R.err = String(e); } }
+  id: "roads", v: 2,
+  state0: () => ({ r: {}, h: -1, warned: false }),
+  migrate: st => Object.assign({ r: {}, h: -1, warned: false }, st || {}),
+  init(a) { api = a; try { build(a.world); snowInit(); } catch (e) { console.error("TLX roads", e); R.err = String(e); } },
+  tick() { try { snowTick(); } catch (e) { if (!R.tickErr) console.error("TLX roads tick", e); R.tickErr = String(e); } },
+  save() { const st = RS(); if (st && st.r) for (const k in st.r) { const o = st.r[k]; if (o && Array.isArray(o.s)) o.s = o.s.map(v => Math.round(v * 1000) / 1000); if (o && o.p >= 0) o.p = Math.round(o.p); } if (st && st.h >= 0) st.h = Math.round(st.h * 1000) / 1000; }
 });
 })();

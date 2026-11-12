@@ -435,6 +435,15 @@ light goes flat. The pickup is at home on them. The one exception is the road ov
 from Lebesby to Ifjord: it is shut for the winter, so it is just a line of poles across deep snow.
 The roads are drawn on the Map and the minimap in orange; the shut one is dashed.
 
+Storms snow the roads in. Wherever a storm is blowing, the snow drifts back over the plowed strip a
+stretch at a time; three hours of a real storm leave half a metre on it, more than the pickup can push
+through. A stretch that has drifted shut turns ice blue on the Map and the minimap, and you get a word
+when the first road goes. Once the weather eases the council plow sets out from the start of each road
+and works its way along (about an hour behind the storm on the near end, a couple on the far one),
+cutting each stretch back to hard pack as it reaches it; you hear when the roads are all open again.
+Village streets, house yards and the quay are kept plowed through it all, and a night's sleep finds
+the roads plowed. Where the snow on each road stands is saved with the game.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

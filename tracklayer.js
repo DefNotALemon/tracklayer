@@ -296,7 +296,26 @@ function yardOf(cx, cz) {
   return a;
 }
 function addYard(x, z, r) { addPlow({ x, z, x2: x, z2: z, r, f: YARD_FALL }); }
-function addLane(pts, r, pk) { for (let k = 1; k < pts.length; k++) addPlow({ x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL, k: pk || 1 }); }
+function addLane(pts, r, pk) { const legs = []; for (let k = 1; k < pts.length; k++) { const Y = { x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL, k: pk || 1 }; addPlow(Y); legs.push(Y); } return legs; }
+/* Road snow (3.2, tlx-roads.js): a road's legs change how hard they're plowed (Y.k) as storms fill them and the council
+   plow clears them. plowRefresh(legs) re-reads the plow map round those legs: a loaded chunk that's just been plowed is
+   cut down at once (as addPlow does); one that's snowing in is left to refill(), which raises it at the storm's rate. */
+function plowRefresh(legs) {
+  const keys = new Set(), S = CH * CELL;
+  for (const Y of legs) {
+    const R = Y.r + Y.f, xa = Math.min(Y.x, Y.x2) - R, xb = Math.max(Y.x, Y.x2) + R, za = Math.min(Y.z, Y.z2) - R, zb = Math.max(Y.z, Y.z2) + R;
+    for (let cz = Math.max(0, Math.floor((za + HALF) / S)); cz <= Math.min(CPR - 1, Math.floor((zb + HALF) / S)); cz++)
+      for (let cx = Math.max(0, Math.floor((xa + HALF) / S)); cx <= Math.min(CPR - 1, Math.floor((xb + HALF) / S)); cx++) keys.add(cz * CPR + cx);
+  }
+  for (const key of keys) {
+    yardCache.delete(key);
+    const c = chunks[key]; if (!c) continue;
+    const cx = key % CPR, cz = (key - cx) / CPR, y = yardOf(cx, cz);
+    if (y) c.y = y; else delete c.y;
+    if (y) for (let k = 0; k < CH * CH; k++) { const tg = c.f[k] * (1 - YARD_K * y[k]), d0 = c.d[k]; if (d0 > tg + 0.003) { c.d[k] = tg; writeCell(cx * CH + (k & 31), cz * CH + (k >> 5), d0, tg, c.f[k]); } }
+  }
+  return keys.size;
+}
 function addPlow(Y) {
   YARDS.push(Y);
   const R = Y.r + Y.f, xa = Math.min(Y.x, Y.x2) - R, xb = Math.max(Y.x, Y.x2) + R, za = Math.min(Y.z, Y.z2) - R, zb = Math.max(Y.z, Y.z2) + R;
@@ -16515,6 +16534,8 @@ function initExpansion() {
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
       laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
+      // road snow (3.2): re-read the plow map round legs whose Y.k changed (addLane returns its legs)
+      replow: plowRefresh,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
       terrain: { ground, bio, res: GRES, n: GN, refresh: farRefresh } },
     mesh: { box, cyl, ball, std },
