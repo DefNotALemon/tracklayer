@@ -747,6 +747,8 @@ let far, pineCells = [], birchCells = [], cargoMesh = null, started = false, rea
 let FISH = null, FISHSITES = {};                                       // ice fishing (icefish.js) and where its shop and buyer stand
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
+// take one back out (a parked car that drove off, 3.4b2b); true if it was there
+function dropOb(o) { const a = obGrid.get(Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC)), k = a ? a.indexOf(o) : -1; if (k >= 0) a.splice(k, 1); return k >= 0; }
 
 function mergeGeos(list) {
   let n = 0; for (const g of list) n += g.attributes.position.count;
@@ -16561,7 +16563,7 @@ function initExpansion() {
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, blackout, hospHere, tutDone: () => TUT.stage >= 99,
-    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt,
+    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, dropOb, addYard, addLane, yardAt,
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
       laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },

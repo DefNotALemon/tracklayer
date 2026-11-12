@@ -27,6 +27,9 @@
 // until the weather there next eases below CARS.calm. An owner who finishes first (their wait ran out) beats you
 // to it: no pay. No shovel exists yet, so it's all by hand. No Jobs row (nothing to track). 3.4: drivers.
 //
+// OUT DRIVING (3.4b2b). setAway(i, on) empties a car's spot (hidden, its obstacle circles out of the grid, no snow,
+// never dug or counted buried) while its owner is out on the roads; tlx-traffic.js brings it home.
+//
 // TLXC (window, for later slices and scenarios): cars [{ x, z, y, yaw, sx, sy, col, b, wait, wt, key, owner, b0,
 // paid }], ready, ms, err, buried() -> count, setSnow(i | null, v), step(dh) (one weather step), group (the meshes),
 // digNear() -> nearest diggable car or null, dig (index being dug or -1), pay(b0), digT(b0).
@@ -83,7 +86,8 @@ function place(W) {
       const car = { x, z, y: W.surf(x, z), yaw, sx: lenK, sy, col: CARS.cols[ci], b: 0, wt: 0, wait: w0 < 0.25 ? 20 + w1 * 40 : 1 + w1 * 9, key: Math.round(x) + "_" + Math.round(z), i: out.length, owner, b0: 0, paid: false };
       out.push(car);
       const top = car.y + 1.5 * sy;
-      for (const u of [-1.45, 0, 1.45]) W.addOb({ x: x + Math.sin(yaw) * u * lenK, z: z + Math.cos(yaw) * u * lenK, r: 0.95, top, car: car.i, ax: yaw });
+      car.obs = [-1.45, 0, 1.45].map(u => ({ x: x + Math.sin(yaw) * u * lenK, z: z + Math.cos(yaw) * u * lenK, r: 0.95, top, car: car.i, ax: yaw }));
+      for (const o of car.obs) W.addOb(o);
       break;
     }
   }
@@ -151,7 +155,11 @@ function snowLook() {
   const { m, q, p, s, up } = C.q, T = C.T, zero = new T.Matrix4().makeScale(0, 0, 0), loc = new T.Matrix4();
   let dirty = false;
   C.cars.forEach((c, i) => {
-    const qb = Math.round(c.b * 40) / 40; if (qb === c.qb) return; c.qb = qb; dirty = true;
+    const qb = c.away ? -1 : Math.round(c.b * 40) / 40; if (qb === c.qb) return; c.qb = qb; dirty = true;
+    if (c.away) {                                                          // out on the roads (3.4b2b): an empty spot
+      if (!c.hid) { c.hid = true; for (const k of ["paint", "glass", "dark", "lamps"]) { M[k].setMatrixAt(i, zero); M[k].instanceMatrix.needsUpdate = true; } }
+      M.cap.setMatrixAt(2 * i, zero); M.cap.setMatrixAt(2 * i + 1, zero); M.mound.setMatrixAt(i, zero); return;
+    }
     const cap = Math.min(1, qb / 0.08);
     if (cap <= 0) { M.cap.setMatrixAt(2 * i, zero); M.cap.setMatrixAt(2 * i + 1, zero); }
     else {
@@ -173,6 +181,7 @@ function snowLook() {
 function step(dh) {
   const WX = api.WX, ss = api.sstep;
   for (const c of C.cars) {
+    if (c.away) { c.b = 0; c.wt = 0; continue; }                          // out driving: no snow on an empty spot
     const w = WX.at(c.x, c.z);
     if (w < CARS.calm) c.paid = false;                                     // the storm's over: next one pays again
     if (w > CARS.fillA) c.b = Math.min(1, c.b + dh * CARS.fill * ss(CARS.fillA, CARS.fillB, w));
@@ -191,7 +200,7 @@ function reach(c, x, z) {                                                 // in 
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), dx = x - c.x, dz = z - c.z;
   return Math.hypot((dx * fz - dz * fx) / 1.95, (dx * fx + dz * fz) / (3.15 * c.sx));
 }
-function diggable(c) { return !c.paid && (c.b >= CARS.buried || (c.b0 > 0 && c.b > 0.005)); }
+function diggable(c) { return !c.away && !c.paid && (c.b >= CARS.buried || (c.b0 > 0 && c.b > 0.005)); }
 C.digNear = () => {
   if (!C.ready || !api || !TLX.on("digcars")) return null;
   const F = api.FOOT; if (!F.on) return null;
@@ -239,7 +248,16 @@ function tick() {
   else step(dh);
   snowLook();
 }
-C.buried = () => C.cars.filter(c => c.b >= CARS.buried).length;
+C.buried = () => C.cars.filter(c => !c.away && c.b >= CARS.buried).length;
+// out on the roads / home again (3.4b2b, tlx-traffic.js): an away car's spot is empty, no snow, no obstacle circles
+C.setAway = (i, on) => {
+  const c = C.cars[i]; if (!c || !!c.away === !!on) return false;
+  const W = api.world;
+  if (on) { if (C.dig === i) stopDig(); c.away = true; c.b = 0; c.b0 = 0; c.wt = 0; for (const o of c.obs || []) W.dropOb && W.dropOb(o); }
+  else { c.away = false; c.b = 0; c.b0 = 0; c.wt = 0; c.y = W.surf(c.x, c.z); for (const o of c.obs || []) W.addOb(o); }
+  snowLook(); return true;
+};
+C.awayN = () => C.cars.filter(c => c.away).length;
 C.setSnow = (i, v) => { for (const c of C.cars) if (i === null || i === undefined || c.i === i) { c.b = Math.max(0, Math.min(1, v)); c.wt = 0; } snowLook(); };
 C.step = dh => { step(dh); snowLook(); };
 C.CARS = CARS;

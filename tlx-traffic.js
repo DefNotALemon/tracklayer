@@ -35,7 +35,11 @@
 // distance from the camera, hidden by day. The hum: the loudest car within TRAF.humR m drives one engine + tyre voice on
 // the game's audio master; TLXT.humGain / humF / humCar report it.
 //
-// Option "traffic" (Settings > Options, on): off hides every car and stops all of it.
+// GOING HOME (3.4b2b). About a third of the parked cars a driver can reach are out at boot (their spots empty); now and
+// then a car leaves the road at its end or on a street hop, drives the village street to one of those doors and parks
+// there as that owner's car (see the block above homesPrep). TLXT.homes / homesDone / sendHome / homePath report it.
+//
+// Option "traffic" (Settings > Options, on): off hides every car and stops all of it (and every owner is home).
 //
 // TLXT (window, for later slices and scenarios): cars [{ rt, s, dir, v, st, x, z, y, yaw, why, lane, pass, roll }],
 // ready, err, ms, routes (the drivable routes), n (cars for this preset), place(routeId, s, dir, i) -> car (puts car i,
@@ -68,10 +72,17 @@ const TRAF = {
   // the beams and the hum (3.4b2a): cone length m, brightness, faded out between beamFar[0] and [1] m from the camera;
   // a car is heard within humR m, at most humG loud (the sled's own engine idles at 0.09)
   beamLen: 17, beamI: 0.32, beamFar: [260, 520], humR: 150, humG: 0.11,
+  // going home (3.4b2b): share of the parked cars whose owner is out at boot; a car for one of them turns up on the road
+  // into the player's village every every[0..1] game s (player within near m of the empty spot), from[0..1] m back along
+  // the route; a car at a road's end or on a street hop takes a free spot there with chance P; the street leg may be at
+  // most reach m from the route's street to the door; it stops gap m behind someone on the street, ignores things past
+  // the spot; held up give s with you out of sight, it parks (or gives up if the spot itself is taken); a spot is only
+  // used if the whole drive keeps the three r 0.95 circles at least sweep m clear (0.95 - 0.88 half width = 0.07 slack)
+  home: { share: 0.3, every: [110, 220], near: 420, from: [170, 300], P: 0.5, reach: 140, gap: 5.5, look: 25, give: 30, sweep: -0.06, dec: 1.0 },
   cols: [0xe9ebee, 0xb9bec4, 0x4a4f55, 0x1d2024, 0x1f2f4f, 0x8d1f1c, 0x2d4635, 0x6d7a86, 0x9a8a6c, 0xe9ebee]
 };
 let api = null, M = null;
-const T = window.TLXT = { cars: [], ready: false, err: null, ms: 0, routes: [], n: 0, hold: false, hits: 0, TRAF };
+const T = window.TLXT = { cars: [], ready: false, err: null, ms: 0, routes: [], n: 0, hold: false, hits: 0, homes: [], homesDone: 0, TRAF };
 
 // ---- the drivable routes: the open roads with their speed profile both ways and which points are street
 function prep() {
@@ -92,7 +103,7 @@ function prep() {
     const vP = new Float32Array(cap), vM = new Float32Array(cap);
     for (let i = n - 2; i >= 0; i--) vP[i] = Math.min(vP[i], Math.sqrt(vP[i + 1] * vP[i + 1] + 2 * TRAF.dec * (cum[i + 1] - cum[i])));
     for (let i = 1; i < n; i++) vM[i] = Math.min(vM[i], Math.sqrt(vM[i - 1] * vM[i - 1] + 2 * TRAF.dec * (cum[i] - cum[i - 1])));
-    out.push({ rt, id: rt.id, pts: P, cum, street, vP, vM, s0: cum[i0], s1: cum[i1], len: cum[i1] - cum[i0] });
+    out.push({ rt, id: rt.id, pts: P, cum, street, vP, vM, s0: cum[i0], s1: cum[i1], len: cum[i1] - cum[i0], i0, i1 });
   }
   return out;
 }
@@ -178,7 +189,7 @@ function ground(c) {
 }
 function spawn(c, first) {
   const you = youPos(), [lo, hi] = first ? TRAF.spawn0 : TRAF.spawn, rs = T.routes;
-  c.on = false; c.retry = 3;
+  release(c); c.on = false; c.retry = 3; c.tried = {};
   if (!rs.length) return false;
   const tot = rs.reduce((a, r) => a + r.len, 0), seg = window.TLXR.ROADS.seg;
   for (let k = 0; k < 60; k++) {
@@ -196,7 +207,7 @@ function spawn(c, first) {
 T.lanePt = (id, s, dir) => { const r = T.routes.find(q => q.id === id); if (!r) return null; const p = at(r, s, 0), d = dir < 0 ? -1 : 1, fx = p.tx * d, fz = p.tz * d; return { x: p.x - fz * TRAF.lane, z: p.z + fx * TRAF.lane, cx: p.x, cz: p.z, yaw: Math.atan2(fx, fz) }; };
 T.place = (id, s, dir, i) => {                                            // i (default 0): which car; car 0 hides the rest
   const r = T.routes.find(q => q.id === id), c = T.cars[i | 0]; if (!r || !c) return null;
-  T.hold = true;
+  T.hold = true; release(c);
   Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0 });
   c.lane = TRAF.lane; setPose(c, 0); ground(c);
   if (!(i | 0)) for (const o of T.cars) if (o !== c) o.on = false;
@@ -206,6 +217,7 @@ T.place = (id, s, dir, i) => {                                            // i (
 // ---- driving
 function startTurn(c) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), p = at(c.r, c.s, c.k);
+  release(c);                                                                  // turning back: not going home after all
   c.st = "turn"; c.t = 0; c.v = 0;
   c.tu = { cx: p.x, cz: p.z, fx: p.tx * c.dir, fz: p.tz * c.dir, yaw0: c.yaw, fx0: fx, fz0: fz };
 }
@@ -238,6 +250,7 @@ function driveStep(c, dt, B, you) {
   c.s = Math.max(r.s0, Math.min(r.s1, c.s));
   setPose(c, dt);
   passStep(c, sa, B);
+  homeCheck(c, r); if (c.st === "home") return;                               // off the road to a door (3.4b2b)
   if (sa.d < 0.6 && c.v < 0.3) {
     if (sa.why === "end") {
       // the end of the road: out of sight it drives on into the village (another car turns up elsewhere); in sight it turns
@@ -271,6 +284,210 @@ function passStep(c, sa, B) {
   } else if (Math.abs(c.lane - c.laneT) < 0.02) { c.lane = c.laneT; c.pass = null; c.blocked = 0; }
 }
 T.startTurn = c => startTurn(c || T.cars[0]);
+
+// ---- going home (3.4b2b): a car now and then drives a village street to a door and parks there, as one of 3.3a's cars.
+// At boot about TRAF.home.share of the parked cars (those a car can reach: a clear street leg from the route's street to
+// in front of the spot) are out, their spots empty (TLXC.setAway). A car on the road into the village, at the road's end
+// or on a street hop through it, may take one: it leaves the road along the route's street, follows the lane the plow
+// keeps to the door (W.laneRoute, the same one 3.1's streets() plowed) and noses in where the parked car stood, at
+// street speed and slower round the corners; then the traffic car is gone and the parked one is back, in its colour.
+// Now and then (TRAF.home.every) a car for an empty spot near you is put on the road out of sight, already bound there.
+const HOME = TRAF.home;
+function chaikin(p, n) {
+  for (let it = 0; it < n; it++) {
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); }
+    q.push(p[p.length - 1]); p = q;
+  }
+  return p;
+}
+function homesPrep() {
+  const C = window.TLXC, W = api.world, out = [];
+  if (!C || !C.ready || !W.laneRoute) return out;
+  for (const pc of C.cars) {
+    const fx = Math.sin(pc.yaw), fz = Math.cos(pc.yaw), Ax = pc.x - fx * 5.5 * pc.sx, Az = pc.z - fz * 5.5 * pc.sx;
+    // the route street points nearest in front of the spot, a few of them (the nearest may make a corner too tight)
+    const cand = [];
+    for (const r of T.routes) for (let j = 0; j < r.pts.length; j++) {
+      if (!r.street[j]) continue;
+      const d = Math.hypot(r.pts[j][0] - Ax, r.pts[j][1] - Az); if (d < HOME.reach) cand.push({ r, j, d });
+    }
+    cand.sort((a, b) => a.d - b.d);
+    let tries = 0;
+    for (const { r, j } of cand) {
+      if (tries >= 4) break;
+      if (out.length && out[out.length - 1].ci === pc.i) break;
+      tries++;
+      const s = r.pts[j], lane = W.laneRoute(s[0], s[1], Ax, Az);
+      const tail = [[s[0], s[1]]]; for (const q of lane.slice(1)) tail.push([q[0], q[1]]);
+      tail.push([pc.x, pc.z]);
+      let len = 0, ok = true;
+      for (let i = 1; i < tail.length && ok; i++) {
+        const a = tail[i - 1], b = tail[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); len += L;
+        for (let u = 0; u <= L; u += 0.5) { const x = a[0] + (b[0] - a[0]) * u / L, z = a[1] + (b[1] - a[1]) * u / L; if (W.isSea(x, z) || W.isWater(x, z)) { ok = false; break; } }
+      }
+      if (!ok || len > HOME.reach * 1.8) continue;
+      const h = { i: out.length, ci: pc.i, r, j, tail, len, side: j > r.i1 ? 1 : j < r.i0 ? -1 : 0, taken: -1, x: pc.x, z: pc.z };
+      // the whole drive as the car's three circles (radius 0.95, the body's half width 0.88) must miss every house,
+      // shed, tree and other parked car: from the road's end, or both ways along a street hop
+      h.clr = Math.min(...(h.side ? [h.side] : [1, -1]).map(d => sweep(pathOf(h, d), pc.i)));
+      if (h.clr < HOME.sweep) continue;
+      out.push(h);
+    }
+  }
+  return out;
+}
+// the path a car would drive to home h coming dir along the route: from the road's end (or 25 m up a street hop)
+function pathOf(h, dir) {
+  const r = h.r, s = h.side > 0 ? r.s1 - 8 : h.side < 0 ? r.s0 + 8 : r.cum[h.j] - dir * 25;
+  const f = { i: -1, r, dir, s, k: idxAt(r, s, 0), v: TRAF.vst, lane: TRAF.lane, laneT: TRAF.lane, col: 0, sx: 1, sy: 1 };
+  f.lane = r.street[f.k] ? 0 : TRAF.lane; setPose(f, 0);
+  const tk = h.taken, hn = T.homing; startHome(f, h); h.taken = tk; T.homing = hn;
+  return f.H.pts;
+}
+// the least clearance (m, circle edge to obstacle edge) of the car's three circles driven along p, its own spot excepted
+function sweep(p, ci) {
+  const W = api.world, cum = [0];
+  for (let i = 1; i < p.length; i++) cum.push(cum[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+  const L = cum[cum.length - 1];
+  let k = 0;
+  const pt = s => { while (k > 0 && cum[k] > s) k--; while (k < p.length - 2 && cum[k + 1] <= s) k++; const t = (s - cum[k]) / ((cum[k + 1] - cum[k]) || 1); return [p[k][0] + (p[k + 1][0] - p[k][0]) * t, p[k][1] + (p[k + 1][1] - p[k][1]) * t]; };
+  let m = 1e9;
+  for (let s = 6; s <= L; s += 0.5) {
+    const a = pt(Math.max(0, s - 1.6)), b = pt(Math.min(L, s + 1.6)), c = pt(s), yaw = Math.atan2(b[0] - a[0], b[1] - a[1]);
+    for (const u of [-1.45, 0, 1.45]) {
+      const x = c[0] + Math.sin(yaw) * u, z = c[1] + Math.cos(yaw) * u;
+      for (const o of W.obstaclesNear(x, z, 5)) { if (o.top < -1e8 || o.car === ci) continue; const d = Math.hypot(o.x - x, o.z - z) - (o.r || 0.5) - TRAF.r; if (d < m) m = d; }
+    }
+  }
+  return m;
+}
+const homeFree = h => { const pc = window.TLXC.cars[h.ci]; return !!(pc && pc.away) && h.taken < 0; };
+function release(c) { if (c.homeI != null) { const h = T.homes[c.homeI]; if (h && h.taken === c.i) h.taken = -1; } c.homeI = null; c.H = null; c.col = c.col0 ?? c.col; c.sx = c.sx0 ?? c.sx; c.sy = c.sy0 ?? c.sy; }
+// the path from where the car is: along the route to the street point, then the lane to the door
+function startHome(c, h) {
+  const r = c.r, P = [[c.x, c.z]], push = q => { const l = P[P.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) > 1.5) P.push([q[0], q[1]]); };
+  if (c.dir > 0) for (let i = c.k + 1; i <= h.j; i++) push(r.pts[i]);
+  else for (let i = c.k; i >= h.j; i--) push(r.pts[i]);
+  for (let i = 1; i < h.tail.length - 1; i++) push(h.tail[i]);
+  const last = h.tail[h.tail.length - 1];
+  P.push([last[0], last[1]]);
+  // round the corners, keeping the nose-in leg straight: smooth all but the last leg, then add it back
+  let pts = chaikin(P.slice(0, -1), 3); pts.push([last[0], last[1]]);
+  const n = pts.length, cum = new Float32Array(n), v = new Float32Array(n);
+  for (let i = 1; i < n; i++) cum[i] = cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 2)], b = pts[i], q = pts[Math.min(n - 1, i + 2)];
+    const ab = Math.hypot(b[0] - a[0], b[1] - a[1]), bc = Math.hypot(q[0] - b[0], q[1] - b[1]), ca = Math.hypot(q[0] - a[0], q[1] - a[1]);
+    const cr = Math.abs((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])), R = cr < 1e-6 ? 1e9 : ab * bc * ca / (2 * cr);
+    v[i] = Math.max(1.6, Math.min(i < 3 ? Math.max(TRAF.vst, c.v) : TRAF.vst, Math.sqrt(TRAF.ay * R)));
+  }
+  v[n - 1] = 0;
+  for (let i = n - 2; i >= 0; i--) v[i] = Math.min(v[i], Math.sqrt(v[i + 1] * v[i + 1] + 2 * HOME.dec * (cum[i + 1] - cum[i])));
+  const pc = window.TLXC.cars[h.ci];
+  c.col0 = c.col0 ?? c.col; c.sx0 = c.sx0 ?? c.sx; c.sy0 = c.sy0 ?? c.sy;
+  c.col = pc.col; c.sx = pc.sx; c.sy = pc.sy;                                 // it's that owner's car
+  c.H = { pts, cum, v, L: cum[n - 1], k: 0 }; c.hs = 0; c.st = "home"; c.homeI = h.i; h.taken = c.i; c.blocked = 0; c.pass = null; c.lane = 0;
+  c.why = "home"; T.homing = (T.homing || 0) + 1;
+}
+function hAt(H, s) {
+  let k = H.k; const c = H.cum, n = c.length;
+  while (k > 0 && c[k] > s) k--; while (k < n - 2 && c[k + 1] <= s) k++; H.k = k;
+  const a = H.pts[k], b = H.pts[k + 1], L = (c[k + 1] - c[k]) || 1, t = Math.max(0, Math.min(1, (s - c[k]) / L));
+  return { k, x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, v: H.v[k] + (H.v[k + 1] - H.v[k]) * t };
+}
+function homeAhead(c, B) {
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), left = c.H.L - c.hs;
+  let d = 1e9, why = "";
+  const each = (x, z, who) => { const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz; if (a <= 0 || a > HOME.look || a > left + 3.2) return; if (Math.abs(dz * fx - dx * fz) > 1.9) return; const dd = a - HOME.gap; if (dd < d) { d = dd; why = who; } };
+  for (const o of T.cars) if (o !== c && o.on) each(o.x, o.z, "car");
+  for (const b of B) each(b.x, b.z, b.who);
+  return { d, why };
+}
+function homeStep(c, dt, B, you) {
+  const H = c.H; c.dtLast = dt;
+  if (c.hold > 0) { c.hold -= dt; c.v = 0; return; }
+  const sa = homeAhead(c, B); c.ahead = sa.d; c.why = sa.why || "home";
+  const p0 = hAt(H, c.hs);
+  const vt = Math.min(p0.v, Math.sqrt(2 * TRAF.brake * Math.max(0, sa.d)), Math.sqrt(2 * HOME.dec * Math.max(0, H.L - c.hs)) + 0.3);
+  const brk = vt < c.v ? Math.min(TRAF.brake * 2.5, Math.max(TRAF.brake, c.v * c.v / (2 * Math.max(0.4, sa.d)) * 1.15)) : TRAF.brake;
+  c.v += Math.max(-brk * dt, Math.min(TRAF.acc * dt, vt - c.v)); if (c.v < 0) c.v = 0;
+  c.hs = Math.min(H.L, c.hs + c.v * dt);
+  const p = hAt(H, c.hs), q0 = hAt(H, Math.max(0, c.hs - 1.6)), q1 = hAt(H, Math.min(H.L, c.hs + 1.6)); H.k = p.k;
+  c.x = p.x; c.z = p.z;
+  if (Math.hypot(q1.x - q0.x, q1.z - q0.z) > 0.05) c.yaw = Math.atan2(q1.x - q0.x, q1.z - q0.z);
+  if (c.hs >= H.L - 0.03) { arrive(c); return; }
+  if (sa.d < 0.6 && c.v < 0.3) {
+    c.blocked += dt;
+    if (c.blocked > HOME.give && Math.hypot(c.x - you.x, c.z - you.z) > 120) {
+      const h = T.homes[c.homeI], spotTaken = B.some(b => Math.hypot(b.x - h.x, b.z - h.z) < 3.2);
+      if (spotTaken) { release(c); spawn(c, false); } else arrive(c);
+    }
+  } else if (c.v > 0.5) c.blocked = 0;
+}
+function arrive(c) {
+  const h = T.homes[c.homeI];
+  if (h) window.TLXC.setAway(h.ci, false);
+  T.homesDone = (T.homesDone || 0) + 1; T.lastHome = h ? { ci: h.ci, home: h.i, car: c.i, x: c.x, z: c.z, yaw: c.yaw } : null;
+  release(c); c.on = false; c.st = "drive"; c.retry = 20; c.v = 0;
+}
+// a car at the road's end, or on a street hop, may take a free spot it's passing (or the one it was sent to)
+function homeCheck(c, r) {
+  if (c.pass || !T.homes.length) return;
+  const toEnd = c.dir > 0 ? r.s1 - c.s : c.s - r.s0, slow = c.v <= TRAF.vst + 0.5 || toEnd < 12;   // eased down to street speed at the road's end first
+  if (c.homeI != null) {
+    const h = T.homes[c.homeI];
+    if (!h || h.r !== r || !homeFree2(h, c)) { release(c); return; }
+    const ahead = (r.cum[h.j] - c.s) * c.dir;
+    if ((h.side === c.dir && toEnd < 40 && slow) || (h.side === 0 && ahead > 0 && ahead < 30)) startHome(c, h);
+    return;
+  }
+  c.tried = c.tried || {};
+  for (const h of T.homes) {
+    if (h.r !== r || c.tried[h.i] || !homeFree(h)) continue;
+    const ahead = (r.cum[h.j] - c.s) * c.dir;
+    const near = (h.side === c.dir && toEnd < 40 && slow) || (h.side === 0 && r.street[c.k] && ahead > 8 && ahead < 30);
+    if (!near) continue;
+    c.tried[h.i] = 1;
+    if (Math.random() < HOME.P) { startHome(c, h); return; }
+  }
+}
+const homeFree2 = (h, c) => { const pc = window.TLXC.cars[h.ci]; return !!(pc && pc.away) && (h.taken < 0 || h.taken === c.i); };
+// now and then: a car bound for an empty spot near you turns up on the road in, out of sight
+function sendHome(h, D, c) {
+  const r = h.r, dir = h.side !== 0 ? h.side : (Math.random() < 0.5 ? 1 : -1);
+  let s = h.side > 0 ? r.s1 - D : h.side < 0 ? r.s0 + D : r.cum[h.j] - dir * D;
+  s = Math.max(r.s0 + 5, Math.min(r.s1 - 5, s));
+  release(c);
+  Object.assign(c, { on: true, r, s, k: 0, dir, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, tried: {} });
+  c.k = idxAt(r, s, 0); c.lane = r.street[c.k] ? 0 : TRAF.lane; setPose(c, 0); ground(c);
+  c.v = Math.min(TRAF.vmax, vProf(r, s, c.k, dir)) * 0.8;
+  c.homeI = h.i; h.taken = c.i;
+  return c;
+}
+function homeTick(dt, you) {
+  if (T.hold || !T.homes.length) return;
+  T.homeT = (T.homeT ?? HOME.every[0] * 0.5) - dt;
+  if (T.homeT > 0) return;
+  T.homeT = HOME.every[0] + Math.random() * (HOME.every[1] - HOME.every[0]);
+  const free = T.homes.filter(h => homeFree(h) && Math.hypot(h.x - you.x, h.z - you.z) < HOME.near);
+  if (!free.length) return;
+  const h = free[Math.floor(Math.random() * free.length)], seg = window.TLXR.ROADS.seg;
+  const cand = T.cars.filter(c => !c.on || (c.st === "drive" && c.homeI == null && Math.hypot(c.x - you.x, c.z - you.z) > 500)).sort((a, b) => (a.on - b.on));
+  const c = cand[0]; if (!c) return;
+  for (let k = 0; k < 6; k++) {
+    const D = HOME.from[0] + Math.random() * (HOME.from[1] - HOME.from[0]), r = h.r, dir = h.side !== 0 ? h.side : 1;
+    const s = Math.max(r.s0 + 5, Math.min(r.s1 - 5, h.side > 0 ? r.s1 - D : h.side < 0 ? r.s0 + D : r.cum[h.j] - dir * D)), p = at(r, s, 0);
+    if (Math.hypot(p.x - you.x, p.z - you.z) < 160) continue;
+    const lo = Math.min(s, r.cum[h.j]), hi = Math.max(s, r.cum[h.j]);
+    if (r.rt.seg.some(g => g.shut && g.a + seg > lo && g.a < hi)) return;      // the road in is drifted shut: nobody comes
+    if (T.cars.some(o => o !== c && o.on && Math.hypot(o.x - p.x, o.z - p.z) < 40)) continue;
+    sendHome(h, D, c); T.sent = (T.sent || 0) + 1; return;
+  }
+}
+T.sendHome = (hi, D, i) => { const h = T.homes[hi], c = T.cars[i | 0]; if (!h || !c) return null; T.hold = true; if (!(i | 0)) for (const o of T.cars) if (o !== c) { release(o); o.on = false; } return sendHome(h, D || 200, c); };
+T.homeTick = (dt, you) => homeTick(dt, you || youPos());
+T.homePath = (hi, dir) => { const h = T.homes[hi]; return h ? pathOf(h, h.side || dir || 1) : null; };   // for tests: changes nothing
 
 // ---- solid: the body you drive and the walker against every car
 function collide(c, dt) {
@@ -458,14 +675,19 @@ function tick(dt) {
   if (!T.ready) return;
   const on = TLX.on("traffic");
   T.group.visible = on;
-  if (!on) return;
+  if (!on) {
+    // no traffic, nobody out: every parked car is home, any car on its way there is gone
+    if (T.homes.length && window.TLXC.awayN()) { for (const c of T.cars) if (c.st === "home") { release(c); c.st = "drive"; c.on = false; } for (const h of T.homes) { window.TLXC.setAway(h.ci, false); h.taken = -1; } }
+    return;
+  }
   dt = Math.min(0.1, dt || 0);
   const you = youPos(), B = bodies();
+  homeTick(dt, you);
   for (const c of T.cars) {
     if (!c.on) { if (T.hold) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
     if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
     const x0 = c.x, z0 = c.z;
-    if (c.st === "turn") turnStep(c, dt); else driveStep(c, dt, B, you);
+    if (c.st === "turn") turnStep(c, dt); else if (c.st === "home") homeStep(c, dt, B, you); else driveStep(c, dt, B, you);
     if (!c.on) continue;
     { const dx = c.x - x0, dz = c.z - z0, d = Math.hypot(dx, dz); if (d < 5) c.roll = ((c.roll || 0) + Math.sign(dx * Math.sin(c.yaw) + dz * Math.cos(c.yaw)) * d / TRAF.wheelR) % (Math.PI * 2); }
     ground(c);
@@ -489,6 +711,10 @@ TLX.register({
       T.cars = [];
       for (let i = 0; i < T.n; i++) T.cars.push({ i, on: false, retry: 0, col: TRAF.cols[(i * 7 + 3) % TRAF.cols.length], sx: i % 3 === 2 ? 1.08 : 1, sy: i % 3 === 2 ? 1.12 : 1, lane: TRAF.lane, k: 0, hold: 0, blocked: 0 });
       build(a);
+      // going home (3.4b2b): which parked cars a car can drive to, and the owners who are out right now
+      const th = performance.now();
+      T.homes = homesPrep(); T.homeMs = Math.round(performance.now() - th);
+      if (TLX.on("traffic")) for (const h of T.homes) { const pc = window.TLXC.cars[h.ci]; if (pc.b < 0.005 && !pc.paid && Math.random() < HOME.share) window.TLXC.setAway(h.ci, true); }   // a car under snow (saved) is not out driving
       for (const c of T.cars) spawn(c, true);
       T.ready = true; draw();
     } catch (e) { console.error("TLX traffic", e); T.err = String(e); }

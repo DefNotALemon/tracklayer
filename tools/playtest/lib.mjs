@@ -106,6 +106,9 @@ async function launch() {
   await ev("titleLaunch(); true"); await sleep(3000);
   await tap("KeyH");          // hide the help panel
   await sleep(500);
+  // 3.4b2b: a random third of the parked cars' owners are out at boot (empty spots). Every scenario written before
+  // that picks parked cars by index, so bring them all home unless the scenario sets process.env.TL_AWAY first.
+  if (!process.env.TL_AWAY) await ev("(() => { if (window.TLXC || typeof TLXC !== 'undefined') for (const c of TLXC.cars) TLXC.setAway && TLXC.setAway(c.i, false); return true; })()");
 }
 // Reload the page and carry on from the save: how a scenario checks that a save loads. reload() keeps the save the
 // game wrote; reload(obj) plants obj as the save instead (the game saves again as the page goes away, so its save()

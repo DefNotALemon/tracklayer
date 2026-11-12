@@ -482,6 +482,11 @@ if nothing is coming the other way, they pull out into the other lane, creep pas
 wheels turn as they roll. After dark their headlights throw a soft pool of light down the road ahead
 of them (you'll see one coming over a rise long before the car), and you hear one before you see it: a low
 engine note and the crunch of tyres on packed snow, rising as it nears and fading as it goes by.
+Some of the parked cars in the villages aren't there when you arrive: their owners are out. Now and then
+one comes home: it leaves the road where the road ends (or as it crosses a village), drives the plowed
+street slowly to its own door, round the corners and past the houses, and parks nose-in where it stood,
+in its own colour. Stand in the street in front of it and it waits for you. Switch "Road traffic" off
+and every owner is home.
 
 ## The pickup
 
