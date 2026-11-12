@@ -3,6 +3,34 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 10:20 — 3.4b2b a car now and then drives a village street home and parks (G4) — 5f7d00e
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 161-163: no BLOCKER/BUG. 0161 #6 / 0162 #6 (`why` "end" mid pull-out, debug only) and 0163 #1 (car 23 by the
+tackle shop can't be dug: the shop owns E) queued as POLISH in LOOP.md; 0163 #2 (parked cars and traffic never meet)
+is this slice. Verified: 0161 #1-#5, 0162 #1-#4, 0163 #3-#6. Last triaged 160 -> 163.
+Built (tlx-traffic v4, tlx-cars v5, tracklayer.js gains `dropOb` in the world api): at boot `homesPrep()` finds the
+parked cars a driver can reach (route street point -> W.laneRoute to 5.5 m in front of the spot -> straight nose-in,
+Chaikin-rounded), kept only if the whole drive keeps the car's three circles clear of every house/shed/tree/other car;
+~30% of those owners are out (`TLXC.setAway`: hidden, circles out of the obstacle grid, no snow/DIG/buried; never a car
+under saved snow). A driver at the road's end at street speed, or on a street hop, takes a free spot with chance 0.5;
+every 110-220 game s with you within 420 m of an empty spot, a car bound there is put on the road in 170-300 m back,
+out of sight. It drives the street at 6 m/s (slower round corners), stops 5.5 m behind a walker, eases onto the spot,
+then the parked car is back in its colour and the traffic car leaves. Option "traffic" off = everyone home.
+First sweep found 3 of 18 drives clipping a house/shed corner by 0.7-0.97 m (the prep only checked the lane's centre
+line): prep now sweeps the real path as three circles and tries up to 4 street points per car: 19 homes, worst
+clearance +0.12 m. The road-end trigger first fired at 12.3 m/s (street "max 6"): now waits for street speed.
+Harness: `lib.mjs` launch() brings every owner home unless `process.env.TL_AWAY` (older scenarios pick parked cars by
+index; x3_digcars failed 19 asserts on an away car before that). x3_cars D caught a reload wiping a buried car's snow
+when it was picked as "out": buried/paid cars are never picked.
+Numbers (new asserting `x3_home.mjs`, all pass): 19/24 reachable, prep 11 ms; home drive vmax 6.30 m/s, never closer
+than 3.73 m to a building edge, stopped 0.03 m / 0.000 rad off the spot; circles back (3), traffic car gone; colour =
+owner's; walker on the street: stopped 5.46 m short (gap 5.5), pushed 0.000 m, parked once the walker left; timer sent
+a car 224-284 m out on the road in for a spot 38-80 m from you; option off: 0 away, no tick error.
+Stills `~/.hermes/cache/scratch/tlloop/b3_4b2b/r2/sheet.jpg` (red car down Dyfjord's plowed street, parked nose-in at
+its door).
+Gate: smoke, x1_save, x3_home, x3_digcars, x3_pass, x3_beams pass; x3_cars passes after the buried-car fix (log
+`b3_4b2b/gate3.log`). Not done (next, 3.4b2c if wanted): owners never drive OFF; 3.5 semis is next on the plan.
+
 ## 2026-11-12 09:30 — 3.4b2a headlight beams, a passing car's hum; the sunk-car finding was a probe artifact (G4) — 4dffbf6
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 160: no BLOCKER/BUG. 0160 #3 (bump toast cooldown swallows a harder second hit) and #4 (160 km/h into a car

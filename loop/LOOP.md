@@ -209,6 +209,10 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       `#job` (`display:none!important`), so only the Jobs app shows it. Surface it where the player looks (the compass
       strip, or a toast once per road per storm when the tracked job's trip first crosses a snowed-in stretch) and make
       x3_roadwarn assert on a visible element, not `textContent`. Repro: `x3_roadwarn_vis_break.mjs`.
+- [ ] G4 (beta 0163 #1 POLISH, dig cars): parked car 23 (-1320, -370) by Nordkinn Fisk & Friluft can never be dug: the
+      shop owns E at its dig spot (FISH.ctxLabel). Skip/shift that car in place() or exclude cars whose dig spot the shop
+      owns (keep 3.3a's seeded placement for the rest). 0163 #2 (parked cars and traffic never meet) answered by 3.4b2b.
+- [ ] G4 (beta 0161 #6 / 0162 #6 POLISH, traffic): `why` reads "end" during a pull-out near a road end (debug field only).
 - [ ] G4 (beta 0157 #1-#3, 0158 #1-#4 POLISH, dig cars): pay by the snow left when a part-dug car's dig restarts (set b0 = b when b < b0
       at the start of a dig; 0158 #1 confirms: $75 for a 0.3 car first dug from 0.8); return null from the car provider while MNT.on/DMT.on (hint says "dig"
       mid-swing); #wnHint lags the dig state by a frame after rapid E taps (cosmetic). 0158 #2: the car body has no
@@ -506,4 +510,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 160
+Last triaged report: 163
