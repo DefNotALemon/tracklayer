@@ -1881,7 +1881,7 @@ function ik2(root, tip, l1, l2, pole, out) {
   return out.copy(root).addScaledVector(_ikd, a).addScaledVector(_ikp, h);
 }
 const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _pJ = new THREE.Vector3(), _pP = new THREE.Vector3(), _pT = new THREE.Vector3();
-const CLIMB = { v: 0, stand: 0 };   // 0..1 how hard the sled is going up a steep face: rider stands, nose lifts, chase cam rises
+const CLIMB = { v: 0, block: 0, hit: 99, stand: 0 };   // 0..1 how hard the sled is going up a steep face: rider stands, nose lifts, chase cam rises
 const RIDER = { thigh: 0.44, shin: 0.43, upper: 0.3, fore: 0.29, hipX: 0.14, pitch: 0.4, legR: 0.105, baseY: 0, lift: -1, legLift: 0, standH: 0.4 };   // arm lengths are in ub space (× RIDER_SCALE)
 // how far a ball of radius r at p sinks into the machine's hood or seat (0 = clear)
 // top of a [z, y] outline at z (the highest crossing); off either end, the nearest end's height
@@ -3923,11 +3923,41 @@ function parkedSled(dt) {
   towVisual(dt);
   P.x = k.x; P.y = k.y; P.z = k.z; P.yaw = k.yaw; P.pitch = k.pitch; P.roll = k.roll;
 }
+/* ---- first-person view blocked by your own sled: stand up to see over it
+   Riding in first person, a ray from the rider's SEATED eye along the look direction is tested against what the sled really
+   puts in front of the face: the dash tablet (THREE.Raycaster on a hidden DoubleSide copy of its glass) and the hood (its own
+   crown profile ud.hoodY(z), marched along the ray). Blocked = the view's centre is on the hood or dash within VBLK.reach m;
+   CLIMB.block then eases to 1 and lifts CLIMB.stand exactly like a steep climb does (poseLegs / poseArms / FP eye height).
+   The windshield pane is NOT tested: it is hidden in first person (V.headHid) and is see-through glass, so a ray "hitting" it
+   would stand you up with nothing visibly in the way. The ray starts at the seated eye, not the standing one, so rising doesn't
+   clear the ray and sit you straight back down. Dipping to the tablet (Tab) is deliberate and never counts. Works at any speed:
+   looking down at the hood is as blocked parked as it is flying. */
+const VBLK = { reach: 1.6, ray: new THREE.Raycaster(), o: new THREE.Vector3(), d: new THREE.Vector3(), l: new THREE.Vector3(), e: new THREE.Euler(), proxy: null, mat: new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, visible: false }) };
+function viewBlockT() {
+  CLIMB.hit = 99;
+  if (!VIEWS[camMode].fp || FOOT.on || CRASH.on || VEH.cur || GS.dead || MNT.on || DMT.on || INT.on || showroomOn() || TABLET.e > 0.001 || !camState.init) return 0;
+  if (!VBLK.proxy) { VBLK.proxy = new THREE.Mesh(TAB_GEO.glass, VBLK.mat); VBLK.proxy.visible = false; VBLK.proxy.rotation.y = Math.PI; VBLK.proxy.position.z = -0.0072; V.tab.add(VBLK.proxy); }
+  sledRoot.updateMatrixWorld(true);
+  VBLK.o.set(0, 1.66, -0.14); sledRoot.localToWorld(VBLK.o);
+  VBLK.d.set(0, 0, -1).applyEuler(VBLK.e.set(camState.fpPitch, camState.fpYaw, camState.fpRoll, "YXZ"));
+  VBLK.ray.set(VBLK.o, VBLK.d); VBLK.ray.far = VBLK.reach;
+  let hit = 99;
+  const th = VBLK.ray.intersectObject(VBLK.proxy, false); if (th.length) hit = th[0].distance;
+  // hood: the ray in sled space against the crown line over the hood's width
+  const ud = V.machineOf(PV.sled || GS.own.sled).userData;
+  VBLK.l.copy(VBLK.d).transformDirection(_vbInv.copy(sledRoot.matrixWorld).invert());
+  for (let t = 0.1; t < Math.min(hit, VBLK.reach); t += 0.05) {
+    const x = VBLK.l.x * t, y = 1.66 + VBLK.l.y * t, z = -0.14 + VBLK.l.z * t;
+    if (z > ud.hoodZ0 && Math.abs(x) < ud.hoodW / 2 && y < ud.hoodY(z)) { hit = t; break; }
+  }
+  CLIMB.hit = hit; return hit < 90 ? 1 : 0;
+}
+const _vbInv = new THREE.Matrix4();
 function updVisuals(dt) {
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const spd = Math.hypot(P.vx, P.vz);
   let pT, rT, gr = 0;
-  if (VEH.cur) { VEH.cur.visual(dt); CLIMB.v = CLIMB.stand = 0; parkedSled(dt); } else {
+  if (VEH.cur) { VEH.cur.visual(dt); CLIMB.v = CLIMB.block = CLIMB.stand = 0; parkedSled(dt); } else {
   if (P.gnd) {
     deckRef = P.y + 0.3;
     const hF = sledRide(P.x + fx * 1.3, P.z + fz * 1.3), hR = sledRide(P.x - fx * 1.2, P.z - fz * 1.2);
@@ -3940,7 +3970,8 @@ function updVisuals(dt) {
   // going up a steep face: stand on the pegs and lift the nose, so you (and the camera) can see over the crest
   const cT = P.gnd && !P.wet && !FOOT.on && GS.fuel > 0 && !GS.dead ? sstep(0.16, 0.46, gr) * clamp((spd - 1.5) / 3, 0, 1) : 0;
   CLIMB.v += (cT - CLIMB.v) * (1 - Math.exp(-(cT > CLIMB.v ? 3.2 : 2.2) * dt));
-  CLIMB.stand = CLIMB.v * RIDER.standH;
+  { const bT = viewBlockT(); CLIMB.block += (bT - CLIMB.block) * (1 - Math.exp(-(bT > CLIMB.block ? 2.2 : 1.4) * dt)); }   // up a bit quicker than back down
+  CLIMB.stand = Math.max(CLIMB.v, CLIMB.block * CLIMB.block * (3 - 2 * CLIMB.block)) * RIDER.standH;            // the nose lift and chase zoom below stay on CLIMB.v: slope only
   const cl = CLIMB.v * 0.26;
   pT += P.whVis + cl + BOG.sink * 0.3;
   const k = 1 - Math.exp(-(P.gnd ? 12 : 3) * dt);
