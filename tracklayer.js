@@ -12927,7 +12927,11 @@ function updGame(dt, spd) {
   else if (!near && !RE.here && !hospWarm) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
-  { const wl = wlvAt(P.x, P.z); if (wl !== null && P.y < wl - 0.4 && !HELP.on) startDrown(); }
+  { const wl = wlvAt(P.x, P.z);
+    // afloat and dead in the water with nobody coming (beta 0131 #1: a body set down on a cliff slid back in and sat at
+    // the waterline, just above the sink test, for ever): after 4 s that's a dunking too
+    HELP.stillWet = wl !== null && P.wet && !HELP.on && !(HELP.dryT > 0) && Math.hypot(P.vx, P.vz) < 1 ? (HELP.stillWet || 0) + dt : 0;
+    if (wl !== null && (P.y < wl - 0.4 || HELP.stillWet > 4) && !HELP.on) { HELP.stillWet = 0; startDrown(); } }
   // The quay and the garage top you up free; while you're there the low warning stays quiet (it used to re-fire
   // every frame until the tank passed 20%) and re-arms so it can warn once more if you leave still low.
   const freeFill = near === depot || near === garageSite;
@@ -14779,19 +14783,32 @@ function nearestShore(x, z) {
 }
 // Where the rescue sets you down: walk inland from the water (the nearest shore's direction first, then a fan either side)
 // to the first spot whose ring of 16 points out to `clear` m is all dry, gentle (slope < 0.18) and free of trees and rocks.
-// Returns [x, z, yaw facing inland]. Falls back to the plain shore point +clear if nothing passes within 120 m.
+// Returns [x, z, yaw facing inland].
+// Cliff coasts (beta 0131 #1/#2): the inland fan can find nothing within 120 m when the shore is a wall, and the old
+// fallback (shore + clear) set you down on the sea face, back in the water, after charging the fee. Now nothing that
+// fails the test is ever returned: the fan widens to a full circle and walks out to 300 m, the ground itself must
+// stand above sea level (a cell can read as land while the seabed under it is metres down), then a looser pass, then
+// the last safe spot or the nearest village yard, and only then the spawn.
 function dryLandNear(x, z, clear) {
   const sh = nearestShore(x, z), a0 = sh[2];
-  const ok = (px, pz) => {
-    if (Math.abs(px) > HALF - 80 || Math.abs(pz) > HALF - 80 || isWater(px, pz) || slopeAt(px, pz, 3) > 0.18 || obNear(px, pz, 3)) return false;
-    for (const r of [clear * 0.5, clear]) for (let k = 0; k < 16; k++) { const b = k * Math.PI / 8; if (isWater(px + Math.cos(b) * r, pz + Math.sin(b) * r)) return false; }
+  const ok = (px, pz, cl, sl) => {
+    if (Math.abs(px) > HALF - 80 || Math.abs(pz) > HALF - 80 || isWater(px, pz) || groundAt(px, pz) < SEA + 0.6 || slopeAt(px, pz, 3) > sl || obNear(px, pz, 3)) return false;
+    for (const r of [cl * 0.35, cl * 0.7, cl]) for (let k = 0; k < 24; k++) { const b = k * Math.PI / 12, qx = px + Math.cos(b) * r, qz = pz + Math.sin(b) * r; if (isWater(qx, qz) || groundAt(qx, qz) < SEA) return false; }
     return true;
   };
-  for (let R = 4; R <= 120; R += 3) for (const da of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05]) {
-    const a = a0 + da, px = sh[0] + Math.cos(a) * R, pz = sh[1] + Math.sin(a) * R;
-    if (ok(px, pz)) return [px, pz, Math.atan2(Math.cos(a), Math.sin(a))];
+  const face = a => Math.atan2(Math.cos(a), Math.sin(a));
+  const fan = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05], ring = []; for (let k = 1; k < 12; k++) { ring.push(1.05 + k * 0.18, -1.05 - k * 0.18); }
+  for (const [cl, sl, Rmax, das] of [[clear, 0.18, 120, fan], [clear, 0.18, 300, fan.concat(ring)], [clear * 0.75, 0.24, 300, fan.concat(ring)]]) {
+    for (let R = 4; R <= Rmax; R += R < 120 ? 3 : 6) for (const da of das) {
+      const a = a0 + da, px = sh[0] + Math.cos(a) * R, pz = sh[1] + Math.sin(a) * R;
+      if (ok(px, pz, cl, sl)) return [px, pz, face(a)];
+    }
   }
-  return [sh[0] + Math.cos(a0) * clear, sh[1] + Math.sin(a0) * clear, Math.atan2(Math.cos(a0), Math.sin(a0))];
+  // nothing out to 300 m: the last place you were safe, else the nearest village or quay yard, else the spawn
+  if (P.safe && ok(P.safe.x, P.safe.z, clear * 0.75, 0.24)) return [P.safe.x, P.safe.z, P.safe.yaw || 0];
+  let best = null, bd = 1e9; for (const s of SITES) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd && ok(s.x, s.z, clear * 0.5, 0.3)) { bd = d; best = s; } }
+  if (best) return [best.x, best.z, Math.atan2(best.x - x, best.z - z)];
+  return [SPAWN.x, SPAWN.z, SPAWN.yaw || 0];
 }
 // any call for help to be made right now (the fjord, an empty tank): the pad's D-pad down calls it instead of a bandage then
 function helpWanted() { return (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on); }
