@@ -3,6 +3,23 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 06:40 — beta fix 0149 #1: a job over a snowed-in road gets a visible heads-up toast (G4) — ac850cd
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 151-152: no BLOCKER/BUG. 0151 #2/#3, 0152 #1/#2 verified; 0151 #5 / 0152 #5 notes (no change). POLISH 0151 #1 (open
+Jobs app doesn't refresh on a road shutting), 0151 #4 (plow reopen toast maybe lost), 0152 #3 (night sparks faint), 0152 #4
+(`P.scr` kept on foot) queued as one line. Last triaged 150 -> 152. Took the top BUG, 0149 #1.
+Cause: the minimalist HUD (11 Nov) sets `#job{display:none!important}`, so 3.2b1's " · <road> snowed in" on `#jobSub` only
+reached the compass strip's label (shown 2.8 s while the target sits under the triangle) and the Jobs app.
+Fix (tlx-roads v9): `TLXR.tripNote(x, z, tgt, job)` = tripWarn + one `api.toast` per road per storm when `job` ("Heads up: the
+<road> is snowed in on the way to <place>. A pickup won't get through till the plow's been; a sled will."; the fell road: "shut
+for the winter. Take the sled.", once per session). `R.noted` clears a road's note in `snowApply` once it has no shut stretch.
+updGameHud calls it with job = any real target (tracked, SAR, rescue, tour, load, groom, pickup, claim, school course) and not
+during the tutorial; the idle quay arrow stays quiet. Wording works for sled riders too (0149 #6 left queued).
+Numbers (x3_roadwarn F, now asserting on screen): `#job` width 0 (confirmed hidden); no job + road shut -> 0 road toasts; claim
+over the shut fv888 -> 1 toast, 520x52 px, opacity 1; 2.5 game s later -> 0 new; plowed then shut again -> 1 fresh toast.
+Still `~/.hermes/cache/scratch/tlloop/b0153/rw/f_claim_toast.jpg` (toast under the weather card, readable).
+Gate: smoke, x1_save, x3_roadwarn, x3_roadsnow (log `b0153/gate.log`).
+
 ## 2026-11-12 05:55 — 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road (G4) — 629bd1f
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 148: no BLOCKER/BUG (3 POLISH, stable loaded rig). Reports 149/150 landed mid-pass, after the slice was built: 0149
