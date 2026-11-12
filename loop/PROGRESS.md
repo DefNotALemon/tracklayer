@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 05:55 — 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road (G4) — 629bd1f
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 148: no BLOCKER/BUG (3 POLISH, stable loaded rig). Reports 149/150 landed mid-pass, after the slice was built: 0149
+#1 BUG (compass-row warning hidden by the minimalist HUD's `#job{display:none}`) queued at the top of the Backlog for the
+next pass; 0149 #5/#6 and 0150 #1/#2 POLISH queued as two lines. Last triaged 147 -> 150.
+Built (tlx-roads v8): per-stretch plow time `r[id].t` (saved, roads v3; old saves = never; the plow and a sleep set it);
+`TLXR.scrapeF` = fresh (1 to 8 h, 0 by 20 h) x clear (0 by snow 0.1) x cold (month temp + 3 x weather: 0 at -3, 1 at -7);
+`TLXR.scraped(x, z, lx, lz)` = track 0.5 + skis 0.25 each by how squarely they sit in a rut (wheel tracks 0.8 / 2.4 m off
+the crown, ~0.3 m wide). tracklayer.js: `P.scr` once per physics step (0 in a cab), rolling drag + P.scr x (400 + 70 v) N
+(`SCR_DRAG`), ski sparks (shed at 0.55 x sled velocity so they trail the ski; 7/12 per m/s x scr, carbide/ice skis more),
+a 3.2 kHz scrape in the hiss, "Scraped road" on the HUD bonus line. Decisions: "cold snap" = the Weather app's own
+temperature, so a clear November day barely scrapes (0.16) and December-March do; no visible wheel-track stripes yet.
+Numbers (new asserting `x3_scraped.mjs`, Gamvik road straight leg, clear 5 Jan, stock Frontier from rest, 5 s): wheel track
+69 mph (P.scr 0.5, HUD "Scraped road" every sample, ~100 sparks) vs between the ruts 83.5 (P.scr ~0.1) vs the same lane
+with a 30 h old plow 89.5 (scr 0). Across the road: crown 0.05, ruts 0.5, between 0.05, shoulder 3.6 m 0. Stretch: fresh
+1.00, 12 h 0.74, 30 h 0, snow 0.3 0, fell road 0; November clear 0.16. Save/reload keeps plow times; an old save loads
+with nothing scraped. First tune (900 + 420 v) cut the wheel track to 55 mph at 7 s (-40%): eased to -23%.
+Stills `~/.hermes/cache/scratch/tlloop/b0149/s6/` (day/night side; sparks needed spawning 0.16 m up and 4x the rate before
+they showed above the snow, checked with an enlarged-red probe: warm dots along both skis at night, faint by day).
+Gate: smoke 0, x1_save 0, x3_scraped 0, x3_roadsnow 0 (its save-version check now `>= 2`), x3_roadwarn 0 (logs
+`b0149/gate.log`, `gate2.log`).
+
 ## 2026-11-12 05:15 — 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road, pickup says drifted shut (G4) — 3dd00aa
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 146-147: no BLOCKER/BUG. 0146 #1 by design; #2 (no fjord case in x5_wounds_pad) queued as a low test-gap line.

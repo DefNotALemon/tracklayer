@@ -199,6 +199,15 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       delivery" toast is a hard-coded key, already goes through btn() (the toast reads "Press D-pad down" once the pad is the active input; a toast fired before the first pad press keeps the keyboard name). No change.
 - [x] G4 (beta 0141 #1, BUG, fixed tlx-roads v6): 3.2a road snow: a plain 0.5 drizzle shuts every road and the plow (plowWx 0.45) never
       comes; fill ramp now sstep(0.5, 0.95), plow works under 0.6. Still open below: 0141 #2.
+- [ ] G4 (beta 0149 #1 BUG, top): the 3.2b1 compass-row road warning is never seen: the minimalist HUD (11 Nov) hides
+      `#job` (`display:none!important`), so only the Jobs app shows it. Surface it where the player looks (the compass
+      strip, or a toast once per road per storm when the tracked job's trip first crosses a snowed-in stretch) and make
+      x3_roadwarn assert on a visible element, not `textContent`. Repro: `x3_roadwarn_vis_break.mjs`.
+- [ ] G4 (beta 0149 #5/#6 POLISH): road legend "closed" (faint dashed orange) reads like "open" on a phone: grey or longer
+      dashes. Sled riders 20-90 m off a shut road get "road snowed in" (a sled doesn't use roads): consider suppressing on
+      the sled, keep it for the pickup.
+- [ ] G4 (beta 0150 #1/#2 POLISH): the H help panel is static keyboard text (pad players see keys); sled-bog toasts at the
+      `enterBog` sled branch and job texts ("Q off, walk up and press E") hard-code keys. Route through `btn()`.
 - [ ] G4 (beta 0141 #2 POLISH, from the line above): "snowed in" fires at 0.3 m real depth.
       0145 #2 (live cells lag after `setSnow` jumps a stretch to full) logged as intended: loaded cells rise at the
       storm's refill rate by design (plowRefresh comment); a real storm builds gradually, a reload loads full depth via
@@ -480,4 +489,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 147
+Last triaged report: 150
