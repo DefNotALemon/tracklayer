@@ -3787,6 +3787,14 @@ function drawMap() {
     mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.arc(R + ux, R + uz, 5, 0, 6.283); mctx.fill();
     mctx.fillStyle = n.colour; mctx.beginPath(); mctx.arc(R + ux, R + uz, 3.2, 0, 6.283); mctx.fill();
   }
+  if (WP.x !== null) {                            // the marker you dropped on the Map: a pulsing yellow dot, clamped to the rim
+    const dx = (WP.x - P.x) * M2DISP, dz = (WP.z - P.z) * M2DISP;
+    let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy; const d = Math.hypot(ux, uz);
+    if (d > R - 10) { const f = (R - 10) / d; ux *= f; uz *= f; }
+    const pulse = 1 + 0.18 * Math.sin(performance.now() * 0.004);
+    mctx.fillStyle = "#1a1500"; mctx.beginPath(); mctx.arc(R + ux, R + uz, 6.5 * pulse, 0, 6.283); mctx.fill();
+    mctx.fillStyle = "#ffd23a"; mctx.beginPath(); mctx.arc(R + ux, R + uz, 4.6, 0, 6.283); mctx.fill();
+  }
   // the sled, always at the centre pointing up
   mctx.fillStyle = "#0d1822"; mctx.beginPath(); mctx.moveTo(R, R - 15); mctx.lineTo(R - 10, R + 10); mctx.lineTo(R + 10, R + 10); mctx.closePath(); mctx.fill();
   mctx.fillStyle = "#ff5a1f"; mctx.beginPath(); mctx.moveTo(R, R - 11); mctx.lineTo(R - 7, R + 7); mctx.lineTo(R + 7, R + 7); mctx.closePath(); mctx.fill();
@@ -7633,21 +7641,39 @@ TABLET.register({
   }
 });
 
+// a custom waypoint, set by tapping the Map (like a GTA marker): session-only, like JOBT.sel. The compass follows it
+// whenever nothing more pressing is going on (a job, a rescue, a tracked pickup all still win).
+const WP = { x: null, z: null };
+const MAP_ZOOMS = [0, 1800, 900, 450, 220];   // 0 = whole peninsula; the rest are "around me" box heights in metres
 TABLET.register({
   id: "map", name: "Map", icon: TICON.map, order: 2,
-  onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoom = this.zoom || 0; },
+  onOpen() { tabWork(); ctRoutes(); this.t = 0; this.zoomLv = this.zoomLv ?? (this.zoom ? 1 : 0); },
   layersOn: { del: true, pins: true, rescue: true, depots: true, routes: true, fuel: true },
   render(el) {
     const L = this.layersOn, ch = (id, t, n) => `<button type="button" class="tml${L[id] ? " on" : ""}" data-tf="lay:${id}" data-lay="${id}"><i class="k ${id}"></i>${t}${n !== undefined ? ` <b>${n}</b>` : ""}</button>`;
     const resc = TABLET.layerPts("rescue"), dep = TABLET.layerPts("depots"), fue = TABLET.layerPts("fuel");
-    // the chart fills the page; the layer chips, the zoom button and the ferry/mail widget float on top of it
+    const zLbl = this.zoomLv === 0 ? "WHOLE MAP" : MAP_ZOOMS[this.zoomLv] >= 1000 ? (MAP_ZOOMS[this.zoomLv] / 1000) + " KM" : MAP_ZOOMS[this.zoomLv] + " M";
+    // the chart fills the page; the layer chips, the zoom controls and the ferry/mail widget float on top of it
     el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
       <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${ch("fuel", "Fuel", fue.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
-        <button type="button" class="tbtn ghost" data-tf="zoom" id="tabZoom">${this.zoom ? "WHOLE MAP" : "AROUND ME"}</button></div>
-      <div class="twid" id="tabWid"></div><div class="trleg" id="tabRoadLeg"></div></div>`;
+        <div class="tzoom"><button type="button" class="tbtn ghost sm" data-tf="zoom:out" id="tabZoomOut"${this.zoomLv === 0 ? " disabled" : ""}>–</button><span class="tzlbl">${zLbl}</span><button type="button" class="tbtn ghost sm" data-tf="zoom:in" id="tabZoomIn"${this.zoomLv === MAP_ZOOMS.length - 1 ? " disabled" : ""}>+</button></div></div>
+      <div class="twid" id="tabWid"></div><div class="trleg" id="tabRoadLeg"></div>
+      <div class="tmhint" id="tabMapHint">${WP.x !== null ? `Marker set · <button type="button" class="tbtn ghost sm" data-tf="wp:clear" id="tabWpClear">CLEAR MARKER</button>` : "Tap the chart to drop a marker"}</div></div>`;
     for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
-    $("tabZoom").addEventListener("click", () => { this.zoom = this.zoom ? 0 : 1; TABLET.render(); });
+    $("tabZoomOut").addEventListener("click", () => { this.zoomLv = Math.max(0, this.zoomLv - 1); TABLET.render(); });
+    $("tabZoomIn").addEventListener("click", () => { this.zoomLv = Math.min(MAP_ZOOMS.length - 1, this.zoomLv + 1); TABLET.render(); });
+    const wpClear = $("tabWpClear"); if (wpClear) wpClear.addEventListener("click", e => { e.stopPropagation(); WP.x = WP.z = null; toast("Marker cleared.", "info"); TABLET.render(); });
     this.cv = $("tabMapC"); this.t = 1; this.tick(0); this.widget();
+    this.cv.addEventListener("wheel", e => { e.preventDefault(); this.zoomLv = clamp(this.zoomLv + (e.deltaY < 0 ? 1 : -1), 0, MAP_ZOOMS.length - 1); TABLET.render(); }, { passive: false });
+    this.cv.addEventListener("click", e => {
+      if (!this._mv) return;
+      const r = this.cv.getBoundingClientRect(), relX = e.clientX - r.left, relY = e.clientY - r.top;
+      if (relX < 0 || relY < 0 || relX > r.width || relY > r.height) return;
+      const { ox, oz, sx, sz, W, H } = this._mv;
+      WP.x = clamp(ox + relX / W * sx, -HALF, HALF); WP.z = clamp(oz + relY / H * sz, -HALF, HALF);
+      toast("Marker set. The compass points to it until you clear it, track a job, or a rescue comes in.", "info");
+      TABLET.render();
+    });
   },
   widget() {
     { const lg = $("tabRoadLeg"); if (lg) { const h = window.TLXR && TLXR.legend ? TLXR.legend() : ""; if (lg._h !== h) { lg._h = h; lg.innerHTML = h; } lg.hidden = !h; } }   // the road legend (tlx-roads.js, 3.2b)
@@ -7663,10 +7689,12 @@ TABLET.register({
     if ((this.wt = (this.wt || 0) + 0.2) > 1) { this.wt = 0; this.widget(); }
     const cv = this.cv, box = cv.parentElement, dpr = Math.min(2, devicePixelRatio || 1), W = box.clientWidth, H = box.clientHeight; if (W < 60 || H < 60) return;
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + "px"; cv.style.height = H + "px"; }
-    const S = Math.min(W, H), sz = this.zoom ? 1800 : WORLD * 0.98 * Math.max(1, H / W * 1.02), sx = sz * W / H;   // the whole peninsula fits; around-me is 1.8 km tall
+    const zm = MAP_ZOOMS[this.zoomLv] || 0, S = Math.min(W, H), sz = zm ? zm : WORLD * 0.98 * Math.max(1, H / W * 1.02), sx = sz * W / H;   // 0 = the whole peninsula fits; else an "around me" box zm metres tall
     const me = tabMe();                                                            // you: the walker on foot, else the vehicle you're in
-    const cx = this.zoom ? clamp(me.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = this.zoom ? clamp(me.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
-    const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, this.zoom && sx > WORLD ? -sx / 2 : cx - sx / 2, cz - sz / 2, sx, sz), span = sz;
+    const cx = zm ? clamp(me.x, -HALF + sx / 2, HALF - sx / 2) : 0, cz = zm ? clamp(me.z - sz * 0.05, -HALF + sz / 2, HALF - sz / 2) : 0;
+    const ox = zm && sx > WORLD ? -sx / 2 : cx - sx / 2, oz = cz - sz / 2;
+    this._mv = { ox, oz, sx, sz, W, H };                                           // cached for the click handler (world coords from a screen tap)
+    const g = cv.getContext("2d"), w2c0 = tabView(g, cv.width, cv.height, ox, oz, sx, sz), span = sz;
     g.save(); g.scale(dpr, dpr); const w2c = (x, z) => { const [a, b] = w2c0(x, z); return [a / dpr, b / dpr]; }, sc = H / span * 10;   // px per 10 m
     const L = this.layersOn, hot = new Set();
     if (L.routes && MELT.kq > 0) tabMelt(g, w2c, sc);
@@ -7696,8 +7724,17 @@ TABLET.register({
     g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw);
     g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -14); g.lineTo(-10, 10); g.lineTo(10, 10); g.closePath(); g.fill();
     g.fillStyle = CT_ACC; g.beginPath(); g.moveTo(0, -10); g.lineTo(-6.5, 6.5); g.lineTo(6.5, 6.5); g.closePath(); g.fill(); g.restore();
-    // scale bar
-    const km = this.zoom ? 0.5 : 2, bw = km * 1000 / span * H;
+    if (WP.x !== null) {                           // the marker you dropped (GTA-style): pulsing yellow dot + distance
+      const [wx, wy] = w2c(WP.x, WP.z), pulse = 1 + 0.15 * Math.sin(performance.now() * 0.004);
+      g.save(); g.globalAlpha = 0.35; g.fillStyle = "#ffd23a"; g.beginPath(); g.arc(wx, wy, 14 * pulse, 0, 6.283); g.fill(); g.globalAlpha = 1;
+      g.fillStyle = "#1a1500"; g.beginPath(); g.arc(wx, wy, 9, 0, 6.283); g.fill();
+      g.fillStyle = "#ffd23a"; g.beginPath(); g.arc(wx, wy, 6.5, 0, 6.283); g.fill(); g.restore();
+      tabLabel(g, fmtMi(Math.hypot(WP.x - me.x, WP.z - me.z)), wx, wy + 20, 12, "#8a6a00");
+    }
+    // scale bar: the biggest "nice" length that still fits a quarter of the view
+    const KM_OPTS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50]; let km = KM_OPTS[0];
+    for (const o of KM_OPTS) if (o <= span / 4000) km = o;
+    const bw = km * 1000 / span * H;
     g.fillStyle = "rgba(244,239,227,.92)"; g.fillRect(W - bw - 58, H - 30, bw + 48, 20); g.fillStyle = CT_INK; g.fillRect(W - bw - 52, H - 18, bw, 3); g.font = "600 11px 'Barlow Semi Condensed', sans-serif"; g.textAlign = "left"; g.textBaseline = "alphabetic"; g.fillText(km + " KM", W - 48, H - 14);
     g.restore();
   }
@@ -13033,7 +13070,7 @@ function groomTarget() {
   return best || g.dest;
 }
 function updGameHud() {
-  let tgt = depot;
+  let tgt = WP.x !== null ? WP : depot;
   const sarT = SAR.cur && !SAR.cur.school && !SAR.cur.res ? sarTarget(SAR.cur) : null;
   const rjv = !sarT && GS.rescueJob ? rjNearest(P.x, P.z) : null;
   if (sarT) tgt = sarT;
@@ -13084,7 +13121,8 @@ function updGameHud() {
     const c = GS.claims[0], f = c.from || depot;
     $("jobTitle").textContent = `Pick up: ${c.tour ? "tourists" : c.cargo}${GS.claims.length > 1 ? "  (+" + (GS.claims.length - 1) + " more)" : ""}`;
     $("jobSub").textContent = `Waiting at ${f.name} · ${fmtMi(dist)} · stop there to load`;
-  } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
+  } else if (WP.x !== null) { $("jobTitle").textContent = "Marker"; $("jobSub").textContent = `${fmtMi(dist)} · tap the Map to move it, CLEAR MARKER to drop it`; }
+  else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   if (!tr) JOBT.auto = $("jobTitle").textContent;
   { const isJob = !!(tr || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)

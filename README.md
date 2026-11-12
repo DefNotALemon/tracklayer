@@ -99,7 +99,9 @@ running and you can still steer, you just can't see much trail. In third person 
 overlay instead. Until your first delivery, with nothing aboard or claimed, it opens straight on the
 Parcels board, so a new courier's first Tab shows the jobs. Apps: **Parcels** (pickups and drop-offs, each with its own little chart; left open, it
 redraws the moment a drop-off pays, so the rack, your delivered count and what's aboard are always current),
-**Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget),
+**Map** (the survey chart with deliveries, pins, rescues and depots, plus the ferry and mail widget, zoom buttons
+— or scroll the wheel on it — from the whole peninsula down to 220 m, and a tap anywhere on the chart drops a
+yellow marker; the compass follows it until you clear it, track a job, or a rescue comes in),
 **Weather**, **Calendar**, **Trail Crew** (grooming lines, and volunteer recovery call-outs once
 you've a winch), **Bytteboden** (the marketplace, below), **Logbook** (a field notebook: kilometres, flattened birches, airtime, fjord dunkings, deliveries and more) and the **App Store**. Arrows (or the d-pad) move, **Enter** (or
 **A**) picks, **Esc / Backspace** (or **B**) backs out; taps and clicks work on the screen too.
