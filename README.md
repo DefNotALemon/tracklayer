@@ -415,6 +415,21 @@ out they close: the Map app shows each one as open, melting or closed, and work 
 only goes where the trail still holds (melting trails pay a little extra). At the end of May
 there's a summer montage, then it all freezes over again for the next winter.
 
+## Roads
+
+The Nordkinn has roads now. From Kjøllefjord one runs out past the fuel station, up by the
+Gartefjellet wind farm and over the fell to Mehamn, then on to Gamvik and the Slettnes lighthouse;
+a branch leaves it for Skjånes in the east; another goes north-west to Dyfjord; and one heads south
+past the Lebesby station to Lebesby. They wind the way real roads do, round the lakes and houses and
+along the slopes rather than straight up them. Each village has plowed streets from the road's end
+to every door.
+
+In winter the council keeps them plowed: a firm, packed strip about six metres wide, sunk below the
+snow either side, with orange snow poles every fifty metres on both sides to steer by when the
+light goes flat. The pickup is at home on them. The one exception is the road over **Ifjordfjellet**
+from Lebesby to Ifjord: it is shut for the winter, so it is just a line of poles across deep snow.
+The roads are drawn on the Map and the minimap in orange; the shut one is dashed.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

@@ -32,11 +32,11 @@ let s = await J(`({ cur: !!VEH.cur, owned: TLX.state("vehicles").owned.length, t
 ok(!s.cur && s.owned === 0 && s.board === "get on the sled", "no pickup owned: the sled is the vehicle and nothing is parked");
 ok(s.tabs.includes("Trucks"), "the garage has a Trucks tab");
 console.log("parked", JSON.stringify(await park()));
-await sleep(900); await tap("KeyQ"); await sleep(3000);
+await sleep(900); await tap("KeyQ"); await waitUntil(`FOOT.on && !MNT.on && !DMT.on`, 8); await sleep(300);   // poll, don't sleep: a dismount's length in wall time depends on the machine's load
 s = await J(`({ foot: FOOT.on, mnt: MNT.on, dmt: DMT.on, hint: $("wnHint").textContent })`);
 ok(s.foot && !s.mnt && !s.dmt, "Q gets off the sled (animation done)");
 ok(/get on the sled/.test(s.hint), "on foot beside the sled the hint says get on the sled: " + s.hint);
-await tap("KeyQ"); await sleep(2800);
+await tap("KeyQ"); await waitUntil(`!FOOT.on && !MNT.on`, 10); await sleep(300);
 s = await J(`({ foot: FOOT.on, cur: !!VEH.cur })`);
 ok(!s.foot && !s.cur, "Q gets back on the sled");
 { const r = await holdFor("KeyW", 4, spd); const v = r[r.length - 1].v; ok(v > 8, `sled rides: ${v.toFixed(1)} m/s after 4 s of throttle`); }
@@ -82,7 +82,7 @@ ok(s.fuel === 70 && s.cap === 70 && s.slots === 8, `the truck's own tank (${s.fu
 const shot0 = await ev(`renderer.info.render.calls`);
 
 // ---- 5. speed on a plowed lane against deep powder
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 console.log("lane", JSON.stringify(lane));
 ok(lane && lane.L > 35, `a plowed lane to drive on (${lane ? lane.L.toFixed(0) : 0} m)`);
 const ux = (lane.x2 - lane.x) / lane.L, uz = (lane.z2 - lane.z) / lane.L;

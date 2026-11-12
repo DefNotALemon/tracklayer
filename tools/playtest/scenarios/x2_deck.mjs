@@ -36,7 +36,7 @@ await hookToasts();
 await ev(`crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 12; true`);
 console.log("parked", JSON.stringify(await park()));
 // a long plowed lane; the trailer stands free on it with its ramp down, the sled 7 m behind its tail
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 2.5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2.5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 ok(lane && lane.L > 30, `a plowed lane to work on (${lane ? lane.L.toFixed(0) : 0} m)`);
 await ev(`(() => { const L = ${JSON.stringify(lane)}, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L, yaw = Math.atan2(ux, uz);
   TLX.state("vehicles").haul = { on: null, x: L.x + ux * 18, z: L.z + uz * 18, yaw, ramp: 1 }; recenter(L.x + ux * 18, L.z + uz * 18, true); return 1; })()`);

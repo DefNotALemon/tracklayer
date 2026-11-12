@@ -269,13 +269,17 @@ function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && 
    LANE_FALL m). buildLanes() runs one from the depot yard to every Kjøllefjord door, routed round obstacles (houses,
    sheds, lamps), so the walk from the quay to a house or the garage stays on hard pack the whole way. */
 const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, LANE_FALL = 2.5, yardCache = new Map();
+// YARDS bucketed on a 64 m grid, so a chunk only tests the plows near it (the roads, tlx-roads.js, add thousands of legs)
+const YBK = new Map(), YBK_S = 64, ybk = (i, j) => j * 1000 + i;
 function yardOf(cx, cz) {
   const key = cz * CPR + cx;
   let a = yardCache.get(key);
   if (a !== undefined) return a;
   a = null;
   const x0 = cx * CH * CELL - HALF, z0 = cz * CH * CELL - HALF, x1 = x0 + CH * CELL, z1 = z0 + CH * CELL;
-  for (const Y of YARDS) {
+  const near = [];
+  for (let j = Math.floor((z0 + HALF) / YBK_S); j <= Math.floor((z1 + HALF) / YBK_S); j++) for (let i = Math.floor((x0 + HALF) / YBK_S); i <= Math.floor((x1 + HALF) / YBK_S); i++) { const b = YBK.get(ybk(i, j)); if (b) near.push(...b); }
+  for (const Y of near) {
     const R = Y.r + Y.f;
     if (Math.max(Y.x, Y.x2) + R < x0 || Math.min(Y.x, Y.x2) - R > x1 || Math.max(Y.z, Y.z2) + R < z0 || Math.min(Y.z, Y.z2) - R > z1) continue;
     const ux = Y.x2 - Y.x, uz = Y.z2 - Y.z, uu = ux * ux + uz * uz;
@@ -283,7 +287,7 @@ function yardOf(cx, cz) {
       const px = x0 + i * CELL - Y.x, pz = z0 + j * CELL - Y.z, t = uu > 0 ? clamp((px * ux + pz * uz) / uu, 0, 1) : 0;
       const dd = Math.hypot(px - ux * t, pz - uz * t);                 // distance to the disc's centre, or to the lane's leg
       if (dd >= R) continue;
-      const y = 1 - sstep(Y.r, R, dd);
+      const y = (1 - sstep(Y.r, R, dd)) * (Y.k || 1);                 // k: how hard it's plowed (roads, tlx-roads.js; 1 = a yard)
       if (!a) a = new Float32Array(CH * CH);
       if (y > a[j * CH + i]) a[j * CH + i] = y;
     }
@@ -292,10 +296,11 @@ function yardOf(cx, cz) {
   return a;
 }
 function addYard(x, z, r) { addPlow({ x, z, x2: x, z2: z, r, f: YARD_FALL }); }
-function addLane(pts, r) { for (let k = 1; k < pts.length; k++) addPlow({ x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL }); }
+function addLane(pts, r, pk) { for (let k = 1; k < pts.length; k++) addPlow({ x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL, k: pk || 1 }); }
 function addPlow(Y) {
   YARDS.push(Y);
   const R = Y.r + Y.f, xa = Math.min(Y.x, Y.x2) - R, xb = Math.max(Y.x, Y.x2) + R, za = Math.min(Y.z, Y.z2) - R, zb = Math.max(Y.z, Y.z2) + R;
+  for (let j = Math.floor((za + HALF) / YBK_S); j <= Math.floor((zb + HALF) / YBK_S); j++) for (let i = Math.floor((xa + HALF) / YBK_S); i <= Math.floor((xb + HALF) / YBK_S); i++) { const k = ybk(i, j); let b = YBK.get(k); if (!b) YBK.set(k, b = []); b.push(Y); }
   for (let cz = Math.floor((za + HALF) / (CH * CELL)); cz <= Math.floor((zb + HALF) / (CH * CELL)); cz++)
     for (let cx = Math.floor((xa + HALF) / (CH * CELL)); cx <= Math.floor((xb + HALF) / (CH * CELL)); cx++) {
       if (cx < 0 || cz < 0 || cx >= CPR || cz >= CPR) continue;
@@ -4789,7 +4794,7 @@ function nearSite(x, z, r) {
 
 /* ---------------- fuel: gas stations, cabins that sell it, tips (winter update O3, section 6) ----------------
    Three stations at the mainstream spots: Kjøllefjord, Mehamn and Lebesby, each a few hundred metres' ride out of
-   the village on the side the road would come in (there's no road on the map: it's shut half the winter), with
+   the village on the side the road comes in (tlx-roads.js runs the roads past them), with
    normal prices. About a quarter of the remote cabins and villages with no station sell it from a jerry-can rack at
    FUEL.markup x the pump price. Stop at a pump (or a fuel cabin) and the tank fills at FUEL.rate L/s, charged by the
    litre as it goes. Some parcels pay part of the reward as fuel: j.tipL litres, shown as "+12 L" next to the cash. */
@@ -13379,6 +13384,18 @@ function anchorsNear(x, z, R) {
   }
   return out.sort((p, q) => p.d - q.d);
 }
+// a tree that was never there: cleared for a road at boot (tlx-roads.js). Its instance shrinks to nothing and it leaves
+// the obstacle grid at once (no felled trunk lying in the ditch, no tree well kept for it).
+const _clrM = new THREE.Matrix4().makeScale(0, 0, 0);
+function clearTree(o) {
+  if (o.tree === undefined || o.down) return false;
+  const tm = trunkOf(o), cm = capOf(o);
+  if (tm) { tm.setMatrixAt(o.tree, _clrM); tm.instanceMatrix.needsUpdate = true; }
+  if (cm) { cm.setMatrixAt(o.tree, _clrM); cm.instanceMatrix.needsUpdate = true; }
+  o.top = -Infinity; o.down = true; o.cleared = true; o.snowy = false;
+  const a = obGrid.get(Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC)), k = a ? a.indexOf(o) : -1; if (k >= 0) a.splice(k, 1);
+  return true;
+}
 // a tree that won't hold comes out by the roots
 function uproot(o, dx, dz) {
   if (o.tree === undefined || o.down) return;
@@ -16442,7 +16459,9 @@ function initExpansion() {
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, blackout, hospHere, tutDone: () => TUT.stage >= 99,
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt,
-      cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin },
+      cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
+      // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
+      laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC } },
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },

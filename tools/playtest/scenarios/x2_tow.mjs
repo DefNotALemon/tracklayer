@@ -39,7 +39,7 @@ await ev(`closeGarage(); true`); await sleep(300);
 ok(await ev(`TLX.state("vehicles").owned.length === 1 && !!TLXV.haul()`), "own the pickup and the sled trailer");
 
 // the pickup at the start of a long plowed lane, the trailer hitched behind it, ramp up, empty
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 2.5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2.5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 ok(lane && lane.L > 35, `a plowed lane to tow on (${lane ? lane.L.toFixed(0) : 0} m)`);
 await ev(`window.__LANE = ${JSON.stringify(lane)}; (() => { const L = __LANE, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L, yaw = Math.atan2(ux, uz);
   const r = TLX.state("vehicles").owned[0]; r.x = L.x + ux * 11; r.z = L.z + uz * 11; r.yaw = yaw;
