@@ -438,11 +438,13 @@ forecourt with a full 70 L tank, clear of your sled. You can own up to three.
 
 It is a truck, not a bigger sled. On plowed yards, village lanes and hard pack it grips, pulls
 away properly and carries eight parcels in the bed. The cab is closed and heated, so you lose a
-fraction of the warmth you lose on the sled. In fresh powder it has nothing to float on: each tyre
+fraction of the warmth you lose on the sled. In a light fall (a hand's depth of fresh, up to about a
+boot's) it pulls away from a standstill with the tyres working; past that it crawls, and in deep
+fresh powder it has nothing to float on: each tyre
 sinks, the belly drags, and the more you spin the wheels the deeper they dig. Hold the throttle and
 it ends stuck to the axles. Then you get out and dig (there is no winch on it), or reset. Drive in
 the ruts you have already pressed and it is easier, which also means you can usually back out the
-way you came. It understeers on ice, hits trees and houses like a ton and a half of truck (a dented
+way you came. Once a stuck truck is back on plowed ground it is free again. It understeers on ice, hits trees and houses like a ton and a half of truck (a dented
 panel, not a crash), and goes through thin lake ice quicker than the sled does. It is for roads once
 there are roads. The open fell is still the sled's.
 
@@ -450,7 +452,7 @@ Walk up to a truck and the on-foot line says **get in the pickup** instead of **
 whichever vehicle is nearest is the one the get-on button takes. The walker goes round to the
 driver's door, opens it, steps up, sits and pulls it shut. Getting out is the same in reverse.
 Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
-the brake at a standstill to reverse. Off the plowed lanes a truck backs out along its own ruts
+the brake at a standstill to reverse (on a pad even a light pull on the trigger creeps it back). Off the plowed lanes a truck backs out along its own ruts
 and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
 reverse and dig in) and then bogs like the sled, with the usual dig-out. Each vehicle keeps its own fuel and its own parcels, and
 stays where you left it, including across a save and a reload (reload while sitting in the pickup

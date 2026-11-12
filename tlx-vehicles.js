@@ -320,7 +320,10 @@ function core(R, dt) {
     const wl = w.wlvAt(x, z), wet = wl !== null && g + db < wl - 0.05; if (wet) wetN++;
     const ice = w.bioAt(x, z) === 1 && fA < 0.12;
     const mu = wet ? d.mu.wet : ice ? d.mu.ice : lerp(d.mu.loose, d.mu.hard, sstep(0.35, 0.8, packA));
-    const cr = 0.016 + 0.95 * sk + 5 * Math.max(0, sk - 0.2) * Math.max(0, sk - 0.2) + (wet ? 0.45 : 0) + (ice ? -0.004 : 0);
+    /* rolling resistance against the sink: about sink / tyre diameter in shallow snow (a 4x4 on winter tyres pulls away in
+       a hand's depth to a boot's depth of fresh), steepening once the tyre is pushing a bank as tall as its radius, so past
+       ~30 cm it is a crawl and past the clearance the belly finishes it (beta 0117 #1: was 0.95 * sk, stuck from ~20 cm) */
+    const ex = Math.max(0, sk - 0.22), cr = 0.016 + 0.55 * sk + 2.2 * ex * ex + (wet ? 0.45 : 0) + (ice ? -0.004 : 0);
     R.sink[i] = sk; sinkS += sk; packS += packA; muS += mu; crS += cr;
   }
   sinkS /= 4; packS /= 4; muS /= 4; crS /= 4;
@@ -346,7 +349,10 @@ function core(R, dt) {
   if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = thrE * Math.min(d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }
   let Fx = 0, spin = 0;
   /* reverse is geared about as low as first: 0.8 of fmax (was 0.6, too weak to back a trailer out of soft snow, 0108) */
-  if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * input.brk * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
+  /* a light pull on the pad trigger still backs up: an automatic creeps in reverse, so the pedal maps onto 0.35..1 of the
+     pull past a small dead zone instead of 0..1 (beta 0116 #2: 30% LT made 2 kN against 1-2.7 kN of standing drag) */
+  const brkR = input.brk > 0.08 ? 0.35 + 0.65 * input.brk : input.brk;
+  if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * brkR * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
   else if (input.brk > 0 && !parked) Fx = -Math.min(9500, T0 * 0.98) * input.brk * (vf > 0.4 ? 1 : 0.25);
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
@@ -375,6 +381,7 @@ function core(R, dt) {
     vx -= cut * dt * lx2; vz -= cut * dt * lz2;
   }
   if (parked) { vx = vz = 0; }
+  else if (BOG.on && !HELP.on && gndOK && Math.max(R.sink[0], R.sink[1], R.sink[2], R.sink[3]) < 0.05 && packS > 0.8) api.freeBog("");   // dragged or towed onto plowed/hard ground: nothing left to be stuck in (beta 0117 #2)
   else if (BOG.on) {                                                          // in a hole: whatever you do with the throttle it digs deeper
     const k = Math.exp(-12 * dt); vx *= k; vz *= k;
     if (thrE > 0.2) {
