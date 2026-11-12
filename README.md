@@ -450,6 +450,12 @@ in the Jobs app say so ("Kjøllefjord–Mehamn road snowed in"; a trip over Ifjo
 for the winter); places out in the backcountry, where you'd take the sled anyway, never warn. A pickup
 stuck in a drifted road tells you plainly: the road's drifted shut, wait for the plow or take the sled.
 
+A road the plow has just been down in a cold snap (a clear day from December to March; a clear November
+day hardly does it) is scraped to the ice in its wheel tracks. Ride a sled in a wheel track and you feel
+it: the carbides grind (more drag, about a fifth off your speed), sparks come off the skis and the HUD
+says "Scraped road". The hard pack between the ruts and out on the shoulders rides as well as ever. It
+lasts the best part of a day after the plow (or until fresh snow covers it), and is saved with the game.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

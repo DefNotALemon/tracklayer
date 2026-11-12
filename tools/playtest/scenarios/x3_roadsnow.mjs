@@ -91,7 +91,7 @@ if (!NOSTILLS) { await shot("x3rs_replowed"); await camOff(); }
 // ---- D: saved
 await ev(`TLXR.setSnow("dyfjord", 0.6); save(); true`);
 const sv = await J(`JSON.parse(localStorage.getItem("tracklayer.save.v2")).x.sys.roads`);
-ok(sv.v === 2 && sv.s.r.dyfjord.s.every(v => v === 0.6), "D: the save carries the Dyfjord road's snow (v" + sv.v + ")");
+ok(sv.v >= 2 && sv.s.r.dyfjord.s.every(v => v === 0.6), "D: the save carries the Dyfjord road's snow (v" + sv.v + ")");
 await reload();
 await ev(`WX.at = () => 0; GS.storm = 0; true`);
 const D1 = await J(`({ dy: TLXR.status("dyfjord"), fv: TLXR.status("fv888"), s: TLXR.routes.find(r => r.id === "dyfjord").st.s.slice(0, 3), err: TLXR.err || TLXR.tickErr || null })`);

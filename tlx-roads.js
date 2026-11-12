@@ -583,6 +583,7 @@ function snowInit() {
     if (rt.closed) continue;
     let o = st.r[rt.id]; if (!o || typeof o !== "object" || !Array.isArray(o.s)) o = st.r[rt.id] = { s: [], p: -1, w: 0 };
     o.s = rt.seg.map((g, i) => Math.max(0, Math.min(1, +o.s[i] || 0)));     // a build with different stretches: pad / trim
+    const t0 = Array.isArray(o.t) ? o.t : []; o.t = rt.seg.map((g, i) => (typeof t0[i] === "number" && isFinite(t0[i]) ? t0[i] : -1e6));   // 3.2b2: hour each stretch was last plowed (older saves: never)
     if (!(o.p >= 0 && o.p < rt.len)) o.p = -1; o.w = +o.w || 0;
     rt.st = o;
   }
@@ -601,7 +602,8 @@ function snowStep(dh) {
     }
     if (o.p >= 0) {
       const p0 = o.p; o.p += dh * ROADS.plowV;
-      rt.seg.forEach((g, i) => { if (g.a >= p0 - 1e-6 && g.a < o.p) o.s[i] = 0; });
+      const H = RS().h;
+      rt.seg.forEach((g, i) => { if (g.a >= p0 - 1e-6 && g.a < o.p) { o.s[i] = 0; o.t[i] = H; } });
       if (o.p >= rt.len) o.p = -1;
     }
   }
@@ -631,13 +633,51 @@ function snowTick() {
   if (st.h < 0 || H < st.h) { st.h = H; return; }
   const dh = H - st.h; if (dh < 0.02) return;
   st.h = H;
-  if (dh > ROADS.skip) { for (const rt of R.routes) if (rt.st) { rt.st.s.fill(0); rt.st.p = -1; rt.st.w = 0; } }
+  if (dh > ROADS.skip) { for (const rt of R.routes) if (rt.st) { rt.st.s.forEach((v, i) => { if (v > 0.02) rt.st.t[i] = H - 1; }); rt.st.s.fill(0); rt.st.p = -1; rt.st.w = 0; } }   // the plow went round while you slept: what it cut is fresh
   else snowStep(dh);
   snowApply(false);
 }
 R.status = id => { const rt = R.routes.find(r => r.id === id); return !rt ? null : rt.closed ? "closed" : rt.seg.some(g => g.shut) ? "snowed in" : "open"; };
 R.setSnow = (id, v, i) => { for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) rt.st.s.forEach((_, j) => { if (i === undefined || i === j) rt.st.s[j] = Math.max(0, Math.min(1, v)); }); snowApply(false); };
 R.snowAt = (x, z) => { const n = R.near(x, z); if (!n.route || !n.route.st) return n.route && n.route.closed ? 1 : 0; let b = 0, bd = Infinity; n.route.seg.forEach((g, i) => { if (!g.legs.length) return; const d = Math.hypot(g.mx - x, g.mz - z); if (d < bd) { bd = d; b = i; } }); return n.route.st.s[b]; };
+
+/* ---- 3.2b2: a scraped road. The council plow's blade cuts a road down to the hard ice, and in a cold snap the traffic
+   polishes the wheel tracks bare: two lanes, wheel tracks ROADS.scrTr m either side of the crown, about 0.3 m wide each,
+   while the snow between the ruts and the shoulders stays hard pack. A stretch is scraped while the cut is fresh (plowed under
+   ROADS.scrFresh game hours ago, gone by ROADS.scrGone), still clear of new snow (fading out by ROADS.scrSnow) and the air
+   is cold (month temperature + 3 x the weather there, as the Weather app reads it: nothing at -3 degrees, full at -7, so a clear November day (-4) barely scrapes and December
+   to March (-8 to -11 clear) do. A storm fills the stretch long before it warms it). TLXR.scrapeF(x, z) -> 0..1 for the stretch there (fresh x clear x cold);
+   TLXR.scraped(x, z, lx, lz) -> 0..1 under a sled with left unit vector (lx, lz): track 0.5 + each ski 0.25, each by how
+   squarely it sits in a wheel track. Saved: x.sys.roads.r[id].t = the game hour each stretch was last plowed (older saves:
+   never, so nothing is scraped until the plow next goes out). The sled's drag, ski sparks, the scrape in the hiss and the
+   "Scraped road" line live in tracklayer.js (P.scr). TLXR.setPlowed(id, hoursAgo) for tests. */
+ROADS.scrTr = [0.8, 2.4]; ROADS.scrIn = 0.12; ROADS.scrOut = 0.28; ROADS.scrFresh = 8; ROADS.scrGone = 20; ROADS.scrSnow = 0.1;
+ROADS.scrCold = [-3, -7]; ROADS.scrSki = 0.55;
+let SCRC = { t: -1, v: 0 };
+function scrCold() {
+  const now = api.GS.hour; if (Math.abs(now - SCRC.t) < 0.02) return SCRC.v;   // re-read about once a game minute
+  const WX = api.WX, m = api.CAL.now().m, P = api.P, t = WX.temp(m) + 3 * WX.at(P.x, P.z);
+  SCRC = { t: now, v: api.sstep(ROADS.scrCold[0], ROADS.scrCold[1], t), temp: t }; return SCRC.v;
+}
+function scrStretch(n) {
+  const rt = n.route; if (!rt || rt.closed || !rt.st || !rt.st.t) return 0;
+  const i = Math.min(rt.seg.length - 1, Math.max(0, Math.floor(n.s / ROADS.seg))), st = rt.st, H = api.GS.hour;
+  if (!rt.seg[i].legs.length) return 0;
+  const age = H - st.t[i]; if (!(age >= -0.01)) return 0;
+  return (1 - api.sstep(ROADS.scrFresh, ROADS.scrGone, age)) * (1 - api.sstep(0.02, ROADS.scrSnow, st.s[i]));
+}
+const scrBand = d => { let b = 0; for (const c of ROADS.scrTr) b = Math.max(b, 1 - api.sstep(ROADS.scrIn, ROADS.scrOut, Math.abs(d - c))); return b; };
+R.scrapeF = (x, z) => { if (!R.ready) return 0; const n = R.near(x, z); if (!n.route || n.d > ROADS.half + 1.5) return 0; const f = scrStretch(n); return f > 0 ? f * scrCold() : 0; };
+R.scraped = (x, z, lx, lz) => {
+  if (!R.ready) return 0;
+  const n = R.near(x, z); if (!n.route || n.d > ROADS.half + 1.5) return 0;
+  const f = scrStretch(n); if (f <= 0) return 0;
+  const c = scrCold(); if (c <= 0) return 0;
+  const k = ROADS.scrSki, a = R.near(x + lx * k, z + lz * k), b = R.near(x - lx * k, z - lz * k);
+  return f * c * (0.5 * scrBand(n.d) + 0.25 * scrBand(a.d) + 0.25 * scrBand(b.d));
+};
+R.scrTemp = () => (scrCold(), SCRC.temp);
+R.setPlowed = (id, ago) => { const H = api.GS.hour; for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) { rt.st.s.fill(0); rt.st.t.fill(H - ago); } snowApply(false); };
 
 /* ---- 3.2b: what the roads mean for a trip. The road graph is the routes' waypoints (villages, the quay, the stations)
    joined by each route's stretch between them. A trip anchors each end to a waypoint within ROADS.node m (in a village,
@@ -720,11 +760,11 @@ R.legend = () => {
 };
 
 TLX.register({
-  id: "roads", v: 2,
+  id: "roads", v: 3,
   state0: () => ({ r: {}, h: -1, warned: false }),
   migrate: st => Object.assign({ r: {}, h: -1, warned: false }, st || {}),
   init(a) { api = a; try { build(a.world); snowInit(); } catch (e) { console.error("TLX roads", e); R.err = String(e); } },
   tick() { try { snowTick(); } catch (e) { if (!R.tickErr) console.error("TLX roads tick", e); R.tickErr = String(e); } },
-  save() { const st = RS(); if (st && st.r) for (const k in st.r) { const o = st.r[k]; if (o && Array.isArray(o.s)) o.s = o.s.map(v => Math.round(v * 1000) / 1000); if (o && o.p >= 0) o.p = Math.round(o.p); } if (st && st.h >= 0) st.h = Math.round(st.h * 1000) / 1000; }
+  save() { const st = RS(); if (st && st.r) for (const k in st.r) { const o = st.r[k]; if (o && Array.isArray(o.s)) o.s = o.s.map(v => Math.round(v * 1000) / 1000); if (o && Array.isArray(o.t)) o.t = o.t.map(v => v < -1e5 ? -1e6 : Math.round(v * 100) / 100); if (o && o.p >= 0) o.p = Math.round(o.p); } if (st && st.h >= 0) st.h = Math.round(st.h * 1000) / 1000; }
 });
 })();

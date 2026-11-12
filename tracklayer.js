@@ -2074,7 +2074,8 @@ for (let i = 0; i < SKN; i++) skPos[i * 3 + 1] = -9999;
 const skGeo = new THREE.BufferGeometry(); skGeo.setAttribute("position", new THREE.BufferAttribute(skPos, 3));
 const sparks = new THREE.Points(skGeo, new THREE.PointsMaterial({ size: 0.16, map: dotTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffa040, fog: false }));
 sparks.frustumCulled = false; scene.add(sparks);
-let skHead = 0, sparkAcc = 0;
+let skHead = 0, sparkAcc = 0, scrSparkAcc = 0;
+var SCR_DRAG = [400, 70];   // scraped road (3.2b2): rolling drag at full scrape, N + N per m/s (var: physics may run before this line)
 function spark(x, y, z, vx, vy, vz) {
   const i = skHead; skHead = (skHead + 1) % SKN;
   skPos[i * 3] = x; skPos[i * 3 + 1] = y; skPos[i * 3 + 2] = z; skVel[i * 3] = vx; skVel[i * 3 + 1] = vy; skVel[i * 3 + 2] = vz;
@@ -3344,7 +3345,7 @@ const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops 
 function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
-  if (VEH.cur) { VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
+  if (VEH.cur) { P.scr = 0; VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
   input.thr = input.brk = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false;
@@ -3373,6 +3374,8 @@ function physCore(dt) {
   const bareFx = P.ice || wet ? 0 : 1 - sstep(0.03, 0.1, fr), bare = bareFx * MELT.spr;
   const slush = P.ice || wet ? 0 : MELT.wet * sstep(0.04, 0.25, fr);
   P.bare = bareFx; P.slush = slush;
+  // a freshly plowed road in a cold snap: the wheel tracks are scraped bare (tlx-roads.js 3.2b2, TLXR.scraped); the crown and shoulders stay hard pack
+  P.scr = onDk || wet || P.ice || !window.TLXR || !TLXR.scraped ? 0 : TLXR.scraped(P.x, P.z, lx, lz) * (1 - bareFx);
   P.thin = !sea && gnd && P.ice ? iceThin(P.x, P.z) : 0;
   if (P.thin > 0 && started && !GS.dead) thinIceStep(dt, Math.hypot(vx, vz), MASS + TOW.mass, fx, fz);
   else MELT.crack = Math.max(0, MELT.crack - 0.8 * dt);
@@ -3408,7 +3411,8 @@ function physCore(dt) {
     P.drag = 5600 * exc * ST.drag;
     // bare ground: track and skis on heather and gravel. It rises with speed so a sled crawls across a melted-out
     // patch (a stock sled tops out near 16 mph on it) instead of stopping dead
-    const rolling = (wet ? 420 : P.ice ? 140 : lerp(260, 60, P.rock)) + slush * 600 + bare * (1400 + 700 * Math.min(Math.hypot(vx, vz), 30));
+    const rolling = (wet ? 420 : P.ice ? 140 : lerp(260, 60, P.rock)) + slush * 600 + bare * (1400 + 700 * Math.min(Math.hypot(vx, vz), 30))
+      + P.scr * (SCR_DRAG[0] + SCR_DRAG[1] * Math.min(Math.hypot(vx, vz), 30));   // carbides and track on a scraped road: no snow to glide on, slider drag rises with speed
     // Climbing. Power is power: a hill never makes a sled faster than the flat would. What a
     // climb gets is the clutch backshifting under load: the track pulls whatever the hill and the
     // snow ask for plus a little to spare (more on stronger sleds), so any sled can pull away
@@ -3500,6 +3504,11 @@ function physCore(dt) {
     if (bareFx > 0.4 && spd > 2) {
       sparkAcc += bareFx * Math.min(spd, 20) * 2.2 * dt;
       while (sparkAcc > 1) { sparkAcc -= 1; const s = Math.random() < 0.5 ? -0.55 : 0.55; spark(P.x + fx * (Math.random() * 2.6 - 1.6) + lx * s, P.y + 0.06, P.z + fz * (Math.random() * 2.6 - 1.6) + lz * s, -vx * 0.25 + lx * s * (2 + Math.random() * 3), 1 + Math.random() * 2.5, -vz * 0.25 + lz * s * (2 + Math.random() * 3)); }
+    }
+    // a scraped road: the skis' carbide runners strike sparks off the bare wheel tracks (sharp carbides more), out of the ski's front half
+    if (P.scr > 0.08 && spd > 3) {
+      const sk = GS.own.parts.skis; scrSparkAcc += P.scr * Math.min(spd, 20) * (sk === "carbide" || sk === "ice" ? 12 : 7) * dt;
+      while (scrSparkAcc > 1) { scrSparkAcc -= 1; const s = Math.random() < 0.5 ? -0.55 : 0.55, a = 0.6 + Math.random() * 0.8; spark(P.x + fx * a + lx * s, P.y + 0.16, P.z + fz * a + lz * s, vx * 0.55 + lx * s * (1 + Math.random() * 2.5), 1.4 + Math.random() * 2, vz * 0.55 + lz * s * (1 + Math.random() * 2.5));   /* shed off the moving ski, they trail a metre or two behind it */ }
     }
   } else P.drag *= 0.9;
   if (WN.pullV) { vx = WN.pullV.x; vz = WN.pullV.z; }                         // the winch has the sled
@@ -3678,6 +3687,7 @@ function updAudio(spd) {
   audio.hiss.g.gain.setTargetAtTime(P.gnd ? Math.min(0.5, spd / 30 * (0.08 + P.exc * 1.6)) : 0, t, 0.08);
   audio.hiss.b.frequency.setTargetAtTime(P.wet ? 1700 : P.ice ? 2600 : P.bare > 0.5 ? 3600 : P.slush > 0.35 ? 700 : 1000, t, 0.2);
   if (P.gnd && P.bare > 0.5) audio.hiss.g.gain.setTargetAtTime(Math.min(0.45, 0.06 + spd / 40), t, 0.06);   // the scrape of carbides on gravel
+  else if (P.gnd && P.scr > 0.15) { audio.hiss.b.frequency.setTargetAtTime(3200, t, 0.2); audio.hiss.g.gain.setTargetAtTime(Math.min(0.4, 0.04 + P.scr * spd / 40), t, 0.06); }   // and on a scraped road (3.2b2)
   if (P.wet) audio.hiss.g.gain.setTargetAtTime(Math.min(0.55, 0.12 + spd / 60), t, 0.08);
   audio.wind.g.gain.setTargetAtTime(0.05 + Math.min(0.3, spd / 45 * 0.3), t, 0.2);
 }
@@ -4004,7 +4014,7 @@ function updHud(spd) {
   } else {
   const stt = P.wet ? "WATER" : P.thin > 0 ? "THIN ICE" : P.ice ? "ICE" : P.bare > 0.5 ? "BARE" : P.slush > 0.35 ? "SLUSH" : (P.pack > 0.62 ? "PACKED" : "POWDER");
   const pill = $("pill"); if (pill.dataset.s !== stt) { pill.dataset.s = stt; pill.textContent = stt; }
-  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? (yardAt(P.x, P.z) > 0.5 ? "Plowed yard" : "On your tracks") : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
+  $("bonus").textContent = P.wet ? (P.sink > 0.08 ? "Sinking! Pin it!" : "Skipping water") : stt === "THIN ICE" ? (MELT.crack > 0.3 ? "It's cracking! Go!" : "Keep moving") : stt === "BARE" ? "Scraping rock" : stt === "SLUSH" ? "Heavy slush" : P.scr > 0.15 ? "Scraped road" : P.rut > 0.5 && P.pack > 0.5 && P.wh < 0.5 ? "In the groove" : P.wh > 0.7 ? "Wheelie " + Math.round(P.whRun) + " m" + (P.whBest > 5 ? " · best " + Math.round(P.whBest) : "") : P.dumped > 0 ? "Snow dump!" : stt === "PACKED" ? (yardAt(P.x, P.z) > 0.5 ? "Plowed yard" : "On your tracks") : (stt === "ICE" ? "Low grip" : (P.exc > 0.2 ? "Breaking trail" : ""));
   }
   $("dragFill").style.width = clamp((P.drag + TOW.drag) / 2600 * 100, 0, 100) + "%";
   $("dragN").textContent = Math.round(P.drag + TOW.drag) + " N";
