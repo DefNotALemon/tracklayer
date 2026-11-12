@@ -137,5 +137,8 @@ TLX.register({
   }
 });
 TLX.wounds = { hit, use, open: () => { const s = S(); return !!s && s.wounds.length > 0; }, exposed: () => api ? exposed() : false,
+  // a bandage would work right now (a wound still inside the window and one in the kit): the pad's D-pad down, which also
+  // calls for help on an empty tank / in the fjord, dresses the wound first while this is true (beta 0143 #1)
+  dressable: () => { const s = S(); return TLX.on("wounds") && !!s && s.bandages > 0 && s.wounds.some(w => w.age <= BANDAGE_WINDOW); },
   consts: { WOUND_CAP, BLEED, BANDAGE_WINDOW, BANDAGE_MAX, SHOT_PER_MIN, SHOT_COOLDOWN, FAR } };
 })();
