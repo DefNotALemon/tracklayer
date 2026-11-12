@@ -3738,8 +3738,9 @@ function drawMap() {
   const grd = mctx.createLinearGradient(R, R, R, 0);
   grd.addColorStop(0, "rgba(127,200,224,.22)"); grd.addColorStop(1, "rgba(127,200,224,0)");
   mctx.fillStyle = grd; mctx.beginPath(); mctx.moveTo(R, R); mctx.arc(R, R, R, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.5); mctx.closePath(); mctx.fill();
-  // sites, placed in screen space so the labels stay upright
+  // sites, placed in screen space so the labels stay upright — GTA-style coloured blips: solid dot, type-colour fill, white ring
   const cy = Math.cos(ang), sy = Math.sin(ang);
+  const BLIP_COL = { depot: "#36a6ff", shop: "#ffb23a", home: "#4fd671", cabin: "#d7dde3" };
   for (const s of SITES) {
     const dx = (s.x - P.x) * M2DISP, dz = (s.z - P.z) * M2DISP;
     let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy, edge = false;
@@ -3749,12 +3750,13 @@ function drawMap() {
       const f = (R - 12) / d; ux *= f; uz *= f; edge = true;
     }
     const sx = R + ux, sz = R + uz, tg = GS.load.some(j => j.dest === s) || (GS.groomJob && GS.groomJob.dest === s);
-    const hm = s.type === "home" ? 2 : 0;
-    mctx.fillStyle = "#0d1822"; mctx.fillRect(sx - 6 + hm, sz - 6 + hm, 12 - 2 * hm, 12 - 2 * hm);
-    mctx.fillStyle = s === depot ? "#7fc8e0" : "#eaf2f8";
-    if (edge) { mctx.globalAlpha = 0.65; mctx.fillRect(sx - 3, sz - 3, 6, 6); mctx.globalAlpha = 1; }
-    else mctx.fillRect(sx - 4 + hm, sz - 4 + hm, 8 - 2 * hm, 8 - 2 * hm);
-    if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, 11 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
+    const rad = edge ? 4.2 : (s.type === "home" ? 5 : 6);
+    mctx.globalAlpha = edge ? 0.75 : 1;
+    mctx.fillStyle = "#13202c"; mctx.beginPath(); mctx.arc(sx, sz, rad + 1.6, 0, 6.283); mctx.fill();
+    mctx.fillStyle = BLIP_COL[s.type] || BLIP_COL.cabin; mctx.beginPath(); mctx.arc(sx, sz, rad, 0, 6.283); mctx.fill();
+    mctx.strokeStyle = "rgba(255,255,255,.92)"; mctx.lineWidth = 1.4; mctx.stroke();
+    mctx.globalAlpha = 1;
+    if (tg) { mctx.strokeStyle = "#ff5a1f"; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(sx, sz, rad + 6 + Math.sin(performance.now() * 0.006) * 2, 0, 6.283); mctx.stroke(); }
   }
   if (HOSP.built) {                              // the health centre: a blue H, on the rim while you've a casualty for it
     const dx = (HOSP.door.x - P.x) * M2DISP, dz = (HOSP.door.z - P.z) * M2DISP; let ux = dx * cy - dz * sy, uz = dx * sy + dz * cy; const d = Math.hypot(ux, uz);
@@ -7067,11 +7069,15 @@ function tabHomography(w, h, q) {
 
 // first person gets the dash tablet's map, every other view (third person, on foot) gets the HUD minimap, never both.
 // The tablet itself is on the sled in every view: in the others its screen shows the home screen, not a map (tabHomeFace)
-let tvFP = null, tvDip = null;
+// Lemon's call: third-person RIDING view shows no minimap at all (use the tablet / M for the map); on foot and in a
+// cab (no dash tablet in view) still get it.
+let tvFP = null, tvDip = null, tvTP = null;
 function tabView_sync() {
   const fp = !!(VIEWS[camMode].fp && !FOOT.on && !VEH.cur), dip = TABLET.open && TABLET.mode === "dash";   // a cab has no dash tablet in view: it keeps the HUD minimap
+  const tp = !fp && !FOOT.on && !VEH.cur;   // riding the sled, camera not first-person
   tabCull();
   if (dip !== tvDip) { tvDip = dip; document.body.classList.toggle("tabdip", dip); }
+  if (tp !== tvTP) { tvTP = tp; document.body.classList.toggle("tpv", tp); }
   if (fp === tvFP) return;
   tvFP = fp; document.body.classList.toggle("fpv", fp); TABLET.dashT = 1;   // repaint the dash face for the new view straight away
 }
@@ -13254,7 +13260,7 @@ function titleReady() {
 }
 function startRide() {
   started = true;
-  for (const id of ["zone", "speedo", "mapWrap", "help", "job"]) $(id).hidden = false;
+  for (const id of ["speedo", "mapWrap", "help", "job"]) $(id).hidden = false;   // "zone" (top-left date/place/weather card) stays off at Lemon's request
   setTouchUI();
   makeJobs(depot);
   if (TUT.stage < 99) tutStart();

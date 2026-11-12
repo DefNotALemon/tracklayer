@@ -211,6 +211,7 @@
   .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--line)}
   @media (min-width:900px){body.showroom #garage,body.showroom #settings{left:auto;right:16px;transform:translateY(-50%);width:min(520px,44vw)}}
   body.fpv #mapWrap{display:none}
+  body.tpv #mapWrap{display:none}   /* third-person riding: no HUD minimap (use the tablet / M); still shows on foot and in a cab */
   body.tabdip #mapWrap{display:none}   /* the tablet is up on the glass: its own maps are the only ones on screen */
   body.showroom #zone,body.showroom #speedo,body.showroom #mapWrap,body.showroom #help,body.showroom #job{visibility:hidden}
   #srHint{position:fixed;z-index:4;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--frost);background:rgba(13,24,34,.7);border:1px solid var(--line);border-radius:4px;padding:6px 10px;pointer-events:none}
@@ -1173,5 +1174,5 @@
 <script src="tlx-roads.js?v=9"></script>
 <script src="tlx-cars.js?v=5"></script>
 <script src="tlx-traffic.js?v=4"></script>
-<script src="tracklayer.js?v=208"></script>
+<script src="tracklayer.js?v=209"></script>
 </body></html>

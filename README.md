@@ -33,7 +33,7 @@ Continue (or Ride, first time), New game, Garage, Settings, How to play and Cred
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
 **Your first ride (tutorial).** A brand-new game (first visit, or New game) starts you on foot on the quay with no
-sled. A card under the top-left panel walks you through five steps, and the top compass points at each one:
+sled. A card at the top left walks you through five steps, and the top compass points at each one:
 walk across the road to Nordkinn Skuter & Service and open the garage; collect your first sled (the Frontier 340,
 free, the highlighted row at the top of Sleds); walk out to it on the forecourt and climb on; ride to the package
 the garage has claimed for you and stop there to load it; ride it to the drop-off and stop to hand it over. You get
@@ -83,10 +83,11 @@ browser, and on a phone launching from the title goes full screen by itself. iPh
 browser bars. A card on the title screen says how until you tap **Got it**. In landscape the controls stay clear of
 the notch.
 
-The panel at the top left names where you are, on the sled or on foot: **Kjøllefjord** anywhere in town (the quay,
-the garage, the shore road), a village, cabin, home or school by name when you're in its yard, and otherwise the
-country itself (open backcountry, boreal forest, high country, a frozen lake, open water). On a phone that panel and
-the minimap are left off; the vitals bars move to the top left and the speedometer to the top right instead, out of
+There's no top-left place/weather panel any more — it's gone for good. The HUD minimap (bottom right) shows only
+on foot and in a cab; riding the sled in third person shows no minimap at all (press **M** for the tablet's Map app
+instead). On the minimap and the Map, sites are coloured dots with a white ring: blue for the quay/depot, amber for
+the garage, green for homes, pale grey for villages and cabins. On a phone the minimap is left off; the vitals bars
+move to the top left and the speedometer to the top right instead, out of
 the way of the touch stick and pedals. Upright, the compass has the top row to itself, the vitals and speedometer sit
 under it, TABLET / MORE under the speedometer and the tutorial card and messages down the left; on its side, TABLET /
 MORE sit beside the speedometer with the compass between them and the vitals. Messages are hidden while the MORE sheet is
