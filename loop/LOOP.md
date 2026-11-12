@@ -194,6 +194,13 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
+- [ ] G4 (beta 0143 #1, BUG): on a pad, D-pad down calls help (empty tank / fjord) instead of bandaging a fresh wound;
+      while a wound is younger than BANDAGE_WINDOW, D-pad down bandages first. Also 0143 #3: "Press P for a fuel
+      delivery" toast is a hard-coded key, route through btn().
+- [ ] G4 (beta 0141 #1, BUG): 3.2a road snow: a plain 0.5 drizzle shuts every road and the plow (plowWx 0.45) never
+      comes; start the fill ramp near 0.5 or let the plow work under ~0.6. 0141 #2 POLISH: "snowed in" fires at 0.3 m real depth.
+- [ ] G4 (beta 0142 #4, low): `x2_winchreel_break` asserts "hand winch burns no fuel" but the parked bogged sled idles
+      0.02 L in 7 s; fix the assert (measure winch fuel only) or stop idle burn while on foot winching.
 - [ ] (OWNER, 11 Nov) Delivery rewards with flavor dialogue: delivering jobs should sometimes reward snacks,
   spare parts, or sled upgrades to fit at home, handed over with a bit of characterful NPC dialogue — e.g.
   "my [distant relative] had one of those and my son worked on it once, here, I think I have an upgrade you
@@ -463,4 +470,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 140
+Last triaged report: 143

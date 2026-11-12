@@ -3,6 +3,21 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 04:00 — Beta fix 0142 #1: a boulder winch anchor no longer freezes the screen (G4) — 2661538
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 141-143: 0142 #1 BLOCKER fixed here. Queued as backlog lines in LOOP.md: 0143 #1 BUG (pad D-pad down calls help over a
+fresh wound) + #3 (hard-coded "Press P"), 0141 #1 BUG (drizzle shuts every road, plow never comes) + #2 POLISH, 0142 #4
+(x2_winchreel_break's "hand winch burns no fuel" assert trips on parked idle burn). 0143 #2 (reload = free heal, no position
+saved) left as a note: by design of the depot respawn, not worth a fix now. 0142 #2/#3 verified. Last triaged 140 -> 143.
+Cause: `selfReel` and the rescue tie called `wobble()` on any anchor; a boulder has no `tree`/`cell`, so `updWobble` ->
+`setTree` -> `trunkOf` threw before `renderer.render` every frame and the entry was never removed.
+Fix: `wobble()` returns for anything without `tree`/`cell`; `updWobble` drops an entry with no wob or no instanced cell;
+both callers check `a.tree !== undefined`.
+Numbers (`x2_winchboulder_break.mjs`): boulder anchor renders while reeling 0 / 2.5 s -> 71; after release 0 -> 18; wobbling
+stuck at 1 -> 0; page errors 49+ -> none. Tree anchor unchanged (42 renders, sways).
+Gate: smoke 0, x1_save 0, x2_winchboulder_break 0; x2_winchreel_break exit 1 on its fuel assert only (the 0142 #4 idle-burn
+observation, untouched code path; queued).
+
 ## 2026-11-12 03:50 — Beta fix 0140 #1-#3: no 40 cm cliff, "ease off" only when the wheels spin (G4) — 229fd4a
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of report 0140 (3.x pickup traction control beta): #1-#3 BUG on landed work, fixed here; #4 POLISH (30 cm on a
