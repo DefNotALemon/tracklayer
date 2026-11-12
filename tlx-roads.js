@@ -622,6 +622,7 @@ function snowApply(all) {
   if (paint) paintRoads();
   // a word when the roads drift shut, and when the plow has opened them again
   const st = RS(), shutR = R.routes.filter(rt => rt.seg.some(g => g.shut));
+  if (R.noted) for (const [id, why] of R.noted) if (why !== "closed" && !shutR.some(rt => rt.id === id)) R.noted.delete(id);   // open again: the next storm warns afresh
   if (!all && api.started()) {
     if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + " drifting shut. The council plow goes out once the storm eases."); }
     else if (!shutR.length && st.warned && R.routes.every(rt => !rt.st || rt.st.p < 0)) { st.warned = false; api.toast("The plow's been round: the roads are open again."); }
@@ -745,6 +746,20 @@ R.trip = (x0, z0, tgt) => {
   TRIPC.set(k, res); return res;
 };
 R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`; };
+// beta 0149 #1: the minimalist HUD hides the old compass row, so a job whose way runs over a snowed-in stretch also gets a
+// toast, once per road per storm (the note clears when that road is open again; the fell road's once per session).
+// updGameHud calls this with job = true only when the target is a real job (not the idle "quay" arrow).
+R.noted = new Map();
+R.tripNote = (x0, z0, tgt, job) => {
+  const t = R.trip(x0, z0, tgt); if (!t) return "";
+  const w = t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`;
+  if (job && api.started() && !R.noted.has(t.route.id)) {
+    R.noted.set(t.route.id, t.why);
+    const to = tgt.name && typeof tgt.name === "string" ? ` on the way to ${tgt.name}` : " on your way";
+    api.toast(t.why === "closed" ? `The ${t.route.name}${to} is shut for the winter. Take the sled.` : `Heads up: the ${t.route.name} is snowed in${to}. A pickup won't get through till the plow's been; a sled will.`);
+  }
+  return w;
+};
 R.drift = (x, z) => {
   const n = R.near(x, z); if (!n.route || n.d > ROADS.half + 2.5) return "";
   if (n.route.closed) return `The ${n.route.name} is shut for the winter and nobody plows it. Take the sled.`;

@@ -13079,7 +13079,8 @@ function updGameHud() {
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   if (!tr) JOBT.auto = $("jobTitle").textContent;
-  { const rw = window.TLXR && TLXR.tripWarn ? TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
+  { const isJob = !!(tr || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)
+    const rw = window.TLXR && TLXR.tripNote ? TLXR.tripNote(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt, isJob) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
   { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
     const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
     rel = rl; $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;

@@ -48,15 +48,35 @@ await ev(`TLXR.setSnow(null, 0); TLXR.setSnow("fv888", 0.6); (() => { const m = 
 await waitGame(1);
 const F1 = await J(`$("jobSub").textContent`); console.log("F compass (no job, quay is the target):", F1);
 ok(/Mehamn road snowed in/.test(F1), "F: the compass row warns the road back to the quay is snowed in");
+// beta 0149 #1: the minimalist HUD hides #job, so the warning has to reach the player some other way: a visible toast
+const clrT = `document.getElementById("toasts").innerHTML = ""; if (TOASTQ) TOASTQ.length = 0; true`;
+const roadToasts = () => J(`[...$("toasts").children].filter(c => /snowed in on the way|shut for the winter\\. Take/.test(c.textContent)).map(c => { const b = c.getBoundingClientRect(), cs = getComputedStyle(c); return { t: c.textContent, w: Math.round(b.width), h: Math.round(b.height), op: +cs.opacity, disp: cs.display, vis: cs.visibility }; }).concat((TOASTQ || []).filter(t => /snowed in on the way|shut for the winter\\. Take/.test(t.msg)).map(t => ({ t: t.msg, queued: 1 })))`);
+const shown = a => a.filter(q => !q.queued && q.w > 40 && q.h > 8 && q.op > 0.3 && q.disp !== "none" && q.vis !== "hidden");
+const jobVis = await J(`(() => { const b = document.getElementById("job").getBoundingClientRect(); return Math.round(b.width); })()`);
+console.log("F #job width (minimalist HUD hides it):", jobVis);
+await ev(clrT); await waitGame(1);
+const F1t = await roadToasts(); console.log("F no job toasts:", JSON.stringify(F1t));
+ok(F1t.length === 0, "F: no job, no road toast (the idle quay arrow doesn't nag)");
 await ev(`(() => { const j = Object.assign({}, GS.jobs[0] || {}); j.from = depot; if (!j.dest) j.dest = SITES.find(s => s.id === "dyfjord"); if (!j.cargo) j.cargo = "Test crate"; if (!j.pay) j.pay = 50; GS.claims.push(j); })(); true`);
 await waitGame(0.6);
 const F2 = await J(`(() => { const r = jobsList().find(e => e.kind === "claim"); return r ? { meta: r.meta, road: r.road || "" } : null; })()`);
 console.log("F Jobs app claim row:", JSON.stringify(F2));
 ok(F2 && /Mehamn road snowed in/.test(F2.meta), "F: the Jobs app row for a quay pickup warns");
+await waitGame(0.4);
+const F2t = await roadToasts(); console.log("F claim toasts:", JSON.stringify(F2t));
+ok(shown(F2t).length === 1 && /Kjøllefjord–Mehamn road is snowed in on the way to/.test(F2t[0].t), "F: taking a job over the shut road shows one visible toast naming the road");
+await shot("f_claim_toast");
+await ev(clrT); await waitGame(2.5);
+const F2r = await roadToasts(); console.log("F later toasts:", JSON.stringify(F2r));
+ok(F2r.length === 0, "F: the toast comes once per road per storm, not every frame");
 await ev(`TLXR.setSnow(null, 0); true`); await waitGame(0.8);
 const F3 = await J(`({ sub: $("jobSub").textContent, meta: (jobsList().find(e => e.kind === "claim") || {}).meta })`);
 console.log("F roads plowed:", JSON.stringify(F3));
 ok(!/snowed in/.test(F3.sub) && !/snowed in/.test(F3.meta || ""), "F: plowed open, the warning goes");
+await ev(`TLXR.setSnow("fv888", 0.6); true`); await ev(clrT); await waitGame(1.2);
+const F4t = await roadToasts(); console.log("F next storm toasts:", JSON.stringify(F4t));
+ok(shown(F4t).length === 1, "F: the next storm shuts the road again and the job is warned afresh");
+await ev(`TLXR.setSnow(null, 0); GS.claims.length = 0; true`); await waitGame(0.4);
 
 // G: the Map app's legend
 await ev(`TLXR.setSnow("fv888", 0.6); TABLET.toggle(true, "map"); true`); await waitGame(1.6);
