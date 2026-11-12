@@ -3,6 +3,19 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 04:45 — Beta fix 0141 #1: a drizzle no longer shuts the roads, the plow works through light snow (G4) — 00333e8
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 145: #1/#4 verified; #2 BUG (live cells under a truck lag when `setSnow` jumps a stretch to full) logged as intended
+(refill at the storm's rate is the design; real storms build gradually, reloads load full depth, sleeps plow the roads); #3
+POLISH folded into the 0141 #2 line. Last triaged 144 -> 145. Took the queued BUG 0141 #1.
+Cause: road fill ramped from weather 0.3 (`sstep(0.3, 0.9)`) and the plow waited for weather under 0.45, so a long grey 0.5
+spell filled every road ~0.04/h and kept the plow in. Fix (tlx-roads v6): ramp `ROADS.fillA/fillB` = 0.5..0.95, `plowWx` 0.6.
+Full storm unchanged (fill 0.16/h at 1.0).
+Numbers (new asserting `x3_roaddrizzle.mjs`): drizzle 0.5 x 12 h: before (report 0141) 5/5 roads snowed in, max 0.51 -> after
+0/5, max 0.000. Roads at 0.6 under light snow 0.55: plow sets out, all 5 open within 4 h (max 0.018). Moderate 0.75 x 6 h: max
+0.57, snowed in. Storm 1.0 x 3 h: 0.495, all snowed in, no plow; 4 h of fair weather: all open.
+Gate: smoke 0, x1_save 0, x3_roaddrizzle 0, x3_roadsnow 0, x3_roadsnowdepth 0 (log `~/.hermes/cache/scratch/tlloop/b0145/gate.log`). Numbers-only fix, no stills.
+
 ## 2026-11-12 04:30 — Beta fix 0143 #1: pad D-pad down bandages a fresh wound before calling help (G4) — 24e165e
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 No new reports (last triaged stays 144). Took the top queued BUG, 0143 #1.

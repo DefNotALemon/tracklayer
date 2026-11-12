@@ -197,8 +197,12 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 - [x] G4 (beta 0143 #1, BUG, fixed v200): on a pad, D-pad down calls help (empty tank / fjord) instead of bandaging a fresh wound;
       while a wound is younger than BANDAGE_WINDOW, D-pad down bandages first. Also 0143 #3: "Press P for a fuel
       delivery" toast is a hard-coded key, already goes through btn() (the toast reads "Press D-pad down" once the pad is the active input; a toast fired before the first pad press keeps the keyboard name). No change.
-- [ ] G4 (beta 0141 #1, BUG): 3.2a road snow: a plain 0.5 drizzle shuts every road and the plow (plowWx 0.45) never
-      comes; start the fill ramp near 0.5 or let the plow work under ~0.6. 0141 #2 POLISH: "snowed in" fires at 0.3 m real depth.
+- [x] G4 (beta 0141 #1, BUG, fixed tlx-roads v6): 3.2a road snow: a plain 0.5 drizzle shuts every road and the plow (plowWx 0.45) never
+      comes; fill ramp now sstep(0.5, 0.95), plow works under 0.6. Still open below: 0141 #2.
+- [ ] G4 (beta 0141 #2 POLISH, from the line above): "snowed in" fires at 0.3 m real depth.
+      0145 #2 (live cells lag after `setSnow` jumps a stretch to full) logged as intended: loaded cells rise at the
+      storm's refill rate by design (plowRefresh comment); a real storm builds gradually, a reload loads full depth via
+      the chunk path, and a sleep over 2 h finds the roads plowed. No change.
       Note (0144 fix): a road now settles to f*(1-0.765*(1-snow)), so ~0.40 m at snow 0.25 and ~0.48 m at the 0.35 "snowed
       in" line: the pickup (stops ~42 cm) bogs on a stretch still marked open from ~0.25. Tune with this item if wanted.
 - [ ] G4 (beta 0142 #4, low): `x2_winchreel_break` asserts "hand winch burns no fuel" but the parked bogged sled idles
@@ -472,4 +476,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 144
+Last triaged report: 145
