@@ -287,7 +287,7 @@ function yardOf(cx, cz) {
       const px = x0 + i * CELL - Y.x, pz = z0 + j * CELL - Y.z, t = uu > 0 ? clamp((px * ux + pz * uz) / uu, 0, 1) : 0;
       const dd = Math.hypot(px - ux * t, pz - uz * t);                 // distance to the disc's centre, or to the lane's leg
       if (dd >= R) continue;
-      const y = (1 - sstep(Y.r, R, dd)) * (Y.k || 1);                 // k: how hard it's plowed (roads, tlx-roads.js; 1 = a yard)
+      const y = (1 - sstep(Y.r, R, dd)) * (Y.k ?? 1);                 // k: how hard it's plowed (roads, tlx-roads.js; 1 = a yard; 0 = a road drifted full, not "unset")
       if (!a) a = new Float32Array(CH * CH);
       if (y > a[j * CH + i]) a[j * CH + i] = y;
     }

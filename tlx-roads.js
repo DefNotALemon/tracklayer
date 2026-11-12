@@ -583,7 +583,7 @@ function snowInit() {
     if (!(o.p >= 0 && o.p < rt.len)) o.p = -1; o.w = +o.w || 0;
     rt.st = o;
   }
-  if (typeof st.h !== "number") st.h = -1;
+  if (typeof st.h !== "number" || !isFinite(st.h)) st.h = -1;
   snowApply(true);
 }
 function snowStep(dh) {
