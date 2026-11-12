@@ -3,6 +3,21 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 04:30 — Beta fix 0143 #1: pad D-pad down bandages a fresh wound before calling help (G4) — 24e165e
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+No new reports (last triaged stays 144). Took the top queued BUG, 0143 #1.
+Cause: the pad's D-pad down sent KeyP whenever `helpWanted()` (empty tank / fjord), so a bleeding rider on an empty tank
+called a $45 fuel delivery and lost the 6 s bandage window. Fix: new `TLX.wounds.dressable()` (option on, a bandage in the
+kit, a wound inside BANDAGE_WINDOW); the pad sends KeyU while it is true, KeyP otherwise. tlx-wounds v2.
+0143 #3 ("Press P" toast) is a non-issue: the toast already uses `btn("help")`; it keeps the keyboard name only when it fired
+before the first pad input. Noted on the backlog line.
+Numbers (new asserting `x5_wounds_pad.mjs`): empty tank + fresh wound, D-pad down: before (report 0143) wound open, help
+called -> after wound dressed (bandages 3 -> 2), no call; second press calls help. Soaked wound / empty kit / no wound / option
+off on an empty tank: help called, kit untouched. Fuel in tank: bandages. Keyboard U / P unchanged.
+Gate: smoke 0, x1_save 0, x5_wounds_pad 0; x5_wounds_break B1 now passes, exits 1 on its E1/F1 asserts only (mis-set per
+report 0143 itself: E checks after the respawn, F expects a reload to keep wounds the depot spawn heals). Log
+`~/.hermes/cache/scratch/tlloop/b0143/gate.log`. Input fix, no stills.
+
 ## 2026-11-12 04:15 — Beta fix 0144 #1: a fully drifted road is full depth, road depth rises with its snow (G4) — 877d91d
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 144: #1 BUG fixed here; #2/#3 verified/fine; #4 POLISH (NaN `st.h`) folded in (one-line guard). Last triaged 143 -> 144.
