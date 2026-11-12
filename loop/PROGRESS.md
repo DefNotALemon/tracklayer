@@ -3,6 +3,30 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 07:50 — 3.4a a few drivers on the open roads (G4) — 78d7e4c
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 156-157: no BLOCKER/BUG to fix. 0156 #1 ("sled at 25 m/s stops dead at a car, no crash") dropped: a car is a hard
+obstacle exactly like a boulder or wall, and CRASH_AT.hard is 31.3 m/s by canon (70 mph across the board), so 25 m/s
+bouncing off without a throw is the designed behaviour, not a car-specific gap. 0156 #2 and 0157 #1-#3 (POLISH) queued in
+the LOOP.md backlog. Verified: 0156 #3-#5, 0157 #4-#6. Last triaged 155 -> 157.
+3.4 had no design: split into 3.4a (built here) and 3.4b (traffic polish, designed in EXPANSION.md). New `tlx-traffic.js`
+(system "traffic", option `traffic` on): drivers on each open route's road part, right-hand lane 1.6 m off the crown,
+max 12.5 m/s, sqrt(1.9 R) per point with a 1.6 m/s^2 braking profile each way; stop 7.5 m behind anything in their line
+(cars, P, walker, parked vehicles, parked sled), 22 m before a shut stretch then a 7 s U-turn across the road, turn or
+drive on into the village at a route end, turn back after 25 s held up. A bubble keeps 6 cars (3 on GFX.low) 600-1400 m
+round you. Solid against the ridden sled/truck (boulder rule: pushed out, into-car speed reflected x1.45, thud,
+cargoHit, toast) and the walker (pushed aside). Shapes reused from the parked cars (`TLXC.geo`, tlx-cars v3); lamps
+unlit and brightened after dark. Nothing saved.
+Numbers (new asserting `x3_traffic.mjs`, all pass): build 3 ms; 6 cars on 5 routes placed 237-1222 m round you, 0 off
+road; +4 draw calls; car drove 234 m in 25 game s, top 12.50 m/s, 0.00 m off its lane line (1.60 m right of the crown),
+never over a bend's sqrt(1.9 R) (first run was +0.66 m/s from interpolating the profile between points: now the slower
+point); stops 7.5 m behind your sled and behind a walker; snowed-in stretch -> stopped 22.0 m short, U-turned, back in
+its new right-hand lane; sled at 9 m/s into the car: bump + toast, bounced off at 3.6 m/s, no crash, never inside; walker
+pushed clear; option off hides + freezes; lamps 0.55 by day -> 2.15 at night; teleport far -> cars re-placed 754-1343 m.
+Stills `~/.hermes/cache/scratch/tlloop/b0158/sheet.jpg` (driving, wide, stopped behind the sled, night tail lights).
+Not done (3.4b): turning wheels, engine sound, headlight beams, overtaking a parked obstacle, village-street traffic.
+Gate: smoke, x3_traffic, x3_cars, x3_digcars pass (log `b0158/gate.log`); x1_save failed on its system whitelist (no "traffic"), added there, rerun exit 0.
+
 ## 2026-11-12 07:25 — 3.3b dig a buried car out by hand for pay (G4) — 7613f43
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 154-155: no BLOCKER/BUG. Verified: 0154 #1-#3, 0155 #2/#3/#6/#7. POLISH queued (not built): 0154 #4 sled across a

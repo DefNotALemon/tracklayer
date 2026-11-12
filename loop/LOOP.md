@@ -204,6 +204,11 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       `#job` (`display:none!important`), so only the Jobs app shows it. Surface it where the player looks (the compass
       strip, or a toast once per road per storm when the tracked job's trip first crosses a snowed-in stretch) and make
       x3_roadwarn assert on a visible element, not `textContent`. Repro: `x3_roadwarn_vis_break.mjs`.
+- [ ] G4 (beta 0157 #1-#3 POLISH, dig cars): pay by the snow left when a part-dug car's dig restarts (set b0 = b when b < b0
+      at the start of a dig); return null from the car provider while MNT.on/DMT.on (hint says "dig" mid-swing); #wnHint
+      lags the dig state by a frame after rapid E taps (cosmetic).
+- [ ] G4 (beta 0156 #2 POLISH): README/commit say "a good jump clears" a parked car; a hop doesn't (roof 1.5 m), only a real
+      ramp jump. Leave the claim or reword to "a big jump".
 - [ ] G4 (beta 0151 #1/#4, 0152 #3/#4 POLISH): an open Jobs app doesn't re-render when a road shuts (key its refresh on
       `TLXR.paints`); the plow's "roads are open again" toast may be lost behind the weather toast; scrape sparks faint at
       night (brighter/longer emissive or a small warm light at the skis); zero `P.scr` while `FOOT.on`.
@@ -495,4 +500,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 155
+Last triaged report: 157
