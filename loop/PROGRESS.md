@@ -3,6 +3,35 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 02:30 — Beta fix 0129 #1/#2: pickup traction control + "more throttle" / "steep in this snow" (G4) — a5d8bc9
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0137 (rescue v195 beta: #1-#3 verified, #4-#6 POLISH: long cliff carry is a cut not a tow, a
+13 m ring, reload-in-water skips the fee) and 0138 (2.6c strap guard beta: #1 POLISH yard ping still offers START COURSE while
+strapped, as logged in the v196 entry; #2 POLISH forced state; #3 ok), all left listed. Last triaged report 136 -> 138.
+Took 0129 #1/#2, owed since v193.
+Cause (tlx-vehicles.js `core`/`stillWhy`): (1) a light pedal's push (pad RT 30% = 2.5 kN) under the 35 cm standing drag
+(~3.3 kN) has no spin, so nothing digs and the truck sits; `stillWhy` then took the `sinkS > 0.07` branch and said "ease
+off", the opposite of what helps (and RT under 25% never got a line at all). (2) The "stuck" dig term compared Fres with
+0.92 of traction, but Fres includes the bow wave, and a steady crawl IS the speed where the bow wave matches the push, so
+every crawl read "stuck"; plus a floored W spun the wheels (Fe 8.2 kN vs 4.1 kN grip): on a 1.9% grade both dug it in.
+Fix: traction control (the ECU trims Fe to 1.12 T0 while the standing drag `sPre` (no bow wave) is under 0.92 T0; push is
+unchanged, only the digging spin goes); "stuck" reads `sPre`, or Fres once a tyre sinks past its own radius (40 cm+), so a
+run into a 50 cm bank still ends in a bog; `stillWhy` gains "pull" (push < need and the tyres have grip to spare: "Not enough
+throttle to push through this snow. Give it more, smooth and steady.") and "steep in this snow", and stays quiet for up to
+3 s while the push beats the drag (a crawl that is only slow getting going used to open with "ease off"); held needs
+throttle > 0.1 (was 0.25).
+Numbers (new asserting `x3_powderpull.mjs`; before = the same scenario on origin/main v196, spot 1.9% grade / 10.7% hill):
+RT 30% in 35 cm: 0 m, line "dig"/"ease off" -> 0 m, "more throttle" at 1.1 s, no bog; RT 15% in 20 cm: silent -> "more
+throttle"; W in 35 cm up 1.9%: 4.5 m + bog at 5.4 s -> 9.4-9.7 m in 9 s, no bog, no "ease off" (vmax 1.5); RT 60%: 6.8 ->
+6.4-6.7 m; 20 cm up 10.7%: "dig"/"ease off" -> "steep in this snow"; 45 cm: stops, bog 3.1 -> 2.9-3.0 s; 80 cm: bogs 4.1 ->
+4.1-5.2 s. x3_crawl (flat): 35 cm 13.3 -> 13.1 m; 40 cm 2.1 m + bog 4.4 s -> 6.4 m creep, no bog in 7 s (README's "only
+creeps in 40 cm"); 45/50/80 cm bog at ~3 s as before; run-up into 50 cm 16.8 -> 21.0 m in, bogs.
+Not done: 0129 #3 POLISH (reverse is more forgiving than forward) unchanged; uphill pull away on 10% in 20 cm is still a
+wall (its tyres can't hold the grade in powder: now said plainly); touch (gas floor 0.5) not run in this scenario.
+Gate: smoke 0, x1_save 0, x3_powderpull 0 (all asserts; 4 fail on v196), x3_crawl 0, x2_revsilent 0, x2_deck 0, page errors
+none (gate.sh exit 1 only because x3_powderpull and x3_crawl print "page errors: none" twice, theirs + lib's: gate wants
+exactly 1; removed the extra line from x3_powderpull, x3_crawl still has it). Logs `~/.hermes/cache/scratch/tlloop/bcr/` (pp_before.log, gate.log).
+
 ## 2026-11-12 01:40 — Beta fix 0133 #1: no school course with your sled strapped to the trailer (G4) — d468c8f
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of report 0136 (3.x switchback loops beta): #1-#3 verified, #4 harness note, #5/#6 POLISH (plowed strip
