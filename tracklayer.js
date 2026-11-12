@@ -7626,12 +7626,13 @@ TABLET.register({
     el.innerHTML = `<div class="tmap"><div class="tmapc"><canvas id="tabMapC"></canvas></div>
       <div class="tmtop"><div class="tlays">${ch("del", "Deliveries", GS.load.length)}${ch("pins", "Pickup / drop-off", GS.claims.length + GS.jobs.length)}${ch("rescue", "Rescues", resc.length)}${ch("depots", "Depots", dep.length)}${ch("fuel", "Fuel", fue.length)}${MELT.kq > 0 ? ch("routes", "Trails · melt", Object.values(MELT.route).filter(v => v === "closed").length + " shut") : ""}</div>
         <button type="button" class="tbtn ghost" data-tf="zoom" id="tabZoom">${this.zoom ? "WHOLE MAP" : "AROUND ME"}</button></div>
-      <div class="twid" id="tabWid"></div></div>`;
+      <div class="twid" id="tabWid"></div><div class="trleg" id="tabRoadLeg"></div></div>`;
     for (const b of el.querySelectorAll("[data-lay]")) b.addEventListener("click", () => { L[b.dataset.lay] = !L[b.dataset.lay]; TABLET.render(); });
     $("tabZoom").addEventListener("click", () => { this.zoom = this.zoom ? 0 : 1; TABLET.render(); });
     this.cv = $("tabMapC"); this.t = 1; this.tick(0); this.widget();
   },
   widget() {
+    { const lg = $("tabRoadLeg"); if (lg) { const h = window.TLXR && TLXR.legend ? TLXR.legend() : ""; if (lg._h !== h) { lg._h = h; lg.innerHTML = h; } lg.hidden = !h; } }   // the road legend (tlx-roads.js, 3.2b)
     const el = $("tabWid"); if (!el) return;
     const f = TABLET.widget.ferry(), m = TABLET.widget.mail(), c = f.call;
     const stTxt = !c ? "" : c.state === "delayed" ? ` · <em class="late">+${c.delay} h late</em>` : "";
@@ -8505,6 +8506,7 @@ function jobsList() {
   }
   if (santaBought() && santaN() < 9) { const t = rareHint(); if (t) out.push({ obj: "santa", kind: "santa", tgt: t, col: "#ff5a4a", title: `Santa's team: ${santaN()}/9 found`, chips: chip("RARE", "due"), meta: `${santaN() >= 8 ? "Rudolph's out there: a red glow" : "one was last seen"} near ${nearestSiteName(t.x, t.z)} · listen for sleigh bells`, pay: "", hud: d => ({ title: `Santa's team · ${santaN()}/9`, sub: `Last seen near ${nearestSiteName(t.x, t.z)} · ${fmtMi(d)} · listen for bells` }) }); }
   if (GS.mail.length) out.push({ obj: "mail", kind: "mail", tgt: depot, col: "var(--ice)", title: "Mail → Kjøllefjord quay", chips: chip("MAIL"), meta: `${mailCount()} letters to hand in at the quay`, pay: "~" + fmtCash(mailValue()), hud: d => ({ title: "Mail → Kjøllefjord quay", sub: `${mailCount()} letters · ${fmtMi(d)} · stop at the quay to hand in` }) });
+  if (window.TLXR && TLXR.tripWarn) for (const r of out) { const w = TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, r.tgt); if (w) { r.meta += " · " + w; r.road = w; } }   // 3.2b: a snowed-in road on the way
   return out;
 }
 // the job the compass is pinned to, or null when it's on Auto (a finished job drops back to Auto)
@@ -13067,6 +13069,7 @@ function updGameHud() {
   } else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   if (!tr) JOBT.auto = $("jobTitle").textContent;
+  { const rw = window.TLXR && TLXR.tripWarn ? TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
   { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
     const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
     rel = rl; $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;

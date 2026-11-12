@@ -444,6 +444,12 @@ cutting each stretch back to hard pack as it reaches it; you hear when the roads
 Village streets, house yards and the quay are kept plowed through it all, and a night's sleep finds
 the roads plowed. Where the snow on each road stands is saved with the game.
 
+The Map app has a small road legend in the corner (open, snowed in with how many roads are, closed).
+When a job's way by road runs over a stretch that has drifted shut, the compass line and the job's row
+in the Jobs app say so ("Kjøllefjord–Mehamn road snowed in"; a trip over Ifjordfjellet says it's shut
+for the winter); places out in the backcountry, where you'd take the sled anyway, never warn. A pickup
+stuck in a drifted road tells you plainly: the road's drifted shut, wait for the plow or take the sled.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

@@ -500,6 +500,8 @@ function stillWhy(R, rev, sinkS, sf) {
      a crawl that went on to make 6 m opened with "ease off", and reverse never had this check (beta 0140 #2/#3) */
   const mov = rev ? -(R.vfA || 0) : (R.vfA || 0);
   if (R.stillT < 3 && (mov > 0.05 || (!rev && Math.min(R.fe || 0, R.t0 || 0) > need * 1.005))) { R.stillTold = false; return; }   // held 3 s and still no 0.4 m: something unseen holds it, say so below
+  /* stuck in the snow on a road that has drifted shut (3.2b), or on the fell road nobody plows: say that, not how to drive */
+  if (sinkS > 0.07 && window.TLXR && TLXR.drift) { const dr = TLXR.drift(api.P.x, api.P.z); if (dr) { R.why = "drift"; api.toast(dr, "warn"); return; } }
   /* "ease off" is only right when the wheels spin and dig; a truck that pushes without spin is short of push, not digging */
   const spinning = (R.spinK || 0) > 0.05 || BOG.acc > 0.15;
   if (!rev && R.fe > 0 && (R.fe < need || (!spinning && sinkS > 0.07)) && R.fe < avail * 0.95) { R.why = "pull"; api.toast(`Not enough throttle to push through ${sinkS > 0.07 ? "this snow" : "here"}. Give it more, smooth and steady.`, "warn"); }

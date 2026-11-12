@@ -474,6 +474,7 @@ function bed(W) {
 const BK = 64; let BKT = null;
 function index() {
   BKT = new Map();
+  for (const rt of R.routes) { rt.cum = [0]; for (let i = 1; i < rt.pts.length; i++) rt.cum.push(rt.cum[i - 1] + Math.hypot(rt.pts[i][0] - rt.pts[i - 1][0], rt.pts[i][1] - rt.pts[i - 1][1])); }
   for (const rt of R.routes) for (let i = 1; i < rt.pts.length; i++) {
     const [ax, az] = rt.pts[i - 1], [bx, bz] = rt.pts[i];
     for (const [x, z] of [[ax, az], [bx, bz]]) { const k = Math.floor(z / BK) * 100000 + Math.floor(x / BK); let a = BKT.get(k); if (!a) BKT.set(k, a = []); if (!a.length || a[a.length - 1].i !== i || a[a.length - 1].rt !== rt) a.push({ rt, i }); }
@@ -488,7 +489,7 @@ R.near = (x, z) => {
     for (const { rt, i: s } of a) {
       const [ax, az] = rt.pts[s - 1], [bx, bz] = rt.pts[s], ux = bx - ax, uz = bz - az, uu = ux * ux + uz * uz;
       const t = uu ? Math.max(0, Math.min(1, ((x - ax) * ux + (z - az) * uz) / uu)) : 0, d = Math.hypot(x - ax - ux * t, z - az - uz * t);
-      if (d < best.d) best = { d, route: rt };
+      if (d < best.d) best = { d, route: rt, s: rt.cum[s - 1] + t * Math.sqrt(uu) };   // s: metres along the route
     }
   }
   return best;
@@ -637,6 +638,86 @@ function snowTick() {
 R.status = id => { const rt = R.routes.find(r => r.id === id); return !rt ? null : rt.closed ? "closed" : rt.seg.some(g => g.shut) ? "snowed in" : "open"; };
 R.setSnow = (id, v, i) => { for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) rt.st.s.forEach((_, j) => { if (i === undefined || i === j) rt.st.s[j] = Math.max(0, Math.min(1, v)); }); snowApply(false); };
 R.snowAt = (x, z) => { const n = R.near(x, z); if (!n.route || !n.route.st) return n.route && n.route.closed ? 1 : 0; let b = 0, bd = Infinity; n.route.seg.forEach((g, i) => { if (!g.legs.length) return; const d = Math.hypot(g.mx - x, g.mz - z); if (d < bd) { bd = d; b = i; } }); return n.route.st.s[b]; };
+
+/* ---- 3.2b: what the roads mean for a trip. The road graph is the routes' waypoints (villages, the quay, the stations)
+   joined by each route's stretch between them. A trip anchors each end to a waypoint within ROADS.node m (in a village,
+   at a station), else to the road it stands on (within ROADS.anchor m, at its distance along that road), else to the
+   nearest waypoint within ROADS.reach m (a farm off a village's street); anything
+   further out is sled country and the roads don't come into it. The shortest way through the graph is checked stretch by
+   stretch: a snowed-in stretch on it, or the shut fell road, is what the compass and the Jobs app warn about.
+   TLXR.trip(x0, z0, tgt) -> { route, why: "snowed in" | "closed" } or null; TLXR.tripWarn(...) -> the short text.
+   TLXR.drift(x, z) -> the pickup's stuck line when it sits on a drifted (or shut) road, else "". */
+ROADS.anchor = 60; ROADS.reach = 350; ROADS.node = 150;
+let RG = null;
+function roadGraph() {
+  if (RG) return RG;
+  const W = api.world, E = [], nodes = new Map();
+  for (const r of ROADS.routes) {
+    const rt = R.routes.find(q => q.id === r.id); if (!rt || !rt.cum) continue;
+    const st = [];
+    for (const id of r.via) {
+      const p = place(id, W); if (!p) continue;
+      let bi = 0, bd = Infinity; rt.pts.forEach((q, i) => { const d = Math.hypot(q[0] - p.x, q[1] - p.z); if (d < bd) { bd = d; bi = i; } });
+      st.push({ id, s: rt.cum[bi] }); if (!nodes.has(id)) nodes.set(id, { x: p.x, z: p.z });
+    }
+    for (let i = 1; i < st.length; i++) E.push({ u: st[i - 1].id, v: st[i].id, rt, s0: st[i - 1].s, s1: st[i].s });
+  }
+  return RG = { E, nodes };
+}
+function anchor(x, z, id) {
+  const g = roadGraph();
+  if (id && g.nodes.has(id)) return { node: id };
+  let best = null, bd = ROADS.reach; for (const [k, p] of g.nodes) { const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = k; } }
+  if (best && bd <= ROADS.node) return { node: best };                    // in a village (or at a station): its waypoint
+  const n = R.near(x, z); if (n.route && n.d <= ROADS.anchor) return { rt: n.route, s: n.s };
+  return best ? { node: best } : null;
+}
+function tripPath(A, B) {
+  const g = roadGraph(), E = g.E.slice(), key = (a, nm) => a.node || nm;
+  const ka = key(A, "@A"), kb = key(B, "@B");
+  if (ka === kb) return [];
+  const on = (e, a) => a.rt === e.rt && a.s >= Math.min(e.s0, e.s1) - 1 && a.s <= Math.max(e.s0, e.s1) + 1;
+  for (const [a, k] of [[A, ka], [B, kb]]) if (!a.node) for (const e of g.E) if (on(e, a)) { E.push({ u: k, v: e.u, rt: e.rt, s0: a.s, s1: e.s0 }, { u: k, v: e.v, rt: e.rt, s0: a.s, s1: e.s1 }); }
+  if (!A.node && !B.node && A.rt === B.rt && g.E.some(e => on(e, A) && on(e, B))) E.push({ u: ka, v: kb, rt: A.rt, s0: A.s, s1: B.s });
+  const dist = new Map([[ka, 0]]), prev = new Map(), done = new Set();
+  for (;;) {
+    let u = null, du = Infinity; for (const [k, d] of dist) if (!done.has(k) && d < du) { du = d; u = k; }
+    if (u === null) return null; if (u === kb) break; done.add(u);
+    for (const e of E) { const w = e.u === u ? e.v : e.v === u ? e.u : null; if (w === null || done.has(w)) continue; const d = du + Math.abs(e.s1 - e.s0); if (d < (dist.has(w) ? dist.get(w) : Infinity)) { dist.set(w, d); prev.set(w, e); } }
+  }
+  const out = []; for (let k = kb; k !== ka;) { const e = prev.get(k); out.push(e); k = e.u === k ? e.v : e.u; }
+  return out.reverse();
+}
+const TRIPC = new Map();
+R.trip = (x0, z0, tgt) => {
+  if (!R.ready || !tgt || tgt.x === undefined) return null;
+  const k = Math.round(x0 / 30) + "," + Math.round(z0 / 30) + "|" + Math.round(tgt.x) + "," + Math.round(tgt.z) + "|" + (R.paints || 0);
+  if (TRIPC.has(k)) return TRIPC.get(k);
+  if (TRIPC.size > 64) TRIPC.clear();
+  let res = null;
+  const A = anchor(x0, z0), B = anchor(tgt.x, tgt.z, tgt.id === undefined ? null : tgt === api.world.depot ? "depot" : tgt.id);
+  const path = A && B ? tripPath(A, B) : null;
+  if (path) for (const e of path) {
+    if (e.rt.closed) { res = { route: e.rt, why: "closed" }; break; }
+    const lo = Math.min(e.s0, e.s1), hi = Math.max(e.s0, e.s1);
+    if (e.rt.seg.some(g => g.shut && g.a < hi && g.a + ROADS.seg > lo)) { res = { route: e.rt, why: "snowed in" }; break; }
+  }
+  TRIPC.set(k, res); return res;
+};
+R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`; };
+R.drift = (x, z) => {
+  const n = R.near(x, z); if (!n.route || n.d > ROADS.half + 2.5) return "";
+  if (n.route.closed) return `The ${n.route.name} is shut for the winter and nobody plows it. Take the sled.`;
+  const st = n.route.st, i = Math.min(n.route.seg.length - 1, Math.max(0, Math.floor(n.s / ROADS.seg)));
+  return st && st.s[i] >= ROADS.shut ? "The road's drifted shut. Wait for the plow or take the sled." : "";
+};
+// the Map app's road legend: the three road colours, with how many roads are snowed in right now
+R.legend = () => {
+  if (!R.ready || !R.routes.length) return "";
+  const n = R.routes.filter(rt => !rt.closed && rt.seg.some(g => g.shut)).length;
+  const sw = (st, dash) => `<i class="trl" style="border-top:3px ${dash ? "dashed" : "solid"} ${st}"></i>`;
+  return `<span>Roads</span><em>${sw(ROADS.mapCol)}open</em><em>${sw(ROADS.mapSnow)}snowed in${n ? ` <b>${n}</b>` : ""}</em><em>${sw(ROADS.mapClosed, 1)}closed</em>`;
+};
 
 TLX.register({
   id: "roads", v: 2,
