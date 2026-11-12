@@ -205,6 +205,10 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       the chunk path, and a sleep over 2 h finds the roads plowed. No change.
       Note (0144 fix): a road now settles to f*(1-0.765*(1-snow)), so ~0.40 m at snow 0.25 and ~0.48 m at the 0.35 "snowed
       in" line: the pickup (stops ~42 cm) bogs on a stretch still marked open from ~0.25. Tune with this item if wanted.
+      Beta 0147 #5 (POLISH) folded in: weather 0.6-0.95 fills the roads while the plow (under 0.6 only) stays in, so ~13 h
+      at 0.62 shuts them; consider sending the plow once snow passes ~0.25 in weather under ~0.8.
+- [ ] G4 (beta 0146 #2, low, test gap): `x5_wounds_pad.mjs` has no fjord case (sled in real sea + fresh wound, D-pad down
+      dresses first); add one using the 2.x rescue test's sea spot.
 - [ ] G4 (beta 0142 #4, low): `x2_winchreel_break` asserts "hand winch burns no fuel" but the parked bogged sled idles
       0.02 L in 7 s; fix the assert (measure winch fuel only) or stop idle burn while on foot winching.
 - [ ] (OWNER, 11 Nov) Delivery rewards with flavor dialogue: delivering jobs should sometimes reward snacks,
@@ -476,4 +480,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 145
+Last triaged report: 147

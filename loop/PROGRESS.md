@@ -3,6 +3,25 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 05:15 — 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road, pickup says drifted shut (G4) — 3dd00aa
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 146-147: no BLOCKER/BUG. 0146 #1 by design; #2 (no fjord case in x5_wounds_pad) queued as a low test-gap line.
+0147 #1-#4 verified; #5 POLISH (0.6-0.95 weather fills roads while the plow stays in) folded into the 0141 #2 line.
+Last triaged 145 -> 147. Took the next slice: 3.2b was split into 3.2b1 (warnings, built here) and 3.2b2 (scraped surface).
+Built (tlx-roads v7): a road graph (route waypoints joined by their stretch), trip anchoring (waypoint <= 150 m, else road
+<= 60 m by distance along it, else waypoint <= 350 m, else sled country = no warning), Dijkstra over it, `TLXR.trip/tripWarn`
+(cached per 30 m + repaint), `TLXR.drift`, `TLXR.legend`; `near()` now also returns `s` (metres along). tracklayer.js hooks:
+one line in updGameHud (appends to #jobSub), one in jobsList (row meta + `road`), the Map app's `#tabRoadLeg` refreshed in
+widget(). tlx-vehicles v17: `stillWhy` says the drift line ahead of the driving tips when sinking on a shut/closed road.
+Numbers (new asserting `x3_roadwarn.mjs`): all open -> 0/5 trips warn; Ifjord -> "Ifjordfjellet road shut for the winter";
+fv888 shut -> quay<->Mehamn and quay->Gamvik warn, Dyfjord/Lebesby/Mehamn->Gamvik quiet; one stretch past Gamvik -> only the
+relay trip warns; mid-road past a shut stretch -> ahead clear, back warns; 8 backcountry sites, all roads shut -> none >350 m
+from a village warns (Strandbu/Naust, 320 m off a village, do). Compass and Jobs claim row warn, clear once plowed. Legend
+shows "snowed in 1", count gone when open (still `b0148/s2/g_map_legend.jpg`: bottom right above the scale bar, no
+overlap). Pickup in 70 cm on a drifted fv888 stretch: why "drift" + the line; same spot road open: "dig"; fell road: "shut
+for the winter". The bog system's own "digging in / stuck to the axles" toasts still follow the drift line (they're its).
+Gate: smoke 0, x1_save 0, x3_roadwarn 0, x3_roadsnow 0 (log `~/.hermes/cache/scratch/tlloop/b0148/gate.log`).
+
 ## 2026-11-12 04:45 — Beta fix 0141 #1: a drizzle no longer shuts the roads, the plow works through light snow (G4) — 00333e8
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 145: #1/#4 verified; #2 BUG (live cells under a truck lag when `setSnow` jumps a stretch to full) logged as intended
