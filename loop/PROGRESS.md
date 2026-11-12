@@ -3,6 +3,30 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 08:30 — 3.4b1 drivers pull out round a stopped obstacle, wheels turn (G4) — 9852f64
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 158-159: no BLOCKER/BUG. 0159 #1 (x3_traffic step F fails on main: a car overshoots its 7.5 m gap by 1.8 m when a
+walker appears 45 m ahead at full speed) built into this slice; 0159 #7 (no `TLXT.startTurn`) exposed. 0158 #1-#4 (dig
+POLISH) merged into the 0157 backlog line. Verified: 0158 #5-#8, 0159 #2-#6. Last triaged 157 -> 159.
+3.4b split into 3.4b1 (built here) and 3.4b2 (designed in EXPANSION.md). tlx-traffic v2: a car stopped 3 s behind
+something that isn't moving (not the road's end or a drift, not on a street hop) checks the other lane (nothing from
+8 m behind to 110 m ahead) and the road's own limits, then moves over at 1.4 m/s, creeps past at 5 m/s and moves back
+9 m beyond it once its own lane is clear (stretches for a queue); met mid-pass it stops and after 6 s moves back. Braking
+as hard as it takes (max(3.2, 1.15 v^2/2d), up to 8 m/s^2). Wheels are a fifth instanced mesh (rim + dark cross, faces
+flush with the body side) turned by distance rolled; tlx-cars v4 exports `geo.trim` (trim without wheels) + `geo.wheel`.
+`TLXT.place(id, s, dir, i)` places any car, `TLXT.startTurn`, `TLXT.passes`.
+Numbers (new asserting `x3_pass.mjs`, all pass): walker 45 m ahead of a car at 12.5 m/s -> stops 7.49 m short (was 5.7,
+x3_traffic F now passes); wheel turn 4.17 m rolled = 0.059 rad mod 2pi exactly as d/0.33; stopped car's wheels still;
+sled in the lane: stopped, pulled out 3.0 game s later, crept past at 5.00 m/s, never closer than 3.20 m, 0 bumps, back
+in its lane and driving; walker passed the same way, never pushed; oncoming car: no pull-out until it had gone by, then
+0.1 s later; sled 30 m from the road's end: stopped, no pull-out; traffic draw calls 4 -> 5.
+Found, not fixed (first item of 3.4b2): from a low side view the driven cars look sunk to the sills: the near snow
+mesh's CPU heights read ~0.74 m above `surf()` on the open road (`x3_carsink2_probe.mjs`), hiding the lower body and most
+of each wheel (the 3.4a stills show it too); from above (`x3p_c_passing`) the turning wheels read.
+Stills `~/.hermes/cache/scratch/tlloop/b0160/stills.jpg` (car passing the parked sled; red car side view x2).
+Gate: x1_save, x3_pass, x3_traffic, x3_cars pass (log `b0160/gate.log`); smoke exit 13 in the gate (node quit on an
+unsettled await at boot, no FAIL), rerun alone exit 0, page errors none (`b0160/smoke.log`).
+
 ## 2026-11-12 07:50 — 3.4a a few drivers on the open roads (G4) — 78d7e4c
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 156-157: no BLOCKER/BUG to fix. 0156 #1 ("sled at 25 m/s stops dead at a car, no crash") dropped: a car is a hard

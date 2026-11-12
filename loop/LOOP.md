@@ -204,9 +204,10 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       `#job` (`display:none!important`), so only the Jobs app shows it. Surface it where the player looks (the compass
       strip, or a toast once per road per storm when the tracked job's trip first crosses a snowed-in stretch) and make
       x3_roadwarn assert on a visible element, not `textContent`. Repro: `x3_roadwarn_vis_break.mjs`.
-- [ ] G4 (beta 0157 #1-#3 POLISH, dig cars): pay by the snow left when a part-dug car's dig restarts (set b0 = b when b < b0
-      at the start of a dig); return null from the car provider while MNT.on/DMT.on (hint says "dig" mid-swing); #wnHint
-      lags the dig state by a frame after rapid E taps (cosmetic).
+- [ ] G4 (beta 0157 #1-#3, 0158 #1-#4 POLISH, dig cars): pay by the snow left when a part-dug car's dig restarts (set b0 = b when b < b0
+      at the start of a dig; 0158 #1 confirms: $75 for a 0.3 car first dug from 0.8); return null from the car provider while MNT.on/DMT.on (hint says "dig"
+      mid-swing); #wnHint lags the dig state by a frame after rapid E taps (cosmetic). 0158 #2: the car body has no
+      ambient fill at night and the dig has no shovel/arm pose; #3 a storm mid-dig could slow it; #4 bog mid-dig stops silently.
 - [ ] G4 (beta 0156 #2 POLISH): README/commit say "a good jump clears" a parked car; a hop doesn't (roof 1.5 m), only a real
       ramp jump. Leave the claim or reword to "a big jump".
 - [ ] G4 (beta 0151 #1/#4, 0152 #3/#4 POLISH): an open Jobs app doesn't re-render when a road shuts (key its refresh on
@@ -500,4 +501,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 157
+Last triaged report: 159

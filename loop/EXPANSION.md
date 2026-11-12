@@ -12,7 +12,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
-| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); next: 3.4b (traffic polish) |
+| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); next: 3.4b2 (sunk-looking cars, hum, headlights, village streets) |
 | 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -323,9 +323,27 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       Not done (3.4b): wheels don't turn (merged into the trim mesh), no engine sound or headlight beams, cars don't
       pull out round a parked sled (they wait, then turn back), no crashes into you at speed (they always stop), no
       traffic on village streets, cars not on the Map.
-- [ ] 3.4b Traffic polish: turning wheels (a separate instanced wheel mesh), engine hum by distance, headlight beams at
-      night (a cheap additive cone), pull out round a stopped obstacle when the other lane is clear, a car now and then
-      on a village street to a door (then parked there: ties to 3.3a's cars).
+- [ ] 3.4b Traffic polish, split 12 Nov:
+  - [x] 3.4b1 (tlx-traffic v2, tlx-cars v4) Pull out round a stopped obstacle + turning wheels + the hard stop (beta
+        0159 #1/#7). A car stopped TRAF.passWait (3 s) behind something that isn't moving (your sled, a walker, a parked
+        truck, a stopped car; never for the road's end or a drift, never on a street hop) checks the other lane
+        (`laneClear`: nothing from 8 m behind to 110 m ahead, cars either way, you, walkers, parked things) and that the
+        road's own limits leave room (obstacle + 9 + 12 m), then moves over at 1.4 m/s (angled into it, 1.5 m/s forward
+        until most of the way over), creeps past at 5 m/s and moves back 9 m beyond it once its own lane is clear
+        (stretches the pass for a queue). Met by something in the other lane mid-pass it stops; after 6 s it moves back
+        in. No U-turn while passing. stopAhead looks down the lane it's heading for (`sh` = target lane - lane).
+        Braking: max(3.2, 1.15 x v^2/2d) up to 8 m/s^2, so a walker 45 m in front of a car at 12.5 m/s gets 7.49 m
+        (was 5.7). Wheels: a fifth instanced mesh (4 per car, rim + dark cross, faces flush with the body side at
+        x 0.8) turned by the distance rolled (`c.roll`); the trim mesh lost its wheels (`TLXC.geo.trim/wheel`).
+        `TLXT.place(id, s, dir, i)` places any car (car 0 still hides the rest), `TLXT.startTurn`, `TLXT.passes`.
+        Test `x3_pass.mjs`; `x3_traffic.mjs` holds passWait off for its stop steps.
+        Found, not fixed: from a low side view the driven cars look sunk to the sills: the near snow mesh's CPU
+        heights read ~0.74 m above `surf()` on the open road (`x3_carsink2_probe.mjs`), so the lower body and most
+        of the wheels are under the drawn snow (3.4a stills show it too; from above the wheels read). First item of
+        3.4b2.
+  - [ ] 3.4b2 Why the drawn road snow sits ~0.7 m above surf() round a car (or lift cars to the drawn surface),
+        engine hum by distance, headlight beams at night (a cheap additive cone), a car now and then on a village
+        street to a door (then parked there: ties to 3.3a's cars).
 - [ ] 3.5 Semis in a few sizes with their own coupling. Option: storm closures and convoys on the fell road.
 
 ### 4. Plowing solo (`tlx-plow.js`)
