@@ -471,6 +471,13 @@ owner comes out with a thank-you as the last of it comes off. Each car pays once
 owner gets to it before you finish, you get nothing. By the tackle shop and the fish buyer, E still
 opens the shop.
 
+A few locals are out driving on the open roads (Settings > Options: "Road traffic", on by default). They
+keep to the right-hand lane at about 45 km/h, slow right down for the bends, and stop well short of
+anything in their lane: another car, your sled or truck, a parked vehicle, someone on foot. Where a storm
+has drifted the road shut they pull up before the drift, wait a little and turn round in the road; at the
+end of a road they turn round or drive on into the village. Ride into one and you bounce off it as off a
+boulder (and the driver isn't pleased). There are fewer of them on phones (the low graphics preset).
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

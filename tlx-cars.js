@@ -116,6 +116,7 @@ function build(a) {
     cap: merge(T, [[bx(1.4, 1, 1.5, 0, 0.5, -0.42)]]),          // unit height, scaled per car (roof); a second instance does the hood
     mound: new T.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)
   };
+  C.geo = G;                                   // the shapes, for the drivers on the roads (tlx-traffic.js)
   const snow = new T.MeshLambertMaterial({ color: 0xf3f7fc });
   M = {
     paint: new T.InstancedMesh(G.paint, a.mesh.std(0xffffff, 0.45, 0.35), C.cars.length),
