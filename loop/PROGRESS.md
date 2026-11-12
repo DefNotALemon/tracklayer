@@ -3,6 +3,32 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 21:00 — Beta fix 0116 #1/#4: a held truck that can't move says why (G4) — 0356eda
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0120-0122: 0120 all POLISH (Map road legibility, walking on the road no faster, night poles,
+harness warm-up note), left as is. 0121 #1 "stale STUCK hint" is not visible (0122 #1 confirmed `#wnHud` is hidden); tidied
+anyway: `updWinchHud` empties `#wnHint` when it hides. 0121 #2 + 0122 #2 (BUG, same thing: 25 cm pulls away, 35 cm stops dead
+with no crawl) is the next builder pass's BUG, before 3.2. 0121 #3/#4, 0122 #3 (pad RT half as strong as W, maybe harness),
+#4 left as POLISH. Last triaged report 119 -> 122. Took 0116 #1 (the next BUG per the last entry) with #4.
+Cause: rerunning `x2_vehreverse_break.mjs` on v189, 0116's exact silent spot no longer reproduces (D0 S 3 s: 0.1 -> 12.0 m;
+v189's rolling-resistance change). What was still silent, probed with new `x2_revsilent_probe.mjs` (per-step telemetry,
+`R.gp/vfA/gok` kept as readouts): (1) S held backing up an 11% grade into 50 cm powder sat at 0.0 m with drag 34 kN and the
+dig warning needed BOG.acc 0.45 = ~2.7 game s of spin before any word, so the break test's G check (and 0116 #4) saw a dead
+truck; (2) a truck backed or driven into something solid (the parked sled, a boulder) jitters against it at 0-0.3 m/s and never
+says anything (the bump toast needs a 1.5 m/s hit). Fix (`tlx-vehicles.js` core): while the gas or reverse is held, the truck
+on the ground and not bogged, if it covers under 0.4 m in a second `stillWhy` names the reason once: something solid
+behind/in front (collide now stamps `R.touchT/touchS`), wheels digging in (the existing toast, marks BOG.warned), too steep
+for the grip (grade along the travel > 4%), or no grip. Ground covered, not speed, because against a wall speed saws 0-0.33.
+Numbers (new `x2_revsilent.mjs`, 9 asserts): grade+powder, S: first word 2.7 s -> 0.97 s (pad LT full 1.03 s); sled 4 m
+behind, S: silent -> "Something solid is behind the pickup" at 1.07 s (moved 0.21 m); sled in front, W: silent -> 1.48 s;
+open lane S 3 s: 17.8 m, no warning; bog on the lane clears and `#wnHint` is empty.
+Not tested: touch brake (0116 #3 still inconclusive in the harness), a loaded trailer starting slowly (it may now get a
+"no grip"/"digging in" word if it covers under 0.4 m in its first second, which is fair).
+Gate: smoke 0, x1_save 0, x2_revsilent 0 (9/9), x2_standstart 0, x2_pickup 0, page errors none. x2_vehreverse failed its C
+step (ploughed 2.0-2.3 m into the powder vs > 2.5, then S backs out 0.6-1.1 m) on BOTH this build and origin/main (base run 1
+passed 3.2 m, base run 2 failed 2.0 m): pre-existing flake, the "mid" spot's fresh varies 0.58-0.66 m between runs, deeper than
+the 0.34-0.46 band it asks for. Same cliff as 0121 #2/0122 #2: the next pass's BUG should fix the crawl and re-pin that spot.
+
 ## 2026-11-11 20:30 — Beta fix 0117/0119: the pickup pulls away in light snow, a stuck truck frees on plowed ground (G4) — 475e36d
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0116-0119: BUGs 0116 #1 (reverse silent at one off-lane spot, pull 6x the drag), 0116 #2 (pad
