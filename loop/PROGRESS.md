@@ -3,6 +3,16 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 — Sled stops dead when the player isn't in control — 6a612a3 (swept into the App Store commit)
+Lemon's ask: the sled kept coasting/driving on whatever thr/brk was held when garage, settings or the god menu
+opened mid-ride (keyboard input wasn't gated the way the pad's settings-only check was, and even cutting input
+left the sled to coast down on drag rather than stop). New `noControl()` (= garage/settings/god menu open, or
+dead): `physStep` now freezes P.vx/vy/vz/yr and returns immediately when true (before the VEH.cur/CRASH checks),
+and `readInput` zeroes thr/brk/steer/lean/wheelie the same way `!started` already did, so the menu doesn't leave
+stale input to resume driving on close. Verified with a throwaway CDP scenario (moving sled, open garage/god/
+settings in turn: vx/vz drop to exactly 0 each time; closing a menu with no held key stays stopped). Session fix
+got swept into another concurrent session's `tracklayer.js` commit (same pattern as v212's SNS sweep) — confirmed
+present and live at `?v=216` (https://defnotalemon.github.io/tracklayer/).
 ## 2026-11-12 — First person: rider stands up when their own sled blocks the view — 54f34d5
 Lemon's ask. `viewBlockT()` (tracklayer.js, above `updVisuals`): riding in first person, a ray from the seated eye along the look
 direction is tested against the dash tablet (THREE.Raycaster, hidden DoubleSide copy of its glass) and the hood crown (`ud.hoodY`
