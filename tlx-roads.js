@@ -56,12 +56,14 @@ const ROADS = {
   ],
   mapCol: "#c4692e", mapClosed: "rgba(196,105,46,.75)",
   // road snow (3.2): each open road is cut into seg m stretches, each with its own snow (0 = plowed, 1 = drifted level
-  // with the snowpack either side). A storm fills a stretch at fill per game hour at full strength (nothing under ~0.3,
-  // light showers); at shut and over the stretch is snowed in (the Map paints it mapSnow). The council plow sets out
+  // with the snowpack either side). A storm fills a stretch at fill per game hour at full strength, ramping in from
+  // weather fillA to fillB (a grey drizzle under ~0.5 leaves the roads alone: beta 0141 #1); at shut and over the
+  // stretch is snowed in (the Map paints it mapSnow). The council plow sets out
   // from the route's first end once the route has plowAt of snow and the weather there has eased under plowWx for
-  // plowWait game hours, and works along at plowV m per game hour, clearing each stretch as it reaches it. A jump of
+  // plowWait game hours (it works through light snow, only a real storm keeps it in), and works along at plowV m per
+  // game hour, clearing each stretch as it reaches it. A jump of
   // more than skip game hours (a night's sleep, the summer skip) finds every road plowed.
-  seg: 400, fill: 0.16, shut: 0.35, plowAt: 0.12, plowWx: 0.45, plowWait: 0.75, plowV: 5000, skip: 2,
+  seg: 400, fill: 0.16, fillA: 0.5, fillB: 0.95, shut: 0.35, plowAt: 0.12, plowWx: 0.6, plowWait: 0.75, plowV: 5000, skip: 2,
   mapSnow: "#6f9fd0"
 };
 let api = null;
@@ -591,7 +593,7 @@ function snowStep(dh) {
   for (const rt of R.routes) {
     const o = rt.st; if (!o) continue;
     let max = 0;
-    rt.seg.forEach((g, i) => { if (!g.legs.length) return; const w = WX.at(g.mx, g.mz); o.s[i] = Math.min(1, o.s[i] + dh * ROADS.fill * api.sstep(0.3, 0.9, w)); if (o.s[i] > max) max = o.s[i]; });
+    rt.seg.forEach((g, i) => { if (!g.legs.length) return; const w = WX.at(g.mx, g.mz); o.s[i] = Math.min(1, o.s[i] + dh * ROADS.fill * api.sstep(ROADS.fillA, ROADS.fillB, w)); if (o.s[i] > max) max = o.s[i]; });
     if (o.p < 0) {
       if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; } }
       else o.w = 0;
