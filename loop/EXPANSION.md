@@ -12,7 +12,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
-| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); next: 3.3b (dig a buried car out for pay) |
+| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); next: 3.4 (a few drivers) |
 | 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -297,11 +297,17 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       and some are still drifts. Clock jumps over 2 h are stepped through at the weather of the moment (72 h cap).
       Saved `x.sys.cars` = `{ h, c: { "x_z": [b, waited] } }` for snowed cars; older saves: all clear. `TLXC` for
       tests. Test `x3_cars.mjs`. Decisions: cars aren't on the Map; no cars at the stations/quay (doors only).
-- [ ] 3.3b Option "Dig out buried cars" (`TLX.option digcars`, on by default): a buried car near you shows the
-      on-foot prompt (footUse/footAction branch, `keyHint`) "dig out <owner>'s car"; held dig (FOOT.dig style, shovel
-      if carried, slower by hand) takes ~20-40 s game time by its snow, b falls as you dig, pay $40-90 by snow on
-      finishing (the owner comes out: a toast with their name), once per car per storm; a Jobs app row is not needed
-      (no target). Pad/touch/keyboard prompts asserted; no pay when the option is off and no prompt.
+- [x] 3.3b (v205, tlx-cars v2) Option "Dig out buried cars" (`TLX.option digcars`, on by default). On foot within
+      1.45 drift radii (1.95 x 3.15 m half-axes) of a car with b >= 0.35 the use control offers "dig out <owner>'s car
+      (about $N)". It's the first `api.footx` provider: tracklayer.js `footX()` holds { use() -> {label, hint(), act},
+      digging() }, asked by footUse / footAction (after the rig's tongue) and the #wnHint line, only with the sled free
+      and never where the tackle shop / fish buyer own E (`FISH.ctxLabel()`: gameKey hands them E first). Use = FOOT.dig
+      (the bog dig's crouch, no walking); use again, walking off, getting on or the option off stops it. b falls from b0
+      (snow when you started) to 0 in 20 s (just buried) .. 40 s (full drift) game time; pay $40-90 on the same scale,
+      owner's name in the toast, cash to GS.cash. Once per car per storm (`paid` until the weather there drops under
+      0.45). An owner whose wait runs out mid-dig finishes it: no pay. Saved: `x.sys.cars.c[key]` gained [.., b0, paid]
+      (older saves: none). Decisions: no shovel item exists yet, so all by hand (a later shovel can shorten digT); no
+      Jobs row; owners are first names (seeded per door). Test `x3_digcars.mjs`.
 - [ ] 3.4 A few drivers: slow, predictable, stop at an unplowed road. Counts tuned for the low preset.
 - [ ] 3.5 Semis in a few sizes with their own coupling. Option: storm closures and convoys on the fell road.
 

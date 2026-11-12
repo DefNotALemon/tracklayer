@@ -3,6 +3,27 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 07:25 — 3.3b dig a buried car out by hand for pay (G4) — 7613f43
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 154-155: no BLOCKER/BUG. Verified: 0154 #1-#3, 0155 #2/#3/#6/#7. POLISH queued (not built): 0154 #4 sled across a
+wheel track reads P.scr 1.0 (cap by angle to the road), 0154 #5 scrape sparks unreadable by day (joins 0152 #3), 0155 #1 a
+car is a winch anchor named "boulder / solid" (name it, cap ~15 kN), 0155 #4 sled stops ~0.6 m short of a car's side
+(circles r 0.95 -> 0.8). 0155 #5 (overcast keeps cars buried for days) is answered by this slice. 0154 #6 harness note.
+Last triaged 153 -> 155.
+Built 3.3b in `tlx-cars.js` (v2) behind option "Dig out buried cars" (`digcars`, on). New bridge in tracklayer.js: `footX()`
+providers ({ use() -> {label, hint(), act}, digging() }, `api.footx`) asked by footUse/footAction (after the rig's tongue)
+and the #wnHint line, so keyboard E, pad L3 and the touch DIG/STOP button all work with no per-scheme code; rescueTick keeps
+FOOT.dig on while a provider digs. hint() is a function because on touch keyHint -> btn("use") calls footUse again (built
+eagerly it recursed: stack overflow, caught by the scenario). Found in testing: a car parked by the tackle shop got E eaten
+by the shop (gameKey asks FISH.ctx first) while the hint said dig; footXUse now steps aside wherever `FISH.ctxLabel()` is set.
+Numbers (new asserting `x3_digcars.mjs`, all pass): b 0.6 car dug clear in 27.5 s game (planned 27.7), paid $59 (scale
+$40/20 s just buried .. $90/40 s full drift); 5 s of digging 0.596 -> 0.485; crouch 1.0; keyboard / Xbox / DualSense /
+Switch / touch start and stop with their own control names; paid once per storm, again after it eases; walking off stops;
+owner finishing first pays nothing; option off = no prompt, no dig, no pay; part-dug car keeps b and b0 over a reload.
+Still `~/.hermes/cache/scratch/tlloop/b0156/dc/x3dc_digging.jpg` (walker facing the drift, "Digging out Gunhild's car 13% ·
+E: stop"). Not done: no shovel item (all by hand), no dig-specific arm animation beyond the bog dig's crouch.
+Gate: smoke, x1_save, x3_digcars, x2_use, x3_cars (log `b0156/gate.log`).
+
 ## 2026-11-12 07:05 — 3.3a parked cars, buried by storms, dug out by their owners (G4) — e6c6250
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 153: no BLOCKER/BUG (#1-#3 verified; #4 joins the 0149 #6 line; #6 toast stacking queued; #5 acceptable). Last
