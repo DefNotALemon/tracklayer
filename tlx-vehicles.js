@@ -1256,6 +1256,7 @@ function strapVisual(h) {
 function strapTick() {                                                          // a strapped sled goes where the deck goes
   const h = haulS(); strapVisual(h); if (!h || !h.strap) return;
   const sp = sledPose(); if (!sp) return;
+  if (sp.live && api.busy()) return;                                             // a school course owns P (schoolBegin refuses while strapped; this is the backstop, beta 0133)
   const st = h.strap, w = haulWorld(h, st.x, st.z), yaw = h.yaw + st.yaw;
   if (sp.live) {
     const P = api.P; P.x = w[0]; P.z = w[1]; P.yaw = yaw; P.vx = P.vz = 0; P.yr = 0;

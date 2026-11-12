@@ -503,7 +503,8 @@ tail with the ramp up, the trailer is a wall. Get off, stand beside the deck and
 stick click, or STRAP / UNSTRAP on touch) to ratchet four straps over the skis and the rear bumper.
 Strapped, the sled won't drive (the throttle does nothing and it tells you so), it goes where the
 trailer goes, and it stays strapped through a reload. Unstrap it and back it down the ramp to
-unload. You can't raise the ramp while the sled is standing on it.
+unload. You can't raise the ramp while the sled is standing on it. The driving schools won't start a
+course while your sled is strapped to the trailer: unstrap it and ride it off the deck first.
 
 **Towing the sled.** Strapped down, the sled is weight on the truck: the pickup's receiver takes
 1,500 kg, and the trailer (420 kg) plus the sled (280 kg, a little more with parcels in its rack)

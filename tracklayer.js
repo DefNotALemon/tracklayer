@@ -3333,7 +3333,7 @@ function physCore(dt) {
   const wl0 = wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;   // the sea, or a lake the melt has opened
   deckRef = P.y;
   const dk = VEH.deck ? VEH.deck(P.x, P.z, P.y) : null, onDk = dk !== null && dk > rideSurf(P.x, P.z) + 0.02;   // up on the sled trailer (2.6b)
-  const strapOn = !!(VEH.strapped && VEH.strapped());
+  const strapOn = !SCHOOL.on && !!(VEH.strapped && VEH.strapped());              // the school's sled is never the strapped one (beta 0133)
   const hs = sledRide(P.x, P.z), gnd = P.y <= hs + 0.12;
   const wet = !onDk && sea && gnd && waterLine() >= surf(P.x, P.z) - 0.02;         // riding on the water, not the seabed
   const e = onDk ? 0.25 : 0.8, RS = onDk ? sledRide : smoothRide, gx = (RS(P.x + e, P.z) - RS(P.x - e, P.z)) / (2 * e), gz = (RS(P.x, P.z + e) - RS(P.x, P.z - e)) / (2 * e);
@@ -7964,6 +7964,7 @@ function schoolCanStart(sc) {
   if (GS.rescueJob) return "Finish the call-out you're on first.";
   if (SAR.cur) return "Finish your rescue callout first.";
   if (FOOT.on) return "Get back on your sled first.";
+  if (VEH.strapped && VEH.strapped()) return "Your sled is strapped to the trailer. Unstrap it and ride it off the deck first.";   // beta 0133 #1: strapTick would glue the school's sled to the deck
   return "";
 }
 function schoolBegin(id) {
