@@ -3,6 +3,33 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 23:05 — Beta fix 0121 #2/0122 #2: the pickup crawls through 30-40 cm of powder (G4) — 740e1a5
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0126-0127: 0126 #1/#2 POLISH (E acts behind an open tablet on foot; HOOK label shown when the
+tree is beyond the line's reach), left. 0127 #2-#4 (BUG: fv888/lebesby routes still have hairpins of 6 m radius, a pursuit-
+driven pickup cuts them onto unplowed snow and bogs; a bog at yard 0.67 on a landing) is the next builder pass's BUG, ahead
+of 3.2. 0127 #5/#6 POLISH. Last triaged report 125 -> 127. Took 0121 #2/0122 #2, owed since v189.
+Cause (new asserting `x3_crawl.mjs`, flat land spot, unpacked snow laid round the truck, W 7 s from rest; probes via a
+temporary tunable vector): two cliffs at once. (1) Tyre resistance 0.55 sk + 2.2 (sk-0.22)^2 crossed the loose-snow grip
+(mu 0.22) at ~32 cm; (2) belly drag 0.45 (emb/0.12)^1.2 from the first cm over the 26 cm clearance, 0.32 W at 35 cm on its
+own. And once it did get rolling, nothing in the model grew with speed, so it either bogged or ran away (first tries:
+35 cm 0 m or 24 m at 9 m/s, nothing between). Fix (`tlx-vehicles.js` core): past 22 cm the tyre term climbs 0.25 ex +
+0.4 ex^2; a bow-wave term 1.3 ex^2 v^2 (cap 1.2 per wheel) caps deep-powder pace at a crawl; fresh powder under the pan
+counts at 35% up to 15 cm over the clearance (minus a 2 cm deadband), every cm beyond in full (set snow/berms bear in full
+from the first cm); wheelspin digs at the full rate below 2 m/s, falling to 10% at 3.5 m/s (a truck making way at a crawl
+digs less than one spinning at a walk).
+Numbers, distance in 7 s from rest with W (before = origin/main v191 at the same spot, after): 15 cm 48.8 -> 47.5 m;
+25 cm 30.1 -> 31.3 m (vmax 10.9 -> 10.6); 30 cm 14.3 -> 20.9 m (6.6 -> 6.3 m/s); 35 cm 0.1 m bogged 3.8 s -> 13.6 m at
+4.0 m/s, no bog; 40 cm 0.0 bogged 3.3 s -> 1.8 m creep then bog at 3.8 s; 45/50/80 cm still bog in 2.9-3.1 s, 0 m.
+Pad RT 60% in 35 cm: 13.1 m. Run-up from hard pack into a 50 cm bank at 7.6 m/s: 16.7 m in, then bogs (before this
+pass's belly knee it crawled on at 1.7-2 m/s indefinitely, helped by the nose-down pitch of rear tyres riding the front
+ruts).
+Not done: the nose-down pitch (rear tyres on packed ruts, fronts at the ground) still adds a small forward slope pull in
+deep snow, pre-existing; uphill crawls in 35 cm will dig in sooner (below 2 m/s), which reads right but is untested on a
+real climb; not tested by night or on touch (no input code changed).
+Gate: smoke 0, x1_save 0, x3_crawl 0 (all asserts), x2_pickup 0, x2_standstart 0, x2_revsilent 0, x2_vehreverse 0 (its
+C step passed this time), x3_roadbed 0, page errors none.
+
 ## 2026-11-11 21:45 — Beta fix 0123 #1/#2: the roads get a graded bed, no tight hairpins (G4) — 4b30d5e
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0123-0125: 0123 #1/#2 (BUG, one cause: roads laid on 20-40% sidehills with no grading; the
