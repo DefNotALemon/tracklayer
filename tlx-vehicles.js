@@ -322,8 +322,12 @@ function core(R, dt) {
     const mu = wet ? d.mu.wet : ice ? d.mu.ice : lerp(d.mu.loose, d.mu.hard, sstep(0.35, 0.8, packA));
     /* rolling resistance against the sink: about sink / tyre diameter in shallow snow (a 4x4 on winter tyres pulls away in
        a hand's depth to a boot's depth of fresh), steepening once the tyre is pushing a bank as tall as its radius, so past
-       ~30 cm it is a crawl and past the clearance the belly finishes it (beta 0117 #1: was 0.95 * sk, stuck from ~20 cm) */
-    const ex = Math.max(0, sk - 0.22), cr = 0.016 + 0.55 * sk + 2.2 * ex * ex + (wet ? 0.45 : 0) + (ice ? -0.004 : 0);
+       ~30 cm it is a crawl and past the clearance the belly finishes it (beta 0117 #1: was 0.95 * sk, stuck from ~20 cm).
+       Past a boot's depth the tyre is on the ground under the powder and only pushes the bank in front of it, so the
+       resistance climbs more slowly there, but the bank it bulldozes grows with speed (the bow wave, 0.2 * ex * v^2), so deep
+       powder caps the pace at a crawl instead of letting a truck that has broken free run on (beta 0121 #2/0122 #2: 25 cm
+       pulled away and 35 cm stopped dead with no crawl; now 30 cm ~5 m/s, 35 cm a ~4 m/s crawl, 40 cm a creep, 45 cm stops) */
+    const ex = Math.max(0, sk - 0.22), cr = 0.016 + 0.55 * Math.min(sk, 0.22) + 0.25 * ex + 0.4 * ex * ex + Math.min(1.2, 1.3 * ex * ex * vf_ * vf_) + (wet ? 0.45 : 0) + (ice ? -0.004 : 0);
     R.sink[i] = sk; sinkS += sk; packS += packA; muS += mu; crS += cr;
   }
   sinkS /= 4; packS /= 4; muS /= 4; crS /= 4;
@@ -338,7 +342,12 @@ function core(R, dt) {
   // read at the chassis' leading edge (the way it is rolling): the belly ploughs a trench behind it (pressed below), so the
   // way back along it is clear and only fresh snow in front pushes back
   const bx = P.x + fx * 1.5 * sgn, bz = P.z + fz * 1.5 * sgn;   /* clear of the pressing (BELLY) going forward */
-  const sc = gnd(bx, bz) + depthBi(bx, bz), emb = Math.max(0, sc - (Hc + d.clearance)), cb = 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.2);
+  /* fresh powder under the pan squashes to about a third before it holds the truck up, so loose snow a hand above the
+     clearance only drags a little and the truck crawls; past ~15 cm over the clearance the pan is buried and every cm
+     more bears in full (a rolling truck must not crawl on through half a metre on momentum); set snow (a berm, a plowed
+     bank) bears from the first cm (0121 #2) */
+  const bdb = depthBi(bx, bz), bf = w.freshAt(Math.round((bx + HALF) / CELL), Math.round((bz + HALF) / CELL)), bpk = bf > 0.02 ? clamp(1 - bdb / bf, 0, 1) : 1;
+  const sc = gnd(bx, bz) + bdb, e0 = Math.max(0, sc - (Hc + d.clearance)), emb = (Math.min(e0, 0.15) * (0.35 + 0.65 * bpk) + Math.max(0, e0 - 0.15)) - 0.02 * (1 - bpk), cb = emb > 0 ? 0.45 * Math.pow(Math.min(3, emb / 0.12), 1.3) : 0;
   const condK = 0.65 + 0.35 * R.rec.cond / 100;
   // --- longitudinal: engine, brake, reverse against traction and resistance
   let vf = vx * fx + vz * fz, vl = vx * lx + vz * lz;
@@ -359,7 +368,7 @@ function core(R, dt) {
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
   const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
-  R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = vf; R.gok = P.y <= Hc + 0.12 ? 1 : 0;   /* telemetry: slope pull along the nose (m/s2, + = rolls it forward) */
+R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = vf; R.gok = P.y <= Hc + 0.12 ? 1 : 0;   /* telemetry: slope pull along the nose (m/s2, + = rolls it forward) */
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
   const sp = Math.abs(vf), dmax = 0.52 / Math.sqrt(1 + (sp / 10) * (sp / 10));
   R.steer += (-input.steer * dmax - R.steer) * (1 - Math.exp(-7 * dt));
@@ -395,7 +404,7 @@ function core(R, dt) {
   const eff = thrE > 0 ? thrE : rev ? input.brk : 0;                         // S in reverse spins the wheels too (0108 #1)
   R.spinK = eff > 0.2 ? Math.min(1.6, spin + stuck * 0.8) : 0;
   if (!BOG.on && !parked && gndOK && !P.ice && P.wet === false && BOG.immune <= 0 && !HELP.on) {
-    const dig = eff > 0.25 && spd0 < 3.5 && sinkS > 0.07 ? (spin * 0.6 + stuck * 0.55) * 0.2 * eff * clamp(sinkS / 0.3, 0.25, 1.5) : 0;
+    const dig = eff > 0.25 && spd0 < 3.5 && sinkS > 0.07 ? (spin * 0.6 + stuck * 0.55) * 0.2 * eff * clamp(sinkS / 0.3, 0.25, 1.5) * clamp((3.5 - spd0) / 1.5, 0.1, 1) : 0;   /* a truck still making way at a crawl (3-3.5 m/s) digs less than one spinning at a walk (0121 #2) */
     if (dig > 0.01) {
       BOG.acc += dig * dt;
       if (BOG.acc > 0.45 && !BOG.warned) { BOG.warned = true; toastDig(rev); }

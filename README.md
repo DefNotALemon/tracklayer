@@ -459,7 +459,10 @@ the brake at a standstill to reverse (on a pad even a light pull on the trigger 
 and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
 reverse and dig in) and then bogs like the sled, with the usual dig-out. A truck that sits still for a
 second with the gas or reverse held always tells you why: digging in, too steep for its grip, no grip,
-or something solid behind or in front of it (a parked sled, a rock, a wall). Each vehicle keeps its own fuel and its own parcels, and
+or something solid behind or in front of it (a parked sled, a rock, a wall). In fresh powder the pickup pulls away through a
+boot's depth, slows to a crawl by about 35 cm (about walking pace; a feathered throttle crawls further than a
+floored one, which spins and digs), only creeps in 40 cm, and stops in half a metre. A run at a deep bank carries
+you a few metres in before it stops and digs in. Each vehicle keeps its own fuel and its own parcels, and
 stays where you left it, including across a save and a reload (reload while sitting in the pickup
 and you are still in it).
 
