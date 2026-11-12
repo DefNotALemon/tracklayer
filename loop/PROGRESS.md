@@ -3,6 +3,54 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 19:20 — 3.1 The road network, static (G4) — 6fb0dc2
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage: reports 0112-0115 (2.7 refunds, repair) hold no BLOCKER or BUG: all POLISH (0112 #1 a scenario flake,
+#2 untested corners; 0113 #1 no "already 100%" guard on `repair()`, #2 corrupt truck cond loads 0% vs trailer 100%; 0114
+#1 hitched trailer measured from its own spot, #2 no distance foot on the trailer row; 0115 #1 one-point repair rows,
+#2 lowercased brand in the trailer row title). Left as POLISH. Last triaged report 111 -> 115. So the next unticked
+slice: 3.1, the first of milestone 3.
+Built: `tlx-roads.js` (new system "roads", nothing saved: same terrain, same roads every boot). Six routes from waypoint
+lists (sites, "@station"): Kjøllefjord-Mehamn (past the Kjøllefjord station, the wind farm and the Mehamn station),
+Gamvik + Slettnes, Dyfjord, Skjånes (branching at the wind farm), Lebesby (past its station), Ifjordfjellet (Lebesby to
+Ifjord, `closed`). Each leg is A* on a 16 m grid of the map: cost per metre rises with the grade (quadratic, steps at
+11/16/22%), 16 directions so climbs can wind, sea out (and its corners: diagonal and knight moves check the cells they
+cross), houses/sheds/turbines/boulders out (a leg with no other way runs again with them merely dear and is pushed clear),
+lakes x25, woods x1.35, cells an earlier route used x0.35 (shared trunks). Path simplified, Chaikin-rounded, resampled
+every 6 m; a rounding that cuts into the sea/a house or steepens the climb past the bare path is dropped for a plainer
+one. A road stops at a ring round each village/the quay/the wind farm/the lighthouse (3/4 of its clear radius, the side
+it comes in or leaves by) or beside a station's forecourt (12.5 m off its long axis, not through the pumps); a street
+(the lanes' `laneRoute`) threads from there to the middle or across. Winter state: open roads plowed through the yard
+system (`addLane(pts, 3.2, 0.9)`; `addPlow`/`yardOf` gained a per-lane plow strength `k`), trees cleared from the
+corridor (`clearTree`, new bridge: instance scaled to nothing, out of obGrid), 831 orange snow poles with a reflector band
+(one InstancedMesh, not obstacles), streets from each village's middle to every lit door, roads painted on `mapBg`
+(Map app + minimap; shut road dashed). Bridges added to `initExpansion`'s `world`: laneRoute, doors, STATIONS, clearTree,
+map {canvas, scale}. README "Roads". `TLXR.near/onRoad/grades` for 3.2+.
+Numbers (new `x3_roads.mjs`, 25 asserts, all ok): boot cost 492 ms headless; lengths x1.05-1.68 the straight line (shut
+fell road x2.84); open-road grade over 30 m p95 8.9%, max 15.4% (fell road max 42%, it's shut); 0 road points in the
+sea, 0 buildings inside a road, 0 standing trees in a corridor (335 cleared); open roads yardAt >= 0.75 along 100% of
+sampled points, fell road < 0.2 along 93%; poles 3.8-4.6 m off centre, 194 on the shut road; village street lanes 29,
+doors plowed halfway 27/29. Pickup, 4 game s of throttle from rest: on the road 28.8 m (13.2 m/s), in the powder 40 m
+beside it 0 m (bogged). Stills (r31b sheet) judged: the road reads as a sunk, packed strip; poles orange and upright;
+minimap shows the roads.
+Pitfall found while building: a grade measured over N resampled points lies when points bunch (pushed-clear points):
+measure by distance along the line (`grades()`); the "47-81%" walls seen mid-build were that, not the terrain.
+Also: `yardOf` now reads YARDS through a 64 m bucket index (`YBK`, filled by `addPlow`): with ~4,500 road legs in YARDS
+every new chunk was testing them all, and x2_pickup's first dismount ran out of its fixed 3 s wait (it passed again once
+the index went in; frame time at the park spot / mid-road 59 / 50 ms vs origin's 67 / 75 ms headless, i.e. no worse).
+Scenarios: the 15 x2_* that pick "the longest plowed lane" now take it inside Kjøllefjord (`TOWN_R`), as they always
+did before village streets joined YARDS (x2_pickup otherwise drove to Lebesby and its later sled steps failed: with the
+truck 4 km away, walking up to the parked sled did not make it current; worth a beta look, it's 2.2's swap rule, not
+roads). x2_pickup polls FOOT.on/MNT.on instead of fixed sleeps round its first Q presses (origin flaked there 2 of 2
+under load). x1_save knows the "roads" system.
+Gate: smoke 0, x1_save 0, x3_roads 0 (25/25), x2_vehreverse 0, x2_haul 0, x2_tow 0, page errors none; x2_pickup 1 in the
+gate run (the fixed-sleep flake, origin too), 0 on 2 of 2 reruns after the poll fix.
+Reports 0116-0118 landed during this pass (BUGs in 0116 #1/#2: reverse still silent at some spots, pad LT reverse
+nearly on/off; 0117 #1/#2: pickup can't start in untouched snow, bog survives a teleport). Not triaged here (Last triaged
+report stays 115): the next builder pass takes them before 3.2.
+Left / follow-ups: 3.2 after those (live road snow, storms, Map open/snowed in/closed). Boot cost on a phone untested (~0.5 s
+headless desktop). Poles are thin (4.4-5.6 cm) and read only within ~60 m.
+
 ## 2026-11-11 18:40 — Beta fix 0108: trucks reverse off the lane (G4) — 489b7d0
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: report 0111 (2.7 collect at every seller yard): #1 repeats 0110 #1, already fixed by e0f270e (0111 was

@@ -11,8 +11,9 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | # | Milestone | State |
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
-| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; next: 3 (roads and traffic) |
-| 3-19 | everything else | not started |
+| 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done |
+| 3 | Roads and traffic | 3.1 landed (v188); next: 3.2 (dynamic road snow) |
+| 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -238,8 +239,16 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
   on plowed yards, lanes and hard pack, and it comes into its own with roads (milestone 3) and summer.
 
 ### 3. Roads and traffic (`tlx-roads.js`)
-- [ ] 3.1 The network: streets in Kjøllefjord and the villages, roads between towns on sensible lines (graph +
-      meshes), shown on the Map. Static first.
+- [x] 3.1 (v188) The network: streets in Kjøllefjord and the villages, roads between towns on sensible lines (graph +
+      meshes), shown on the Map. Static first. `tlx-roads.js`: six routes (Kjøllefjord-Mehamn past the wind farm,
+      Gamvik + Slettnes, Dyfjord, Skjånes, Lebesby, and the Ifjordfjellet fell road, shut for the winter) worked out at
+      boot by A* on a 16 m grid (grade-shaped cost, 16 directions, sea/houses/boulders out, lakes dear, shared trunks),
+      rounded, ending at a village's edge or beside a station's forecourt with a street to the middle. Winter state:
+      plowed (yard hard pack at k 0.9, 3.2 m each side) except the fell road; trees cleared from the corridor; 831
+      orange snow poles (one instanced mesh); village streets to every lit door; painted on the Map chart (shut road
+      dashed). Nothing saved (same terrain, same roads). `TLXR.near/onRoad` for later slices. Test `x3_roads.mjs`.
+      Not done here (later slices or follow-ups): no road surface mesh of its own (the plowed snow is the road), poles
+      are not obstacles, no bridges (the Gamvik leg finds a land neck), the Kjøllefjord-to-station hop is a street.
 - [ ] 3.2 Dynamic road snow: per-segment depth through the same snow field, storms fill it, saved; yards stay
       as they are. Map shows open / snowed in / closed. Sled on hard pack vs scraped bare.
 - [ ] 3.3 Parked cars, some buried after a storm. Option: dig a buried car out for pay.
