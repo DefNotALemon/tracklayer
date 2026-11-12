@@ -3164,6 +3164,9 @@ function towVisual(dt) {
 const ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0), pending = [], wobbling = [];
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _qt = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _ax = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 function wobble(o, amp, px, pz) {
+  /* only instanced trees sway: a boulder (winch anchor, rescue tie) has no tree/cell, and pushing it here
+     made updWobble throw before renderer.render on every frame (frozen screen, beta 0142) */
+  if (!o || o.tree === undefined || o.cell === undefined) return;
   amp = Math.min(0.32, amp);
   if (o.wob) { const cur = o.wob.amp * Math.exp(-2.4 * o.wob.t); if (o.wob.t < 0.45 || cur > amp * 0.8) return; }
   const d = Math.hypot(px, pz) || 1;
@@ -3179,7 +3182,9 @@ function setTree(o, tilt) {
 function updWobble(dt) {
   if (!wobbling.length) return;
   for (let i = wobbling.length - 1; i >= 0; i--) {
-    const o = wobbling[i], w = o.wob; w.t += dt;
+    const o = wobbling[i], w = o.wob;
+    if (!w || o.tree === undefined || !(o.pine ? pineCells : birchCells)[o.cell]) { if (o) o.wob = null; wobbling.splice(i, 1); continue; }
+    w.t += dt;
     const env = Math.exp(-2.4 * w.t), tilt = w.amp * env * Math.sin(w.t * 8.5 / Math.sqrt(o.s));
     if (env < 0.01) { setTree(o, 0); o.wob = null; wobbling.splice(i, 1); } else setTree(o, tilt);
   }
@@ -14764,7 +14769,7 @@ function selfReel(dt, wd) {
   WN.pullV = { x: dx * v, z: dz * v }; WN.sfx = 0.05 + 0.1 * ratio;
   P.yaw = angLerp(P.yaw, Math.atan2(dx, dz), 1 - Math.exp(-2.5 * dt));
   if (wd.fuel) GS.fuel = Math.max(0, GS.fuel - wd.fuel * dt);
-  if (Math.random() < dt * 5) wobble(a, 0.03, dx, dz);
+  if (a.tree !== undefined && Math.random() < dt * 5) wobble(a, 0.03, dx, dz);
   if (BOG.on) {
     BOG.moved += v * dt; BOG.resist = BOG.r0 * clamp(1 - 0.75 * BOG.moved / BOG.r, 0.2, 1);
     if (Math.random() < dt * 30) emit(P.x, P.y + 0.3, P.z, 0, 1 + Math.random() * 2, 0, 1.5, 0.8);
@@ -15254,7 +15259,7 @@ function rescueReel(dt, wd) {
   WN.sfx = 0.05 + 0.1 * ratio;
   if (wd.fuel) GS.fuel = Math.max(0, GS.fuel - wd.fuel * dt);
   if (Math.random() < dt * 25) emit(v.x, v.g.position.y + 0.3, v.z, 0, 1 + Math.random() * 2, 0, 1.5, 0.8);
-  if (Math.random() < dt * 6 && WN.tie) wobble(WN.tie, 0.03, dx, dz);
+  if (Math.random() < dt * 6 && WN.tie && WN.tie.tree !== undefined) wobble(WN.tie, 0.03, dx, dz);
   if (v.moved >= v.dist) rjFreed(v);
 }
 function rescueVisual() {
