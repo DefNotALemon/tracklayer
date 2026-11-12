@@ -3,6 +3,13 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 — First person: rider stands up when their own sled blocks the view — d298719
+Lemon's ask. `viewBlockT()` (tracklayer.js, above `updVisuals`): riding in first person, a ray from the seated eye along the look
+direction is tested against the dash tablet (THREE.Raycaster, hidden DoubleSide copy of its glass) and the hood crown (`ud.hoodY`
+marched along the ray, 1.6 m reach). Windshield pane deliberately not tested: hidden in FP (`V.headHid`) and see-through. `CLIMB.block`
+eases 0..1 (in 2.2/s, out 1.4/s), `CLIMB.stand = max(CLIMB.v, smoothstep(block)) * standH`, so poseLegs/poseArms/FP eye height rise as for
+a climb; nose lift/chase zoom stay on CLIMB.v. Off for tablet dip, foot, crash, mount/dismount, vehicles, interiors, showroom. Any speed.
+Triggers around pitch -0.55 rad (default -0.13). Test `scenarios/g5_fpstand.mjs` (asserts + side strips); script v213.
 ## 2026-11-12 12:58 — G5 snow on the sled: tuning, chunky coat, scenario — 6cafd5e
 Lemon-session fix pass on the half-built sled-snow coat (the SNS block itself had been swept into the v212 Map commit 0935f58).
 Root cause hunt: the "cold, cool engine just sits" assert did NOT reproduce in isolation (logged hot/warm/fill/cap/spd/bump/blow every
