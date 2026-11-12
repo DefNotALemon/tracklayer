@@ -3,6 +3,30 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 01:10 — Beta fix 0131 #1/#2: the fjord rescue never sets you down on a cliff face (G4) — 1bb9e2c
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0131-0135: 0131 #1 BLOCKER (cliff coasts: rescued back into the water, -$140 a cycle) and #2 BUG
+(clear ring short, same fallback) taken; 0131 #3 POLISH (carried up to 131 m; now up to ~210 m on cliffs, see below) left;
+#4-#6 verified. 0133 #1 BUG (school course while the sled is strapped to the trailer: the school sled is glued to the
+trailer) is the next builder item, with 0129 #1/#2 (pickup in 35 cm powder) still owed ahead of 3.2. 0132 #1-#3, 0134 #1-#2,
+0135 #1-#3 POLISH, left listed in their reports. Last triaged report 130 -> 135.
+Cause: `dryLandNear` searched a +-60 deg fan inland out to 120 m; on a cliff coast nothing passed, and the fallback returned
+`shore + clear` along the shore direction without checking it: a 0.46-1.06 slope on the sea face, sometimes over seabed
+3.5 m deep (the 4 m bio cell read as land). The body slid in, sat at y -0.41, and the drown check fired again.
+Fix (`tracklayer.js`): `ok()` also needs the ground itself above sea level (+0.6 m at the spot, >= 0 on the rings) and checks
+3 rings x 24 points (was 2 x 16); the search runs three passes (fan to 120 m; full circle to 300 m; 0.75x ring and slope 0.24
+to 300 m), then `P.safe`, then the nearest SITES yard, then the spawn: nothing that failed the test is returned any more.
+Safety net: in the water with `P.wet`, speed < 1 m/s and no rescue running for 4 s -> `startDrown()` (help can be called).
+Numbers (new asserting `x3_rescuecliff.mjs`, 123 coast points incl. 0131's three; before = origin/main v194, same scenario):
+pickup 14 m: steepest landing 1.06 -> 0.18, min clear ring 2 -> 13 m, full spec 107/123 -> 123/123; sled 9 m: 123/123 full
+spec (min ring 9 m, max slope 0.179). Live at (-2216,-745) and (-1842,-469): before, landed on slope 0.46/0.57 over ground
+-3.6 m, wet and HELP on again 8 s later; after, landed 160/220 m away at 83/108 m elevation, slope 0.17/0.15, dry, one fee,
+0.0 m drift. Slowest search 2 ms. Carried: median 52 -> 52 m (sled), max 131 -> 213 m, 8 of 123 over 150 m (cliff coasts).
+Not done: the long carry is still a cut, not an animated tow (0131 #3 POLISH); part C (dead in the water) passes on main too
+since the sink test usually catches it, so the 4 s net is untested on the exact 0131 state; lake ice not run.
+Gate: smoke 0, x1_save 0, x3_rescuecliff 0 (all asserts; 8 fail on v194), x3_rescue 0, page errors none. Stills
+`~/.hermes/cache/scratch/tlloop/brc/after/cliff_*.jpg` (sled on dry snow above the fjord, toast "Winched out ... -$140").
+
 ## 2026-11-12 00:55 — Beta fix 0127 #2-#4: switchback loops, no road bend under 13 m, bends plowed wider (G4) — cae8268
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0129-0130: 0129 #1 BUG (pad RT 30% in 35 cm powder: truck sits still, BOG off, no hint for
