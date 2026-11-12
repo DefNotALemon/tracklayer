@@ -3,6 +3,25 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 07:05 — 3.3a parked cars, buried by storms, dug out by their owners (G4) — e6c6250
+Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
+Triage 153: no BLOCKER/BUG (#1-#3 verified; #4 joins the 0149 #6 line; #6 toast stacking queued; #5 acceptable). Last
+triaged 152 -> 153. Report 0154 landed mid-pass (grep shows no BLOCKER/BUG); left for the next pass to triage.
+3.3 had no design: split into 3.3a (cars + burial, built here) and 3.3b (the "Dig out buried cars" option for pay,
+designed in EXPANSION.md). New `tlx-cars.js` (system "cars", v1): a seeded half of the lit doors get a car nosed in 3.5 m
+off the wall and 3.2-4.4 m beside the door where it fits (plowed, off roads, flat, clear of sea/obstacles); 24 cars in 10
+places. Six instanced meshes (per-car paint colour, glass with a raked windscreen, trim + wheels, lamps, roof/hood snow,
+the drift); three obstacle circles each with top = roof. Snow per car fills at the roads' storm rate; roof dusting, drift
+from 0.1, buried from 0.35, car hidden under a full drift at 0.85 (its corners poked through the dome in the first
+stills). Owners dig out after a seeded wait once calm (1-10 h; a quarter 20-60 h). Saved `x.sys.cars`.
+Numbers (new asserting `x3_cars.mjs`): 24 cars / 50 doors, 0 misplaced; +6 draw calls (1071 -> 1077); build 5 ms.
+Storm: 0.5 h roof snow (b 0.08, no drift), 3 h b 0.50 (drift halfway), 6 h 24/24 buried; 6 h after calm 17/24 still
+buried; 72 h+ all clear. Save/reload keeps the same 17; a save without car state loads all clear. A sled at full throttle
+from 14 m stops 2.66 m from the car's middle. An 8 h sleep in a storm buries 24/24.
+x1_save's known-systems list gained "cars". Stills `~/.hermes/cache/scratch/tlloop/b0154/cars2/` (clear, half-buried
+with roof snow, full drift at dusk, street views).
+Gate: smoke, x1_save (after the list fix), x3_cars, x3_roadsnow (log `b0154/gate.log`).
+
 ## 2026-11-12 06:40 — beta fix 0149 #1: a job over a snowed-in road gets a visible heads-up toast (G4) — ac850cd
 Builder pass (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is retired).
 Triage 151-152: no BLOCKER/BUG. 0151 #2/#3, 0152 #1/#2 verified; 0151 #5 / 0152 #5 notes (no change). POLISH 0151 #1 (open

@@ -209,7 +209,9 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       night (brighter/longer emissive or a small warm light at the skis); zero `P.scr` while `FOOT.on`.
 - [ ] G4 (beta 0149 #5/#6 POLISH): road legend "closed" (faint dashed orange) reads like "open" on a phone: grey or longer
       dashes. Sled riders 20-90 m off a shut road get "road snowed in" (a sled doesn't use roads): consider suppressing on
-      the sled, keep it for the pickup.
+      the sled, keep it for the pickup. (0153 #4 repeats the sled-rider point.)
+- [ ] G4 (beta 0153 #6 POLISH): taking a job over a shut road stacks three toasts within 5 s and the road heads-up comes
+      last; give it priority (or delay the shop-coffee line) so the one that matters is on top.
 - [ ] G4 (beta 0150 #1/#2 POLISH): the H help panel is static keyboard text (pad players see keys); sled-bog toasts at the
       `enterBog` sled branch and job texts ("Q off, walk up and press E") hard-code keys. Route through `btn()`.
 - [ ] G4 (beta 0141 #2 POLISH, from the line above): "snowed in" fires at 0.3 m real depth.
@@ -493,4 +495,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
 
-Last triaged report: 152
+Last triaged report: 153
