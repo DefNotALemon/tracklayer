@@ -3,6 +3,32 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 23:25 — Beta fix 0128 #1-#3: the fjord rescue lands you clear of the water, help is P / D-pad down (G4) — e6cdfff
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of report 0128: #1 BLOCKER (pickup winched out of the fjord rolls back in 3 s later, -$140 a cycle) taken;
+#2/#3 BUG (water hint and toasts say F, the key is P; no pad button calls help) taken with it; #4 BUG minor (P.wet survives a
+teleport; N while in the water) half-done: N in the water now says to call for help by the scheme's button, the stale wet
+flag after a scripted teleport left (only reachable by script); #5 verified; #6 POLISH (Gamvik road 3 m from the fjord, no
+bank) left. Last triaged report 127 -> 128. Still owed: 0127 #2-#4 (hairpins on fv888/lebesby, pursuit pickup bogs) before 3.2.
+Cause: `helpDone` put the body `nearestShore + 4 m`, i.e. on the bank slope just past the waterline; a 3 m-wheelbase pickup
+rolled or probed back into the water and `startDrown` fired again. Fix (`tracklayer.js`): new `dryLandNear(x, z, clear)`
+walks inland from the shore (the shore's direction, then a +-20/40/60 deg fan, 3 m steps to 120 m) to the first spot that is
+dry, slope < 0.18, free of trees/rocks, with no water on two 16-point rings out to `clear` (9 m sled, 14 m vehicle); the
+body faces inland, velocities/pitch/roll zeroed, and `HELP.dryT` holds it still and dry for 3 s. Controls: `BTN.help`
+(P / D-pad down / CALL HELP); `helpWanted()` makes the pad's D-pad down call for help while in the water or on an empty
+tank (bandage otherwise); the water hint (`wnPrompt`), dunk toast, empty-tank toast, "not in trouble" toast, N-in-the-water
+toast and the satellite messenger note go through `btn`/`keyHint`; README controls line fixed (it also said R for reset; N).
+Numbers (new asserting `x3_rescue.mjs`, 0128's spot 1493,-2822): pickup after the rescue: back in the water at +3 s, -$140
+per cycle -> set down 15 m from the nearest water on slope 0.009, dry and HELP off for 30 game s, drift 0.0 m, one fee, drives
+38.9 m in 5 s; sled: 9 m clear, slope 0.014, drift 0.2 m. Hint: "F: CALL FOR HELP" on every scheme -> "P: ..." / "D-PAD
+DOWN: ..." / "TAP CALL HELP"; pad D-pad down in the water: nothing -> calls the rescue; F no longer claimed anywhere.
+Not done: the jump from the end of the pull to the dry spot is a cut of several metres (more on a steep shore), not an
+animated tow; lake ice dunkings use the same code but weren't run; a hitched trailer (`rig`) on rescue untested.
+Before (origin/main v192 with x3_rescue): 11 of part A's 14 asserts fail (hints say F on
+every scheme, pad D-pad down can't call, never winched out), then it stops at the new `helpWanted`.
+Gate: smoke 0, x1_save 0, x3_rescue 0 (all asserts), x2_btn 0 (new BTN.help row on every scheme), page errors none.
+Stills `~/.hermes/cache/scratch/tlloop/bres/sheet.jpg` (sled and pickup set down on flat snow, fjord behind).
+
 ## 2026-11-11 23:05 — Beta fix 0121 #2/0122 #2: the pickup crawls through 30-40 cm of powder (G4) — 740e1a5
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0126-0127: 0126 #1/#2 POLISH (E acts behind an open tablet on foot; HOOK label shown when the
