@@ -2617,7 +2617,7 @@ function readInput(dt) {
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
-    const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: "KeyU" }); padBand = dd;   // D-pad down: bandage
+    const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: helpWanted() ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: call for help in the fjord / on an empty tank, a bandage otherwise
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!(FISH && FISH.ctx())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
@@ -2657,7 +2657,7 @@ const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, y
 var VEH = { cur: null, sled: null, tabs: [], block: null, board: "get on the sled", noun: "Sled" };
 function resetSled() {
   if (CRASH.on) return;                               // no resetting your way out of a crash
-  if (HELP.on && HELP.kind === "sea") { toast("Hang on: the rescue sled is your way out. Press P to call it.", "warn"); return; }
+  if (HELP.on && HELP.kind === "sea") { toast(HELP.called ? "Hang on: the rescue sled is your way out, and it's coming." : `Hang on: the rescue sled is your way out. ${keyHint("help", "call it")}.`, "warn"); return; }
   if (BOG.on || FOOT.on) { BOG.on = false; BOG.acc = 0; BOG.immune = 6; FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false); }
   const s = P.safe || { x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw };
   P.x = s.x; P.z = s.z; P.yaw = s.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0;
@@ -9022,7 +9022,7 @@ const PARTS = {
     label: "Recovery kit", options: [
       { id: "none", name: "Nothing", cost: 0, tier: 0, stats: {}, note: "Hope." },
       { id: "kit", name: "Shovel, strap & snowshoes", cost: 120, tier: 0, stats: { rescue: 0.3 }, note: "You've half dug yourself out by the time the crew shows up. The snowshoes are yours to keep: Q off into fresh powder and you float instead of wading, about a third quicker." },
-      { id: "sat", name: "Satellite messenger", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. F calls a rescue sled, and they come straight to you, faster and cheaper." }
+      { id: "sat", name: "Satellite messenger", cost: 480, tier: 2, stats: { rescue: 0.6 }, note: "SOS with your exact position. Call for help and the rescue sled comes straight to you, faster and cheaper." }
     ]
   },
   winch: {
@@ -9281,7 +9281,8 @@ const BTN = {
   menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" },
   use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
   reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
-  bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" }   // tlx-wounds.js: dress an open wound, fast
+  bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" },   // tlx-wounds.js: dress an open wound, fast
+  help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
 // a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
@@ -12933,7 +12934,7 @@ function updGame(dt, spd) {
   if (freeFill) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   fuelStep(dt, spd);
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !freeFill && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
-  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. Press F for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
+  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. ${INP.dev === "touch" ? "Tap " + btn("help") : "Press " + btn("help")} for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
   schoolTick(dt, spd);
   sarTick(dt, spd);
   const work = near && spd < 4 && !SCHOOL.on;           // on a school course your own loads are parked in the yard
@@ -14776,6 +14777,24 @@ function nearestShore(x, z) {
   }
   return [SPAWN.x, SPAWN.z, 0];
 }
+// Where the rescue sets you down: walk inland from the water (the nearest shore's direction first, then a fan either side)
+// to the first spot whose ring of 16 points out to `clear` m is all dry, gentle (slope < 0.18) and free of trees and rocks.
+// Returns [x, z, yaw facing inland]. Falls back to the plain shore point +clear if nothing passes within 120 m.
+function dryLandNear(x, z, clear) {
+  const sh = nearestShore(x, z), a0 = sh[2];
+  const ok = (px, pz) => {
+    if (Math.abs(px) > HALF - 80 || Math.abs(pz) > HALF - 80 || isWater(px, pz) || slopeAt(px, pz, 3) > 0.18 || obNear(px, pz, 3)) return false;
+    for (const r of [clear * 0.5, clear]) for (let k = 0; k < 16; k++) { const b = k * Math.PI / 8; if (isWater(px + Math.cos(b) * r, pz + Math.sin(b) * r)) return false; }
+    return true;
+  };
+  for (let R = 4; R <= 120; R += 3) for (const da of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05]) {
+    const a = a0 + da, px = sh[0] + Math.cos(a) * R, pz = sh[1] + Math.sin(a) * R;
+    if (ok(px, pz)) return [px, pz, Math.atan2(Math.cos(a), Math.sin(a))];
+  }
+  return [sh[0] + Math.cos(a0) * clear, sh[1] + Math.sin(a0) * clear, Math.atan2(Math.cos(a0), Math.sin(a0))];
+}
+// any call for help to be made right now (the fjord, an empty tank): the pad's D-pad down calls it instead of a bandage then
+function helpWanted() { return (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on); }
 function buildRescueSled() {
   const g = npcSledMesh(0xc8102e, 0xeef2f5); g.visible = false; scene.add(g);
   const amb = std(0x6a3a00, 0.4, 0, { emissive: 0xffa020, emissiveIntensity: 1.6 }), bl = [];
@@ -14790,7 +14809,7 @@ function startDrown() {
   LOG.fjord++;                                                             // one dunking, however it ends (winched out, or blacked out first)
   if (FOOT.on) { FOOT.on = false; FOOT.dig = false; MNT.on = false; DMT.on = false; wnStow(false); }
   const lake = P.wl !== SEA;
-  P.vx = P.vz = P.vy = 0; TABLET.close(); toast(lake ? "Through the ice! Press F to call for help: every second in that meltwater costs you warmth." : "Through the ice and into the fjord! Press F to call for help: every second in that water costs you warmth.", "bad");
+  P.vx = P.vz = P.vy = 0; TABLET.close(); { const how = INP.dev === "touch" ? "Tap " + btn("help") : "Press " + btn("help") + " to call for help"; toast(lake ? `Through the ice! ${how}: every second in that meltwater costs you warmth.` : `Through the ice and into the fjord! ${how}: every second in that water costs you warmth.`, "bad"); }
   whump(1);
   for (let k = 0; k < 60; k++) emit(P.x + (Math.random() - 0.5) * 3, P.wl + 0.1, P.z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 3 + Math.random() * 5, (Math.random() - 0.5) * 8, 1.6, 1.4);
 }
@@ -14798,7 +14817,7 @@ function callForHelp() {
   if (GS.dead) return;
   if (HELP.on) { if (HELP.called) { toast("They're on their way. Hang on."); return; } helpCall(); return; }
   if (GS.fuel <= 0) { HELP.on = true; HELP.kind = "fuel"; HELP.fee = helpCost("fuel"); HELP.phase = "wait"; HELP.t = 0; helpCall(); return; }
-  toast(BOG.on ? "That's not a rescue job: get off (Q) and winch or dig, or press R." : "You're not in trouble. F calls a rescue sled, and only for the fjord or an empty tank. R resets a stuck sled.", "warn");
+  toast(BOG.on ? `That's not a rescue job: get off (${btn("dismount")}) and winch or dig, or reset (${btn("reset")}).` : `You're not in trouble. ${btn("help")} calls a rescue, and only for the fjord or an empty tank. ${btn("reset")} resets a stuck ${VEH.cur ? VEH.noun.toLowerCase() : "sled"}.`, "warn");
 }
 function helpCall() {
   HELP.called = true; HELP.t = 0;
@@ -14828,6 +14847,7 @@ function helpTick(dt) {
   HELP.t += dt;
   const sea = HELP.kind === "sea", rs = HELP.rs;
   if (HELP.on && sea) { GS.warmth = Math.max(6, GS.warmth - 1.0 * dt); P.sink = 0.58; }   // cold and getting colder, but a called rescue never finishes you
+  if (HELP.dryT > 0) { HELP.dryT -= dt; P.vx = P.vz = 0; P.wet = false; P.sink = 0; }        // just set down on the bank: let it settle before it can roll
   if (HELP.phase === "wait") return;
   if (!rs) return;
   const fx = (a, b, t) => a + (b - a) * t;
@@ -14866,8 +14886,13 @@ function helpDone() {
   const sea = HELP.kind === "sea", fee = HELP.fee;
   GS.cash = Math.max(0, GS.cash - fee);
   if (sea) {
-    if (isWater(P.x, P.z)) { const sh = nearestShore(P.x, P.z); P.x = sh[0] + Math.cos(sh[2]) * 4; P.z = sh[1] + Math.sin(sh[2]) * 4; }   // never leave you in the water
-    P.sink = 0; P.wet = false; P.vx = P.vz = P.vy = 0; P.y = surf(P.x, P.z) + 0.3; P.yr = 0;
+    // never leave you in the water, nor on the bank: a pickup is long and a shore is a slope, so landing it a few metres
+    // past the waterline let it roll straight back in (beta 0128 #1). Set it down on level-ish ground with no water within
+    // 12 m, facing inland, a little further for a vehicle.
+    const dl = dryLandNear(P.x, P.z, VEH.cur ? 14 : 9);
+    P.x = dl[0]; P.z = dl[1]; P.yaw = dl[2];
+    P.sink = 0; P.wet = false; P.wetT = 0; P.vx = P.vz = P.vy = 0; P.y = surf(P.x, P.z) + 0.3; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
+    HELP.dryT = 3;                                                                     // held still for a moment on the bank
     const r = HELP.rs, sx = Math.sin(r.userData.yaw), sz = Math.cos(r.userData.yaw);
     P.safe = { x: P.x, z: P.z, yaw: P.yaw }; towSnap();
     GS.warmth = Math.max(GS.warmth, 25); BOG.immune = 6;
@@ -15356,7 +15381,7 @@ function wnPrompt() {
   const wd = winchDef();
   if (HELP.on && HELP.kind === "sea") {
     show = true;
-    h = HELP.called ? `RESCUE SLED INBOUND · ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : "IN THE WATER · F: CALL FOR HELP";
+    h = HELP.called ? `RESCUE SLED INBOUND · ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : "IN THE WATER · " + keyHint("help", "CALL FOR HELP").toUpperCase();
   } else if (FOOT.on) {
     show = true;
     const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);
