@@ -30,6 +30,11 @@
 // draw calls (+ the shadow pass on high). The body shapes are the parked cars' (TLXC.geo, built by tlx-cars.js). Lamps
 // are unlit, brightened after dark from dayFactor (headlights and tail lights), so they don't glow by day.
 //
+// AFTER DARK AND IN THE EAR (3.4b2a). Headlight beams: two soft additive cones per car (a sixth instanced mesh) and a
+// pool of light laid on the snow ahead (one shared mesh, re-laid on surf() each night frame), faded by darkness and by
+// distance from the camera, hidden by day. The hum: the loudest car within TRAF.humR m drives one engine + tyre voice on
+// the game's audio master; TLXT.humGain / humF / humCar report it.
+//
 // Option "traffic" (Settings > Options, on): off hides every car and stops all of it.
 //
 // TLXT (window, for later slices and scenarios): cars [{ rt, s, dir, v, st, x, z, y, yaw, why, lane, pass, roll }],
@@ -60,6 +65,9 @@ const TRAF = {
   // passBy m beyond it with the lane clear
   passWait: 3, passLook: 110, passV: 5, passBy: 9, laneRate: 1.4,
   wheelR: 0.33, wheels: [[0.8, 1.38], [-0.8, 1.38], [0.8, -1.38], [-0.8, -1.38]],   // tyre faces flush with the body side, so the rims show
+  // the beams and the hum (3.4b2a): cone length m, brightness, faded out between beamFar[0] and [1] m from the camera;
+  // a car is heard within humR m, at most humG loud (the sled's own engine idles at 0.09)
+  beamLen: 17, beamI: 0.32, beamFar: [260, 520], humR: 150, humG: 0.11,
   cols: [0xe9ebee, 0xb9bec4, 0x4a4f55, 0x1d2024, 0x1f2f4f, 0x8d1f1c, 0x2d4635, 0x6d7a86, 0x9a8a6c, 0xe9ebee]
 };
 let api = null, M = null;
@@ -316,6 +324,12 @@ function build(a) {
   // the wheels on their own (4 per car), so they turn as the car rolls: one more draw call
   T.wheels = new TT.InstancedMesh(G.wheel, new TT.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.1 }), n * 4);
   T.wheels.frustumCulled = false; T.wheels.castShadow = !low; T.wheels.receiveShadow = true; T.wheels.name = "traffic_wheels"; T.wheels.count = 0; grp.add(T.wheels);
+  // the headlight beams (3.4b2a): additive, no depth write, no fog (faded by distance in draw()), drawn after the snow
+  T.beams = new TT.InstancedMesh(beamGeo(TT), new TT.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: TT.AdditiveBlending, depthWrite: false, fog: false, side: TT.FrontSide }), n);
+  T.beams.setColorAt(n - 1, col.setScalar(0));   // before count = 0: setColorAt sizes the colour buffer by count
+  T.beams.frustumCulled = false; T.beams.castShadow = T.beams.receiveShadow = false; T.beams.name = "traffic_beams"; T.beams.count = 0; T.beams.renderOrder = 3; T.beams.visible = false;
+  grp.add(T.beams);
+  T.pool = poolBuild(TT, n); grp.add(T.pool);
   T.q = { m: new TT.Matrix4(), q: new TT.Quaternion(), e: new TT.Euler(0, 0, 0, "YXZ"), p: new TT.Vector3(), s: new TT.Vector3(), col, w: new TT.Matrix4(), wr: new TT.Matrix4() };
 }
 function draw() {
@@ -335,6 +349,109 @@ function draw() {
   if (M.paint.instanceColor) M.paint.instanceColor.needsUpdate = true;
   const night = 1 - (api.dayFactor ? api.dayFactor() : 1);
   T.lampMat.color.setScalar(0.55 + 1.6 * night);
+  // the beams (3.4b2a): each car's brightness = how dark it is x how close to the camera (additive light glows through
+  // fog, so it fades out by TRAF.beamFar instead), 0 by day
+  const B = T.beams; if (!B) return;
+  const cam = api.camera, bk = Math.max(0, Math.min(1, (night - 0.25) / 0.45));
+  T.beamK = [];
+  let jb = 0;
+  for (const c of T.cars) {
+    if (!c.on) continue;
+    const d = cam ? Math.hypot(c.x - cam.position.x, c.z - cam.position.z) : 0;
+    const k = bk * Math.max(0, Math.min(1, (TRAF.beamFar[1] - d) / (TRAF.beamFar[1] - TRAF.beamFar[0])));
+    T.beamK.push(+k.toFixed(3));
+    M.dark.getMatrixAt(jb, m); B.setMatrixAt(jb, m); col.setScalar(k * TRAF.beamI); B.setColorAt(jb, col);
+    if (bk > 0) poolDraw(c, jb, k);
+    jb++;
+  }
+  B.count = bk > 0 ? jb : 0; B.visible = bk > 0; B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
+  const PG = T.pool.geometry; T.pool.visible = bk > 0;
+  if (bk > 0) { PG.setDrawRange(0, jb * (POOL.nx - 1) * (POOL.nz - 1) * 6); PG.attributes.position.needsUpdate = true; PG.attributes.color.needsUpdate = true; }
+}
+
+// ---- the beams (3.4b2a): two soft cones from the headlamps, one additive
+// instanced mesh (one draw call, nothing lit by it: the game's lights stay the sled's own). Vertex colours carry the
+// fall-off, so the geometry is drawn black at its far ends and blends into the night without a hard edge.
+function beamGeo(TT) {
+  const L = (window.TLXC && TLXC.CARS ? TLXC.CARS.len : 4.3) / 2, pos = [], colr = [], idx = [];
+  const add = (g, fade) => {
+    const p = g.attributes.position, base = pos.length / 3, ix = g.index;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); pos.push(x, y, z); const k = fade(x, y, z); colr.push(k, k * 0.95, k * 0.82); }
+    for (let i = 0; i < ix.count; i++) idx.push(base + ix.getX(i));
+  };
+  const H = TRAF.beamLen;
+  for (const sx of [1, -1]) {
+    const g = new TT.CylinderGeometry(0.07, 1.9, H, 14, 8, true).rotateX(-Math.PI / 2).translate(0, 0, H / 2);
+    g.scale(1, 0.5, 1); g.rotateX(0.045); g.translate(0.62 * sx, 0.78, L + 0.04);
+    add(g, (x, y, z) => { const t = Math.max(0, Math.min(1, (z - L) / H)); return 0.24 * Math.min(1, t / 0.15) * Math.pow(1 - t, 1.8);   /* faint at the lamp, a haze a few m out */ });
+  }
+  const g = new TT.BufferGeometry();
+  g.setAttribute("position", new TT.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new TT.Float32BufferAttribute(colr, 3)); g.setIndex(idx);
+  return g;
+}
+// the pool of light on the snow ahead of each car: one mesh for all the cars, a POOL.nx x POOL.nz grid per car laid on
+// the snow (surf) every frame at night, so it follows a rise or a dip in the road instead of sinking into it. Its
+// vertex colours are the fall-off (brightest 5-11 m out, gone at the edges) times that car's beam brightness.
+const POOL = { nx: 11, nz: 15, w: 5.2, z0: 1.2, len: 19, lift: 0.12, I: 0.3 };
+function poolBuild(TT, n) {
+  const per = POOL.nx * POOL.nz, pos = new Float32Array(n * per * 3), colr = new Float32Array(n * per * 3), idx = [], fall = new Float32Array(per);
+  for (let j = 0; j < POOL.nz; j++) for (let i = 0; i < POOL.nx; i++) {
+    const t = j / (POOL.nz - 1), x = (i / (POOL.nx - 1) - 0.5) * POOL.w;
+    const a = Math.sin(Math.PI * Math.pow(t, 0.7)), s = Math.max(0, 1 - Math.pow(Math.abs(x) / (1.1 + 1.5 * t), 2));
+    fall[j * POOL.nx + i] = a * s;
+  }
+  for (let c = 0; c < n; c++) for (let j = 0; j < POOL.nz - 1; j++) for (let i = 0; i < POOL.nx - 1; i++) {
+    const a = c * per + j * POOL.nx + i, b = a + 1, d = a + POOL.nx, e = d + 1; idx.push(a, d, b, b, d, e);
+  }
+  const g = new TT.BufferGeometry();
+  g.setAttribute("position", new TT.BufferAttribute(pos, 3)); g.setAttribute("color", new TT.BufferAttribute(colr, 3)); g.setIndex(idx);
+  g.attributes.position.setUsage(TT.DynamicDrawUsage); g.attributes.color.setUsage(TT.DynamicDrawUsage);
+  const mesh = new TT.Mesh(g, new TT.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: TT.AdditiveBlending, depthWrite: false, fog: false, side: TT.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  mesh.frustumCulled = false; mesh.name = "traffic_pool"; mesh.renderOrder = 3; mesh.visible = false; mesh.userData.fall = fall;
+  return mesh;
+}
+function poolDraw(c, slot, k) {
+  const g = T.pool.geometry, P = g.attributes.position.array, C = g.attributes.color.array, fall = T.pool.userData.fall, per = POOL.nx * POOL.nz;
+  const L = (window.TLXC && TLXC.CARS ? TLXC.CARS.len : 4.3) / 2 * (c.sx || 1), fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx, surf = api.world.surf;
+  for (let j = 0; j < POOL.nz; j++) for (let i = 0; i < POOL.nx; i++) {
+    const v = j * POOL.nx + i, o = (slot * per + v) * 3, along = L + POOL.z0 + (j / (POOL.nz - 1)) * POOL.len, side = (i / (POOL.nx - 1) - 0.5) * POOL.w;
+    const x = c.x + fx * along + rx * side, z = c.z + fz * along + rz * side;
+    P[o] = x; P[o + 1] = k > 0 ? surf(x, z) + POOL.lift : c.y - 50; P[o + 2] = z;
+    const b = fall[v] * k * POOL.I; C[o] = b; C[o + 1] = b * 0.95; C[o + 2] = b * 0.82;
+  }
+}
+
+// ---- the hum (3.4b2a): the nearest car you can hear, one voice on the game's own audio (so mute and volume apply):
+// a low engine note rising with its speed and the crunch of tyres on packed snow, louder as it nears, muffled indoors.
+// Built on first need (the audio context only exists after a key or tap). A watchdog fades it if the game stops ticking.
+function humVoice() {
+  const au = api.audio && api.audio(); if (!au) return null;
+  if (T.hum && T.hum.au === au) return T.hum;
+  const AC = au.AC, o = AC.createOscillator(), o2 = AC.createOscillator(), lp = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = "sawtooth"; o2.type = "triangle"; lp.type = "lowpass"; lp.frequency.value = 240; lp.Q.value = 1.2; g.gain.value = 0;
+  o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(au.master); o.start(); o2.start();
+  const s = AC.createBufferSource(), b = AC.createBiquadFilter(), tg = AC.createGain(); s.buffer = au.buf; s.loop = true;
+  b.type = "bandpass"; b.frequency.value = 650; b.Q.value = 0.9; tg.gain.value = 0; s.connect(b); b.connect(tg); tg.connect(au.master); s.start(0, Math.random());
+  T.hum = { au, o, o2, lp, g, tg, last: performance.now(), gain: 0, f: 0 };
+  setInterval(() => { const h = T.hum; if (h && performance.now() - h.last > 300 && h.gain > 0) { const t = h.au.AC.currentTime; h.g.gain.setTargetAtTime(0, t, 0.1); h.tg.gain.setTargetAtTime(0, t, 0.1); h.gain = 0; } }, 250);
+  return T.hum;
+}
+function humTick(you) {
+  let best = null, bg = 0;
+  for (const c of T.cars) {
+    if (!c.on) continue;
+    const d = Math.hypot(c.x - you.x, c.z - you.z); if (d > TRAF.humR) continue;
+    const near = Math.pow(1 - d / TRAF.humR, 2), g = near * (0.45 + 0.55 * Math.min(1, Math.abs(c.v) / TRAF.vmax));
+    if (g > bg) { bg = g; best = c; }
+  }
+  const inside = api.INT && api.INT.on ? 0.25 : 1, gain = TRAF.humG * bg * inside, f = best ? 32 + Math.abs(best.v) * 4.4 : 32;
+  T.humGain = +gain.toFixed(4); T.humF = +f.toFixed(1); T.humCar = best ? best.i : -1;
+  const h = humVoice(); if (!h) return;
+  const t = h.au.AC.currentTime; h.last = performance.now(); h.gain = gain; h.f = f;
+  h.o.frequency.setTargetAtTime(f, t, 0.12); h.o2.frequency.setTargetAtTime(f * 2.02, t, 0.12);
+  h.lp.frequency.setTargetAtTime(inside < 1 ? 140 : 200 + f * 2.5, t, 0.2);
+  h.g.gain.setTargetAtTime(gain, t, 0.15);
+  h.tg.gain.setTargetAtTime(best ? gain * 0.9 * Math.min(1, Math.abs(best.v) / 8) : 0, t, 0.15);
 }
 
 function tick(dt) {
@@ -355,6 +472,7 @@ function tick(dt) {
     if (!(api.INT && api.INT.on)) collide(c, dt);
   }
   draw();
+  humTick(you);
 }
 
 TLX.option({ id: "traffic", name: "Road traffic", hint: "A few local drivers on the open roads: slow, careful, they stop for you and turn back at a snowed-in road. Off = empty roads.", sys: "traffic",

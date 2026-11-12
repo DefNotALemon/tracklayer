@@ -479,7 +479,9 @@ end of a road they turn round or drive on into the village. Ride into one and yo
 boulder (and the driver isn't pleased). There are fewer of them on phones (the low graphics preset).
 Leave your sled (or yourself) standing in their lane and they don't wait for ever: after a few seconds,
 if nothing is coming the other way, they pull out into the other lane, creep past and move back in. Their
-wheels turn as they roll.
+wheels turn as they roll. After dark their headlights throw a soft pool of light down the road ahead
+of them (you'll see one coming over a rise long before the car), and you hear one before you see it: a low
+engine note and the crunch of tyres on packed snow, rising as it nears and fading as it goes by.
 
 ## The pickup
 

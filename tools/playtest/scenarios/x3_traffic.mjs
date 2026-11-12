@@ -39,7 +39,7 @@ ok(A.n === 6 && A.cars === 6, "A: " + A.cars + " drivers on the high preset");
 ok(A.routes.length >= 4, "A: " + A.routes.length + " drivable roads");
 ok(A.on >= 4 && A.offRoad === 0, "A: " + A.on + " cars placed, " + A.offRoad + " off the road");
 ok(A.dist.every(d => d >= 200 && d <= 1350), "A: placed round you at " + A.dist.join(", ") + " m");
-ok(A.meshes === 5, "A: five instanced meshes (" + A.meshes + ")");
+ok(A.meshes === 7, "A: five instanced meshes + the beams and pool, hidden by day (" + A.meshes + ")");   // 3.4b2a added the night beams + pool
 
 // ---- B: drive one car
 const rid = await J(`TLXT.routes.slice().sort((a, b) => b.len - a.len)[0].id`);
