@@ -18,10 +18,18 @@
 // top, the drift), so the draw calls don't grow with the count. Each car is three obstacle circles (o.car), low
 // enough (top = the roof) that a jump clears one.
 //
-// 3.3b (next): the "Dig out buried cars" option, digging one out by hand for pay. 3.4: drivers.
+// DIGGING ONE OUT (3.3b, option "digcars", on by default). On foot by a buried car (b >= CARS.buried, its drift
+// within reach) the use control says "dig out <owner>'s car" (an api.footx provider, so footUse/footAction, the
+// touch button and pad L3 all see it). Use starts digging (FOOT.dig: crouched, not walking), use again stops; walking
+// off, getting on or the option going off stops it too. b falls as you dig: from b0 (the snow when you started) to
+// clear in CARS.digT (20 s at just-buried, 40 s under a full drift, game time). Done: the owner comes out and pays
+// $40-90 by b0 (a toast with their name, cash to GS.cash). Paid once per car per storm: the car is marked paid
+// until the weather there next eases below CARS.calm. An owner who finishes first (their wait ran out) beats you
+// to it: no pay. No shovel exists yet, so it's all by hand. No Jobs row (nothing to track). 3.4: drivers.
 //
-// TLXC (window, for later slices and scenarios): cars [{ x, z, y, yaw, sx, sy, col, b, wait, wt, key }], ready, ms,
-// err, buried() -> count, setSnow(i | null, v), step(dh) (one weather step), group (the meshes).
+// TLXC (window, for later slices and scenarios): cars [{ x, z, y, yaw, sx, sy, col, b, wait, wt, key, owner, b0,
+// paid }], ready, ms, err, buried() -> count, setSnow(i | null, v), step(dh) (one weather step), group (the meshes),
+// digNear() -> nearest diggable car or null, dig (index being dug or -1), pay(b0), digT(b0).
 (() => {
 "use strict";
 const CARS = {
@@ -33,6 +41,11 @@ const CARS = {
   calm: 0.45,              // owners dig out once the weather at the car is under this
   mound: 0.1, buried: 0.35, gone: 0.85,   // drift shows / counts as buried / covers the car whole
   skip: 2,                 // a clock jump over this many game hours is stepped through
+  digR: 1.45,              // reach: within this of the drift's ellipse (1.95 m x 3.15 m half-axes), in drift radii
+  digT: [20, 40],          // game seconds to dig clear, just buried .. full drift
+  payR: [40, 90],          // $ for it, same scale
+  owners: ["Kåre", "Ragnhild", "Ole", "Siri", "Jonas", "Elin", "Nils", "Anja", "Tor", "Marit", "Hallvard", "Ingrid", "Sander", "Liv",
+    "Aslak", "Inga", "Rune", "Gunhild", "Oddvar", "Tove", "Ánde", "Hilde", "Steinar", "Berit", "Arvid", "Solveig"],
   cols: [0xe9ebee, 0xe9ebee, 0xb9bec4, 0xb9bec4, 0x4a4f55, 0x1d2024, 0x1f2f4f, 0x8d1f1c, 0x2d4635, 0x6d7a86, 0x9a8a6c],
 };
 const C = window.TLXC = { cars: [], ready: false, ms: 0, err: null, group: null };
@@ -59,6 +72,7 @@ function place(W) {
   const rnd = rng(0x3c3a7), out = [], seen = new Set();
   for (const D of W.doors) {
     const pick = rnd(), side = rnd() < 0.5 ? 1 : -1, ci = Math.floor(rnd() * CARS.cols.length), tall = rnd(), lenK = 0.92 + rnd() * 0.16, w0 = rnd(), w1 = rnd();
+    const owner = CARS.owners[Math.abs(Math.round(D.x * 7 + D.z * 13)) % CARS.owners.length];   // per door, outside the rng so 3.3a's placement stays as it was
     if (pick > CARS.share) continue;
     const k0 = Math.round(D.x) + "_" + Math.round(D.z); if (seen.has(k0)) continue; seen.add(k0);
     const tx = D.nz, tz = -D.nx, yaw = Math.atan2(-D.nx, -D.nz);   // nosed in toward the house
@@ -66,7 +80,7 @@ function place(W) {
       const s = o * side, d = D.d / 2 + CARS.out, x = D.x + D.nx * d + tx * s, z = D.z + D.nz * d + tz * s;
       if (!fits(W, x, z, yaw)) continue;
       const sy = tall < 0.3 ? 1.16 : 1;                                       // a third are estates / SUVs, taller
-      const car = { x, z, y: W.surf(x, z), yaw, sx: lenK, sy, col: CARS.cols[ci], b: 0, wt: 0, wait: w0 < 0.25 ? 20 + w1 * 40 : 1 + w1 * 9, key: Math.round(x) + "_" + Math.round(z), i: out.length };
+      const car = { x, z, y: W.surf(x, z), yaw, sx: lenK, sy, col: CARS.cols[ci], b: 0, wt: 0, wait: w0 < 0.25 ? 20 + w1 * 40 : 1 + w1 * 9, key: Math.round(x) + "_" + Math.round(z), i: out.length, owner, b0: 0, paid: false };
       out.push(car);
       const top = car.y + 1.5 * sy;
       for (const u of [-1.45, 0, 1.45]) W.addOb({ x: x + Math.sin(yaw) * u * lenK, z: z + Math.cos(yaw) * u * lenK, r: 0.95, top, car: car.i, ax: yaw });
@@ -153,10 +167,60 @@ function step(dh) {
   const WX = api.WX, ss = api.sstep;
   for (const c of C.cars) {
     const w = WX.at(c.x, c.z);
+    if (w < CARS.calm) c.paid = false;                                     // the storm's over: next one pays again
     if (w > CARS.fillA) c.b = Math.min(1, c.b + dh * CARS.fill * ss(CARS.fillA, CARS.fillB, w));
-    if (c.b > 0 && w < CARS.calm) { c.wt += dh; if (c.wt >= c.wait) { c.b = 0; c.wt = 0; } }
+    if (c.b > 0 && w < CARS.calm) { c.wt += dh; if (c.wt >= c.wait) { c.b = 0; c.wt = 0; if (C.dig === c.i) beaten(c); else c.b0 = 0; } }
     else c.wt = 0;
   }
+}
+
+// ---- digging one out by hand (3.3b)
+const k01 = b0 => Math.max(0, Math.min(1, (b0 - CARS.buried) / (1 - CARS.buried)));
+C.digT = b0 => CARS.digT[0] + (CARS.digT[1] - CARS.digT[0]) * k01(b0);
+C.pay = b0 => Math.round(CARS.payR[0] + (CARS.payR[1] - CARS.payR[0]) * k01(b0));
+const poss = n => n + (/s$/.test(n) ? "'" : "'s");
+C.dig = -1;
+function reach(c, x, z) {                                                 // in drift radii from the car's middle
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), dx = x - c.x, dz = z - c.z;
+  return Math.hypot((dx * fz - dz * fx) / 1.95, (dx * fx + dz * fz) / (3.15 * c.sx));
+}
+function diggable(c) { return !c.paid && (c.b >= CARS.buried || (c.b0 > 0 && c.b > 0.005)); }
+C.digNear = () => {
+  if (!C.ready || !api || !TLX.on("digcars")) return null;
+  const F = api.FOOT; if (!F.on) return null;
+  let best = null, bd = CARS.digR;
+  for (const c of C.cars) { if (Math.abs(c.x - F.x) > 8 || Math.abs(c.z - F.z) > 8 || !diggable(c)) continue; const r = reach(c, F.x, F.z); if (r < bd) { bd = r; best = c; } }
+  return best;
+};
+function stopDig(msg) { if (C.dig < 0) return; C.dig = -1; api.FOOT.dig = false; if (msg) api.toast(msg); }
+function beaten(c) { C.dig = -1; api.FOOT.dig = false; c.b0 = 0; api.toast(`${c.owner} came out and finished it off with the snowblower. "Takk anyway!"`); }
+function finish(c) {
+  const pay = C.pay(c.b0);
+  c.b = 0; c.b0 = 0; c.wt = 0; c.paid = true; C.dig = -1; api.FOOT.dig = false;
+  api.GS.cash += pay; C.paidN = (C.paidN || 0) + 1; C.lastPay = pay;
+  api.toast(`${c.owner} comes out as the last of it comes off. "Tusen takk!" ${api.fmtCash(pay)} for digging out the car.`);
+  if (api.save) api.save();
+}
+const PROV = {
+  use() {
+    const c = C.digNear(); if (!c) return null;
+    if (C.dig === c.i) return { label: "STOP", hint: () => `Digging out ${poss(c.owner)} car ${Math.round(100 * (1 - c.b / Math.max(0.01, c.b0)))}% · ${api.keyHint("use", "stop")}`, act: () => stopDig("Stopped digging. The car's still half in the drift.") };
+    return { label: "DIG", hint: () => `${api.keyHint("use", `dig out ${poss(c.owner)} car`)}${api.INP.dev === "touch" ? ` · ${poss(c.owner)} car` : ""} (about ${api.fmtCash(C.pay(Math.max(c.b0, c.b)))})`,
+      act: () => { if (C.dig >= 0) stopDig(); C.dig = c.i; c.b0 = Math.max(c.b0, c.b); api.FOOT.dig = true; api.toast(`Digging out ${poss(c.owner)} car. Hold still.`); } };
+  },
+  digging: () => C.dig >= 0
+};
+function digTick(dt) {
+  if (C.dig < 0) return;
+  const c = C.cars[C.dig], F = api.FOOT;
+  if (!c || !F.on || !F.dig || !TLX.on("digcars") || reach(c, F.x, F.z) > CARS.digR + 0.15) { C.dig = -1; F.dig = false; return; }
+  dt = Math.min(0.1, dt || 0);
+  c.b = Math.max(0, c.b - dt * c.b0 / C.digT(c.b0));
+  // face the drift (turned on the spot, feet stay put) and throw snow off it
+  const want = Math.atan2(c.x - F.x, c.z - F.z); let d = want - F.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); F.yaw += d * (1 - Math.exp(-4 * dt));
+  if (api.emit && Math.random() < dt * 10) { const a = F.yaw + (Math.random() - 0.5) * 1.2; api.emit(F.x + Math.sin(a) * 0.9, api.world.surf(F.x, F.z) + 0.3, F.z + Math.cos(a) * 0.9, -Math.cos(F.yaw) * 1.2 * (Math.random() - 0.5), 2.2, -Math.sin(F.yaw) * 1.2 * (Math.random() - 0.5), 1.4, 0.8); }
+  if (c.b <= 0.004) finish(c);
+  snowLook();
 }
 function tick() {
   const st = CS(); if (!C.ready || !st) return;
@@ -173,6 +237,7 @@ C.setSnow = (i, v) => { for (const c of C.cars) if (i === null || i === undefine
 C.step = dh => { step(dh); snowLook(); };
 C.CARS = CARS;
 
+TLX.option({ id: "digcars", name: "Dig out buried cars", hint: "After a storm, dig a snowed-in car out by hand by its owner's door for $40-90. Off = no prompt, no pay.", sys: "cars" });
 TLX.register({
   id: "cars", v: 1,
   state0: () => ({ h: -1, c: {} }),
@@ -182,15 +247,16 @@ TLX.register({
     try {
       C.cars = place(a.world);
       const st = CS(), saved = (st && st.c) || {};
-      for (const c of C.cars) { const v = saved[c.key]; if (Array.isArray(v)) { c.b = Math.max(0, Math.min(1, +v[0] || 0)); c.wt = Math.max(0, +v[1] || 0); } }
+      for (const c of C.cars) { const v = saved[c.key]; if (Array.isArray(v)) { c.b = Math.max(0, Math.min(1, +v[0] || 0)); c.wt = Math.max(0, +v[1] || 0); c.b0 = Math.max(0, Math.min(1, +v[2] || 0)); c.paid = !!v[3]; } }
       build(a); C.ready = true;
+      if (a.footx) a.footx.push(PROV);
     } catch (e) { console.error("TLX cars", e); C.err = String(e); }
     C.ms = Math.round(performance.now() - t0);
   },
-  tick() { try { tick(); } catch (e) { if (!C.tickErr) console.error("TLX cars tick", e); C.tickErr = String(e); } },
+  tick(dt) { try { tick(); digTick(dt); } catch (e) { if (!C.tickErr) console.error("TLX cars tick", e); C.tickErr = String(e); } },
   save() {
     const st = CS(); if (!st) return;
-    st.c = {}; for (const c of C.cars) if (c.b > 0.005) st.c[c.key] = [Math.round(c.b * 1000) / 1000, Math.round(c.wt * 100) / 100];
+    st.c = {}; for (const c of C.cars) if (c.b > 0.005 || c.paid) { const r = [Math.round(c.b * 1000) / 1000, Math.round(c.wt * 100) / 100]; if (c.b0 > 0 || c.paid) r.push(Math.round(c.b0 * 1000) / 1000); if (c.paid) r.push(1); st.c[c.key] = r; }
     if (st.h >= 0) st.h = Math.round(st.h * 1000) / 1000;
   }
 });

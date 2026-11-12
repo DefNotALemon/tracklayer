@@ -14684,6 +14684,15 @@ function wnStow(mountAgain) {
   if (mountAgain && typeof rescueUnhook === "function") rescueUnhook();
 }
 const anchorPt = a => [a.x, surf(a.x, a.z) + 0.5, a.z];
+/* On-foot uses from the expansion systems (tlx-*.js, e.g. digging out a buried car in tlx-cars.js). Each provider
+   pushed onto footX() (api.footx) is { use() -> null | { label, hint(), act }, digging() -> bool }: label is the
+   one-word touch / pad name, hint() the #wnHint line (a function: on touch keyHint -> btn("use") asks footUse
+   again, so building it inside use() would recurse), act what E does. digging() true keeps
+   FOOT.dig on (crouched, not walking) while no sled is bogged. Asked only with the sled free (BOG.on wins).
+   A function declaration so init code can reach it before this line runs (TDZ). */
+function footX() { return footX.a || (footX.a = []); }
+function footXUse() { if (!FOOT.on || BOG.on || GS.dead || GS.garageOpen || tutHidden() || (FISH && FISH.ctxLabel && FISH.ctxLabel())) return null; for (const p of footX()) { const r = p.use(); if (r && r.label) return r; } return null; }   // the tackle shop / fish buyer take E first (gameKey), so they win here too
+function footXDig() { for (const p of footX()) if (p.digging && p.digging()) return true; return false; }
 // E on foot: hook, unhook, or start digging
 // What E would do right here on foot, as one word (the touch button wears it), or null when there's nothing to use.
 // Reads only: the doing is footAction. Keep the two in step.
@@ -14704,6 +14713,7 @@ function footUse() {
   if (WN.state === "hooked" && WN.mode === "self") { const a = WN.anchor; return a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8 ? "UNHOOK" : null; }
   if (wd && WN.state === "out" && WN.snapT <= 0 && anchorsNear(FOOT.x, FOOT.z, 2.6).length) return "HOOK";
   if (!BOG.on && VEH.rigFoot) { const r = VEH.rigFoot(); if (r && r.label) return r.label; }   // at the rig's tongue: HITCH / UNHITCH (tlx-vehicles.js)
+  { const r = footXUse(); if (r) return r.label; }                                            // expansion uses (a buried car: DIG)
   if (BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6) return FOOT.dig ? "STOP" : "DIG";
   return null;
 }
@@ -14728,6 +14738,7 @@ function footAction() {
     if (cands.length) { toast(`The ${anchorName(cands[0].o)} is out of reach of your ${wd.len} m line.`, "warn"); return; }
   }
   if (!BOG.on && VEH.rigFoot) { const r = VEH.rigFoot(); if (r && r.label) { r.act(); return; } }   // mirrors footUse: the rig's tongue
+  { const r = footXUse(); if (r) { r.act(); return; } }                                         // mirrors footUse: expansion uses
   if (BOG.on && near() && WN.state !== "hooked") { FOOT.dig = !FOOT.dig; toast(FOOT.dig ? "Digging. Hold still." : "Stopped digging."); return; }
   if (!wd && !BOG.on) { toast(`Nothing to do out here. ${keyHint("mount", "get back on")} at the sled.`, "warn"); return; }
   toast(wd ? "Walk up to a tree or a boulder to hook the line." : "Nothing to hook.", "warn");
@@ -15376,7 +15387,7 @@ function rescueTick(dt) {
   if (FOOT.on && !GS.dead && MNT.on) { mountTick(dt); }
   else if (FOOT.on && !GS.dead && DMT.on) { dismountTick(dt); }
   else if (FOOT.on && !GS.dead && !INT.on) {
-    FOOT.dig = FOOT.dig && BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.2;
+    FOOT.dig = FOOT.dig && (BOG.on ? WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 3.2 : footXDig());
     footStep(dt);
     if (FOOT.dig && BOG.on) {
       const rate = 1 / (80 * (1 - ST.rescue * 0.55)) * (1 - 0.3 * BOG.depth);
@@ -15452,6 +15463,7 @@ function wnPrompt() {
       h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (!tutHidden() && rigHint(near)) h = rigHint(near);         // at the rig's tongue: hitch or unhitch it
+    else if (footXUse()) h = footXUse().hint() + (near && !FOOT.dig ? " · " + keyHint("mount", "get on") : "");   // expansion uses (a buried car)
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
     else h = (FISH && FISH.hint()) || (near ? keyHint("mount", VEH.board) : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
   } else if (BOG.on) { show = true; h = VEH.cur ? `STUCK · ${keyHint("dismount", "get out")} and dig · ${btn("reset")}: reset` : `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }
@@ -16560,7 +16572,7 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
-    getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
+    footx: footX(), getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,

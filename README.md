@@ -463,6 +463,14 @@ six hours or so a rounded heap where the car was. Once the weather eases the own
 their own time, so the morning after a storm some cars stand clear and some are still drifts (a few
 owners are away for a day or two). Which cars are snowed in is saved with the game.
 
+You can dig one out yourself for a bit of cash (Settings > Options: "Dig out buried cars", on by
+default). On foot beside a buried car the use control (E, the left stick click on a pad, the DIG button
+on touch) offers to dig out the owner's car and says roughly what it pays; press it again to stop. It
+takes 20 to 40 seconds by hand depending on how deep the drift is, and pays $40 to $90 the same way: the
+owner comes out with a thank-you as the last of it comes off. Each car pays once per storm, and if the
+owner gets to it before you finish, you get nothing. By the tackle shop and the fish buyer, E still
+opens the shop.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive
