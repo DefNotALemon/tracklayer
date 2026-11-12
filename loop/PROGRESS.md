@@ -3,6 +3,34 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-11 20:30 — Beta fix 0117/0119: the pickup pulls away in light snow, a stuck truck frees on plowed ground (G4) — 475e36d
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0116-0119: BUGs 0116 #1 (reverse silent at one off-lane spot, pull 6x the drag), 0116 #2 (pad
+LT reverse nearly on/off), 0117 #1 + 0119 #3 (the same thing: the pickup can't pull away from rest on open snow), 0117 #2
+(bog survives a move onto plowed ground). POLISH left as is: 0116 #3/#4 (touch brake inconclusive, scenario spot depth),
+0117 #3-5, 0118 #1-3 (reload mid get-off seats you; harness limits), 0119 #1 (tablet left open on Q out, third report:
+worth a small pass), #2 (parcels not saved across reload: existing behaviour), #4 (toast over the Jobs subtitle), #5.
+Last triaged report 115 -> 119. Took 0117 #1/#2 + 0119 #3 + 0116 #2 (one area, tlx-vehicles.js `core`).
+Cause, measured with `x2_standstart_probe.mjs` (seated truck, W from rest, per-step internals): the "flat open spots" of
+0117/0119 are 46-66 cm of untouched powder. The truck drops to its tyres' full sink, belly buried 0.2-0.4 m past its
+26 cm clearance, drag 15-53 kN against 4.1 kN of traction: stuck, as designed ("hopeless in fresh powder"; a real stock
+pickup is too). 0119's "depth 0.06 m" was read after the wheels had dug the cell out. What was wrong: (1) rolling
+resistance `0.95 * sink + 5 (sink-0.2)^2` made 20-25 cm of fresh as hopeless as 60 cm (cr 0.21 vs loose mu 0.22, so it
+dug in); now `0.55 * sink + 2.2 (sink-0.22)^2`, about sink over tyre diameter, so a hand's to a boot's depth pulls
+away and ~30 cm crawls, deep powder unchanged (still stuck). (2) A bogged truck dragged/towed/put onto plowed ground
+stayed bogged: now it frees ("Free.") when every tyre sinks < 5 cm on packed ground. (3) Reverse maps the pedal onto
+0.35..1 past an 8% dead zone (an automatic creeps), so a light LT pull backs it up; full S/LT unchanged.
+Numbers (new `x2_standstart.mjs`, before = origin/main, after): shallow 16 cm fresh, W 5 s from rest 9.2 -> 19.9 m;
+pad LT 30% in it 0.0 -> 1.7 m; deep 50 cm: 0 -> 0 m, dig warning at 1.3 s, bog at 2.9 -> 3.0 s (unchanged); bogged truck
+on the lane: BOG.on true -> false, then W 0.8 -> 17.4 m; lane from rest 16.9 -> 18.1 m in 3 s (rolling drag on the packed
+lane 956 -> 754 N; top speed is the governor's, unchanged). No 24-33 cm spot exists flat and open within 3.6 km, so
+the crawl band is checked by formula only (the scenario runs it when it finds one).
+Not done: 0116 #1 (reverse silent at one spot with low drag: candidates the tow rig/trailer constraint
+or `collide` with the parked sled; needs its repro) is the next builder pass's BUG, before 3.2.
+Gate: smoke 0, x1_save 0, x2_standstart 0 (10/10), x2_vehreverse 0, x2_pickup 0, x2_haulreverse 0, page errors none
+(the first gate run flagged x2_standstart only for printing "page errors: none" twice; the duplicate line was removed
+and the rerun shows it once, 10/10).
+
 ## 2026-11-11 19:20 — 3.1 The road network, static (G4) — 6fb0dc2
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage: reports 0112-0115 (2.7 refunds, repair) hold no BLOCKER or BUG: all POLISH (0112 #1 a scenario flake,
