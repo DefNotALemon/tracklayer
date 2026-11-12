@@ -39,7 +39,7 @@ ok(A.n === 6 && A.cars === 6, "A: " + A.cars + " drivers on the high preset");
 ok(A.routes.length >= 4, "A: " + A.routes.length + " drivable roads");
 ok(A.on >= 4 && A.offRoad === 0, "A: " + A.on + " cars placed, " + A.offRoad + " off the road");
 ok(A.dist.every(d => d >= 200 && d <= 1350), "A: placed round you at " + A.dist.join(", ") + " m");
-ok(A.meshes === 4, "A: four instanced meshes (" + A.meshes + ")");
+ok(A.meshes === 5, "A: five instanced meshes (" + A.meshes + ")");
 
 // ---- B: drive one car
 const rid = await J(`TLXT.routes.slice().sort((a, b) => b.len - a.len)[0].id`);
@@ -63,7 +63,8 @@ ok(Blane < 0.4 && Bside > 1.0, "B: in the right-hand lane (off the lane line " +
 ok(Bbend <= 0.5, "B: never faster than a bend holds (worst +" + Bbend.toFixed(2) + " m/s)");
 if (!NOSTILLS) { await carCam(); await shot("x3t_b_driving"); await carCam(22, 9, 0.5); await shot("x3t_b_wide"); await camOff(); }
 
-// ---- C: your sled in its lane ahead
+// ---- C: your sled in its lane ahead (pulling out round it is 3.4b1, x3_pass.mjs: held off here so C/E/F see a stopped car)
+await ev(`TLXT.TRAF.passWait = 1e9; true`);
 await ev(`(() => { const c = TLXT.cars[0], p = TLXT.lanePt("${rid}", c.s + 70, 1); P.x = p.x; P.z = p.z; P.y = surf(P.x, P.z) + 0.2; P.vx = P.vz = 0; P.yaw = p.yaw; return true; })()`);
 let Cmin = 1e9; { const t0 = await clock(); while ((await clock()) - t0 < 16) { const d = await J(`Math.hypot(TLXT.cars[0].x - P.x, TLXT.cars[0].z - P.z)`); Cmin = Math.min(Cmin, d); await sleep(120); } }
 const C = await J(`({ v: TLXT.cars[0].v, why: TLXT.cars[0].why, d: Math.hypot(TLXT.cars[0].x - P.x, TLXT.cars[0].z - P.z) })`);
@@ -95,6 +96,7 @@ await waitGame(0.3);
 const F3 = await J(`(() => { const c = TLXT.cars[0], fx = Math.sin(c.yaw), fz = Math.cos(c.yaw); let m = 1e9; for (const u of [-1.45, 0, 1.45]) m = Math.min(m, Math.hypot(FOOT.x - c.x - fx * u, FOOT.z - c.z - fz * u)); return m; })()`);
 ok(F3 >= 1.25, "F: a walker inside the car's side is pushed clear (" + F3.toFixed(2) + " m from a circle, clear at 1.31)");
 
+await ev(`TLXT.TRAF.passWait = 3; true`);
 // ---- D: the road ahead snowed in
 await ev(`(() => { FOOT.on = false; const c = TLXT.cars[0]; const p = TLXT.lanePt("${rid}", c.s - 400 * c.dir, 1); P.x = p.cx + 60; P.z = p.cz + 60; P.y = surf(P.x, P.z) + 0.3; return true; })()`);
 const D0 = await J(`(() => { const c = TLXT.cars[0], seg = TLXR.ROADS.seg, gs = c.r.rt.seg; let gi = -1;

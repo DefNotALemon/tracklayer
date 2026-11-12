@@ -477,6 +477,9 @@ anything in their lane: another car, your sled or truck, a parked vehicle, someo
 has drifted the road shut they pull up before the drift, wait a little and turn round in the road; at the
 end of a road they turn round or drive on into the village. Ride into one and you bounce off it as off a
 boulder (and the driver isn't pleased). There are fewer of them on phones (the low graphics preset).
+Leave your sled (or yourself) standing in their lane and they don't wait for ever: after a few seconds,
+if nothing is coming the other way, they pull out into the other lane, creep past and move back in. Their
+wheels turn as they roll.
 
 ## The pickup
 

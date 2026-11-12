@@ -116,6 +116,12 @@ function build(a) {
     cap: merge(T, [[bx(1.4, 1, 1.5, 0, 0.5, -0.42)]]),          // unit height, scaled per car (roof); a second instance does the hood
     mound: new T.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2)
   };
+  // for the drivers (tlx-traffic.js, 3.4b1): the trim without its wheels, and one wheel on its own (axle along x,
+  // centred) with a light rim and a dark cross on it, so a turning wheel reads as turning
+  const cyX = (r, w, sg) => new T.CylinderGeometry(r, r, w, sg).rotateZ(Math.PI / 2);
+  G.trim = merge(T, [[bx(1.82, 0.2, 0.14, 0, 0.42, L + 0.02)], [bx(1.82, 0.2, 0.14, 0, 0.42, -L - 0.02)], [bx(CARS.wid + 0.02, 0.1, CARS.len - 1.4, 0, 0.4, 0)]]);
+  G.wheel = merge(T, [[cyX(0.33, 0.24, 14), new T.Color(0x16181b)], [cyX(0.2, 0.25, 12), new T.Color(0x9aa0a6)],
+    [new T.BoxGeometry(0.27, 0.36, 0.06), new T.Color(0x2a2d31)], [new T.BoxGeometry(0.27, 0.06, 0.36), new T.Color(0x2a2d31)]]);
   C.geo = G;                                   // the shapes, for the drivers on the roads (tlx-traffic.js)
   const snow = new T.MeshLambertMaterial({ color: 0xf3f7fc });
   M = {
