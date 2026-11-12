@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-12 — First person: rider stands up when their own sled blocks the view — d298719
+## 2026-11-12 — First person: rider stands up when their own sled blocks the view — 54f34d5
 Lemon's ask. `viewBlockT()` (tracklayer.js, above `updVisuals`): riding in first person, a ray from the seated eye along the look
 direction is tested against the dash tablet (THREE.Raycaster, hidden DoubleSide copy of its glass) and the hood crown (`ud.hoodY`
 marched along the ray, 1.6 m reach). Windshield pane deliberately not tested: hidden in FP (`V.headHid`) and see-through. `CLIMB.block`
