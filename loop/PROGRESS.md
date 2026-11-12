@@ -3,6 +3,33 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 03:05 — 3.2a road snow: storms fill the roads, the council plow clears them (G4) — 381cd35
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of report 0139 (2.6a trailer slope/pad/fjord beta): no BLOCKER/BUG; #1-#3 POLISH (pickup sunk to the sills
+after a teleport onto a slope, likely a scenario artifact; chase cam loses the truck while it waits in the water; trailer at
+~80 deg after a locked brake) left listed. Last triaged report 138 -> 139. Took the next slice, 3.2, split into 3.2a (this)
+and 3.2b (scraped road surface for the sled, Map legend, job/compass warning, pickup line naming a drifted road).
+Built: tlx-roads.js cuts every open road into 400 m stretches (fv888 13, gamvik 7, dyfjord 5, skjanes 15, lebesby 11) and
+files each plowed leg (and the wide-bend legs) under its stretch. A stretch's snow (0..1) rises with the storm over its
+middle (0.16/game h at full strength, nothing under ~0.3) and sets its legs' plow k = 0.9 x (1 - snow) in 0.05 steps;
+tracklayer.js gets `plowRefresh(legs)` (api `world.replow`; `addLane` now returns its legs): drops the yard cache round them,
+re-reads loaded chunks, cuts plowed ones down at once, and leaves snowing ones to `refill()` at the storm's rate. Council
+plow: route max >= 0.12 and weather at its first end < 0.45 for 0.75 h -> sets out at 5 km/game h, zeroing each stretch it
+reaches. >= 0.35 = snowed in: chart repainted (casing painted once, a copy kept as `TLXR.mapBase`, colours redrawn over it on
+a change; snowed in = ice blue #6f9fd0, tried snow-white first: invisible on the cream relief of the tablet Map). Toasts on
+the first road drifting shut and when all are open. A clock jump > 2 h finds every road plowed. Saved in `x.sys.roads` v2.
+Numbers (new asserting `x3_roadsnow.mjs`, fv888 stretch 7 at 2.8 km): plowed yardAt 0.90, depth 0.21 m (powder 22 m off:
+0.90 m). After 3 storm hours: snow 0.54, "snowed in", yardAt 0.41, settles-to depth 0.22 -> 0.60 m, real depth 0.21 -> 0.32 m
+after 12 game s and climbing; town door yard 1.00 -> 1.00; off-road powder unchanged; chart pixel orange -> blue; no plow
+while storming. Storm off: plow out, stretch back to 0.22 m at once, "open", orange, "roads are open again" toast. Saved
+Dyfjord 0.6 survives a reload; a save with no road state loads all open; snowed in -> GS.hour + 3 -> all open. Re-reading
+every road's plow map at once: 2.8 ms (snowing) / 1.5 ms (plowed) headless.
+Not done: the plow is invisible (a truck on the road is 3.4 / milestone 4); the closed fell road is static; a snowed-in road
+gives the pickup no road-specific line yet (3.2b). Stills `~/.hermes/cache/scratch/tlloop/b32/r1/` (sheet.jpg: plowed,
+snowed, replowed, tablet Map; the minimap shows the drifted roads clearly).
+Gate: smoke 0, x1_save 0, x3_roadsnow 0 (all asserts), x3_roads 0, x3_hairpin 0, page errors none. Log
+`~/.hermes/cache/scratch/tlloop/b32/gate.log`.
+
 ## 2026-11-12 02:30 — Beta fix 0129 #1/#2: pickup traction control + "more throttle" / "steep in this snow" (G4) — a5d8bc9
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of reports 0137 (rescue v195 beta: #1-#3 verified, #4-#6 POLISH: long cliff carry is a cut not a tow, a

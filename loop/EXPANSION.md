@@ -12,7 +12,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done |
-| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); next: 3.2 (dynamic road snow) |
+| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); next: 3.2b (scraped road surface, legend, job warnings) |
 | 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -258,8 +258,21 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       inside was tried first and cut Lebesby by 800 m to 18-24%); `widen()` then eases any bend left under 13 m;
       bends under 26 m are plowed 2.6 m wider each side. Test `x3_hairpin.mjs` (min radius per route + a driver who
       slows for bends on fv888/lebesby/skjanes, no bog).
-- [ ] 3.2 Dynamic road snow: per-segment depth through the same snow field, storms fill it, saved; yards stay
-      as they are. Map shows open / snowed in / closed. Sled on hard pack vs scraped bare.
+- [x] 3.2a (v197) Dynamic road snow: each open road is cut into 400 m stretches with their own snow (0 plowed .. 1 level
+      with the snowpack), filled by the storm over each stretch (`WX.at` at its middle, 0.16 per game hour at full
+      strength, nothing under ~0.3), setting how hard its legs are plowed (k = 0.9 x (1 - snow), 0.05 steps, re-read
+      through the new `api.world.replow` = `plowRefresh` in tracklayer.js; `addLane` returns its legs). Refill lets the
+      snow drift in at the storm's rate; the council plow (waits 0.75 h after the weather eases under 0.45 at the
+      road's first end, then 5 km per game hour) cuts each stretch back at once. Snowed in at 0.35+: the chart repaints
+      that stretch ice blue (casing painted once, a copy kept, colours redrawn over it on a change), a toast when the
+      first road goes and when they're all open. A clock jump over 2 h (sleep, skip) finds them plowed. Saved in
+      `x.sys.roads` (v2: `{ r: { id: { s, p, w } }, h, warned }`); yards, streets and the quay stay plowed. Test
+      `x3_roadsnow.mjs`.
+- [ ] 3.2b Road surface and the pickup: a sled on a freshly plowed road in a cold snap rides scraped bare in the wheel
+      tracks (more drag, a "Scraped road" bonus line, sparks off the skis' carbides) vs hard pack on the shoulders;
+      the Map app gets a small legend (open / snowed in / closed) and the Jobs/compass row warns when a job's road is
+      snowed in; the pickup's stuck line names a snowed-in road ("The road's drifted shut. Wait for the plow or take
+      the sled.").
 - [ ] 3.3 Parked cars, some buried after a storm. Option: dig a buried car out for pay.
 - [ ] 3.4 A few drivers: slow, predictable, stop at an unplowed road. Counts tuned for the low preset.
 - [ ] 3.5 Semis in a few sizes with their own coupling. Option: storm closures and convoys on the fell road.
