@@ -743,6 +743,16 @@ function paint(geo, fn) {
   g.setAttribute("color", new THREE.BufferAttribute(c, 3)); return g;
 }
 
+// the far terrain re-read from the ground grid: the roads (tlx-roads.js) cut and fill their bed at boot, after buildFar
+function farRefresh() {
+  if (!far) return;
+  const step = 2, n = (GN - 1) / step + 1, pa = far.geometry.attributes.position, pos = pa.array;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * step * GN + i * step, v = j * n + i;
+    pos[v * 3 + 1] = bio[k] === 3 ? Math.min(ground[k], SEA - 1.5) : ground[k] + freshG[k];
+  }
+  pa.needsUpdate = true; far.geometry.computeVertexNormals();
+}
 function buildFar() {
   const step = 2, n = (GN - 1) / step + 1;   // 8 m far-terrain grid
   const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), mlt = new Float32Array(n * n * 3), mlT = new Float32Array(n * n);
@@ -16461,7 +16471,9 @@ function initExpansion() {
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, addYard, addLane, yardAt,
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
-      laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC } },
+      laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
+      // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
+      terrain: { ground, bio, res: GRES, n: GN, refresh: farRefresh } },
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },

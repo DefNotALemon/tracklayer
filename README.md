@@ -421,8 +421,11 @@ The Nordkinn has roads now. From Kjøllefjord one runs out past the fuel station
 Gartefjellet wind farm and over the fell to Mehamn, then on to Gamvik and the Slettnes lighthouse;
 a branch leaves it for Skjånes in the east; another goes north-west to Dyfjord; and one heads south
 past the Lebesby station to Lebesby. They wind the way real roads do, round the lakes and houses and
-along the slopes rather than straight up them. Each village has plowed streets from the road's end
-to every door.
+along the slopes rather than straight up them. Where one climbs a steep hillside it does it in proper
+hairpins, with a level landing at each turn. Each road is built like a real one: cut into the
+hillside and banked up over the dips, so it sits level from side to side and keeps to a gentle
+grade, with snowy banks easing back to the natural slope either side. Each village has plowed
+streets from the road's end to every door.
 
 In winter the council keeps them plowed: a firm, packed strip about six metres wide, sunk below the
 snow either side, with orange snow poles every fifty metres on both sides to steer by when the

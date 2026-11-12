@@ -35,6 +35,12 @@ const ROADS = {
   poleGap: 50, poleOff: 4.6, poleH: 2.3,
   street: 1.5,              // village street lanes (Kjøllefjord's own lanes are 1.5)
   pad: 520,                 // how far a leg's search may stray outside the box round its two ends, m
+  bed: 6.8,                 // the road bed: level across this far either side of the centre, m (road + shoulder)
+  grade: 0.08,              // the steepest the bed is eased toward along the line
+  bank: 14,                 // the widest the cut/fill bank eases back to the natural ground over, m
+  cutMax: 8,                // the deepest cutting / highest embankment, m (a hairpin landing on a 40% hillside needs ~7)
+  pair: 18,                 // two roads closer than this share one bed height (hairpin legs, a branch off the trunk), m
+  ease: 36,                 // how far from a road's end (a village edge, a forecourt) the bed eases back to the ground, m
   routes: [
     { id: "fv888", name: "Kjøllefjord–Mehamn road", via: ["depot", "@st_kjollefjord", "windfarm", "@st_mehamn", "mehamn"] },
     { id: "gamvik", name: "Gamvik road", via: ["mehamn", "gamvik", "relay"] },
@@ -71,7 +77,7 @@ function cellF(k, W) {
   else {
     if (W.isWater(x, z)) f |= 2;
     let trees = 0;
-    for (const o of W.obstaclesNear(x, z, 12)) {
+    for (const o of W.obstaclesNear(x, z, 16)) {
       const d = Math.hypot(o.x - x, o.z - z);
       if (o.tree !== undefined) { if (!o.down && d < 7) trees++; }
       else if (!o.log && o.top > 0.3 && d < (o.r || 0.5) + 9) f |= 4;
@@ -99,6 +105,7 @@ function leg(a, b, W, soft) {
   while (hq.length) {
     const k = pop(); if (shut.has(k)) continue; shut.add(k); if (k === t) break;
     const ki = k % N, kj = Math.floor(k / N), hk0 = cellH(k, W), gk = g.get(k);
+    const anc = []; for (let q = from.get(k), m = 0; q !== undefined && m < 16; q = from.get(q), m++) anc.push(q % N, Math.floor(q / N));   // the path's last 16 cells (see doubling back)
     for (const [di, dj] of MOVES) {
       const ni = ki + di, nj = kj + dj; if (ni < i0 || nj < j0 || ni > i1 || nj > j1) continue;
       const n = nj * N + ni; if (shut.has(n)) continue;
@@ -117,6 +124,10 @@ function leg(a, b, W, soft) {
       if (!ex) { if (f & 2) c *= 25; if (f & 8) c *= 1.35; }
       if (f & 4) c *= 40;                                             // (soft: a squeeze past one, pushed clear by shove)
       if (G.used[n]) c *= 0.35;
+      // no doubling back past itself: a cell next to one this path used 2-17 cells back (a V or a hairpin) costs 20 cells of road. Without
+      // it a climb up a steep hillside zigzagged in legs 8-12 m apart and 3-5 m apart in height, which no road bed on
+      // the 4 m ground grid can level (beta 0123); now a hairpin's legs stand at least two cells (32 m) apart
+      for (let q = 0; q < anc.length; q += 2) if (Math.abs(anc[q] - ni) <= 1 && Math.abs(anc[q + 1] - nj) <= 1) { c += ROADS.grid * 20; break; }
       const ng = gk + c, og = g.get(n);
       if (og === undefined || ng < og) { g.set(n, ng); from.set(n, k); push(ng + 0.35 * ROADS.grid * Math.hypot(ni - tx, nj - tz), n); }
     }
@@ -249,6 +260,7 @@ function build(W) {
     R.routes.push({ id: r.id, name: r.name, closed: !!r.closed, pts, segs, len, ends: [r.via[0], r.via[r.via.length - 1]] });
   }
   index();
+  bed(W);
   // the corridor: trees out, snow plowed (not on a closed road; a village's streets are plowed whatever the road does)
   for (const rt of R.routes) for (const sg of rt.segs) {
     if (sg.street) { W.addLane(sg.pts, ROADS.street); continue; }
@@ -259,6 +271,87 @@ function build(W) {
   poles(W);
   paintMap(W);
   R.ms = Math.round(performance.now() - t0); R.ready = true;
+}
+
+// ---- the road bed: cut into the hillside and built up over the dips, level across, the grade eased along.
+// The route search keeps a road under ~10% over its 16 m cells, but the ground between (the 110 m swells and the
+// sidehills a contour-hugging road runs along) still tipped it 20-40% in places and the pickup sat there (beta 0123).
+// A real road is graded: each open stretch's height is smoothed along the line (±30 m, three passes), its grade relaxed
+// toward ROADS.grade, and the 4 m ground grid set to that height out to ROADS.bed either side, easing back to the
+// natural ground over a bank ~1:1.6 (up to ROADS.bank). Never more than ROADS.cutMax of cut or fill; not under lake ice
+// or the sea; the ground under a house, shed, turbine or boulder stays put (the bank fades out round it); the last
+// ROADS.ease m into a village or a forecourt eases back to the ground it was built on. Trees the bank would bury or
+// leave on a pedestal go with the corridor. The far terrain is re-read after; the near snow patch is built after boot.
+function bed(W) {
+  const T = W.terrain; if (!T) return;
+  const { ground, bio, res, n } = T, H = W.half, Rf = ROADS.bed, Rb = Rf + ROADS.bank;
+  const best = new Map(), trees = new Map(), S = [];
+  for (const rt of R.routes) for (const sg of rt.segs) {
+    if (sg.street || sg.pts.length < 3) continue;
+    const p = sg.pts, N = p.length, h0 = p.map(([x, z]) => W.groundAt(x, z)), cum = [0];
+    for (let i = 1; i < N; i++) cum.push(cum[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+    const h = h0.slice();
+    for (let it = 0; it < 3; it++) { const o = h.slice(); for (let i = 0; i < N; i++) { let s = 0, c = 0; for (let k = Math.max(0, i - 5); k <= Math.min(N - 1, i + 5); k++) { s += o[k]; c++; } h[i] = s / c; } }
+    S.push({ p, N, h0, h, cum });
+  }
+  // two stretches of road side by side (the legs of a hairpin, a branch leaving the trunk) share one bed: each point is
+  // pulled toward the height of the other road within ROADS.pair m, so a hairpin's turn is a level landing instead of a
+  // 3-5 m step between legs 10 m apart; the grade is relaxed along each line in between
+  const PB = new Map(), pk = (x, z) => Math.floor(z / 16) * 100000 + Math.floor(x / 16);
+  S.forEach((s, si) => s.p.forEach(([x, z], i) => { const k = pk(x, z); let a = PB.get(k); if (!a) PB.set(k, a = []); a.push(si, i); }));
+  const pair = S.map((s, si) => s.p.map(([x, z], i) => {
+    const out = [], cx = Math.floor(x / 16), cz = Math.floor(z / 16);
+    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) { const a = PB.get((cz + dz) * 100000 + cx + dx); if (a) for (let q = 0; q < a.length; q += 2) {
+      const sj = a[q], j = a[q + 1], o = S[sj].p[j]; if (Math.hypot(o[0] - x, o[1] - z) > ROADS.pair) continue;
+      if (sj === si && Math.abs(s.cum[j] - s.cum[i]) < ROADS.pair * 2) continue; out.push(sj, j); } }
+    return out.length ? out : null;
+  }));
+  const relax = () => { for (const s of S) for (let it = 0; it < 8; it++) for (let i = 1; i < s.N; i++) {
+    const lim = ROADS.grade * (s.cum[i] - s.cum[i - 1]), df = s.h[i] - s.h[i - 1];
+    if (Math.abs(df) > lim) { const e = (Math.abs(df) - lim) / 2 * Math.sign(df); s.h[i] -= e; s.h[i - 1] += e; } } };
+  relax();
+  for (let it = 0; it < 30; it++) {
+    const nh = S.map(s => s.h.slice());
+    S.forEach((s, si) => { for (let i = 0; i < s.N; i++) { const pr = pair[si][i]; if (!pr) continue; let m = 0, c = 0; for (let q = 0; q < pr.length; q += 2) { m += S[pr[q]].h[pr[q + 1]]; c++; } nh[si][i] = s.h[i] * 0.4 + (m / c) * 0.6; } });
+    S.forEach((s, si) => { for (let i = 0; i < s.N; i++) s.h[i] = nh[si][i]; });
+    relax();
+  }
+  for (const { p, N, h0, h, cum } of S) {
+    for (let i = 0; i < N; i++) {
+      const e = Math.min(cum[i], cum[N - 1] - cum[i]), t = e >= ROADS.ease ? 1 : (e / ROADS.ease) * (e / ROADS.ease) * (3 - 2 * e / ROADS.ease);
+      h[i] = h0[i] + Math.max(-ROADS.cutMax, Math.min(ROADS.cutMax, h[i] - h0[i])) * t;
+    }
+    for (let i = 1; i < N; i++) {
+      const [ax, az] = p[i - 1], [bx, bz] = p[i], ux = bx - ax, uz = bz - az, uu = ux * ux + uz * uz || 1;
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx) - Rb + H) / res)), i1 = Math.min(n - 1, Math.ceil((Math.max(ax, bx) + Rb + H) / res));
+      const j0 = Math.max(0, Math.floor((Math.min(az, bz) - Rb + H) / res)), j1 = Math.min(n - 1, Math.ceil((Math.max(az, bz) + Rb + H) / res));
+      for (let jj = j0; jj <= j1; jj++) for (let ii = i0; ii <= i1; ii++) {
+        const x = ii * res - H, z = jj * res - H, t = Math.max(0, Math.min(1, ((x - ax) * ux + (z - az) * uz) / uu));
+        const d = Math.hypot(x - ax - ux * t, z - az - uz * t); if (d > Rb) continue;
+        const k = jj * n + ii, b = best.get(k); if (!b || d < b[0]) best.set(k, [d, h[i - 1] + (h[i] - h[i - 1]) * t]);
+      }
+      for (const o of W.obstaclesNear(bx, bz, Rb + 2)) if (o.tree !== undefined && !o.down && !trees.has(o) && Math.hypot(o.x - bx, o.z - bz) < Rb + 2) trees.set(o, W.groundAt(o.x, o.z));
+    }
+  }
+  let moved = 0, deep = 0;
+  for (const [k, [d, tg]] of best) {
+    if (bio[k] === 1 || bio[k] === 3) continue;
+    const x = (k % n) * res - H, z = Math.floor(k / n) * res - H, g0 = ground[k], dh = tg - g0;
+    if (Math.abs(dh) < 0.02) continue;
+    const bank = Math.min(ROADS.bank, 2 + Math.abs(dh) * 1.6);
+    let w = d <= Rf ? 1 : d >= Rf + bank ? 0 : 1 - (d - Rf) / bank;
+    if (w > 0 && w < 1) w = w * w * (3 - 2 * w);
+    if (w <= 0) continue;
+    for (const o of W.obstaclesNear(x, z, 16)) {
+      if (o.tree !== undefined || o.log || !(o.top > 0.3)) continue;
+      const r = o.r || 0.5, od = Math.hypot(o.x - x, o.z - z), r0 = Math.max(r + 1.5, 5.7), f = od <= r0 ? 0 : od >= r0 + 5 ? 1 : (od - r0) / 5; if (f < w) w = f;
+    }
+    if (w <= 0) continue;
+    ground[k] = g0 + dh * w; moved++; if (Math.abs(dh * w) > 2) deep++;
+  }
+  for (const [o, g] of trees) if (Math.abs(W.groundAt(o.x, o.z) - g) > 0.3 && W.clearTree(o)) R.cleared++;
+  R.bed = { nodes: moved, deep };
+  T.refresh();
 }
 
 // ---- nearest road: segments bucketed on a 64 m grid
