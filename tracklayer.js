@@ -3350,7 +3350,7 @@ function physStep(dt) {
   if (VEH.cur) { P.scr = 0; VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
-  input.thr = input.brk = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false;
+  input.thr = input.steer = input.lean = 0; input.wheelie = 0; input.hop = false; input.brk = 1;   // riderless: brakes on hard until you get back on
   try { physCore(dt); } finally { input.thr = th; input.brk = br; input.steer = st; input.lean = ln; input.wheelie = wh; }
   crashStep(dt);
 }
@@ -3429,7 +3429,7 @@ function physCore(dt) {
     const pw = 47000 * PWR * SPEED_K * punch * trailK * (1 - steep * lerp(0.24, 0.42, P.pack)) * (wet ? 0.8 : 1);   // a track slips in water
     let F = 0;
     // S / Down: brake while rolling forward; once stopped (and W isn't held) keep holding it and you back up
-    const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && !strapOn && vf < GB_STILL;
+    const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && !strapOn && !CRASH.on && vf < GB_STILL;   // a riderless braking sled holds still, it doesn't creep into reverse
     GB.dir = rev ? -1 : 1;
     if (thrE > 0) F += Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * thrE * (1 - 0.9 * P.rock);
     if (rev) {
@@ -16329,7 +16329,7 @@ function crashEject(why, vx, vy, vz, skip) {
   C.x = P.x - fx * 0.1; C.z = P.z - fz * 0.1; C.y = P.y + 1.05;
   C.vx = vx * 0.94; C.vz = vz * 0.94; C.vy = Math.max(vy, 0) * 0.6 + 2.0 + spd * 0.2;
   C.ry = Math.atan2(vx, vz); C.rx = 0; C.rz = 0;
-  C.wx = spd * (0.3 + Math.random() * 0.15); C.wz = (Math.random() - 0.5) * spd * 0.22;   // head over heels, with a twist
+  C.wx = spd * (0.16 + Math.random() * 0.08); C.wz = (Math.random() - 0.5) * spd * 0.11;   // head over heels, with a twist (toned down: less violent tumbling)
   C.tied = tetherOn(); C.taut = 0; ROPE.clip = C.tied;
   TABLET.close(true); camState.init = false;
   P.shake = 1; thud(1); cargoHit(spd * 0.9);
@@ -16379,14 +16379,15 @@ function crashStep(dt) {
           for (let k = 0; k < 14 + vn * 3; k++) emit(C.x, C.y, C.z, tx * 0.25 + (Math.random() - 0.5) * 4, 1 + Math.random() * vn * 0.35, tz * 0.25 + (Math.random() - 0.5) * 4, 1.4, 1.1);
           thud(Math.min(1, 0.25 + vn / 14)); P.shake = Math.max(P.shake, Math.min(0.9, vn / 14));
         }
-        const rest = vn > 4 ? 0.22 : 0;                                                  // snow soaks most of it up
+        // coming in fast: the snow throws you back up for one real bounce instead of just soaking it up, then you settle back into it
+        const rest = vn > 9 ? Math.min(0.5, 0.26 + (vn - 9) * 0.028) : vn > 4 ? 0.16 : 0;
         C.vx += nx * vn * (1 + rest); C.vy += ny * vn * (1 + rest); C.vz += nz * vn * (1 + rest);
       }
-      // sliding and tumbling along: powder grabs a body, hardpack and ice let it skid
+      // sliding and tumbling along: the snow grabs a body hard and kills speed fast, hardpack and ice let it skid a bit further
       const ix = Math.round((C.x + HALF) / CELL), iz = Math.round((C.z + HALF) / CELL), d = depthAt(ix, iz), f = freshAt(ix, iz);
       const pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1, ice = bioAt(C.x, C.z) === 1 && f < 0.12;
-      const mu = ice ? 0.12 : lerp(0.85, 0.32, pack), sp = Math.hypot(C.vx, C.vz);
-      if (sp > 1e-3) { const dv = Math.min(sp, (mu * G * ny + (ice ? 0.004 : 0.018) * sp * sp) * dt); C.vx -= C.vx / sp * dv; C.vz -= C.vz / sp * dv; }
+      const mu = ice ? 0.22 : lerp(1.3, 0.55, pack), sp = Math.hypot(C.vx, C.vz);
+      if (sp > 1e-3) { const dv = Math.min(sp, (mu * G * ny + (ice ? 0.01 : 0.05) * sp * sp) * dt); C.vx -= C.vx / sp * dv; C.vz -= C.vz / sp * dv; }
       if (sp > 3 && Math.random() < dt * 30) emit(C.x, C.y - 0.1, C.z, C.vx * 0.3, 0.8 + Math.random() * 1.5, C.vz * 0.3, 0.9, 0.8);
       if (sp > 2 && Math.random() < dt * 14) crater(C.x, C.z, 0.05);                // a body-shaped furrow
     }
@@ -16418,7 +16419,7 @@ function crashStep(dt) {
     if (!C.gnd) { C.rx += C.wx * dt; C.rz += C.wz * dt; }
     else {
       const sp = Math.hypot(C.vx, C.vz);
-      C.wx += (sp / 0.4 * 0.55 - C.wx) * (1 - Math.exp(-5 * dt)); C.wz *= Math.exp(-6 * dt);
+      C.wx += (sp / 0.4 * 0.26 - C.wx) * (1 - Math.exp(-5 * dt)); C.wz *= Math.exp(-7 * dt);   // milder roll rate: less violent tumbling once you're down
       C.rx += C.wx * dt; C.rz += C.wz * dt;
       if (sp > 1.5) C.ry = angLerp(C.ry, Math.atan2(C.vx, C.vz), 1 - Math.exp(-3 * dt));
     }

@@ -203,8 +203,11 @@ depot, so your first ride out of town is open snow.
 
 Hit a trunk, a rock or a wall hard enough (about 30 mph into it), land a big drop too hard, or come
 down badly crooked at speed, and you come off the sled. The rider flies with the speed the sled had:
-real gravity, air drag, snow that soaks up the bounce, powder that grabs and hardpack that lets you
-skid, and trees you can hit on the way. Every impact adds up. Get away with it and you get up where
+real gravity, air drag, snow that grabs fast and kills a tumble quickly, powder that grabs harder and
+hardpack that lets you skid a bit further, a real bounce off the snow on a hard fast landing before you
+settle back into it, and trees you can hit on the way. The sled itself brakes hard the moment you come
+off and holds still riderless until you get back on (Q) — it doesn't coast away or creep in reverse.
+Every impact adds up. Get away with it and you get up where
 you landed and walk back to the sled (Q to get on). Overdo it and you wake up in the health centre a
 few hours later with a bill; the Red Cross brings the sled in and parks it out front, but any freight
 is gone, the same as a blackout. Big enough sleds still mow birches down rather than crash into them.
