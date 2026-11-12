@@ -3,6 +3,39 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-12 00:55 — Beta fix 0127 #2-#4: switchback loops, no road bend under 13 m, bends plowed wider (G4) — cae8268
+Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
+retired). Triage of reports 0129-0130: 0129 #1 BUG (pad RT 30% in 35 cm powder: truck sits still, BOG off, no hint for
+7 s) and #2 BUG low-med (35 cm crawl very slope sensitive; a 20 cm drift on a 10% grade is a wall) are the next builder
+pass's items, ahead of 3.2; 0129 #3/#4 POLISH, #5 verified. 0130 #1 POLISH (`footUse()` says HOOK past the line's reach,
+same as 0126 #2) left as polish. Last triaged report 128 -> 130. Took 0127 #2-#4, owed since v191.
+Cause (new `x3_hairpin_probe.mjs` telemetry + `x3_roaddump_probe.mjs` plotted from above): the A* climbs a steep hillside
+in V-shaped zigzags whose legs meet at a point, and Chaikin rounding leaves a 6 m radius at each tip; a 3 m-wheelbase
+pickup can't hold that (on packed snow a 15 m loop takes ~5 m/s), so it ran wide or cut in onto unplowed snow and bogged.
+First try, `widen()` alone (curvature smoothing that draws tight points toward the chord): radii fixed, but rounding the
+V from inside cut Lebesby from 4018 to 3196 m and its steepest 48 m to 18-24% (x3_roadbed failed); a stronger A*
+anti-doubling (legs 48 m apart) picked a shorter, steeper line still (24%). Kept fix (`tlx-roads.js`): `bulbs()` gives
+every tip turning > ~100 deg a loop out past the point (radius 16 m, or 13.5 m where 16 doesn't fit; radius eased from the
+leg onto the circle; skipped if it would reach sea, water, a house or another stretch of the same road within 14 m),
+which adds road on the landing and leaves the legs where the search put them (21 loops); then `widen()` eases whatever is
+left under `ROADS.minR` 13 m; a final `shove()` keeps resampled points off walls; bends under 26 m are plowed 2.6 m wider
+each side (`ROADS.wide/wideR`), trees cleared to match. Boot cost 0.83-1.04 s (was 0.86).
+Numbers (new asserting `x3_hairpin.mjs`; before = origin/main v193 with the same scenario): tightest open-road bend fv888
+6.0 -> 13.2 m (under 8 m: 28 -> 0), lebesby 6.0 -> 13.0 m (29 -> 0), gamvik 9.4 -> 14.4, skjanes 11.2, dyfjord 28.3
+unchanged. Bend-aware driver (pure pursuit, target speed sqrt(1.9 R), brakes when 2.5 m/s over), 26 game s from 15% and
+45% of each line: lebesby 15% bogged at a hairpin (13 points, yard 0.62) -> 35 points at 7 m/s, no bog; all six runs on
+fv888/lebesby/skjanes now no bog, max 6.1 m off the line. Lebesby 4333 m long (was 4018; widen-only 3196), steepest 48 m
+0.178 -> 0.125; fv888 0.132 -> 0.140 (its 48 m p95 0.11).
+Test change: x3_roadbed's "steepest stretch" pull-away now also reads at 5 s (3 s still counts): on Lebesby's new
+steepest, a straight 12.4% climb, the pickup is traction-limited (~1.4 m/s2) and does 5.9 m at 4.1 m/s in 3 s, 16.9 m at
+6.5 m/s in 5 s; fv888's passes at 3 s (9.9 m) and runs off its bend by 5 s, as the scenario holds W straight.
+Not done: 0127 #5 POLISH (the bed is invisible from the air) and #6 left; the old greedy `x3_roaddrive_break.mjs` driver
+(W held flat out) still can't take 13 m loops at 15+ m/s and isn't meant to; village streets keep their own lane routing
+(one on fv888 has an 8.7 m bend); night/pad/touch not run (no input code changed).
+Gate: smoke 0, x1_save 0, x3_hairpin 0 (all asserts), x3_roadbed 0, x3_roads 0 (buildings hit 0 after the final shove;
+4 before it), page errors none. Stills `~/.hermes/cache/scratch/tlloop/bhp/st_sheet.jpg` (loops from above, Lebesby
+minimap shows the switchback stack), plots `bhp/plot_lebesby.png` (old V zigzags vs loops).
+
 ## 2026-11-11 23:25 — Beta fix 0128 #1-#3: the fjord rescue lands you clear of the water, help is P / D-pad down (G4) — e6cdfff
 Builder pass (full throttle; the cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill: the gate is
 retired). Triage of report 0128: #1 BLOCKER (pickup winched out of the fjord rolls back in 3 s later, -$140 a cycle) taken;

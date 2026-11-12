@@ -12,7 +12,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 |---|---|---|
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done |
-| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); next: beta BUG 0127 #2-#4 (hairpins under 8 m radius still bog a driven pickup), then 3.2 (dynamic road snow) |
+| 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); next: beta BUG 0129 #1/#2 (feathered throttle in 35 cm sits silent; the crawl dies on a 2-10% grade), then 3.2 (dynamic road snow) |
 | 4-19 | everything else | not started |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -253,6 +253,11 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       stretches share a height, 4 m ground grid cut/filled level to 6.8 m each side with ~1:1.6 banks, max 8 m, not
       under houses/boulders/stations/ice/sea, far mesh re-read via `api.world.terrain.refresh`), and the A* pays 20
       cells for a cell next to one of its last 16 (no V-spikes or hairpin legs closer than ~32 m). Test `x3_roadbed.mjs`.
+      Beta fix 0127 (v194): a switchback tip turning > ~100 deg gets a loop of 16 m (or 13.5 m) radius out past the
+      point (`bulbs()`: the legs stay put, road is added on the landing, so the climb isn't shortened; rounding the V
+      inside was tried first and cut Lebesby by 800 m to 18-24%); `widen()` then eases any bend left under 13 m;
+      bends under 26 m are plowed 2.6 m wider each side. Test `x3_hairpin.mjs` (min radius per route + a driver who
+      slows for bends on fv888/lebesby/skjanes, no bog).
 - [ ] 3.2 Dynamic road snow: per-segment depth through the same snow field, storms fill it, saved; yards stay
       as they are. Map shows open / snowed in / closed. Sled on hard pack vs scraped bare.
 - [ ] 3.3 Parked cars, some buried after a storm. Option: dig a buried car out for pay.
