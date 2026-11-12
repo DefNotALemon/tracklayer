@@ -43,6 +43,11 @@ an Xbox, PlayStation or Nintendo pad, or touch. If you lose the package (the fjo
 the pickup again. **Settings → Controls → Skip tutorial** (press twice) ends it and parks your sled beside you;
 the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
 
+**Rejoining.** When you come back to a game you've already started, about one launch in three drops you in mid-ride:
+you're already on the sled, rolling along the road out of the depot, with one quick local parcel loaded and on the
+compass. Deliver it for the normal pay, or just let it go: it has no deadline and costs nothing to ignore. The rest
+of the time you start at the depot as usual. New games never do this.
+
 - **W / S** throttle, brake · **A / D** steer · **Shift** lean (on foot: jog) · **Space** hop · **Ctrl** wheelie (on skis: **W** kick, **S** plough)
 - **Q** gets you off the sled and back on. Nothing slides you through the air: from wherever you stand within a few metres you walk to the nearer running board on your own feet, take the near grip, step a boot up onto the board, drive up over it, and throw the other leg back and over the seat as your hips turn to face forward; it lands on the far board and you drop into the seat. Getting off is the same body the other way: up off the seat, far leg back over, down to the snow, then the other boot. The body is simulated as it goes (a pelvis with weight on a muscle, a trunk that lags and catches up, loose arms, boots that stay exactly where they are planted), so it is a little different every time, on deep powder or a plowed yard, and the sled tips toward the loaded board and settles as you sit. Push a direction during the walk over to call it off.
 - **S / Down** brakes; hold it once you've stopped and the sled **reverses** (about 9 mph tops). There are no gears: every sled is stepless.

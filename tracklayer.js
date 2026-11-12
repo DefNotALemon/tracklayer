@@ -2652,6 +2652,10 @@ function readInput(dt) {
   if (FOOT.on && ((typeof MNT !== "undefined" && MNT.on) || (typeof DMT !== "undefined" && DMT.on))) { thr = brk = lean = wh = 0; st = 0; analog = null; }   // and none of it reaches the sled while you're half on it
   if (FOOT.on && !(typeof MNT !== "undefined" && MNT.on) && !(typeof DMT !== "undefined" && DMT.on)) { FOOT.fwd = thr - brk * 0.6; FOOT.jog = lean; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider (locked out mid-mount)
   if (FISH && FISH.blocking()) { FOOT.fwd = FOOT.turn = 0; thr = brk = lean = wh = 0; st = 0; analog = null; }                        // fishing, or in the shop: the sled stays parked
+  if (RJN && RJN.t > 0) {                                                 // dynamic rejoin: the rider is already on the throttle, holding cruise until you take over (any throttle/brake input, or ~7 s)
+    if (thr > 0 || brk > 0 || FOOT.on || CRASH.on) RJN.t = 0;
+    else { RJN.t -= dt; thr = clamp(0.2 + (REJOIN_V - (P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw))) * 0.4, 0, 0.6); }
+  }
   input.wheelie = wh; if (wh) thr = Math.max(thr, 1);
   input.thr = thr; input.brk = brk; input.lean = lean;
   if (analog !== null) input.steer = analog;
@@ -13445,12 +13449,40 @@ function titleReady() {
   $("title").classList.remove("boot"); TT.mode = "menu";
   titleRender(); titleLayout(); titleSelect(TT.sel, !TC.on);
 }
+/* ---- dynamic rejoin ----
+   A returning rider (tutorial done, TUT.stage >= 99) has a REJOIN_P chance of launching already under way instead
+   of standing at the depot: sat on the sled, cruising along the depot spoke the sled always faces at launch (no
+   figure is moved: the sled is already parked there), with one quick local parcel loaded and pinned on the compass.
+   The parcel is flagged `dynamic` and carries no `due`, so there is no late-pay cut and nothing to lose by letting
+   it go. New games never roll. The roll is its own function so a scenario can force it (window.__rejoin). */
+var RJN = { t: 0 };                                       // seconds of cruise hold left
+const REJOIN_P = 0.35, REJOIN_V = 7.5;                  // chance per returning launch; cruise speed in m/s (~17 mph, a sane town speed)
+function rejoinRoll() { return typeof window.__rejoin === "boolean" ? window.__rejoin : Math.random() < REJOIN_P; }
+function rejoinRide() {
+  if (VEH.cur || GS.dead || SCHOOL.on) return false;
+  // the quick job: a short, cheap, near-town parcel off the normal board (no ferry freight, pickups, big loads, deadlines)
+  const pool = GS.jobs.map((j, k) => ({ j, k })).filter(o => o.j.local && !o.j.steamer && !o.j.boat && !o.j.roam && !o.j.big && !o.j.fragile);
+  if (!pool.length || smallLoads().length >= ST.slots) return false;
+  pool.sort((a, b) => a.j.pay - b.j.pay);
+  const { j, k } = pool[(Math.random() * Math.min(2, pool.length)) | 0];
+  j.dynamic = true; j.due = null; j.hits = 0;
+  GS.jobs.splice(k, 1); GS.load.push(j);
+  // already mounted and rolling: the same flags a finished mount leaves, the sled's own heading, stepless gearbox
+  FOOT.on = false; FOOT.dig = false; FOOT.crouch = 0; MNT.on = false; DMT.on = false; if (FOOT.g) FOOT.g.visible = false;
+  gbReset();
+  const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw);
+  P.vx = fx * REJOIN_V; P.vz = fz * REJOIN_V; P.vy = 0; P.yr = 0; P.rpm = 0.4;
+  camState.init = false; camState.yaw = P.yaw; RJN.t = 7;
+  applyLoadout(); TABLET.refresh(); jobTrack(j, true); save();
+  setTimeout(() => toast(`Already on the move: you picked up a quick job on the way (${j.cargo} to ${shortName(j.dest)}). Finish it for the payout, or just let it go.`, "info"), 2800);
+  return true;
+}
 function startRide() {
   started = true;
   for (const id of ["speedo", "mapWrap", "help", "job"]) $(id).hidden = false;   // "zone" (top-left date/place/weather card) stays off at Lemon's request
   setTouchUI();
   makeJobs(depot);
-  if (TUT.stage < 99) tutStart();
+  if (TUT.stage < 99) tutStart(); else if (rejoinRoll()) rejoinRide();
   setTimeout(() => { const f = ferryInfo(); toast(`Welcome to Kjøllefjord. ${f.st.s === "in" ? "The ferry's in." : f.c ? `Next ferry sails ${fmtTime(f.c.dep)}.` : ""}`); }, 1300);
   if (innerWidth <= 640 || TC.on) $("help").hidden = true;
   canvas.focus();
