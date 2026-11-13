@@ -6942,7 +6942,7 @@ const TABLET = {
     if (a && a.onOpen) a.onOpen();
     this.render();
   },
-  back() { if (this.app) this.go(null); else this.close(); },
+  back() { const a = this.app && this.byId[this.app]; if (a && a.onBack && a.onBack()) return; if (this.app) this.go(null); else this.close(); },
   refresh(id) { if (!this.open) return; if (id && this.app !== id && this.app) return; this.render(); },
   render() {
     if (!this.open) return;
@@ -8516,13 +8516,33 @@ SCHOOL.addMission("freight", {
 });
 
 /* ---- the App Store: Freight, Rescue and Real Estate are downloads; Trail Crew came with the tablet ----
-   rec = recommended install order (1 first), recWhy = one line on why, cat = the chip on the listing row.
-   The "Recommended order" strip and the list both sort by rec; the first not-yet-installed step is the "start here" one. */
+   Laid out like Apple's: a "Today" browse screen (header, a swipeable row of big coloured feature cards, then a ranked
+   list of apps with gradient squircle icons and GET / OPEN pills) and a product page per app (tap a card or a row).
+   rec = recommended install order (1 first; the first not-yet-installed one is the "start here" card), recWhy = the short
+   line, cat = category chip, ac/ac2 = the app's own accent gradient (icon tile, feature card, product-page banner, GET pill),
+   tag = card headline, what[] = "What it does" paragraphs, why = "Why get it", perks[] = at-a-glance bullets, req = what it needs,
+   pay = the INCOME cell on the product page. Prices and storeGet() are unchanged: this is a look and information rebuild. */
 const STORE = [
-  { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, cat: "Work", rec: 1, recWhy: "Came with your tablet. The baseline grooming and call-out work.", about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true },
-  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, cat: "Courier", rec: 2, recWhy: "The main courier work. Sign up and start earning.", about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority, expedition and fell freight, each with its own pickup and drop-off." },
-  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, cat: "Income", rec: 3, recWhy: "Cheap passive income once you have a little cash. No school.", about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent." },
-  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, cat: "Specialist", rec: 4, recWhy: "Specialist work. Best with a winch and some miles behind you.", about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash." }
+  { id: "crew", name: "Trail Crew", by: "Nordkinn Løypelag", price: 0, icon: TICON.crew, cat: "Work", rec: 1, ac: "#2fbf84", ac2: "#12805a", pay: "Modest",
+    tag: "Keep the trails open", recWhy: "Came with your tablet. The baseline grooming and call-out work.", about: "Grooming contracts and volunteer recovery call-outs. It came with the tablet.", builtin: true,
+    what: ["Trail Crew is the local trail association's work app. It posts grooming contracts: drag a stretch of the peninsula's snow flat and packed, and you're paid for every pass that holds.", "It also carries the volunteer recovery call-outs, where a neighbour is bogged in the powder and you get them moving again. Nothing to sign up for and no school to pass."],
+    why: "It's already on your tablet, so this is where everybody starts. The work is modest but it's always there, it teaches you the sled and the map, and it earns the first few hundred dollars you'll need for Freight. Keep it even once you've moved on: a groomed trail makes every other job faster.",
+    perks: ["Free and already installed", "Grooming pays by the packed stretch", "Recovery call-outs for neighbours", "No licence or training needed"], req: "Nothing. Built into every tablet." },
+  { id: "freight", name: "Freight", by: "Nordkinn Frakt AS", price: 120, icon: TICON.freight, cat: "Courier", rec: 2, ac: "#3b82f6", ac2: "#1d4ed8", pay: "Steady",
+    tag: "Deliver. Get paid. Repeat.", recWhy: "The main courier work. Sign up and start earning.", about: "Sign up for Freight school, earn your licence on the school's sleds, then take heavy, priority, expedition and fell freight, each with its own pickup and drop-off.",
+    what: ["Freight is the peninsula's courier company. It puts parcels and pallets on a board of jobs, each with its own pickup, drop-off, deadline and pay, from a light priority envelope to a heavy tonne on a flatbed.", "Sign up and the training yard south-east of town teaches you to haul a trailer on the school's own sleds. Once you hold the licence you can take heavy, priority, expedition and fell freight."],
+    why: "This is the app that turns riding into a living. Freight pays steadily and every job is a known route, so you can plan fuel and warmth around it and build up the capital for a better sled, a winch and the rest of the store. At $120 it's paid back in a handful of runs.",
+    perks: ["Steady, plannable courier income", "Licence school with its own training sleds", "Heavy, priority, expedition and fell freight", "Pays for the upgrades that come next"], req: "$120 and a trip to the Frakt training yard to earn the licence." },
+  { id: "realestate", name: "Real Estate", by: "Finnmark Eiendom", price: 50, icon: TICON.realestate, cat: "Income", rec: 3, ac: "#f59e0b", ac2: "#c2570c", pay: "Passive",
+    tag: "Let the cabins work for you", recWhy: "Cheap passive income once you have a little cash. No school.", about: "Depot cabins round the peninsula. Tourists rent one while you're out, and it keeps a fuel cache topped up for you. No office: the app is the agent.",
+    what: ["Real Estate lists the depot cabins round the peninsula. Put one on the books and tourists rent it while you're out riding, so it earns whether or not you're near it.", "A cabin you own also keeps a fuel cache topped up for you. There's no office to visit: the app is the agent, and you manage everything from the tablet."],
+    why: "It's the cheapest app in the store and the only one that pays while you do something else. There's no school and no licence, so it's the easy second purchase once you've a little cash: the rent builds up in the background and the fuel cache saves you range anxiety on long runs.",
+    perks: ["Cheapest app: $50, no school", "Rent comes in while you ride", "Fuel cache kept topped up at your cabins", "Four depot cabins on the books from day one"], req: "$50. No licence." },
+  { id: "rescue", name: "Rescue", by: "Nordkinn Redning", price: 90, icon: TICON.rescue, cat: "Specialist", rec: 4, ac: "#ef4452", ac2: "#a8132b", pay: "Highest",
+    tag: "Bring them home", recWhy: "Specialist work. Best with a winch and some miles behind you.", about: "Sign up for Rescue school: search, tow and hitch, getting people home. Once you're licensed, go on duty and callouts ping the dash.",
+    what: ["Rescue is the Redning volunteer-and-paid service for people in trouble on the fell. Go on duty and call-outs ping your dash: you search for the casualty, hitch the toboggan, and tow them back to safety before the cold wins.", "Sign up and the Redning base out toward Lebesby trains you in search, tow and hitch work. It's the hardest job in the store, and it's the one that matters."],
+    why: "Rescue pays the most of anything on the tablet, and the work is real: every call-out is a life on the clock. It goes best once you have a winch, a sled that can pull and some miles behind you, so take it last, when the other apps have paid for the kit.",
+    perks: ["Highest payout in the store", "Call-outs ping the dash while on duty", "Redning school teaches search, tow and hitch", "Reputation grows with every rescue"], req: "$90, the licence, and ideally a winch and some experience first." }
 ];
 const storeSorted = () => STORE.slice().sort((a, b) => a.rec - b.rec);
 const storeHave = s => !!(s.builtin || GS.apps[s.id]);
@@ -8534,22 +8554,42 @@ function storeGet(id) {
   toast(id === "realestate" ? `Real Estate installed. Four depot cabins on the books.` : `${s.name} installed. Open it to sign up for ${s.name} school.`, "good");
   TABLET.render();
 }
+const STO = { view: "home", sel: null };   // which App Store page is showing; reset to the Today page whenever the app opens
+const stoAc = s => `style="--ac:${s.ac};--ac2:${s.ac2}" data-accent="${s.ac}"`;
+const stoPill = (s, cls) => { const have = storeHave(s), poor = !have && GS.cash < s.price; return `<button type="button" class="stget ${cls || ""}${have ? " have" : poor ? " poor" : ""}" data-tf="stg:${s.id}${cls ? ":" + cls : ""}" data-get="${s.id}">${have ? "OPEN" : s.price ? "GET · $" + s.price : "GET"}</button>`; };
 TABLET.register({
   id: "store", name: "App Store", icon: TICON.store, order: 9,
   badge: () => STORE.filter(s => !s.builtin && !GS.apps[s.id]).length || "",
+  onOpen() { STO.view = "home"; STO.sel = null; },
+  onBack() { if (STO.view !== "home") { STO.view = "home"; STO.sel = null; TABLET.render(); $("tabV").scrollTop = 0; return true; } return false; },
   render(el) {
-    const list = storeSorted(), nxt = storeNext();
-    const steps = list.map(s => {
-      const have = storeHave(s), isNext = nxt && nxt.id === s.id;
-      return `<div class="tsstep${have ? " got" : ""}${isNext ? " next" : ""}" data-step="${s.rec}" data-sid="${s.id}"><span class="tsnum">${have ? "✓" : s.rec}</span><span class="tsq tic">${s.icon}</span><b>${s.name}</b><i>${have ? "GOT IT" : isNext ? "START HERE" : s.price ? "$" + s.price : "FREE"}</i></div>`;
-    }).join("");
-    const why = nxt ? `<b>${nxt.rec}. ${nxt.name}:</b> ${nxt.recWhy}` : `You have all four. Nothing left to download.`;
-    el.innerHTML = `<div class="tapp">${tabHead("APP STORE", "Get more work", fmtCash(GS.cash))}<div class="tstore">
-      <div class="tsfeat"><div class="tsey">RECOMMENDED ORDER</div><div class="tstt">Four apps, in the order that pays</div><div class="tssteps">${steps}</div><div class="tswhy">${why}</div></div>
-      <div class="tshd">All apps</div>${list.map(s => {
-      const have = storeHave(s), poor = !have && GS.cash < s.price, isNext = nxt && nxt.id === s.id;
-      return `<div class="tsto${isNext ? " next" : ""}" data-tf="st:${s.id}" data-sid="${s.id}"><span class="tic tsic">${s.icon}</span><div class="tsbd"><div class="tct"><span>${s.name}</span></div><div class="tcm">${s.by}</div><div class="tschips">${chip("#" + s.rec + " to get", isNext ? "ok" : "")}${chip(s.cat)}${have ? chip("INSTALLED", "ok") : chip(s.price ? "$" + s.price : "FREE")}</div><div class="tcn">${s.about}</div></div><button type="button" class="tbtn tsget${have ? " ghost" : poor ? " blocked" : ""}" data-get="${s.id}">${have ? "OPEN" : "GET"}</button></div>`;
-    }).join("")}</div><p class="tnote2">One-off prices, no subscriptions. Freight and Rescue each come with a sign-up for their licence school.</p></div>`;
+    const list = storeSorted(), nxt = storeNext(), cur = STO.view === "detail" && STORE.find(x => x.id === STO.sel);
+    if (cur) {
+      const s = cur, have = storeHave(s), n = list.indexOf(s) + 1;
+      el.innerHTML = `<div class="tapp stdet" ${stoAc(s)} data-sid="${s.id}"><button type="button" class="stback" data-tf="stback" data-back="1">‹ Today</button>
+        <div class="stban"><span class="stbgi">${s.icon}</span><div class="stbtop"><span class="stic stbig">${s.icon}</span><div class="stbid"><div class="stbname">${s.name}</div><div class="stbby">${s.by}</div><div class="stbtag">${s.tag}</div></div></div>
+        <div class="stbact">${stoPill(s, "big")}<span class="stbnote">${have ? "Installed on this tablet" : s.price ? "One-off price. No subscription." : "Free"}</span></div></div>
+        <div class="ststats"><div><i>PRICE</i><b>${s.price ? "$" + s.price : "FREE"}</b></div><div><i>CATEGORY</i><b>${s.cat}</b></div><div><i>INCOME</i><b>${s.pay}</b></div><div><i>GET IT</i><b>#${n} of ${list.length}</b></div></div>
+        <section class="stsec"><h3>What it does</h3>${s.what.map(p => `<p>${p}</p>`).join("")}</section>
+        <section class="stsec"><h3>Why get it</h3><p>${s.why}</p>${nxt && nxt.id === s.id ? `<div class="stnext">★ Our pick for you right now</div>` : ""}</section>
+        <section class="stsec"><h3>At a glance</h3><ul class="stperks">${s.perks.map(p => `<li>${p}</li>`).join("")}</ul><div class="streq"><i>REQUIREMENTS</i>${s.req}</div></section></div>`;
+    } else {
+      const cards = list.map(s => {
+        const have = storeHave(s), isNext = nxt && nxt.id === s.id, eye = have ? "INSTALLED" : isNext ? "START HERE" : "#" + s.rec + " TO GET";
+        return `<button type="button" class="stcard${isNext ? " next" : ""}${have ? " got" : ""}" ${stoAc(s)} data-tf="stc:${s.id}" data-sid="${s.id}" data-open="${s.id}"><span class="stcbg">${s.icon}</span><span class="stceye">${eye}</span><span class="stctt">${s.tag}</span><span class="stcsub">${s.recWhy}</span><span class="stcft"><span class="stic stsm">${s.icon}</span><span class="stcnm"><b>${s.name}</b><i>${s.cat}</i></span><span class="stcta">${have ? "OPEN" : s.price ? "$" + s.price : "FREE"}</span></span></button>`;
+      }).join("");
+      const rows = list.map(s => {
+        const have = storeHave(s), isNext = nxt && nxt.id === s.id;
+        return `<div class="strow${isNext ? " next" : ""}" ${stoAc(s)} data-sid="${s.id}"><button type="button" class="stmain" data-tf="st:${s.id}" data-open="${s.id}"><span class="strank">${have ? "✓" : s.rec}</span><span class="stic stmd">${s.icon}</span><span class="stbd"><b>${s.name}</b><i>${s.by}</i><span class="stchips">${chip(s.cat)}${isNext ? chip("START HERE", "ok") : ""}${have ? chip("INSTALLED", "ok") : ""}</span><em>${s.about}</em></span></button>${stoPill(s)}</div>`;
+      }).join("");
+      el.innerHTML = `<div class="tapp stwrap"><div class="stbar"><div><div class="stdate">${CAL.now().label.toUpperCase()}</div><div class="sttitle">Today</div></div></div>
+        <div class="stsearch" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>Work, jobs, licences</div>
+        <div class="stcards">${cards}</div>
+        <div class="sthd"><h2>Top apps</h2><span>In the order that pays</span></div><div class="stlist">${rows}</div>
+        <p class="tnote2">One-off prices, no subscriptions. Freight and Rescue each come with a sign-up for their licence school.</p></div>`;
+    }
+    for (const b of el.querySelectorAll("[data-open]")) b.addEventListener("click", () => { STO.view = "detail"; STO.sel = b.dataset.open; TABLET.render(); $("tabV").scrollTop = 0; });
+    for (const b of el.querySelectorAll("[data-back]")) b.addEventListener("click", () => this.onBack());
     for (const b of el.querySelectorAll("[data-get]")) b.addEventListener("click", () => { const id = b.dataset.get; if (GS.apps[id] || id === "crew") TABLET.go(id); else storeGet(id); });
   }
 });

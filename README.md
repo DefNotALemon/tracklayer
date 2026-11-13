@@ -161,9 +161,11 @@ into the hood, clear of it, so from the seat you see the column stand on the hoo
 
 ## Apps and licences
 
-The **App Store** is laid out like Apple's: a **Recommended order** strip at the top numbers the four apps
-(1 Trail Crew, which you already have, 2 Freight, 3 Real Estate, 4 Rescue), ticks the ones you own and rings
-the next one to get ("start here"), and the full list below is in that same order with GET / OPEN pills.
+The **App Store** is built like Apple's: a **Today** page with a swipeable row of big colour feature cards
+(each app has its own colour; the next one worth getting is ringed and marked "start here"), then a ranked
+**Top apps** list in the same order (1 Trail Crew, which you already have, 2 Freight, 3 Real Estate, 4 Rescue) with
+GET / OPEN pills. Tap a card or a row to open the app's **product page**: a coloured banner with its GET button,
+price / category / income, **What it does**, **Why get it** and an at-a-glance list. Back (or Esc) returns to Today.
 It sells three more apps: **Freight** ($120), **Rescue** ($90) and **Real Estate**
 ($50). Freight and Rescue each come with a sign-up for their licence school: the **Nordkinn Frakt
 training yard** south-east of town, under Gartefjellet, and the **Nordkinn Redning base** out west
