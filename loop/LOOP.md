@@ -126,6 +126,28 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **13 Nov, Lemon: three reports.**
+  1. **Tether rope should clear on dismount.** Get off the sled (Q) and the tether/kill-cord rope should not still
+     be visible/attached to the rider. Current code (`ropeTick`, ~16780-16800) only clears `ROPE.clip` on remount
+     when `!C.on` (not mid-crash) and `(!FOOT.on || !tetherOn())` — check whether a plain walk-away dismount
+     (not via a crash) actually reaches that clear, and whether the rope mesh visibility follows `ROPE.clip`
+     reliably in that path. Fixed = rope never shown/attached once you're off the sled on your own feet (not via
+     a crash ejection), full stop.
+  2. **"X: size it up" prompt has no function.** `rescuePrompt()` (~line 15525) shows `X: size it up · walk the
+     line to <name>` when `nv.d < 20` but not yet hooked. Check what pressing X actually does in that state —
+     `rescueAssess()` (~line 15503) looks like the intended handler (announces pull direction, anchor, lb needed)
+     but verify it's actually wired to the X input while un-hooked; if it isn't reachable there, either wire X to
+     call it or drop the prompt text until it is. Playtester: confirm X does something useful in that exact state
+     before calling it fixed.
+  3. **Gaining speed in reverse with an empty tank.** Fuel at 0 should kill all engine-driven motion (forward and
+     reverse). `thrE` zeroes on `GS.fuel <= 0` (~line 3492) and the `rev` reverse-gear flag also requires
+     `GS.fuel > 0` (~line 3528), so neither should be pushing speed backward out of fuel — the speed gain reported
+     is likely coming from gravity/slope sliding (downhill) with no engine braking available, which may be
+     correct physics reading as a bug, or there's a separate path still applying backward force. Playtester:
+     reproduce on flat ground AND on a downhill with an empty tank, log speed over time in both, and report which
+     one actually gains speed before the builder changes anything — don't "fix" realistic downhill sliding by
+     mistake.
+
 - **11 Nov, Lemon: Living enemy NPCs (goal G6), after the Northern Front.** Next on the docket after G5: enemy
   NPCs feel alive, Gray Zone Warfare style — idle task animations when not alerted (smoking, drinking, eating,
   leaning against something, falling asleep); they hear a nearby enemy's death scream if one is released quietly
@@ -194,6 +216,9 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
+- [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
+- [ ] G3 (OWNER, top): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov.
+- [ ] G3 (OWNER, top): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
 - [ ] G4 (builder 3.4b2a, BUG in a test or the drivers): `x3_traffic.mjs` step D fails on origin/main too: the car "stopped
       312.6 m short of the drift" (reported why "shut", s 1578) instead of ~22 m. Either the planted drift isn't the stretch the
       driver reads as shut (TLXR seg.shut vs the step's spot) or stopAhead sees an earlier shut segment; check before trusting D.
