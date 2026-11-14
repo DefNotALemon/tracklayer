@@ -13,6 +13,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); next: 3.5 (semis) |
+| 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; next: 5.2 (lane B) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -415,7 +416,21 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       contract at risk when left unplowed. Jobs app rows.
 
 ### 5. Staff (`tlx-staff.js`)
-- [ ] 5.1 Staff app: applicants (name, village, wage, experience; traits hidden), expiry, hire.
+- [x] 5.1 Staff app: applicants (name, village, wage, experience; traits hidden), expiry, hire.
+      Design (lane B, 14 Nov): `tlx-staff.js`, saved `x.sys.staff` = `{ seq, next, apps: [...], crew: [...], owed,
+      last: [weekly statements] }`. Applicants apply for a VACANCY, not into a pool: a vacancy is a workplace you own
+      with no one in its role. Until milestones 6-8 add lighthouses, inns and garages the only workplace is an owned
+      Real Estate depot cabin, role "caretaker" (keeps it aired, warm and booked: +3-12% let, by real experience x the
+      hidden work trait; table `ROLES` at the top of the file, later slices add rows + a `places()` source). The app
+      shows once Real Estate is installed (or anyone is on the books). An applicant: name, home village (the world's
+      villages + the quay town), weekly wage ($30-90, more for experience), experience in years (shown), hidden traits
+      `tr: { work 0.6-1.3, temper 0-1, honest }` and `xpReal` (one in six oversell: real < shown; 5.2's interview finds
+      out). Each posts for 2-5 game days then withdraws; a vacancy gets one applicant at once and another every 6-20 game
+      hours, up to 3 per vacancy, 6 on the board. HIRE fills the vacancy (the others for it withdraw), LET GO frees it
+      (only with no wages owing). Wages: Monday, pro rata from the hire hour; short of cash = wages owing, and staff
+      owed money don't work (no bonus) until it's paid (PAY button). Summer skip: `SEASON.addBill` charges the wages.
+      Not in 5.1: interviews (5.2), happiness/raises/quitting (5.3), the unpaid-wage penalty option (5.3).
+      Test `x5_staff.mjs`.
 - [ ] 5.2 Interviews in the haggling chat; overselling about one in six.
 - [ ] 5.3 Happiness, raises, praise/criticism in person, notice and quitting, Monday wages.
 - [ ] 5.4 Plow drivers: own truck or mine, present in the world, get stuck, ping; tow them, send someone, pay a tow.

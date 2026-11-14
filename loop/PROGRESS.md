@@ -3,6 +3,22 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 5.1 Staff app: applicants, expiry, hire (lane B) (G4) — 979496c
+Builder pass, lane B (first pass on milestone 5; no beta reports on lane B systems yet). Design written into
+EXPANSION.md 5.1 first. New `tlx-staff.js` (saved `x.sys.staff`): applicants apply for a vacancy = an owned depot
+cabin with no caretaker (the only workplace until 6-8; `ROLES` table + `places()` are where 6.3/7/8 plug in). One
+applicant at once per new vacancy, then one every 6-20 game h, max 3 per vacancy / 6 on the board, each posted 2-5 game
+days. Card: name, village (map villages + Kjøllefjord), wage $25-107/wk (30 + 3.2/yr), years shown; hidden
+`tr {work, temper, honest}` + `xpReal` (1 in 6 oversell, measured 14.6% of 900). HIRE (others for the job withdraw),
+LET GO (refused while wages owed; pays the days worked). Caretaker lift on `reOcc` = (0.03 + 0.0055 x min(16, xpReal))
+x work, cap 0.12 (test hire: 52.0% -> 58.7% let). Monday via the TLX hook: wages pro rata from the hire hour (half week
+paid $90 of $90 due); short of cash -> `owed`, nobody works (lift 0, badge "!") until PAY IT. Summer skip: SEASON bill
+"Staff wages". Bridges in tracklayer.js: `api.ui` (tabHead/tabCard/chip/sec/esc/ping) and `api.re.owned()`, and the
+staff term in `reOcc`. x1_save's known-systems list gains "staff".
+Gate: smoke, x1_save, x5_staff (A-G: hidden without RE, applicants/caps/expiry, hire by keyboard Enter, Xbox pad A and
+a touch tap, Monday pro rata + owed + pay, let go, reload keeps crew/applicants/owed) all exit 0, page errors none.
+Next for lane B: 5.2 interviews in the haggling chat (reveal xpReal / traits; `tr.honest` is already rolled).
+
 ## 2026-11-14 — Hand-drawn map redo: towns with blocks, sled country on the outskirts (Lemon's ask) — 7905f6c
 The Map app's chart is `tabChart`/`tabView` (not `mapBg`, which feeds only the minimap/dash). Added `tabTown()` drawn live each Map tick (crisp at any zoom): warm glow under Kjøllefjord and each village, a lot round every real house (`KIT.foot`, recorded in `KIT.house`), the real plowed lanes (`TOWNL` from `buildLanes`, `TLXR` street legs), stylised back lanes joining neighbouring doors (so lanes close into blocks), lit windows + chimney smoke, trailhead flags at real road-leg ends, groomer shed at the garage, warming huts at lookouts/cabin sites, relay mast, trail stakes along road legs. `buildMapBg` got a warm cream/amber town tint. buildTown layout, lanes, doors untouched. Still a spoke-and-ring layout (the real lanes radiate from the quay), not a literal street grid: follow-up would be regridding buildTown. Scenario `g3_mapchart.mjs` (stills + chart PNGs). Script v220.
 
