@@ -145,7 +145,7 @@ function seaFill(x0, z0) {
     const k = q[h++], i = k % N, j = (k / N) | 0;
     for (const n of [i > 0 ? k - 1 : -1, i < N - 1 ? k + 1 : -1, j > 0 ? k - N : -1, j < N - 1 ? k + N : -1]) if (n >= 0 && !seen[n]) { seen[n] = 2; if (wet(n)) { seen[n] = 1; q[t++] = n; } }
   }
-  return { seen, cell, cells: t };
+  return { seen, cell, cells: t, N };
 }
 function dockEnd(D) { const p = dockWorld(D, D.len + 2, 0); return { x: p[0], z: p[1] }; }
 function seaLinked(x, z) {
@@ -180,11 +180,81 @@ function dockWork(R) {
   const D = v < 2.5 && !api.busy() ? dockAt(P.x, P.z) : null, site = D ? D.site : null;
   if (site !== R.atSite) {
     const first = R.atSite === undefined; R.atSite = site;
-    if (site && !first && !GS.load.some(j => j.dest === site) && !GS.claims.some(j => (j.from || api.world.depot) === site)) api.toast(`${D.name[0].toUpperCase() + D.name.slice(1)}.${site.type === "depot" ? "" : ` ${site.name} is up the shore.`}`);
+    if (site && !first && !GS.load.some(j => j.dest === site) && !GS.claims.some(j => (j.from || api.world.depot) === site)) api.toast(`${D.name[0].toUpperCase() + D.name.slice(1)}. ${site.type === "depot" ? "The quay's hose reaches down here: she fills while she's tied up." : `${site.name} is up the shore: you warm up while she's tied up.`}`);
   }
   if (!site) return;
   if (GS.load.some(j => j.dest === site)) api.deliver(site);
   if (GS.claims.length) api.collectClaims(site);
+}
+// tied up at a jetty you have its place's warmth (and the quay's fuel hose at the quay jetty): the site, or null. Seated
+// alongside it, or stood on its planks with her moored there.
+function shoreSite(R) {
+  const FOOT = api.FOOT, P = api.P;
+  if (!FOOT.on) return (!api.MNT.on && !api.DMT.on && R.atSite) || null;
+  if (floorAt(FOOT.x, FOOT.z) === null) return null;
+  const D = dockAt(P.x, P.z); return D ? D.site : null;
+}
+
+/* ---------------- sea jobs (14.2b): freight between jetties, for the skiff only ----------------
+   Once you own a skiff the Parcels board carries up to two sea jobs (`j.sea`): fish boxes, crab pots, an outboard for the
+   workshop, from one jetty to another. They wait at the jetty, not in the village: they load only into the boat, tied up
+   alongside (`collectClaims` in tracklayer.js skips them unless the current vehicle floats), and hand over the same way
+   at the destination's jetty. Pay goes by the distance by sea (a flood-fill count from jetty to jetty, not the crow's
+   line), and when the road between the two places is snowed in or shut for the winter at the moment the job is posted the
+   sender pays 35% more ("ROAD SHUT +35%"): the boat is then the only way. The first job on a board leaves from the jetty
+   nearest your boat. Nothing of its own is saved: posted jobs and claims are session state like every parcel, and a sea
+   parcel aboard is saved with the boat's load by tlx-vehicles.js. */
+const SEA_CARGO = [["Fish boxes on ice", 1, false], ["Coils of longline", 0.95, false], ["Crab pots", 0.9, false], ["An outboard for the workshop", 1.15, true],
+  ["A drum of marine diesel", 1.05, false], ["Tubs of salmon smolt", 1.25, true], ["Net floats and rope", 0.85, false], ["Bales of klippfisk", 1, false], ["Lamp glass for the lighthouse", 1.2, true]];
+const SEA_MAX = 2, SEA_GAP = 90, SEA_SHUT = 1.35;                              // posted at once; game seconds between postings; the road-shut premium
+let seaT = 4, seaSaid = false; const seaKeep = [];
+function seaCell(D) {                                                          // the cell of the quay's sea at this jetty's end
+  const e = dockEnd(D);
+  for (const [dx, dz] of [[0, 0], [SEA_C, 0], [-SEA_C, 0], [0, SEA_C], [0, -SEA_C]]) { const k = SEA.cell(e.x + dx, e.z + dz); if (k >= 0 && SEA.seen[k] === 1) return k; }
+  return -1;
+}
+function seaKm(A, B) {                                                         // jetty to jetty by water, km (about: 4-connected steps, eased for the diagonals)
+  const crow = Math.hypot(A.x - B.x, A.z - B.z) / 1000;
+  if (A === B) return 0;
+  if (!SEA) return crow * 1.3;
+  if (!A.sd) {
+    const N = SEA.N, sd = A.sd = new Int32Array(N * N).fill(-1), q = new Int32Array(N * N), s = seaCell(A);
+    let h = 0, t = 0; if (s >= 0) { sd[s] = 0; q[t++] = s; }
+    while (h < t) { const k = q[h++], i = k % N, j = (k / N) | 0; for (const n of [i > 0 ? k - 1 : -1, i < N - 1 ? k + 1 : -1, j > 0 ? k - N : -1, j < N - 1 ? k + N : -1]) if (n >= 0 && sd[n] < 0 && SEA.seen[n] === 1) { sd[n] = sd[k] + 1; q[t++] = n; } }
+  }
+  const k = seaCell(B), n = k >= 0 ? A.sd[k] : -1;
+  return n < 0 ? crow * 1.3 : Math.max(crow, n * SEA_C * 0.8 / 1000);
+}
+function seaJobs() { const GS = api.GS; return (GS.jobs || []).concat(GS.claims || []).filter(j => j && j.sea); }
+function seaPost() {
+  const GS = api.GS, P = api.P, s = S(), boat = boats()[0];
+  if (!boat || DOCKS.length < 2 || !Array.isArray(GS.jobs)) return null;
+  const bx = s.cur === boat.uid ? P.x : boat.x, bz = s.cur === boat.uid ? P.z : boat.z, have = seaJobs();
+  let home = DOCKS[0], hd = 1e9; for (const D of DOCKS) { const d = Math.hypot(D.x - bx, D.z - bz); if (d < hd) { hd = d; home = D; } }
+  const pairs = []; for (const A of DOCKS) for (const B of DOCKS) if (A !== B && !have.some(j => j.from === A.site && j.dest === B.site)) pairs.push([A, B]);
+  if (!pairs.length) return null;
+  const fromHome = pairs.filter(p => p[0] === home), pool = fromHome.length && !have.some(j => j.from === home.site) ? fromHome : pairs;
+  const [A, B] = pool[(Math.random() * pool.length) | 0];
+  const cgs = SEA_CARGO.filter(c => !have.some(j => j.cargo === c[0]) && (c[0].indexOf("lighthouse") < 0 || B.site.type === "relay")), cg = cgs[(Math.random() * cgs.length) | 0] || SEA_CARGO[0];
+  const km = seaKm(A, B), shut = (window.TLXR && TLXR.tripWarn && TLXR.tripWarn(A.site.x, A.site.z, B.site)) || "";
+  const j = { dest: B.site, from: A.site, cargo: cg[0], fragile: cg[2], sea: true, seaKm: +km.toFixed(1), due: null,
+    pay: Math.round((45 + km * 130) * cg[1] * (shut ? SEA_SHUT : 1) / 5) * 5 };
+  if (shut) j.shut = shut;
+  GS.jobs.push(j); seaKeep.push(j);
+  return j;
+}
+function seaBoard(dt) {
+  const GS = api.GS;
+  if (!api.started() || api.busy() || api.tutHidden() || GS.dead || !Array.isArray(GS.jobs)) return;
+  // the board is rebuilt wholesale (a new day, a drop-off while roaming, the ferry's freight): sea jobs not yet taken go back on
+  for (let i = seaKeep.length - 1; i >= 0; i--) { const j = seaKeep[i]; if (j.hits !== undefined) seaKeep.splice(i, 1); else if (!GS.jobs.includes(j) && !GS.claims.includes(j)) { GS.jobs.push(j); api.TABLET.refresh("parcels"); } }
+  seaT -= dt; if (seaT > 0) return;
+  seaT = 2;
+  const posted = GS.jobs.filter(j => j.sea).length;
+  if (posted >= SEA_MAX || seaJobs().length >= ROW.slots) return;
+  const j = seaPost(); if (!j) return;
+  seaT = SEA_GAP; api.TABLET.refresh("parcels");
+  if (!seaSaid) { seaSaid = true; api.TABLET.notify({ app: "parcels", title: "Sea freight for the skiff", body: `${j.cargo}, ${shortSite(j.from).toLowerCase() === "quay" ? "quay jetty" : shortSite(j.from) + " jetty"} to ${shortSite(j.dest)}: ${api.fmtCash(j.pay)}. Jobs marked BY BOAT load and hand over at the jetties.`, ttl: 9 }); }
 }
 
 /* ---------------- the model: a lofted V hull, thwarts, floorboards, the outboard and its tiller ---------------- */
@@ -436,6 +506,7 @@ function tick(R, r, isCur, dt) {
     R.tillerG.rotation.y = 0;
   } else { R.drvBody.visible = false; parkedTick(R, r, dt); }
   parcels(R, isCur ? load(R) : (r.load || []).filter(j => j && !j.big).length);
+  if (r === boats()[0]) seaBoard(dt);
 }
 
 /* ---------------- getting in and out ---------------- */
@@ -571,6 +642,7 @@ function dismountTick(R, dt) {
 function driver(R) {
   return {
     pin: "boat", floats: true,                                                  // the game's drown test leaves P alone (beta 0178 #1)
+    shore: () => shoreSite(R),                                                  // tied up at a jetty: its place's warmth, the quay's fuel (14.2b)
     get mass() { return ROW.mass + 90; },
     core: dt => core(R, dt),
     restat(ST) {
@@ -639,5 +711,5 @@ function init(a) {
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
 TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { ROW, DOCKS, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
+window.TLXB = { ROW, DOCKS, seaKm, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();

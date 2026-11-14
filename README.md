@@ -312,6 +312,13 @@ the compass points at your target's jetty ("to its jetty"), or tells you there's
 The east coast (Mehamn, Gamvik, Skjånes, Slettnes) lies on another sea that no water route from
 Kjøllefjord reaches, so it has no jetty yet.
 
+Once you own a skiff the Parcels board also carries sea freight, marked BY BOAT: fish boxes, crab
+pots, an outboard for the workshop, from one jetty to another. Claim it anywhere; it waits on the
+jetty and loads when you tie up alongside, then hands over at the other jetty. A sled can't take it.
+It pays by the distance by sea, and 35% more when the road between the two places is snowed in or
+shut for the winter (ROAD SHUT +35%). Tied up at a village's jetty you have the village's warmth,
+and at the quay jetty the quay's hose fills her tank.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a

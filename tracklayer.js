@@ -6470,10 +6470,10 @@ function deliver(site) {
     for (const j of crates) mktDeliver(j);
     restat(); applyLoadout(); save(); TABLET.refresh();
   }
-  const here = GS.load.filter(j => j.dest === site);
+  const here = GS.load.filter(j => j.dest === site && !(j.sea && !afloat()));   // sea freight (14.2b) hands over from the boat only
   if (!here.length) return;
   const tutD = here.some(j => j.tut);
-  GS.load = GS.load.filter(j => j.dest !== site);
+  GS.load = GS.load.filter(j => !here.includes(j));
   let total = 0, notes = [], clean = true, lost = 0, fuelL = 0;
   const note = n => { if (!notes.includes(n)) notes.push(n); };
   for (const j of here) {
@@ -7539,12 +7539,17 @@ function tabHome(v) {
 function tabWork() {
   updGroom();
   const stale = roaming() && (!GS.jobsAt || Math.hypot(P.x - GS.jobsAt.x, P.z - GS.jobsAt.z) > ROAM_NEAR) && !GS.jobs.some(j => j.from === GS.near);
-  if (!GS.jobs.length) makeJobs(roaming() ? (GS.near && GS.near !== garageSite ? GS.near : nearestSite()) : depot);
+  if (!GS.jobs.some(j => !j.sea)) makeJobs(roaming() ? (GS.near && GS.near !== garageSite ? GS.near : nearestSite()) : depot);
   else if (stale) roamJobs(GS.near && GS.near !== garageSite ? GS.near : nearestSite());
   if (!GS.contracts || !GS.contracts.some(c => !c.locked) || (GS.contractsWinch || 0) !== ST.winch || (ST.winch && GS.contracts.some(c => c.locked === "Recovery call-outs"))) makeContracts(depot);
   tourSync();
 }
-const claimSmall = () => GS.claims.filter(j => !j.big && !j.tour).length;
+const claimSmall = () => GS.claims.filter(j => !j.big && !j.tour && !j.sea).length;
+/* Sea jobs (14.2b, posted by tlx-boats.js once you own a skiff; `j.sea`): freight that waits at a jetty and goes by
+   boat. It loads and hands over only while the vehicle you're in floats (dockWork in tlx-boats.js calls collectClaims /
+   deliver alongside a jetty), so stopping at the village on a sled does nothing with it. */
+function afloat() { return !!(VEH.cur && VEH.cur.floats) && !FOOT.on; }
+function seaAt(s) { const D = window.TLXB && TLXB.dockFor(s); return D ? "the " + D.name : s.name; }
 const claimBays = () => GS.claims.filter(j => j.big).reduce((a, j) => a + j.bays, 0);
 const atQuay = () => GS.near === depot;
 // Taking work from the tablet: at the quay it goes straight on the sled, the way the board did. Anywhere else
@@ -7552,6 +7557,13 @@ const atQuay = () => GS.near === depot;
 const atPickup = j => GS.near === (j.from || depot);
 function takeParcel(k) {
   const j = GS.jobs[k]; if (!j) return;
+  if (j.sea) {                                           // waits at the jetty for the boat: always a claim; alongside, it loads at once
+    const n = GS.claims.filter(c => c.sea).length;
+    if (n >= 4) { toast(`That's ${n} sea jobs claimed already: a boatful.`, "warn"); return; }
+    GS.claims.push(j); GS.jobs.splice(k, 1);
+    toast(`Claimed: ${j.cargo} for ${shortName(j.dest)}, by boat. It's waiting on ${seaAt(j.from)}: bring the boat alongside.`);
+    TABLET.refresh(); save(); return;
+  }
   if (atPickup(j)) { acceptJob(k); return; }
   if (smallLoads().length + claimSmall() >= ST.slots) { toast(`Your ${rackW()}'s spoken for: ${smallLoads().length} aboard and ${claimSmall()} claimed.`, "warn"); return; }
   j.from = j.from || depot; GS.claims.push(j); GS.jobs.splice(k, 1);
@@ -7587,6 +7599,7 @@ function takeContract(k) {
 function collectClaims(site) {
   for (const j of GS.claims.slice()) {
     if ((j.from || depot) !== site || gameClock - (j.tryT || -99) < 6) continue;
+    if (j.sea && !afloat()) continue;                    // sea freight (14.2b) waits for the boat
     j.tryT = gameClock; GS.claims.splice(GS.claims.indexOf(j), 1);
     if (j.tour) { acceptTour(j); continue; }
     const list = j.big ? (GS.contracts = GS.contracts || []) : GS.jobs; list.push(j); const k = list.length - 1;
@@ -7807,7 +7820,7 @@ function tabMinis(el) { for (const cv of el.querySelectorAll("canvas[data-mini]"
 
 /* ---- the apps ---- */
 const chip = (t, c) => `<span class="bchip${c ? " " + c : ""}">${t}</span>`;
-function parcelChips(j) { return (j.soft ? chip("SLUSH +15%", "heavy") : "") + (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.tipL ? chip("FUEL TIP", "ok") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
+function parcelChips(j) { return (j.sea ? chip("BY BOAT", "ok") : "") + (j.shut ? chip("ROAD SHUT +35%", "heavy") : "") + (j.soft ? chip("SLUSH +15%", "heavy") : "") + (j.steamer ? chip("OFF THE FERRY", "due") : "") + (j.long ? chip("LONG HAUL", "heavy") : "") + (j.tipL ? chip("FUEL TIP", "ok") : "") + (j.roam && GS.near && j.from === GS.near ? chip("PICKUP HERE", "ok") : "") + (j.local && !j.steamer && !j.roam ? chip("NEAR TOWN") : "") + (j.fragile ? chip("FRAGILE", "fragile") : "") + (j.boat ? chip("FOR THE BOAT", "due") : "") + (j.due ? chip(`${j.boat ? "SAILS" : "DUE"} ${fmtTime(j.due)}`, "due") : ""); }
 function tabCard(o) {
   return `<div class="tcard${o.cls ? " " + o.cls : ""}"${o.tf ? ` data-tf="${o.tf}"` : ""}>
     ${o.mini ? `<canvas class="tmini" data-mini="${o.mini}"></canvas>` : ""}
@@ -7847,8 +7860,16 @@ function pbRows() {
   for (const j of smallLoads()) slots.push({ kind: "ab", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: null, to: j.dest, pay: payTxt(j), sub: `to ${shortName(j.dest)}`,
     meta: `to ${tabEsc(shortName(j.dest))} · ${fmtMi(pbKm(j.dest, P))} from you${j.hits && (j.fragile || j.soaked) ? (j.fragile ? " · knocked about" : " · soaked") : ""}`, note: pbNote(j) });
   for (const j of GS.claims.filter(c => !c.big && !c.tour)) { const f = j.from || depot; slots.push({ kind: "cl", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} → ${shortName(j.dest)}`,
-    meta: `pick up at ${tabEsc(f.name)} (${fmtMi(pbKm(f, P))} from you), then ${jobKm(j).toFixed(1)} km to ${tabEsc(shortName(j.dest))}`, note: pbNote(j) }); }
+    meta: j.sea ? `waiting on ${tabEsc(seaAt(f))} for the boat, then ${j.seaKm} km by sea to ${tabEsc(shortName(j.dest))}` : `pick up at ${tabEsc(f.name)} (${fmtMi(pbKm(f, P))} from you), then ${jobKm(j).toFixed(1)} km to ${tabEsc(shortName(j.dest))}`, note: pbNote(j) }); }
   GS.jobs.forEach(j => {
+    if (j.sea) {                                         // sea freight (14.2b): jetty to jetty, claimed here and loaded alongside
+      const f = j.from, blocked = GS.claims.filter(c => c.sea).length >= 4;
+      posted.push({ kind: "job", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} jetty → ${shortName(j.dest)} · ${j.seaKm} km by sea`,
+        meta: `${tabEsc(seaAt(f))} → ${tabEsc(seaAt(j.dest))} · ≈ ${j.seaKm} km by sea`,
+        note: `Goes by boat: it waits on the jetty, loads when you tie up alongside and hands over at ${tabEsc(seaAt(j.dest))}. ` + (j.shut ? `${tabEsc(j.shut[0].toUpperCase() + j.shut.slice(1))}, so they pay 35% over. ` : "") + pbNote(j),
+        warn: blocked ? "That's a boatful of sea jobs claimed already." : "", blocked, act: () => takeParcel(GS.jobs.indexOf(j)), actLabel: "CLAIM" });
+      return;
+    }
     const here = atPickup(j), f = j.from || depot, fromQ = f === depot && !j.roam, g = groom[j.dest.id] || 0;
     const blocked = full() && !here || (here && smallLoads().length >= ST.slots), dkm = fromQ ? routeKm(j.dest) : jobKm(j), clm = fromQ ? climbOf(j.dest) : jobClimb(j);
     posted.push({ kind: "job", obj: j, icon: TICON.parcels, title: j.cargo, chips: parcelChips(j), from: f, to: j.dest, pay: payTxt(j), sub: `${f === depot ? "quay" : shortName(f)} → ${shortName(j.dest)} · ${dkm.toFixed(1)} km`,
@@ -8964,7 +8985,7 @@ function jobsList() {
   if (t) out.push({ obj: t, kind: "tour", tgt: t.view, col: "#6ff0b8", title: `Aurora tour → ${t.view.name}`, chips: chip("AURORA · " + AUR.word(AUR.v).toUpperCase(), "aurora"), meta: `${t.pax} aboard`, pay: "~" + fmtCash(t.base * tourMul(AUR.v) * payMul()), mini: `${depot.id}|${t.view.id}|t`, hud: d => ({ title: `Aurora tour → ${t.view.name}${GS.load.length ? "  (+" + GS.load.length + " aboard)" : ""}`, sub: `${fmtMi(d)} · aurora ${AUR.word(AUR.v).toLowerCase()} · about $${Math.round(t.base * tourMul(AUR.v) * payMul())} if you got there now` }) });
   for (const j of GS.load) {
     if (j.school) continue;
-    out.push({ obj: j, kind: "load", tgt: j.dest, col: j.dest === depot ? "var(--ice)" : "var(--signal)", title: `${j.cargo} → ${shortName(j.dest)}`, chips: chip("ABOARD", "ok") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + parcelChips(j), meta: `deliver to ${j.dest.name}${j.big ? ` · ${Math.round(j.cond)}% condition` : ""}`, pay: j.pay ? fmtCash(j.pay * payMul()) : "", mini: `${(j.from || depot).id}|${j.dest.id}`, hud: d => ({ title: `${j.cargo} → ${j.dest.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`, sub: loadSub(j, d) }) });
+    out.push({ obj: j, kind: "load", tgt: j.dest, col: j.dest === depot ? "var(--ice)" : "var(--signal)", title: `${j.cargo} → ${shortName(j.dest)}`, chips: chip("ABOARD", "ok") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + parcelChips(j), meta: `${j.sea ? "by boat to " + seaAt(j.dest) : "deliver to " + j.dest.name}${j.big ? ` · ${Math.round(j.cond)}% condition` : ""}`, pay: j.pay ? fmtCash(j.pay * payMul()) : "", mini: `${(j.from || depot).id}|${j.dest.id}`, hud: d => ({ title: `${j.cargo} → ${j.dest.name}${GS.load.length > 1 ? "  (" + GS.load.length + " aboard)" : ""}`, sub: loadSub(j, d) }) });
   }
   const g = GS.groomJob;
   if (g) { const gt = groomTarget(); out.push({ obj: g, kind: "groom", tgt: gt, col: "var(--signal)", title: `Grooming → ${shortName(g.dest)}`, chips: chip(Math.round(groomFrac(g) * 100) + "% GROOMED") + chip("DUE " + fmtTime(g.due), "due"), meta: `groom the line out to ${g.dest.name}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched" : ""}`, pay: fmtCash(g.pay * payMul()), mini: `${depot.id}|${g.dest.id}|g`, hud: () => { const fr = groomFrac(g); return { title: `Grooming → ${g.dest.name}`, sub: `${Math.round(fr * 100)}% of the line · ${fr >= 0.9 ? "finish at the cabin" : fr >= 0.7 ? "enough to sign off, more pays more" : "arrow points at the next gap"} · $${Math.round(g.pay * payMul())} · due ${fmtTime(g.due)}${GS.hour > g.due ? " (late)" : ""}${!isGroomer(GS.own.parts.hitch) ? " · no groomer hitched!" : GS.own.parts.hitch === "tiller" && !TOW.wingOn ? " · G: wings out, wide pays more" : ""}` }; } }); }
@@ -8976,11 +8997,11 @@ function jobsList() {
   if (GS.mkt && MKT.guide) { const l = GS.mkt.list.find(q => q.site === MKT.guide), s = l && SITES.find(x => x.id === l.site); if (s) { const nm = mktInfo(l).name; out.push({ obj: "guide:" + l.site, kind: "mkt", tgt: s, col: "var(--signal)", title: `Look at: ${nm}`, chips: chip("BYTTEBODEN"), meta: `${l.seller} in ${shortName(s)} · stop at the door to look it over`, pay: "", mini: `${depot.id}|${s.id}`, hud: d => ({ title: `Bytteboden: ${nm}`, sub: `${l.seller} in ${shortName(s)} · ${fmtMi(d)} · stop at the door to look it over` }) }); } }
   for (const j of GS.claims) {
     const f = j.from || depot;
-    out.push({ obj: j, kind: "claim", tgt: f, col: f === depot ? "var(--ice)" : "var(--signal)", title: `Pick up: ${j.tour ? "tourists" : j.cargo}`, chips: chip("CLAIMED") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + (j.tour ? chip("AURORA", "aurora") : parcelChips(j)), meta: `waiting at ${f.name}, then to ${shortName(j.dest)}${j.bond ? ` · $${j.bond} bond at pickup` : ""}`, pay: fmtCash(j.pay * (j.tour ? tourMul(AUR.v) : 1) * payMul()), mini: `${f.id}|${j.dest.id}${j.tour ? "|t" : ""}`, hud: d => ({ title: `Pick up: ${j.tour ? "tourists" : j.cargo}${j.dest ? ` for ${shortName(j.dest)}` : ""}`, sub: `Waiting at ${f.name} · ${fmtMi(d)} · stop there to load` }) });
+    out.push({ obj: j, kind: "claim", tgt: f, col: f === depot ? "var(--ice)" : "var(--signal)", title: `Pick up: ${j.tour ? "tourists" : j.cargo}`, chips: chip("CLAIMED") + (j.big ? chip(bigTag(j).toUpperCase(), bigTag(j)) : "") + (j.tour ? chip("AURORA", "aurora") : parcelChips(j)), meta: `waiting ${j.sea ? "on " + seaAt(f) + " for the boat" : "at " + f.name}, then to ${shortName(j.dest)}${j.bond ? ` · $${j.bond} bond at pickup` : ""}`, pay: fmtCash(j.pay * (j.tour ? tourMul(AUR.v) : 1) * payMul()), mini: `${f.id}|${j.dest.id}${j.tour ? "|t" : ""}`, hud: d => ({ title: `Pick up: ${j.tour ? "tourists" : j.cargo}${j.dest ? ` for ${shortName(j.dest)}` : ""}`, sub: j.sea ? `Waiting on ${seaAt(f)} · ${fmtMi(d)} · ${afloat() ? "tie up alongside to load" : "it goes by boat"}` : `Waiting at ${f.name} · ${fmtMi(d)} · stop there to load` }) });
   }
   if (santaBought() && santaN() < 9) { const t = rareHint(); if (t) out.push({ obj: "santa", kind: "santa", tgt: t, col: "#ff5a4a", title: `Santa's team: ${santaN()}/9 found`, chips: chip("RARE", "due"), meta: `${santaN() >= 8 ? "Rudolph's out there: a red glow" : "one was last seen"} near ${nearestSiteName(t.x, t.z)} · listen for sleigh bells`, pay: "", hud: d => ({ title: `Santa's team · ${santaN()}/9`, sub: `Last seen near ${nearestSiteName(t.x, t.z)} · ${fmtMi(d)} · listen for bells` }) }); }
   if (GS.mail.length) out.push({ obj: "mail", kind: "mail", tgt: depot, col: "var(--ice)", title: "Mail → Kjøllefjord quay", chips: chip("MAIL"), meta: `${mailCount()} letters to hand in at the quay`, pay: "~" + fmtCash(mailValue()), hud: d => ({ title: "Mail → Kjøllefjord quay", sub: `${mailCount()} letters · ${fmtMi(d)} · stop at the quay to hand in` }) });
-  if (window.TLXR && TLXR.tripWarn) for (const r of out) { const w = TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, r.tgt); if (w) { r.meta += " · " + w; r.road = w; } }   // 3.2b: a snowed-in road on the way
+  if (window.TLXR && TLXR.tripWarn) for (const r of out) { if (r.obj && r.obj.sea) continue; const w = TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, r.tgt); if (w) { r.meta += " · " + w; r.road = w; } }   // 3.2b: a snowed-in road on the way
   return out;
 }
 // the job the compass is pinned to, or null when it's on Auto (a finished job drops back to Auto)
@@ -13650,9 +13671,10 @@ function updGame(dt, spd) {
   if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
   GS.camping = camping;
   const hospWarm = hospHere(P.x, P.z, 22) && !FOOT.on || hospHere(FOOT.x, FOOT.z, 22) && FOOT.on;
-  if ((near || RE.here || hospWarm) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+  const shoreS = VEH.cur && VEH.cur.shore ? VEH.cur.shore() : null;   // the boat tied up at a jetty (14.2b): its place's warmth, the quay's fuel
+  if ((near || RE.here || hospWarm || shoreS) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
-  else if (!near && !RE.here && !hospWarm) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
+  else if (!near && !RE.here && !hospWarm && !shoreS) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
   { const wl = VEH.cur && VEH.cur.floats ? null : wlvAt(P.x, P.z);   // P is a boat (tlx-boats.js): her hull dips into the swell, nobody drowns (beta 0178 #1)
@@ -13662,7 +13684,7 @@ function updGame(dt, spd) {
     if (wl !== null && (P.y < wl - 0.4 || HELP.stillWet > 4) && !HELP.on) { HELP.stillWet = 0; startDrown(); } }
   // The quay and the garage top you up free; while you're there the low warning stays quiet (it used to re-fire
   // every frame until the tank passed 20%) and re-arms so it can warn once more if you leave still low.
-  const freeFill = near === depot || near === garageSite;
+  const freeFill = near === depot || near === garageSite || shoreS === depot;
   if (freeFill) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   fuelStep(dt, spd);
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !freeFill && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
@@ -13775,7 +13797,7 @@ function updGameHud() {
   if (inBoat && SITES.includes(tgt) && !tutTarget()) $("jobSub").textContent += aim !== tgt ? " · to its jetty" : " · no jetty there";
   if (!tr) JOBT.auto = $("jobTitle").textContent;
   { const isJob = !!(tr || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)
-    const rw = window.TLXR && TLXR.tripNote ? TLXR.tripNote(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt, isJob) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
+    const rw = !inBoat && window.TLXR && TLXR.tripNote ? TLXR.tripNote(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt, isJob) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
   { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
     const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
     rel = rl; $("arrow").style.transform = `rotate(${(-rl * 180 / Math.PI).toFixed(1)}deg)`; $("arrow").style.color = tt.col;
