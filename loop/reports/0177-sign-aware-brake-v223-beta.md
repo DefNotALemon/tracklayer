@@ -1,0 +1,10 @@
+# 0177 — sign-aware brake (v223, base game fix for 0170 #1) beta — main @ 42e0a6c
+Scenarios: tools/playtest/scenarios/g3_riderless_brake.mjs (builder's, rerun 5x) and g2_rocks_riderless.mjs (0170's). No stills (numbers only).
+
+## Findings
+1. [VERIFIED] The 0170 runaway is fixed. 18 and 22 m/s rock strikes: sled stops at the stone (0.2-0.3 m, post-hit 0.3-2.4 m/s), 0 m/s from +1 s to +8 s, crash state clears at ~4 s, still 0 afterwards. Crash ejects at -3/-6/+12 m/s on flat: all stop, reverse gear never engages while crashed, peak after +1.5 s is 0.
+2. [VERIFIED] Empty tank, rider on, brake held while rolling back at 4 m/s: 0 m/s at +1 s and +8 s (no speed gain).
+3. [POLISH] g3_riderless_brake.mjs is flaky as a gate. Of 5 full runs, 2 failed: run 1 "22 rock ... peak after +1.5 s 22.00 m/s" AND "empty tank brake holds it stopped (4.00)"; run 2 failed the 22 rock case only; runs 3-5 all passed. A probe copy printing the 22 m/s series (every ~0.25 s) showed 0 m/s from +1 s on, so the 22.00 reading is a stray sample equal to the launch speed, not the sled running away (end state was 0 m/s, 0.2 m from the stone in the same run). Likely the recorder catching a frame from the case's own teleport/launch while 6 other lanes' headless Chromes were running (GPU/CPU contention). The empty-tank 4.00 in run 1 means the brake did not bite for the whole 8 s once; not reproduced in 4 later runs, so I can't say whether it's the test (KeyS down racing recStart) or the game. Suggested fix: drop samples with t < 0.3 s after the case's reset, and have the empty-tank case wait for `input.brk > 0` before recording. Don't treat a red run as a v223 regression without a re-run.
+4. [POLISH, carried from 0170] g2_rocks_riderless.mjs "3 m/s crawl: stone stops/registers" still FAILs (sled launched 14 m away never reaches the stone; drag stops it at 0.1 m/s). Test-setup issue, not a game bug.
+
+Not tested: pad/touch brake (no input-path change in the diff), brake on slopes, hauling a tow with a riderless sled.
