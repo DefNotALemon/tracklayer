@@ -466,6 +466,7 @@ Village streets, house yards and the quay are kept plowed through it all, and a 
 the roads plowed. Where the snow on each road stands is saved with the game.
 
 The Map app has a small road legend in the corner (open, snowed in with how many roads are, closed).
+The Map app's chart draws each settlement as a warm, lit little town: a lot round every house, the plowed lanes and short back lanes between doors so they close into blocks, lit windows and chimney smoke, and sled country on the outskirts (trailhead flags where each road leaves a village, groomer shed and sled park at the garage, warming huts at lookouts and cabins, the radio relay mast, orange trail stakes along the open road legs).
 When a job's way by road runs over a stretch that has drifted shut, a heads-up pops up once per road per
 storm, and the compass label and the job's row in the Jobs app say so ("Kjøllefjord–Mehamn road snowed in"; a trip over Ifjordfjellet says it's shut
 for the winter); places out in the backcountry, where you'd take the sled anyway, never warn. A pickup

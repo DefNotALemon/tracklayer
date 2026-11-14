@@ -3892,6 +3892,7 @@ function buildMapBg() {
     else if (b === 1) { r = 120 * shade; gg = 176 * shade; bl = 214 * shade; }
     else if (b === 2) { r *= 0.74; gg *= 0.7; bl *= 0.64; }
     else if (sampleG(freshG, x, z) < 0.12) { r *= 0.5; gg *= 0.49; bl *= 0.5; }
+    { const td = Math.hypot(x - depot.x, z - depot.z); if (td < TOWN_R + 30 && b !== 3 && b !== 1) { const w = clamp(1 - td / (TOWN_R + 30), 0, 1) * 0.55; r = lerp(r, r * 1.02 + 14, w); gg = lerp(gg, gg * 0.93 + 4, w); bl = lerp(bl, bl * 0.72, w); } }   // cozy: warm cream/amber in town, not snow-white
     const band = h % 40;                              // 40 m contour lines for depth
     if (band < st * Math.hypot(hx, hz) * 1.2 && h > 8 && b !== 1 && b !== 3) { r *= 0.86; gg *= 0.86; bl *= 0.88; }
     img.data[o] = clamp(r, 0, 255); img.data[o + 1] = clamp(gg, 0, 255); img.data[o + 2] = clamp(bl, 0, 255); img.data[o + 3] = 255;
@@ -5399,7 +5400,7 @@ const KIT = (() => {
   const K = {
     wood: L(0x5b3d29), woodD: L(0x3a271b), snowM: L(0xf3f7fc), stone: L(0x6b6c70), metal: L(0x8d99a6), doorM: L(0x2a1b12),
     red: L(0xa8392a), green: L(0x2f5a3a), white: L(0xe8e4dc), yellow: L(0xd9b95a), blue: L(0x3d5a7a), concrete: L(0x8c8f93), hull: L(0x1c2126),
-    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [], chimneys: [],
+    glowM: new THREE.MeshBasicMaterial({ color: 0xffc26b }), L, doors: [], foot: [], chimneys: [],
     plinth: L(0x4c4d51), trimW: L(0xeeebe4), trimG: L(0xa9b0b7),
     drip: L(0x4f4f4e)                                                  // the dark steel drip edge (roofTrim's DRIP_K × trimW)
   };
@@ -5411,6 +5412,7 @@ const KIT = (() => {
   // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
   K.house = (x, z, w, d, h, ry, mat, lit) => {
     addYard(x, z, Math.max(w, d) / 2 + 3);                             // plowed round the walls and out to the door
+    K.foot.push({ x, z, w, d, ry, lit: lit !== false });                // the chart's town layer (tabTown) draws every house from this
     if (lit !== false) addYard(x + Math.sin(ry) * (d / 2 + 5), z + Math.cos(ry) * (d / 2 + 5), 3.5);   // and a plowed apron out from the door (local +z), so you walk up to it on hard pack
     if (lit !== false) K.doors.push({ x, z, nx: Math.sin(ry), nz: Math.cos(ry), d, rr: Math.max(w, d) / 2 + 3.5 });   // buildTown plows a lane to it
     const g = new THREE.Group();
@@ -7650,6 +7652,110 @@ function tabLabel(g, t, x, y, size, col, italic) {
   g.font = `${italic ? "italic 500" : "600"} ${size}px 'Barlow Semi Condensed', sans-serif`; g.textAlign = "center"; g.textBaseline = "alphabetic";
   g.lineJoin = "round"; g.strokeStyle = "rgba(237,230,211,.92)"; g.lineWidth = Math.max(3, size * 0.3); g.strokeText(t, x, y); g.fillStyle = col; g.fillText(t, x, y);
 }
+/* ---- the chart's settlements and sled country (drawn live over the chart so it stays crisp at any zoom) ----
+   Real data only for positions: every house footprint (KIT.foot, from KIT.house), the plowed lanes buildTown laid to
+   each door (TOWNL), the village street / road legs (TLXR.routes), and the real sites. Stylised on top: lots round each
+   house, back lanes joining neighbouring doors (so the lanes close into blocks), warm lit windows, chimney smoke, and
+   the sled-country glyphs (trailhead flags at the real ends of each road leg, groomer shed at the garage, warming huts
+   at lookouts and cabins, the relay mast, trail stakes along the legs). Nothing here changes a lane, door or plow route. */
+const TT_COZY = { glow: "255,190,110", lot: "rgba(238,208,152,.62)", lotEdge: "rgba(140,98,58,.55)", road: "#f7edd6", roadEdge: "rgba(96,64,40,.7)", back: "rgba(120,84,52,.55)", roofs: ["#b5533a", "#d4a03c", "#6f8497", "#c97c62", "#8a5a3c", "#9aa86a"] };
+let TT_C = null;
+function tabTownBuild() {
+  const F = KIT.foot, setl = [{ x: depot.x, z: depot.z, r: TOWN_R + 12, name: "KJØLLEFJORD" }];
+  for (const s of SITES) if (s.kind === "village" && s.x !== undefined) setl.push({ x: s.x, z: s.z, r: 85, name: s.name });
+  const back = [];                                                   // back lanes: each lit door to its two nearest neighbours' doors, inside one settlement
+  const ap = F.filter(h => h.lit).map(h => ({ h, x: h.x + Math.sin(h.ry) * (h.d / 2 + 5), z: h.z + Math.cos(h.ry) * (h.d / 2 + 5) })), seen = new Set();
+  ap.forEach((a, i) => {
+    const near = ap.map((b, j) => ({ j, d: Math.hypot(a.x - b.x, a.z - b.z) })).filter(o => o.j !== i && o.d < 46 && o.d > 6).sort((p, q) => p.d - q.d).slice(0, 2);
+    for (const o of near) { const k = Math.min(i, o.j) + "_" + Math.max(i, o.j); if (seen.has(k)) continue; seen.add(k); const b = ap[o.j]; if (!isSea((a.x + b.x) / 2, (a.z + b.z) / 2)) back.push([[a.x, a.z], [b.x, b.z]]); }
+  });
+  const heads = [];                                                  // trailheads: where each road leg leaves a settlement
+  if (window.TLXR && TLXR.routes) for (const rt of TLXR.routes) { const ls = rt.segs.filter(sg => !sg.street); if (!ls.length) continue; for (const q of [ls[0].pts[0], ls[ls.length - 1].pts[ls[ls.length - 1].pts.length - 1]]) if (!heads.some(h => Math.hypot(h[0] - q[0], h[1] - q[1]) < 60)) heads.push(q); }
+  return TT_C = { F, setl, back, heads, at: F.length };
+}
+function ttSled(g, x, y, u, col) {                                   // a little side-on sled: skis, cowl, windscreen, seat
+  g.save(); g.translate(x, y); g.scale(u, u); g.lineCap = g.lineJoin = "round";
+  g.strokeStyle = "rgba(237,230,211,.95)"; g.lineWidth = 3.2; g.beginPath(); g.moveTo(-5, 3); g.lineTo(5.4, 3); g.lineTo(6.6, 1.2); g.moveTo(-4, 1); g.lineTo(3, -2.4); g.stroke();
+  g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-5, 3); g.lineTo(5.4, 3); g.lineTo(6.6, 1.2); g.stroke();
+  g.fillStyle = col; g.beginPath(); g.moveTo(-4.4, 1.6); g.lineTo(-3, -1.6); g.lineTo(1, -1.8); g.lineTo(4.4, 0.6); g.lineTo(4.4, 2.2); g.lineTo(-4.4, 2.2); g.closePath(); g.fill();
+  g.strokeStyle = "#3b2a1c"; g.lineWidth = 0.9; g.beginPath(); g.moveTo(1, -1.8); g.lineTo(2.2, -3.4); g.stroke();
+  g.restore();
+}
+function ttHut(g, x, y, u, smoke, t) {                               // a warming hut: gable, door, a lit window, smoke
+  g.save(); g.translate(x, y); g.scale(u, u); g.lineJoin = "round";
+  g.fillStyle = "rgba(237,230,211,.95)"; g.fillRect(-6.4, -6.2, 12.8, 11);
+  g.fillStyle = "#a8683f"; g.fillRect(-5, -2.2, 10, 6.6);
+  g.fillStyle = "#7a3e26"; g.beginPath(); g.moveTo(-6.2, -2.2); g.lineTo(0, -7.6); g.lineTo(6.2, -2.2); g.closePath(); g.fill();
+  g.fillStyle = "#3b2416"; g.fillRect(-1.2, 0.4, 2.4, 4); g.fillStyle = "#ffd36b"; g.fillRect(2.4, -0.8, 1.9, 1.9);
+  g.strokeStyle = "#3b2a1c"; g.lineWidth = 0.8; g.strokeRect(-5, -2.2, 10, 6.6);
+  g.fillStyle = "#6a4a36"; g.fillRect(2.6, -8.4, 1.5, 3);
+  if (smoke) { g.strokeStyle = "rgba(110,100,92,.55)"; g.lineWidth = 1.2; g.beginPath(); for (let i = 0; i < 6; i++) { const yy = -8.6 - i * 1.9, xx = 3.4 + Math.sin(t * 0.0015 + i * 0.9) * (0.6 + i * 0.35); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); } g.stroke(); }
+  g.restore();
+}
+function ttFlag(g, x, y, u, col) {                                   // a trailhead: board on a post with a pennant
+  g.save(); g.translate(x, y); g.scale(u, u); g.lineJoin = "round";
+  g.strokeStyle = "rgba(237,230,211,.95)"; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 2); g.lineTo(0, -12); g.lineTo(7.5, -9.5); g.lineTo(0, -7); g.stroke();
+  g.strokeStyle = "#3b2a1c"; g.lineWidth = 1.4; g.beginPath(); g.moveTo(0, 2); g.lineTo(0, -12); g.stroke();
+  g.fillStyle = col; g.beginPath(); g.moveTo(0, -12); g.lineTo(7.5, -9.5); g.lineTo(0, -7); g.closePath(); g.fill(); g.lineWidth = 0.7; g.stroke();
+  g.restore();
+}
+function tabTown(g, w2c, pm, sc, W, H) {
+  if (!KIT.foot || !KIT.foot.length) return;
+  const C = TT_C && TT_C.at === KIT.foot.length ? TT_C : tabTownBuild(), t = performance.now();
+  const inView = (x, z, m) => { const [a, b] = w2c(x, z); return a > -m && b > -m && a < W + m && b < H + m; };
+  g.save(); g.lineCap = g.lineJoin = "round";
+  // a warm pool under every settlement: always visible, even on the whole-map view
+  for (const s of C.setl) {
+    if (!inView(s.x, s.z, 200)) continue; const [x, y] = w2c(s.x, s.z), r = Math.max(11, s.r * pm * 1.05);
+    const gr = g.createRadialGradient(x, y, r * 0.15, x, y, r); gr.addColorStop(0, `rgba(${TT_COZY.glow},.55)`); gr.addColorStop(0.7, `rgba(${TT_COZY.glow},.28)`); gr.addColorStop(1, `rgba(${TT_COZY.glow},0)`);
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill();
+  }
+  if (pm > 0.05) {
+    const stroke = (pts, w) => { g.lineWidth = w; g.beginPath(); pts.forEach(([px, pz], i) => { const [a, b] = w2c(px, pz); i ? g.lineTo(a, b) : g.moveTo(a, b); }); g.stroke(); };
+    // lots round each house (the blocks), then the back lanes, then the lanes and streets, then the houses
+    if (pm > 0.22) for (const h of C.F) {
+      if (!inView(h.x, h.z, 60)) continue; const c = Math.cos(h.ry), s = Math.sin(h.ry), hw = h.w / 2 + 4, hd = h.d / 2 + 4;
+      g.beginPath(); [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].forEach(([u, q], i) => { const [a, b] = w2c(h.x + u * c + q * s, h.z - u * s + q * c); i ? g.lineTo(a, b) : g.moveTo(a, b); }); g.closePath();
+      g.fillStyle = TT_COZY.lot; g.fill(); g.strokeStyle = TT_COZY.lotEdge; g.lineWidth = 0.9; g.setLineDash([3, 2]); g.stroke(); g.setLineDash([]);
+    }
+    if (pm > 0.22) { for (const [col, w] of [[TT_COZY.roadEdge, Math.max(2.2, 4.2 * pm)], [TT_COZY.road, Math.max(1.2, 2.6 * pm)]]) { g.strokeStyle = col; for (const b of C.back) { if (!inView(b[0][0], b[0][1], 60)) continue; stroke(b, w); } } }
+    const lanes = TOWNL.slice(); if (window.TLXR && TLXR.routes) for (const rt of TLXR.routes) for (const sg of rt.segs) if (sg.street) lanes.push(sg.pts);
+    const road = (pts) => { for (const [col, w] of [[TT_COZY.roadEdge, Math.max(3, 6.4 * pm)], [TT_COZY.road, Math.max(1.8, 4.2 * pm)]]) { g.strokeStyle = col; stroke(pts, w); } };
+    for (const pts of lanes) if (pts.length > 1 && inView(pts[0][0], pts[0][1], 600) || inView(pts[pts.length - 1][0], pts[pts.length - 1][1], 600)) road(pts);
+    if (pm > 0.3) { g.strokeStyle = "rgba(176,132,86,.55)"; g.setLineDash([5, 5]); for (const pts of lanes) stroke(pts, 0.9); g.setLineDash([]); }
+    let hi = 0;
+    for (const h of C.F) {
+      hi++; if (!inView(h.x, h.z, 60)) continue; const c = Math.cos(h.ry), s = Math.sin(h.ry), hw = h.w / 2 * 1.3, hd = h.d / 2 * 1.3;
+      const P = (u, q) => w2c(h.x + u * c + q * s, h.z - u * s + q * c);
+      g.beginPath(); [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].forEach(([u, q], i) => { const [a, b] = P(u, q); i ? g.lineTo(a, b) : g.moveTo(a, b); }); g.closePath();
+      g.fillStyle = TT_COZY.roofs[(Math.round(h.x * 0.37 + h.z * 0.53) & 255) % TT_COZY.roofs.length]; g.fill(); g.strokeStyle = "#3b2a1c"; g.lineWidth = Math.max(0.8, 0.5 + pm * 0.6); g.stroke();
+      if (pm > 0.4) { const [a0, b0] = P(0, -hd), [a1, b1] = P(0, hd); g.strokeStyle = "rgba(59,42,28,.6)"; g.lineWidth = 0.9; g.beginPath(); g.moveTo(a0, b0); g.lineTo(a1, b1); g.stroke(); }   // the ridge
+      if (h.lit && pm > 0.4) {                                       // the door end: lit windows and a warm spill of light
+        const [dx, dy] = P(0, hd + 1.2), [wx, wy] = P(hw * 0.55, hd - 0.4), [vx, vy] = P(-hw * 0.55, hd - 0.4), r = Math.max(2, 7 * pm);
+        const gr = g.createRadialGradient(dx, dy, 0, dx, dy, r * 2.2); gr.addColorStop(0, "rgba(255,208,120,.55)"); gr.addColorStop(1, "rgba(255,208,120,0)"); g.fillStyle = gr; g.beginPath(); g.arc(dx, dy, r * 2.2, 0, 6.283); g.fill();
+        g.fillStyle = "#ffd86b"; const q = Math.max(1.6, 1.9 * pm * 1.4); g.fillRect(wx - q / 2, wy - q / 2, q, q); g.fillRect(vx - q / 2, vy - q / 2, q, q);
+        if (pm > 0.9) { const [kx, ky] = P(hw * 0.3, -hd * 0.4); g.strokeStyle = "rgba(120,110,104,.55)"; g.lineWidth = 1.2; g.beginPath(); for (let i = 0; i < 6; i++) { const xx = kx + Math.sin(t * 0.0013 + i * 0.8 + hi) * (0.8 + i * 0.5) , yy = ky - 2 - i * 2.4; i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); } g.stroke(); }
+      }
+    }
+    // sled country: marked-trail stakes along the open road legs, then the glyphs
+    if (window.TLXR && TLXR.routes && pm > 0.06) {
+      g.fillStyle = "#e2531f"; g.strokeStyle = "rgba(237,230,211,.9)"; g.lineWidth = 1;
+      const every = pm > 0.4 ? 90 : 220, r = Math.max(1.6, Math.min(3, 1 + pm * 3));
+      for (const rt of TLXR.routes) for (const sg of rt.segs) { if (sg.street) continue; let acc = 0; for (let i = 1; i < sg.pts.length; i++) { acc += Math.hypot(sg.pts[i][0] - sg.pts[i - 1][0], sg.pts[i][1] - sg.pts[i - 1][1]); if (acc >= every) { acc = 0; const p = sg.pts[i], q = sg.pts[i - 1], nx = -(p[1] - q[1]), nz = p[0] - q[0], nl = Math.hypot(nx, nz) || 1; if (!inView(p[0], p[1], 20)) continue; const [a, b] = w2c(p[0] + nx / nl * 7, p[1] + nz / nl * 7); g.beginPath(); g.arc(a, b, r, 0, 6.283); g.fill(); g.stroke(); } } }
+    }
+    const u = clamp(pm * 5.5, 0.9, 1.7), lab = (txt, x, y, col) => tabLabel(g, txt, x, y, 11, col || "#6a3d20", true);
+    for (const h of C.heads) { if (!inView(h[0], h[1], 30)) continue; const [x, y] = w2c(h[0], h[1]); ttFlag(g, x, y, u, "#e2531f"); ttSled(g, x + 13 * u, y + 1 * u, u * 0.9, "#2b4a5e"); if (pm > 0.1) lab("Trailhead", x + 6 * u, y + 15 * u); }
+    if (garageSite.x !== undefined && inView(garageSite.x, garageSite.z, 40)) { const [x, y] = w2c(garageSite.x - 12, garageSite.z + 12); ttHut(g, x, y, u * 1.15, false, t); ttSled(g, x + 15 * u, y + 3 * u, u, "#d98a14"); ttSled(g, x + 26 * u, y + 3 * u, u, "#2b4a5e"); if (pm > 0.1) lab("Groomer shed & sled park", x + 8 * u, y + 17 * u); }
+    for (const l of LOOKOUTS) if (l.x !== undefined && inView(l.x, l.z, 40)) { const [x, y] = w2c(l.x + 6, l.z + 6); ttHut(g, x, y, u, true, t); if (pm > 0.1) lab("Warming hut", x, y + 14 * u); }
+    for (const s of SITES) {
+      if (s.x === undefined || !inView(s.x, s.z, 40)) continue;
+      if (s.kind === "cabin") { const [x, y] = w2c(s.x - 9, s.z + 7); ttHut(g, x, y, u, true, t); if (pm > 0.1) lab("Warming hut", x, y + 14 * u); }
+      if (s.type === "relay") { const [x, y] = w2c(s.x, s.z); g.strokeStyle = "#3b2a1c"; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x - 5 * u, y + 7 * u); g.lineTo(x, y - 11 * u); g.lineTo(x + 5 * u, y + 7 * u); g.moveTo(x - 3 * u, y + 1 * u); g.lineTo(x + 3 * u, y + 1 * u); g.stroke(); g.fillStyle = "#e2531f"; g.beginPath(); g.arc(x, y - 11 * u, 2 * u, 0, 6.283); g.fill(); if (pm > 0.1) lab("Radio relay", x, y + 19 * u); }
+    }
+    for (const s of C.setl) if (inView(s.x, s.z, 200) && pm > 0.05 && pm < 0.2) { const [x, y] = w2c(s.x, s.z); tabLabel(g, s.name, x, y + Math.max(14, s.r * pm) + 12, 12, "#7a4a24", true); }
+  }
+  g.restore();
+}
 function tabSites(g, w2c, scale, hot) {
   for (const s of SITES) {
     if (s.x === undefined || s.type === "shop") continue;
@@ -7950,6 +8056,7 @@ TABLET.register({
     if (L.pins) for (const j of GS.claims.concat(GS.jobs)) hot.add(j.dest);
     if (GS.groomJob) for (const p of GS.groomJob.pts) { const [x, y] = w2c(p.x, p.z); g.fillStyle = p.done ? "#2f7a4a" : CT_ACC; g.beginPath(); g.arc(x, y, 2.4, 0, 6.283); g.fill(); }
     if (L.del) for (const j of GS.load) { const r = CT.routes[j.dest.id]; if (r && (j.from || depot) === depot) tabRoute(g, w2c, r.P); }
+    tabTown(g, w2c, H / span, sc, W, H);
     tabSites(g, w2c, sc, hot);
     for (const v of LOOKOUTS) { if (v.x === undefined) continue; const [x, y] = w2c(v.x, v.z); g.fillStyle = "#2f8f6a"; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x - 5.5, y + 4); g.lineTo(x + 5.5, y + 4); g.closePath(); g.fill(); if (AUR.v > 0.38 || (GS.tour && GS.tour.view === v) || sc > 1.4) tabLabel(g, v.name, x, y + 16, 12, "#2f6a52", true); }
     if (L.pins) {
@@ -11925,11 +12032,12 @@ function laneRoute(sx, sz, gx, gz) {
   for (let i = 0; i < cells.length - 1;) { let j = cells.length - 1; while (j > i + 1 && !clear(cells[i], cells[j])) j--; out.push(cells[j]); i = j; }
   return out;
 }
+const TOWNL = [];                                                    // the plowed depot->door lanes as laid, for the chart
 function buildLanes() {
   const sx0 = depot.x - 5, sz0 = depot.z;
   for (const D of KIT.doors) {
     if (Math.hypot(D.x - depot.x, D.z - depot.z) > TOWN_R) continue;
-    addLane(laneRoute(sx0, sz0, D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)), 1.5);
+    const lr = laneRoute(sx0, sz0, D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)); TOWNL.push(lr); addLane(lr, 1.5);
   }
 }
 /* ---- chase camera vs buildings (report 0046: delivery stills were a screenful of a house's painted wall). The chase cam
