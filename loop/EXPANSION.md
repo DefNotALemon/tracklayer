@@ -16,6 +16,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
+| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; next: 11.1b (carry, fire, hunt the wildlife), then 11.2 wheel |
 | 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); next: 14.2b (sea jobs), then 0178 #2/#3 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -526,6 +527,20 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       ammo variety; 11.4 more part variety + a second frame; 11.5 the original milestone's seasons/quotas/
       game warden/butcher. 11.1-11.2 were built in an ad hoc session pass (not lane D) on 14 Nov — check
       Status before starting either so lane D doesn't duplicate it.
+  - [x] 11.1a (tlx-guns v1, lane D) The model and the shop. No ad hoc `tracklayer-guns` pass ever landed (no worktree, no
+        branch, no tlx-guns.js on origin when lane D checked, 14 Nov), so lane D built it. FRAMES (bolt-action .308,
+        $1,450), PARTS 3 per slot (barrel std22/carb18/heavy24, stock walnut/synth/adjust, grip plain/rubber/bipod,
+        magazine int3/det5/det10, sight iron/red1/scope39; slot 0 = the free stock part), `stats(gun)` (spread MOA,
+        recoil, handling, kg, noise, range, cap, zoom), `fit(slot,id)` = the free swap 11.2's wheel calls. Gun shop
+        Jakt & Våpen: INT room via api.intAdd (door ~55 m from the quay, >= 14 m from every other ring; rifle rack,
+        glass case, antlers, ammo shelf, stove, counter), panel `api.shop("guns")` with tabs Licence / Rifles / Parts
+        (stat-delta chips per card) / Ammunition ($38 for 20, 120 max). Option `huntlic` (on): the course ($180) gates
+        buying a rifle. Saved x.sys.guns {owned, cur, parts, ammo, licence}, sanitized on load. Test x11_gunshop.mjs.
+  - [ ] 11.1b Carry, fire, hunt (the rest of 11.1 below): the rifle on the sled rack / slung on foot, load from the
+        pack (`rounds`, cap from stats), aim (zoom from the sight, sway from spread/handling) and fire through
+        `btn(action)` on all three schemes, hits on WILD animals (clean-kill chance from range + spread), a carcass to
+        sell (pelt/meat at the gun shop counter until 11.5's butcher), noise -> spook radius. People never: the trigger
+        is dead whenever the aim ray passes within reach of any human figure (walkers, drivers, riders, staff).
   - [ ] 11.1 Core weapon model + gun shop shell. New `tlx-guns.js` (`TLX.register({id:"guns",...})`, state
         `x.sys.guns = { owned: [...], parts: [...] }`). A **frame** (`FRAMES`: start with one, a bolt-action
         hunting rifle, `id, name, slots:["barrel","stock","grip","magazine","sight"], base stats`) is the

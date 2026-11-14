@@ -24,6 +24,25 @@ reload. Storm 1.0 at full throttle 8 s: hull -0.46..+0.62 m on the waterline, to
 Stills `~/.hermes/cache/scratch/tlloop/c142/r2/` (skiff tied up at Dyfjord jetty under the cliff, Map with the pins): clean.
 x14_skiff's "one jetty" assert now reads the first jetty only.
 Gate (after rebasing over the town redo, v227 taken upstream so script v228): smoke, x1_save, x14_docks, x14_skiff all exit 0, page errors none.
+## 2026-11-14 — 11.1a the rifle and the gun shop, Jakt & Våpen (lane D) (G4) — e0b8008
+Builder pass, lane D. Triage: no new beta reports on lane D systems (0176's 4 POLISH on 10.1 stay unqueued; 0177 is
+lane A's). Owner 14 Nov put milestone 11 ahead of 10.3-10.4; the ad hoc `tracklayer-guns` pass it mentions never landed
+(no worktree, no branch, no tlx-guns.js on origin), so lane D built 11.1, split: 11.1a (this) the model + the shop,
+11.1b carry/fire/hunt (written into EXPANSION.md).
+New `tlx-guns.js` v1, no tracklayer.js bridge (api.intAdd / shop / footx / keyHint from 10.2 cover it): FRAMES (bolt
+.308, $1,450), PARTS 3 per slot over barrel/stock/grip/magazine/sight with stat deltas, `stats(gun)`, `fit()` (the free
+swap 11.2's wheel will call; a smaller magazine hands rounds back to the pack), `buyPart`, `buyRifle`, `buyAmmo`,
+`takeCourse`. Jakt & Våpen: door picked ~55 m from the quay and >= 14 m from every other ring (this map: 56 m from the
+depot, 100 m from Sport & Vinter), JAKT & VÅPEN sign, room with rifle rack, glass case, antlers, ammo shelf, stove,
+counter. Tabs Licence / Rifles / Parts (each card shows its stat-change chips) / Ammunition. Option `huntlic` (on):
+course $180 before a rifle. Saved x.sys.guns, sanitized on load (corrupt parts/frames/cur/ammo/licence -> clean).
+x1_save's list of known systems gains "guns".
+Numbers (`x11_gunshop.mjs`): licence $3000 -> $2820, rifle -> $1370 with stock parts (spread 2.2 MOA, handling 5, range
+140 m, 3 rds, 2.9 kg); scope $480: range 140 -> 250 m, 6x, handling 5 -> 4, spread 2.2 -> 1.6; iron back and scope
+again free; 5-round $140 (cap 5); ammo stops at 120; walked door -> counter clear of 5 colliders; E, Xbox L3, touch SHOP
+open it, pad B / Esc / ✕ close; option off sells without the course; reload keeps it all; corrupt + pre-11.1 saves clean.
+Stills `~/.hermes/cache/scratch/tlloop/x11g/`: room and panels clean; Parts tab slot headings first sat in the card
+grid as empty cells and the antlers were inside the wall (x 3.8 = the wall): both fixed before landing.
 
 ## 2026-11-14 — 5.3 staff happiness, praise/criticism in person, raises, notice and quitting (lane B) (G4) — b2b7b31
 Builder pass, lane B. Reports 175-179 hold nothing for lane B (cab map, clothing, skiff, App Store: lanes A/C/D).
