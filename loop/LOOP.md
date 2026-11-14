@@ -620,5 +620,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       and walk into the light to leave", through `btn()`) for keyboard, pad and touch.
 - [ ] G4 (POLISH, 0167 #1/#2, 0164 #5): owners-out re-rolls on reload (seed it from the day if wanted); a homing car
       waits for you forever within 120 m with no cue; car beams burn all polar-night day (keyed off dayFactor).
+- [ ] G4 (builder 3.5b1, tests): the "longest town lane" picker shared by 26 x2/x3 scenarios (23 edited; x2_deck, x2_deckeverysled, x2_tow word it differently and are untouched) found only 7 m door spurs
+      after the v227 street grid (`Y.r > 2` threw the streets out) and failed "a plowed lane to drive on". Widened to
+      `Y.r > 5` in those 23; re-run and passing: x2_pickup, x2_hitch. The other 21 are changed but not re-run: a
+      scenario may still trip on the street start now being beside a shop door (x2_pickup's touch step did).
+- [ ] G1/G3 (POLISH, beta 0183 #2, 0185 #1): from the saddle the plowed town streets are the same white as the lots:
+      nothing (packed tint, tyre grooves, berms) shows where the street is. 0183 #1: after tutSkip the "sled's right
+      beside you" toast is wrong by 70 m. 0183 #3: retire or update `g1_townlots.mjs` (pre-grid lot offsets).
+      0187 #3: the Map chart is a bright cream sheet at night.
 
-Last triaged report: 182
+Last triaged report: 187

@@ -3,6 +3,44 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 3.5b1 the tractor unit you buy and drive (lane A) (G4) — 8d9b8f3
+Builder pass, lane A. Triage 183-192: no BLOCKER or BUG for lane A. 0183 / 0185 / 0187 (town grid, base game) are POLISH
+(streets read the same white as the lots from the saddle; tutSkip toast 70 m out; stale g1_townlots; chart bright at
+night): one backlog line in LOOP.md. 0189 (3.5a semis, mine): three POLISH, not queued (a lorry passes a standing walker
+1.3 m off the trailer; `c.why` reads "end" on a free road; a placed semi dips 9 -> 7 m/s before settling). 0191 (1.x
+sweep) clean. 0184/0186/0188/0190/0192 are lanes B and D's. Last triaged 182 -> 187 (188-192 read, none mine but 0189).
+Split 3.5b into 3.5b1 (this), 3.5b2 (semitrailers + the fifth-wheel coupling, design written into EXPANSION.md) and
+3.5b3 (trailer freight rows, Bytteboden, an optional CE course).
+Built: the Nordtrekk 4x2 as a second row in `VEHICLES`, on the pickup's wheeled physics, not a `TLXV.addKind` kind (the
+plan said addKind; a kind brings its own physics, and the lorry should sink, dig, bog and say why exactly as the pickup
+does). The pickup's hard-coded numbers became row fields with the pickup's values as defaults: `model`, `dualX`,
+`rimK`, `bed`, `brakeN`, `aero`, `lock`, `circles`, `belly`, `lamp`, `cab`, `lic`, `fifthZ`. `buildTractor` is a new
+model with a real cab interior (TLXS's traffic tractor is a closed box, useless from the driver's seat). `geos()` caches
+per id; six wheel instances when `dualX`; `keyOf()` moves the pickup's door keyframes to this cab's door and seat;
+`doorSpot` / the route round the truck / the nearest-vehicle rule read the row; `hostPose` is null without `hitchKg`
+(no ball). Licence gate reads `GS.lic.freight` through `api.GS` (no api change, tracklayer.js untouched). $11,500, by
+EXPANSION's economy targets between the dearest cabin and the Aurora E.
+Numbers (`x3_tractor.mjs`, 46 asserts, gameClock): unlicensed row locked + buy refused with no cash taken; bought, on the
+plowed forecourt, 300 L; hips rise 0.96 m on the climb (pickup 0.19); wheels at +-1.0 front, +-0.76 / +-1.1 rear; on the
+Skjånes road 8.6 m/s after 4 s (pickup 14.0 on the same road), 20 m/s at 12 s, 20 -> 0 in 46 m (3.9 m/s2), 61 deg of
+heading in 2.5 s, reverse 3.7 m/s; 0.5 m of powder: 0.0 m in 12 s, bogged, "STUCK" line; out beside the door; seated
+reload (211 L, 88%); pad LB / RT and touch GET ON / GET OFF; the pickup bought beside it: 4 wheels, seat and wheel
+where they were, 14.0 m/s; both in the save.
+Gate after the last rebase (onto v234, lane C's 14.3): smoke exit 0, x1_save exit 0, x3_tractor exit 0, page errors none. Before the rebase
+also x2_pickup and x2_hitch exit 0 (the pickup through the changed code).
+A test-harness break found on the way: the "longest town lane" picker shared by 26 x2/x3 scenarios found 7 m door spurs since
+the v227 street grid and failed its first assert (x2_pickup did, on main). `Y.r > 2` -> `Y.r > 5` in the 23 that word it alike (x2_deck, x2_deckeverysled, x2_tow do not and are untouched), and
+x2_pickup's last drive moved up the street away from the shop door. Re-run: x2_pickup, x2_hitch. NOT re-run: the other
+21 edited ones (LOOP.md backlog line).
+Stills `~/.hermes/cache/scratch/tlloop/a35b1_s1/sheet.jpg` (side, front and rear quarters, offside, fifth wheel from
+above, night with lamps) and `a35b1_s3/sheet.jpg` (the climb, 0.25 s apart): reads as a cab-over tractor, wheels on the
+ground, nothing floating; the climb goes stand, door, step up, in, door shut.
+Not done / not judged: no trailer, so nothing to pull and no freight for it yet (3.5b2, 3.5b3); not on Bytteboden; the
+climb is the pickup's posed door sequence raised 0.9 m, judged at contact-sheet size only, not to the swing's standard
+(boots are not pinned to the two steps); from the driver's seat the steering wheel is below the view (as in the pickup)
+and the dash is a plain slab; engine sound is the pickup's; nothing between 0 and 0.5 m of powder was measured; the
+forecourt spot put it 1 m from a mailbox in one run (the spot rule is the pickup's).
+
 ## 2026-11-14 — 14.3 open-water fishing: a handline from the skiff (lane C) (G4) — b32ad91
 Builder pass, lane C. Reports 0183-0191 have nothing on boats, so the pass took the next slice, 14.3; its design is in
 EXPANSION 14.3. LOOP.md's "Last triaged" counter is lane A's, left alone.
