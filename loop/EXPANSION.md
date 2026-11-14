@@ -14,7 +14,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); 3.5a semis on the roads in three sizes, trailer on a tractrix coupling (tlx-semis v1, tlx-traffic v5); 3.5b1 the tractor unit you buy and drive, Freight licence, no trailer yet (tlx-vehicles v19); next: 3.5b2 (semitrailers and the fifth-wheel coupling) |
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
-| 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); next: 6.1b (new property types) |
+| 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); 6.1b landed (v235, tlx-property v3): Real Estate has a page per property type, Slettnes lighthouse station is for sale (keeper's house + tower room, each room its own dirt, let by the night, caretaker); 6.1 done; next: 6.2 (the lamp, oil, Lights app, stipend) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
@@ -520,7 +520,7 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 - [ ] Options: unpaid-wage penalty (done in 5.3: `walkout`), staff improve with time, returning applicants show their record.
 
 ### 6. Upkeep and lighthouses (`tlx-property.js`, `tlx-lights.js`)
-- [ ] 6.1 Real Estate sells new property types; dust and grit, sweeping and dusting, cleaning kits. Split (lane B, 14 Nov):
+- [x] 6.1 Real Estate sells new property types; dust and grit, sweeping and dusting, cleaning kits. Split (lane B, 14 Nov):
   - [x] 6.1a Dust and grit at the depot cabins you own (`tlx-property.js`, saved `x.sys.prop` = `{ cab: { id: { grit,
         dust } }, kit, hT }`). Both 0-100, stepped by game hour (a jump over 60 days is capped): grit +6 a game day
         while you're away (guests track it in; 0.4x while you're there), dust +4 a day. A caretaker (5.x) cleans 11 a day
@@ -534,8 +534,34 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         stops it. The in-room hint (bridge in `intDoorHint`) and the use control read the same provider (footUse /
         footAction mirror). The RE app shows each depot's floor/shelves and the kit row. No option: it's the brief's core.
         Test `x6_clean.mjs`.
-  - [ ] 6.1b Real Estate sells new property types (the start of 6.2's lighthouse listing and 7's inns): a listings
+  - [x] 6.1b Real Estate sells new property types (the start of 6.2's lighthouse listing and 7's inns): a listings
         page by type, rooms with their own dirt.
+        Design (lane B, 14 Nov; v235, tlx-property v3, tlx-staff v5): `tlx-property.js` keeps two tables, `TYPES`
+        (depot, light, inn, hotel, garage: the app's pages, in order) and `LISTINGS`, filled with
+        `TLX.prop.addListing({ id, type, name, short, sign, chip, price, rent, occ, blurb, rooms: [{ id, name, door,
+        jig, build(R, K), warm }], place(W) -> { x, z, y, rooms: { id: { x, z, ry } }, sign, dress() } })`. 6.2, 7
+        and 8 add theirs the same way (from their own files: `TLX.prop` exists before boot). A type shows in the
+        app's strip only once it has a placed listing, so there are no empty tabs. The depot page stays
+        tracklayer.js's own (bridge: `rePage()` early in the app's render, `reTabs()` under its sub-line); every
+        other type's page is drawn here (yours with a row per room, statements, for sale, BUY IT).
+        Each room is its own interior (`api.intAdd`, `def.prop` = listing id, `def.id` = "listing:room" = its key in
+        `s.cab`), so sweeping, dusting, decals and the use control work unchanged per room (`inMine()` reads
+        `cab.prop`). `allRooms()` is what the clock steps: depots (one room) + every owned listing's rooms; a
+        listing's caretaker (Staff place `pr:<id>`, `TLX.staff.workAt/occAt`) cleans each of n rooms at 1.7/n of a
+        depot's rate. Bought rooms start grit 12 / dust 34 (stood empty). Lets: `nights()` (from `step()`, by
+        `CAL.dayIndex`, at most 3 nights per clock jump) rolls `occP` = bare + 0.12 polar night + the rooms' mean
+        dirt term + caretaker, only with you > 120 m off and not in one of its rooms; `monday()` pays `acc`, files
+        a statement (4 kept); the summer skip bills 50% through `SEASON.addBill`. Saved: `own: { id: { since, acc,
+        nights, rented } }`, `dT`, `last` (state0 grows; 6.1a saves load with nothing owned).
+        The first listing: **Slettnes lighthouse station**, $12,500, $110 a night, 46% bare (about $350 a week:
+        the lamp's stipend in 6.2 is what makes it pay like the economy targets say). Rooms: the keeper's house
+        (the lit door nearest the `relay` site: two beds, kitchen, soapstone stove, the keeper's desk) and the
+        tower room (a door added to the foot of the tower, 5 x 5 m: iron stair, paraffin drums, the lamp bench).
+        Before you buy you can walk into both ("have a look"); a for-sale sign by the house turns into SLETTNES
+        FYR. Pin on the Map's depots layer. No option: it's the brief's core. `INTK` gained bed/bunk/wood/fire,
+        `api.ui` gained fmtMi. Test `x6_types.mjs`.
+        Left for 6.2: the lamp, oil tank and drums, Lights app, stipend, the two smaller lights (each an
+        `addListing` of type "light"). Not done here: upgrades for a listing, a fuel cache at the station.
 - [ ] 6.2 Slettnes buyable: oil tank (about three game days), oil drums hauled from town, lamp state, Lights app,
       Monday stipend by lamp hours. Two smaller lights on other headlands.
 - [ ] 6.3 Keepers and oil drivers. Options: lens polishing, passing ships, extra upkeep tasks.

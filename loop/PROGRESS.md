@@ -3,6 +3,48 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 12:20 — 6.1b property types: Slettnes lighthouse station, rooms with their own dirt (lane B) (G4) — 3ff79c9
+Builder pass, lane B. Orient: worktree clean. Triage 188-191: none on a lane-B system (0188 wheel, 0190 hunting are
+lane D's; 0189 semis lane A's; 0191 regression sweep clean), so the next unticked slice: 6.1b. Its design was one line;
+written into EXPANSION.md with the slice.
+Built (`tlx-property.js` v3): two tables, `TYPES` (the app's pages) and `LISTINGS` (`TLX.prop.addListing`, which 6.2, 7
+and 8 will call for the other lights, the inns, the hotel, a garage). The Real Estate app gets a strip of types, shown
+only for types that have a listing (today: Depot cabins | Lighthouses); the depot page is untouched, every other page
+is drawn by tlx-property (yours with a row per room + statements, for sale + BUY IT). A listing has several rooms, each
+its own walk-in interior with its own grit/dust record ("listing:room"), so sweeping, dusting, the decals and the use
+control from 6.1a work per room with no new input code (keyboard E, pad L3, touch button all checked).
+First listing: Slettnes lighthouse station, $12,500, $110 a night, 46% bare. Keeper's house (the existing white house's
+door) + tower room (a door added at the tower's foot; 5 x 5 m room with an iron stair, paraffin drums, the lamp bench).
+Walk in before buying; a TIL SALGS sign turns into SLETTNES FYR. Lets roll at each midnight you're away (not within
+120 m, not in a room), Monday pays and files a statement, summer skip bills 50%. Rooms start grit 12 / dust 34 (stood
+empty). A caretaker vacancy `pr:slettnes` appears in Staff (`TLX.staff.workAt/occAt`, tlx-staff v5) and cleans each
+room at 1.7/n of a depot's rate. Map pin on the depots layer.
+Bridges in tracklayer.js: 4 lines in the Real Estate app's render (`rePage` / `reTabs`), `INTK` + bed/bunk/wood/fire,
+`api.ui.fmtMi`. index.html: `.tprow` (a 104 px label column: 6.1a's "Upkeep" / "8 left" labels were wrapping one
+syllable a line in a 26 px column; seen in the first still, fixed for the depot rows too) and "−0% let" now reads "+0%".
+Numbers (`x6_types.mjs`, 44 asserts A-H): doors 13.7 m apart, 7-9 m from the site point, both reached by held W; rooms
+57 / 30 free floor cells, 10 / 5 pieces to dust, exits clear; buying takes $12,500; sweeping the house: house grit
+60 -> 0, tower stays 60.0; one of 5 tower pieces wiped: tower dust 48 -> 38.4, house stays 48.0; 4 nights away = 4 let
+= $440, 2 nights there = 0; 12 days: both rooms 65/48, lets 49% -> 40% (45% with only the house clean); Monday paid
+$1,100 with a statement; caretaker (work 1.22) took both rooms 65/48 -> 53/28 in four days at the first 1.4/n rate
+(raised to 1.7/n after, so a weak caretaker still keeps up); reload keeps ownership, both rooms' dirt, the week's lets
+and the statement; a 6.1a save loads with the station for sale.
+Stills `~/.hermes/cache/scratch/tlloop/b61b/g_x6_types/`: x6t_b_front (house door, ring, sign reads right), x6t_b_yard
+(tower door + ring), x6t_b_tower, x6t_b_house, x6t_a_forsale, x6t_c_owned. Judged: rooms read as what they are; the
+sign's back was mirrored lettering in the first run (now a plain board). Not judged: the rooms at night from inside
+with the lamps only (they looked dim but readable at 10:00), the tower room sweep from the side (x6t_g still is blocked
+by the door leaf).
+Gate: syntax, smoke, x1_save, x6_types, x6_clean, x5_staff all exit 0, page errors none; x5_mood clean too.
+Test flakes found and fixed on the way (tests only, all lane B's): x6_clean E/F and x6_types D asserted grit/dust
+`=== 0` a few hundred ms after a clean, but the room gathers 0.005 every 0.05 game hours you stand in it (now `< 0.05`;
+this, not load, is probably what failed 2 of 4 runs last pass); x5_staff D capped the caretaker's lift at 12% though a
+happy one works at up to x1.15, and G compared the whole crew JSON across a reload while a mood step can land in
+between (failed 2 of 4 runs here, 0 of 2 on main by luck; now compares the stable fields and hap within 2).
+Open (defaults built): the station pays about $350 a week before 6.2's lamp stipend, well short of "pays back in four to
+six weeks": 6.2 should set the stipend so lamp + lets get there. No upgrades or fuel cache at the station.
+Next for lane B: 6.2 (the lamp: oil tank, drums hauled from town, Lights app, Monday stipend; two smaller lights via
+`addListing`).
+
 ## 2026-11-14 — 3.5b1 the tractor unit you buy and drive (lane A) (G4) — 8d9b8f3
 Builder pass, lane A. Triage 183-192: no BLOCKER or BUG for lane A. 0183 / 0185 / 0187 (town grid, base game) are POLISH
 (streets read the same white as the lots from the saddle; tutSkip toast 70 m out; stale g1_townlots; chart bright at
