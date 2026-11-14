@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-14 — 11.2 the quick-customize wheel (ad hoc session, Owner 14 Nov) (G4) — COMMIT
+## 2026-11-14 — 11.2 the quick-customize wheel (ad hoc session, Owner 14 Nov) (G4) — 5739d66
 Ad hoc pass on Lemon's direct ask, worktree tracklayer-guns. Collisions twice: lane D landed 11.1a (model + shop) and then 11.1b
 (shoulder, aim, fire, dress, sell, people never shot) while this pass was building the same, so my own model, shop and hunting
 were thrown away and only the un-landed slice is here: 11.2, on top of lane D's `window.TLXGUN` (gun, stats, frameDef, ownedParts,
