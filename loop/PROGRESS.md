@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 11:05 — beta fix 0186 #1: the broom is one length (lane B) (G4) — e9dc2fa
+Builder pass, lane B. Orient: the worktree held a dead pass's uncommitted fix for beta 0186 (tlx-property.js,
+x6_clean.mjs, the tlx-property `?v=`, files dated 07:48); this pass read it, ran it, judged the stills and landed it.
+Triage 183-187: only 0186 is lane B's (0183/0185/0187 town + base, 0184 lane D). 0186 #1 BUG fixed here; #2 POLISH
+answered by new side-on and front-quarter stills; #3 POLISH (toasts and the weekly Real Estate toast stack over the
+room while sweeping) left open.
+Cause: `poseSweep` ended the shaft 14 cm above the top hand's FAR reach along it, so the shaft's length followed the
+arm: 1.5 -> 1.9 m and back every stroke, and x6_clean's single-frame assert (0.9-1.75 m) passed or failed by luck.
+Fix: `BROOM_L = 1.45`; each arm's reachable stretch of the shaft comes from `reachOn`, the top hand holds near the top
+(10 cm down) where its arm reaches, the low hand a forearm (0.36 m) below, sliding the top hand up only when the low
+arm can't get down.
+Numbers (`x6_clean.mjs`, 28 frames over a whole 0.85 Hz stroke, worst of each): shaft 1.88 m on the sampled frame ->
+1.45-1.45 m; mitts at most 0.008 m off the shaft; hands 1.04-1.42 m up it, never closer than 0.25 m; top of the broom
+1.44 m off the floor (was 1.69+); head swings 0.55 m side to side, 0.78-0.83 m ahead. Rest of A-H unchanged.
+Stills `~/.hermes/cache/scratch/tlloop/b6fix/a/` x6e_side, x6e_front: broom plainly visible, both mitts on it, top
+hand at chin height, head flat on the floor. Not judged in motion beyond the sampled numbers.
+Gate: smoke, x1_save, x5_staff clean; x6_clean exit 0, clean on 2 of 4 runs alone. The other two were harness load
+flakes, not this code: one run had `TLX.state("staff")` null at boot, one logged "TLX traffic: no car shapes
+(tlx-cars.js)", i.e. a `tlx-*.js` script tag didn't load in that Chrome (two testers + other lanes were running).
+Worth a look by lane A if it recurs: a boot() check that every TLX system registered would turn it into a clear retry.
+Next for lane B: 6.1b (new property types in Real Estate).
+
 ## 2026-11-14 — 11.2 the quick-customize wheel (ad hoc session, Owner 14 Nov) (G4) — 5739d66
 Ad hoc pass on Lemon's direct ask, worktree tracklayer-guns. Collisions twice: lane D landed 11.1a (model + shop) and then 11.1b
 (shoulder, aim, fire, dress, sell, people never shot) while this pass was building the same, so my own model, shop and hunting
