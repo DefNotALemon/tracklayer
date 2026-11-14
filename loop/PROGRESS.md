@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 10.2 the winter store, Sport & Vinter (lane D) (G4) — 6d30e88
+Builder pass, lane D. No beta reports on lane D systems. Built 10.2 (design was in EXPANSION.md). Note: LOOP.md Owner
+14 Nov moves milestone 11 (guns, Tarkov-style customization) AHEAD of 10.3-10.4; this slice was already built and
+gated when that landed, so it lands, and lane D's next pass goes to milestone 11 (check Status first: 11.1-11.2 had an
+ad hoc session dispatched on them).
+Bridges in tracklayer.js: `intAddRoom(def)` (api.intAdd) lets a tlx system add a walk-in room (beacon, `build(R, K)` with
+the int* kit as `INTK`, `hint()`, `enter()`, `jig`); intBuildRoom / intDoorHint / intRideHint / intGoIn branch on
+`cab.build` (the ride hint's hard-coded "Q" now goes through `btn("dismount")`); api.shop (icefish.js's shop panel as
+another store), api.kit (buy/wear GEAR without the garage), api.townR / fishSites / shopOpen. icefish.js: `openShop(tab,
+store)`; tabs filter by `stores` (default ["fisk"]); a non-fisk store shows only its own tabs, title from TLX.stores.
+tlx-gear.js v2: the store takes the lit town door nearest 30 m from the depot and >= 14 m from Fisk & Friluft (this map:
+45 m from the depot, 35 m from F&F), canvas sign over the door (Lambert, so it darkens at night), room: rails of
+jackets, a table of folded layers, boots/skis/snowshoes, shelf, stove, counter + bell, 3 pendants. Counter band ->
+footx SHOP. Tabs Riding kit / Base / Mid / Spares. Spares $24, 4 max, saved `spares` (old saves 0). DRY PAIR (footx, on
+foot outdoors, not at a site, wet >= 0.2, a pair carried): wet -0.3.
+Numbers (`x10_store.mjs`): kit jacket bought $1000 -> $820, warmth 5 -> 6.5, swaps back free; spares stop at 4 ($724);
+merino sells here ($639); DRY PAIR 0.60 -> 0.30 wet, 4 -> 3 pairs; door->counter walk clear of 6 colliders, real held-W
+walk in through the ring and to the counter; E, Xbox L3 and a touch tap on SHOP all open it; pad B, Esc, ✕ close.
+Stills `~/.hermes/cache/scratch/tlloop/x10s/` (front, room, counter, kit, spares) judged clean.
+Beta 0176 (10.1, on main meanwhile): 4 POLISH, no BLOCKER/BUG (no wet readout, skips do not dry, buy() junk-slot guard, phone tabs wrap): left for lane D triage.
+Gate (after rebasing over v224 boats; script v225): smoke, x1_save, x10_store, x10_layers all exit 0, page errors none.
+
 ## 2026-11-14 — 14.1 the skiff and the small-boat jetty (G4) — 31025e6
 Builder pass, lane C (first lane-C pass: milestone 14 had no design, so its slices 14.1-14.5 were written into
 EXPANSION.md first, then 14.1 built). New `tlx-boats.js`: the Fjordsnekka 460 skiff ($2,600, garage Boats tab, max 2)
