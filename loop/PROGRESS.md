@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-14 — Hand-drawn map redo: towns with blocks, sled country on the outskirts (Lemon's ask) — HASH
+## 2026-11-14 — Hand-drawn map redo: towns with blocks, sled country on the outskirts (Lemon's ask) — 7905f6c
 The Map app's chart is `tabChart`/`tabView` (not `mapBg`, which feeds only the minimap/dash). Added `tabTown()` drawn live each Map tick (crisp at any zoom): warm glow under Kjøllefjord and each village, a lot round every real house (`KIT.foot`, recorded in `KIT.house`), the real plowed lanes (`TOWNL` from `buildLanes`, `TLXR` street legs), stylised back lanes joining neighbouring doors (so lanes close into blocks), lit windows + chimney smoke, trailhead flags at real road-leg ends, groomer shed at the garage, warming huts at lookouts/cabin sites, relay mast, trail stakes along road legs. `buildMapBg` got a warm cream/amber town tint. buildTown layout, lanes, doors untouched. Still a spoke-and-ring layout (the real lanes radiate from the quay), not a literal street grid: follow-up would be regridding buildTown. Scenario `g3_mapchart.mjs` (stills + chart PNGs). Script v220.
 
 ## 2026-11-14 — More visible rocks and rock collision (Lemon's ask) — 1122b8d
