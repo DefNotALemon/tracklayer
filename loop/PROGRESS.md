@@ -3,6 +3,42 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 11.3 ammo variety: four loads for the .308 (lane D) (G4) — 081148f
+Builder pass, lane D. Orient: the worktree held a dead pass's uncommitted 11.3 (tlx-guns, tlx-gunwheel, README, the
+BTN `wmove` row, x11_wheel's slot count) with no scenario, no tick and no log; read the diff, kept it, finished it
+here. Triage: no report above 0184 is on a lane D system (0185/0187 town + map are lane A's, 0186 is lane B's).
+`tlx-guns.js` v3: `AMMOS`, four loads, 20 a box, each a part-style delta with `*stat` multipliers applied last in
+`stats()`: soft point $38 (the standard), surplus ball $24, match $74, subsonic $58. `gun.ammo` is the one load in
+the magazine. `loadAmmo` empties the magazine back into the pack and it refills from the new load a round at a time;
+`feed()` goes on to the next load carried when one runs dry and toasts it, and never tops a part-used magazine up
+from a different load. The pack takes 120 rounds, all loads together. Saved as `s.ammo` (soft points, the field every
+save since 11.1a has) + `s.alt {id: n}`, sanitized (unknown ids dropped, counts whole, capped to the room left).
+Counter: the Ammunition tab is a card per load with chips for what it changes against soft point, Buy a box and
+Load these; the loaded card is marked. `tlx-gunwheel.js` v2: a sixth slot, Ammo, listing only the loads carried with
+their counts and the same +/- bars; picking one loads it and closes the wheel. Bridge: BTN `wmove` reads 1-6.
+Numbers (`x11_ammo.mjs`, 50 asserts): clean reach 140 / 112 / 161 / 77 m and groups 2.2 / 2.8 / 1.7 / 2.5 MOA
+(soft point / surplus / match / subsonic); recoil 1 / 1 / 1.05 / 0.7; a shot is heard to 420 m, subsonic 168 m.
+In the field: subsonic drops a reindeer at 60 m, the herd 300 m off keeps grazing and one at 120 m bolts; the same
+herd runs from a soft point; at 100 m "past this rifle's clean reach with subsonic rounds (77 m)". Wheel with the
+rifle up: 6 then 3 loads match, the 2 soft points in the magazine go back in the pack (117 rounds before and after),
+it refills 3 match. Match drops a moose at 155 m (soft point's 140 m can't); surplus falls short at 125 m. Last soft
+point fired with 5 match carried: "Out of soft point rounds: loading match.", 3 in, 2 left. Pad (D-pad left to Ammo,
+A, right, A) and touch (GUN, tap Ammo, tap the load) do the same, prompts through btn(). Reload keeps loads and the
+load in the rifle; alt {match:9999, sub:-4, plasma:50} with 100 soft points loads as {match:20}; an 11.1b save keeps
+its soft points and shoots as before.
+Stills `~/.hermes/cache/scratch/tlloop/x11a/`: the counter's four cards (the loaded one tinted like a fitted part),
+the wheel with six slots round the rifle and the Ammo strip on keyboard and on touch: nothing overlaps or clips.
+Not done: rounds weigh nothing, no wind or drop (reach is a clean-kill cut-off), and the sound of a subsonic shot is
+the same sample as any other (headless is muted, not judged). Next for lane D: 11.1c, then 11.4.
+Also in this landing, beta 0188 (11.2 wheel) #1 BUG: the wheel stayed open under the tablet and its key capture ate
+the tablet's 1-9 / Esc / R. The wheel's tick now shuts it when the tablet or a shop panel comes up (one line in
+tlx-gunwheel.js); the tester's `x11_wheel_break2.mjs` step 5 is the check. 0188 #2 (POLISH: the wheel doesn't slow
+the sled) is as designed ("pausing nothing"), not queued.
+Gate: smoke, x1_save, x11_ammo, x11_wheel, x11_wheel_break2 after the rebase; x11_gunshop and x11_gunshop_break
+before it. x11_hunt failed once in the first gate at F ("the line is clear again once they're gone") and passed twice
+re-run alone with the same build: that check reads the live world for anyone within 700 m of the line, so a passing
+car can trip it; `unsafe()` is not touched by this slice. Flagged for the tester, not fixed.
+
 ## 2026-11-14 11:05 — beta fix 0186 #1: the broom is one length (lane B) (G4) — e9dc2fa
 Builder pass, lane B. Orient: the worktree held a dead pass's uncommitted fix for beta 0186 (tlx-property.js,
 x6_clean.mjs, the tlx-property `?v=`, files dated 07:48); this pass read it, ran it, judged the stills and landed it.

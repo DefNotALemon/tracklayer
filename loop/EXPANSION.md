@@ -17,7 +17,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); next: 6.1b (new property types) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
-| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; next: 11.1c the rifle seen on you, 11.3 ammo |
+| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
 | 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; next: 14.3 (open-water fishing), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -619,10 +619,19 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         hard-coded key names); works on keyboard, pad (face buttons round a wheel) and touch (tap the slot
         then the part, since there's no analog stick to spin on all touch devices). This is purely a swap of
         ALREADY-OWNED parts; the gun shop remains the only place to buy a new part outright.
-  - [ ] 11.3 Ammo variety. 2-3 cartridge grades for the rifle's calibre (e.g. budget/standard/premium: price
+  - [x] 11.3 Ammo variety. 2-3 cartridge grades for the rifle's calibre (e.g. budget/standard/premium: price
         vs. accuracy spread and clean-kill chance at range) bought at the gun shop, loaded into the magazine
         slot's capacity (a bigger magazine part = more rounds before reload, a real Tarkov-style trade-off:
         more capacity usually costs more and weighs more).
+        As built (v233): `AMMOS` in tlx-guns.js, four loads, 20 a box: soft point $38 (the standard), surplus ball
+        $24 (spread +0.6 MOA, reach x0.8), match $74 (spread -0.5, reach x1.15, recoil +0.05), subsonic $58 (noise
+        x0.4 so herds bolt within 168 m not 420 m, reach x0.55, recoil -0.3). A load's `d` is a part-style delta
+        with `*stat` multipliers, applied last in `stats()`. `gun.ammo` = the ONE load in the magazine; `loadAmmo`
+        empties the magazine back into the pack and it refills from the new load; `feed()` moves on to the next
+        load carried when one runs dry (never mixes into a part-used magazine). Pack: 120 rounds all loads
+        together; saved `s.ammo` (soft points, as before) + `s.alt {id: n}`, sanitized. Counter: one card per load
+        with delta chips and "Load these"; wheel: sixth slot Ammo (carried loads + counts). Test x11_ammo.mjs.
+        Not done: rounds weigh nothing, and wind/drop are not modelled (reach is a clean-kill cut-off).
   - [ ] 11.4 Part variety + a second frame. 3-4 real options per slot with genuine trade-offs (short/long
         barrel: handling vs. range and noise; bipod-grip vs. standard: steadier aim vs. slower ADS; wood vs.
         synthetic stock: weight vs. cold-weather grip feel; iron sight/low-power scope/long-range scope: FOV
