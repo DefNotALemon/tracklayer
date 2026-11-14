@@ -16,7 +16,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; next: 14.2 (village docks + water deliveries) |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); next: 14.2b (sea jobs), then 0178 #2/#3 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -605,6 +605,28 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         the skiff (no collision); the boat isn't in Bytteboden's used market.
   - [ ] 14.2 Docks at every village harbour (same jetty, sited by the same low-shore search) and water deliveries:
         parcels for a coastal site hand over at its dock; a few sea jobs on the board for skiff owners; Jobs row.
+        Split (lane C, 14 Nov) into:
+    - [x] 14.2a (v228, tlx-boats v2) Village jetties and handing over at a jetty. At boot every village and the lighthouse gets the same
+          jetty `siteDock` builds for the quay (search 30-260 m from the site, then out to 520 m for a harbour set
+          back from the shore, avoiding other jetties), kept only if a sea flood fill (16 m cells, 4-connected) joins
+          its outer end to the quay jetty's, so every jetty can be reached by water. `D.site` = the SITES record
+          (the quay jetty's is the depot), `D.name` = "<place> jetty". Seated in the boat, slower than 2.5 m/s and
+          alongside a jetty (from its root to 4 m past the end, within ~4 m of the planks), the jetty works as the
+          site: parcels for that site are delivered through the game's own `deliver(site)` (pay, lateness, fragile,
+          the backhaul and the fuel top-up all unchanged), pickups waiting there load through `collectClaims(site)`,
+          and the quay jetty takes depot-bound backhauls and loads the quay's claims. Arriving with nothing to do
+          there says the jetty's name once. The compass, in the boat only, aims at the target's jetty when it has one
+          ("· to its jetty"), or says "no jetty there" when it hasn't; the tablet's Map draws every jetty as an anchor
+          pin (label when zoomed in). New boats still moor at the quay jetty. Bridges: `api.deliver`,
+          `api.collectClaims`, an `aim` line in `updGameHud`, a `docks` map layer. Test `x14_docks.mjs`.
+          As built: only Dyfjord, Lebesby and Ifjord get a jetty. The Nordkinn's land runs to the map's north and south
+          edges, so the east coast (Mehamn, Gamvik, Skjånes, Slettnes) is a second sea the quay's water never joins
+          (flood fill: 42,019 cells from the quay; Mehamn also has no low shore within 520 m). Their jetties wait for a
+          way to get a boat there (a boat trailer behind the pickup, 14.4/14.5) or for 16's streaming. Beta 0178 #1
+          fixed in the same landing: the game's drown test skips P while the current vehicle `floats` (a storm at speed
+          dipped the hull to -0.41 m and called the sea rescue).
+    - [ ] 14.2b Sea jobs on the board for skiff owners (coastal pairs, better pay per km than the sled run when the
+          road is shut), a "by boat" Jobs row tag, the warmth of a village when tied up at its jetty.
   - [ ] 14.3 Open-water fishing from the boat (jig and handline; the Fiskemottak buys; reuses icefish.js's catch).
   - [ ] 14.4 Boats app (your boats, fuel, where they're moored, a tow home for a fee) and the boatyard at the quay
         (hull repairs, condition from groundings, winter haul-out).

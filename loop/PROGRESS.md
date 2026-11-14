@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 14.2a village jetties + hand-over at a jetty, beta 0178 #1 storm sink (lane C) (G4) — 58ad732
+Builder pass, lane C. No beta report on 14.1 when the pass started, so 14.2 was split in EXPANSION.md (14.2a jetties +
+hand-over, 14.2b sea jobs) and 14.2a built; Playtest 0178 (14.1) landed meanwhile with one BUG (#1: full storm at speed
+sinks the skiff) and it went into the same landing as a two-line fix; 0178 #2 (empty tank leaves her drifting, no
+rescue offer checked) and #3 (a boat teleported onto land is not relaunched) are POLISH, left for a later lane-C pass.
+tlx-boats.js v2: `siteVillageDocks()` sites the quay's jetty design at every village and the lighthouse (`siteDock` 30-260 m,
+then 264-520 m), keeps it only if a 16 m sea flood fill from the quay jetty's end reaches it. Result on this map: Dyfjord
+(110 m from the village), Lebesby (154 m), Ifjord (206 m). The east coast (Mehamn, Gamvik, Skjånes, Slettnes) is a second sea
+(land meets the map's north and south edges; picture of the fill in ~/.hermes/cache/scratch/tlloop/c142/sea.png): no jetty.
+`dockWork` (seated, < 2.5 m/s, alongside a jetty) calls the game's `deliver(site)` / `collectClaims(site)` through new api
+fields; arriving with nothing to do says the jetty's name once (not on stepping in). New boats still moor at the quay jetty.
+tracklayer.js: api.deliver/collectClaims, `aim` in updGameHud (boat only: arrow to the target's jetty end, "· to its jetty"
+or "· no jetty there"), a `docks` map layer drawn as anchor pins (label when zoomed in), the drown test skips P while
+`VEH.cur.floats` (0178 #1).
+Numbers (`x14_docks.mjs`): 4 jetties, every reachable place has one, none elsewhere; groceries for Dyfjord stay aboard
+30 m off and while sliding past at 4 m/s, hand over at the berth ($1400 -> $1520, "Delivered groceries to Dyfjord"); a
+claim at Dyfjord loads there; the depot-bound box hands over at the quay jetty ($1520 -> $1610); jetties identical after
+reload. Storm 1.0 at full throttle 8 s: hull -0.46..+0.62 m on the waterline, top 7.6 m/s, no rescue (was: rescue at -0.41).
+Stills `~/.hermes/cache/scratch/tlloop/c142/r2/` (skiff tied up at Dyfjord jetty under the cliff, Map with the pins): clean.
+x14_skiff's "one jetty" assert now reads the first jetty only.
+Gate (after rebasing over the town redo, v227 taken upstream so script v228): smoke, x1_save, x14_docks, x14_skiff all exit 0, page errors none.
+
 ## 2026-11-14 — 5.3 staff happiness, praise/criticism in person, raises, notice and quitting (lane B) (G4) — b2b7b31
 Builder pass, lane B. Reports 175-179 hold nothing for lane B (cab map, clothing, skiff, App Store: lanes A/C/D).
 Built 5.3 in tlx-staff.js only (no tracklayer.js change; tlx-staff.js?v=3). Design written into EXPANSION 5.3 first.
