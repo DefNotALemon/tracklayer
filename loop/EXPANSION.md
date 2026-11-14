@@ -17,7 +17,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; next: 6.1b (new property types) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
-| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; next: 11.2 wheel (then 11.1c the rifle seen on you, 11.3 ammo) |
+| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; next: 11.1c the rifle seen on you, 11.3 ammo |
 | 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; next: 14.3 (open-water fishing), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -580,7 +580,7 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         input off entirely when aimed at a human-shaped target, no exceptions). Hunter's licence school
         option (Settings > Options, on by default per G4 rule) gates hunting until taken, a short tutorial
         card like the existing school courses.
-  - [ ] 11.2 The quick-customize wheel (the ask's centerpiece: "streamlining for on the go quick
+  - [x] 11.2 (landed v232, tlx-gunwheel v1, calls `TLXGUN.fit`; built in an ad hoc session on top of lane D's 11.1a/b) The quick-customize wheel (the ask's centerpiece: "streamlining for on the go quick
         customization"). A radial/wheel overlay bound to one key/button/touch gesture (hold, don't tap — like
         a weapon wheel in other games) that opens INSTANTLY over gameplay (no tablet app, no deep menu,
         works on foot or on the sled, pauses nothing): five slot icons (barrel/stock/grip/magazine/sight)

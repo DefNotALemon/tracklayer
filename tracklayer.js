@@ -2614,6 +2614,13 @@ function readInput(dt) {
       TT.padA = pb(0); TT.padB = pb(1); TT.nav = 0;
       break;
     }
+    if (started && TLX.gunwheel && TLX.gunwheel.wheelOpen()) {              // the quick-customize wheel is up: tlx-gunwheel.js reads the pad (D-pad / stick / A / B); the game itself sees nothing new
+      const pb = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+      padHop = pb(0); padRifle = pb(0); padB = pb(1); padX = pb(2); padGod = pb(3); padLB = pb(4); padMenu = pb(9); padReset = pb(8); padView = pb(11); padHorn = pb(10);
+      padTab = pb(12); padBand = pb(13); padWipe = pb(14); padWx = pb(15); TOW.padWing = pb(4);
+      CAMPAD.x = CAMPAD.y = 0; analog = null; thr = brk = lean = wh = 0;
+      break;
+    }
     if (FISH && started && (FISH.on || FISH.panelOpen())) {                // on the ice (or in the shop): the fishing pad map
       const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod) toggleGod(); padGod = y;
       if (godOpen) { godPad(gp, dt); break; }
@@ -2647,7 +2654,7 @@ function readInput(dt) {
     if (started && !godOpen) TABLET.pad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
-    const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open) wipeVisor(); padWipe = dl;   // D-pad left wipes the visor
+    const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open && !(TLX.gunwheel && TLX.gunwheel.claimsDpadLeft())) wipeVisor(); padWipe = dl;   // rifle owners: a tap wipes on release, a hold opens the gun wheel (tlx-gunwheel.js)   // D-pad left wipes the visor
     const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!(FISH && FISH.ctx())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
@@ -9810,6 +9817,9 @@ const BTN = {
   use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
   reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
   bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" },   // tlx-wounds.js: dress an open wound, fast
+  gun: { kbm: "R", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "GUN" },   // tlx-gunwheel.js: HOLD to open the quick-customize wheel (a pad tap still wipes the visor)
+  wmove: { kbm: "1-5", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
+  wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
   rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
@@ -17372,6 +17382,8 @@ function initExpansion() {
       wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }
         GS.own.gear[slot] = id; restat(); save(); toast(own ? `Wearing: ${o.name}.` : `Bought and wearing: ${o.name}.`, "good"); return true; } },
+    // the quick-customize wheel (11.2): the pads, and the visor wipe a quick tap of D-pad left still does
+    wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

@@ -55,7 +55,7 @@ of the time you start at the depot as usual. New games never do this.
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - In first person, looking down far enough that your own hood or dash tablet fills the centre of the view makes the rider stand up on the footrests (same pose as climbing a steep face) to see over it, and sit back down when you look up again. Dipping to the tablet doesn't trigger it, and it never lifts the nose or pulls the chase camera up (those stay slope-only).
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor · **D-pad down** bandage (or calls the rescue sled while you're in the water or out of fuel; a fresh wound still gets the bandage first, press again to call) · **L3** horn (or E's fish / shop / sell) · **R3** camera · **A** on foot: rifle up / slung · **D-pad right** weather · **Y** god menu
+  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor (with a rifle: a tap wipes, a hold opens the gun wheel) · **D-pad down** bandage (or calls the rescue sled while you're in the water or out of fuel; a fresh wound still gets the bandage first, press again to call) · **L3** horn (or E's fish / shop / sell) · **R3** camera · **A** on foot: rifle up / slung · **D-pad right** weather · **Y** god menu
 - Phones and tablets get their own touch controls, a different set for riding and for walking:
   - **Left thumb:** a stick appears wherever your thumb lands in the lower left. On the sled it steers. On foot it
     walks: push up to walk, down to step back, sideways to turn on the spot, out to the rim to jog (the ring turns
@@ -492,6 +492,13 @@ stands; past it the round falls short and the toast says so. The shot sends ever
 with a louder barrel. Walk up to the animal and the use control dresses it (DRESS): reindeer $230, moose $620, fox pelt
 $85, hare $22 at the gun shop's Game tab, up to 260 kg carried. **People can never be shot:** with a rider, a car, the
 dog, a house or the town anywhere near the line of fire the rifle stays on safe, no round is spent, and it says why.
+
+**The quick-customize wheel.** Hold **R** (D-pad left on a pad, the GUN button on touch) and a wheel opens over the game at
+once, pausing nothing, on foot or on the sled, even with the rifle at your shoulder: the five slots (barrel, stock, grip,
+magazine, sight) round a picture of your rifle as it is fitted now. Pick a slot (1-5, D-pad / stick / LB RB, or tap it) and
+a strip shows only the parts you already own for it, each with small bars for what it would change against what's fitted
+(accuracy, recoil, handling, reach, weight, noise). Pick one (1-9, A, or tap it) and it snaps on and the wheel closes.
+**Esc** (B on a pad, the ✕ on touch) closes it. Buying a part is still only at Jakt & Våpen. The code is `tlx-gunwheel.js`.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee. A freight card whose leg would

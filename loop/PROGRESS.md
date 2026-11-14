@@ -3,6 +3,23 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 11.2 the quick-customize wheel (ad hoc session, Owner 14 Nov) (G4) — COMMIT
+Ad hoc pass on Lemon's direct ask, worktree tracklayer-guns. Collisions twice: lane D landed 11.1a (model + shop) and then 11.1b
+(shoulder, aim, fire, dress, sell, people never shot) while this pass was building the same, so my own model, shop and hunting
+were thrown away and only the un-landed slice is here: 11.2, on top of lane D's `window.TLXGUN` (gun, stats, frameDef, ownedParts,
+ownsPart, fit). New `tlx-gunwheel.js` v1 (no saved state). HOLD R (keyboard) / D-pad left (pad; a tap still wipes the visor, on
+release) / the GUN button (touch) for 0.18 s and a wheel opens over the game, nothing pauses, on foot or on the sled, with the rifle
+shouldered or not: five slots round an SVG of the rifle as fitted (barrel length, stock colour, grip, magazine, sight), a strip of
+OWNED parts for the slot with +/- bars against what's fitted (accuracy, recoil, handling, reach, weight, noise, from tlx-guns's own
+stats()), pick = TLXGUN.fit(quiet) + a thud/buzz + close. Keyboard 1-5 then 1-9 or click, R/Esc close (Esc is swallowed, Settings
+stays shut); pad D-pad / stick / LB RB move, A picks, B backs a step then closes; touch tap slot, tap part, ✕. A one-time toast
+names the control. Bridges in tracklayer.js: BTN gun / wmove / wclose, api.wipe + api.pads, a wheel branch in the pad loop (the game
+sees no new pad input while it's up), D-pad left's wipe deferred for rifle owners. x1_save's system list gains "gunwheel".
+Test `x11_wheel.mjs` (A-H): planted save with the rifle + 4 bought parts; wheel on keyboard, pad and touch (stat deltas the right way,
+unowned parts not offered, tap-vs-hold, game clock keeps running); wheel with the rifle shouldered rebuilds the rifle in hand; the people
+rule against lane D's trigger: a rider/the dog in the line, on the animal, beyond it or close -> fire() refused, no round spent, no kill
+recorded, animal untouched, control shot with nobody about is taken.
+
 ## 2026-11-14 — 11.1b the rifle in the field: shoulder, aim, fire, dress, sell (lane D) (G4) — 1864128
 Builder pass, lane D. Triage: beta 0184 (11.1a gun shop) has no BLOCKER/BUG; its #1 POLISH (x11_gunshop read TLXGUN
 before a reload had finished, 1 run in 3) is fixed here in both x11 scenarios (`ready()` polls instead of a 500 ms
