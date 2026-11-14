@@ -13,7 +13,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); next: 3.5 (semis) |
-| 4-19 | everything else | not started |
+| 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -30,6 +30,38 @@ Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
   POLISH); a BLOCKER or BUG on landed work is fixed before the next slice. Sessions Lemon starts still build here
   too, in the same worktree `~/Documents/GitHub/tracklayer-expansion` (branch `expansion`, lands on main): fetch
   and rebase before a push, and check `usage_budget.py status` for a running pass before editing.
+
+## Lanes (Lemon, 14 Nov 2026: "use much more of my plan")
+
+Up to four builders work at once, each in its own worktree and branch, each landing on main. A usage governor
+(`~/.hermes/scripts/tl_lanes.py`, no AI) switches lanes on and off so the Claude week is spent by its reset
+without locking Lemon out. A pass builds only from its own lane's list, in order.
+
+| Lane | Worktree (`~/Documents/GitHub/`) | Branch | Owns, in this order |
+|---|---|---|---|
+| A | `tracklayer-expansion` | `expansion` | 3.5, then milestone 4 (plowing), then 5.4 (plow drivers) |
+| B | `tracklayer-expansion-b` | `expansion-b` | 5.1-5.3 (staff), then 6, 7, 8 (property, lodging, workshops) |
+| C | `tracklayer-expansion-c` | `expansion-c` | 14 (boats), then 15 (aircraft) |
+| D | `tracklayer-expansion-d` | `expansion-d` | 10, 11, 12, 13 (stores, hunting, fire watch, sap and berries) |
+
+Unowned: 9 (four seasons) and 16-19 (streaming, the new lands, final balance). They cut across everything, so
+only ONE lane works on them at a time: the first lane to finish its list writes its letter beside the milestone
+in this table's "Owns" column (commit that claim alone and push it before building) and takes it. A lane whose
+list is done and that finds the unowned work claimed helps by taking the last milestone of the longest other
+lane's list, again by writing the claim here first.
+
+Lane rules:
+- Beta BLOCKERs and BUGs go to the lane that owns the system; lane A also takes any on milestones 1-3 and on the
+  base game. A lane leaves another lane's findings alone.
+- A slice that needs something another lane has not landed yet (staff for 6.3, plow for 5.4) builds against the
+  default it would have without it, or the lane moves to its next slice and notes the dependency here.
+- Shared lines collide: the `tracklayer.js?v=` bump and script tags in index.html, the `api` in
+  `initExpansion()`, this file's Status table, README. Keep bridge edits small, always fetch and rebase just
+  before landing, resolve conflicts by keeping both sides, take the `?v=` one past origin's, then re-run smoke
+  and your scenario. `loop/PROGRESS.md` merges by union (`.gitattributes`): both entries are kept.
+- `scripts/gate.sh` and `scripts/land.py` work on `TL_WT`: lanes B-D run them as
+  `TL_WT=~/Documents/GitHub/tracklayer-expansion-b bash .../gate.sh ...` (land.py pushes the worktree's branch).
+- Status: each lane keeps its own milestone's row in the Status table; never rewrite another lane's row.
 
 ## What it is
 
