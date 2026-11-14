@@ -2,7 +2,7 @@
 //  A. the shop stands at a lit town door inside the town limit, clear of Sport & Vinter, Fisk & Friluft and the sea, with a sign.
 //  B. walking into its ring (held W) takes you into its own room; the outdoor hint names the door.
 //  C. the room: the door -> counter walk is clear; walked for real, the use control reads SHOP at the counter.
-//  D. keyboard E opens "Guns & ammunition" (tabs licence/rifles/parts/ammo, nothing else). With the licence option on, the
+//  D. keyboard E opens "Guns & ammunition" (tabs licence/rifles/parts/ammo/game, nothing else). With the licence option on, the
 //     rifle is locked until the course; the course charges $180; the rifle $1450 and comes with its stock parts; a part
 //     buys and fits (stats move the right way), an owned part refits free; a smaller magazine hands rounds back; ammo
 //     stops at the pack limit.
@@ -12,6 +12,8 @@ import { boot, ev, tap, down, up, sleep, done, shot, reload, padSet, padOff } fr
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const clock = () => ev("gameClock");
+// after a reload: wait until the page is really back (beta 0184 #1: a fixed 500 ms was too short on a loaded machine)
+async function ready() { for (let i = 0; i < 100; i++) { await sleep(150); try { if (await ev(`typeof TLXGUN !== "undefined" && !!TLXGUN.state() && started`)) { await sleep(300); return true; } } catch (e) {} } return false; }
 async function until(expr, secs) { const t0 = await clock(); while ((await clock()) - t0 < secs) { if (await ev(expr)) return true; await sleep(100); } return !!(await ev(expr)); }
 const toasts = () => J(`(TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))`);
 const panel = () => J(`({ open: !$("ifShop").hidden, h2: ($("ifShop").querySelector("h2") || {}).textContent, tabs: [...($("ifShopTabs") || { children: [] }).children].map(t => t.dataset.t) })`);
@@ -60,7 +62,7 @@ await shot("x11g_counter");
 // D: keyboard
 await ev(`GS.cash = 3000; true`); await tap("KeyE"); await sleep(400);
 let p = await panel(); console.log("D", JSON.stringify(p));
-ok(p.open && p.h2 === "Guns & ammunition" && p.tabs.join() === "g_lic,g_rifle,g_parts,g_ammo", "D: E opens Guns & ammunition, tabs " + p.tabs.join(", "));
+ok(p.open && p.h2 === "Guns & ammunition" && p.tabs.join() === "g_lic,g_rifle,g_parts,g_ammo,g_game", "D: E opens Guns & ammunition, tabs " + p.tabs.join(", "));
 await tab("g_rifle"); await sleep(150);
 let r = await press('button[data-grifle="bolt308"]');
 ok(/^disabled:Licence first/.test(r), "D: no licence: the rifle is locked (" + r + ")");
@@ -127,14 +129,14 @@ ok(off.r === true && off.n === 1, "E: licence option off: the rifle sells withou
 
 // F: saved
 await ev(`save(); true`);
-await reload(); await sleep(500);
+await reload(); await ready();
 g = await G(); console.log("F", JSON.stringify(g));
 ok(g.n === 1 && g.lic && g.parts.sight === "scope39" && g.parts.magazine === "int3" && g.ammo === 102 && g.rounds === 3 && !!(await ev("!!TLXGUN.shop.b")), "F: rifle, parts, ammo and licence survive a reload; the shop is back");
 const bad = await J(`(() => { const s = JSON.parse(localStorage.getItem("tracklayer.save.v2")); s.x.sys.guns.s = { owned: [{ frame: "bolt308", parts: { sight: "laser", barrel: 7 }, rounds: 99 }, { frame: "nope" }, null], cur: 9, parts: { "sight:laser": 1, "__proto__": 1, "barrel:std22": 1 }, ammo: "lots", licence: "yes" }; return s; })()`);
-await reload(bad); await sleep(500);
+await reload(bad); await ready();
 g = await G(); console.log("F corrupt", JSON.stringify(g));
 ok(g.n === 1 && g.cur === 0 && g.parts.sight === "iron" && g.parts.barrel === "std22" && g.rounds === 3 && g.ammo === 0 && g.lic === false, "F: a corrupt entry loads clean (one rifle, stock parts, no ammo, no licence)");
 const old = await J(`(() => { const s = JSON.parse(localStorage.getItem("tracklayer.save.v2")); delete s.x.sys.guns; return s; })()`);
-await reload(old); await sleep(500);
+await reload(old); await ready();
 g = await G(); ok(g.n === 0 && g.cur === -1 && g.ammo === 0 && !g.lic && !!(await ev("!!TLXGUN.shop.b")), "F: a save from before 11.1 starts with no rifle and the shop in town");
 await done(fails ? 1 : 0);

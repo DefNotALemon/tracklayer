@@ -20,12 +20,13 @@
 // THE HUNTER'S LICENCE (option "huntlic", on by default): the shop sells a rifle only to a licence holder; the course is
 // a card at the counter (the rules: identify the animal, never aim at a person, safe direction, carry it empty in town)
 // and a fee. Off = no licence needed.
-// Firing, carrying it on the sled rack and hunting the wildlife are 11.1b; people can never be shot (11.1b gates the
-// trigger off on any human-shaped target).
+// Carrying it into the field, aiming, firing and the game you bring back are 11.1b: the block "in the field" below.
+// People can never be shot: the trigger stays on safe with anyone, or any house, near the line of fire.
 //
-// SAVED under x.sys.guns: { owned: [gun...], cur, parts: { "sight:scope39": 1, ... }, ammo, licence }. An old save, or
-// a corrupt entry, starts with no rifle, no parts, no ammo, no licence. No bridge in tracklayer.js: everything goes
-// through the api (intAdd, shop, footx, keyHint). Test: x11_gunshop.mjs.
+// SAVED under x.sys.guns: { owned: [gun...], cur, parts: { "sight:scope39": 1, ... }, ammo, licence, game: [{ k }],
+// taken: { kind: n } }. An old save, or a corrupt entry, starts with no rifle, no parts, no ammo, no licence, no game.
+// Bridges in tracklayer.js: BTN.rifle + its key / pad / touch binding, the aim taking the walk controls in readInput,
+// and api.wild / api.people / api.crack. Tests: x11_gunshop.mjs (the shop), x11_hunt.mjs (the field).
 (() => {
 "use strict";
 const SLOTS = ["barrel", "stock", "grip", "magazine", "sight"];
@@ -304,11 +305,276 @@ function buildStore() {
 }
 const PROV = {
   use() {
-    const I = api.INT; if (!I.on || !atCounter() || (api.shopOpen && api.shopOpen())) return null;
+    const I = api.INT;
+    if (AIM.on) return { label: "FIRE", hint: () => { const g = gun(), st = g && stats(g); return g ? `${api.keyHint("use", "fire")} · ${api.btn("turn")} / ${api.btn("walk")}: aim · ${api.keyHint("rifle", "sling it")} · clean to ${st.range} m` : ""; }, act: () => { fire(); } };
+    if (!I.on && api.FOOT.on) { const c = carcass(); if (c) return { label: "DRESS", hint: () => api.keyHint("use", `dress the ${GAME[c.G.kind].name}`), act: () => { dress(); } }; }
+    if (!I.on || !atCounter() || (api.shopOpen && api.shopOpen())) return null;
     return { label: "SHOP", hint: () => `${api.keyHint("use", "talk to the gunsmith")} · walk into the doorway to go out`, act: () => api.shop(STORE) };
   },
   digging: () => false
 };
+/* ---- in the field (11.1b): shoulder it, aim, fire, dress the animal, sell the game ----
+   On foot, out of doors and clear of the houses, the rifle control (btn("rifle"): L / pad A / the RIFLE touch button)
+   brings the rifle to the shoulder; the same control lowers it. Shouldered, you look down the rifle: the boots stay
+   planted and the walk controls swing the aim (left/right turns you, forward/back raises and lowers the muzzle; a tap
+   creeps, held it builds), at a speed set by the build's handling and its magnification. The view breathes (sway): it
+   settles over the first seconds you hold still, a heavy swing or being out of breath stirs it up again, and a tighter
+   build (bipod, heavy barrel, adjustable stock: the spread stat) holds steadier. The sight decides what you see: irons a
+   post, the red dot a dot, the scope its ring and the magnified view. The use control (E / pad L3 / the touch button,
+   which reads FIRE) is the trigger. A bolt action: each shot is followed by working the bolt (longer with more recoil),
+   and an empty magazine is refilled from the pack, a round at a time.
+   THE SHOT is a ray from the eye along the view plus the build's spread; it stops at the first hill. It takes the first
+   live animal whose chest it passes through (WILD groups only: Santa's team and the dog aren't in them). Inside the
+   build's clean-kill range the animal drops where it stands; past it the round has dropped below the chest: a miss, and
+   the hint says so, so reach is bought with a barrel and a scope, never luck. The report (stat noise) puts every herd
+   within SPOOK_R x noise metres to flight, hit or miss.
+   PEOPLE CAN NEVER BE SHOT: before the trigger breaks, the line of fire is checked out to SAFE_REACH against everyone
+   out of doors (other riders, anyone waiting on a rescue, the dog, drivers on the road) and against every house, village
+   and cabin. Anything of theirs near the line and the rifle stays on safe: no shot, no round spent, and the reason
+   toasts. Near houses it won't come to the shoulder at all.
+   THE GAME: walk up to the animal and the use control dresses it (DRESS): its meat and pelt go on your tally (GAME:
+   what the counter pays per kind; a grizzly, a lemming or an ermine is not game and pays nothing), up to CARRY_KG.
+   The gun shop's counter buys it on a Game tab until the butcher comes (11.5). */
+const TUNE = { sway: 0.003, settle: 2.2, raise: 0.85, turn: 0.9, bolt: 0.95, load: 0.5, fov: 52 };
+const SPOOK_R = 420, SAFE_REACH = 700, MOA = 0.000291, CARRY_KG = 260, TOWN_PAD = 40, SITE_PAD = 70;
+const GAME = { reindeer: { name: "reindeer", kg: 48, pay: 230 }, moose: { name: "moose", kg: 170, pay: 620 }, fox: { name: "fox", kg: 4, pay: 85, pelt: true }, hare: { name: "hare", kg: 3, pay: 22 } };
+const KIND_NAME = { reindeer: "reindeer", moose: "moose", fox: "fox", hare: "hare", bear: "grizzly", lemming: "lemming", ermine: "ermine" };
+const AIM = { on: false, t: 0, pitch: 0, ax: 0, ay: 0, hold: 0, still: 0, kick: 0, bolt: 0, load: 0, safeT: 0, ph: Math.random() * 9, sx: 0, sy: 0, vm: null, vmKey: "", last: null, dry: 0 };
+const _eye = { x: 0, y: 0, z: 0 }, _dir = { x: 0, y: 0, z: 1 };
+const outdoors = () => api && api.FOOT.on && !api.INT.on;
+function nearHouses(x, z) {
+  const W = api.world, dp = W.depot;
+  if (Math.hypot(x - dp.x, z - dp.z) < (api.townR || 108) + TOWN_PAD) return "town";
+  for (const s of W.SITES) if (s.x !== undefined && s.type !== "depot" && Math.hypot(s.x - x, s.z - z) < SITE_PAD) return s.name || "the houses";
+  return null;
+}
+// can the rifle come up right here? null = yes, or the reason it stays slung
+function slungWhy() {
+  const g = gun(), F = api.FOOT;
+  if (!g) return "none";
+  if (!F.on || api.INT.on) return "foot";
+  if (!api.swapOk() || F.ski || api.tablet() || (api.shopOpen && api.shopOpen()) || api.BOG.on) return "busy";
+  const h = nearHouses(F.x, F.z); if (h) return h === "town" ? "town" : "site:" + h;
+  return null;
+}
+const can = () => !!gun() && outdoors();          // the touch button shows whenever a rifle is on your back out of doors
+function lower(quiet) {
+  if (!AIM.on) return;
+  AIM.on = false; AIM.t = 0; AIM.kick = 0; AIM.ax = AIM.ay = 0;
+  if (AIM.vm) AIM.vm.visible = false;
+  hud(false);
+  const F = api.FOOT; if (F.g && F.on && !api.INT.on) F.g.visible = true;
+  if (!quiet) api.toast("Rifle slung.");
+}
+function toggle() {
+  if (!api || !api.started()) return false;
+  if (AIM.on) { lower(); return true; }
+  const why = slungWhy();
+  if (why === "none" || why === "foot") { if (why === "none" && outdoors()) api.toast(`No rifle. ${FULL_NAME} in Kjøllefjord sells one.`, "warn"); return false; }
+  if (why === "busy") { api.toast("Hands full: not now.", "warn"); return false; }
+  if (why) { api.toast(why === "town" ? "Not in town: the rifle stays slung and empty until you're out on the fell." : `Too close to ${why.slice(5)}: the rifle stays slung near houses.`, "warn"); return false; }
+  const g = gun(), s = S(), st = stats(g);
+  AIM.on = true; AIM.t = 0; AIM.pitch = 0; AIM.hold = 0; AIM.still = 0; AIM.kick = 0; AIM.bolt = 0; AIM.dry = 0;
+  AIM.load = g.rounds < st.cap && s.ammo > 0 ? TUNE.load : 0;
+  api.toast(g.rounds || s.ammo ? `Rifle up. ${api.keyHint("use", "fire")} · ${api.keyHint("rifle", "sling it")}` : "Rifle up, and empty: not a round in the magazine or the pack.", g.rounds || s.ammo ? undefined : "warn");
+  return true;
+}
+// the rifle you look down, built from the parts fitted (so a new barrel or a scope shows the moment it's on)
+function viewModel() {
+  const g = gun(), key = g ? g.frame + ":" + SLOTS.map(sl => g.parts[sl]).join(",") : "";
+  if (AIM.vm && AIM.vmKey === key) return AIM.vm;
+  if (AIM.vm) api.scene.remove(AIM.vm);
+  const T = api.THREE, box = api.mesh.box, cyl = api.mesh.cyl, std = api.mesh.std, G = new T.Group(), p = g.parts, H = Math.PI / 2;
+  const steel = std(0x22252a, 0.42, 0.7), black = std(0x15171a, 0.8, 0.1);
+  const wood = p.stock === "walnut" ? std(0x2f1b0f, 0.55) : p.stock === "synth" ? std(0x2b2f33, 0.9) : std(0x4a4f45, 0.85);
+  // -z is down-range. Butt at z = +0.30, action over the grip, fore-end out to -0.32, then the barrel.
+  box(0.042, 0.11, 0.3, wood, 0, -0.06, 0.17, 0.16, 0, 0, G);                                    // butt
+  box(0.044, 0.11, 0.012, black, 0, -0.085, 0.322, 0.16, 0, 0, G);                                // recoil pad
+  if (p.stock === "adjust") box(0.034, 0.03, 0.16, black, 0, 0.0, 0.16, 0.16, 0, 0, G);       // raised comb
+  box(0.04, 0.05, 0.36, wood, 0, -0.03, -0.16, 0, 0, 0, G);                                   // fore-end
+  box(0.04, 0.1, 0.05, p.grip === "rubber" ? black : wood, 0, -0.075, 0.03, 0.35, 0, 0, G);     // wrist / grip
+  cyl(0.019, 0.019, 0.24, steel, 0, 0.015, -0.06, H, 0, 0, G, 10);                              // receiver
+  cyl(0.004, 0.004, 0.036, steel, 0.032, 0.006, 0.03, 0, 0, H * 0.7, G, 6);                      // bolt handle
+  if (api.mesh.ball) api.mesh.ball(0.0065, steel, 0.048, -0.004, 0.03, G);
+  const bl = p.barrel === "carb18" ? 0.42 : p.barrel === "heavy24" ? 0.6 : 0.54, br = p.barrel === "heavy24" ? 0.014 : 0.0105;
+  cyl(br * 0.92, br, bl, steel, 0, 0.015, -0.18 - bl / 2, H, 0, 0, G, 10);
+  const mz = -0.18 - bl;
+  if (p.magazine !== "int3") { const mh = p.magazine === "det10" ? 0.15 : 0.06; box(0.03, mh, 0.075, black, 0, -0.065 - mh / 2, -0.08, 0.06, 0, 0, G); }
+  box(0.012, 0.03, 0.09, steel, 0, -0.07, 0.0, 0, 0, 0, G);                                     // trigger guard
+  if (p.grip === "bipod") for (const sx of [-1, 1]) cyl(0.005, 0.005, 0.24, steel, sx * 0.02, -0.07, -0.42, H * 0.92, 0, 0, G, 5);
+  if (p.sight === "iron") { box(0.004, 0.022, 0.004, steel, 0, 0.037, mz + 0.03, 0, 0, 0, G); for (const sx of [-1, 1]) box(0.007, 0.012, 0.006, black, sx * 0.0075, 0.04, -0.14, 0, 0, 0, G); }   // front post, rear notch
+  else if (p.sight === "red1") { box(0.03, 0.012, 0.05, black, 0, 0.04, -0.04, 0, 0, 0, G); for (const sx of [-1, 1]) box(0.004, 0.034, 0.045, black, sx * 0.017, 0.062, -0.04, 0, 0, 0, G); box(0.038, 0.004, 0.045, black, 0, 0.08, -0.04, 0, 0, 0, G); }   // an open window, so you see through it
+  else { cyl(0.014, 0.014, 0.3, black, 0, 0.066, -0.04, H, 0, 0, G, 10); cyl(0.022, 0.016, 0.07, black, 0, 0.066, -0.2, H, 0, 0, G, 12); cyl(0.018, 0.02, 0.05, black, 0, 0.066, 0.12, H, 0, 0, G, 12);
+    for (const z of [-0.1, 0.03]) box(0.02, 0.035, 0.018, steel, 0, 0.045, z, 0, 0, 0, G); }
+  G.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+  api.scene.add(G); AIM.vm = G; AIM.vmKey = key; AIM.len = 0.5 + bl;
+  return G;
+}
+function hud(on) {
+  let el = document.getElementById("gunHud");
+  if (!on) { if (el) el.hidden = true; return null; }
+  if (!el) {
+    const st = document.createElement("style");
+    st.textContent = `#gunHud{position:fixed;inset:0;pointer-events:none;z-index:6}
+#gunHud .ret{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+#gunHud .post{width:2px;height:9px;background:#111;box-shadow:0 0 0 1px rgba(255,255,255,.5);margin-top:5px}
+#gunHud .dot{width:7px;height:7px;border-radius:50%;background:#ff3b2f;box-shadow:0 0 8px 2px rgba(255,59,47,.7)}
+#gunHud .scope{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent calc(min(42vh,42vw) - 2px),#000 min(42vh,42vw))}
+#gunHud .scope:before,#gunHud .scope:after{content:"";position:absolute;background:rgba(0,0,0,.85)}
+#gunHud .scope:before{left:50%;top:calc(50% - min(42vh,42vw));height:calc(2*min(42vh,42vw));width:1.5px;transform:translateX(-50%)}
+#gunHud .scope:after{top:50%;left:calc(50% - min(42vh,42vw));width:calc(2*min(42vh,42vw));height:1.5px;transform:translateY(-50%)}
+#gunHud .amm{position:absolute;left:50%;bottom:calc(206px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:700 13px/1 var(--display,system-ui);letter-spacing:.1em;color:#fff;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.6);white-space:nowrap}
+#gunHud .amm.safe{color:#ffb86b}`;
+    document.head.appendChild(st);
+    el = document.createElement("div"); el.id = "gunHud"; el.innerHTML = `<div class="scope" hidden></div><div class="ret"></div><div class="amm"></div>`;
+    document.body.appendChild(el);
+  }
+  el.hidden = false; return el;
+}
+// who or what of people's is near the line of fire: null = clear. 2D, so a shot over a roof is still refused.
+function unsafe(ox, oz, dx, dz) {
+  const hl = Math.hypot(dx, dz) || 1, ux = dx / hl, uz = dz / hl, W = api.world;
+  const off = (x, z, pad) => { const t = clamp((x - ox) * ux + (z - oz) * uz, 0, SAFE_REACH), d = Math.hypot(ox + ux * t - x, oz + uz * t - z); return d < pad + t * 0.03 ? t : -1; };
+  const ppl = api.people ? api.people().slice() : [];
+  const TT = window.TLXT; if (TT && Array.isArray(TT.cars)) for (const c of TT.cars) if (c.on && Number.isFinite(c.x) && Number.isFinite(c.z)) ppl.push({ x: c.x, z: c.z, who: "driver" });
+  let best = null;
+  for (const p of ppl) { const t = off(p.x, p.z, 6); if (t >= 0 && (!best || t < best.t)) best = { t, who: p.who === "dog" ? "a dog" : p.who === "driver" ? "a car" : p.who === "rider" ? "a rider" : "someone" }; }
+  if (best) return `${best.who[0].toUpperCase() + best.who.slice(1)} is down-range, ${Math.round(best.t)} m out. The rifle stays on safe.`;
+  if (off(W.depot.x, W.depot.z, (api.townR || 108)) >= 0) return "That's toward Kjøllefjord. The rifle stays on safe.";
+  for (const s of W.SITES) if (s.x !== undefined && s.type !== "depot" && off(s.x, s.z, 45) >= 0) return `That's toward ${s.name || "the houses"}. The rifle stays on safe.`;
+  for (const D of W.doors || []) if (off(D.x, D.z, 22) >= 0) return "There's a house down-range. The rifle stays on safe.";
+  return null;
+}
+// first hill the bullet meets before `far` metres: the distance, or -1 for a clear line
+function hillAt(far) {
+  const W = api.world;
+  for (let t = 3; t < far; t += 3) { const x = _eye.x + _dir.x * t, z = _eye.z + _dir.z * t; if (_eye.y + _dir.y * t < W.surf(x, z) - 0.05) return t; }
+  return -1;
+}
+// the nearest live animal whose chest the line passes through
+function target(dx, dy, dz) {
+  const W = api.world; let best = null;
+  for (const G of api.wild.groups()) for (const q of G.m) {
+    if (q.dead || q.dive > 0 || !q.g.visible) continue;
+    const sc = q.g.scale.x, cy = W.surf(q.x, q.z) + q.sp.hipY * sc * 0.92, r = Math.max(0.05, q.sp.len * 0.3 * sc);
+    const rx = q.x - _eye.x, ry = cy - _eye.y, rz = q.z - _eye.z, t = rx * dx + ry * dy + rz * dz; if (t < 1.5) continue;
+    const m = Math.hypot(rx - dx * t, ry - dy * t, rz - dz * t);
+    if (m < r && (!best || t < best.t)) best = { G, q, t, m };
+  }
+  return best;
+}
+function fire() {
+  const g = gun(), s = S(); if (!AIM.on || !g) return false;
+  if (AIM.t < 1 || AIM.bolt > 0 || (AIM.load > 0 && g.rounds <= 0)) return false;
+  AIM.load = 0;                                                       // firing breaks off topping the magazine up
+  if (g.rounds <= 0) { AIM.last = { res: "empty" }; if (api.now() - AIM.dry > 1.5) { AIM.dry = api.now(); api.toast(s.ammo > 0 ? "Click. Empty: loading." : "Click. Empty, and not a round in the pack.", "warn"); } return false; }
+  const why = unsafe(_eye.x, _eye.z, _dir.x, _dir.z);
+  if (why) { AIM.last = { res: "safe", why }; AIM.safeT = 2.5; api.toast(why, "warn"); return false; }
+  const st = stats(g), sg = st.spread * MOA * 0.5, rn = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
+  // the bullet: the view's line, opened by the build's spread
+  const yaw = Math.atan2(_dir.x, _dir.z) + rn() * sg, pit = Math.asin(clamp(_dir.y, -1, 1)) + rn() * sg, cp = Math.cos(pit);
+  const dx = Math.sin(yaw) * cp, dy = Math.sin(pit), dz = Math.cos(yaw) * cp;
+  g.rounds--; AIM.kick = 1; AIM.bolt = TUNE.bolt * (0.75 + 0.35 * st.recoil); AIM.still *= 0.35;
+  if (api.crack) api.crack(1); api.thud(0.7); if (api.whump) api.whump(0.5);
+  const F = api.FOOT, n = api.wild.spook(F.x, F.z, SPOOK_R * st.noise);
+  const hit = target(dx, dy, dz), hill = hillAt(hit ? hit.t : 400);
+  let res = "miss", msg = "";
+  if (hit && hill < 0) {
+    const d = Math.round(hit.t), nm = KIND_NAME[hit.G.kind] || hit.G.kind;
+    if (hit.t <= st.range) { api.wild.shot(hit.G, hit.q); res = "kill"; s.taken[hit.G.kind] = (s.taken[hit.G.kind] || 0) + 1;
+      msg = GAME[hit.G.kind] ? `The ${nm} drops where it stood, ${d} m out. Walk up to it to dress it.` : hit.G.kind === "bear" ? `The grizzly goes down, ${d} m out.` : `The ${nm} is hit, ${d} m out. Not game: nothing to take.`; }
+    else { res = "short"; msg = `${d} m: past this rifle's clean reach (${st.range} m). The round drops under the ${nm}'s chest and it's gone.`; }
+  } else if (hit && hill >= 0) { res = "hill"; msg = "Snow jumps off the rise in front of it: the ground was in the way."; }
+  AIM.last = { res, kind: hit ? hit.G.kind : null, d: hit ? hit.t : 0, spooked: n, rounds: g.rounds };
+  if (msg) api.toast(msg, res === "kill" ? "good" : "warn");
+  if (g.rounds <= 0 && s.ammo > 0) AIM.load = AIM.bolt + TUNE.load;
+  api.save();
+  return true;
+}
+// the carcass at your boots, if there is one to dress
+function carcass() {
+  const F = api.FOOT; let best = null, bd = 2.6;
+  for (const G of api.wild.groups()) for (const q of G.m) { if (q.dead !== 1 || !GAME[G.kind]) continue; const d = Math.hypot(q.x - F.x, q.z - F.z); if (d < bd) { bd = d; best = { G, q }; } }
+  return best;
+}
+const carriedKg = () => S().game.reduce((a, it) => a + (GAME[it.k] ? GAME[it.k].kg : 0), 0);
+function dress() {
+  const c = carcass(), s = S(); if (!c) return false;
+  const gm = GAME[c.G.kind];
+  if (carriedKg() + gm.kg > CARRY_KG) { api.toast(`You can't haul any more: ${Math.round(carriedKg())} kg of game already. Sell it at ${STORE_NAME} first.`, "warn"); return false; }
+  c.q.dead = 2;                                                       // dressed: it stays where it fell, there's nothing more to take
+  s.game.push({ k: c.G.kind }); api.save();
+  api.toast(gm.pelt ? `The ${gm.name}'s pelt, rolled and in the pack. ${STORE_NAME} pays ${cash$(gm.pay)}.` : `The ${gm.name}, dressed: ${gm.kg} kg of meat on the sled. ${STORE_NAME} pays ${cash$(gm.pay)}.`, "good");
+  return true;
+}
+function sellGame() {
+  const s = S(); if (!s.game.length) return false;
+  let pay = 0; for (const it of s.game) pay += GAME[it.k] ? GAME[it.k].pay : 0;
+  const n = s.game.length; s.game = []; api.GS.cash += pay; api.save();
+  api.toast(`${n === 1 ? "One animal" : n + " animals"} over the counter: ${cash$(pay)}.`, "good");
+  return true;
+}
+const gameTab = {
+  id: "g_game", label: "Game", stores: [STORE],
+  note: "The counter buys what you bring in off the fell, dressed: reindeer, moose and hare by the animal, fox by the pelt.",
+  render() {
+    const s = S(), cnt = {}; let pay = 0;
+    for (const it of s.game) { cnt[it.k] = (cnt[it.k] || 0) + 1; pay += GAME[it.k] ? GAME[it.k].pay : 0; }
+    const rows = Object.keys(GAME).map(k => card(esc(GAME[k].name[0].toUpperCase() + GAME[k].name.slice(1)), cash$(GAME[k].pay), GAME[k].pelt ? "Paid by the pelt." : `About ${GAME[k].kg} kg dressed.`,
+      `<span class="ifchip${cnt[k] ? " ok" : ""}">${cnt[k] || 0} with you</span>`, "")).join("");
+    return card("What you've brought in", pay ? cash$(pay) : "", s.game.length ? `${s.game.length} ${s.game.length === 1 ? "animal" : "animals"}, ${Math.round(carriedKg())} kg of the ${CARRY_KG} kg you can haul.` : "Nothing yet. Shoulder the rifle out on the fell, well clear of the houses; walk up to the animal to dress it.", "",
+      `<button type="button" data-gsell="1" ${s.game.length ? "" : "disabled"}>${s.game.length ? "Sell it all · " + cash$(pay) : "Nothing to sell"}</button>`) + rows;
+  },
+  bind(root, rerender) { const b = root.querySelector("button[data-gsell]"); if (b) b.onclick = () => { if (sellGame()) rerender(); }; }
+};
+function aimTick(dt) {
+  const F = api.FOOT, g = gun();
+  if (!AIM.on) return;
+  if (!g || !F.on || api.INT.on || !api.swapOk() || api.tablet() || F.ski || (api.shopOpen && api.shopOpen())) { lower(true); return; }
+  const st = stats(g), s = S(), W = api.world, cam = api.camera;
+  AIM.t = Math.min(1, AIM.t + dt / (TUNE.raise * (1.5 - st.handling * 0.08)));
+  // swing: a tap creeps, a held push builds; a scope slows it to keep the animal in the glass
+  const push = Math.max(Math.abs(AIM.ax), Math.abs(AIM.ay));
+  AIM.hold = push > 0.1 ? AIM.hold + dt : 0;
+  const rate = TUNE.turn * (0.5 + st.handling * 0.1) * (0.25 + 0.75 * api.sstep(0.1, 0.9, AIM.hold)) / Math.pow(st.zoom, 0.75);
+  F.yaw += -AIM.ax * rate * dt; AIM.pitch = clamp(AIM.pitch + AIM.ay * rate * 0.6 * dt, -0.55, 0.6);
+  AIM.still = push > 0.1 ? Math.max(0, AIM.still - dt * 1.2 * push) : Math.min(1, AIM.still + dt / TUNE.settle);
+  AIM.kick = Math.max(0, AIM.kick - dt * (2.4 / st.recoil));
+  if (AIM.bolt > 0) AIM.bolt = Math.max(0, AIM.bolt - dt);
+  if (AIM.safeT > 0) AIM.safeT -= dt;
+  if (AIM.load > 0 && (AIM.load -= dt) <= 0) {
+    if (g.rounds < st.cap && s.ammo > 0) { g.rounds++; s.ammo--; AIM.load = g.rounds < st.cap && s.ammo > 0 ? TUNE.load : 0; if (!AIM.load) api.save(); } else AIM.load = 0;
+  }
+  // sway: two slow breaths out of step; unsettled it is 3x wider, out of breath wider still
+  AIM.ph += dt;
+  const amp = TUNE.sway * (0.55 + st.spread / 4.4) * (1 + 2 * (1 - AIM.still) + 1.5 * clamp(F.wind || 0, 0, 1));
+  AIM.sx = amp * (Math.sin(AIM.ph * 1.31) + 0.45 * Math.sin(AIM.ph * 2.9 + 1.3)); AIM.sy = amp * 0.8 * (Math.sin(AIM.ph * 0.97 + 0.6) + 0.4 * Math.sin(AIM.ph * 2.3));
+  const up = api.sstep(0, 1, AIM.t), kick = AIM.kick * AIM.kick * 0.035 * st.recoil;
+  const yaw = F.yaw + AIM.sx, pit = AIM.pitch + AIM.sy + kick, cp = Math.cos(pit);
+  _dir.x = Math.sin(yaw) * cp; _dir.y = Math.sin(pit); _dir.z = Math.cos(yaw) * cp;
+  _eye.x = F.x; _eye.z = F.z; _eye.y = Math.max(F.y, W.surf(F.x, F.z) - 0.4) + 1.6;
+  if (F.g) F.g.visible = false;                                        // you're looking out of their eyes
+  cam.position.set(_eye.x, _eye.y, _eye.z); cam.lookAt(_eye.x + _dir.x * 50, _eye.y + _dir.y * 50, _eye.z + _dir.z * 50);
+  const fov = api.lerp(cam.fov, TUNE.fov / st.zoom, up >= 1 ? 1 : 1 - Math.exp(-10 * dt));
+  if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+  cam.updateMatrixWorld();
+  // the rifle in your hands: up from the hip as it's raised, back and up on the kick, canted while the bolt works
+  const vm = viewModel(), scoped = st.zoom > 1.5;
+  vm.visible = !scoped || up < 0.98;
+  if (vm.visible) {
+    const bk = AIM.bolt > 0 ? Math.sin(Math.PI * clamp(1 - AIM.bolt / (TUNE.bolt * (0.75 + 0.35 * st.recoil)), 0, 1)) : 0, ld = AIM.load > 0 && AIM.bolt <= 0 ? 1 : 0;
+    vm.position.set(api.lerp(0.2, 0, up) + bk * 0.012, api.lerp(-0.42, g.parts.sight === "red1" ? -0.063 : -0.049, up) - ld * 0.05, -0.3 + AIM.kick * 0.05).applyMatrix4(cam.matrixWorld);
+    vm.quaternion.copy(cam.quaternion); vm.rotateX((1 - up) * -0.5 + AIM.kick * 0.05 - ld * 0.16); vm.rotateZ(-bk * 0.28 - ld * 0.2); vm.rotateY((1 - up) * 0.35);
+  }
+  const el = hud(true), ret = el.children[1], sc = el.children[0], amm = el.children[2];
+  const cls = up < 0.98 ? "" : st.zoom > 1.5 ? "" : g.parts.sight === "red1" ? "dot" : "post";
+  if (ret.className !== "ret " + cls) ret.className = "ret " + cls;
+  sc.hidden = !(scoped && up >= 0.98);
+  const txt = AIM.safeT > 0 ? "ON SAFE" : AIM.load > 0 && AIM.bolt <= 0 ? `LOADING · ${g.rounds} / ${st.cap}` : `${g.rounds} / ${st.cap} · ${s.ammo} in the pack`;
+  if (amm.textContent !== txt) amm.textContent = txt;
+  amm.classList.toggle("safe", AIM.safeT > 0);
+}
+
 // a saved entry that isn't what we wrote (old save, hand edit, a bug) becomes a clean one, never a throw
 function sanitize(s) {
   if (!isObj(s.parts)) s.parts = {};
@@ -320,21 +586,28 @@ function sanitize(s) {
   });
   s.cur = s.owned.length ? clamp(Math.floor(+s.cur || 0), 0, s.owned.length - 1) : -1;
   s.ammo = clamp(Math.floor(+s.ammo || 0), 0, AMMO.max); s.licence = s.licence === true;
+  s.game = (Array.isArray(s.game) ? s.game : []).filter(it => isObj(it) && GAME[it.k]).slice(0, 40).map(it => ({ k: it.k }));
+  if (!isObj(s.taken)) s.taken = {};
+  for (const k of Object.keys(s.taken)) { if (!KIND_NAME[k] || !(s.taken[k] > 0)) delete s.taken[k]; else s.taken[k] = Math.floor(s.taken[k]); }
 }
 
 TLX.option({ id: "huntlic", name: "Hunter's licence", hint: "The gun shop sells a rifle only after a short licence course at its counter ($180). Off = no licence needed.", sys: "guns" });
 TLX.register({
-  id: "guns", v: 1,
-  state0: () => ({ owned: [], cur: -1, parts: {}, ammo: 0, licence: false }),
+  id: "guns", v: 2,
+  state0: () => ({ owned: [], cur: -1, parts: {}, ammo: 0, licence: false, game: [], taken: {} }),
   migrate(st) { return st; },
   init(a) {
     api = a; const s = S(); if (s) sanitize(s);
+    AIM.on = false;
     try { buildStore(); } catch (e) { console.error("TLX gun shop", e); }
-    if (api.footx && !api.footx.includes(PROV)) api.footx.push(PROV);
-  }
+    if (api.footx && !api.footx.includes(PROV)) api.footx.unshift(PROV);       // first: with the rifle up, the use control is the trigger
+  },
+  tick(dt) { if (AIM.on) aimTick(dt); }
 });
-TLX.shopTabs = (TLX.shopTabs || []).concat([licTab, rifleTab, partsTab, ammoTab]);
+TLX.guns = { aim: AIM, toggle, can, fire, lower };
+TLX.shopTabs = (TLX.shopTabs || []).concat([licTab, rifleTab, partsTab, ammoTab, gameTab]);
 TLX.stores = Object.assign(TLX.stores || {}, { [STORE]: { eyebrow: "Jakt &amp; Våpen · Kjøllefjord", title: "Guns & ammunition",
   foot: "Parts you've bought are yours: swap them on and off free. People can never be shot, by anyone, ever." } });
-window.TLXGUN = { SLOTS, FRAMES, PARTS, AMMO, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef };
+window.TLXGUN = { SLOTS, FRAMES, PARTS, AMMO, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef,
+  AIM, TUNE, GAME, CARRY_KG, SPOOK_R, toggle, lower, fire, can, slungWhy, unsafe, target, carcass, dress, sellGame, carriedKg, eye: _eye, dir: _dir };
 })();

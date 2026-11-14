@@ -2428,7 +2428,7 @@ function phantomPad(gp) {
   if (!TC.on) return false;
   return gp.mapping !== "standard" || /uinput|fpc|goodix|finger|touch|synaptics|gpio|keys/i.test(gp.id) || performance.now() - lastTouchT < 600 || TC.active;
 }
-let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false, padBand = false;
+let padWx = false, padHop = false, padReset = false, padView = false, padGod = false, padB = false, padMenu = false, padLB = false, padX = false, padWipe = false, padHorn = false, padTab = false, padBand = false, padRifle = false;
 
 /* ---------------- touch controls ---------------- */
 // The mobile scheme (markup #touch in index.html, styles under "touch controls: the mobile scheme").
@@ -2499,6 +2499,7 @@ function updTouch() {
   show("tcF", (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on));
   show("tcWipe", VZ.target > 0.12 || VZ.level > 0.08 || VZ.sweep >= 0);
   show("tcBand", !!(TLX.wounds && TLX.wounds.open()));
+  { const r = show("tcRifle", foot && !!(TLX.guns && TLX.guns.can())); if (!r.hidden) text(r, tbtn("rifle")); }
   const w = $("tcWing"); w.hidden = GS.own.parts.hitch !== "tiller"; w.classList.toggle("lit", TOW.wingOn);
   $("tcFull").hidden = !(typeof FSC !== "undefined" && FSC.api && !GFX.standalone);
   $("tcGas").querySelector(".fill").style.height = Math.round(TC.thr * 100) + "%";
@@ -2585,6 +2586,7 @@ function touchCanvasUp(e) {
       else if (k === "help") gameKey({ code: "KeyP" });
       else if (k === "wipe") wipeVisor();
       else if (k === "bandage") gameKey({ code: "KeyU" });
+      else if (k === "rifle") gameKey({ code: "KeyL" });
     });
     if (k === "gas") b.addEventListener("pointermove", e => { if (b.classList.contains("on")) gas(e); });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, up);
@@ -2631,6 +2633,7 @@ function readInput(dt) {
     if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
     const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !TABLET.open && !FOOT.on) input.hop = true; padHop = h;
     if (h && FOOT.on) WN.padReel = true;
+    if (h && !padRifle && started && FOOT.on && !INT.on && !godOpen && !TABLET.open && WN.state !== "hooked") gameKey({ code: "KeyL" }); padRifle = h;   // A on foot: shoulder / lower the rifle (tlx-guns.js)
     const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
     const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
@@ -2657,6 +2660,7 @@ function readInput(dt) {
   if (FOOT.on && typeof MNT !== "undefined" && MNT.on) MNT.want = Math.max(Math.abs(thr - brk), Math.abs(analog !== null ? analog : st));   // pushing a direction during the walk to the sled calls the climb off
   if (FOOT.on && ((typeof MNT !== "undefined" && MNT.on) || (typeof DMT !== "undefined" && DMT.on))) { thr = brk = lean = wh = 0; st = 0; analog = null; }   // and none of it reaches the sled while you're half on it
   if (FOOT.on && !(typeof MNT !== "undefined" && MNT.on) && !(typeof DMT !== "undefined" && DMT.on)) { FOOT.fwd = thr - brk * 0.6; FOOT.jog = lean; FOOT.turn = analog !== null ? analog : st; thr = brk = lean = wh = 0; st = 0; analog = null; }   // on foot the same controls walk the rider (locked out mid-mount)
+  if (FOOT.on && TLX.guns && TLX.guns.aim.on) { const A = TLX.guns.aim; A.ax = FOOT.turn; A.ay = FOOT.fwd; FOOT.fwd = FOOT.turn = FOOT.jog = 0; }   // rifle shouldered: the walk controls swing the aim, the boots stay planted (tlx-guns.js)
   if (FISH && FISH.blocking()) { FOOT.fwd = FOOT.turn = 0; thr = brk = lean = wh = 0; st = 0; analog = null; }                        // fishing, or in the shop: the sled stays parked
   if (RJN && RJN.t > 0) {                                                 // dynamic rejoin: the rider is already on the throttle, holding cruise until you take over (any throttle/brake input, or ~7 s)
     if (thr > 0 || brk > 0 || FOOT.on || CRASH.on) RJN.t = 0;
@@ -9069,6 +9073,7 @@ function gameKey(e) {
   if (e.code === "KeyP") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
   if (e.code === "KeyU") { if (TLX.wounds && !e.repeat) TLX.wounds.use(); return; }   // U: a bandage on an open wound (tlx-wounds.js)
+  if (e.code === "KeyL") { if (TLX.guns && !e.repeat) TLX.guns.toggle(); return; }    // L: shoulder / lower the rifle on foot (tlx-guns.js)
 }
 
 /* settings: paint, rider kit, volume */
@@ -9805,6 +9810,7 @@ const BTN = {
   use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
   reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
   bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" },   // tlx-wounds.js: dress an open wound, fast
+  rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
@@ -12841,6 +12847,31 @@ function bearSwipe(G, q, mx, mz) {
   if (Math.random() < (down ? 0.4 : 0.2)) { G.state = "walk"; G.t = 20; G.calm = 15; G.yaw = Math.atan2(q.x - mx, q.z - mz); setTimeout(() => toast("The grizzly huffs, turns and lumbers away. You lie still until it's gone.", "warn"), 1800); }
 }
 function crashCancelSafe() { if (CRASH.on && typeof crashCancel === "function") crashCancel(); }
+// the rifle (tlx-guns.js, api.wild): a clean hit drops one animal where it stands; the report sends every herd in earshot
+// running (bears don't run from a shot). Santa's team and the dog are not in WILD.groups, so they can't be hit.
+function wildShot(G, q) {
+  if (!q || q.dead) return false;
+  q.dead = 1; q.deadK = 0; q.v = 0;
+  if (G.kind === "bear" ? q === G.m[0] : G.m.every(o => o.dead)) G.state = "dead";
+  return true;
+}
+function wildSpook(x, z, r) {
+  let n = 0;
+  for (const G of WILD.groups) {
+    if (G.kind === "bear" || G.state === "dead" || Math.hypot(G.x - x, G.z - z) > r) continue;
+    G.state = "flee"; G.yaw = Math.atan2(G.x - x, G.z - z) + (Math.random() - 0.5) * 0.6; G.t = 8 + Math.random() * 6; n++;
+  }
+  return n;
+}
+// everyone out of doors a bullet must never go near: the other riders, whoever a rescue is for, the dog
+function peopleOut() {
+  const out = [];
+  for (const n of NPCS) if (n.g && n.g.visible) out.push({ x: n.x, z: n.z, who: "rider" });
+  if (SAR.cur && SAR.cur.v && !SAR.cur.res) out.push({ x: SAR.cur.v.x, z: SAR.cur.v.z, who: "person" });
+  if (RJ.on) for (const v of RJ.vs) out.push({ x: v.x, z: v.z, who: "person" });
+  if (DOG.g && DOG.g.visible) out.push({ x: DOG.x, z: DOG.z, who: "dog" });
+  return out;
+}
 // the sled hits it: fast enough and it's dead; any slower and it throws you, then comes for you
 function bearHit(G, q, mv) {
   WILD.hitT = 1.5; const mph = Math.round(mv * 2.237);
@@ -17333,6 +17364,8 @@ function initExpansion() {
     // stores (10.2): a walk-in room, the counter panel (icefish.js's shop in another store's colours), the riding kit
     intAdd: intAddRoom, townR: TOWN_R, fishSites: FISHSITES, shop: (store, tab) => { if (FISH && FISH.openShop) FISH.openShop(tab, store); },
     shopOpen: () => !!(FISH && FISH.panelOpen && FISH.panelOpen()),
+    // the rifle (11.1b): the wildlife it hunts, who must never be down-range, the report
+    wild: { groups: () => WILD.groups, shot: wildShot, spook: wildSpook }, people: peopleOut, crack,
     // jetties (14.2a): a village jetty works as the village for the boat (hand over its parcels, load its pickups)
     deliver, collectClaims,
     kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
