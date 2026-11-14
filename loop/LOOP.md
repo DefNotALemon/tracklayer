@@ -126,6 +126,20 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **13 Nov, Lemon: brakes should stop a riderless sled no matter which way it's moving.** Fall off (crash
+  eject) and the sled should brake to a stop whether it was moving forward or backward at the moment you came
+  off — not just forward. Likely root cause, found while checking the empty-fuel reverse-speed report above:
+  the main brake term (~line 3534) is `F -= (vf > 0.6 ? 4200 : 1100) * input.brk;` — this is NOT sign-aware, it
+  always subtracts a positive force regardless of `vf`'s sign. When riderless (`CRASH.on` forces `input.brk = 1`
+  at ~line 3449) and the sled is already drifting backward (`vf < 0`, e.g. sliding tail-first down a slope), this
+  term makes `vf` MORE negative instead of toward zero — i.e. the "brake" accelerates it backward. The `rev`
+  branch right above it explicitly excludes `CRASH.on`, so riderless-backward never reaches the reverse-gear
+  logic either; it falls straight into this broken term. Fix: make the plain-brake term oppose current motion,
+  e.g. `F -= Math.sign(vf) * (Math.abs(vf) > 0.6 ? 4200 : 1100) * input.brk;` (or clamp so it can't push `vf`
+  past 0). This is probably the SAME bug as the "gains speed in reverse on empty fuel" report above — check both
+  together. Fixed = after a crash/dismount, the riderless sled's speed (either sign) decays to 0 under full brake,
+  verified with a scenario that crashes it while moving backward AND while moving forward.
+
 - **13 Nov, Lemon: three reports.**
   1. **Tether rope should clear on dismount.** Get off the sled (Q) and the tether/kill-cord rope should not still
      be visible/attached to the rider. Current code (`ropeTick`, ~16780-16800) only clears `ROPE.clip` on remount
@@ -216,6 +230,7 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
+- [ ] G3 (OWNER, top): riderless sled brake only decelerates forward motion, accelerates backward drift instead of stopping it — see Owner notes 13 Nov (sign-aware brake fix), likely same root cause as the reverse-on-empty-fuel item above.
 - [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
 - [ ] G3 (OWNER, top): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov.
 - [ ] G3 (OWNER, top): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
