@@ -457,6 +457,17 @@ the store: the **riding kit** (helmet, jacket, bibs, boots, gloves; the garage's
 you've worked up a damp sweat, the use control offers **DRY PAIR**: change into a dry pair and about a third of the damp
 comes off (one pair used). Walk back into the doorway to go out.
 
+**Jakt & Våpen, the gun shop.** A hunting shop in Kjøllefjord, about 55 m from the quay, with a JAKT & VÅPEN board over
+the door: a rifle rack, a glass case of scopes and magazines, antlers, a shelf of ammunition, and the gunsmith's counter
+(the use control reads SHOP). Its tabs: **Licence** (the hunter's licence course, $180: the counter sells a rifle only to
+a licence holder; switch it off in Settings > Options), **Rifles** (a bolt-action .308, $1,450, fitted with its stock
+parts and showing its stats), **Parts** (barrel, stock, grip, magazine and sight, three of each, every one a trade-off:
+the carbine barrel swings faster but reaches less and is louder, the 3-9x scope reaches 250 m and steadies the shot but
+weighs and slows the swing, a bigger magazine holds more rounds and hangs heavier; each card shows the stat changes
+before you buy) and **Ammunition** (.308 soft points, $38 for 20, up to 120 in the pack). A part you've bought is yours:
+swap it on and off free. Firing, carrying the rifle and hunting come next; people can never be shot. The code is
+`tlx-guns.js`.
+
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee. A freight card whose leg would
 cost 70% or more of your warmth in the current light and weather, with the kit you're wearing, wears
