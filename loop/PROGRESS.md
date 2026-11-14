@@ -3,6 +3,20 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — App Store card strip follows keyboard/pad focus (beta 0168 #1, lane A BUG) (G4) — bf7d5b7
+Builder pass, lane A. Triage 175-176: 0175 #2-#4 (two trucks both "Pickup", truck pin over the quay label, no vehicle
+layer chip) POLISH, not queued; 0176 is lane D's (10.1). Last triaged 174 -> 176.
+Cause: `TABLET.paintFocus` only scrolled `#tabV` vertically, so arrowing right along the Today page's horizontal card
+strip moved focus onto cards off its right edge. Fix: it also scrolls the nearest horizontally-scrolling ancestor,
+measured with layout offsets (the tablet's 3D tilt skews client rects); the strip is scroll-snap mandatory, so a
+partial nudge snapped straight back and the card's start is brought to the strip's start instead.
+0168 #2 (white ring on Freight while focus was on Rescue) is not focus: it is `.stcard.next`, the START HERE card's
+own white box-shadow ring. Left as designed.
+Numbers (`g7_appstore_strip.mjs`, before on origin/main -> after): desktop strip scrollLeft stayed 18 for every card
+(Real Estate 702-1032 and Rescue 1044-1374 px off a 975 px window) -> 18 / 417 / 417, all in view; phone 390x844 stayed
+12 -> follows each card (273, 534, 728); keyboard, pad d-pad and phone all pass both ways; Enter opens the focused card.
+Gate: smoke, x1_save, g7_appstore_strip, g7_appstore_detail pass (re-run after rebase onto v225).
+
 ## 2026-11-14 — 10.2 the winter store, Sport & Vinter (lane D) (G4) — 6d30e88
 Builder pass, lane D. No beta reports on lane D systems. Built 10.2 (design was in EXPANSION.md). Note: LOOP.md Owner
 14 Nov moves milestone 11 (guns, Tarkov-style customization) AHEAD of 10.3-10.4; this slice was already built and
