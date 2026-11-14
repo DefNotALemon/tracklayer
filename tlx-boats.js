@@ -1,4 +1,4 @@
-// Tracklayer — boats (expansion slice 14.1, loop/EXPANSION.md milestone 14). Loaded after tlx-vehicles.js, before tracklayer.js.
+// Tracklayer — boats (expansion slices 14.1-14.3, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
 //
 // WHAT IT IS. A 4.6 m aluminium skiff with a 20 hp tiller outboard, bought at the garage (Boats tab) and moored at a timber
 // jetty on piles (the småbåthavn) off the lowest bit of shore near the quay: the concrete quay stands ~9 m above the water,
@@ -31,6 +31,10 @@ const ROW = { id: "skiff", name: "Fjordsnekka 460", kind: "skiff", boat: true, y
 const HB = 0.85, HL = 2.3;                                                     // half beam, half length (m)
 const FLOOR = -0.14, GUN = 0.48;                                               // the floor inside, the gunwale amidships (boat frame, waterline = 0)
 const MAX_BOATS = 2;
+// things you do from the boat that live in their own file (14.3: tlx-seafish.js, the handline) plug in with TLXB.addOn:
+// { init(api, kit), tick(R, r, isCur, dt), use(R), useLabel(R), useHint(R), grab(R, thr, brk), stop(R), pose(R, fig) }
+const ADDONS = [];
+function addon(fn, ...a) { for (const o of ADDONS) if (o[fn]) { const v = o[fn](...a); if (v) return v; } return null; }
 
 let api = null, T = null;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x, lerp = (a, b, t) => a + (b - a) * t;
@@ -344,6 +348,7 @@ function driverFig(R) {
 }
 function poseSeated(R) {
   const g = driverFig(R), U = g.userData, d = ROW;
+  if (addon("pose", R, g)) return;                                              // working a handline over the side (tlx-seafish.js)
   g.position.set(d.seat.x, d.seat.y - 0.93, d.seat.z); g.rotation.set(0, 0.35, 0);   // turned a little toward the tiller
   U.torso.rotation.set(0.12, 0, 0); U.torso.position.y = 0.93; U.head.rotation.set(-0.06, -0.3, 0);
   for (let i = 0; i < 2; i++) { U.legs[i].rotation.set(-1.42, 0, (i ? 1 : -1) * 0.1); U.legs[i].position.set(i ? 0.1 : -0.1, 0.93, 0); U.shins[i].rotation.x = 1.38; U.ank[i].rotation.x = 0.05; }
@@ -379,7 +384,7 @@ function core(R, dt) {
   const wl = w.wlvAt(P.x, P.z); if (wl !== null) P.wl = wl;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   let vf = P.vx * fx + P.vz * fz, vl = P.vx * lx + P.vz * lz;
-  const parked = FOOT.on || GS.dead || api.MNT.on || api.DMT.on, fuel = GS.fuel > 0 && !GS.dead;
+  const parked = FOOT.on || GS.dead || api.MNT.on || api.DMT.on || !!R.fishing, fuel = GS.fuel > 0 && !GS.dead;
   const n = load(R), M = d.mass + 90 + 6 * n;
   const thr = fuel && !parked ? input.thr : 0, rev = fuel && !parked && input.brk > 0 && !(input.thr > 0);
   const pw = d.power * 0.55 * (0.75 + 0.25 * (R.rec.cond == null ? 1 : R.rec.cond / 100));
@@ -507,6 +512,7 @@ function tick(R, r, isCur, dt) {
   } else { R.drvBody.visible = false; parkedTick(R, r, dt); }
   parcels(R, isCur ? load(R) : (r.load || []).filter(j => j && !j.big).length);
   if (r === boats()[0]) seaBoard(dt);
+  for (const o of ADDONS) if (o.tick) o.tick(R, r, isCur, dt);
 }
 
 /* ---------------- getting in and out ---------------- */
@@ -599,6 +605,7 @@ function doDismount(R) {
   if (Math.hypot(P.vx, P.vz) > 0.8) { api.toast("Stop the boat first.", "warn"); return; }
   const ls = landSpot(P);
   if (!ls) { api.toast("Nowhere to step out here. Bring her alongside the jetty or nose her into a low bit of shore.", "warn"); return; }
+  for (const o of ADDONS) if (o.stop) o.stop(R);                                // the handline comes in before you step out
   DMT.on = true; DMT.t = 0; DMT.stepped = false; DMT.dur = 99;
   F.dig = false; F.sp = F.fwd = F.turn = F.go = 0; F.crouch = 0; F.ski = false; F.shoe = false; F.on = true;
   F.g.userData.shoes && F.g.userData.shoes.forEach(s => s.visible = false);
@@ -643,6 +650,8 @@ function driver(R) {
   return {
     pin: "boat", floats: true,                                                  // the game's drown test leaves P alone (beta 0178 #1)
     shore: () => shoreSite(R),                                                  // tied up at a jetty: its place's warmth, the quay's fuel (14.2b)
+    // the use control in the boat (14.3): what it would do, do it, its hint; grab = it takes the gas / brake while it's on
+    use: () => !!addon("use", R), useLabel: () => addon("useLabel", R), useHint: () => addon("useHint", R) || "", grab: (thr, brk) => !!addon("grab", R, thr, brk),
     get mass() { return ROW.mass + 90; },
     core: dt => core(R, dt),
     restat(ST) {
@@ -707,9 +716,10 @@ function init(a) {
   if (D) { D.site = a.world.depot; D.name = "quay jetty"; DOCKS.push(D); buildDock(D); siteVillageDocks(); }
   a.veh.floor = floorAt;
   a.TABLET.addLayer("docks", () => DOCKS.map(D => { const e = dockEnd(D); return { x: e.x, z: e.z, name: D.name, kind: "dock" }; }));
+  for (const o of ADDONS) if (o.init) o.init(a, { ROW, HB, HL, FLOOR, GUN, DOCKS, bw, sheer, depthAt, shortSite, boats });
 }
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
 TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { ROW, DOCKS, seaKm, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
+window.TLXB = { addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();

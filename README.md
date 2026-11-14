@@ -319,6 +319,24 @@ It pays by the distance by sea, and 35% more when the road between the two place
 shut for the winter (ROAD SHUT +35%). Tied up at a village's jetty you have the village's warmth,
 and at the quay jetty the quay's hose fills her tank.
 
+**Fishing from the boat.** Stopped over 4 m or more of water, the use control (E, L3, the FISH
+button on touch) puts a handline over the side: a wooden frame of heavy line with a pilk on the end.
+With the line down, brake lets it out (the pilk sinks about 3 m a second until it lies on the
+bottom) and gas hauls it in hand over hand; the motor gets nothing until you stow the line with the
+use control again. Work the pilk: a lift and a drop is a jig stroke, and a worked pilk draws about
+three times the fish of a still one. What bites follows the water. Saithe (sei) hunt in mid-water
+almost anywhere; cod (torsk) feed within a few metres of the bottom in 10 m and deeper, haddock
+(hyse) hug it from 18 m, wolffish (steinbit) lie on it; redfish (uer) want 40 m and more, and
+halibut (kveite), rare and worth the most, lie on deep ground past 30 m. Some marks hold far more
+fish than others and they don't move: if nothing tugs, shift a few hundred metres. A tug gives you
+about a second and a half to haul and set the hook. A small fish just comes up; a heavy one runs,
+and hauling against a run stretches the line (the bar turns red) until it parts and takes the pilk
+with it. Hold still on a run, or give line with the brake, and haul between runs; leave the line
+slack too long and the hook shakes out. The fish go in the same cooler as your lake fish (ten, two
+days fresh), the Fiskemottak on the quay pier buys them at the day's price per kilo, they fill
+"any fresh fish" orders in Parcels, and the tablet's logbook keeps your best of each under "From
+the boat". Too rough in a storm: the line comes in by itself when the sea gets up.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a
@@ -778,7 +796,7 @@ Open `index.html`, or play the hosted copy at
 
 Built with three.js (r128, from a CDN). Everything else — terrain generation, snow
 deformation, physics, weather, audio — is hand-rolled in `tracklayer.js`.
-Ice fishing is `icefish.js`. `tlx.js` is the socket the Four Seasons & Enterprise
+Ice fishing is `icefish.js` (fishing from the boat is `tlx-seafish.js`). `tlx.js` is the socket the Four Seasons & Enterprise
 expansion plugs into: each of its systems gets a file of its own, and its state rides in
 the same save.
 

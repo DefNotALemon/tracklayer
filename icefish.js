@@ -36,6 +36,10 @@ const SPECIES = {
   grayling:  { name: "Grayling",    local: "harr",   col: "#7f8aa0", belly: "#dcd6e4", kg: [.2, 1.3], depth: [1, 4],    str: .75, like: .8,  price: 11, w: 7,  k: .01,  slim: .25, sail: true }
 };
 const SPECIES_ORDER = ["char", "trout", "grayling", "whitefish", "burbot", "perch", "pike"];
+// sea fish (tlx-seafish.js, the handline from the boat) join the table through TLFish.addSpecies: the same cooler, buyer
+// and logbook. They are never in a lake's mix (SPECIES_ORDER stays the lakes' seven).
+const SEA_ORDER = [];
+function addSpecies(key, def) { if (!SPECIES[key] && def && def.name && def.price > 0) { SPECIES[key] = def; SEA_ORDER.push(key); } }
 
 // RODS. win multiplies the bite-set window (better rods show the bite sooner, so you get longer to set the hook);
 // clear is how plainly a nibble comes up the blank: the chance you see it (cue + tip twitch) and how big the twitch is.
@@ -1745,7 +1749,7 @@ function renderBuyer() {
   const tot = D.cooler.reduce((a, c) => a + buyValue(c), 0), taken = D.orders.taken.length;
   $("ifBuy").innerHTML = `<div class="ifphd"><div><div class="ifey">Fiskemottak · Kjøllefjord quay</div><h2>Fish buyer</h2></div>
       <div style="display:flex;gap:12px;align-items:center"><span class="cash num">${$$(H.GS.cash)}</span><button type="button" class="ifx" id="ifBuyX" aria-label="Close">✕</button></div></div>
-    <div class="ifboard"><span><i>TODAY, PER KG</i></span>${SPECIES_ORDER.map(k => `<span>${esc(SPECIES[k].name)} <b>${$$(dayPrice(k))}</b></span>`).join("")}</div>
+    <div class="ifboard"><span><i>TODAY, PER KG</i></span>${SPECIES_ORDER.concat(SEA_ORDER).map(k => `<span>${esc(SPECIES[k].name)} <b>${$$(dayPrice(k))}</b></span>`).join("")}</div>
     ${D.cooler.length ? `<div class="ifrows">${rows}</div>` : `<p class="ifnote">The cooler's empty. The lakes up on the fell are full of char and trout.</p>`}
     ${taken ? `<p class="ifnote">You've promised fresh fish to ${taken === 1 ? "a customer" : taken + " customers"} (see Parcels). Sell what you don't need for them.</p>` : `<p class="ifnote">Some homes and cabins pay better for fresh fish brought to the door: look for FRESH FISH in Parcels.</p>`}
     <div class="row" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="ifBuyClose">Keep them</button><button type="button" class="ifpri" id="ifSellAll" ${D.cooler.length ? "" : "disabled"}>Sell the lot · ${$$(tot)}</button></div>`;
@@ -1868,9 +1872,10 @@ function logbookHtml(A) {
     { k: "sold", label: "Fish money", v: A.fmtCash(L.sold || 0).replace("$", ""), u: "$", m: L.sold ? pick(L.sold, [[100, "Beer money."], [1000, "It's paying for the bait, anyway."], [I, "Who needs freight?"]]) : "Nothing sold yet. The fiskemottak's on the pier." }
   ];
   const row = r => `<div class="tlr" data-tf="lb:${r.k}"><div class="tlv"><b>${A.esc(r.v)}</b><u>${A.esc(r.u)}</u></div><div class="tlt"><span class="tll">${A.esc(r.label)}</span><span class="tlm">${A.esc(r.m)}</span></div></div>`;
-  const sp = SPECIES_ORDER.map(k => { const b = best[k]; return `<div class="tlr" data-tf="lb:pb:${k}"><div class="tlv"><b>${b ? b.kg.toFixed(2) : "–"}</b><u>${b ? "kg" : ""}</u></div><div class="tlt"><span class="tll">${A.esc(SPECIES[k].name)} · <i style="text-transform:none;letter-spacing:0">${A.esc(SPECIES[k].local)}</i></span><span class="tlm">${b ? A.esc(`${b.cm} cm, ${b.lake}, ${b.at}.`) : "Not yet."}</span></div></div>`; }).join("");
+  const pbRow = k => { const b = best[k]; return `<div class="tlr" data-tf="lb:pb:${k}"><div class="tlv"><b>${b ? b.kg.toFixed(2) : "–"}</b><u>${b ? "kg" : ""}</u></div><div class="tlt"><span class="tll">${A.esc(SPECIES[k].name)} · <i style="text-transform:none;letter-spacing:0">${A.esc(SPECIES[k].local)}</i></span><span class="tlm">${b ? A.esc(`${b.cm} cm, ${b.lake}, ${b.at}.`) : "Not yet."}</span></div></div>`; };
+  const sp = SPECIES_ORDER.map(pbRow).join(""), sea = SEA_ORDER.some(k => best[k]) ? `<section class="tlp"><h3 class="tlh">From the boat<span>THE FJORD</span></h3>${SEA_ORDER.map(pbRow).join("")}</section>` : "";
   return `<div class="tlk tlice"><section class="tlp"><h3 class="tlh">On the ice<span>THE LAKES</span></h3>${rows.map(row).join("")}</section>
-    <section class="tlp"><h3 class="tlh">Personal bests<span>BIGGEST OF EACH</span></h3>${sp}</section></div>`;
+    <section class="tlp"><h3 class="tlh">Personal bests<span>BIGGEST OF EACH</span></h3>${sp}</section>${sea}</div>`;
 }
 
 /* =================================================================================================================
@@ -2055,7 +2060,7 @@ const API = {
   frame, render, key, keyup, pad, ctx, hint, ctxLabel, tick, paused, blocking, abort, beacon, parcelsHtml, parcelsBind, logbookHtml, orders: ordersData, takeOrder,
   openShop, openBuyer, panelOpen: () => !!openPanelId(), back: panelBack, setTouchHold: (k, on) => { if (S.tk) S.tk[k] = on; }
 };
-window.TLFish = Object.assign(window.TLFish || {}, { GEAR, SPECIES, BAITS, LURES, AUGERS, RODS, REELS, LINES, used, ice: ICE, init, fresh, normalize });
+window.TLFish = Object.assign(window.TLFish || {}, { GEAR, SPECIES, BAITS, LURES, AUGERS, RODS, REELS, LINES, used, ice: ICE, init, fresh, normalize, addSpecies, coolerMax: () => COOLER_MAX });
 // the prototype's event API, kept
 window.IceFishing = {
   on: (ev, fn) => { (listeners[ev] = listeners[ev] || []).push(fn); },
