@@ -14,6 +14,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); next: 3.5 (semis) |
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
+| 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; next: 6.1b (new property types) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; next: 11.1b (carry, fire, hunt the wildlife), then 11.2 wheel |
@@ -467,7 +468,22 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 - [ ] Options: unpaid-wage penalty (done in 5.3: `walkout`), staff improve with time, returning applicants show their record.
 
 ### 6. Upkeep and lighthouses (`tlx-property.js`, `tlx-lights.js`)
-- [ ] 6.1 Real Estate sells new property types; dust and grit, sweeping and dusting, cleaning kits.
+- [ ] 6.1 Real Estate sells new property types; dust and grit, sweeping and dusting, cleaning kits. Split (lane B, 14 Nov):
+  - [x] 6.1a Dust and grit at the depot cabins you own (`tlx-property.js`, saved `x.sys.prop` = `{ cab: { id: { grit,
+        dust } }, kit, hT }`). Both 0-100, stepped by game hour (a jump over 60 days is capped): grit +6 a game day
+        while you're away (guests track it in; 0.4x while you're there), dust +4 a day. A caretaker (5.x) cleans 11 a day
+        x their work (`TLX.staff.work(cab)`: work trait x happiness factor, 0 while owed). Occupancy: +3% while both are
+        under 15, falling linearly to -12% at 100 (`TLX.prop.occ(id)`, a bridge in `reOcc`). By hand, inside your own
+        cabin's room with a cleaning kit (Real Estate app, $40, 8 cleans; a finished sweep or a finished dusting uses
+        one): SWEEP (use control) puts a broom in both hands and slows the walk (`INT.slow` 0.45, a bridge in `intStep`);
+        the floor is a 0.6 m grid of free cells with grit decals, the cells under the broom head and your feet are
+        swept, grit falls with the share swept, 85% swept = clean. DUST facing a piece of furniture within 0.55 m: a 2.6
+        game-second wipe with one arm (you stand still), dust falls by 1/N of the pieces; all done = clean. Walking off
+        stops it. The in-room hint (bridge in `intDoorHint`) and the use control read the same provider (footUse /
+        footAction mirror). The RE app shows each depot's floor/shelves and the kit row. No option: it's the brief's core.
+        Test `x6_clean.mjs`.
+  - [ ] 6.1b Real Estate sells new property types (the start of 6.2's lighthouse listing and 7's inns): a listings
+        page by type, rooms with their own dirt.
 - [ ] 6.2 Slettnes buyable: oil tank (about three game days), oil drums hauled from town, lamp state, Lights app,
       Monday stipend by lamp hours. Two smaller lights on other headlands.
 - [ ] 6.3 Keepers and oil drivers. Options: lens polishing, passing ships, extra upkeep tasks.

@@ -3,6 +3,28 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 6.1a dust and grit, sweeping and dusting, cleaning kits (lane B) (G4) — 55257b6
+Builder pass, lane B. New report 0180 (5.3 beta) has only POLISH findings (raise has no cap/undo, a raise request
+doesn't reach fair pay, LET GO first in the button row with no confirm, clock-back talk gate), so milestone 6 started:
+6.1 split in EXPANSION.md into 6.1a (dust and grit at the depots, by hand or by caretaker) and 6.1b (new property
+types), 6.1a built. 0180's POLISH items stay open for a later lane-B pass.
+New `tlx-property.js` (v1, saved `x.sys.prop` = { cab: { id: { grit, dust } }, kit, hT }): grit +6/day while the cabin's
+let (0.4x while you're there), dust +4/day, stepped by game hour (jumps capped at 60 days); a caretaker cleans 11/day x
+`TLX.staff.work(cab)` (new in tlx-staff v4: work trait x happiness factor, 0 while owed). Occupancy +3% clean to -12%
+filthy (`TLX.prop.occ`, bridge in `reOcc`). By hand inside your own cabin with a kit (Real Estate app row, $40, 8 cleans):
+SWEEP = broom in both hands (two-bone arm IK onto grips found on the shaft, head swept in an arc on the floor ahead),
+walk slowed to 0.45x (`INT.slow`, bridge in `intStep`), 0.6 m floor cells with speck decals (one InstancedMesh),
+cells under the head and feet swept, 85% = clean. DUST = face a piece within 0.55 m (pieces = colliders you can stand at),
+2.6 game s wipe standing still, one arm circling with a cloth. In-room hint reads the footx provider (bridge in
+`intDoorHint`); footUse/footAction/touch/pad L3 all go through it.
+Numbers (x6_clean): ten days away grit 0 -> 60, dust 0 -> 40, Fjellbu let 55.0% -> 47.1%; a work-1.22 caretaker takes
+it from 60/40 to 39/13 in three days; owed, they stop. Sweep: held W 2.35 -> 1.06 m/s; mitts 0.010 m off the shaft,
+head on the floor 0.78 m ahead; grit 55 -> 32 part way -> 0, kit 8 -> 7. Dust: 8 pieces, 44 -> 0 piece by piece, kit -> 6.
+Pad L3 starts, touch STOP stops ("tap SWEEP"); grit/dust/kit survive a reload; a pre-6.1a save starts clean.
+Stills (side view of the sweep, dust, specks): `~/.hermes/cache/scratch/tlloop/b61a_s/`, judged: broom head on the
+floor, both hands on the shaft, specks read as grit. Not done: no dust visual on the furniture (only the hint and app say
+it), inns/lighthouses will reuse this in 6.1b/7.1.
+
 ## 2026-11-14 — 14.2a village jetties + hand-over at a jetty, beta 0178 #1 storm sink (lane C) (G4) — 58ad732
 Builder pass, lane C. No beta report on 14.1 when the pass started, so 14.2 was split in EXPANSION.md (14.2a jetties +
 hand-over, 14.2b sea jobs) and 14.2a built; Playtest 0178 (14.1) landed meanwhile with one BUG (#1: full storm at speed
