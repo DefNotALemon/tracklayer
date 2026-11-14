@@ -11144,12 +11144,13 @@ function intFire(R, x, z, ry) {
 }
 
 /* ---- the rooms: what each depot would really keep inside ---- */
-function intRoomJig(id) { return { sandfjord: [-26, -22], risfjord: [0, -24], fjellbu: [26, -22], viddastua: [-28, 24], sauna: [24, 22] }[id] || [0, 0]; }
+function intRoomJig(id) { const x = INT.xrooms && INT.xrooms[id]; if (x && x.jig) return x.jig; return { sandfjord: [-26, -22], risfjord: [0, -24], fjellbu: [26, -22], viddastua: [-28, 24], sauna: [24, 22] }[id] || [0, 0]; }
 function intBuildRoom(cab) {
   const R = { cab, g: new THREE.Group(), cols: [], lights: [], hx: 3.8, hz: 2.8, h: 2.42 };
   const p = intRoomJig(cab.id); R.g.position.set(p[0], 0, p[1]); INT.scene.add(R.g);
   const o = GS.re && GS.re.own[cab.id], up = o ? o.up : {};
-  if (cab.id === "sauna") intSaunaRoom(R);
+  if (cab.build) cab.build(R, INTK);                                    // a room an expansion system added (intAddRoom)
+  else if (cab.id === "sauna") intSaunaRoom(R);
   else if (cab.id === "sandfjord") intHerderRoom(R, up, 0);
   else if (cab.id === "risfjord") intHerderRoom(R, up, 1);
   else if (cab.id === "fjellbu") intHytteRoom(R, up);
@@ -11314,6 +11315,19 @@ function intBuildBeacons() {
   }
   intBeaconSync();
 }
+/* a walk-in room from an expansion system (tlx-*.js, e.g. the winter store in tlx-gear.js, G4 10.2): def = { id, name,
+   x, z (the ring in front of the door), ry (facing out of the door), jig: [x, z] (a free spot in INT.scene), build(R, K)
+   (furnish it with the int* kit, K below), door (the outdoor hint's noun), hint() (the line inside, or null), enter()
+   (instead of the cabin toast) }. Returns the beacon. */
+function intAddRoom(def) {
+  INT.xrooms = INT.xrooms || {}; INT.xrooms[def.id] = def;
+  const b = intMakeBeacon(def.x, def.z, def.ry, def.col || 0xffb347, true, def);
+  INT.beacons.push(b); return b;
+}
+const INTK = {
+  shell: intShell, col: intCol, sub: intSub, rug: intRug, lamp: intLamp, table: intTable, chair: intChair, bench: intBench,
+  stove: intStove, shelf: intShelf, crate: intCrate, hooks: intHooks, wallGear: intWallGear, counter: intCounter, IM
+};
 function intBeaconSync() {
   const k = RE_CABINS.map(c => (GS.re && GS.re.own[c.id] ? (GS.re.own[c.id].up.sauna ? "s" : "o") : "-")).join("");
   if (k === INT.beaconK) return; INT.beaconK = k;
@@ -11340,12 +11354,13 @@ function intDoorAt(x, z, r) {
 }
 /* ---- the prompts ---- */
 function intDoorHint() {
-  if (INT.on) return `${INT.cab.id === "sauna" ? "The sauna" : shortName(INT.cab)} · walk into the doorway to go out`;
+  if (INT.on) { const xh = INT.cab.hint && INT.cab.hint(); if (xh) return xh; return `${INT.cab.id === "sauna" ? "The sauna" : INT.cab.build ? INT.cab.name : shortName(INT.cab)} · walk into the doorway to go out`; }
   if (!FOOT.on || INT.cd > 0) return "";
   if (intDoorAt(FOOT.x, FOOT.z)) return "Stepping in…";
   const b = intDoorNear(FOOT.x, FOOT.z); if (!b) return "";
   const d = Math.round(Math.hypot(FOOT.x - b.x, FOOT.z - b.z));
   const own = GS.re && GS.re.own[b.cab.id];
+  if (b.cab.build) return `${b.cab.door || "The door"} is ${d} m off: walk into the light to go in`;
   return `${b.cab.id === "sauna" ? "The sauna" : "The cabin door"} is ${d} m off: walk into the light to go in${own ? "" : " (have a look before you buy)"}`;
 }
 function intDoorNear(x, z, r) {
@@ -11361,7 +11376,7 @@ function intDoorNear(x, z, r) {
 function intRideHint() {
   if (FOOT.on || !started || GS.dead) return "";
   const b = intDoorNear(P.x, P.z, 16); if (!b) return "";
-  return `Q: ${b.cab.id === "sauna" ? "the sauna" : "the cabin"} door is ${Math.round(Math.hypot(P.x - b.x, P.z - b.z))} m off — get off and walk in`;
+  return `${btn("dismount")}: ${b.cab.build ? (b.cab.door || "the door").replace(/^The /, "the ") : b.cab.id === "sauna" ? "the sauna door" : "the cabin door"} is ${Math.round(Math.hypot(P.x - b.x, P.z - b.z))} m off — get off and walk in`;
 }
 
 /* ---- going in and out ---- */
@@ -11380,6 +11395,7 @@ function intGoIn() {
   if (FOOT.g) { INT.scene.add(FOOT.g); FOOT.g.visible = true; }
   intShow(R);
   const o = GS.re && GS.re.own[INT.cab.id];
+  if (INT.cab.build) { if (INT.cab.enter) INT.cab.enter(); return; }
   if (INT.cab.id === "sauna") { toast("The sauna: the stove's still throwing heat. Walk back into the doorway to go out."); return; }
   const nm = shortName(INT.cab);
   toast(o ? `${nm}: ${o.up.stove ? "the soapstone stove is still warm." : "the stove is warm."} Walk back into the doorway to go out.`
@@ -17070,6 +17086,13 @@ function initExpansion() {
     // tablet app kit for systems with their own app (5.1 staff), and the depot cabins you own (staff workplaces)
     ui: { tabHead, tabCard, chip, sec, esc: tabEsc, ping: tabPing },
     re: { owned: () => GS.re ? reOwned().map(c => ({ id: c.id, name: shortName(c), x: c.x, z: c.z })) : [] },
+    // stores (10.2): a walk-in room, the counter panel (icefish.js's shop in another store's colours), the riding kit
+    intAdd: intAddRoom, townR: TOWN_R, fishSites: FISHSITES, shop: (store, tab) => { if (FISH && FISH.openShop) FISH.openShop(tab, store); },
+    shopOpen: () => !!(FISH && FISH.panelOpen && FISH.panelOpen()),
+    kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
+      wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
+        if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }
+        GS.own.gear[slot] = id; restat(); save(); toast(own ? `Wearing: ${o.name}.` : `Bought and wearing: ${o.name}.`, "good"); return true; } },
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

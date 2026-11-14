@@ -1672,20 +1672,25 @@ function wireUI() {
 /* =================================================================================================================
    THE TACKLE SHOP (Nordkinn Fisk & Friluft, by the quay) and THE FISH BUYER (the fiskemottak on the pier)
    ================================================================================================================= */
-const SH = { tab: "rods" };
+const SH = { tab: "rods", store: "fisk", tabs: {} };   // store: which counter the panel is (TLX.stores, G4 10.2); tabs: the last tab per store
 const SHOP_TABS = [["rods", "Rods"], ["reels", "Reels"], ["lines", "Lines"], ["augers", "Augers"], ["lures", "Lures & bait"]];
 const CAT1 = { rods: "rod", reels: "reel", lines: "line", augers: "auger" };
-function openShop(tab) {
+function openShop(tab, store) {
   injectUI(); H.TABLET.close(true);
+  store = store || "fisk"; if (store !== SH.store) { SH.tabs[SH.store] = SH.tab; SH.store = store; SH.tab = SH.tabs[store] || ""; }
   SH.tab = tab || SH.tab; renderShop(); $("ifShop").hidden = false; S.openT = performance.now(); panelFocus("ifShop");
 }
 function closeShop() { $("ifShop").hidden = true; H.save(); }
 function renderShop() {
-  const xts = (window.TLX && TLX.shopTabs) || [], xt = xts.find(x => x.id === SH.tab);   // tabs other systems add (tlx-gear.js layers, G4 10.1)
-  if (!xt && !GEAR[SH.tab]) SH.tab = "rods";
+  // tabs other systems add (tlx-gear.js layers, G4 10.1). A tab lists the stores it's sold in (stores: [...], default the
+  // tackle shop "fisk"); another store (TLX.stores[id] = { eyebrow, title, foot }) shows only its own tabs, no tackle.
+  const fisk = SH.store === "fisk", SD = (!fisk && window.TLX && TLX.stores && TLX.stores[SH.store]) || null;
+  const xts = ((window.TLX && TLX.shopTabs) || []).filter(x => (x.stores || ["fisk"]).includes(SH.store)), xt = xts.find(x => x.id === SH.tab);
+  if (!xt && (!fisk || !GEAR[SH.tab])) SH.tab = fisk ? "rods" : (xts[0] ? xts[0].id : "rods");
+  const xt2 = xts.find(x => x.id === SH.tab);
   const cash = H.GS.cash, t = SH.tab, list = GEAR[t];
   let items = "";
-  if (xt) items = xt.render(cash);
+  if (xt2) items = xt2.render(cash);
   else if (t === "lures") items = list.map(l => {
     const have = l.kind === "live" ? (D.packs[l.id] || 0) : (D.lures[l.id] > 0 ? 1 : 0), b = byId(BAITS, l.bait);
     const lbl = l.kind === "live" ? `Buy a pack · ${$$(l.price)}` : have ? "In your tackle box" : `Buy · ${$$(l.price)}`;
@@ -1704,16 +1709,16 @@ function renderShop() {
         <button type="button" data-buy="${t}:${o.id}" ${dis ? "disabled" : ""}>${own ? "Owned" : cash < o.price ? `${$$(o.price)} · not enough cash` : `Buy · ${$$(o.price)}`}</button></div>`;
     }).join("");
   }
-  $("ifShop").innerHTML = `<div class="ifphd"><div><div class="ifey">Nordkinn Fisk &amp; Friluft · Kjøllefjord</div><h2>${xts.length ? "Tackle &amp; outdoor" : "Tackle shop"}</h2></div>
+  $("ifShop").innerHTML = `<div class="ifphd"><div><div class="ifey">${SD ? SD.eyebrow : "Nordkinn Fisk &amp; Friluft · Kjøllefjord"}</div><h2>${SD ? SD.title : xts.length ? "Tackle &amp; outdoor" : "Tackle shop"}</h2></div>
       <div style="display:flex;gap:12px;align-items:center"><span class="cash num">${$$(cash)}</span><button type="button" class="ifx" id="ifShopX" aria-label="Close the shop">✕</button></div></div>
     <div class="iftabs" id="ifShopTabs"></div>
-    <p class="ifnote">${xt ? xt.note : { rods: "Better rods show the bite sooner (a longer window to set the hook) and make nibbles plain.", reels: "A smoother drag takes the spikes out of a run, so the line parts less, and better reels bring line in faster.", lines: "Line strength is where it parts. Braid is strong and you feel everything, but fish see it, more so in a clear lake. Fluoro all but vanishes, and is weaker for the money.", augers: "Bigger holes let bigger fish through. Gas augers are fast and loud: the fish keep off for a while after.", lures: "Live bait comes in packs, one per baiting, and gets stolen. Hard lures are yours until a fish breaks the line." }[t]}</p>
+    <p class="ifnote">${xt2 ? xt2.note : { rods: "Better rods show the bite sooner (a longer window to set the hook) and make nibbles plain.", reels: "A smoother drag takes the spikes out of a run, so the line parts less, and better reels bring line in faster.", lines: "Line strength is where it parts. Braid is strong and you feel everything, but fish see it, more so in a clear lake. Fluoro all but vanishes, and is weaker for the money.", augers: "Bigger holes let bigger fish through. Gas augers are fast and loud: the fish keep off for a while after.", lures: "Live bait comes in packs, one per baiting, and gets stolen. Hard lures are yours until a fish breaks the line." }[t]}</p>
     <div class="ifgrid" id="ifShopList">${items}</div>
-    <p class="ifnote">${xt ? "Layers go on under your riding kit as soon as you buy them; switch back any time here." : "New gear goes straight into the tackle box on the sled and gets rigged. Switch what you fish with at the sled, out on the ice."} <b>Esc</b> (pad <b>B</b>) closes.</p>`;
-  renderTabs("ifShopTabs", SHOP_TABS.concat(xts.map(x => [x.id, x.label])), t, k => { SH.tab = k; renderShop(); panelFocus("ifShop"); });
+    <p class="ifnote">${SD && SD.foot ? SD.foot : xt2 ? "Layers go on under your riding kit as soon as you buy them; switch back any time here." : "New gear goes straight into the tackle box on the sled and gets rigged. Switch what you fish with at the sled, out on the ice."} <b>Esc</b> (pad <b>B</b>) closes.</p>`;
+  renderTabs("ifShopTabs", (fisk ? SHOP_TABS : []).concat(xts.map(x => [x.id, x.label])), t, k => { SH.tab = k; renderShop(); panelFocus("ifShop"); });
   $("ifShopX").onclick = closeShop;
   $("ifShop").querySelectorAll("button[data-buy]").forEach(b => b.onclick = () => { const [tt, id] = b.dataset.buy.split(":"); buy(tt, id); });
-  if (xt) xt.bind($("ifShop"), () => { renderShop(); panelFocus("ifShop", "x"); });
+  if (xt2) xt2.bind($("ifShop"), () => { renderShop(); panelFocus("ifShop", "x"); });
 }
 function buy(t, id) {
   const o = byId(GEAR[t], id); if (!o) return;

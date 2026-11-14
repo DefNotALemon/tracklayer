@@ -426,6 +426,14 @@ most of its loft when you sweat in it; a fleece shrugs it off. Through the ice s
 village, a cabin, the quay, a room) dries you out in about half a minute. Owned layers swap back free in the shop. The
 code is `tlx-gear.js`.
 
+**Sport & Vinter, the winter store.** A clothing shop in one of Kjøllefjord's houses, about 45 m from the quay, with a
+SPORT & VINTER board over the door. Walk into the light at the door to go in: clothing rails, a table of folded layers,
+boots and skis on the walls, a stove, and the counter at the back. At the counter the use control (it reads SHOP) opens
+the store: the **riding kit** (helmet, jacket, bibs, boots, gloves; the garage's Kit tab still sells the same), the
+**base and mid layers**, and **spares**: dry gloves and socks ($24 a pair, up to 4 in the pack). Out on the trail, once
+you've worked up a damp sweat, the use control offers **DRY PAIR**: change into a dry pair and about a third of the damp
+comes off (one pair used). Walk back into the doorway to go out.
+
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee. A freight card whose leg would
 cost 70% or more of your warmth in the current light and weather, with the kit you're wearing, wears
