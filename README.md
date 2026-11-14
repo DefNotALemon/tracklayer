@@ -204,6 +204,15 @@ application tends to slip when you ask for detail, and a reference is the surest
 what they really have and they ask less. Their tone gives away their temper, and why they want the job says a lot
 about how hard they'll work. You can offer a lower wage, but push too hard and they lose patience; a short-tempered
 one stops talking money altogether.
+Once they're on the books, each card shows how they feel: Happy, Content, Fed up or Miserable. Fair pay for what
+they can really do keeps people content (an overseller you hired at their padded wage is delighted; someone you
+beat down is not), time with you helps, and owing them wages makes them miserable fast. Happier people work better.
+PRAISE or CRITICISE them in person: go to their cabin and the buttons come alive (once or so a day). Praise lifts
+them, though less if you've just said it; criticism makes a content worker knuckle down for a few days, but a fed-up,
+short-tempered one may hand in their notice on the spot. RAISE works from anywhere, and unhappy staff ask for one
+(GIVE or REFUSE). Miserable for a day, they hand in a week's notice; make things right and they'll stay, otherwise
+they leave and the job is posted again. Leave wages unpaid for three days and everyone walks out (Settings >
+Options: "Unpaid staff walk out").
 
 ## Search and rescue
 

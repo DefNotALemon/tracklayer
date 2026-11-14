@@ -28,6 +28,14 @@
 // people more); a lowball offer costs two, and a short-tempered one stops negotiating. Offer at or over their floor
 // (82-92% of the ask) and it's a deal: the wage is set when you hire. Saved on the applicant: chat, pat, floor, asked,
 // caught, chk, deal, mute; caught/chk carry over to the crew record (5.3's happiness will read temper from tr).
+//
+// Slice 5.3, happiness: each person on the books has a hidden happiness (the card shows a word) that eases toward what
+// their pay is worth to them (against the fair wage for their REAL experience), what you've said to them lately, their
+// temper and time served, and falls hard while they're owed. It scales their work. PRAISE / CRITICISE only face to face
+// at their workplace (30 m), once per 12 game hours; criticism makes a content person knuckle down for three days and a
+// fed-up, short-tempered one hand in notice. RAISE any time; the unhappy ask for one. Under 25 for a day = a week's
+// notice (back to 50 withdraws it). Option walkout: three days owed wages and everyone walks out. Saved on the crew
+// record: hap, mood, lowT, notice, ask, talk, praised, asked, push; s.hT (last hour ticked), s.owedT.
 (() => {
 "use strict";
 // ---- tunables ----
@@ -52,7 +60,7 @@ const money = n => api.fmtCash(Math.round(n));
 // every place that can take staff, as { id, role, name } (5.1: the depot cabins you own)
 function places() {
   const out = [];
-  if (api && api.re) for (const c of api.re.owned()) out.push({ id: "re:" + c.id, role: "caretaker", name: c.name, cab: c.id });
+  if (api && api.re) for (const c of api.re.owned()) out.push({ id: "re:" + c.id, role: "caretaker", name: c.name, cab: c.id, x: c.x, z: c.z });
   return out;
 }
 const placeOf = id => places().find(p => p.id === id) || null;
@@ -76,14 +84,15 @@ function newApplicant(vac) {
 function occOf(m) {
   const R = ROLES[m.role]; if (!R || !R.occ) return 0;
   if (S().owed > 0) return 0;
-  return Math.min(R.occ[2], (R.occ[0] + R.occ[1] * Math.min(16, m.xpReal)) * m.tr.work);
+  return Math.min(R.occ[2], (R.occ[0] + R.occ[1] * Math.min(16, m.xpReal)) * m.tr.work) * perfOf(m);
 }
 function hire(id) {
   const s = S(), a = s.apps.find(q => q.id === id); if (!a) return false;
   const p = placeOf(a.place);
   if (!p || s.crew.some(m => m.place === a.place)) { s.apps = s.apps.filter(q => q !== a); api.toast(`That position's already filled.`, "warn"); refresh(); return false; }
   s.apps = s.apps.filter(q => q.place !== a.place);
-  s.crew.push({ id: a.id, name: a.name, village: a.village, role: a.role, place: a.place, wage: a.wage, xp: a.xp, xpReal: a.xpReal, tr: a.tr, hired: hour(), paidTo: hour(), caught: !!a.caught, chk: !!a.chk });
+  s.crew.push(crewPrep({ id: a.id, name: a.name, village: a.village, role: a.role, place: a.place, wage: a.wage, xp: a.xp, xpReal: a.xpReal, tr: a.tr, hired: hour(), paidTo: hour(), caught: !!a.caught, chk: !!a.chk,
+    hap: Math.round(66 + 8 * (1 - (a.tr && a.tr.temper || 0))) }));
   if (view === a.id) view = null;
   api.ui.ping("good");
   api.toast(`${a.name} starts as ${ROLES[a.role].name.toLowerCase()} at ${p.name}. ${money(a.wage)} a week, paid Mondays.`, "good");
@@ -108,6 +117,130 @@ function payOwed() {
 const wageDue = (m, h) => Math.max(0, m.wage * Math.min(1, (h - m.paidTo) / 168));
 function refresh() { if (api && api.TABLET) api.TABLET.refresh("staff"); }
 
+// ---- 5.3 happiness, praise and criticism in person, raises, notice and quitting ----
+// hap 0-100 eases toward a target set by how fairly they're paid (for what they can REALLY do), what you've said to
+// them lately (mood), their temper, how long they've been with you, and whether they're owed. It scales their work.
+// Under 25 for a day: a week's notice; back to 50 and they stay. Praise/criticism only face to face, at their place.
+const TALK_R = 30, TALK_GAP = 12, NOTICE_H = 168, WALKOUT_H = 72;
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function crewPrep(m) {
+  if (!(m.hap >= 0)) m.hap = 65;
+  if (!(Math.abs(m.mood) >= 0)) m.mood = 0;
+  m.lowT = +m.lowT || 0; m.notice = +m.notice || 0; m.talk = +m.talk || -1e9; m.push = +m.push || 0;
+  m.praised = +m.praised || -1e9; m.asked = +m.asked || -1e9;
+  if (m.ask && !(m.ask.amt > 0)) m.ask = null; if (!m.ask) m.ask = null;
+  if (!m.tr || typeof m.tr !== "object") m.tr = { work: 1, temper: 0.5, honest: true };
+  return m;
+}
+const fairOf = m => { const R = ROLES[m.role] || ROLES.caretaker; return Math.max(20, R.wage[0] + R.wage[1] * (m.xpReal | 0) + 2); };
+const temperOf = m => m.tr && m.tr.temper || 0;
+function hapTarget(m, h) {
+  const fair = clampN((m.wage / fairOf(m) - 1) * 90, -25, 18);
+  return clampN(64 + fair + m.mood - 10 * temperOf(m) + Math.min(6, Math.max(0, (h - (m.hired || h)) / 168)) - (S().owed > 0 ? 35 : 0), 0, 100);
+}
+function perfOf(m) {
+  crewPrep(m);
+  const h = hour();
+  return clampN(0.5 + m.hap / 140, 0.5, 1.15) * (m.push > h ? 1.2 : 1) * (m.notice ? 0.8 : 1);
+}
+const moodWord = m => m.hap >= 70 ? "Happy" : m.hap >= 50 ? "Content" : m.hap >= 30 ? "Fed up" : "Miserable";
+const first = m => m.name.split(" ")[0];
+function noteStaff(title, body, kind) { if (api.TABLET) api.TABLET.notify({ app: "staff", kind: kind || "info", title, body, ttl: 8 }); }
+function giveNotice(m, why) {
+  if (m.notice) return;
+  m.notice = hour() + NOTICE_H; m.ask = null;
+  noteStaff(`${m.name} handed in their notice`, `${why} They'll work out the week at ${(placeOf(m.place) || { name: "?" }).name}, then go.`, "warn");
+}
+// they go: this week's wages are paid now (what you can't cover is owed) and the job is posted again
+function leave(m, msg, kind) {
+  const s = S(), due = Math.round(wageDue(m, hour()) * 100) / 100, paid = Math.min(due, Math.max(0, api.GS.cash));
+  api.GS.cash -= paid; s.owed = Math.round((s.owed + due - paid) * 100) / 100;
+  s.crew = s.crew.filter(q => q !== m);
+  s.next = Math.min(s.next, hour() + 2);
+  noteStaff(msg, `${(placeOf(m.place) || { name: "The place" }).name} needs a new ${ROLES[m.role].name.toLowerCase()}.`, kind || "warn");
+  api.save(); refresh();
+}
+function crewTick() {
+  const s = S(), h = hour();
+  if (!(s.hT > 0) || h < s.hT) s.hT = h;
+  const dh = Math.min(168, h - s.hT); if (dh < 0.05) return; s.hT = h;
+  // unpaid wages: after three days owed, everyone walks out (option walkout)
+  if (s.owed > 0) s.owedT = (+s.owedT || 0) + dh; else s.owedT = 0;
+  if (s.owed > 0 && s.owedT >= WALKOUT_H && s.crew.length && TLX.on("walkout")) {
+    const n = s.crew.length;
+    for (const m of s.crew.slice()) { s.owed = Math.round((s.owed + wageDue(m, h)) * 100) / 100; }
+    s.crew = []; s.owedT = 0; s.next = Math.min(s.next, h + 2);
+    noteStaff(`Your staff walked out`, `Three days without pay and ${n > 1 ? `all ${n} have` : "they've"} gone. You still owe ${money(s.owed)}.`, "warn");
+    api.toast(`Unpaid for three days, your staff walked out. You still owe ${money(s.owed)}.`, "warn");
+    api.save(); refresh(); return;
+  }
+  let changed = false;
+  for (const m of s.crew.slice()) {
+    crewPrep(m);
+    const was = moodWord(m);
+    m.mood = Math.sign(m.mood) * Math.max(0, Math.abs(m.mood) - 6 * dh / 24);
+    const tg = hapTarget(m, h), rate = (s.owed > 0 && tg < m.hap ? 16 : 8) * dh / 24;
+    m.hap = Math.round((m.hap + clampN(tg - m.hap, -rate, rate)) * 100) / 100;
+    if (moodWord(m) !== was) changed = true;
+    m.lowT = m.hap < 25 ? m.lowT + dh : 0;
+    if (m.notice) {
+      if (m.hap >= 50) { m.notice = 0; m.lowT = 0; noteStaff(`${m.name} will stay`, `They've withdrawn their notice.`, "good"); changed = true; }
+      else if (h >= m.notice) { leave(m, `${m.name} has left`); continue; }
+    } else if (m.lowT >= 24) { giveNotice(m, `Miserable for a day and more.`); changed = true; }
+    else if (!m.ask && m.hap < 50 && h - (m.hired || h) >= 120 && h - m.asked >= 168) {
+      m.asked = h; m.ask = { amt: Math.max(m.wage + 3, Math.round(m.wage * (1.12 + Math.random() * 0.08))), at: h };
+      noteStaff(`${m.name} asks for a raise`, `${money(m.ask.amt)} a week instead of ${money(m.wage)}.`, "info"); changed = true;
+    }
+  }
+  if (changed) refresh();
+}
+// where you are, and whether you're at their workplace (in person)
+function herePos() { const F = api.FOOT, P = api.P; return F && F.on ? { x: F.x, z: F.z } : { x: P.x, z: P.z }; }
+function atPlace(m) { const p = placeOf(m.place); if (!p || !(p.x === +p.x)) return false; const q = herePos(); return Math.hypot(q.x - p.x, q.z - p.z) <= TALK_R; }
+function talkBlock(m) {
+  const p = placeOf(m.place);
+  if (!atPlace(m)) return `Go to ${p ? p.name : "their place"} to talk to ${first(m)} in person.`;
+  if (hour() - m.talk < TALK_GAP) return `You've talked to ${first(m)} today. Give it a while.`;
+  return "";
+}
+function praise(id) {
+  const m = S().crew.find(q => q.id === id); if (!m) return false; crewPrep(m);
+  const no = talkBlock(m); if (no) { api.toast(no, "warn"); return false; }
+  const h = hour(), again = h - m.praised < 48;
+  m.mood = clampN(m.mood + (again ? 4 : 10), -30, 30); m.talk = h; m.praised = h;
+  api.ui.ping("good");
+  api.toast(again ? `${first(m)}: "You said. Thanks, though."` : temperOf(m) > 0.66 ? `${first(m)}: "Right. Good to hear."` : `${first(m)}: "Thank you! That means a lot."`, "good");
+  api.save(); refresh(); return true;
+}
+function criticise(id) {
+  const m = S().crew.find(q => q.id === id); if (!m) return false; crewPrep(m);
+  const no = talkBlock(m); if (no) { api.toast(no, "warn"); return false; }
+  const h = hour(), t = temperOf(m);
+  m.mood = clampN(m.mood - (8 + 10 * t), -30, 30); m.talk = h;
+  if (m.hap >= 35) { m.push = h + 72; api.toast(t > 0.66 ? `${first(m)}: "Fine. I'll do better." (through gritted teeth)` : `${first(m)}: "Sorry. I'll sort it."`, "info"); }
+  else if (t > 0.5 && !m.notice) { giveNotice(m, `"I don't need this." Criticised when already fed up.`); api.toast(`${first(m)}: "I don't need this. Consider this my notice."`, "warn"); }
+  else api.toast(`${first(m)} just nods. They look worn down.`, "info");
+  api.ui.ping("note"); api.save(); refresh(); return true;
+}
+function raise(id) {
+  const m = S().crew.find(q => q.id === id); if (!m) return false; crewPrep(m);
+  const add = Math.max(3, Math.round(m.wage * 0.1)), over = m.wage > fairOf(m) * 1.3;
+  m.wage += add; m.mood = clampN(m.mood + (over ? 5 : 12), -30, 30); m.ask = null;
+  api.ui.ping("good"); api.toast(`${m.name} now earns ${money(m.wage)} a week.`, "good");
+  api.save(); refresh(); return true;
+}
+function answerAsk(id, yes) {
+  const m = S().crew.find(q => q.id === id); if (!m || !m.ask) return false; crewPrep(m);
+  const amt = m.ask.amt; m.ask = null;
+  if (yes) { m.wage = amt; m.mood = clampN(m.mood + 15, -30, 30); api.ui.ping("good"); api.toast(`${first(m)}: "Thank you." ${money(amt)} a week from now on.`, "good"); }
+  else {
+    m.mood = clampN(m.mood - (6 + 10 * temperOf(m)), -30, 30);
+    if (temperOf(m) > 0.66 && m.hap < 40) giveNotice(m, `Refused a raise.`);
+    api.toast(m.notice ? `${first(m)}: "Then I'll find someone who will." They hand in their notice.` : `${first(m)} takes it quietly.`, m.notice ? "warn" : "info");
+  }
+  api.save(); refresh(); return true;
+}
+
 // keep the board honest: withdraw the expired and anyone whose vacancy has gone, post new applicants on schedule
 function boardTick() {
   const s = S(), h = hour(), vac = vacancies(), ids = new Set(vac.map(v => v.id));
@@ -115,6 +248,7 @@ function boardTick() {
   s.apps = s.apps.filter(a => a && typeof a === "object" && a.exp > h && ids.has(a.place));
   // a staffer whose place you no longer own goes (can't happen in 5.1; later property can be sold)
   const own = new Set(places().map(p => p.id)); s.crew = s.crew.filter(m => m && typeof m === "object" && own.has(m.place));
+  crewTick();
   if (!vac.length) { if (s.apps.length !== n0) refresh(); return; }
   let posted = null;
   for (const v of vac) if (!s.apps.some(a => a.place === v.id) && s.apps.length < BOARD_MAX) { posted = newApplicant(v); s.next = Math.max(s.next, h + rnd(NEXT_H[0], NEXT_H[1])); }   // an empty vacancy gets someone at once; the next one comes later
@@ -262,11 +396,22 @@ function render(el) {
   if (s.crew.length) {
     h += U.sec("On the books", "wages paid Mondays");
     for (const m of s.crew) {
-      const p = placeOf(m.place), R = ROLES[m.role], lift = occOf(m);
-      h += U.tabCard({ tf: "stc:" + m.id, title: m.name, chips: U.chip(R.name.toUpperCase(), "ok"),
+      crewPrep(m);
+      const p = placeOf(m.place), R = ROLES[m.role], lift = occOf(m), mw = moodWord(m), tb = talkBlock(m), here = atPlace(m);
+      const add = Math.max(3, Math.round(m.wage * 0.1));
+      const extra = `<button type="button" class="tbtn ghost" data-tf="stp:${m.id}" data-act="stp:${m.id}"${tb ? " disabled" : ""}>PRAISE</button>`
+        + `<button type="button" class="tbtn ghost" data-tf="stk:${m.id}" data-act="stk:${m.id}"${tb ? " disabled" : ""}>CRITICISE</button>`
+        + (m.ask ? `<button type="button" class="tbtn" data-tf="sty:${m.id}" data-act="sty:${m.id}">GIVE ${money(m.ask.amt)}</button><button type="button" class="tbtn ghost" data-tf="stn:${m.id}" data-act="stn:${m.id}">REFUSE</button>`
+          : `<button type="button" class="tbtn ghost" data-tf="str:${m.id}" data-act="str:${m.id}">RAISE +${money(add)}</button>`);
+      const nd = m.notice ? Math.max(0, m.notice - hour()) : 0;
+      h += U.tabCard({ tf: "stc:" + m.id, title: m.name, chips: U.chip(R.name.toUpperCase(), "ok") + U.chip(mw.toUpperCase(), m.hap >= 50 ? "ok" : m.hap < 30 ? "due" : "") + (m.notice ? U.chip("ON NOTICE", "due") : "") + (m.ask ? U.chip("WANTS A RAISE", "due") : ""),
         meta: `${p ? U.esc(p.name) : "?"} · from ${U.esc(m.village)} · ${m.caught ? `says ${yrs(m.xp)}, really ${m.xpReal === 0 ? "none" : "about " + m.xpReal}` : yrs(m.xp) + (m.chk ? " (reference checked)" : "")}`,
-        note: `${R.blurb}: ${lift > 0 ? `about +${Math.round(lift * 100)}% nights let` : "not working while wages are owed"}. Owed so far this week: ${money(wageDue(m, hour()))}.`,
-        pay: money(m.wage) + "/wk", act: "stl:" + m.id, actLabel: "LET GO" });
+        note: `${R.blurb}: ${lift > 0 ? `about +${Math.round(lift * 100)}% nights let` : "not working while wages are owed"}${m.push > hour() ? " (working hard after your word)" : ""}. Owed so far this week: ${money(wageDue(m, hour()))}.`
+          + (m.notice ? ` <b>Leaves in ${nd >= 36 ? Math.round(nd / 24) + " days" : Math.max(1, Math.round(nd)) + " hours"}</b> unless things get better.` : "")
+          + (m.ask ? ` Asking for ${money(m.ask.amt)} a week.` : "")
+          + ` ${here ? (tb ? U.esc(tb) : `You're at ${U.esc(p.name)}: you can have a word.`) : U.esc(tb)}`,
+        pay: money(m.wage) + "/wk", act: "stl:" + m.id, actLabel: "LET GO" })
+        .replace(`data-act="stl:${m.id}">LET GO</button>`, `data-act="stl:${m.id}">LET GO</button>${extra}`);
     }
   }
   h += U.sec("Applicants", vac.length ? "they wait a few days for an answer" : "");
@@ -283,7 +428,7 @@ function render(el) {
   }
   if (s.last.length) {
     h += U.sec("Wage slips", "");
-    h += `<div class="tsml2">${s.last.map(w => `<div class="tsm2"><b>${U.esc(w.d)}</b><span>Wages ${money(w.wages)} · ${w.n} on the books</span>${w.owed ? U.chip("OWING " + money(w.owed), "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
+    h += `<div class="tsml2">${s.last.map(w => `<div class="tsm2"><b>${U.esc(w.d)}</b><span>Wages ${money(w.wages)} · ${w.n} on the books${w.sad ? ` · ${w.sad} unhappy` : ""}</span>${w.owed ? U.chip("OWING " + money(w.owed), "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   }
   h += `<p class="tnote2">What you see is what they tell you: experience on the card is their word until you INTERVIEW them, and how hard someone works only really shows once they're on the job.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
@@ -291,8 +436,11 @@ function render(el) {
   for (const b of el.querySelectorAll("[data-act^='sti:']")) b.addEventListener("click", () => { view = +b.dataset.act.slice(4); api.TABLET.render(); });
   for (const b of el.querySelectorAll("[data-act^='stl:']")) b.addEventListener("click", () => letGo(+b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act='sto']")) b.addEventListener("click", payOwed);
+  const on = (pre, fn) => { for (const b of el.querySelectorAll(`[data-act^='${pre}:']`)) b.addEventListener("click", () => fn(+b.dataset.act.slice(4))); };
+  on("stp", praise); on("stk", criticise); on("str", raise); on("sty", id => answerAsk(id, true)); on("stn", id => answerAsk(id, false));
 }
 
+TLX.option({ id: "walkout", name: "Unpaid staff walk out", hint: "Staff owed wages for three game days walk out without notice (the debt stays).", sys: "staff" });
 TLX.register({
   id: "staff", v: 1,
   state0: () => ({ seq: 0, next: 0, apps: [], crew: [], owed: 0, last: [] }),
@@ -306,6 +454,7 @@ TLX.register({
       hidden: () => !(a.GS.apps && a.GS.apps.realestate) && !S().crew.length,
       badge: () => S().owed > 0 ? "!" : S().apps.length || "",
       render });
+    for (const m of S().crew) crewPrep(m);
     if (a.SEASON && a.SEASON.addBill) a.SEASON.addBill({ name: "Staff wages", perWeek: () => -S().crew.reduce((t, m) => t + m.wage, 0) });
   },
   tick(dt) {
@@ -318,7 +467,7 @@ TLX.register({
     let wages = 0; for (const m of s.crew) { wages += wageDue(m, h); m.paidTo = h; }
     wages = Math.round(wages);
     const owe = wages + s.owed, paid = Math.min(owe, Math.max(0, api.GS.cash)); api.GS.cash -= paid; s.owed = owe - paid;
-    s.last.unshift({ d: week && week.label || "", wages, n: s.crew.length, owed: s.owed }); s.last = s.last.slice(0, LAST_N);
+    s.last.unshift({ d: week && week.label || "", wages, n: s.crew.length, owed: s.owed, sad: s.crew.filter(m => m.hap < 50).length }); s.last = s.last.slice(0, LAST_N);
     refresh();
     if (api.TABLET) setTimeout(() => api.TABLET.notify({ app: "staff", kind: s.owed ? "warn" : "good", title: `Wages · week to ${week && week.label || ""}`,
       body: `${money(wages)} to ${s.crew.length} on the books${s.owed ? ` · ${money(s.owed)} owed: nobody works till it's paid` : ""}`, ttl: 8 }), 5200);
@@ -326,5 +475,6 @@ TLX.register({
 });
 TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = s.crew.find(q => q.place === "re:" + cabId); return m ? occOf(m) : 0; },
   places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant,
+  praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };
 })();
