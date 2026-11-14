@@ -18,6 +18,20 @@ staff term in `reOcc`. x1_save's known-systems list gains "staff".
 Gate: smoke, x1_save, x5_staff (A-G: hidden without RE, applicants/caps/expiry, hire by keyboard Enter, Xbox pad A and
 a touch tap, Monday pro rata + owed + pay, let go, reload keeps crew/applicants/owed) all exit 0, page errors none.
 Next for lane B: 5.2 interviews in the haggling chat (reveal xpReal / traits; `tr.honest` is already rolled).
+## 2026-11-14 — 10.1 clothing layers that matter (lane D) (G4) — bb56b15
+Builder pass, lane D. Milestone 10 had no design: wrote it into EXPANSION.md (10.1 layers, 10.2 walk-in winter store,
+10.3 camping gear, 10.4 provisions option, 10.5 gun shop shell with 11.1) and built 10.1.
+New `tlx-gear.js` (save x.sys.gear: base, mid, own, wet). Base: cotton tee (free, +0, wick 0.45, dries 1/900 s), merino
+($85, +0.5, wick 0.15), wool long johns ($140, +1.2, wick 0.1). Mid: none, fleece ($95, +1.2, fade 0.1), down ($240, +2.4,
+fade 0.75). Bridges: stats() adds TLXG.warm() to ST.warm; the cold drain line multiplies by TLXG.coldK() (= 1 while dry);
+icefish.js renderShop appends TLX.shopTabs (shop now reads "Tackle & outdoor", hint "tackle and outdoor clothing").
+Sweat only from on-foot work (dig / wading strain / jog): 1/150 per s x (1 + mid.sweat). Stoves (any site, room,
+hospital) dry 1/25 per s; HELP sea soaks 0.5/s. One "soaked with sweat" toast per spell. A new game's layers add 0
+warmth, so a player who never shops plays today's game. x1_save's known-systems list gains "gear".
+Numbers (`x10_layers.mjs`): 7.5 game s wading in merino+down -> wet 0.099 (plan 0.100); night fell drain dry 0.650/s ->
+damp cotton (wet 0.79) 0.883/s = 1.36x (coldK 1.36); coldK at wet 0.8: cotton+down 1.65, merino+down 1.38, merino+fleece
+1.13, wool 1.08; quay dries 0.8 -> 0.60 in 5 s. Shop stills `~/.hermes/cache/scratch/tlloop/x10/` judged clean.
+Gate (after rebasing over v220 map redo): smoke, x1_save, x10_layers pass. Next for lane D: 10.2 the winter store.
 
 ## 2026-11-14 — Hand-drawn map redo: towns with blocks, sled country on the outskirts (Lemon's ask) — 7905f6c
 The Map app's chart is `tabChart`/`tabView` (not `mapBg`, which feeds only the minimap/dash). Added `tabTown()` drawn live each Map tick (crisp at any zoom): warm glow under Kjøllefjord and each village, a lot round every real house (`KIT.foot`, recorded in `KIT.house`), the real plowed lanes (`TOWNL` from `buildLanes`, `TLXR` street legs), stylised back lanes joining neighbouring doors (so lanes close into blocks), lit windows + chimney smoke, trailhead flags at real road-leg ends, groomer shed at the garage, warming huts at lookouts/cabin sites, relay mast, trail stakes along road legs. `buildMapBg` got a warm cream/amber town tint. buildTown layout, lanes, doors untouched. Still a spoke-and-ring layout (the real lanes radiate from the quay), not a literal street grid: follow-up would be regridding buildTown. Scenario `g3_mapchart.mjs` (stills + chart PNGs). Script v220.

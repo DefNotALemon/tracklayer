@@ -15,6 +15,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); next: 3.5 (semis) |
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; next: 5.2 (lane B) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
+| 10 | Stores and gear (lane D) | 10.1 clothing layers landed (v222, tlx-gear v1); next: 10.2 the winter store |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -458,7 +459,28 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 
 ### 10-13
 - [ ] 10 Stores and gear: gun shop, clothing, winter store, outdoor store grown from Nordkinn Fisk & Friluft;
-      clothing layers that matter; camping gear; provisions (option).
+      clothing layers that matter; camping gear; provisions (option). Lane D. Slices (design below):
+  - [x] 10.1 Clothing layers that matter (`tlx-gear.js`): base + mid layer under the riding kit, sold on new tabs at
+        Fisk & Friluft; sweat from on-foot work, damp layers chill, down loses loft wet, stoves dry you. `x10_layers.mjs`.
+  - [ ] 10.2 The winter store: a walk-in clothing / winter store in Kjøllefjord (INT room, door ring, shop counter) that
+        sells the riding kit (GEAR, today garage-only; the garage keeps its Kit tab) and the layers, plus spare
+        gloves/socks (a dry pair swaps out damp ones on the trail: carried count, used from the tablet or a key).
+  - [ ] 10.3 Camping gear at Fisk & Friluft (outdoor tab): tent, sleeping bag, a camp stove + fuel. Pitch the tent
+        off-grid on foot (footUse branch), crawl in to thaw and dry (warmth cap by the bag's rating), sleep to pass
+        the night (CAL skip to morning, blocked within N m of a site). Carried on the sled (a cargo slot or the rack).
+  - [ ] 10.4 Provisions (option "provisions", Decision 3 default: a light food-and-water need, off-grid only):
+        rations and a water flask carried, bought at the store; off-grid they refill the tlx-survival bars on the
+        spot (a key / tablet / touch), so hunger and thirst only bite on long trips. Off = today's quay refill only.
+  - [ ] 10.5 The gun shop (Kjøllefjord, a small INT room): the shell milestone 11 fills; built with 11.1.
+
+#### Design notes for 10 (lane D, 14 Nov)
+- Every store is a counter panel in the icefish shop style (`.ifpanel`, tabs, cards, `panelFocus` for pads): reuse that
+  look. Fisk & Friluft grows by `TLX.shopTabs` (a list of `{ id, label, note, render(cash), bind(root, rerender) }`
+  that icefish.js `renderShop` appends to its tabs); new stores get their own panel built the same way.
+- Layers (10.1): `LAYERS.base/mid` table at the top of `tlx-gear.js` (warm, wick, dry, fade, sweat). Warmth goes into
+  `stats()` (ST.warm); the wet chill multiplies the cold drain (`TLXG.coldK()`), so it costs nothing while dry. A new
+  game's free layers add 0 warmth: a player who never shops plays today's game. Sweat only from on-foot exertion
+  (`FOOT.dig`, wading `FOOT.strain`, jog `FOOT.runW`), so riding parcel routes never wets you.
 - [ ] 11 Firearms and hunting: weapons, ammunition, seasons and quotas, butcher; people can never be shot.
       Options: hunter's licence school, game warden.
 - [ ] 12 Fire watch and trails: towers, fire finder, smoke reports, care packages, trails laid by walking
