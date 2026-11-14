@@ -3613,7 +3613,7 @@ function physCore(dt) {
       const over = Math.max(0, -vf) / GB_REV_TOP;
       F -= Math.min(grunt, pw / Math.max(Math.abs(vf), 1)) * input.brk * 1.25 * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1) * (1 - 0.9 * P.rock);
       if (over > 1) F += 3000 * input.brk;                       // faster than reverse gear pulls: the brake holds you back
-    } else if (input.brk > 0) F -= (vf > 0.6 ? 4200 : 1100) * input.brk;
+    } else if (input.brk > 0) F -= Math.sign(vf) * Math.min((Math.abs(vf) > 0.6 ? 4200 : 1100) * input.brk, Math.abs(vf) * M / Math.max(dt, 1e-4));   // the brake opposes the way the sled is moving and can't push it past a stop (a riderless sled drifting back used to be braked faster backwards: Owner 13 Nov, beta 0170)
     vx += F / M * fx * dt; vz += F / M * fz * dt;
     const sp = Math.hypot(vx, vz);
     // on water: hull drag on top of the air, and it gets far worse the lower the sled sits
