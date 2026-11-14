@@ -278,6 +278,18 @@ you've paid for but not collected yet counts: the garage won't sell you a second
 truck over it (its Trucks tab says where the paid-for one is waiting). If an older save already has an
 order that can never be handed over, the seller refunds it.
 
+**Boats.** The garage's **Boats** tab sells the **Fjordsnekka 460** ($2,600): a 4.6 m aluminium
+skiff with a 20 hp tiller outboard, a 25 L tank and room for 4 parcels. She's moored at the timber
+jetty below the quay: walk down its gangway and out along the planks, and get in beside her the
+same way you get on the sled. Throttle, brake and steer work as they do on the sled: she climbs
+onto the plane over a few seconds and runs at about 19 mph, the outboard only turns her when
+it's pushing or she's moving, and holding the brake runs the prop astern (it stops her, then backs
+her). The fjords never freeze; the lakes do, and ice counts as land. Waves get up with the weather,
+and in a storm she pitches, slams and gets cold fast (an open boat is colder than the sled). She
+draws 32 cm: run her into the shallows or a rocky shore and she grounds (hard, and the hull dents),
+and the brake backs her off. Step out at the jetty, or onto any low bit of shore within a step of
+the gunwale; where the shore is too high, the game tells you so and you stay aboard.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a

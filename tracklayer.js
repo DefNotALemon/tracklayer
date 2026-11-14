@@ -2686,7 +2686,7 @@ const P = { x: SPAWN.x, y: 0, z: SPAWN.z, vx: 0, vy: 0, vz: 0, yaw: SPAWN.yaw, y
    driver object of the vehicle you are in (core, restat, visual, eye, mount, dismount, mountTick, dismountTick,
    nearMount, noun). VEH.sled is the sled's pose while you are in something else. VEH.tabs are extra garage tabs,
    VEH.block bounces a walker off every parked vehicle. All of it is filled in by tlx-vehicles.js. */
-var VEH = { cur: null, sled: null, tabs: [], block: null, board: "get on the sled", noun: "Sled" };
+var VEH = { cur: null, sled: null, tabs: [], block: null, floor: null, board: "get on the sled", noun: "Sled" };
 function resetSled() {
   if (CRASH.on) return;                               // no resetting your way out of a crash
   if (HELP.on && HELP.kind === "sea") { toast(HELP.called ? "Hang on: the rescue sled is your way out, and it's coming." : `Hang on: the rescue sled is your way out. ${keyHint("help", "call it")}.`, "warn"); return; }
@@ -7627,7 +7627,7 @@ function tabMe() { return FOOT.on ? { x: FOOT.x, z: FOOT.z, yaw: FOOT.yaw } : { 
    (layer "vehicles"), and on foot the one you got out of is P itself */
 function tabVehPts() {
   const out = TABLET.layerPts("vehicles");
-  if (FOOT.on && !tutHidden()) out.push({ x: P.x, z: P.z, name: VEH.cur ? VEH.noun : "Sled", kind: VEH.cur ? "truck" : "sled" });
+  if (FOOT.on && !tutHidden()) out.push({ x: P.x, z: P.z, name: VEH.cur ? VEH.noun : "Sled", kind: VEH.cur ? (VEH.cur.pin || "truck") : "sled" });
   return out;
 }
 function tabPin(g, x, y, col, glyph, r = 9) {
@@ -8074,7 +8074,7 @@ TABLET.register({
       tabPin(g, x, y, p.col, "S", 10); tabLabel(g, p.name, x, y + 14, 12, p.col);
     }
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
-    for (const p of tabVehPts()) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b4a5e", p.kind === "sled" ? "S" : "T", 9); tabLabel(g, p.name, x, y + 14, 12, "#2b4a5e"); }   // where you left the sled / the truck
+    for (const p of tabVehPts()) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b4a5e", p.kind === "sled" ? "S" : p.kind === "boat" ? "B" : "T", 9); tabLabel(g, p.name, x, y + 14, 12, "#2b4a5e"); }   // where you left the sled / the truck
     const [px, py] = w2c(me.x, me.z);
     g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw);
     g.fillStyle = "rgba(237,230,211,.95)"; g.beginPath(); g.moveTo(0, -14); g.lineTo(-10, 10); g.lineTo(10, 10); g.closePath(); g.fill();
@@ -14859,7 +14859,7 @@ function skiStep(dt) {
   // only a square-on hit at speed is a thud; a glancing one just bleeds a little speed along the trunk
   if ((hit || (touch && sq > 0.55)) && Math.abs(sp) > 3.5) { if (F.bumpT <= 0) { thud(Math.min(0.6, sp * 0.05)); emit(nx, F.y + 0.6, nz, 0, 1.2, 0, 1, 0.7); if (sp > 7) toast("Into the birch. Ow.", "warn"); F.bumpT = 1.2; } sp *= 0.3; }
   else if (touch) sp *= 1 - 0.5 * sq * Math.min(1, dt * 6);
-  if (isSea(nx, nz)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; sp = 0; } }   // glide along the waterline
+  if (isSea(nx, nz) && !(VEH.floor && VEH.floor(nx, nz) !== null)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; sp = 0; } }   // glide along the waterline
   if (WN.state === "out") {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);
     if (dd > L) { WN.tight = true; const k = L / dd; nx = fl[0] + (nx - fl[0]) * k; nz = fl[2] + (nz - fl[2]) * k; sp = Math.min(sp, 1); } else WN.tight = false;
@@ -15011,6 +15011,7 @@ function quayTop(x, z) {
 function walkFloor(x, z) {
   if (FOOT.aboard && typeof deckFloor === "function") { const y = deckFloor(x, z); if (y !== null) return y; }
   const q = quayTop(x, z); if (q !== null) return q;
+  if (VEH.floor) { const y = VEH.floor(x, z); if (y !== null) return y; }   // a boat jetty's planks (tlx-boats.js, 14.1)
   return surf(x, z) - FOOT.sink * 0.6;
 }
 function footStep(dt) {
@@ -15026,7 +15027,7 @@ function footStep(dt) {
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   // what's under the boots: a hard floor with no snow on it (deck, gangway, the quay's concrete), or snow, and how much
   // of it is loose (a plowed yard or a packed trail is ~2-4 cm of it, fresh powder all of it). hardW blends wade → walk.
-  const hardS = F.aboard || quayTop(F.x, F.z) !== null ? 1 : 0, ls = hardS ? 0 : d * (1 - 0.8 * pack);
+  const hardS = F.aboard || quayTop(F.x, F.z) !== null || (VEH.floor && VEH.floor(F.x, F.z) !== null) ? 1 : 0, ls = hardS ? 0 : d * (1 - 0.8 * pack);
   F.hardS = hardS;
   F.hardW += ((hardS ? 1 : 1 - sstep(0.04, 0.3, ls)) - F.hardW) * (1 - Math.exp(-4 * dt));
   const hw = F.hardW;
@@ -15079,7 +15080,7 @@ function footStep(dt) {
   // the waterline is a wall you slide along, like a house: a step that would land in the sea loses only its
   // seaward part (shore normal from a ring of isSea taps round you), so walking the quay or a beach at an angle
   // keeps going instead of freezing on the edge. Only a step straight out to sea stops you.
-  if (isSea(nx, nz)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; F.sp = 0; } }
+  if (isSea(nx, nz) && !(VEH.floor && VEH.floor(nx, nz) !== null)) { const s = shoreSlide(F, nx, nz); if (s) [nx, nz] = s; else { nx = F.x; nz = F.z; F.sp = 0; } }
   // the line only pays out so far
   if (WN.state === "out") {
     const fl = fairlead(), L = winchDef() ? winchDef().len - 0.6 : 0, dd = Math.hypot(nx - fl[0], nz - fl[2]);

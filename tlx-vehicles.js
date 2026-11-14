@@ -38,6 +38,14 @@ const VEHICLES = [
 ];
 const byId = id => VEHICLES.find(v => v.id === id) || null;
 const MAX_OWNED = 3;
+/* Other kinds of vehicle (14.1: boats, tlx-boats.js) plug in here: TLXV.addKind(row, impl) adds the row to VEHICLES and
+   impl replaces the wheeled parts for that id: runtime(r, d) -> R (with grp, drvBody, drvArms), driver(R) -> the VEH.cur
+   object, tick(R, r, isCur, dt) each frame, dist(r, x, z, yaw) the walker's distance for the nearest-vehicle rule,
+   reset(R) after a swap or a reload puts P on it. Everything else (records, swap, save, mount key, hints) is shared.
+   Kinds with their own impl are not trucks: they don't count against MAX_OWNED or show on the Trucks tab. */
+const KINDS = {};
+function addKind(row, impl) { if (!byId(row.id)) VEHICLES.push(row); KINDS[row.id] = impl; }
+const isTruck = r => !KINDS[r.id];
 
 let api = null, T = null;                                                   // T: THREE
 const S = () => TLX.state("vehicles");
@@ -234,6 +242,7 @@ function mesh(geo, mat, shadow) { const m = new T.Mesh(geo, mat); m.castShadow =
 
 function runtime(r) {
   let R = RT.get(r.uid); if (R) return R;
+  if (KINDS[r.id]) { R = KINDS[r.id].runtime(r, byId(r.id)); R.impl = KINDS[r.id]; R.rec = r; R.def = byId(r.id); RT.set(r.uid, R); return R; }
   const d = byId(r.id), G = geos(d), M = mats();
   R = { rec: r, def: d, G, steer: 0, yr: 0, spin: [0, 0, 0, 0], H: [0, 0, 0, 0], dy: [0, 0, 0, 0], sink: [0, 0, 0, 0], acc: 0, door: 0, A: null, sprayAcc: 0, hitT: 0, bodyP: 0, bodyR: 0, bodyPV: 0, bodyRV: 0, sY: 0, sV: 0, lastVf: 0, air: 0,
     bodyPT: 0, bodyRT: 0, axl: 0, ax: 0, ay: 0, brake: 0, rev: 0, baseCold: 1, lastLoad: -1, mass: d.mass, mu: 0.3, spinK: 0, cond: r.cond };
@@ -792,7 +801,8 @@ function swapTo(uid) {                                                          
   veh.sled = s.cur == null ? null : s.sled;
   setCur(to);
   api.restat();
-  if (to) { const R = runtime(to); R.rec = to; R.drag = 0; for (let i = 0; i < 4; i++) { R.H[i] = P.y; R.dy[i] = 0; } R.A = null; R.door = 0; R.yr = 0; R.steer = 0; R.sY = R.sV = 0; R.drvBody.visible = R.drvArms.visible = !FOOT.on; }
+  if (to && KINDS[to.id]) { const R = runtime(to); R.rec = to; R.impl.reset(R); R.drvBody.visible = !FOOT.on; }
+  else if (to) { const R = runtime(to); R.rec = to; R.drag = 0; for (let i = 0; i < 4; i++) { R.H[i] = P.y; R.dy[i] = 0; } R.A = null; R.door = 0; R.yr = 0; R.steer = 0; R.sY = R.sV = 0; R.drvBody.visible = R.drvArms.visible = !FOOT.on; }
   api.camState.init = false;
   GS.outWarned = GS.lowWarned = false;
 }
@@ -805,7 +815,7 @@ function setCur(r) {
     return;
   }
   const R = runtime(r);
-  veh.cur = R.driver || (R.driver = makeDriver(R));
+  veh.cur = R.driver || (R.driver = R.impl ? R.impl.driver(R) : makeDriver(R));
   veh.board = "get in the " + R.def.kind; veh.noun = R.def.kind[0].toUpperCase() + R.def.kind.slice(1);
   if (hl.parent !== R.grp) { R.grp.add(hl, hl.target); hl.position.set(0, 0.95, 2.5); hl.target.position.set(0, -0.6, 18); }
 }
@@ -937,7 +947,7 @@ function spotNear(cx, cz, d, yard, yawOf) {
 function buy(id) {
   const s = S(), GS = api.GS, d = byId(id); if (!d) return;
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
-  if (s.owned.length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
+  if (s.owned.filter(isTruck).length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
   { const hp = heldVeh("pickup"); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the pickup you paid for is waiting in ${heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
   if (GS.cash < d.cost) { api.toast(`The ${d.name} is ${api.fmtCash(d.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   const spot = forecourtSpot(d); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
@@ -951,6 +961,7 @@ function garageRows(body, row) {
   const s = S(), GS = api.GS;
   const full = usedTrucks(heldList()) >= MAX_OWNED, hp = heldVeh("pickup");          // report 0110: a pickup paid for at Bytteboden counts
   for (const d of VEHICLES) {
+    if (KINDS[d.id]) continue;                                                     // boats have their own tab (14.1)
     const n = s.owned.filter(r => r.id === d.id).length;
     const spec = `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · closed, heated cab · ${d.mass} kg`;
     const how = `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
@@ -958,7 +969,7 @@ function garageRows(body, row) {
     row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${wait}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost ? "locked" : "", () => buy(d.id), String(d.year));
   }
   for (const r of s.owned) {
-    const d = byId(r.id); if (!d) continue;
+    const d = byId(r.id); if (!d || KINDS[r.id]) continue;
     const e = document.createElement("div"); e.className = "bfoot"; e.textContent = `${d.name}: ${Math.round(r.cond)}% condition, ${r.fuel.toFixed(0)} of ${d.fuel} L, parked ${Math.round(Math.hypot(r.x - api.world.garage().x, r.z - api.world.garage().z))} m from the garage.`;
     body.appendChild(e);
   }
@@ -970,7 +981,7 @@ function garageRows(body, row) {
   }
   // the shop puts a worn truck or trailer right (2.7: dents from trees, or a used one off Bytteboden); it has to be here
   for (const r of s.owned) {
-    const d = byId(r.id); if (!d || r.cond >= 99.5) continue;
+    const d = byId(r.id); if (!d || KINDS[r.id] || r.cond >= 99.5) continue;
     const c = repairCost("truck", r), here = nearGarage(s.cur === r.uid ? api.P : r);
     row(`Repair the ${d.name}`, here ? `${Math.round(r.cond)}% now. Panel beating, an alignment and a service: back to 100%.` : `${Math.round(r.cond)}%. Bring it within ${REPAIR_R} m of the garage first.`, "$" + c, !here || GS.cash < c ? "locked" : "", () => repair("truck", r), "service");
   }
@@ -1001,7 +1012,7 @@ function rigLive() { const on = rigOn(), s = S(); return on === "sled" ? s.cur =
 function hostPose(on) {                                                         // { x, z, yaw, back } of the machine with that key
   const s = S(), P = api.P;
   if (on === "sled") { const p = s.cur == null ? P : s.sled; return p ? { x: p.x, z: p.z, yaw: p.yaw, back: api.hitchBack(), kg: 1e9 } : null; }
-  const r = rec(on); if (!r) return null; const d = byId(r.id), p = s.cur === on ? P : r;
+  const r = rec(on); if (!r || KINDS[r.id]) return null; const d = byId(r.id), p = s.cur === on ? P : r;
   return { x: p.x, z: p.z, yaw: p.yaw, back: -d.hitchZ, kg: d.hitchKg };
 }
 function ballOf(on) { const h = hostPose(on); return h ? [h.x - Math.sin(h.yaw) * h.back, h.z - Math.cos(h.yaw) * h.back] : null; }
@@ -1379,7 +1390,7 @@ const MKT_V = {
     tell: ["The axle's bent: it crabs down the road.", "The deck boards are soft at the back, over the ramp hinge.", "The wheel bearings are dry and growl."]
   }
 };
-const usedTrucks = held => S().owned.length + held.filter(h => h.cat === "veh" && h.item === "pickup").length;
+const usedTrucks = held => S().owned.filter(isTruck).length + held.filter(h => h.cat === "veh" && h.item === "pickup").length;
 /* Report 0110: an order paid for and not yet collected counts as owned, so the garage won't sell a second trailer or a 4th
    truck over it (buy / buyHaul refuse, the rows say why). A save already stuck that way (held order that can never be
    collected) gets the seller's refund: heldRefund, every couple of seconds from tick. */
@@ -1548,6 +1559,7 @@ function nearestTick() {
   const cands = [{ key: null, d: Math.hypot(FOOT.x - sl.x, FOOT.z - sl.z) }];
   for (const r of s.owned) {                                                    // a truck's distance: to its door, or to its middle less its half-width
     const cur = s.cur === r.uid, x = cur ? P.x : r.x, z = cur ? P.z : r.z, yaw = cur ? P.yaw : r.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
+    if (KINDS[r.id]) { cands.push({ key: r.uid, d: KINDS[r.id].dist(r, x, z, yaw) }); continue; }
     const dx = x + fz * STAND.x + fx * STAND.z, dz = z - fx * STAND.x + fz * STAND.z;
     cands.push({ key: r.uid, d: Math.min(Math.hypot(FOOT.x - dx, FOOT.z - dz), Math.hypot(FOOT.x - x, FOOT.z - z) - 1.4) });
   }
@@ -1581,6 +1593,7 @@ function tick(dt) {
     R.rec = r;
     if (far) { R.grp.visible = false; continue; }
     R.grp.visible = true;
+    if (R.impl) { R.impl.tick(R, r, isCur, dt); continue; }
     if (!isCur) { R.moved = R.moved || 0; parkedPose(R, r, dt); R.door = Math.max(0, R.door - dt / 0.5); R.steer *= 0.9; }
     else { if (R.A && R.A.dir !== "shut" && !api.MNT.on && !api.DMT.on) R.A = null; idleDoor(R, dt); }
     R.doorPivot.rotation.y = -R.door * DOOR_OPEN;
@@ -1606,6 +1619,7 @@ TLX.register({
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; CELL = a.world.cell; HALF = a.world.half;
+    for (const k in KINDS) if (KINDS[k].init) KINDS[k].init(a);                 // other kinds (14.1 boats) set up first: a reload may put you in one below
     _q1 = new T.Quaternion(); _q2 = new T.Quaternion(); _q3 = new T.Quaternion(); _Y = new T.Vector3(0, 1, 0); _X = new T.Vector3(1, 0, 0); _p = new T.Vector3(); _s = new T.Vector3(); _mm = new T.Matrix4();
     const s = S();
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
@@ -1622,11 +1636,12 @@ TLX.register({
       if (h.on != null && (!rec(h.on) || rigOn() === h.on)) h.on = null;
     } else s.haul = null;
     api.veh.tabs.push({ id: "trucks", name: "Trucks", render: garageRows });
+    for (const k in KINDS) if (KINDS[k].tab && !api.veh.tabs.some(t => t.id === KINDS[k].tab.id)) api.veh.tabs.push(KINDS[k].tab);   // e.g. Boats (14.1)
     // the tablet's Map: a pin on every vehicle you aren't in (the sled while you drive, the trucks while you ride the sled)
     a.TABLET.addLayer("vehicles", () => {
       const s = S(), out = [], noun = r => { const d = byId(r.id); return d.kind[0].toUpperCase() + d.kind.slice(1); };
       if (s.cur != null && s.sled) out.push({ x: s.sled.x, z: s.sled.z, name: "Sled", kind: "sled" });
-      for (const r of s.owned) if (r.uid !== s.cur) out.push({ x: r.x, z: r.z, name: noun(r), kind: "truck" });
+      for (const r of s.owned) if (r.uid !== s.cur) out.push({ x: r.x, z: r.z, name: noun(r), kind: KINDS[r.id] ? "boat" : "truck" });
       const h = haulS(); if (h && (h.on == null || h.on !== s.cur || api.FOOT.on)) out.push({ x: h.x, z: h.z, name: "Sled trailer", kind: "truck" });
       return out;
     });
@@ -1639,6 +1654,7 @@ TLX.register({
       a.veh.sled = s.sled;
       setCur(to); a.restat();
       const R = runtime(to); R.drvBody.visible = R.drvArms.visible = true;
+      if (R.impl) R.impl.reset(R);
       bogRestore(to.bog, to.x, to.z);
     }
     rigRestore();
@@ -1646,5 +1662,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();
