@@ -7067,6 +7067,16 @@ const TABLET = {
     let top = 0, n = el; while (n && n !== v) { top += n.offsetTop; n = n.offsetParent; }
     if (n !== v) return;
     if (top < v.scrollTop + 8) v.scrollTop = top - 8; else if (top + el.offsetHeight > v.scrollTop + v.clientHeight - 8) v.scrollTop = top + el.offsetHeight - v.clientHeight + 8;
+    // a sideways strip (the App Store's Today cards) scrolls the focused item into view too (report 0168 #1);
+    // layout offsets, not client rects, so the 3D tilt of the screen doesn't skew it
+    const offX = q => { let x = 0, m = q; while (m && m !== v) { x += m.offsetLeft; m = m.offsetParent; } return x; };
+    for (let s = el.parentElement; s && s !== v; s = s.parentElement) {
+      if (s.scrollWidth <= s.clientWidth + 1 || !/auto|scroll/.test(getComputedStyle(s).overflowX)) continue;
+      const lx = offX(el) - offX(s);
+      // the strip snaps cards to its start (scroll-snap mandatory), so a partial nudge snaps back: bring the card's start in
+      if (lx < s.scrollLeft - 1 || lx + el.offsetWidth > s.scrollLeft + s.clientWidth + 1) s.scrollLeft = lx;
+      break;
+    }
   },
   move(dx, dy) {
     const els = this.focusables(); if (!els.length) return;
