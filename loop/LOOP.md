@@ -572,5 +572,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (low, playtest, report 0030 F4): `g3_ridge.mjs`'s rock search keeps landing on the same two snow-dominated
       spots, so the v90 per-pixel rock blend itself was never eyeballed; bias the search to a steep thin-snow slope
       50–150 m out so a pass can judge grey scree + snow tongues up close.
+- [ ] G1 (BUG, report 0168 #1, lane A next): App Store Today strip: keyboard/pad focus moves onto a feature card scrolled
+      off the right edge (`paintFocus` only scrolls `#tabV` vertically); scroll the focused card into view horizontally.
+      0168 #2 (ring drawn on the hovered card, not `.tfoc`) likely the same seam: check alongside.
+- [ ] G1 (POLISH, 0165 #5): rooms steer tank-style and you come in facing away from the exit; a room hint ("turn round
+      and walk into the light to leave", through `btn()`) for keyboard, pad and touch.
+- [ ] G4 (POLISH, 0167 #1/#2, 0164 #5): owners-out re-rolls on reload (seed it from the day if wanted); a homing car
+      waits for you forever within 120 m with no cue; car beams burn all polar-night day (keyed off dayFactor).
 
-Last triaged report: 163
+Last triaged report: 168

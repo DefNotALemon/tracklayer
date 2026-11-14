@@ -16,6 +16,22 @@ speed capped at max(3.5, 50% of entry)), above it `crashEject("rock")` and the s
 `scenarios/g2_rocks.mjs`: 10 m/s strike 8.7 -> 4.3 m/s, 4.3 m/s lateral, no eject, 2.6 m/s at +1 s; 24 m/s strike ->
 eject, sled 0.4 m/s. Smoke, x1_save, x3_roadbed pass. Not done: rocks don't wobble snow off / leave a mark on the
 snow; terrain-aware rock colours unchanged.
+## 2026-11-14 01:20 — on-foot camera stays outside site buildings, garage and hospital (beta 0165 #4, lane A BUG) — 0509336
+Builder pass, lane A (full throttle; cron prompt's `usage_budget.py begin/done` bookkeeping skipped per the skill).
+Picked up a dead pass's uncommitted work (the fix + `x3_footcam_eave.mjs`; its two diag probes moved to scratch .trash),
+rebased it over 21 commits (v209-v218), re-verified and landed it.
+Triage 164-168: 0165 #4 BUG = this; 0168 #1 BUG (App Store strip focus off-screen) queued top for lane A next;
+0165 #5, 0167 #1/#2, 0164 #5 queued as POLISH; 0164 #6 closed by 0165 #1; 0166/0167 had no BLOCKER/BUG. Last triaged 163 -> 168.
+Cause: site buildings (`buildSites`), the garage and the hospital had only round obstacles (r 1.45-1.5 on a ~2 m grid)
+that stop ~0.4 m short of the walls and miss the 0.5 m roof overhang; `camWallClip` only slab-tests a `box`, so the chase
+camera behind a walker standing with their back to the building sat inside the wall box (0165: flat clear colour over
+a dark band facing east at Sandfjorddalen). Fix: each of those obstacle circles now carries the building's wall+eave box
+(`sbox` / `gbox` / `hbox`, same shape K.house uses); no collision change for the walker or sled.
+Numbers (`x3_footcam_eave.mjs`, 20 buildings x 4 faces, walker 1 m out from the eave facing away, night):
+origin/main 26/79 fail (camera inside up to 1.27 m; 0165 spot camera 0.61 m inside the cabin) -> this 0/79 fail,
+camera 0.35 m outside every eave, walker first hit from the lens at every spot.
+Stills `~/.hermes/cache/scratch/tlloop/b0165/cmp.jpg` (before: black wall slab over the frame; after: walker, cabin, sky).
+Gate: smoke, x1_save, x3_footcam_eave, g3_camwall pass.
 
 ## 2026-11-12 — Sled stops dead when the player isn't in control — 6a612a3 (swept into the App Store commit)
 Lemon's ask: the sled kept coasting/driving on whatever thr/brk was held when garage, settings or the god menu
