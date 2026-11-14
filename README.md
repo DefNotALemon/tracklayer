@@ -216,11 +216,13 @@ depot, so your first ride out of town is open snow.
 
 ## Crashes and the health centre
 
-Hit a trunk, a rock or a wall hard enough (about 30 mph into it), land a big drop too hard, or come
+Hit a trunk or a wall hard enough (about 70 mph into it), land a big drop too hard, or come
 down badly crooked at speed, and you come off the sled. The rider flies with the speed the sled had:
 real gravity, air drag, snow that grabs fast and kills a tumble quickly, powder that grabs harder and
 hardpack that lets you skid a bit further, a real bounce off the snow on a hard fast landing before you
-settle back into it, and trees you can hit on the way. The sled itself brakes hard the moment you come
+settle back into it, and trees you can hit on the way.
+
+Rocks are everywhere out on the fell and in the backcountry (never in town or on the roads), each one standing clear of the snow so you can see it coming. A stone is not a wall: clip one at up to about 30 mph and it **bucks** the sled sideways off its curved face and scrubs half your speed or more; hit one harder than that and it throws you off, and the riderless sled slews to a near stop. The sled itself brakes hard the moment you come
 off and holds still riderless until you get back on (Q) — it doesn't coast away or creep in reverse.
 Every impact adds up. Get away with it and you get up where
 you landed and walk back to the sled (Q to get on). Overdo it and you wake up in the health centre a

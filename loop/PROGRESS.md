@@ -3,6 +3,20 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — More visible rocks and rock collision (Lemon's ask) — HASH
+Before: ~6500 rocks, only on the fell >160 m and the tideline, placed at ground + fresh*0.3 so snow buried part of
+them; a rock was a generic hard obstacle (31.3 m/s eject, else a 1.45x wall bounce). After: 30.5k rocks (6.5k old +
+24k new, `buildRockField()` run after `initExpansion()` so road A*/bed never see them: clusters and singles over the
+open fell and slopes, none in birch/lake/sea, within TOWN_R+40 of the depot, 45 m of any site, in plowed yards, the
+spawn, or within `ROADS.bed + bank + 7` m of a road); `rockY()` stands each at deepest snow + 0.12 + 0.28 s (min top
+0.68 m above the snow surface); one InstancedMesh per 512 m cell with a real culling sphere (the old `rm` also got
+`frustumCulled = false`). `o.rock = true`; `collide()` -> `rockStrike()`: below `CRASH_AT.rock` = 14 m/s INTO the
+stone it bucks (sideways kick 3.2 + 0.5 * hitV m/s capped 9, yaw swings to the new heading, yaw-rate kick, small hop,
+speed capped at max(3.5, 50% of entry)), above it `crashEject("rock")` and the sled keeps 12%. Test
+`scenarios/g2_rocks.mjs`: 10 m/s strike 8.7 -> 4.3 m/s, 4.3 m/s lateral, no eject, 2.6 m/s at +1 s; 24 m/s strike ->
+eject, sled 0.4 m/s. Smoke, x1_save, x3_roadbed pass. Not done: rocks don't wobble snow off / leave a mark on the
+snow; terrain-aware rock colours unchanged.
+
 ## 2026-11-12 — Sled stops dead when the player isn't in control — 6a612a3 (swept into the App Store commit)
 Lemon's ask: the sled kept coasting/driving on whatever thr/brk was held when garage, settings or the god menu
 opened mid-ride (keyboard input wasn't gated the way the pad's settings-only check was, and even cutting input

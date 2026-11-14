@@ -1118,11 +1118,12 @@ function buildProps() {
   }
   const rm = new THREE.InstancedMesh(rockGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }), rocks.length);
   rocks.forEach(([x, z, s], i) => {
-    const fr = sampleG(freshG, x, z), y = groundAt(x, z) + fr * 0.3;
-    q.setFromEuler(new THREE.Euler(rnd() * 3, rnd() * 3, rnd() * 3)); sc.set(s * (0.8 + rnd() * 0.5), s * 0.7, s * (0.8 + rnd() * 0.5)); p.set(x, y, z);
+    const sx = s * (0.9 + rnd() * 0.3), sz = s * (0.9 + rnd() * 0.3), y = rockY(x, z, s);
+    q.setFromEuler(new THREE.Euler((rnd() - 0.5) * 0.7, rnd() * 6.3, (rnd() - 0.5) * 0.7, "YXZ")); sc.set(sx, s * 0.7, sz); p.set(x, y, z);
     m4.compose(p, q, sc); rm.setMatrixAt(i, m4);
-    addOb({ x, z, r: 0.85 * s, top: y + 0.62 * s });
+    addOb({ x, z, r: 0.95 * s, top: y + 0.66 * s, rock: true });
   });
+  rm.frustumCulled = false;                                           // an InstancedMesh's culling sphere is the unit geometry's, at the origin
   rm.castShadow = true; rm.receiveShadow = true; scene.add(rm);
 
   // fallen logs
@@ -3262,6 +3263,85 @@ function flattenTree(o) {
   P.vx *= 0.93; P.vz *= 0.93;
   P.shake = Math.max(P.shake, 0.18); crack(0.7); thud(0.3);
 }
+/* ---- rocks: boulders that stand clear of the snow, and the outfield pass ----
+   rockY puts the centre of a rock (a flattened icosahedron, half-height 0.7 s) so that its base is buried but at least
+   ~0.12 m + 0.94 s of it stands above the deepest snow the cell holds at build time, whatever the fresh depth.
+   buildRockField runs AFTER the roads (initExpansion) so the bed levelling and the A* never see these: it fills the
+   open fell, the moraine slopes and the backcountry the sled rides across, in clusters and singles, and keeps off the
+   town, every site, the road beds, plowed lanes and the spawn. Each is addOb({ rock: true }); collide() has its own branch. */
+function rockY(x, z, s) { return groundAt(x, z) + Math.max(sampleG(freshG, x, z), depthAt(Math.round((x + HALF) / CELL), Math.round((z + HALF) / CELL))) + 0.12 + 0.28 * s; }
+const ROCK_FIELD = { n: 0, cells: 0 };
+function buildRockField() {
+  const rnd = mulberry32(88113), geo = paint(new THREE.IcosahedronGeometry(1, 0), (x, y, z, ny) => ny > 0.45 ? [0.9, 0.93, 0.98] : [0.32, 0.31, 0.33]);
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+  const RD = window.TLXR && TLXR.ROADS, R_ROAD = RD ? RD.bed + RD.bank + 7 : 30;   // past the cut/fill bank (bed() moved the ground out to bed + bank) and a rock's 5.7 m bilinear reach
+  const ok = (x, z) => {
+    if (Math.abs(x) > HALF - 80 || Math.abs(z) > HALF - 80) return false;
+    const b = bioAt(x, z); if (b === 1 || b === 2 || b === 3) return false;
+    if (isSea(x, z) || isWater(x, z)) return false;
+    const h = groundAt(x, z); if (h < 2.5) return false;
+    if (Math.hypot(x - depot.x, z - depot.z) < TOWN_R + 40 || Math.hypot(x - SPAWN.x, z - SPAWN.z) < 60) return false;
+    if (nearSite(x, z, 45) || yardAt(x, z) > 0) return false;
+    if (window.TLXR && TLXR.near && TLXR.near(x, z).d < R_ROAD) return false;
+    return true;
+  };
+  const list = [], tryPut = (x, z, s) => {
+    if (!ok(x, z) || obNear(x, z, 3 + 1.2 * s)) return false;
+    list.push([x, z, s]); addOb({ x, z, r: 0.95 * s, top: rockY(x, z, s) + 0.66 * s, rock: true }); return true;
+  };
+  // clusters (boulder fields, a moraine tumble) then lone erratics; more on the slopes and the higher fell
+  for (let n = 0; n < 900000 && list.length < 24000; n++) {
+    const x = (rnd() * 2 - 1) * (HALF - 80), z = (rnd() * 2 - 1) * (HALF - 80);
+    if (!ok(x, z)) continue;
+    const h = groundAt(x, z), sl = slopeAt(x, z, 6), want = 0.05 + 0.2 * sstep(15, 140, h) + 0.25 * sstep(0.12, 0.45, sl);
+    if (rnd() > want * 0.5) continue;
+    if (rnd() < 0.35) { tryPut(x, z, 0.8 + Math.pow(rnd(), 2) * 2.2); continue; }
+    const k = 3 + Math.floor(rnd() * 8), rad = 10 + rnd() * 22;
+    for (let i = 0; i < k; i++) { const a = rnd() * 6.283, d = Math.sqrt(rnd()) * rad; tryPut(x + Math.cos(a) * d, z + Math.sin(a) * d, 0.7 + Math.pow(rnd(), 2.2) * 2.6); }
+  }
+  // one InstancedMesh per 512 m cell so each has a real culling sphere
+  const CELLR = 512, by = new Map();
+  for (const r of list) { const k = Math.floor(r[1] / CELLR) * 4096 + Math.floor(r[0] / CELLR); let a = by.get(k); if (!a) by.set(k, a = []); a.push(r); }
+  const q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), m4 = new THREE.Matrix4();
+  for (const a of by.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, a.length); let lo = 1e9, hi = -1e9, cx = 0, cz = 0;
+    for (const r of a) { cx += r[0]; cz += r[1]; } cx /= a.length; cz /= a.length;
+    let rr = 0;
+    a.forEach(([x, z, s], i) => {
+      const y = rockY(x, z, s); lo = Math.min(lo, y); hi = Math.max(hi, y); rr = Math.max(rr, Math.hypot(x - cx, z - cz));
+      q.setFromEuler(new THREE.Euler((rnd() - 0.5) * 0.7, rnd() * 6.3, (rnd() - 0.5) * 0.7, "YXZ")); sc.set(s * (0.9 + rnd() * 0.3), s * 0.7, s * (0.9 + rnd() * 0.3)); p.set(x, y, z);
+      m4.compose(p, q, sc); im.setMatrixAt(i, m4);
+    });
+    const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) g2.setAttribute(k, geo.attributes[k]); g2.setIndex(geo.index);
+    g2.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, (lo + hi) / 2, cz), Math.hypot(rr + 4, (hi - lo) / 2 + 4));
+    im.geometry = g2; im.castShadow = true; im.receiveShadow = true; scene.add(im);
+  }
+  ROCK_FIELD.n = list.length; ROCK_FIELD.cells = by.size;
+}
+// a rock is a curved boulder, not a wall: low and moderate speed bucks the sled off its face (a sideways kick, the
+// into-rock speed gone, the rest scrubbed hard); past CRASH_AT.rock the rider is thrown and the sled all but stops
+const ROCK = { kick: 3.2, kickK: 0.5, kickMax: 9, keep: 0.42, bounce: 0.18, eject: 0.12, last: -9, hits: 0 };
+function rockStrike(o, nx, nz, hitV, spd, fx, fz) {
+  const tx = -nz, tz = nx;
+  if (gameClock - ROCK.last < 0.3) { P.vx += (hitV * nx); P.vz += (hitV * nz); return; }   // still against the same stone: just slide off it
+  ROCK.last = gameClock; ROCK.hits++;
+  if (hitV > CRASH_AT.rock && crashEject("rock", P.vx, P.vy, P.vz, o) === true) {
+    P.vx *= ROCK.eject; P.vz *= ROCK.eject; P.shake = 1; crack(0.8);   // the riderless sled slews to a near stop against the stone
+    return;
+  }
+  const vt = P.vx * tx + P.vz * tz;
+  const side = vt !== 0 && Math.abs(vt) > 0.4 ? Math.sign(vt) : (Math.sign(fx * tz - fz * tx) || 1);
+  const kick = Math.min(ROCK.kickMax, ROCK.kick + hitV * ROCK.kickK);           // m/s thrown sideways off the curved face
+  const along = Math.max(Math.abs(vt) * ROCK.keep, 0) + kick;                   // what's left of the old sideways run, plus the buck
+  P.vx = tx * side * along + nx * hitV * ROCK.bounce; P.vz = tz * side * along + nz * hitV * ROCK.bounce;
+  const sp = Math.hypot(P.vx, P.vz), cap = Math.max(3.5, spd * 0.5);               // big speed loss: never more than half of what you came in with
+  if (sp > cap) { P.vx *= cap / sp; P.vz *= cap / sp; }
+  P.yaw = angLerp(P.yaw, Math.atan2(P.vx, P.vz), 0.55); P.yr = (P.yr || 0) + side * Math.min(2.2, 0.6 + hitV * 0.12);
+  if (P.gnd) P.vy = Math.max(P.vy, 0.8 + hitV * 0.09);
+  cargoHit(hitV); P.shake = Math.min(1, 0.3 + hitV / 16); thud(Math.min(1, 0.4 + hitV / 18)); crack(Math.min(0.8, hitV / 20));
+  for (let k = 0; k < 14; k++) emit(P.x, P.y + 0.3, P.z, nx * 2 + (Math.random() - 0.5) * 3, 1 + Math.random() * 2, nz * 2 + (Math.random() - 0.5) * 3, 1.2, 0.8);
+}
 function collide(fx, fz) {
   const spdNow = Math.hypot(P.vx, P.vz);
   const mower = ST.power >= FLATTEN_POWER && P.vx * fx + P.vz * fz > FLATTEN_SPEED;
@@ -3291,6 +3371,7 @@ function collide(fx, fz) {
         const vn = P.vx * nx + P.vz * nz;
         if (vn < 0) {
           const hitV = -vn, tx = -nz, tz = nx;
+          if (o.rock) { rockStrike(o, nx, nz, hitV, spdNow, fx, fz); continue; }
           if (hitV > (o.tree !== undefined ? CRASH_AT.tree : CRASH_AT.hard) && !o.ship) crashEject(o.tree !== undefined ? "tree" : "hard", P.vx, P.vy, P.vz, o.tree !== undefined ? o : null);
           let vt = P.vx * tx + P.vz * tz;
           if (o.tree !== undefined) {
@@ -16472,7 +16553,7 @@ TABLET.addLayer("rescue", sarPts);
    moment, get up, and walk back to the sled (Q to get on). The health centre is only for rescue casualties
    who need a doctor, not for you. */
 const HOSP = { x: 0, z: 0, door: null, park: null, built: false, name: "Kjøllefjord helsesenter" };
-const CRASH_AT = { tree: 31.3, hard: 31.3, land: 31.3, roll: 31.3 };   // m/s into the thing before you come off (70 mph across the board: trees, rock, landings, crooked or not)
+const CRASH_AT = { tree: 31.3, hard: 31.3, land: 31.3, roll: 31.3, rock: 14 };   // rock: 14 m/s (31 mph) INTO the stone, a stone takes you off well before a wall would   // m/s into the thing before you come off (70 mph across the board: trees, rock, landings, crooked or not)
 const CRASH = { on: false, st: "", x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0, wx: 0, wz: 0, inj: 0, t: 0, t2: 0, still: 0, gnd: false, skip: null, why: "", spd: 0, bounce: 0, lastHit: -9, cool: 0, lie: 0, solid: 0 };
 const hospSite = () => HOSP.built ? { id: "hosp", name: HOSP.name, x: HOSP.door.x, z: HOSP.door.z, hosp: true } : null;
 const hospHere = (x = P.x, z = P.z, r = 18) => HOSP.built && Math.hypot(x - HOSP.door.x, z - HOSP.door.z) < r;
@@ -17109,7 +17190,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
-  buildFishShops(); buildHospital(); initFishing(); buildLanes(); initExpansion();
+  buildFishShops(); buildHospital(); initFishing(); buildLanes(); initExpansion(); buildRockField();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);
