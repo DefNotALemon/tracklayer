@@ -126,6 +126,29 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **14 Nov, Lemon: a lot more visible rocks, with real collision behaviour (built this session).** His words:
+  "add a lot more rocks, all of which are visible and pop out of the snow, and if you run over one from now on
+  it either bucks you to the other side, or just throw you off if you're going fast enough, usually while
+  stopping the sled." Rocks already exist (`rockGeo`/`rm` InstancedMesh near line 1108, placed by `bioAt`/
+  elevation with `addOb`) but are sparse away from the fell/tideline and are partly buried (`y = groundAt + fr*0.3`,
+  fresh snow can cover them). Scope: (1) far more rocks, spread so riders actually meet them while riding, not
+  just on the high fell; (2) every rock sits clearly above the snow surface (no half-buried look); (3) hitting one
+  at low/moderate speed "bucks" the sled sideways (a real deflection/kick off the rock face, not a soft glance),
+  at high speed it throws the rider (`crashEject`), and either way the sled scrubs hard to a stop (not a hard wall
+  stop or a free glide-past). Give rocks their own obstacle flag (don't just reuse generic "hard" — that's shared
+  with buildings/posts, which should keep their current full-stop feel) so the tuning is isolated. Keep well clear
+  of town/depot/doors/road beds (don't make Kjøllefjord or the road network suddenly full of rock hazards).
+- **14 Nov, Lemon: hand-drawn map redo, towns with real block structure (built this session).** His words:
+  "hand draw the map again with much more depth to the towns so they look designed around roads with city
+  blocks internally, and plenty of snowmobiling stuff on the outskirts... i want the map to be more cozy in
+  towns and realistic." Target is the tablet Map app chart (`buildMapBg`/`drawMap`, canon section above — still
+  ONE map, no big map): draw it with real depth in Kjøllefjord and any other settlement — a recognisable street
+  grid with interior blocks (not the organic depot→door lanes alone), warm/cozy colour and lit-window detail in
+  town, and the outskirts dressed with snowmobiling infrastructure (trailheads, groomer parking/shed, fuel
+  cabins, warming huts, marked trail lines) rather than empty white. If the underlying `buildTown`/lane layout
+  can't be fully regridded this pass without risking the town's working doors/lanes/plow routes, it's fine to
+  improve the chart's drawing/legend/detail first and leave a note here for a follow-up pass that reworks the
+  actual street layout into blocks. Judge with a Map-app screenshot over Kjøllefjord, zoomed in and out.
 - **13 Nov, Lemon: brakes should stop a riderless sled no matter which way it's moving.** Fall off (crash
   eject) and the sled should brake to a stop whether it was moving forward or backward at the moment you came
   off — not just forward. Likely root cause, found while checking the empty-fuel reverse-speed report above:
