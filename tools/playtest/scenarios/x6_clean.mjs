@@ -10,7 +10,7 @@
 //     all done = clean, one clean used; walking off mid-wipe stops it.
 //  G. pad L3 starts a sweep, a touch tap on the use button (STOP) stops it; the touch hint says "tap SWEEP".
 //  H. grit/dust/kit survive a reload; a save from before 6.1a starts every cabin clean.
-import { boot, reload, ev, tap, down, up, sleep, shot, done, padSet, padOff } from "../lib.mjs";
+import { boot, reload, ev, tap, down, up, sleep, shot, sideCam, camOff, done, padSet, padOff } from "../lib.mjs";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const clock = () => ev("gameClock");
@@ -38,8 +38,9 @@ const cid = await ev(`(() => { const a = TLX.staff.post({ id: "re:fjellbu", role
 const w = await ev(`TLX.staff.work("fjellbu")`);
 await pass(72); r = await R();
 ok(w > 0.9 && r.grit < 60 - 15 && r.dust < 40 - 20, `B: a caretaker (work ${w.toFixed(2)}) cleans: 3 days later grit ${r.grit.toFixed(1)}, dust ${r.dust.toFixed(1)}`);
-await ev(`TLX.state("staff").owed = 50; true`); const r0 = await R(); await pass(24); r = await R();
-ok(r.grit > r0.grit && (await ev(`TLX.staff.work("fjellbu")`)) === 0, `B: owed wages, they don't clean (grit ${r0.grit.toFixed(1)} -> ${r.grit.toFixed(1)})`);
+// (work is read in the same call as the day's passing: a Monday falling in that day pays the wages from cash the next frame)
+await ev(`TLX.state("staff").owed = 50; true`); const r0 = await R(); const wOwed = await ev(`(() => { for (let t = 0; t < 24; t += 2) { GS.hour += 2; TLX.staff.crewTick(); TLX.prop.step(); } return TLX.staff.work("fjellbu"); })()`); r = await R();
+ok(r.grit > r0.grit && wOwed === 0, `B: owed wages, they don't clean (grit ${r0.grit.toFixed(1)} -> ${r.grit.toFixed(1)})`);
 await ev(`TLX.state("staff").owed = 0; TLX.state("staff").crew = []; true`);
 await ev(`(() => { const r = TLX.prop.rec("fjellbu"); r.grit = 62; r.dust = 44; return true; })()`);
 
@@ -72,12 +73,24 @@ s = await U(); ok(s.sw && s.use === "STOP", "E: E starts sweeping (use reads STO
 await ev(`INT.px = -2.5; INT.pz = 0.3; FOOT.yaw = Math.PI / 2; true`);
 await down("KeyW"); const t0 = await clock(); let vmax = 0; while ((await clock()) - t0 < 1.4) { vmax = Math.max(vmax, await ev("FOOT.sp")); await sleep(60); } await up("KeyW");
 ok(vmax > 0.6 && vmax < 1.15, `E: held W while sweeping tops out at ${vmax.toFixed(2)} m/s (indoors 2.35)`);
-const pose = await J(`(() => { const h = TLX.prop.SW.hands, hd = TLX.prop.SW.head; const ax = h.end.clone().sub(h.top), L = ax.length(); ax.normalize(); const offL = p => { const o = p.clone().sub(h.top); return o.sub(ax.clone().multiplyScalar(o.dot(ax))).length(); }; const dl = Math.max(offL(h.lo), offL(h.hi));
-  const wx = INT.room.g.position.x + INT.px, wz = INT.room.g.position.z + INT.pz; return { dl, hy: hd.y, ahead: Math.hypot(hd.x - wx, hd.z - wz), hiY: h.hi.y, loY: h.lo.y, L, vis: true }; })()`);
+const poseAt = () => J(`(() => { const h = TLX.prop.SW.hands, hd = TLX.prop.SW.head; const ax = h.end.clone().sub(h.top), L = ax.length(); ax.normalize(); const offL = p => { const o = p.clone().sub(h.top); return o.sub(ax.clone().multiplyScalar(o.dot(ax))).length(); }; const dl = Math.max(offL(h.lo), offL(h.hi));
+  const along = p => p.clone().sub(h.end).dot(ax.clone().negate());
+  const wx = INT.room.g.position.x + INT.px, wz = INT.room.g.position.z + INT.pz; return { dl, hy: hd.y, ahead: Math.hypot(hd.x - wx, hd.z - wz), hiY: h.hi.y, loY: h.lo.y, L, kLo: along(h.lo), kHi: along(h.hi), topY: h.top.y - (INT.py || 0), side: (hd.x - wx) * Math.cos(FOOT.yaw) - (hd.z - wz) * Math.sin(FOOT.yaw) }; })()`);
+// a whole stroke and more (0.85 Hz), standing still: the worst of every frame sampled (beta 0186 #1: one frame used to pass or fail by luck)
+const P = []; for (let i = 0; i < 28; i++) { P.push(await poseAt()); await sleep(70); }
+const mx = k => Math.max(...P.map(p => p[k])), mn = k => Math.min(...P.map(p => p[k]));
+const pose = { dl: mx("dl"), ahead: P[0].ahead, L: mx("L"), Lmin: mn("L"), gap: Math.min(...P.map(p => p.kHi - p.kLo)), kHi: mx("kHi"), kLo: mn("kLo"), topY: mx("topY"), swing: mx("side") - mn("side"), hyOff: Math.max(...P.map(p => Math.abs(p.hy - (P[0].hy)))), hy: P[0].hy, up: P.every(p => p.hiY > p.loY) };
 console.log("E pose", JSON.stringify(pose));
-ok(pose.dl < 0.04 && pose.hiY > pose.loY && Math.abs(pose.hy - 0.11) < 0.02 && pose.ahead > 0.35 && pose.ahead < 1.4 && pose.L > 0.9 && pose.L < 1.75,
-  `E: both mitts on the shaft (worst ${pose.dl.toFixed(3)} m off it), the head on the floor ${pose.ahead.toFixed(2)} m ahead, shaft ${pose.L.toFixed(2)} m`);
+ok(pose.dl < 0.04 && pose.up && pose.hyOff < 0.02 && mn("ahead") > 0.35 && mx("ahead") < 1.4,
+  `E: over a whole stroke both mitts stay on the shaft (worst ${pose.dl.toFixed(3)} m off it), top hand above the low one, the head on the floor ${mn("ahead").toFixed(2)}-${mx("ahead").toFixed(2)} m ahead`);
+ok(pose.L - pose.Lmin < 0.005 && pose.L > 1.3 && pose.L < 1.6 && pose.kHi < pose.L - 0.02 && pose.kLo > 0.3 && pose.gap > 0.2 && pose.topY < 1.75,
+  `E: the broom is one length, ${pose.Lmin.toFixed(2)}-${pose.L.toFixed(2)} m (a yard broom), hands ${pose.kLo.toFixed(2)}-${pose.kHi.toFixed(2)} m up it and never closer than ${pose.gap.toFixed(2)} m, its top ${pose.topY.toFixed(2)} m off the floor`);
+ok(pose.swing > 0.3, `E: the head swings ${pose.swing.toFixed(2)} m side to side`);
 await shot("x6e_sweep");
+// beta 0186 #2: from behind the body hides the broom, so judge the pose side-on and from the front quarter too
+const swT = "[INT.room.g.position.x + INT.px, (INT.py || 0) + 0.9, INT.room.g.position.z + INT.pz]";
+await sideCam(swT, 2.0, 0.4); await shot("x6e_side"); await sleep(300); await shot("x6e_side2");
+await sideCam(swT, 2.1, 0.5, 0.6); await shot("x6e_front"); await camOff(); await sleep(200);
 // walk the floor in rows (the walker set along each row so the broom sees every cell)
 const g0 = (await R()).grit;
 // rows over the open floor (the free cells), each walked broom-first; never into the way-out ring

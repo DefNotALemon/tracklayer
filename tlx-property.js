@@ -191,7 +191,7 @@ function dustTick(dt) {
 }
 
 // ---- the poses: contacts carry the tool (both hands on the broom, its head on the floor; a cloth in the hand) ----
-const V = {};
+const V = {}, BROOM_L = 1.45;                                                       // a yard broom, head to the end of the shaft (m)
 function tools() {
   if (broom) return;
   const T = api.THREE, wood = api.mesh.std(0x9a7448, 0.8), bri = api.mesh.std(0xb8913a, 1), band = api.mesh.std(0x2c3e5a, 0.7);
@@ -214,11 +214,10 @@ function armTo(U, i, wp) {
   const al = Math.acos(clamp((L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), -1, 1)), be = Math.PI - Math.acos(clamp((L1 * L1 + L2 * L2 - D * D) / (2 * L1 * L2), -1, 1));
   a.rotation.set(th + al, ph, 0); f.rotation.set(-be, 0, 0);
 }
-// where on the shaft (from p0 along unit d) a hand at the shoulder s reaches with reach r: the nearer-the-head crossing
-function gripOn(p0, d, s, r, far) {
-  const m = V.f.copy(p0).sub(s), bq = m.dot(d), cq = m.lengthSq() - r * r, disc = bq * bq - cq;
-  const k = disc >= 0 ? (far ? -bq + Math.sqrt(disc) : -bq - Math.sqrt(disc)) : -bq;
-  return k;
+// the stretch of the shaft [near, far] (m from p0 along d) within reach r of the shoulder s; out of reach: the closest point twice
+function reachOn(p0, d, s, r) {
+  const m = V.f.copy(p0).sub(s), bq = m.dot(d), disc = bq * bq - (m.lengthSq() - r * r), q = disc > 0 ? Math.sqrt(disc) : 0;
+  return [-bq - q, -bq + q];
 }
 function poseSweep() {
   const g = api.FOOT.g; if (!g) return; tools();
@@ -235,12 +234,19 @@ function poseSweep() {
   const d = V.c.copy(chest).sub(end).normalize();                                  // head -> up the shaft
   const sR = U.torso.localToWorld(V.d.set(U.arms[0].position.x, U.arms[0].position.y, U.arms[0].position.z)).clone();
   const sL = U.torso.localToWorld(V.d.set(U.arms[1].position.x, U.arms[1].position.y, U.arms[1].position.z)).clone();
-  const kLo = gripOn(end, d, sR, 0.45, false), kHi = Math.max(kLo + 0.3, gripOn(end, d, sL, 0.34, true));
+  // a broom is one length (BROOM_L): the top hand holds it near the top wherever its arm reaches the shaft, the low
+  // hand a forearm or more below it. (Beta 0186 #1: the shaft used to end 14 cm above the top hand's FAR reach, so
+  // it stretched from 1.5 to 1.9 m and back with every stroke.)
+  // Each arm reaches a stretch of the shaft (reachOn); the hands go where both stretches allow, a forearm apart.
+  const rL = reachOn(end, d, sL, 0.45), rR = reachOn(end, d, sR, 0.46), topMax = Math.min(rL[1], BROOM_L - 0.04);
+  let kHi = clamp(BROOM_L - 0.1, rL[0], topMax);
+  const kLo = clamp(kHi - 0.36, rR[0], Math.min(rR[1], kHi - 0.1));
+  if (kHi - kLo < 0.32) kHi = clamp(kLo + 0.32, rL[0], topMax);                    /* the low arm can't get that far down: the top hand slides up */
   const lo = end.clone().addScaledVector(d, kLo), hi = end.clone().addScaledVector(d, kHi);
   armTo(U, 0, lo); armTo(U, 1, hi);
   g.updateMatrixWorld(true);
   const loH = U.fore[0].localToWorld(V.e.set(0, -0.24, 0.01)).clone(), hiH = U.fore[1].localToWorld(V.e.set(0, -0.24, 0.01)).clone();
-  const top = end.clone().addScaledVector(d, kHi + 0.14), len = top.distanceTo(end);
+  const top = end.clone().addScaledVector(d, BROOM_L), len = BROOM_L;
   // the broom group stands at the head end, +y up the shaft
   const sh = broom.userData.shaft; sh.scale.y = len; sh.position.y = len / 2;
   broom.position.copy(end); broom.quaternion.setFromUnitVectors(UP(), d);
