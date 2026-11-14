@@ -44,6 +44,29 @@ Open (defaults built): the station pays about $350 a week before 6.2's lamp stip
 six weeks": 6.2 should set the stipend so lamp + lets get there. No upgrades or fuel cache at the station.
 Next for lane B: 6.2 (the lamp: oil tank, drums hauled from town, Lights app, Monday stipend; two smaller lights via
 `addListing`).
+## 2026-11-14 — beta fixes 0190 #1 + 0192 #1: no shot under Settings, the pack stays at 120 (lane D) (G4) — c3b0775
+Builder pass, lane D. Two BUGs on lane D's rifle from reports 0190 and 0192, both in tlx-guns.js (v4), fixed together;
+tracklayer.js untouched, so no script bump. LOOP.md's "Last triaged" counter is lane A's, left alone.
+0190 #1 (E fires with Settings open): the keyboard's use key reaches `footAction` under Settings, so the rifle checks
+for itself. New `menuUp()` (Settings, the garage, the god panel, the death card): `fire()` and `toggle()` return false
+under one, and `aimTick` slings the rifle when one comes up (as the tablet already did).
+0192 #1 (pack over 120, surplus lost on reload): `fit()` now works out the new magazine's capacity BEFORE fitting; if the
+spare rounds don't fit under `AMMO.max` it refuses with a toast and changes nothing. `loadAmmo()` trades: the rounds over
+the limit go into the magazine from the new load as the old ones come out (pack ends at exactly 120); with too few of the
+new load to trade it refuses with a toast. `buyPart()` returns true when it took the money even if the part couldn't go
+on, so the shop card redraws as Owned.
+Numbers (`x11_gunfix.mjs`, 25 asserts): pack 60 sp + 60 match, 10 in the 10-round magazine, fit the 3-round box: before
+127 in the pack (0192), now refused, 120 + 10 unchanged, "the pack's too full (120 of 120) for the 7 rounds left over".
+Pack 110: 117 + 3. Pack 113: exactly 120. Change of load at 120 + 10: pack 70 sp + 50 match = 120, 10 match in the
+magazine (before: 130). At 117 + 10: 7 traded. At 118 sp + 2 match: refused. Reload: 120 + 10 -> 120 + 10 (before: 7-10
+rounds gone). Settings up while shouldered + E: rounds 10 -> 10 (before 3 -> 2 in 0190), rifle slung, sight off, walker
+back; L does nothing under Settings; shut it and L shoulders, E fires 10 -> 9.
+Gate: smoke, x1_save, x11_gunfix, x11_ammo, x11_hunt, x11_wheel, x11_wheel_break2, x11_gunshop and the tester's
+x11_ammo_break (its A and B now pass) all exit 0, page errors none. x11_ammo gave "exit 3, fails 0" once inside the gate
+with other lanes' Chromes running and passed alone straight after (harness flake under load, not an assert).
+Not done: 0190 #2 (POLISH, fov 60 vs 58 after a reload) and #3 (the tester's crash steps were a scenario fault; its
+`x11_hunt_break.mjs` was never committed, so the Settings step is rebuilt in x11_gunfix). Next for lane D: 11.1c the
+rifle seen on you, then 11.4.
 
 ## 2026-11-14 — 3.5b1 the tractor unit you buy and drive (lane A) (G4) — 8d9b8f3
 Builder pass, lane A. Triage 183-192: no BLOCKER or BUG for lane A. 0183 / 0185 / 0187 (town grid, base game) are POLISH
