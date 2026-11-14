@@ -1,5 +1,5 @@
-# 0186 — Map chart vs the redone Kjøllefjord street grid (v229) beta (base game) — main @ 45e2458
-Scenario: g3_mapchart_grid_v229.mjs (new)   Shots: ~/.hermes/cache/scratch/tlloop/reports/0186.jpg
+# 0187 — Map chart vs the redone Kjøllefjord street grid (v229) beta (base game) — main @ 45e2458
+Scenario: g3_mapchart_grid_v229.mjs (new)   Shots: ~/.hermes/cache/scratch/tlloop/reports/0187.jpg
 Why this part: the chart (v220) predates the town redo (v226); nobody had checked the two together.
 
 ## Findings (most important first)
