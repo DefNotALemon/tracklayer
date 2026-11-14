@@ -10834,7 +10834,7 @@ const RE = { away: 120, here: null, sync: 0 };
 const reCab = id => RE_CABINS.find(c => c.id === id);
 const reOwned = () => RE_CABINS.filter(c => GS.re && GS.re.own[c.id]);
 const reNight = c => { const o = GS.re.own[c.id] || { up: {} }; return c.rent + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.rent : 0), 0); };
-const reOcc = c => { const o = GS.re.own[c.id] || { up: {} }; return clamp(0.52 + (CAL.isPolarNight() ? 0.12 : 0) + (AUR.v > 0.35 ? 0.06 : 0) + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.occ : 0), 0) + (window.TLX && TLX.staff ? TLX.staff.occ(c.id) : 0), 0.15, 0.95); };   // + a caretaker (tlx-staff.js, 5.1)
+const reOcc = c => { const o = GS.re.own[c.id] || { up: {} }; return clamp(0.52 + (CAL.isPolarNight() ? 0.12 : 0) + (AUR.v > 0.35 ? 0.06 : 0) + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.occ : 0), 0) + (window.TLX && TLX.staff ? TLX.staff.occ(c.id) : 0) + (window.TLX && TLX.prop ? TLX.prop.occ(c.id) : 0), 0.15, 0.95); };   // + a caretaker (tlx-staff.js, 5.1), + clean or dirty (tlx-property.js, 6.1a)
 function reInit(d) {
   GS.re = d && typeof d === "object" ? { own: Object.assign({}, d.own || {}), arrears: +d.arrears || 0, last: Array.isArray(d.last) ? d.last.slice(0, 4) : [] } : { own: {}, arrears: 0, last: [] };
   for (const id in GS.re.own) { if (!reCab(id)) { delete GS.re.own[id]; continue; } GS.re.own[id] = Object.assign({ up: {}, acc: 0, nights: 0, rented: 0, L: 0 }, GS.re.own[id]); }
@@ -11365,7 +11365,7 @@ function intDoorAt(x, z, r) {
 }
 /* ---- the prompts ---- */
 function intDoorHint() {
-  if (INT.on) { const xh = INT.cab.hint && INT.cab.hint(); if (xh) return xh; return `${INT.cab.id === "sauna" ? "The sauna" : INT.cab.build ? INT.cab.name : shortName(INT.cab)} · walk into the doorway to go out`; }
+  if (INT.on) { const xh = INT.cab.hint && INT.cab.hint(); if (xh) return xh; const fx = footXUse(); if (fx) return fx.hint() + " · walk into the doorway to go out"; return `${INT.cab.id === "sauna" ? "The sauna" : INT.cab.build ? INT.cab.name : shortName(INT.cab)} · walk into the doorway to go out`; }
   if (!FOOT.on || INT.cd > 0) return "";
   if (intDoorAt(FOOT.x, FOOT.z)) return "Stepping in…";
   const b = intDoorNear(FOOT.x, FOOT.z); if (!b) return "";
@@ -11447,7 +11447,7 @@ function intDirty(id) {
 function intStep(dt) {
   const F = FOOT, R = INT.room, lim = 0.34;
   F.yaw += -F.turn * 2.4 * dt;
-  const tgt = F.fwd > 0 ? 2.35 * F.fwd : F.fwd < 0 ? -1.5 * F.fwd : 0;
+  const tgt = (F.fwd > 0 ? 2.35 * F.fwd : F.fwd < 0 ? -1.5 * F.fwd : 0) * (INT.slow === undefined ? 1 : INT.slow);   // INT.slow: sweeping (tlx-property.js)
   F.sp += (tgt - F.sp) * (1 - Math.exp(-6 * dt));
   const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw);
   let nx = INT.px + fx * F.sp * dt, nz = INT.pz + fz * F.sp * dt;
@@ -11579,10 +11579,12 @@ TABLET.register({
         h += tabCard({ tf: "reo:" + c.id, mini: mini(c), title: shortName(c), chips: chip("FUEL CACHE", "ok") + ups.map(u => chip(u.id === "insul" ? "INSULATED" : u.id.toUpperCase())).join(""),
           meta: `${fmtCash(reNight(c))} a night · about ${Math.round(reOcc(c) * 100)}% let · ${fmtMi(Math.hypot(c.x - P.x, c.z - P.z))} from you`,
           note: `This week: ${o.rented} of ${o.nights} nights let, ${fmtCash(o.acc)} in rent; ${o.L.toFixed(0)} L out of the cache (${fmtCash(RE_FUEL.standing + o.L * RE_FUEL.perL)} on Monday's bill).${Math.hypot(c.x - P.x, c.z - P.z) < RE.away ? " You're here, so nobody's renting it tonight." : ""}` });
+        if (window.TLX && TLX.prop) h += TLX.prop.reRow(c.id);                                          // dust and grit (tlx-property.js, 6.1a)
         const todo = RE_UPS.filter(u => !o.up[u.id]);
         if (todo.length) h += `<div class="tsml2">${todo.map(u => `<div class="tsm2 treup" data-tf="reu:${c.id}:${u.id}"><b>+${fmtCash(u.rent)}</b><span>${tabEsc(u.name)} <i class="tcn">${tabEsc(u.note)}</i></span><button type="button" class="tbtn ghost${GS.cash < u.cost ? " blocked" : ""}" data-reu="${c.id}:${u.id}">${fmtCash(u.cost)}</button></div>`).join("")}</div>`;
       }
     }
+    if (own.length && window.TLX && TLX.prop) h += TLX.prop.kitRow();
     if (GS.re.last.length) {
       h += sec("Statements", "");
       h += `<div class="tsml2">${GS.re.last.map(s => `<div class="tsm2"><b>${tabEsc(s.d)}</b><span>Rent +${fmtCash(s.rent)} · ${s.rented}/${s.nights} nights · cache −${fmtCash(s.bill)} (${s.L} L)</span>${s.arrears ? chip("OWING " + fmtCash(s.arrears), "due") : chip("PAID", "ok")}</div>`).join("")}</div>`;
@@ -11599,6 +11601,7 @@ TABLET.register({
     for (const b of el.querySelectorAll("[data-act^=rebuy]")) b.addEventListener("click", () => reBuy(b.dataset.act.split(":")[1]));
     for (const b of el.querySelectorAll("[data-act=rearr]")) b.addEventListener("click", rePayArrears);
     for (const b of el.querySelectorAll("[data-reu]")) b.addEventListener("click", () => { const [a, u] = b.dataset.reu.split(":"); reUpgrade(a, u); });
+    if (window.TLX && TLX.prop) TLX.prop.wire(el);
     tabMinis(el);
   }
 });

@@ -190,12 +190,18 @@ auger in Fjellbu, a long table for six in Viddastua, two tiers of benches round 
 soapstone stove and triple glazing show once you've bought them. The camera follows close over your shoulder and a wall
 lifts out of the way when it has to back through it. Walk back into the lit ring at the door to go out. You can look
 round a cabin before you buy it.
+Depots get dirty. Guests track grit across the floor on the nights they're let, and dust settles on everything; a
+dirty cabin is let less often (a clean one a little more), and the app shows each depot's floor and shelves. A
+caretaker (see Staff) cleans every day, as hard as they work. Or do it yourself: buy a **cleaning kit** in the Real
+Estate app (eight cleans), walk into the cabin and use it. **Sweep** puts a broom in both hands and slows you to a
+sweeping pace: walk the floor and the grit comes up where the broom goes. **Dust** works facing a piece of furniture
+up close: you stand and wipe it down, one piece at a time. A swept floor or a dusted cabin uses one clean from the kit.
 
 **Staff** (on the tablet once you have Real Estate) is where you hire people. Every depot cabin you own needs a
 caretaker, and people from the villages apply for the job: each card shows their name, where they're from, the weekly
 wage they want and how many years they say they've done it. That's their word: some oversell, and how hard someone
 works only shows once they're on the job. Applicants wait a few days for an answer, then withdraw; new ones come in
-while the job is open. A caretaker keeps the cabin aired, warm and booked, so it's let more nights. Wages come out
+while the job is open. A caretaker keeps the cabin aired, warm, clean and booked, so it's let more nights. Wages come out
 every Monday (part of a week for someone who started midweek). If you can't cover them the rest is owed, and nobody
 works until you pay it from the app. You can let someone go once you've paid what you owe.
 INTERVIEW an applicant first and it opens a chat: ask about their experience, what they'd do when the stove won't

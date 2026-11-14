@@ -40,7 +40,7 @@
 "use strict";
 // ---- tunables ----
 const ROLES = {
-  caretaker: { name: "Caretaker", wage: [30, 3.2], blurb: "keeps the cabin aired, warm and booked", occ: [0.03, 0.0055, 0.12] }   // wage: base + per year; occ: base + per real year, cap
+  caretaker: { name: "Caretaker", wage: [30, 3.2], blurb: "keeps the cabin aired, warm, clean and booked", occ: [0.03, 0.0055, 0.12] }   // wage: base + per year; occ: base + per real year, cap
 };
 const POST_DAYS = [2, 5];          // game days an applicant waits for an answer
 const NEXT_H = [6, 20];            // game hours between new applicants while a vacancy is open
@@ -474,6 +474,8 @@ TLX.register({
   }
 });
 TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = s.crew.find(q => q.place === "re:" + cabId); return m ? occOf(m) : 0; },
+  // how hard the caretaker at a cabin works (their work trait x happiness factor; 0 while owed): their cleaning (6.1a)
+  work: cabId => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === "re:" + cabId); return m ? m.tr.work * perfOf(m) : 0; },
   places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant,
   praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };
