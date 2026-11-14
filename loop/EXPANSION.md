@@ -18,7 +18,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; next: 11.1b (carry, fire, hunt the wildlife), then 11.2 wheel |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); next: 14.2b (sea jobs), then 0178 #2/#3 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; next: 14.3 (open-water fishing), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -634,7 +634,7 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         init (run first in the vehicles init, so a reload straight into the boat works), runtime, driver, tick, reset,
         dist, tab. Not done: no mooring lines; the walker's sled hint/pin shows "B" on the Map only; the ferry ignores
         the skiff (no collision); the boat isn't in Bytteboden's used market.
-  - [ ] 14.2 Docks at every village harbour (same jetty, sited by the same low-shore search) and water deliveries:
+  - [x] 14.2 Docks at every village harbour (same jetty, sited by the same low-shore search) and water deliveries:
         parcels for a coastal site hand over at its dock; a few sea jobs on the board for skiff owners; Jobs row.
         Split (lane C, 14 Nov) into:
     - [x] 14.2a (v228, tlx-boats v2) Village jetties and handing over at a jetty. At boot every village and the lighthouse gets the same
@@ -656,8 +656,25 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
           way to get a boat there (a boat trailer behind the pickup, 14.4/14.5) or for 16's streaming. Beta 0178 #1
           fixed in the same landing: the game's drown test skips P while the current vehicle `floats` (a storm at speed
           dipped the hull to -0.41 m and called the sea rescue).
-    - [ ] 14.2b Sea jobs on the board for skiff owners (coastal pairs, better pay per km than the sled run when the
-          road is shut), a "by boat" Jobs row tag, the warmth of a village when tied up at its jetty.
+    - [x] 14.2b (v230, tlx-boats v3) Sea jobs on the board for skiff owners, a BY BOAT tag, the warmth of a village when
+          tied up at its jetty. Design (lane C, 14 Nov): a sea job is an ordinary parcel with `j.sea` (so pay, fragile
+          knocks, the Jobs row, the compass and the hand-over are the game's own), `from` and `dest` both places with a
+          jetty. tlx-boats.js posts them from its tick once a skiff is owned: up to 2 on the board, 90 game s between
+          postings, the first from the jetty nearest the boat, never the same pair twice, at most a boatful (4) posted
+          plus claimed. The board is rebuilt wholesale by the game (new day, roaming drop-off, ferry freight), so
+          untaken sea jobs are remembered and put back; `tabWork` refills the ordinary board when only sea jobs are
+          left on it. Boat only: taking one is always a claim (its own cap of 4, not the sled rack's), and
+          `collectClaims` / `deliver` skip `j.sea` unless the current vehicle floats (`afloat()`), so it loads and hands
+          over only through `dockWork` alongside a jetty. Pay = (45 + 130 per sea km) x cargo, x1.35 when
+          `TLXR.tripWarn(from, dest)` names a snowed-in or winter-shut road at posting (`j.shut`, chip ROAD SHUT +35%).
+          Sea km: a 4-connected count over the quay's sea flood fill from jetty to jetty, x0.8 for the diagonals, never
+          under the crow's line (`TLXB.seaKm`). `VEH.cur.shore()` = the site whose jetty the boat is tied up at (seated
+          alongside, or stood on its planks with her moored there): the warmth tick treats it as a village, and the
+          quay jetty also fills the tank like the quay. In the boat the compass no longer appends road warnings.
+          As built (x14_seajobs): quay-Dyfjord 2.1 km, quay-Lebesby 5.8, quay-Ifjord 8.2, Lebesby-Ifjord 3.3 by sea;
+          quay to Ifjord pays $1,420 with the Ifjordfjellet road shut for the winter ($1,065 open). Not done: sea jobs
+          are not saved while posted or claimed (no parcel is); a sea parcel cannot be moved from the boat to a truck;
+          on foot on the planks the compass still gives no cue (0182 #2).
   - [ ] 14.3 Open-water fishing from the boat (jig and handline; the Fiskemottak buys; reuses icefish.js's catch).
   - [ ] 14.4 Boats app (your boats, fuel, where they're moored, a tow home for a fee) and the boatyard at the quay
         (hull repairs, condition from groundings, winter haul-out).

@@ -3,6 +3,39 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 14.2b sea jobs BY BOAT, a jetty's warmth, the quay jetty's fuel (lane C) (G4) — c13d125
+Builder pass, lane C. Read Playtest 0182 (14.2a): three POLISH, no BLOCKER/BUG (#1 bow digs to -0.5 m in a full storm,
+#2 a walker on the planks with a parcel gets no "bring the boat" cue, #3 is a confirmation), so the pass took the next
+slice, 14.2b; its design is written into EXPANSION 14.2b. LOOP.md's "Last triaged" counter is lane A's, left alone.
+tlx-boats.js v3: `seaBoard` (from the first boat's tick) posts up to 2 sea jobs (`j.sea`, ordinary parcels between two
+places with a jetty), 90 game s apart, the first from the jetty nearest the boat; untaken ones are remembered and put back
+when the game rebuilds the board. `seaKm` = a 4-connected count over the quay's sea flood fill, x0.8, never under the
+crow's line. Pay (45 + 130/sea km) x cargo, x1.35 when `TLXR.tripWarn(from, dest)` names a shut road at posting.
+`driver.shore()` = the site whose jetty she is tied up at.
+tracklayer.js (bridges only): `afloat()` / `seaAt()`; `takeParcel` makes a sea job a claim with its own cap of 4;
+`collectClaims` and `deliver` skip `j.sea` unless afloat; `claimSmall` ignores sea claims; `parcelChips` BY BOAT and
+ROAD SHUT +35%; sea rows in `pbRows` and `jobsList`; `tabWork` refills the ordinary board when only sea jobs are left;
+the warmth tick treats `VEH.cur.shore()` as a village and the quay jetty as the quay's free fuel; no road note on the
+compass while in the boat.
+Numbers (`x14_seajobs.mjs`, 30 asserts): no sea job without a boat; one posted within 10 game s of buying, from the quay
+jetty. By sea: quay-Dyfjord 2.06 km (crow 1.87), quay-Lebesby 5.84 (2.72), quay-Ifjord 8.17 (4.29), Lebesby-Ifjord 3.25
+(2.27), same both ways. Quay -> Ifjord, coils of longline: $1,420 with "Ifjordfjellet road shut for the winter" ($173/km;
+a sled parcel is about $120/km plus climb). CLAIM button -> claimed, toast names the quay jetty; stopped at the quay on
+the sled 3 game s: still claimed, not loaded; Jobs row "waiting on the quay jetty for the boat", compass "it goes by
+boat". In the boat alongside: loaded. Tied up at the quay jetty 2.5 game s: warmth 50 -> 80.6, fuel 6 -> 21.3 of 25 L;
+80 m off: warmth falls, freight aboard; at the Ifjord jetty: cash 1400 -> 2820, then warmth 40 -> 71.8 tied up there.
+deliver()/collectClaims() with no floating vehicle leave a sea parcel/pickup alone. Open road $1,025 on a base of
+$1,030, snowed in $1,085 on a base of $799 (x1.36) with the chip. Sea claims stop at 4. Board with only sea jobs left
+refills with 3 ordinary parcels; a rebuilt board gets its sea job back.
+Stills `~/.hermes/cache/scratch/tlloop/c142b/r1/` (Parcels card with both chips and the "Goes by boat" note, the
+skiff tied up at Ifjord's jetty): clean. Seen in the second still, not this slice's: the base game's backhaul toast
+reads "reindeer hides for the boat for the boat" (BACKHAUL entry + the toast's own suffix): lane A's, POLISH.
+Gate (rebased twice: lane B took v229, so script v230; smoke and x14_seajobs re-run after it; scenarios run one per call, the 5-scenario gate outran the tool limit): smoke,
+x1_save, x14_seajobs, x14_docks, x14_skiff all exit 0, page errors none (x14_skiff's first run died at boot with 8
+other headless Chromes up, "title menu never appeared"; clean on the re-run alone).
+Not done: sea jobs are session state like every posted/claimed parcel; no pad/touch-specific assert (no new control
+prompt: the claim is the board's existing CLAIM button, clicked in the test). Next for lane C: 14.3 open-water fishing.
+
 ## 2026-11-14 — 6.1a dust and grit, sweeping and dusting, cleaning kits (lane B) (G4) — 55257b6
 Builder pass, lane B. New report 0180 (5.3 beta) has only POLISH findings (raise has no cap/undo, a raise request
 doesn't reach fair pay, LET GO first in the button row with no confirm, clock-back talk gate), so milestone 6 started:
