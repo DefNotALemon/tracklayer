@@ -286,10 +286,10 @@ Sprint 77–96, Summit 124–133, Trekker 172–182, Apex 250–258, Matriarch 4
 cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
-- [ ] G3 (OWNER, top): riderless sled brake only decelerates forward motion, accelerates backward drift instead of stopping it — see Owner notes 13 Nov (sign-aware brake fix), likely same root cause as the reverse-on-empty-fuel item above.
+- [x] G3 (OWNER, top, fixed v223, beta 0170 #1): riderless sled brake only decelerates forward motion, accelerates backward drift instead of stopping it — see Owner notes 13 Nov (sign-aware brake fix), likely same root cause as the reverse-on-empty-fuel item above.
 - [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
 - [ ] G3 (OWNER, top): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov.
-- [ ] G3 (OWNER, top): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
+- [x] G3 (OWNER, top, fixed v223: on the flat it was the same brake term; holding the brake on an empty tank while rolling back 4 m/s went to 28 m/s, now stops in <1 s. Downhill sliding with no engine is left as physics): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
 - [ ] G4 (builder 3.4b2a, BUG in a test or the drivers): `x3_traffic.mjs` step D fails on origin/main too: the car "stopped
       312.6 m short of the drift" (reported why "shut", s 1578) instead of ~22 m. Either the planted drift isn't the stretch the
       driver reads as shut (TLXR seg.shut vs the step's spot) or stopAhead sees an earlier shut segment; check before trusting D.
@@ -613,4 +613,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 (POLISH, 0167 #1/#2, 0164 #5): owners-out re-rolls on reload (seed it from the day if wanted); a homing car
       waits for you forever within 120 m with no cue; car beams burn all polar-night day (keyed off dayFactor).
 
-Last triaged report: 168
+Last triaged report: 174

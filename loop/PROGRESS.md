@@ -3,6 +3,23 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 02:00 — sign-aware brake: riderless sled no longer runs away backwards (beta 0170 #1 + Owner 13 Nov, lane A BUG) (G4) — aebf9af
+Builder pass, lane A. Triage 169-174: 0170 #1 BUG = this (also the 13 Nov Owner note and the "empty tank gains speed
+in reverse" Owner item, same cause on the flat); 0170 #2 (g2_rocks crawl case never reaches the stone) test-only,
+dropped; 0171 #1-#3, 0172 #1-#3, 0174 #4 POLISH (night chart paper, closest-zoom town layer, whole-map tick spikes,
+on-foot camera height) not queued; 0169/0173 (lane B staff) no BLOCKER/BUG. Last triaged 168 -> 174. Next for lane A:
+0168 #1 (App Store strip focus off-screen), then 3.5 semis.
+Cause: the plain brake term in physCore was `F -= (vf > 0.6 ? 4200 : 1100) * brk`: always a push toward -forward. A
+crash forces brk = 1 (and `rev` already excluded CRASH.on), so a riderless sled at or below 0.6 m/s forward, or
+drifting back, was "braked" harder backwards (~1100 N / 280 kg ≈ 4 m/s² until drag balanced). Same branch runs with a
+rider on an empty tank (rev needs fuel). Fix: the brake opposes the sign of vf and is clamped so it can't carry the
+sled past a stop (`min(force, |vf| * M / dt)`); forward braking above 0.6 m/s unchanged.
+Numbers (`scenarios/g3_riderless_brake.mjs`, 8 game s after each event, flat ground), origin/main -> this:
+eject at 12 m/s fwd: 14.8 m/s at +8 s, 55 m away -> 0.0, 5.9 m; eject at 6 m/s back: 21.0 -> 0.0 (114 m -> 1.5 m);
+3 m/s back: 18.0 -> 0.0; rock 18 m/s: 17.5 m/s, 78 m from the stone -> 0.0, 0.3 m; rock 22 m/s: 71 m -> 0.2 m;
+empty tank, S held, rolling back 4 m/s: peak 28 m/s -> stopped in <1 s.
+Gate: smoke, x1_save, g3_riderless_brake, g2_rocks all exit 0, page errors none.
+
 ## 2026-11-14 — 5.1 Staff app: applicants, expiry, hire (lane B) (G4) — 979496c
 Builder pass, lane B (first pass on milestone 5; no beta reports on lane B systems yet). Design written into
 EXPANSION.md 5.1 first. New `tlx-staff.js` (saved `x.sys.staff`): applicants apply for a vacancy = an owned depot
