@@ -37,6 +37,32 @@ Numbers (`g7_appstore_strip.mjs`, before on origin/main -> after): desktop strip
 (Real Estate 702-1032 and Rescue 1044-1374 px off a 975 px window) -> 18 / 417 / 417, all in view; phone 390x844 stayed
 12 -> follows each card (273, 534, 728); keyboard, pad d-pad and phone all pass both ways; Enter opens the focused card.
 Gate: smoke, x1_save, g7_appstore_strip, g7_appstore_detail pass (re-run after rebase onto v225).
+## 2026-11-14 — Kjøllefjord's physical 3D town redo: street grid, lots, snowmobile trailhead (Owner 14 Nov, PHYSICAL 3D town) — script v226
+Ad hoc session build (not a loop pass). The old town was twelve cabins at hand-picked offsets with random yaws, a spoke of
+A* lanes from the depot, and the store/church/fish shop dropped wherever. Now `townBlocks()` (called from `buildTown`, replaces
+the `lots` table, the store, the church and the eight scattered lamps) lays out THREE plowed E-W streets (z = -36, 12, 60 from the
+depot; the middle one, Kaigata, runs out to the pier) crossed by FOUR N-S ones (x = -42, 2, 48, 84; x = 2 is the depot's, the sled
+spawns facing down it). Houses stand in regular lots (13 m pitch) in four rows, gable to the street (yaw exactly 0/pi, door
+on the street, apron touching the street lane), back to back round 6 m back alleys: each lot line carries a picket fence (one
+merged mesh town-wide, thin colliders), each house a shed + woodpile in its back yard, a mailbox at the street, a porch lamp and
+(70%) a string of fairy lights; street lamps on every other lot line and every other junction. Obstacles already in obGrid
+(depot, garage, pier) just veto a lot; ~14% of lots stay empty on purpose. The store sits on Kaigata's south side, the church
+closes the south end facing the junction, one Kaigata lot is reserved for Fisk & Friluft (`TOWNG.fish`; `buildFishShops`
+uses it, so the shop can't be crowded out). `buildLanes()` no longer routes every door to the depot: each house's short spur
+(apron -> street, `D.grid`) is plowed with the house; only a lit door the grid didn't place gets an A* lane from the nearest
+street point. Streets + spurs go into `TOWNL`, so the tablet chart draws the real grid; `KIT.foot`/`KIT.doors` are untouched
+(26 in-town doors, 29 footprints, was 14 + the fish shop). `tlx-cars.js` (v6) won't park a car within 4.6 m of a street line
+(`api.townStreetNear`) so cars stand in the yards, not the lane. OUTSKIRTS, `sledCountry()`: east of the last street, a plowed sled
+park with a log rail and six sleds nosed in + block-heater posts, a groomer shed (roll door, LØYPELAGET board) with a piste
+groomer parked beside it, a warming hut (lit, stove smoke, bench, woodpile, VARMESTUE board), a jerry-can/drum stand, the
+SKUTERLØYPE trailhead arch over a groomed trail lane, a LØYPEKART board and orange snow stakes running off east. Fuel itself
+stays the depot cabin's. Not done / follow-up: the old core quay-side stays as it was (pier, freight shed, racks, garage, depot
+pen are not regridded); the grid is axis-aligned, so the diagonal shore side has no houses; no snow banks along the streets;
+the streets are plowed lanes, not a painted road surface. Scenarios: new `town3d_check.mjs` (door reachability by flood fill over
+plowed ground, streets + every in-town lane leg clear of obstacles, aprons on their streets, spawn lane clear) and
+`town3d_shots.mjs` (overhead straight down, street-level, sled country; `NIGHT=21.5` for the lit town); `g1_lanes.mjs`
+rewritten for the grid (its old lot table was the removed offsets). Gate: smoke, x1_save, x10_store (Sport & Vinter still finds a
+door), g1_lanes, town3d_check, node --check. Draw calls at the depot view ~ +320 (1375 -> ~1690).
 
 ## 2026-11-14 — 10.2 the winter store, Sport & Vinter (lane D) (G4) — 6d30e88
 Builder pass, lane D. No beta reports on lane D systems. Built 10.2 (design was in EXPANSION.md). Note: LOOP.md Owner

@@ -11891,7 +11891,7 @@ function townBlocks() {
     const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3);
     for (let i = 0; i <= n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; G.pts.push([x, z]); townClearTrees(x, z, HW + 0.6); }
   }
-  { const lr = [[d0.x - 5, d0.z + 3], [d0.x + G.X[1], d0.z + 3]]; addLane(lr, 1.5); TOWNL.push(lr); }   // the depot yard to its street, 2 m past the post by the sled spawn
+  { const lr = [[d0.x - 5, d0.z + 7], [d0.x + G.X[1], d0.z + 7]]; addLane(lr, 1.5); TOWNL.push(lr); }   // the depot yard to its street, south of the depot pen, where the sled spawns
   // ---- lots: four rows of houses, gable to the street, back to back round the alleys
   const pal = [red, white, KIT.yellow, KIT.blue, L(0x5a4b3c), wood, L(0x7a5a3a), L(0x8a3f2c), L(0x6d7f8c)];
   const wd = [], sn = [], rd = [], gl = [], fw = [], fs = [];       // merged box lists: shed/wood, snow, red, glow; fence pale, fence snow caps
