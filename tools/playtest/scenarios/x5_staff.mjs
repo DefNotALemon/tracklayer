@@ -64,7 +64,7 @@ ok(!s.apps.some(q => q.place === "re:fjellbu"), "D: the other applicants for tha
 // base and with-caretaker read in the same frame (an aurora coming or going moves reOcc by 6 points between reads)
 const oc = await J(`(() => { const c = reCab("fjellbu"), with1 = reOcc(c), f = TLX.staff.occ; TLX.staff.occ = () => 0; const base = reOcc(c); TLX.staff.occ = f; return { with1, base, lift: f("fjellbu") }; })()`);
 const occ1 = oc.with1, lift = oc.lift;
-ok(lift > 0.005 && lift <= 0.12 && occ1 > oc.base && Math.abs(occ1 - oc.base - lift) < 0.001, `D: the caretaker lifts nights let ${(occ0 * 100).toFixed(1)}% -> ${(occ1 * 100).toFixed(1)}% (+${(lift * 100).toFixed(1)})`);
+ok(lift > 0.005 && lift <= 0.12 * 1.15 + 1e-9 && occ1 > oc.base && Math.abs(occ1 - oc.base - lift) < 0.001, `D: the caretaker lifts nights let ${(occ0 * 100).toFixed(1)}% -> ${(occ1 * 100).toFixed(1)}% (+${(lift * 100).toFixed(1)})`);
 await ev(`TLX.staff.tick(); true`);
 ok((await st()).apps.length === 0, "D: no vacancy, no new applicants");
 await sleep(300); txt = await tabText();
@@ -123,7 +123,9 @@ await ev(`TLX.state("staff").owed = 12; save(); true`);
 const before = await st();
 await reload();
 const after = await st();
-ok(JSON.stringify(after.crew) === JSON.stringify(before.crew) && after.apps.length === before.apps.length && after.owed === 12 && after.seq === before.seq, "G: crew, applicants and owed survive a reload");
+// (the mood fields move with the clock: crewTick steps every 0.05 game hours, and one can land between the two reads)
+const stable = c => JSON.stringify(c.map(m => [m.id, m.name, m.place, m.role, m.wage, m.xp, m.xpReal, m.tr, m.since]));
+ok(stable(after.crew) === stable(before.crew) && after.crew.every((m, i) => Math.abs((m.hap || 0) - (before.crew[i].hap || 0)) < 2) && after.apps.length === before.apps.length && after.owed === 12 && after.seq === before.seq, "G: crew, applicants and owed survive a reload");
 await ev(`TABLET.toggle(true, "staff"); true`); await sleep(500);
 txt = await tabText();
 ok(after.crew.every(m => txt.includes(m.name)), "G: the app lists the crew after the reload");

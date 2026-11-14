@@ -105,7 +105,7 @@ for (let i = 0; i < 700; i++) {
 await sleep(300);
 r = await R(); s = await U();
 ok(mid && mid.grit < g0 - 15 && mid.grit > 0, `E: grit falls as the floor is swept (${g0.toFixed(0)} -> ${mid && mid.grit.toFixed(0)} part way)`);
-ok(r.grit === 0 && !s.sw && s.kit === 7, `E: floor swept clean (grit ${r.grit}), sweeping stops, one clean used (kit ${s.kit})`);
+ok(r.grit < 0.05 && !s.sw && s.kit === 7, `E: floor swept clean (grit ${r.grit.toFixed(3)}; a few seconds of standing on it since), sweeping stops, one clean used (kit ${s.kit})`);
 ok(!(await ev(`INT.room._grit.im.visible`)) && (await ev(`INT.slow`)) === 1, "E: the specks are gone, the walk is back to pace");
 
 // ---- F: dust every piece
@@ -128,7 +128,7 @@ for (const p of pieces) {
   const now = (await R()).dust; if (!(now < prev || now === 0)) down1 = false; prev = now;
 }
 r = await R(); s = await U();
-ok(down1 && r.dust === 0 && s.kit === 6, `F: every piece dusted one by one (${d0.toFixed(0)} -> ${r.dust}), one clean used (kit ${s.kit})`);
+ok(down1 && r.dust < 0.05 && s.kit === 6, `F: every piece dusted one by one (${d0.toFixed(0)} -> ${r.dust.toFixed(3)}), one clean used (kit ${s.kit})`);
 ok(s.use === null, "F: a clean cabin: nothing on the use control (" + s.use + ")");
 
 // ---- G: pad and touch

@@ -61,6 +61,7 @@ const money = n => api.fmtCash(Math.round(n));
 function places() {
   const out = [];
   if (api && api.re) for (const c of api.re.owned()) out.push({ id: "re:" + c.id, role: "caretaker", name: c.name, cab: c.id, x: c.x, z: c.z });
+  if (TLX.prop && TLX.prop.places) for (const p of TLX.prop.places()) out.push({ id: "pr:" + p.id, role: "caretaker", name: p.name, cab: p.id, x: p.x, z: p.z });   // listings with rooms (tlx-property.js, 6.1b)
   return out;
 }
 const placeOf = id => places().find(p => p.id === id) || null;
@@ -476,6 +477,9 @@ TLX.register({
 TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = s.crew.find(q => q.place === "re:" + cabId); return m ? occOf(m) : 0; },
   // how hard the caretaker at a cabin works (their work trait x happiness factor; 0 while owed): their cleaning (6.1a)
   work: cabId => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === "re:" + cabId); return m ? m.tr.work * perfOf(m) : 0; },
+  // the same two by place id ("re:cabin", "pr:listing"): a listing's caretaker (tlx-property.js, 6.1b)
+  occAt: pid => { const s = S(); if (!s) return 0; const m = s.crew.find(q => q.place === pid); return m ? occOf(m) : 0; },
+  workAt: pid => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === pid); return m ? m.tr.work * perfOf(m) : 0; },
   places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant,
   praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };

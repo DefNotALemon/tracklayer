@@ -182,6 +182,14 @@ Viddastua. Tourists rent a depot on the nights you're not there, paid every Mond
 insulation and a sauna raise the rent. Each depot has a fuel cache: its pump fills you free, and
 the bill (a weekly standing charge plus the litres you took) comes out every Monday. Your depots
 show on the Map's Depots layer, and you can warm up in them.
+Once there is more than depot cabins on the books, the app has a strip of **property types** along the top (Depot
+cabins, Lighthouses; more as they come up for sale) and a page for each. The first is **Slettnes lighthouse
+station** ($12,500): the keeper's white house and the room at the foot of the tower, each with its own door ring.
+Walk in and look round before you buy. Guests pay to sleep in the keeper's house on the nights you're not there
+($110 a night, paid Mondays, with a statement on the page). A place like this has several rooms and **each room
+collects its own grit and dust**: sweeping the keeper's house does nothing for the tower floor, the app shows a row
+per room, and the nights let follow the rooms' average. It has stood empty, so it's dusty when you get the keys.
+You can hire a caretaker for it in Staff, and it shows on the Map's Depots layer.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight

@@ -11375,7 +11375,8 @@ function intAddRoom(def) {
 }
 const INTK = {
   shell: intShell, col: intCol, sub: intSub, rug: intRug, lamp: intLamp, table: intTable, chair: intChair, bench: intBench,
-  stove: intStove, shelf: intShelf, crate: intCrate, hooks: intHooks, wallGear: intWallGear, counter: intCounter, IM
+  stove: intStove, shelf: intShelf, crate: intCrate, hooks: intHooks, wallGear: intWallGear, counter: intCounter, IM,
+  bed: intBed, bunk: intBunk, wood: intWood, fire: intFire
 };
 function intBeaconSync() {
   const k = RE_CABINS.map(c => (GS.re && GS.re.own[c.id] ? (GS.re.own[c.id].up.sauna ? "s" : "o") : "-")).join("");
@@ -11603,10 +11604,14 @@ TABLET.register({
   hidden: () => !GS.apps.realestate,
   badge: () => GS.re && GS.re.arrears ? "!" : "",
   render(el) {
+    // property types (tlx-property.js, 6.1b): a strip of types on top; every type but the depot cabins draws its own page
+    const xp = window.TLX && TLX.prop && TLX.prop.rePage ? TLX.prop : null, xpg = xp ? xp.rePage() : "";
+    if (xpg) { el.innerHTML = `<div class="tapp">${xpg}</div>`; xp.wire(el); tabMinis(el); return; }
     const own = reOwned(), sale = RE_CABINS.filter(c => !GS.re.own[c.id] && c.x !== undefined);
     const wkRent = own.reduce((a, c) => a + reNight(c) * 7 * reOcc(c), 0), wkL = own.reduce((a, c) => a + GS.re.own[c.id].L, 0);
     let h = tabHead("REAL ESTATE · FINNMARK EIENDOM", "Depot cabins", fmtCash(GS.cash));
     h += `<div class="tsub">${own.length ? `${own.length} depot${own.length > 1 ? "s" : ""} · rent about ${fmtCash(wkRent)} a week · fuel cache ${fmtCash(own.length * RE_FUEL.standing)} a week + ${fuelFmt(RE_FUEL.perL)}` : "No depots yet"}${GS.re.arrears ? " " + chip("ARREARS " + fmtCash(GS.re.arrears), "due") : ""}</div>`;
+    if (xp) h += xp.reTabs();
     TABLET.miniDest = {};
     const mini = c => { const k = c.site || "re_" + c.id; if (!c.site) TABLET.miniDest[k] = { id: k, x: c.x, z: c.z, y: c.y, name: c.name }; return `depot|${k}`; };
     if (GS.re.arrears) h += tabCard({ tf: "rearr", title: "Fuel bill owing", chips: chip("CACHE SHUT", "due"), meta: `The fuel boat won't fill the caches until it's paid.`, pay: fmtCash(GS.re.arrears), act: "rearr", actLabel: "PAY IT" });
@@ -17370,7 +17375,7 @@ function initExpansion() {
     newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
     // tablet app kit for systems with their own app (5.1 staff), and the depot cabins you own (staff workplaces)
-    ui: { tabHead, tabCard, chip, sec, esc: tabEsc, ping: tabPing },
+    ui: { tabHead, tabCard, chip, sec, esc: tabEsc, ping: tabPing, fmtMi },
     re: { owned: () => GS.re ? reOwned().map(c => ({ id: c.id, name: shortName(c), x: c.x, z: c.z })) : [] },
     // stores (10.2): a walk-in room, the counter panel (icefish.js's shop in another store's colours), the riding kit
     intAdd: intAddRoom, townR: TOWN_R, fishSites: FISHSITES, shop: (store, tab) => { if (FISH && FISH.openShop) FISH.openShop(tab, store); },
