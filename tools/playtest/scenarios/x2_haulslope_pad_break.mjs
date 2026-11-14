@@ -46,7 +46,7 @@ if (spots.slope) {
 } else console.log("no slope spot found");
 
 // pad drive: stick forward with trailer, then stick hard-right, then released
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 const lux = (lane.x2 - lane.x) / lane.L, luz = (lane.z2 - lane.z) / lane.L;
 await hitchAt(lane.x + lux * 12, lane.z + luz * 12, Math.atan2(lux, luz)); await sleep(300); await walkerBeside(); await sleep(1200);
 await tap("KeyQ"); ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14), "in the truck");

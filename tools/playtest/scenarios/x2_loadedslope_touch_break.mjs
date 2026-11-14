@@ -49,7 +49,7 @@ await waitGame(8); b = await R(); d = drift(a, b);
 ok(!b.nan && d.truck < 1 && d.trailer < 1 && d.sled < 1, `reloaded rig 8 s: drift truck ${d.truck.toFixed(1)}, trailer ${d.trailer.toFixed(1)}, sled ${d.sled.toFixed(1)} m`);
 
 // touch drive: move the whole rig to a plowed lane, get in, press the GAS pedal
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 const ux = (lane.x2 - lane.x) / lane.L, uz = (lane.z2 - lane.z) / lane.L;
 spot.x = lane.x + ux * 14; spot.z = lane.z + uz * 14; await setup(Math.atan2(ux, uz)); await sleep(500);
 // strap was kept by the reload, so the sled is on the deck already (setup() re-placed it). Walker to the truck.

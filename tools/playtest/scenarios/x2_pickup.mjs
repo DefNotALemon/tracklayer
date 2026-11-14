@@ -82,7 +82,7 @@ ok(s.fuel === 70 && s.cap === 70 && s.slots === 8, `the truck's own tank (${s.fu
 const shot0 = await ev(`renderer.info.render.calls`);
 
 // ---- 5. speed on a plowed lane against deep powder
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 console.log("lane", JSON.stringify(lane));
 ok(lane && lane.L > 35, `a plowed lane to drive on (${lane ? lane.L.toFixed(0) : 0} m)`);
 const ux = (lane.x2 - lane.x) / lane.L, uz = (lane.z2 - lane.z) / lane.L;
@@ -198,7 +198,7 @@ ok(s.cur && !s.foot && s.rid === "v1" && Math.hypot(s.x - seatedAt.x, s.z - seat
 ok(s.sled && seatedAt.sled && Math.hypot(s.sled.x - seatedAt.sled.x, s.sled.z - seatedAt.sled.z) < 0.5, "and the sled is where it was parked");
 await ev(`tutSkip(); true`);
 // it drives after a reload (the old spot was a drift: put it on the lane)
-await ev(`(() => { const x = ${lane.x} + ${ux} * 3, z = ${lane.z} + ${uz} * 3; P.x = x; P.z = z; P.yaw = Math.atan2(${ux}, ${uz}); P.vx = P.vz = 0; BOG.on = false; recenter(x, z, true); camState.init = false; return 1; })()`); await sleep(900);
+await ev(`(() => { const x = ${lane.x} + ${ux} * Math.min(45, ${lane.L} / 3), z = ${lane.z} + ${uz} * Math.min(45, ${lane.L} / 3); P.x = x; P.z = z; P.yaw = Math.atan2(${ux}, ${uz}); P.vx = P.vz = 0; BOG.on = false; recenter(x, z, true); camState.init = false; return 1; })()`); await sleep(900);
 { const r = await holdFor("KeyW", 3, spd); ok(r[r.length - 1].v > 2, `drives after the reload (${r[r.length - 1].v.toFixed(1)} m/s)`); }
 
 // ---- 10. pad and touch

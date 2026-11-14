@@ -29,7 +29,7 @@ for (const d of [0.08, 0.15, 0.25, 0.35, 0.5, 0.8]) {
 }
 // bogged, then dragged onto plowed ground
 await ev(`(() => { BOG.on = true; BOG.acc = 5; return 1; })()`);
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, L }; } return best; })()`);
 await ev(`(() => { P.x = ${lane.x} + 2; P.z = ${lane.z} + 2; P.vx = P.vz = 0; recenter(P.x, P.z, true); return 1; })()`);
 await waitGame(3);
 const b1 = await J(`{ bog: BOG.on, hint: $("wnHint").textContent }`);

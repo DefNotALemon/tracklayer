@@ -43,7 +43,7 @@ ok(a2.why && a2.t < 1.8, `A2 pad LT full, same spot: "${a2.why}" after ${a2.t.to
 await padSet(); await ev(`BOG.on = false; true`);
 
 // a straight town lane: truck on it, nose along it
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 console.log("lane", JSON.stringify(lane));
 const onLane = (sledOff) => ev(`(() => { const L = ${JSON.stringify(lane)}, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L; P.x = L.x + ux * L.L * 0.5; P.z = L.z + uz * L.L * 0.5; P.yaw = Math.atan2(ux, uz); P.vx = P.vz = 0; P.y = surf(P.x, P.z);
   const s = TLX.state("vehicles").sled; if (s) { const o = ${sledOff}; if (o) { s.x = P.x + ux * o; s.z = P.z + uz * o; } else { s.x = P.x + 60; s.z = P.z + 60; } } recenter(P.x, P.z, true); return !!s; })()`);

@@ -11,7 +11,7 @@ await ev(`GS.cash = 9000; GS.delivered = 12; garageTab = "trucks"; openGarage();
 await ev(`document.querySelector("#garageBody .row").click(); closeGarage(); true`); await sleep(400);
 await ev(`(() => { const s = TLX.state("vehicles"), r = s.owned[0]; const fx = Math.sin(r.yaw), fz = Math.cos(r.yaw); crashCancel(); FOOT.on = true; FOOT.x = r.x + fz * 3.2; FOOT.z = r.z - fx * 3.2; FOOT.yaw = r.yaw - 1.4; FOOT.y = surf(FOOT.x, FOOT.z); recenter(FOOT.x, FOOT.z, true); return 1; })()`); await sleep(1200);
 await tap("KeyQ"); await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14);
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 // clean flat open-snow spots: no sea/water, nothing within 40 m, slope under 0.03 (all four headings tried at each)
 const spots = await J(`(() => { const out = []; for (let r = 150; r < 900 && out.length < 3; r += 25) for (let a = 0; a < 6.28 && out.length < 3; a += 0.3) { const x = depot.x + Math.cos(a) * r, z = depot.z + Math.sin(a) * r;
   if (isSea(x, z) || isWater(x, z) || obNear(x, z, 40) || slopeAt(x, z, 12) > 0.03) continue; if (out.some(o => Math.hypot(o.x - x, o.z - z) < 150)) continue; out.push({ x, z }); } return out; })()`);

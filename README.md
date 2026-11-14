@@ -651,6 +651,26 @@ A car stuck behind one waits behind its tail and overtakes the whole length when
 lorry won't turn round on a narrow road: at a drift or the road's end it waits, engine idling, and has
 gone the next time you come by. Ride into one and you bounce off it like a wall.
 
+## The lorry
+
+Under the pickup on the garage's **Trucks** tab is the **Nordtrekk 4x2**, a two-axle cab-over tractor
+unit for $11,500: the front half of an articulated lorry, with a fifth wheel over its drive axle. The
+garage sells it only to a holder of the **Freight licence**; without one the row is greyed out and says
+so. It counts as one of your three trucks and is bought, parked, saved and found on the Map like the
+pickup.
+
+Walk up to the driver's door and the on-foot line reads "get in the lorry". You climb the two steps
+into a cab that sits most of a metre higher than the pickup's, and first person looks out over the
+road from there. It weighs seven tonnes: it pulls away slower than the pickup (about 8 m/s after four
+seconds against 14), is limited to 25 m/s (90 km/h), needs some 45 m to stop from 20 m/s on packed
+snow, and reverses at a walk. It has a 300 L tank and drinks from it at better than twice the pickup's
+rate. It carries two parcels in the cab, has twin tyres on the drive axle and no tow ball, so none of
+your sled rigs hitch to it.
+
+It is a road machine. On a plowed road or a plowed street it drives as described; in fresh powder it
+sinks at once, digs in and sits there until you dig it out or reset. The trailers it is built to pull,
+and the freight that pays for it, are not in the game yet.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

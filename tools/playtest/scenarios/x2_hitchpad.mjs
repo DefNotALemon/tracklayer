@@ -18,7 +18,7 @@ await park(); await sleep(400);
 await ev(`(() => { const o = GS.own; o.partsOwned["recv:ball"] = true; o.partsOwned["hitch:trailer"] = true; o.partsOwned["hitch:flatbed"] = true; o.parts.recv = "ball"; o.parts.hitch = "trailer"; GS.cash = 20000; restat(); return 1; })()`);
 await ev(`garageTab = "trucks"; openGarage(); true`); await sleep(400);
 await ev(`document.querySelector("#garageBody .row").click(); closeGarage(); true`); await sleep(400);
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 ok(lane && lane.L > 35, "lane " + (lane && lane.L.toFixed(0)));
 // truck on the lane, trailer standing free 1 m behind its ball, walker at the tongue
 await ev(`(() => { const L = ${JSON.stringify(lane)}, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L, yaw = Math.atan2(ux, uz);

@@ -34,7 +34,25 @@ const VEHICLES = [
     fuel: 70, burn: 1, slots: 8, cabCold: 0.12, hitchKg: 1500, hitchZ: -3.1, // litres, parcels in the bed, cold drained as fast as the sled's baseline; kg the receiver takes, where its ball sits
     zf: 1.5, zr: -1.55, track: 1.66, tyreR: 0.38, tyreW: 0.27, clearance: 0.26, len: 5.3, wid: 1.96,
     mu: { hard: 0.42, loose: 0.22, ice: 0.12, wet: 0.06 },
-    paint: 0x244f69, eye: [0.4, 1.63, -0.1], door: { x: 0.925, z: 0.7 } }
+    paint: 0x244f69, eye: [0.4, 1.63, -0.1], door: { x: 0.925, z: 0.7 } },
+  /* 3.5b1: a two-axle tractor unit (the lorry without its trailer). The same wheeled physics as the pickup with its own
+     numbers; the fields past `door` are the ones the pickup leaves at their defaults: model (which builder), dualX (the twin
+     rear tyres' centres), rimK (rim size against the pickup's), bed (parcels drawn in a bed), brakeN / aero / lock (brake force
+     cap N, drag N per (m/s)^2, steering lock rad), circles / belly (the hull against obstacles, where the chassis ploughs),
+     lamp (headlight), cab (the seat against the pickup's: dx, dy, dz, and sx = how much further out you stand at the door),
+     lic (the licence the garage asks for). The fifth wheel sits at fifthZ: 3.5b2 couples a semitrailer there. */
+  { id: "tractor", name: "Nordtrekk 4x2", kind: "lorry", year: 2014, cost: 11500, lic: "freight",
+    blurb: "A two-axle cab-over tractor unit: the front half of an articulated lorry, with a fifth wheel over the drive axle. Seven tonnes, slow to stop, at home on a plowed road and nowhere else.",
+    spec: "tractor unit · fifth-wheel coupling · two seats, no load bed",
+    how: "For the plowed roads between the villages. It is far too heavy for soft snow: off the road it sinks to the axles.",
+    mass: 7200, power: 250000, fmax: 20000, top: 25, revTop: 3.4,
+    fuel: 300, burn: 2.4, slots: 2, cabCold: 0.1, hitchKg: 0, hitchZ: -2.9, fifthZ: -1.6,
+    zf: 1.5, zr: -2.1, track: 2.0, tyreR: 0.52, tyreW: 0.3, clearance: 0.34, len: 5.85, wid: 2.5,
+    mu: { hard: 0.42, loose: 0.22, ice: 0.12, wet: 0.06 },
+    paint: 0x8d1f1c, eye: [0.62, 2.53, 1.62], door: { x: 1.24, z: 2.75 },
+    model: "tractor", dualX: [0.76, 1.1], rimK: 1.3, bed: false, brakeN: 40000, aero: 3.2, lock: 0.6,
+    circles: [[2.0, 1.25], [0.0, 1.25], [-2.0, 1.25]], belly: [1.2, 0, -1.6], lamp: [0, 0.85, 3.2],
+    cab: { dx: 0.22, dy: 0.9, dz: 1.72, sx: 0.36 } }
 ];
 const byId = id => VEHICLES.find(v => v.id === id) || null;
 const MAX_OWNED = 3;
@@ -167,21 +185,104 @@ function buildPickup(d) {
   return { body: bake(body), glass: bake(glass), doorB: bake(doorB), doorG: bake(doorG), head: bake(head), tail: bake(tail) };
 }
 
-// one wheel: tyre, rim with spokes and lugs, all one geometry; the axle is x
+/* the tractor unit (3.5b1): a cab-over on a bare chassis. Same six parts as the pickup, so runtime() treats it the same.
+   The cab is a real room (floor, dash, two seats, engine tunnel, headliner) behind glass, because the first-person eye
+   sits in it. Cab: z 0.9..2.9, floor y 1.25, roof 3.05; the door is over and ahead of the front wheel, two steps below it. */
+function buildTractor(d) {
+  const P0 = d.paint, body = [], glass = [], doorB = [], doorG = [], head = [], tail = [];
+  const B = (w, h, dp, x, y, z, c, rx = 0, ry = 0, rz = 0) => body.push({ g: box(w, h, dp), c, m: tf(x, y, z, rx, ry, rz) });
+  const CZ = (r, len, x, y, z, c, seg = 16) => { const g = new T.CylinderGeometry(r, r, len, seg); g.rotateX(Math.PI / 2); body.push({ g, c, m: tf(x, y, z) }); };
+  const W = 2.48, h = W / 2, f = 2.9, b = 0.9, ALU = 0xb4b9bf;
+  // chassis: rails, cross members, axle beams, the fifth wheel on its plate
+  for (const sg of [1, -1]) B(0.1, 0.28, 5.4, sg * 0.43, 0.98, -0.25, TRIM);
+  for (let z = -2.65; z < 0.8; z += 1.15) B(0.86, 0.08, 0.1, 0, 0.94, z, STEEL);
+  B(1.9, 0.14, 0.14, 0, d.tyreR, d.zf, TRIM); B(1.7, 0.2, 0.2, 0, d.tyreR, d.zr, TRIM); CZ(0.2, 0.4, 0, d.tyreR, d.zr, STEEL);
+  B(1.24, 0.14, 0.9, 0, 1.08, d.fifthZ, STEEL);
+  { const g = new T.CylinderGeometry(0.52, 0.52, 0.07, 22); body.push({ g, c: TRIM, m: tf(0, 1.19, d.fifthZ) }); }
+  B(0.2, 0.075, 0.5, 0, 1.19, d.fifthZ - 0.5, 0x0c0d0e);                         // the slot the kingpin runs up
+  // between the axles: fuel tank, battery box, air tanks; behind the cab: catwalk, exhaust stack with its shield
+  CZ(0.32, 1.3, -0.88, 0.78, -0.3, ALU); B(0.06, 0.66, 1.2, -1.2, 0.78, -0.3, STEEL);
+  B(0.62, 0.55, 0.9, 0.9, 0.8, -0.3, TRIM); B(0.64, 0.03, 0.92, 0.9, 1.08, -0.3, ALU);
+  CZ(0.13, 0.9, 0.3, 0.7, -0.3, STEEL); CZ(0.13, 0.9, -0.3, 0.7, -0.3, STEEL);
+  B(0.9, 0.04, 0.72, 0, 1.15, 0.45, ALU);
+  { const g = new T.CylinderGeometry(0.075, 0.075, 2.1, 12); body.push({ g, c: CHROME, m: tf(1.04, 2.25, 0.76) }); }
+  B(0.24, 0.6, 0.2, 1.04, 1.6, 0.76, STEEL);
+  // wings over the wheels, mud flaps, the rear cross bar
+  for (const sg of [1, -1]) {
+    B(0.5, 0.06, 1.25, sg * 0.99, 1.14, d.zf, TRIM); B(0.5, 0.5, 0.06, sg * 0.99, 0.9, d.zf - 0.62, TRIM);
+    B(0.7, 0.06, 1.25, sg * 0.93, 1.2, d.zr, TRIM); B(0.68, 0.6, 0.03, sg * 0.93, 0.62, d.zr - 0.72, TRIM);
+  }
+  B(2.0, 0.12, 0.1, 0, 0.96, -2.95, STEEL);
+  // under the cab: the engine, the front valance and bumper, the steps up to each door
+  B(1.2, 0.62, 1.8, 0, 0.92, 1.9, TRIM);
+  B(W, 0.42, 0.36, 0, 0.72, f + 0.1, STEEL); B(W - 0.3, 0.06, 0.2, 0, 0.5, f + 0.2, TRIM);
+  for (const sg of [1, -1]) {
+    B(0.06, 0.5, 0.62, sg * (h - 0.03), 0.95, 2.45, TRIM);
+    for (const y of [0.55, 0.9]) B(0.36, 0.05, 0.42, sg * (h - 0.16), y, 2.42, ALU);
+  }
+  // the cab shell: floor, front panel, header, roof, rear wall, pillars, the quarter panels behind the doors
+  B(W - 0.04, 0.06, 1.96, 0, 1.25, 1.9, FLOOR);
+  B(W, 0.8, 0.08, 0, 1.6, f, P0); B(W, 0.2, 0.08, 0, 2.95, f, P0);
+  B(W, 0.1, 2.0, 0, 3.0, 1.9, P0); B(W - 0.1, 0.04, 1.9, 0, 2.93, 1.9, ROOF);
+  B(W, 1.85, 0.06, 0, 2.1, b + 0.03, P0); B(W - 0.1, 1.62, 0.02, 0, 2.1, b + 0.075, LINER);
+  for (const sg of [1, -1]) {
+    B(0.09, 0.87, 0.09, sg * (h - 0.045), 2.43, f - 0.02, P0);
+    B(0.06, 1.85, 0.9, sg * (h - 0.03), 2.1, 1.35, P0); B(0.02, 1.62, 0.86, sg * (h - 0.07), 2.1, 1.35, LINER);
+    B(0.06, 1.85, 0.15, sg * (h - 0.03), 2.1, 2.825, P0);
+  }
+  // the face: grille and its chrome bars, badge, sun visor, a low roof deflector
+  B(1.6, 0.6, 0.05, 0, 1.56, f + 0.045, TRIM);
+  for (let k = 0; k < 4; k++) B(1.5, 0.04, 0.03, 0, 1.34 + k * 0.15, f + 0.075, CHROME);
+  B(0.55, 0.1, 0.04, 0, 1.93, f + 0.06, CHROME);
+  B(W - 0.1, 0.1, 0.4, 0, 3.0, f + 0.2, P0, 0.12);
+  B(W - 0.4, 0.3, 1.3, 0, 3.17, 1.65, P0, -0.14);
+  // inside: dash, binnacle, steering column, engine tunnel, the two seats on their pedestals
+  B(W - 0.16, 0.4, 0.45, 0, 1.83, 2.6, DASH); B(0.62, 0.12, 0.2, 0.62, 2.06, 2.42, DASH, -0.2);
+  B(0.05, 0.05, 0.5, 0.62, 1.94, 2.14, TRIM, 0.55);
+  B(0.7, 0.36, 1.5, 0, 1.44, 1.72, LINER);
+  for (const sg of [1, -1]) {
+    B(0.4, 0.16, 0.4, sg * 0.62, 1.35, 1.52, TRIM);
+    B(0.5, 0.15, 0.55, sg * 0.62, 1.5, 1.52, SEAT); B(0.5, 0.62, 0.13, sg * 0.62, 1.88, 1.22, SEAT, -0.17); B(0.27, 0.2, 0.1, sg * 0.62, 2.32, 1.16, SEAT, -0.17);
+  }
+  // glass: the windscreen, and the passenger's window in its static door
+  glass.push({ g: new T.PlaneGeometry(W - 0.18, 0.86), c: 0xffffff, m: tf(0, 2.43, f + 0.01) });
+  const WIN = [[2.75, 2.0], [2.75, 2.86], [1.8, 2.86], [1.8, 2.0]];
+  glass.push({ g: pane(WIN, -(h - 0.03)), c: 0xffffff });
+  B(0.06, 1.15, 0.95, -(h - 0.03), 1.425, 2.275, P0);
+  B(0.05, 0.05, 0.95, -(h - 0.03), 2.87, 2.275, TRIM); B(0.05, 0.87, 0.05, -(h - 0.03), 2.43, 1.82, TRIM); B(0.04, 0.06, 0.22, -(h + 0.02), 1.5, 1.97, CHROME);
+  // mirrors on their arms
+  for (const sg of [1, -1]) { B(0.06, 0.06, 0.5, sg * (h + 0.16), 2.62, f - 0.1, TRIM, 0, sg * 0.5); B(0.1, 0.6, 0.24, sg * (h + 0.34), 2.42, f + 0.1, TRIM); }
+  // the driver's door, in door space: hinged at its front edge, z runs back from the hinge
+  const DB = (w, hh, dp, x, y, z, c) => doorB.push({ g: box(w, hh, dp), c, m: tf(x, y, z) });
+  DB(0.06, 1.15, 0.95, -0.03, 1.425, -0.475, P0);
+  DB(0.05, 0.05, 0.95, -0.03, 2.87, -0.475, TRIM); DB(0.05, 0.87, 0.05, -0.03, 2.43, -0.93, TRIM); DB(0.04, 0.06, 0.22, 0.02, 1.5, -0.78, CHROME);
+  doorG.push({ g: pane(WIN.map(([z, y]) => [z - d.door.z, y]), -0.03), c: 0xffffff });
+  // lights
+  for (const sg of [1, -1]) {
+    head.push({ g: box(0.5, 0.17, 0.05), c: 0xfff0c8, m: tf(sg * 0.86, 0.82, f + 0.29) });
+    head.push({ g: box(0.16, 0.08, 0.05), c: 0xffb030, m: tf(sg * 1.1, 0.64, f + 0.29) });
+    tail.push({ g: box(0.24, 0.13, 0.05), c: 0xff2a1a, m: tf(sg * 0.8, 0.98, -2.98) });
+    tail.push({ g: box(0.1, 0.08, 0.05), c: 0xffe8d0, m: tf(sg * 0.6, 0.98, -2.98) });
+  }
+  for (let k = -2; k <= 2; k++) head.push({ g: box(0.12, 0.06, 0.06), c: 0xffb030, m: tf(k * 0.36, 3.03, f + 0.4) });
+  return { body: bake(body), glass: bake(glass), doorB: bake(doorB), doorG: bake(doorG), head: bake(head), tail: bake(tail) };
+}
+
+// one wheel: tyre, rim with spokes and lugs, all one geometry; the axle is x. rimK scales the rim (a lorry's 22.5")
 function buildWheel(d) {
-  const it = [], R = d.tyreR, W = d.tyreW / 2;
-  const prof = [[0.23, -W * 0.9], [0.30, -W], [R - 0.025, -W * 0.92], [R - 0.004, -W * 0.5], [R, -W * 0.2], [R, W * 0.2], [R - 0.004, W * 0.5], [R - 0.025, W * 0.92], [0.30, W], [0.23, W * 0.9]]
+  const it = [], R = d.tyreR, W = d.tyreW / 2, K = d.rimK || 1;
+  const prof = [[0.23 * K, -W * 0.9], [0.30 * K, -W], [R - 0.025, -W * 0.92], [R - 0.004, -W * 0.5], [R, -W * 0.2], [R, W * 0.2], [R - 0.004, W * 0.5], [R - 0.025, W * 0.92], [0.30 * K, W], [0.23 * K, W * 0.9]]
     .map(([r, y]) => new T.Vector2(r, y));
   const lg = new T.LatheGeometry(prof, 28); lg.rotateZ(Math.PI / 2);
   it.push({ g: lg, c: 0x1b1d20 });
-  const hub = new T.CylinderGeometry(0.235, 0.235, W * 1.8, 20); hub.rotateZ(Math.PI / 2); it.push({ g: hub, c: 0x4a4f56 });
-  const face = new T.CylinderGeometry(0.2, 0.2, 0.02, 20); face.rotateZ(Math.PI / 2); it.push({ g: face, c: 0x9aa1a8, m: tf(W * 0.9, 0, 0) });
-  const cap = new T.CylinderGeometry(0.06, 0.06, 0.03, 12); cap.rotateZ(Math.PI / 2); it.push({ g: cap, c: 0x20242a, m: tf(W * 0.9 + 0.01, 0, 0) });
+  const hub = new T.CylinderGeometry(0.235 * K, 0.235 * K, W * 1.8, 20); hub.rotateZ(Math.PI / 2); it.push({ g: hub, c: 0x4a4f56 });
+  const face = new T.CylinderGeometry(0.2 * K, 0.2 * K, 0.02, 20); face.rotateZ(Math.PI / 2); it.push({ g: face, c: 0x9aa1a8, m: tf(W * 0.9, 0, 0) });
+  const cap = new T.CylinderGeometry(0.06 * K, 0.06 * K, 0.03, 12); cap.rotateZ(Math.PI / 2); it.push({ g: cap, c: 0x20242a, m: tf(W * 0.9 + 0.01, 0, 0) });
   for (let i = 0; i < 5; i++) {                                                // spokes, dark gaps between them show the spin
-    const a = i / 5 * Math.PI * 2, sp = box(0.025, 0.16, 0.05);
-    it.push({ g: sp, c: 0x1a1d21, m: tf(W * 0.9 + 0.005, 0, 0, a, 0, 0).multiply(tf(0, 0.12, 0)) });
+    const a = i / 5 * Math.PI * 2, sp = box(0.025, 0.16 * K, 0.05);
+    it.push({ g: sp, c: 0x1a1d21, m: tf(W * 0.9 + 0.005, 0, 0, a, 0, 0).multiply(tf(0, 0.12 * K, 0)) });
     const lug = new T.CylinderGeometry(0.014, 0.014, 0.03, 6); lug.rotateZ(Math.PI / 2);
-    it.push({ g: lug, c: 0xc9ced3, m: tf(W * 0.9 + 0.02, Math.cos(a) * 0.09, Math.sin(a) * 0.09) });
+    it.push({ g: lug, c: 0xc9ced3, m: tf(W * 0.9 + 0.02, Math.cos(a) * 0.09 * K, Math.sin(a) * 0.09 * K) });
   }
   for (let i = 0; i < 22; i++) {                                               // tread blocks, a shade lighter than the carcass
     const a = i / 22 * Math.PI * 2;
@@ -232,12 +333,13 @@ function mats() {
   };
   return MAT;
 }
-let SHARED = null;                                                           // geometry shared by every vehicle of a kind
+const SHARED = {};                                                           // geometry shared by every vehicle of a kind, by id
+let DRIVER = null;                                                           // the baked driver is the same person in every cab
 function geos(d) {
-  if (SHARED && SHARED.id === d.id) return SHARED;
-  SHARED = Object.assign({ id: d.id, wheel: buildWheel(d), driver: bakeDriver() }, buildPickup(d));
-  return SHARED;
+  if (SHARED[d.id]) return SHARED[d.id];
+  return (SHARED[d.id] = Object.assign({ id: d.id, wheel: buildWheel(d), driver: DRIVER || (DRIVER = bakeDriver()) }, d.model === "tractor" ? buildTractor(d) : buildPickup(d)));
 }
+const seatOff = d => d.cab ? [d.cab.dx, d.cab.dy, d.cab.dz] : [0, 0, 0];     // this cab's seat against the pickup's (the driver and the keyframes are the pickup's)
 function mesh(geo, mat, shadow) { const m = new T.Mesh(geo, mat); m.castShadow = !!shadow; m.receiveShadow = !!shadow; return m; }
 
 function runtime(r) {
@@ -254,11 +356,13 @@ function runtime(r) {
   R.glassMesh = grp.children[1];
   const dr = R.doorPivot = new T.Group(); dr.position.set(d.door.x, 0, d.door.z); grp.add(dr);
   dr.add(mesh(G.doorB, M.solid, true)); dr.add(mesh(G.doorG, M.glass, false));
-  R.wheels = new T.InstancedMesh(G.wheel, M.solid, 4); R.wheels.castShadow = true; R.wheels.frustumCulled = false; R.wheels.instanceMatrix.setUsage(T.DynamicDrawUsage); grp.add(R.wheels);
+  R.nW = d.dualX ? 6 : 4;                                                       // twin rear tyres: instances 4 and 5 are the outer pair
+  R.wheels = new T.InstancedMesh(G.wheel, M.solid, R.nW); R.wheels.castShadow = true; R.wheels.frustumCulled = false; R.wheels.instanceMatrix.setUsage(T.DynamicDrawUsage); grp.add(R.wheels);
   R.drvBody = mesh(G.driver.body, M.solid, false); R.drvArms = mesh(G.driver.arms, M.solid, false);
-  R.drvArms.position.set(0, 0, 0); grp.add(R.drvBody, R.drvArms); R.drvBody.visible = R.drvArms.visible = false;
+  const so = R.so = seatOff(d);
+  R.drvBody.position.set(so[0], so[1], so[2]); R.drvArms.position.set(so[0], so[1], so[2]); grp.add(R.drvBody, R.drvArms); R.drvBody.visible = R.drvArms.visible = false;
   // steering wheel: a ring on the column, turning with the road wheels
-  const sw = R.swheel = new T.Group(); sw.position.set(0.4, 1.12, 0.22); sw.rotation.x = -(Math.PI / 2 - 0.62);
+  const sw = R.swheel = new T.Group(); sw.position.set(0.4 + so[0], 1.12 + so[1], 0.22 + so[2]); sw.rotation.x = -(Math.PI / 2 - 0.62);
   const ring = new T.TorusGeometry(0.19, 0.022, 8, 22), spoke = box(0.36, 0.025, 0.03), hubG = new T.CylinderGeometry(0.05, 0.05, 0.04, 10); hubG.rotateX(Math.PI / 2);
   sw.add(mesh(bake([{ g: ring, c: 0x15171a }, { g: spoke, c: 0x15171a }, { g: hubG, c: 0x15171a }]), M.solid, false)); grp.add(sw);
   R.bed = null;
@@ -269,7 +373,7 @@ function dropRuntime(uid) { const R = RT.get(uid); if (!R) return; api.scene.rem
 
 // parcels in the bed: one merged mesh, rebuilt when the count changes
 function bedBoxes(R, n) {
-  n = Math.min(n, R.def.slots);
+  n = R.def.bed === false ? 0 : Math.min(n, R.def.slots);                      // a tractor unit has no bed: its two parcels ride in the cab
   if (R.lastLoad === n) return; R.lastLoad = n;
   if (R.bed) { R.grp.remove(R.bed); R.bed.geometry.dispose(); R.bed = null; }
   if (!n) return;
@@ -372,7 +476,7 @@ function core(R, dt) {
      pull past a small dead zone instead of 0..1 (beta 0116 #2: 30% LT made 2 kN against 1-2.7 kN of standing drag) */
   const brkR = input.brk > 0.08 ? 0.35 + 0.65 * input.brk : input.brk;
   if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * brkR * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
-  else if (input.brk > 0 && !parked) Fx = -Math.min(9500, T0 * 0.98) * input.brk * (vf > 0.4 ? 1 : 0.25);
+  else if (input.brk > 0 && !parked) Fx = -Math.min(d.brakeN || 9500, T0 * 0.98) * input.brk * (vf > 0.4 ? 1 : 0.25);
   /* traction control (beta 0129 #2): a 2019 pickup's ECU trims the throttle when the driven wheels slip while the truck can
      still make way, so a floored pedal (keyboard W is all or nothing) crawls on through powder it can beat instead of
      spinning itself into a hole the moment a 2% grade slows it. It can't help a truck whose snow alone outweighs its
@@ -384,11 +488,11 @@ function core(R, dt) {
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
-  const aero = 0.95 * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
+  const aero = (d.aero || 0.95) * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
 R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = vf; R.gok = P.y <= Hc + 0.12 ? 1 : 0;   /* telemetry: slope pull along the nose (m/s2, + = rolls it forward) */
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
-  const sp = Math.abs(vf), dmax = 0.52 / Math.sqrt(1 + (sp / 10) * (sp / 10));
+  const sp = Math.abs(vf), dmax = (d.lock || 0.52) / Math.sqrt(1 + (sp / 10) * (sp / 10));
   R.steer += (-input.steer * dmax - R.steer) * (1 - Math.exp(-7 * dt));
   const use = Math.min(0.75, 0.7 * Math.abs(Fx) / Math.max(T0, 1)), latCap = muS * GR * Math.sqrt(1 - use * use) * 0.95;
   let yrT = vf * Math.tan(R.steer) / (d.zf - d.zr);
@@ -471,7 +575,7 @@ R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = v
     for (let i = 0; i < 4; i++) { wheelXZ(R, i, P, _w); w.pressSnow(_w[0], _w[1], d.tyreW * 0.62, kp); if (spd0 > 1) w.markTrail(_w[0], _w[1], true); }
     // the belly ploughs: snow above the chassis bottom along the centre line is pushed down to it (0108 #1: the trench is
     // the way back out)
-    if (spd0 > 0.2) for (const o of BELLY) {
+    if (spd0 > 0.2) for (const o of d.belly || BELLY) {
       const x = P.x + fx2 * o, z = P.z + fz2 * o, fr = w.freshAt(Math.round((x + HALF) / CELL), Math.round((z + HALF) / CELL));
       if (fr < 0.05) continue;
       const lvl = Hc + d.clearance - gnd(x, z); if (lvl < fr) w.pressSnow(x, z, d.wid * 0.3, clamp(lvl / fr, 0.05, 1));
@@ -523,9 +627,10 @@ function stillWhy(R, rev, sinkS, sf) {
 function toastDig(rev) { api.toast(rev ? "The wheels spin in reverse and dig in. Ease off before it's stuck to the axles." : "The wheels are digging in. Ease off, or back out along your own ruts.", "warn"); }
 
 // trees, buildings and boulders stop it: no ejection from a cab, a dent in the paint and a thud instead
+const CIRCLES = [[2.0, 0.98], [0.0, 1.05], [-2.0, 0.98]];                     // the pickup's hull: [m along the centre line, radius]
 function collide(R, dt, fx, fz) {
   const P = api.P, d = R.def, w = api.world, list = w.obstaclesNear(P.x, P.z, 6);
-  const circles = [[2.0, 0.98], [0.0, 1.05], [-2.0, 0.98]];
+  const circles = d.circles || CIRCLES;
   const s = VEH_SLED(); if (s) list.push({ x: s.x, z: s.z, r: 0.8, top: 99, sled: 1 });
   for (const [off, r] of circles) {
     const cx = P.x + fx * off, cz = P.z + fz * off;
@@ -587,9 +692,13 @@ function place(R, P, dt, isCur) {
     const plane = c + (z * (Hf - Hr) / (d.zf - d.zr)) + x * ((Hl - Hrt) / d.track);
     const tgt = clamp(R.H[i] - plane, -0.14, 0.1);
     R.dy[i] += (tgt - R.dy[i]) * (1 - Math.exp(-16 * dt));
-    _q1.setFromAxisAngle(_Y, i < 2 ? R.steer : 0); _q2.setFromAxisAngle(_X, R.spin[i]); _q1.multiply(_q2);
+  }
+  for (let i = 0; i < R.nW; i++) {
+    const j = i < 4 ? i : i - 2, ax = i >= 2 && d.dualX ? d.dualX[i < 4 ? 0 : 1] : hw;   // j: the corner this tyre belongs to
+    const x = (i & 1) ? -ax : ax, z = i < 2 ? d.zf : d.zr;
+    _q1.setFromAxisAngle(_Y, i < 2 ? R.steer : 0); _q2.setFromAxisAngle(_X, R.spin[j]); _q1.multiply(_q2);
     if (i & 1) { _q3.setFromAxisAngle(_Y, Math.PI); _q1.multiply(_q3); }       // the right-hand wheels face the other way
-    _s.set(1, 1, 1); _p.set(x, d.tyreR + R.dy[i], z);
+    _s.set(1, 1, 1); _p.set(x, d.tyreR + R.dy[j], z);
     _mm.compose(_p, _q1, _s); R.wheels.setMatrixAt(i, _mm);
   }
   R.wheels.instanceMatrix.needsUpdate = true;
@@ -622,15 +731,24 @@ function keyAt(u) {
   return o;
 }
 const DOOR_OPEN = 1.0;
-const STAND = { x: 1.46, z: 0.1 };                                            // where you stand to use the door
-// the door's handle in the vehicle frame while it is shut
-function doorSpot(P, out) { return toWorld(P, STAND.x, STAND.z, out); }
+const STAND = { x: 1.46, z: 0.1 };                                            // where you stand to use the pickup's door
+const standX = d => STAND.x + (d.cab ? d.cab.sx : 0), standZ = d => STAND.z + (d.cab ? d.cab.dz : 0);
+// where you stand to use this vehicle's door, in the world
+function doorSpot(R, P, out) { return toWorld(P, standX(R.def), standZ(R.def), out); }
+/* the climb for this cab: the pickup's keys moved to its door and seat. A tall cab (dy) is climbed in the first three
+   quarters of the move, hips rising as the boots take the steps, before the turn onto the seat. */
+function keyOf(R, u) {
+  const k = keyAt(u), c = R.def.cab; if (!c) return k;
+  const e = api.sm(clamp(u, 0, 1));
+  k.x += lerp(c.sx, c.dx, e); k.z += c.dz; k.hip += c.dy * api.sm(clamp(u / 0.75, 0, 1));
+  return k;
+}
 function nearMount(R) {
-  const FOOT = api.FOOT, P = api.P; doorSpot(P, _v); const dd = Math.hypot(FOOT.x - _v[0], FOOT.z - _v[1]), dc = Math.hypot(FOOT.x - P.x, FOOT.z - P.z);
+  const FOOT = api.FOOT, P = api.P; doorSpot(R, P, _v); const dd = Math.hypot(FOOT.x - _v[0], FOOT.z - _v[1]), dc = Math.hypot(FOOT.x - P.x, FOOT.z - P.z);
   return Math.min(dd, dc - 1.1) < 3.0;
 }
 function mountOK(R) {
-  const FOOT = api.FOOT, P = api.P; doorSpot(P, _v); const dd = Math.hypot(FOOT.x - _v[0], FOOT.z - _v[1]), dc = Math.hypot(FOOT.x - P.x, FOOT.z - P.z);
+  const FOOT = api.FOOT, P = api.P; doorSpot(R, P, _v); const dd = Math.hypot(FOOT.x - _v[0], FOOT.z - _v[1]), dc = Math.hypot(FOOT.x - P.x, FOOT.z - P.z);
   return Math.min(dd, dc - 1.1) < 3.6;
 }
 function worldPose(R, P, k) {                                                  // the walker's world position and yaw for a vehicle-frame key
@@ -666,10 +784,11 @@ function angTo(a, b, t) { let d = ((b - a + Math.PI) % (2 * Math.PI) + 2 * Math.
 function routeToDoor(R, P) {
   const FOOT = api.FOOT, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), dx = FOOT.x - P.x, dz = FOOT.z - P.z;
   const lx = dx * fz - dz * fx, lz = dx * fx + dz * fz, pts = [];
-  if (lx < 0.2 && Math.abs(lz) < 3.4) {
-    const e = lz >= 0 ? 1 : -1; toWorld(P, -1.7, e * 3.7, _v); pts.push([_v[0], _v[1]]); toWorld(P, 1.7, e * 3.7, _v); pts.push([_v[0], _v[1]]);
-  } else if (lx >= 0.2 && lx < 1.4 && Math.abs(lz) < 3.2) { toWorld(P, 1.9, lz, _v); pts.push([_v[0], _v[1]]); }
-  doorSpot(P, _v); pts.push([_v[0], _v[1]]);
+  const d = R.def, gw = d.wid / 2 - 0.98, gl = d.len / 2 - 2.65;                // how much wider and longer than the pickup
+  if (lx < 0.2 && Math.abs(lz) < 3.4 + gl) {
+    const e = lz >= 0 ? 1 : -1; toWorld(P, -1.7 - gw, e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]); toWorld(P, 1.7 + gw, e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]);
+  } else if (lx >= 0.2 && lx < 1.4 + gw && Math.abs(lz) < 3.2 + gl) { toWorld(P, 1.9 + gw, lz, _v); pts.push([_v[0], _v[1]]); }
+  doorSpot(R, P, _v); pts.push([_v[0], _v[1]]);
   return pts;
 }
 
@@ -684,7 +803,7 @@ function doMount(R) {
 function doDismount(R) {
   const FOOT = api.FOOT, DMT = api.DMT, P = api.P, w = api.world;
   if (Math.hypot(P.vx, P.vz) > 1.4 || !P.gnd || P.wet) { api.toast(`Stop the ${R.def.kind} first.`, "warn"); return; }
-  doorSpot(P, _v);
+  doorSpot(R, P, _v);
   if (w.isWater(_v[0], _v[1]) || w.obNear(_v[0], _v[1], 0.5)) { api.toast("No room to open the door here.", "warn"); return; }
   DMT.on = true; DMT.t = 0; DMT.stepped = false; DMT.dur = 99;
   FOOT.dig = false; FOOT.sp = FOOT.fwd = FOOT.turn = FOOT.go = 0; FOOT.crouch = 0; FOOT.ski = false; FOOT.shoe = false; FOOT.on = true;
@@ -692,7 +811,7 @@ function doDismount(R) {
   P.vx = P.vz = 0; api.camState.init = false;
   R.A = { dir: "out", ph: 0, t: 0, u: 1 };
   R.drvBody.visible = R.drvArms.visible = false;
-  setWalker(R, keyAt(1), P, 0);
+  setWalker(R, keyOf(R, 1), P, 0);
 }
 const T_OPEN = 0.55, T_IN = 1.2, T_SHUT = 0.6, T_GET_OUT_DOOR = 0.5;
 function mountTick(R, dt) {
@@ -707,7 +826,7 @@ function mountTick(R, dt) {
   const g = FOOT.g, U = g.userData;
   if (A.ph === 1) {                                                             // stand, turn square to the cab, reach for the handle, door swings open
     const u = clamp(A.t / T_OPEN, 0, 1), e = api.sm(u);
-    const k0 = keyAt(0); toWorld(P, STAND.x, STAND.z, _v);
+    const k0 = keyAt(0); doorSpot(R, P, _v);
     FOOT.x = lerp(FOOT.x, _v[0], 1 - Math.exp(-12 * dt)); FOOT.z = lerp(FOOT.z, _v[1], 1 - Math.exp(-12 * dt));
     const tgtYaw = P.yaw + k0.yaw; FOOT.yaw = angTo(FOOT.yaw, tgtYaw, 1 - Math.exp(-10 * dt));
     FOOT.sp = FOOT.go = 0; FOOT.step = 0; FOOT.y = api.world.surf(FOOT.x, FOOT.z);
@@ -720,14 +839,14 @@ function mountTick(R, dt) {
   }
   if (A.ph === 2) {                                                             // step in and sit
     const u = clamp(A.t / T_IN, 0, 1); A.u = u; R.door = 1;
-    setWalker(R, keyAt(u), P, dt);
+    setWalker(R, keyOf(R, u), P, dt);
     if (!A.snd && u > 0.4) { A.snd = 1; api.snowStep(0.5); }
     if (u >= 1) { A.ph = 3; A.t = 0; A.snd = 0; }
     return;
   }
   if (A.ph === 3) {                                                             // reach out, pull the door shut
     const u = clamp(A.t / T_SHUT, 0, 1), e = api.sm(u);
-    const k = keyAt(1); setWalker(R, k, P, dt);
+    const k = keyOf(R, 1); setWalker(R, k, P, dt);
     const reach = Math.sin(Math.PI * Math.min(1, u * 1.15));
     U.arms[1].rotation.set(-0.55 - 0.1 * reach, 0, 0.12 + 0.95 * reach * (1 - e * 0.6)); U.fore[1].rotation.x = -0.25 - 0.35 * reach;
     R.door = 1 - Math.pow(e, 1.6);
@@ -747,7 +866,7 @@ function dismountTick(R, dt) {
   const g = FOOT.g, U = g.userData;
   if (A.ph === 0) {                                                             // reach to the handle, door swings open
     const u = clamp(A.t / T_GET_OUT_DOOR, 0, 1), e = api.sm(u);
-    setWalker(R, keyAt(1), P, dt);
+    setWalker(R, keyOf(R, 1), P, dt);
     const reach = Math.sin(Math.PI * Math.min(1, u * 1.1)) ;
     U.arms[1].rotation.set(-0.55 - 0.1 * reach, 0, 0.12 + 0.95 * reach); U.fore[1].rotation.x = -0.25 - 0.35 * reach;
     R.door = e; if (u > 0.15 && !A.snd) { A.snd = 1; api.thud(0.15); }
@@ -756,7 +875,7 @@ function dismountTick(R, dt) {
   }
   if (A.ph === 1) {                                                             // climb out: the mirror of getting in
     const u = clamp(A.t / (T_IN * 0.95), 0, 1); A.u = 1 - u; R.door = 1;
-    setWalker(R, keyAt(1 - u), P, dt);
+    setWalker(R, keyOf(R, 1 - u), P, dt);
     if (!A.snd && u > 0.8) { A.snd = 1; api.snowStep(0.6); }
     if (u >= 1) {
       FOOT.x = FOOT.x; FOOT.crouch = 0; DMT.on = false; R.A = { dir: "shut", t: 0 };
@@ -817,7 +936,7 @@ function setCur(r) {
   const R = runtime(r);
   veh.cur = R.driver || (R.driver = R.impl ? R.impl.driver(R) : makeDriver(R));
   veh.board = "get in the " + R.def.kind; veh.noun = R.def.kind[0].toUpperCase() + R.def.kind.slice(1);
-  if (hl.parent !== R.grp) { R.grp.add(hl, hl.target); hl.position.set(0, 0.95, 2.5); hl.target.position.set(0, -0.6, 18); }
+  if (hl.parent !== R.grp) { const lp = R.def.lamp || [0, 0.95, 2.5]; R.grp.add(hl, hl.target); hl.position.set(lp[0], lp[1], lp[2]); hl.target.position.set(0, -0.6, lp[2] + 15.5); }
 }
 function makeDriver(R) {
   const d = R.def;
@@ -944,11 +1063,14 @@ function spotNear(cx, cz, d, yard, yawOf) {
   }
   return null;
 }
+const LIC_NAME = { freight: "Freight" };
+const hasLic = d => !d.lic || !!(api.GS.lic && api.GS.lic[d.lic]);
 function buy(id) {
   const s = S(), GS = api.GS, d = byId(id); if (!d) return;
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
   if (s.owned.filter(isTruck).length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
   { const hp = heldVeh("pickup"); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the pickup you paid for is waiting in ${heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
+  if (d.lic && !hasLic(d)) { api.toast(`The ${d.name} needs your ${LIC_NAME[d.lic] || d.lic} licence. The ${LIC_NAME[d.lic] || d.lic} app signs you up for school.`, "warn"); return; }
   if (GS.cash < d.cost) { api.toast(`The ${d.name} is ${api.fmtCash(d.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   const spot = forecourtSpot(d); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
   GS.cash -= d.cost;
@@ -963,10 +1085,11 @@ function garageRows(body, row) {
   for (const d of VEHICLES) {
     if (KINDS[d.id]) continue;                                                     // boats have their own tab (14.1)
     const n = s.owned.filter(r => r.id === d.id).length;
-    const spec = `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · closed, heated cab · ${d.mass} kg`;
-    const how = `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
+    const spec = d.spec ? `${d.year} · ${d.spec} · ${d.fuel} L tank · closed, heated cab · ${d.mass} kg` : `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · closed, heated cab · ${d.mass} kg`;
+    const how = d.how || `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
+    const lic = hasLic(d) ? "" : `\n<span style="color:#f0c674">Needs your ${LIC_NAME[d.lic] || d.lic} licence.</span>`;
     const wait = hp ? `\n<span style="color:#f0c674">You've paid for a used pickup: it's waiting in ${heldWhere(hp)}.${full ? ` That makes ${MAX_OWNED} trucks, the most the forecourt takes.` : ""}</span>` : "";
-    row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${wait}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost ? "locked" : "", () => buy(d.id), String(d.year));
+    row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${d.id === "pickup" ? wait : ""}${lic}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost || !hasLic(d) ? "locked" : "", () => buy(d.id), String(d.year));
   }
   for (const r of s.owned) {
     const d = byId(r.id); if (!d || KINDS[r.id]) continue;
@@ -1012,7 +1135,7 @@ function rigLive() { const on = rigOn(), s = S(); return on === "sled" ? s.cur =
 function hostPose(on) {                                                         // { x, z, yaw, back } of the machine with that key
   const s = S(), P = api.P;
   if (on === "sled") { const p = s.cur == null ? P : s.sled; return p ? { x: p.x, z: p.z, yaw: p.yaw, back: api.hitchBack(), kg: 1e9 } : null; }
-  const r = rec(on); if (!r || KINDS[r.id]) return null; const d = byId(r.id), p = s.cur === on ? P : r;
+  const r = rec(on); if (!r || KINDS[r.id] || !byId(r.id).hitchKg) return null; const d = byId(r.id), p = s.cur === on ? P : r;   // no ball on a tractor unit (3.5b1)
   return { x: p.x, z: p.z, yaw: p.yaw, back: -d.hitchZ, kg: d.hitchKg };
 }
 function ballOf(on) { const h = hostPose(on); return h ? [h.x - Math.sin(h.yaw) * h.back, h.z - Math.cos(h.yaw) * h.back] : null; }
@@ -1560,7 +1683,7 @@ function nearestTick() {
   for (const r of s.owned) {                                                    // a truck's distance: to its door, or to its middle less its half-width
     const cur = s.cur === r.uid, x = cur ? P.x : r.x, z = cur ? P.z : r.z, yaw = cur ? P.yaw : r.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
     if (KINDS[r.id]) { cands.push({ key: r.uid, d: KINDS[r.id].dist(r, x, z, yaw) }); continue; }
-    const dx = x + fz * STAND.x + fx * STAND.z, dz = z - fx * STAND.x + fz * STAND.z;
+    const dR = byId(r.id), sx = standX(dR), sz = standZ(dR), dx = x + fz * sx + fx * sz, dz = z - fx * sx + fz * sz;
     cands.push({ key: r.uid, d: Math.min(Math.hypot(FOOT.x - dx, FOOT.z - dz), Math.hypot(FOOT.x - x, FOOT.z - z) - 1.4) });
   }
   const cur = cands.find(c => c.key === s.cur) || cands[0]; let best = cur;
@@ -1603,7 +1726,7 @@ function tick(dt) {
     if (isCur) {
       const seated = !FOOT.on, fp = api.fp();
       R.drvBody.visible = R.drvArms.visible = seated && !fp;
-      R.drvArms.rotation.z = -R.steer * 0.35; R.drvArms.position.x = 0;
+      R.drvArms.rotation.z = -R.steer * 0.35; R.drvArms.position.x = R.so[0];
       // the heated cab keeps you warm only while you are in it
       if (ST) ST.coldMul = seated ? R.def.cabCold : R.baseCold;
     } else { R.drvBody.visible = R.drvArms.visible = false; }

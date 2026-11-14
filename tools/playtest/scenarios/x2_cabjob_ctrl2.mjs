@@ -12,7 +12,7 @@ await ev(`GS.cash = 9000; GS.delivered = 12; garageTab = "trucks"; openGarage();
 await ev(`document.querySelector("#garageBody .row").click(); closeGarage(); true`); await sleep(400);
 await ev(`(() => { const s = TLX.state("vehicles"), r = s.owned[0]; const fx = Math.sin(r.yaw), fz = Math.cos(r.yaw); crashCancel(); FOOT.on = true; FOOT.x = r.x + fz * 3.2; FOOT.z = r.z - fx * 3.2; FOOT.yaw = r.yaw - 1.4; FOOT.y = surf(FOOT.x, FOOT.z); recenter(FOOT.x, FOOT.z, true); return 1; })()`); await sleep(1200);
 await tap("KeyQ"); ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14), "in the truck");
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 2) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
 const place = (where) => ev(`(() => { const L = ${JSON.stringify(lane)}, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L; const o = ${where === "lane" ? 0 : 60};
   P.x = L.x + ux * 12 + -uz * o; P.z = L.z + uz * 12 + ux * o; P.yaw = Math.atan2(ux, uz); P.y = surf(P.x, P.z); P.vx = P.vy = P.vz = 0; BOG.on = false; recenter(P.x, P.z, true); camState.init = false; return 1; })()`);
 const run = async (label, where, code, tablet) => {
