@@ -10822,7 +10822,7 @@ const RE = { away: 120, here: null, sync: 0 };
 const reCab = id => RE_CABINS.find(c => c.id === id);
 const reOwned = () => RE_CABINS.filter(c => GS.re && GS.re.own[c.id]);
 const reNight = c => { const o = GS.re.own[c.id] || { up: {} }; return c.rent + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.rent : 0), 0); };
-const reOcc = c => { const o = GS.re.own[c.id] || { up: {} }; return clamp(0.52 + (CAL.isPolarNight() ? 0.12 : 0) + (AUR.v > 0.35 ? 0.06 : 0) + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.occ : 0), 0), 0.15, 0.95); };
+const reOcc = c => { const o = GS.re.own[c.id] || { up: {} }; return clamp(0.52 + (CAL.isPolarNight() ? 0.12 : 0) + (AUR.v > 0.35 ? 0.06 : 0) + RE_UPS.reduce((a, u) => a + (o.up[u.id] ? u.occ : 0), 0) + (window.TLX && TLX.staff ? TLX.staff.occ(c.id) : 0), 0.15, 0.95); };   // + a caretaker (tlx-staff.js, 5.1)
 function reInit(d) {
   GS.re = d && typeof d === "object" ? { own: Object.assign({}, d.own || {}), arrears: +d.arrears || 0, last: Array.isArray(d.last) ? d.last.slice(0, 4) : [] } : { own: {}, arrears: 0, last: [] };
   for (const id in GS.re.own) { if (!reCab(id)) { delete GS.re.own[id]; continue; } GS.re.own[id] = Object.assign({ up: {}, acc: 0, nights: 0, rented: 0, L: 0 }, GS.re.own[id]); }
@@ -17065,6 +17065,9 @@ function initExpansion() {
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,
     newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
+    // tablet app kit for systems with their own app (5.1 staff), and the depot cabins you own (staff workplaces)
+    ui: { tabHead, tabCard, chip, sec, esc: tabEsc, ping: tabPing },
+    re: { owned: () => GS.re ? reOwned().map(c => ({ id: c.id, name: shortName(c), x: c.x, z: c.z })) : [] },
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

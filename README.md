@@ -191,6 +191,14 @@ soapstone stove and triple glazing show once you've bought them. The camera foll
 lifts out of the way when it has to back through it. Walk back into the lit ring at the door to go out. You can look
 round a cabin before you buy it.
 
+**Staff** (on the tablet once you have Real Estate) is where you hire people. Every depot cabin you own needs a
+caretaker, and people from the villages apply for the job: each card shows their name, where they're from, the weekly
+wage they want and how many years they say they've done it. That's their word: some oversell, and how hard someone
+works only shows once they're on the job. Applicants wait a few days for an answer, then withdraw; new ones come in
+while the job is open. A caretaker keeps the cabin aired, warm and booked, so it's let more nights. Wages come out
+every Monday (part of a week for someone who started midweek). If you can't cover them the rest is owed, and nobody
+works until you pay it from the app. You can let someone go once you've paid what you owe.
+
 ## Search and rescue
 
 Rescue school is four missions round the Nordkinn Redning base: **search** for a lost hiker (fly the
