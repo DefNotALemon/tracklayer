@@ -171,7 +171,7 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
   with a chase-cam/overhead screenshot of Kjøllefjord from above and street-level, judged with vision, not
   just code review. The earlier "hand-drawn map" Owner note above this one landed real value (tablet chart
   detail, v220) but was the wrong layer — leave that landed, this note is the actual follow-up it pointed to.
-  **LANDED v226 (14 Nov, same session):** stages (a) cohesion, (b) a real street grid and (c) outskirts snowmobile
+  **LANDED v227 (14 Nov, same session):** stages (a) cohesion, (b) a real street grid and (c) outskirts snowmobile
   infrastructure all landed. Three E-W + four N-S plowed streets (Kaigata runs to the pier), ~26 houses in regular lots gable to
   the street round back alleys, picket fences/sheds/woodpiles/mailboxes/fairy lights, store on Kaigata, church at the south end,
   street lamps; `buildLanes` now only plows door-apron spurs to the streets (`D.grid`); east edge: sled park (6 sleds), groomer

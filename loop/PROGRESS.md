@@ -37,7 +37,7 @@ Numbers (`g7_appstore_strip.mjs`, before on origin/main -> after): desktop strip
 (Real Estate 702-1032 and Rescue 1044-1374 px off a 975 px window) -> 18 / 417 / 417, all in view; phone 390x844 stayed
 12 -> follows each card (273, 534, 728); keyboard, pad d-pad and phone all pass both ways; Enter opens the focused card.
 Gate: smoke, x1_save, g7_appstore_strip, g7_appstore_detail pass (re-run after rebase onto v225).
-## 2026-11-14 — Kjøllefjord's physical 3D town redo: street grid, lots, snowmobile trailhead (Owner 14 Nov, PHYSICAL 3D town) — script v226
+## 2026-11-14 — Kjøllefjord's physical 3D town redo: street grid, lots, snowmobile trailhead (Owner 14 Nov, PHYSICAL 3D town) — script v227
 Ad hoc session build (not a loop pass). The old town was twelve cabins at hand-picked offsets with random yaws, a spoke of
 A* lanes from the depot, and the store/church/fish shop dropped wherever. Now `townBlocks()` (called from `buildTown`, replaces
 the `lots` table, the store, the church and the eight scattered lamps) lays out THREE plowed E-W streets (z = -36, 12, 60 from the
