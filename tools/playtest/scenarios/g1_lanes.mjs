@@ -1,33 +1,22 @@
-// G1: plowed lanes in Kjøllefjord. Samples how much of the straight walk from the depot yard to each town door
-// (garage forecourt, store, the shore-road houses, the church) is on plowed ground (yardAt > 0.5), then walks the
-// routes players use most (depot yard -> three shore-road house doors, and report 0020/0023's shore-road point to the
-// garage) by gameClock, and takes day + night stills over the town. (lot9 is left out of the walks: its straight
-// route runs into the freight shed on the pier.)
+// G1: plowed lanes in Kjøllefjord (since v223 a street grid, TOWNG). Floods outward over plowed ground (yardAt > 0.5)
+// from the depot yard and checks every in-town door's apron is reached, then walks the way a player does: down the
+// depot street, along the door's own street, up its spur, for the store, the church and the farthest house, plus
+// the shore-road point to the garage forecourt (reports 0020/0023); takes day + night stills over the town.
 // Run: tools/playtest/run.sh tools/playtest/scenarios/g1_lanes.mjs
 import { boot, ev, shot, done, sleep, down, up } from "../lib.mjs";
 await boot();
 await ev("GS.hour = 12; WX.at = () => 0; GS.storm = 0; true");
 
-// door targets: buildTown's lot table (offsets from the depot, depth d, yaw r), the apron spot out from each door
-const lots = [[46, 26, 7, 0.2], [46, -12, 6, -0.15], [18, 40, 7, 1.5], [-16, 44, 6, 1.6], [-40, 20, 7, -1.5], [-38, -16, 6, -1.4],
-  [10, -42, 7, 3.0], [-20, -40, 6, 2.9], [70, 8, 6, 0.4], [-66, 4, 6, -0.3], [30, 66, 6, 1.2], [-8, 70, 7, 1.7], [24, -34, 8, 0.1], [-58, 46, 16, -0.4]];
 const res = JSON.parse(await ev(`(() => {
-  const lots = ${JSON.stringify(lots)}, out = [], ax = depot.x - 5, az = depot.z;
-  const T = lots.map(([ox, oz, d, r], i) => ({ n: i === 12 ? "store" : i === 13 ? "church" : "lot" + i, x: depot.x + ox + Math.sin(r) * (d / 2 + 5), z: depot.z + oz + Math.cos(r) * (d / 2 + 5) }));
-  T.unshift({ n: "garage", x: garageSite.x - 5, z: garageSite.z });
-  for (const t of T) {
-    if (isSea(t.x, t.z)) continue;
-    const L = Math.hypot(t.x - ax, t.z - az), n = Math.max(2, Math.round(L / 1));
-    let on = 0, mn = 1;
-    for (let k = 0; k <= n; k++) { const y = yardAt(ax + (t.x - ax) * k / n, az + (t.z - az) * k / n); if (y > 0.5) on++; mn = Math.min(mn, y); }
-    out.push({ n: t.n, L: +L.toFixed(1), plowed: +(on / (n + 1)).toFixed(2), min: +mn.toFixed(2) });
-  }
-  return JSON.stringify(out);
+  const d = depot, doors = KIT.doors.filter(D => Math.hypot(D.x - d.x, D.z - d.z) <= TOWN_R);
+  const S = 1.5, R = 140, N = Math.ceil(2 * R / S), seen = new Uint8Array(N * N), cell = (x, z) => [Math.round((x - d.x + R) / S), Math.round((z - d.z + R) / S)];
+  const q = [], [si, sj] = cell(d.x - 5, d.z); q.push(si, sj); seen[sj * N + si] = 1;
+  while (q.length) { const i = q.shift(), j = q.shift(); for (const [a, b] of [[1,0],[-1,0],[0,1],[0,-1]]) { const x = i + a, y = j + b; if (x < 0 || y < 0 || x >= N || y >= N || seen[y * N + x] || yardAt(d.x - R + x * S, d.z - R + y * S) <= 0.5) continue; seen[y * N + x] = 1; q.push(x, y); } }
+  const miss = doors.filter(D => { const [i, j] = cell(D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)); return !seen[j * N + i]; });
+  return JSON.stringify({ n: doors.length, miss: miss.length });
 })()`));
-for (const r of res) console.log(`route depot->${r.n}: ${r.L} m, plowed ${Math.round(r.plowed * 100)}%, min yard ${r.min}`);
-const mean = res.reduce((a, r) => a + r.plowed, 0) / res.length;
-console.log(`mean plowed share of depot->door routes: ${Math.round(mean * 100)}%, routes with a gap (min < 0.5): ${res.filter(r => r.min < 0.5).length}/${res.length}`);
-
+console.log(`in-town doors ${res.n}, apron not reachable over plowed ground: ${res.miss}`);
+if (res.miss) process.exitCode = 1;
 function setFoot(x, z, yawExpr) {
   return ev(`(() => {
     FOOT.on = true; FOOT.ski = false; FOOT.dig = false; FOOT.x = ${x}; FOOT.z = ${z};
@@ -51,27 +40,20 @@ async function walkPath(pts, cap) {
   const dt = s.t - s0.t;
   return { reached: wi >= pts.length, m: +m.toFixed(1), secs: +dt.toFixed(1), avg: +(m / dt).toFixed(2), pack: +(packs.reduce((a, b) => a + b, 0) / packs.length).toFixed(2) };
 }
-// the walking route a player takes from the depot yard to a lot's door: straight to the apron, round the side when the
-// door faces away from the quay (same geometry buildTown's lanes use, so before/after walk the identical line)
-const route = (i) => ev(`(() => {
-  const [ox, oz, d, r] = ${JSON.stringify(lots)}[${i}], w = [9, 8, 8, 9, 10, 8, 9, 8, 8, 9, 8, 9][${i}];
-  const hx = depot.x + ox, hz = depot.z + oz, nx = Math.sin(r), nz = Math.cos(r), sx0 = depot.x - 5, sz0 = depot.z, rr = Math.max(w, d) / 2 + 3.5;
-  const pts = [], tx = sx0 - hx, tz = sz0 - hz;
-  if (nx * tx + nz * tz < 0) { const s = Math.sign(nz * tx - nx * tz) || 1; pts.push([hx + nz * s * rr, hz - nx * s * rr]); }
-  pts.push([hx + nx * (d / 2 + 5), hz + nz * (d / 2 + 5)]);
-  // since v89 lanes are routed round obstacles: walk the lane's own legs when one ends at this apron
-  const ls = YARDS.filter(Y => Y.f === LANE_FALL), [ex, ez] = pts[pts.length - 1];
-  let k = ls.findIndex(Y => Math.hypot(Y.x2 - ex, Y.z2 - ez) < 0.5);
-  if (k >= 0) { pts.length = 0; pts.push([ls[k].x2, ls[k].z2]);
-    while (k >= 0 && Math.hypot(ls[k].x - sx0, ls[k].z - sz0) > 0.01) { pts.unshift([ls[k].x, ls[k].z]); k--; } }
-  const ux = pts[0][0] - sx0, uz = pts[0][1] - sz0, ul = Math.hypot(ux, uz);
-  return JSON.stringify({ start: [sx0 + ux / ul * Math.min(18, ul * 0.8), sz0 + uz / ul * Math.min(18, ul * 0.8)], pts });
+// street route to a door: depot yard -> the depot street (x = depot.x + 2) -> the door's street -> its spur
+const route = (pick) => ev(`(() => {
+  const d = depot, doors = KIT.doors.filter(D => D.grid && Math.hypot(D.x - d.x, D.z - d.z) <= TOWN_R);
+  const D = (${pick})(doors); const ap = [D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)], cx = d.x + 2;
+  return JSON.stringify({ pts: [[cx, d.z], [cx, D.grid[1]], [D.grid[0], D.grid[1]], ap], who: [Math.round(D.x - d.x), Math.round(D.z - d.z)] });
 })()`).then(JSON.parse);
-for (const i of [0, 11, 3, 9]) {
-  const R = await route(i);
-  await setFoot(R.start[0].toFixed(2), R.start[1].toFixed(2), `Math.atan2(${R.pts[0][0]} - ${R.start[0]}, ${R.pts[0][1]} - ${R.start[1]})`); await sleep(400);
-  const w = await walkPath(R.pts, 60);
-  console.log(`walk depot yard edge -> lot${i} door: ${w.reached ? "reached" : "NOT reached"}, ${w.m} m in ${w.secs} s, avg ${w.avg} m/s, mean pack ${w.pack}`);
+const picks = { store: "ds => ds.find(D => D.d === 8 && Math.abs(D.x - depot.x - 25) < 12) || ds[0]", church: "ds => ds.reduce((a, b) => (b.z > a.z ? b : a))", farEast: "ds => ds.reduce((a, b) => (b.x > a.x ? b : a))" };
+let fails = 0;
+for (const [name, pick] of Object.entries(picks)) {
+  const R = await route(pick);
+  await setFoot((R.pts[0][0] - 7).toFixed(2), R.pts[0][1].toFixed(2), `Math.atan2(${R.pts[0][0]} - FOOT.x, ${R.pts[0][1]} - FOOT.z)`); await sleep(400);
+  const w = await walkPath(R.pts, 90);
+  console.log(`walk depot yard -> ${name} door (${R.who}) by its streets: ${w.reached ? "reached" : "NOT reached"}, ${w.m} m in ${w.secs} s, avg ${w.avg} m/s, mean pack ${w.pack}`);
+  if (!w.reached) fails++;
 }
 // report 0020/0023 shore-road point (-1250,-420) -> garage forecourt
 const g = JSON.parse(await ev("JSON.stringify({gx: garageSite.x - 5, gz: garageSite.z})"));
@@ -87,4 +69,4 @@ const cam = (h, ox, oz) => ev(`(() => { GS.hour = ${h}; const ex = depot.x - 20,
 await cam(12, 30, 30); await sleep(1500); await shot("01_town_day");
 await cam(12, -30, 30); await sleep(1500); await shot("02_town_day_w");
 await cam(22, 30, 30); await sleep(1500); await shot("03_town_night");
-await done();
+await done(fails || process.exitCode ? 1 : 0);

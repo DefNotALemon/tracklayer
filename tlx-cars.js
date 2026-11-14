@@ -62,6 +62,7 @@ function fits(W, x, z, yaw) {
   if (W.isSea(x, z) || W.isWater(x, z)) return false;
   if (W.slopeAt(x, z, 2.5) > 0.14) return false;
   if (W.yardAt(x, z) < 0.3) return false;                          // people park on plowed ground
+  if (W.townStreetNear && W.townStreetNear(x, z) < 4.6) return false;   // Kjøllefjord's grid: in the yard, not in the street lane
   const R = window.TLXR;
   if (R && R.ready && R.near(x, z).d < 3.2 + 2.6) return false;    // off the road, plowed half + the car's half + room to pass
   const fx = Math.sin(yaw), fz = Math.cos(yaw);

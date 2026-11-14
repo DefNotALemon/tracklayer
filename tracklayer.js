@@ -11852,6 +11852,227 @@ function placeQuay() {
     const k = j * GN + i; ground[k] = qy; bio[k] = 0; freshG[k] = 0;              // kept clear: the quay is concrete underfoot (quayTop)
   }
 }
+/* ---------------- Kjøllefjord's street grid (v223) ----------------
+   The town used to be twelve cabins dropped at hand-picked offsets with random yaws and a spoke of A* lanes from the depot.
+   Now it is laid out round real streets: three E-W streets (z = -36, 12, 60 from the depot; the middle one, Kaigata, runs
+   out to the pier) crossed by four N-S streets (x = -42, 2, 48, 84; x = 2 is the depot's own, the sled spawns facing down it).
+   Between the streets the houses stand in regular lots, gable to the street, back to back round a shared back alley, each with
+   its picket fence on the lot lines, a shed and a woodpile in the back yard, a mailbox at the street, a porch lamp and a string
+   of fairy lights. The streets are plowed lanes (r 2.4, strength 0.9 like the roads), a lamp stands on every other lot line.
+   buildLanes() then only has to plow a short spur from each door's apron to its street (D.grid) instead of routing every door
+   to the depot. Kjøllefjord's real obstacles (depot, garage, anything already in obGrid) just veto a lot. */
+const TOWNG = { X: [-42, 2, 48, 84], Z: [-36, 12, 60], HW: 2.4, lines: [], pts: [], fish: null };
+function townStreetNear(x, z) {                                       // metres to the nearest street centre line (1e9 before the grid is laid)
+  let m = 1e9;
+  for (const [ax, az, bx, bz] of TOWNG.lines) {
+    const dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1);
+    m = Math.min(m, Math.hypot(x - ax - dx * t, z - az - dz * t));
+  }
+  return m;
+}
+function townClearTrees(x, z, r) {                                   // pines in the way of a street or a lot come out
+  const list = [];
+  for (let j = Math.floor((z - r - 3 + HALF) / OBC); j <= Math.floor((z + r + 3 + HALF) / OBC); j++) for (let i = Math.floor((x - r - 3 + HALF) / OBC); i <= Math.floor((x + r + 3 + HALF) / OBC); i++) {
+    const a = obGrid.get(j * OBW + i); if (!a) continue;
+    for (const o of a) if (o.tree !== undefined && !o.down && Math.hypot(o.x - x, o.z - z) < r + 1.2) list.push(o);
+  }
+  for (const o of list) clearTree(o);
+}
+function townBlocks() {
+  const { bx, put, house, lamp, L, snowM, woodD, wood, red, white, glowM } = KIT, d0 = depot, G = TOWNG, rnd = mulberry32(141114);
+  const HW = G.HW, RD = 21.0;                                          // street half width; back fence, metres from a street's centre line
+  // ---- the streets: plowed lanes, drawn on the chart (TOWNL) too
+  const mk = (ax, az, bx2, bz2) => ({ a: [d0.x + ax, d0.z + az], b: [d0.x + bx2, d0.z + bz2] });
+  const legs = [];
+  for (const z of G.Z) legs.push(mk(z === 12 ? -50 : G.X[0], z, G.X[3], z));
+  for (const x of G.X) legs.push(mk(x, G.Z[0], x, G.Z[2]));
+  for (const { a, b } of legs) {
+    G.lines.push([a[0], a[1], b[0], b[1]]); TOWNL.push([a, b]); addLane([a, b], HW, 0.9);
+    const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3);
+    for (let i = 0; i <= n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; G.pts.push([x, z]); townClearTrees(x, z, HW + 0.6); }
+  }
+  { const lr = [[d0.x - 5, d0.z + 3], [d0.x + G.X[1], d0.z + 3]]; addLane(lr, 1.5); TOWNL.push(lr); }   // the depot yard to its street, 2 m past the post by the sled spawn
+  // ---- lots: four rows of houses, gable to the street, back to back round the alleys
+  const pal = [red, white, KIT.yellow, KIT.blue, L(0x5a4b3c), wood, L(0x7a5a3a), L(0x8a3f2c), L(0x6d7f8c)];
+  const wd = [], sn = [], rd = [], gl = [], fw = [], fs = [];       // merged box lists: shed/wood, snow, red, glow; fence pale, fence snow caps
+  const H = (x, z) => groundAt(x, z);
+  const fence = (x0, z0, x1, z1) => {                                 // a picket fence run on world axes, one merged mesh for the whole town
+    const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0) / 2.2));
+    const px = i => x0 + (x1 - x0) * i / n, pz = i => z0 + (z1 - z0) * i / n;
+    for (let i = 0; i <= n; i++) { fw.push([0.14, 1.12, 0.14, px(i), H(px(i), pz(i)) + 0.5, pz(i)]); }
+    for (let i = 0; i < n; i++) {
+      const mx = (px(i) + px(i + 1)) / 2, mz = (pz(i) + pz(i + 1)) / 2, my = (H(px(i), pz(i)) + H(px(i + 1), pz(i + 1))) / 2, l = 2.2, rz = (H(px(i + 1), pz(i + 1)) - H(px(i), pz(i))) * (alongX ? Math.sign(x1 - x0) : 0);
+      for (const yy of [0.38, 0.8]) fw.push(alongX ? [l, 0.08, 0.07, mx, my + yy, mz] : [0.07, 0.08, l, mx, my + yy, mz]);
+      const k = Math.round(l / 0.4);
+      for (let p = 0; p < k; p++) { const f = (p + 0.5) / k, qx = px(i) + (px(i + 1) - px(i)) * f, qz = pz(i) + (pz(i + 1) - pz(i)) * f; fw.push(alongX ? [0.08, 0.86, 0.035, qx, H(qx, qz) + 0.48, qz] : [0.035, 0.86, 0.08, qx, H(qx, qz) + 0.48, qz]); }
+      fs.push(alongX ? [l, 0.06, 0.13, mx, my + 1.1, mz] : [0.13, 0.06, l, mx, my + 1.1, mz]);
+      addOb({ x: mx, z: mz, r: 0.5, top: H(mx, mz) + 1.1 }); }
+  };
+  const free = (x, z, R) => { for (const [u, v] of [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [R, R], [-R, R], [R, -R], [-R, -R]]) if (isSea(x + u, z + v)) return false; return slopeAt(x, z, 4) < 0.22 && !obNear(x, z, R * 0.7 + 0.5); };
+  const xi = [[G.X[0], G.X[1]], [G.X[1], G.X[2]], [G.X[2], G.X[3]]];
+  let nHouses = 0;
+  const rows = [[G.Z[0], 1], [G.Z[1], -1], [G.Z[1], 1], [G.Z[2], -1]];  // [street z, side of it the lots lie on (+1 south)]
+  for (const [sz0, side] of rows) {
+    const sz = d0.z + sz0, ry = side > 0 ? Math.PI : 0, rear = sz + side * RD;
+    xi.forEach(([xa, xb], ii) => {
+      const lo = d0.x + xa + HW + 1.2, hi = d0.x + xb - HW - 1.2, n = Math.max(2, Math.round((hi - lo) / 13.2)), lw = (hi - lo) / n;
+      for (let i = 0; i <= n; i++) {                                  // lot lines: a fence from the back alley up to the house fronts
+        const bx0 = lo + i * lw;
+        if (!isSea(bx0, sz + side * 12) && !isSea(bx0, rear)) fence(bx0, rear, bx0, sz + side * 8);
+        if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 0.9), 0.8)) lamp(bx0, sz + side * (HW + 0.9));
+      }
+      if (!isSea(lo, rear) && !isSea(hi, rear)) fence(lo, rear, hi, rear);
+      for (let i = 0; i < n; i++) {
+        const cx = lo + (i + 0.5) * lw, w = Math.min(lw - 5, 7 + rnd() * 1.5), d = 6 + rnd() * 1.3, h = 2.8 + rnd() * 0.4, fy = 3.6 + rnd() * 0.9, off = HW + fy + d / 2, cz = sz + side * off, mat = pal[Math.floor(rnd() * pal.length)];
+        const skip = rnd() < 0.14, ox = cx - d0.x, oz = cz - d0.z, special = sz0 === G.Z[1] && side === -1 && ii === 0 && i === 0 ? "fish" : sz0 === G.Z[1] && side === 1 && ii === 1 && i === 1 ? "store" : null;
+        if (special === "fish") { G.fish = { x: cx, z: cz, ry, sz }; continue; }
+        if (skip && !special) continue;
+        const W = special === "store" ? 10 : w, D = special === "store" ? 8 : d, off2 = special === "store" ? HW + fy + D / 2 : off, cz2 = sz + side * off2;
+        if (!free(cx, cz2, Math.max(W, D) / 2 + 1.6)) continue;
+        townClearTrees(cx, cz2, Math.max(W, D) / 2 + 2.5);
+        const g = house(cx, cz2, W, D, special === "store" ? 3.4 : h, ry, special === "store" ? L(0x7a5a3a) : mat); nHouses++;
+        const DR = KIT.doors[KIT.doors.length - 1]; DR.grid = [cx, sz];
+        addLane([[cx, cz2 - side * (D / 2 + 5)], [cx, sz]], 1.5); TOWNL.push([[cx, cz2 - side * (D / 2 + 5)], [cx, sz]]);
+        // local frame of g: +x across the front, +z toward the street, y = 0 is 25 cm under the snow line
+        const gy = 0.25, cs = Math.cos(ry), sn_ = Math.sin(ry), wx = (u, v) => cx + u * cs + v * sn_, wz = (u, v) => cz2 - u * sn_ + v * cs;
+        if (special === "store") {
+          bx(g, 10, 0.3, 2.4, woodD, 0, 3.5, 4.6); bx(g, 0.2, 1.1, 5, L(0xe8e2d4), 0, 4.3, 0.2); bx(g, 0.1, 0.3, 3.6, KIT.green, -0.12, 4.3, 0.2);
+          const spx = [-4.7, 4.7]; for (const sx of spx) bx(g, 0.16, 3.2, 0.16, woodD, sx, 1.6, 5.6);
+        }
+        const sg = rnd() < 0.5 ? 1 : -1, shedU = -sg * 2.0, shedV = -(RD - off2) + 2.3, lx = sg * (W / 2 + 1.0), wpV = -D / 4;
+        wd.push([3.0, 2.1, 2.4, shedU, gy + 1.05, shedV], [0.9, 1.7, 0.06, shedU, gy + 0.9, shedV + 1.22]);
+        wd.push([3.5, 0.12, 2.9, shedU, gy + 2.2, shedV, 0.09]); sn.push([3.5, 0.1, 2.9, shedU, gy + 2.32, shedV, 0.09]);
+        addOb({ x: wx(shedU, shedV), z: wz(shedU, shedV), r: 1.5, top: 1e9, ax: ry });
+        wd.push([1.9, 0.95, 0.75, lx, gy + 0.48, wpV]); sn.push([2.0, 0.1, 0.85, lx, gy + 1.0, wpV]);
+        addOb({ x: wx(lx, wpV), z: wz(lx, wpV), r: 0.9, top: 1e9 });
+        const mu = -sg * 2.6, mv = off2 - HW - 0.9;
+        wd.push([0.09, 1.05, 0.09, mu, gy + 0.52, mv]); rd.push([0.36, 0.27, 0.5, mu, gy + 1.15, mv]);
+        gl.push([0.16, 0.22, 0.16, 1.0, gy + 2.3, D / 2 + 0.14]);
+        if (rnd() < 0.7) for (let u = -W / 2 + 0.6; u <= W / 2 - 0.5; u += 0.62) gl.push([0.09, 0.09, 0.09, u, gy + (special === "store" ? 3.1 : h) - 0.2, D / 2 + 0.08]);
+        // the merged bits ride on the house group, so they turn with it
+        const flush = (list, mat2, cast) => { if (!list.length) return; const m = put(g, mergeBoxes(list.splice(0)), mat2, 0, 0, 0); m.castShadow = cast; };
+        flush(wd, woodD, true); flush(sn, snowM, false); flush(rd, red, false); flush(gl, glowM, false);
+      }
+    });
+  }
+  // ---- the church, at the south end of the shore street, facing the junction; and the fish shop's reserved lot
+  { const cx = d0.x - 21, cz = d0.z + G.Z[2] + HW + 4 + 8, ry = Math.PI;
+    townClearTrees(cx, cz, 10);
+    if (!isSea(cx, cz) && !obNear(cx, cz, 10)) {
+      const ch = house(cx, cz, 9, 16, 5, ry, white); nHouses++;
+      KIT.doors[KIT.doors.length - 1].grid = [cx, d0.z + G.Z[2]];
+      addLane([[cx, cz - (8 + 5)], [cx, d0.z + G.Z[2]]], 1.5); TOWNL.push([[cx, cz - 13], [cx, d0.z + G.Z[2]]]);
+      bx(ch, 4, 9, 4, white, 0, 4.5, 6.5);
+      bx(ch, 4.4, 0.3, 4.4, snowM, 0, 9.1, 6.5);
+      put(ch, new THREE.ConeGeometry(2.6, 6, 4), L(0x2f3a44), 0, 12.1, 6.5).rotation.y = Math.PI / 4;
+      bx(ch, 0.12, 1.2, 0.12, KIT.metal, 0, 15.6, 6.5); bx(ch, 0.7, 0.12, 0.12, KIT.metal, 0, 15.4, 6.5);
+      for (const zz of [-4, 0, 4]) for (const sd of [-1, 1]) bx(ch, 0.08, 1.6, 0.9, glowM, sd * 4.55, 2.4, zz);
+    } }
+  if (fw.length) { const m = put(scene, mergeBoxes(fw), L(0xd9d3c5), 0, 0, 0); m.castShadow = true; m.receiveShadow = true; }
+  if (fs.length) { const m = put(scene, mergeBoxes(fs), snowM, 0, 0, 0); m.castShadow = false; }
+  // ---- junction lamps, where the streets cross (every second one) and one at each end of Kaigata
+  let ji = 0;
+  for (const x of G.X) for (const z of G.Z) {
+    if ((ji++) % 2) continue; const lx = d0.x + x + HW + 1.0, lz = d0.z + z + HW + 1.0;
+    if (!isSea(lx, lz) && !obNear(lx, lz, 1.2)) lamp(lx, lz);
+  }
+  townBlocks.n = nHouses;
+}
+
+/* ---------------- sled country: the snowmobile trailhead on Kjøllefjord's east edge (v223) ----------------
+   Real placed structures where the town gives way to the fell: a groomer shed with its piste groomer parked out front, a
+   plowed sled park (a log rail with six sleds nosed in, block-heater posts), a warming hut with a lit stove and a bench, a
+   jerry-can and drum stand, the trailhead arch over a groomed trail, a trail map board, and orange snow stakes running off
+   east. Built from the same KIT helpers as the town. Sited by search (flat, dry, clear) east of the last street. */
+function sledCountry() {
+  const { bx, put, house, lamp, L, snowM, woodD, wood, white, glowM, metal } = KIT, d0 = depot;
+  let best = null, bs = 1e9;
+  for (let cx = d0.x + 108; cx <= d0.x + 124; cx += 4) for (let cz = d0.z - 46; cz <= d0.z + 18; cz += 4) {
+    let ok = true;
+    for (const [u, v] of [[0, 0], [-16, 0], [28, 0], [0, -20], [0, 18], [12, 14], [-16, -18], [-16, 16]]) if (isSea(cx + u, cz + v) || isWater(cx + u, cz + v)) ok = false;
+    if (!ok) continue;
+    const sl = slopeAt(cx, cz, 14) + slopeAt(cx - 10, cz, 8) + slopeAt(cx + 12, cz, 8) + slopeAt(cx, cz - 14, 8) + slopeAt(cx, cz + 12, 8);
+    if (sl > 0.9 || obNear(cx, cz, 14) || obNear(cx - 12, cz, 8) || obNear(cx + 14, cz, 8)) continue;
+    const sc = sl * 40 + Math.abs(cz - (d0.z - 12)) * 0.2 + (cx - d0.x - 108) * 0.3; if (sc < bs) { bs = sc; best = [cx, cz]; }
+  }
+  if (!best) return;
+  const [cx, cz] = best, Y = (x, z) => groundAt(x, z), at = (x, z) => ({ x: cx + x, z: cz + z });
+  townClearTrees(cx + 6, cz, 34);
+  const grp = (x, z, ry = 0) => { const g = new THREE.Group(); g.position.set(cx + x, Y(cx + x, cz + z) - 0.05, cz + z); g.rotation.y = ry; scene.add(g); return g; };
+  const wobs = (g0, list, r) => { const c = Math.cos(g0.rotation.y), s = Math.sin(g0.rotation.y); for (const [u, v] of list) addOb({ x: g0.position.x + u * c + v * s, z: g0.position.z - u * s + v * c, r, top: 1e9 }); };
+  const orange = L(0xd9622b), dark = L(0x20262c), yel = L(0xe2b92f), glass = L(0x1c2a38), snowC = snowM;
+  // ---- the plowed sled park and the groomed trail that leaves it
+  addYard(cx - 6, cz, 11); addYard(cx - 6, cz - 7, 8); addYard(cx - 6, cz + 7, 8);
+  const trail = [[cx - 6, cz], [cx + 12, cz], [cx + 28, cz], [cx + 42, cz]];
+  addLane(trail, 3.2, 0.85); TOWNL.push(trail.map(p => p.slice()));
+  // the town end of the trail: out of the last street (x = 84) to the park along the sled park's own spur
+  { const a = [d0.x + TOWNG.X[3] + 2.4, d0.z + TOWNG.Z[1]], b = [cx - 6, cz]; const lr = laneRoute(a[0], a[1], b[0], b[1]); addLane(lr, 2.2, 0.8); TOWNL.push(lr); }
+  // ---- six sleds nosed in to a log rail (skis, track, cowl, windscreen, seat, bars), a block-heater post between each pair
+  const sledCols = [0xc23a22, 0x2b4a5e, 0xd98a14, 0x2f5a3a, 0x1c2126, 0x8a2f22];
+  const rail = grp(-14.5, 0); for (let z = -7.2; z <= 7.2; z += 2.4) bx(rail, 0.2, 0.9, 0.2, woodD, 0, 0.45, z); bx(rail, 0.18, 0.18, 15.2, woodD, 0, 0.95, 0); bx(rail, 0.3, 0.07, 15.4, snowM, 0, 1.07, 0).castShadow = false;
+  { const c = []; for (let k = 0; k < 6; k++) {
+      const z = -6 + k * 2.4, g = grp(-12.4 + (k % 2) * 0.25, z, -Math.PI / 2 + (k % 3 - 1) * 0.04), col = L(sledCols[k]);
+      for (const s of [-1, 1]) { bx(g, 0.13, 0.07, 1.25, dark, s * 0.46, 0.14, 1.25); bx(g, 0.13, 0.07, 0.4, dark, s * 0.46, 0.27, 1.95).rotation.x = -0.5; }
+      bx(g, 0.62, 0.3, 1.7, dark, 0, 0.3, -0.55);                          // the track
+      bx(g, 0.92, 0.5, 1.35, col, 0, 0.66, 0.55); bx(g, 0.82, 0.36, 0.75, col, 0, 0.62, 1.3);        // cowl + nose
+      bx(g, 0.62, 0.34, 0.06, glass, 0, 1.08, 0.95).rotation.x = 0.55;      // windscreen
+      bx(g, 0.5, 0.14, 1.05, dark, 0, 0.8, -0.45); bx(g, 0.6, 0.3, 0.7, col, 0, 0.72, -1.2);
+      bx(g, 0.86, 0.045, 0.045, dark, 0, 1.05, 0.38); bx(g, 0.5, 0.07, 1.0, snowM, 0, 0.9, -0.45).castShadow = false; bx(g, 0.88, 0.06, 1.3, snowM, 0, 0.95, 0.55).castShadow = false;
+      c.push(z);
+    } for (const z of c) addOb({ x: cx - 12.3, z: cz + z, r: 1.1, top: 1e9 });
+    for (const z of [-4.8, -0.0, 4.8]) { const p = grp(-15.6, z + 0.0); bx(p, 0.14, 1.3, 0.14, woodD, 0, 0.65, 0); bx(p, 0.34, 0.24, 0.2, orange, 0, 1.2, 0); addOb({ x: p.position.x, z: p.position.z, r: 0.35, top: 1e9 }); } }
+  // ---- the groomer shed: grey corrugated boards, a big roll door on the gable end, a name board, a lamp
+  { const sx = 8, sz = -17, g = house(cx + sx, cz + sz, 10, 12.5, 4.1, 0, L(0x55626e), false);
+    bx(g, 5.0, 3.4, 0.16, L(0x232c35), 0, 1.95, 6.3); for (let k = 0; k < 6; k++) bx(g, 5.06, 0.1, 0.2, metal, 0, 0.6 + k * 0.58, 6.3);
+    bx(g, 5.4, 0.2, 0.22, KIT.trimW, 0, 3.75, 6.3); for (const s of [-1, 1]) bx(g, 0.2, 3.8, 0.22, KIT.trimW, s * 2.6, 1.9, 6.3);
+    const nb = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.9), signMat(signTex("LØYPELAGET", "NORDKINN SKUTERLØYPER", "#efe9dc", "#a3271c", 1100, 220), 0.15)); nb.position.set(0, 5.3, 6.5); g.add(nb);
+    bx(g, 0.6, 0.35, 0.3, glowM, 3.4, 4.0, 6.4); lamp(cx + sx + 7.2, cz + sz + 7.2);
+    for (let k = 0; k < 4; k++) bx(g, 0.5, 0.5, 0.5, L(0xd9622b), -4.2 + (k % 2) * 0.6, 0.5 + Math.floor(k / 2) * 0.5, 7.4);     // fuel/oil drums stack at the door
+  }
+  // ---- the piste groomer, parked square in front of the shed: orange cab on twin tracks, a front blade, a rear tiller
+  { const g = grp(20, -8, -0.5);
+    for (const s of [-1, 1]) { bx(g, 0.95, 0.9, 5.4, dark, s * 1.55, 0.55, 0); for (const z of [-2.7, 2.7]) put(g, new THREE.CylinderGeometry(0.62, 0.62, 0.95, 14), dark, s * 1.55, 0.62, z).rotation.z = Math.PI / 2;
+      for (const z of [-2, -0.7, 0.7, 2]) put(g, new THREE.CylinderGeometry(0.34, 0.34, 0.8, 10), metal, s * 1.55, 0.36, z).rotation.z = Math.PI / 2; bx(g, 1.0, 0.1, 5.8, snowM, s * 1.55, 1.02, 0).castShadow = false; }
+    bx(g, 2.5, 0.9, 5.0, orange, 0, 1.2, 0);                               // hull
+    bx(g, 2.3, 1.75, 2.3, orange, 0, 2.5, 0.6); bx(g, 2.34, 0.95, 2.0, glass, 0, 2.7, 0.62); bx(g, 2.42, 0.12, 2.6, L(0xc4521f), 0, 3.45, 0.6); bx(g, 2.2, 0.08, 2.4, snowM, 0, 3.55, 0.6).castShadow = false;
+    bx(g, 1.6, 0.8, 1.4, orange, 0, 2.0, -1.8); bx(g, 1.4, 0.07, 1.2, snowM, 0, 2.43, -1.8).castShadow = false;
+    put(g, new THREE.CylinderGeometry(0.07, 0.07, 1.6, 8), metal, 0.7, 2.7, -2.0);          // the exhaust stack
+    bx(g, 0.5, 0.25, 0.3, glowM, 0, 3.7, 0.6);                              // amber beacon
+    bx(g, 0.2, 0.75, 0.16, metal, -0.9, 1.6, 3.2); bx(g, 0.2, 0.75, 0.16, metal, 0.9, 1.6, 3.2);
+    bx(g, 4.3, 1.05, 0.28, yel, 0, 1.0, 3.7).rotation.x = 0.28; bx(g, 4.3, 0.12, 0.45, metal, 0, 0.5, 3.85);   // the blade
+    bx(g, 3.9, 0.7, 0.95, L(0x3a4148), 0, 0.85, -3.5); for (let k = -4; k <= 4; k++) bx(g, 0.08, 0.5, 0.7, dark, k * 0.45, 0.55, -4.2);   // the tiller and its comb
+    wobs(g, [[0, -2.8], [0, 0], [0, 2.8], [-1.6, 0], [1.6, 0]], 1.3); }
+  // ---- the warming hut: lit, stove smoke, a bench and a woodpile at the door, name board over it
+  { const hx = 14, hz = 13, g = house(cx + hx, cz + hz, 6.4, 5.2, 2.7, Math.PI, L(0x6b3a24), true);
+    const nb = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.55), signMat(signTex("VARMESTUE", "ÅPEN FOR ALLE", "#3a2418", "#f3dca8", 800, 200), 0.3)); nb.position.set(0, 3.55, 2.72); g.add(nb);
+    bx(g, 2.2, 0.1, 0.55, woodD, -1.8, 0.75, 4.0); for (const s of [-1, 1]) bx(g, 0.1, 0.5, 0.45, woodD, -1.8 + s * 0.9, 0.5, 4.0); bx(g, 2.3, 0.07, 0.6, snowM, -1.8, 0.82, 4.0).castShadow = false;
+    bx(g, 2.2, 1.0, 0.7, L(0xa5784a), 3.9, 0.7, 0.2); bx(g, 2.3, 0.1, 0.8, snowM, 3.9, 1.25, 0.2).castShadow = false;
+    bx(g, 0.2, 0.3, 0.2, glowM, 1.0, 2.35, 2.72);
+    addLane([[cx + hx, cz + hz - 7.6], [cx + hx, cz]], 1.6, 0.9); }
+  // ---- jerry-can and drum stand for the sleds (the fuel itself is the depot's cabin, up in town)
+  { const g = grp(-2, 16.5, 0.1); const cans = [], cans2 = [];
+    for (let k = 0; k < 3; k++) for (let j = 0; j < 2; j++) cans.push([0.36, 0.44, 0.18, -0.9 + k * 0.45, 0.72 + j * 0.45, 0]);
+    bx(g, 2.2, 0.08, 0.5, woodD, -0.3, 0.45, 0); for (const s of [-1, 1]) bx(g, 0.12, 0.45, 0.12, woodD, -0.3 + s * 0.95, 0.22, 0);
+    put(g, mergeBoxes(cans), L(0xc23a22), 0, 0, 0);
+    for (const [dx, dz] of [[1.5, 0.1], [2.1, -0.5], [2.1, 0.7]]) put(g, new THREE.CylinderGeometry(0.4, 0.4, 1.1, 12), L(0xb8432c), dx, 0.55, dz);
+    bx(g, 0.1, 1.5, 0.1, woodD, -1.6, 0.75, -0.2); const sg = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.5), signMat(signTex("BENSIN", "20 L KANNER", "#f2e9d0", "#a3271c", 600, 220), 0.1)); sg.position.set(-1.6, 1.7, -0.14); g.add(sg);
+    wobs(g, [[0, 0], [1.9, 0.1]], 1.4); }
+  // ---- the trailhead arch over the groomed trail: two log posts, a beam, the painted board both ways, a map board beside
+  { const ax = 30, g = grp(ax, 0);
+    for (const s of [-1, 1]) { bx(g, 0.5, 5.2, 0.5, woodD, 0, 2.6, s * 4.2); bx(g, 0.8, 0.5, 0.8, L(0x4c4d51), 0, 0.2, s * 4.2); bx(g, 0.18, 2.6, 0.18, woodD, 0, 3.8, s * 3.1).rotation.x = s * 0.62; }
+    bx(g, 0.5, 0.5, 9.6, woodD, 0, 5.3, 0); bx(g, 0.7, 0.18, 9.8, snowM, 0, 5.62, 0).castShadow = false;
+    bx(g, 0.14, 1.7, 6.6, L(0x2c3f2e), 0, 4.1, 0);
+    for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.5), signMat(signTex("SKUTERLØYPE", "KJØLLEFJORD · NORDKINN · MERKET LØYPE", "#2c3f2e", "#f4ead0", 1100, 250), 0.2)); p.position.set(s * 0.078, 4.1, 0); p.rotation.y = s * Math.PI / 2; g.add(p); }
+    for (const s of [-1, 1]) addOb({ x: g.position.x, z: g.position.z + s * 4.2, r: 0.5, top: 1e9 });
+    const m = grp(ax - 4, 7.5, Math.PI / 2 * -1 + 0.0); for (const s of [-1, 1]) bx(m, 0.14, 2.3, 0.14, woodD, s * 0.95, 1.15, 0); bx(m, 2.1, 1.4, 0.1, L(0x33444f), 0, 1.75, 0); bx(m, 2.4, 0.12, 0.3, snowM, 0, 2.5, 0).castShadow = false;
+    const mp = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.3), signMat(signTex("LØYPEKART", "MERKET · TRØKKET · VARMESTUE", "#e9e2cf", "#1c3a52", 800, 300), 0.1)); mp.position.set(0, 1.75, 0.07); m.add(mp);
+    addOb({ x: m.position.x, z: m.position.z, r: 0.9, top: 1e9 }); }
+  // ---- orange snow stakes either side of the trail, every 10 m, running off east (reflector band near the top)
+  { const o = [], w = []; for (let x = 36; x <= 42 + 6 * 9; x += 9) for (const s of [-1, 1]) { const px = cx + x, pz = cz + s * 3.6 + (x - 36) * 0.02 * s, y = Y(px, pz); o.push([0.08, 2.3, 0.08, px, y + 1.1, pz]); w.push([0.095, 0.2, 0.095, px, y + 1.85, pz]); }
+    put(scene, mergeBoxes(o), L(0xe2531f), 0, 0, 0).castShadow = true; put(scene, mergeBoxes(w), L(0xf2efe6), 0, 0, 0).castShadow = false; }
+  sledCountry.at = { x: cx, z: cz };
+}
+
 function buildTown() {
   const { bx, put, house, lamp, hjell, L, snowM, metal, woodD, wood, red, white, concrete, hull, glowM } = KIT;
   const d0 = depot;
@@ -11881,32 +12102,9 @@ function buildTown() {
   bx(gg, 1.0, 0.8, 1.0, wood, -4.2, 0.4, 4.6); bx(gg, 0.9, 0.7, 0.9, wood, -2.8, 0.35, 4.8);
   put(gg, new THREE.TorusGeometry(0.85, 0.16, 8, 18), L(0x14181d), 3.4, 1.0, 4.6).rotation.set(0.25, 0.4, 0);
 
-  // houses along the shore road, painted the way they are up here
-  const lots = [
-    [46, 26, 9, 7, 3.0, 0.2, red], [46, -12, 8, 6, 2.8, -0.15, white],
-    [18, 40, 8, 7, 2.9, 1.5, KIT.yellow], [-16, 44, 9, 6, 3.0, 1.6, L(0x5a4b3c)],
-    [-40, 20, 10, 7, 3.2, -1.5, red], [-38, -16, 8, 6, 2.8, -1.4, white],
-    [10, -42, 9, 7, 3.0, 3.0, KIT.blue], [-20, -40, 8, 6, 2.9, 2.9, wood],
-    [70, 8, 8, 6, 2.8, 0.4, white], [-66, 4, 9, 6, 3.0, -0.3, KIT.yellow], [30, 66, 8, 6, 2.8, 1.2, red], [-8, 70, 9, 7, 3.1, 1.7, white]
-  ];
-  for (const [ox, oz, w, d, h, r, mat] of lots) { const hx = d0.x + ox, hz = d0.z + oz; if (!isSea(hx, hz)) house(hx, hz, w, d, h, r, mat); }
-  // the general store with a porch and a sign
-  const st = house(d0.x + 24, d0.z - 34, 10, 8, 3.4, 0.1, L(0x7a5a3a));
-  bx(st, 10, 0.3, 2.4, woodD, 0, 3.5, 4.6); bx(st, 0.2, 1.1, 5, L(0xe8e2d4), 0, 4.3, 0.2);
-  bx(st, 0.1, 0.3, 3.6, KIT.green, -0.12, 4.3, 0.2);
-  // the church: white timber, a tower with a spire
-  const cx = d0.x - 58, cz = d0.z + 46;
-  if (!isSea(cx, cz)) {
-    const ch = house(cx, cz, 9, 16, 5, -0.4, white);
-    bx(ch, 4, 9, 4, white, 0, 4.5, 6.5);
-    bx(ch, 4.4, 0.3, 4.4, snowM, 0, 9.1, 6.5);
-    put(ch, new THREE.ConeGeometry(2.6, 6, 4), L(0x2f3a44), 0, 12.1, 6.5).rotation.y = Math.PI / 4;
-    bx(ch, 0.12, 1.2, 0.12, metal, 0, 15.6, 6.5); bx(ch, 0.7, 0.12, 0.12, metal, 0, 15.4, 6.5);
-    for (const zz of [-4, 0, 4]) for (const sd of [-1, 1]) bx(ch, 0.08, 1.6, 0.9, glowM, sd * 4.55, 2.4, zz);
-  }
+  townBlocks(); sledCountry();
   // plowed lanes from the depot yard to every door in town: buildLanes(), run from boot() once every shed, shop
   // and woodpile has its obstacle in, so the lanes can go round them
-  for (const lx of [-40, -14, 14, 40]) { lamp(d0.x + lx, d0.z + 14); lamp(d0.x + lx, d0.z - 20); }
   // firewood, fuel drums, a plough pile of snow
   for (let i = 0; i < 5; i++) {
     const wx = d0.x + 30 + i * 0.5, wz = d0.z + 6 + i * 0.4;
@@ -12061,10 +12259,15 @@ function laneRoute(sx, sz, gx, gz) {
 }
 const TOWNL = [];                                                    // the plowed depot->door lanes as laid, for the chart
 function buildLanes() {
+  // the streets themselves went in with townBlocks(); each house's spur (door apron to its street) went in with it. What is
+  // left is any lit door the grid didn't place (D.grid unset): plow it a lane from the nearest street point, routed round obstacles
   const sx0 = depot.x - 5, sz0 = depot.z;
   for (const D of KIT.doors) {
-    if (Math.hypot(D.x - depot.x, D.z - depot.z) > TOWN_R) continue;
-    const lr = laneRoute(sx0, sz0, D.x + D.nx * (D.d / 2 + 5), D.z + D.nz * (D.d / 2 + 5)); TOWNL.push(lr); addLane(lr, 1.5);
+    if (Math.hypot(D.x - depot.x, D.z - depot.z) > TOWN_R || D.grid) continue;
+    const ax = D.x + D.nx * (D.d / 2 + 5), az = D.z + D.nz * (D.d / 2 + 5);
+    let tx = sx0, tz = sz0, bd = 1e9;
+    for (const [px, pz] of TOWNG.pts) { const d = Math.hypot(px - ax, pz - az); if (d < bd) { bd = d; tx = px; tz = pz; } }
+    const lr = laneRoute(tx, tz, ax, az); TOWNL.push(lr); addLane(lr, 1.5);
   }
 }
 /* ---- chase camera vs buildings (report 0046: delivery stills were a screenful of a house's painted wall). The chase cam
@@ -12161,9 +12364,11 @@ function buildFishShops() {
     if (slopeAt(x, z, 5) > 0.2 || obNear(x, z, 9) || Math.hypot(x - d0.x, z - d0.z) < 30 || Math.hypot(x - garageSite.x, z - garageSite.z) < 24) continue;
     const sc = Math.abs(along) * 1.0 + Math.abs(out - 6) * 0.7; if (sc < bs) { bs = sc; best = [x, z]; }
   }
+  const FZ = TOWNG.fish; if (FZ && !isSea(FZ.x, FZ.z)) best = [FZ.x, FZ.z];   // the grid keeps one lot on Kaigata for it
   if (best) {
-    const [x, z] = best, ry = Math.atan2(d0.x - x, d0.z - z);            // the door faces the quay road
+    const [x, z] = best, ry = FZ && best[0] === FZ.x ? FZ.ry : Math.atan2(d0.x - x, d0.z - z);            // the door faces the street (the quay road when it isn't on the grid)
     const g = KIT.house(x, z, 7.5, 6, 3.0, ry, L(0x8a2f22));
+    if (FZ && best[0] === FZ.x) { KIT.doors[KIT.doors.length - 1].grid = [x, FZ.sz]; addLane([[x, z + 8], [x, FZ.sz]], 1.5); TOWNL.push([[x, z + 8], [x, FZ.sz]]); }
     bx(g, 7.9, 0.12, 1.8, woodD, 0, 2.55, 3.85); bx(g, 8.1, 0.2, 2.0, snowM, 0, 2.7, 3.9);           // porch roof
     for (const sx of [-3.6, 3.6]) bx(g, 0.14, 2.55, 0.14, woodD, sx, 1.27, 4.7);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.15), signMat(signTex("FISK & FRILUFT", "NORDKINN · TACKLE · BAIT · AUGERS", "#efe7d6", "#7a2418"), 0.35));
@@ -17079,7 +17284,7 @@ function initExpansion() {
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, dropOb, addYard, addLane, yardAt,
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
-      laneRoute, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
+      laneRoute, townStreetNear, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
       // road snow (3.2): re-read the plow map round legs whose Y.k changed (addLane returns its legs)
       replow: plowRefresh,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after

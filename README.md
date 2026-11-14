@@ -360,10 +360,17 @@ HUD says "Plowed yard"), so you walk to a door at a normal walking pace instead 
 buries a yard again. Off the sled, the snow badge by the speedo reads the snow under your own boots (PACKED
 "Plowed yard" / "Packed trail", POWDER "Wading powder" / "Wading deep powder", ICE on a frozen lake, and
 what your snowshoes or skis do for you), not wherever you left the sled. Every lived-in house also has a plowed apron running about 8 m out from its front
-door, so you reach the hard pack well before you reach the step. In Kjøllefjord a plowed lane runs from
-the depot yard to every house, the store, the church and the tackle shop, plowed round the houses, the
-pier sheds, woodpiles and lamp posts rather than under them, so the walk from the quay to any door in town
-is hard pack all the way and nothing stands in the lane. Walk into a wall at an angle and you
+door, so you reach the hard pack well before you reach the step. Kjøllefjord is laid out on a street grid: three
+plowed east-west streets (the middle one, Kaigata, runs out to the pier) crossed by four north-south ones (the
+depot's street is the one a new save spawns facing down). Between them the houses stand in regular lots, gable
+to the street, back to back round a shared back alley, each with a picket fence on the lot lines, a shed and
+woodpile in the back yard, a mailbox, a porch lamp and fairy lights; the store is on Kaigata, the church closes
+the south end, and a street lamp stands on every other lot line. A short plowed spur runs from each door to its
+street, so the walk from the quay to any door in town is hard pack all the way and nothing stands in the lane.
+On the east edge of town, at the end of the groomed trail, sits the sled country: a groomer shed with its
+piste groomer parked out front, a plowed sled park (six sleds on a log rail, block-heater posts), a warming
+hut with a lit stove, a jerry-can stand, the SKUTERLØYPE trailhead arch, a trail map board and orange stakes
+running off east. Walk into a wall at an angle and you
 slide along it and round the corner instead of sticking (houses, the depot, the garage, the hospital, the
 pier freight shed, the fish buyer and the drying racks); only walking straight at it stops you, and then
 you stand there with your legs still rather than marching on the spot (and a jog into a wall costs no breath).
