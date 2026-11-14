@@ -19,6 +19,19 @@ eject at 12 m/s fwd: 14.8 m/s at +8 s, 55 m away -> 0.0, 5.9 m; eject at 6 m/s b
 3 m/s back: 18.0 -> 0.0; rock 18 m/s: 17.5 m/s, 78 m from the stone -> 0.0, 0.3 m; rock 22 m/s: 71 m -> 0.2 m;
 empty tank, S held, rolling back 4 m/s: peak 28 m/s -> stopped in <1 s.
 Gate: smoke, x1_save, g3_riderless_brake, g2_rocks all exit 0, page errors none.
+## 2026-11-14 — 5.2 staff interviews (lane B) (G4) — 4200aac
+Builder pass, lane B. Beta 0173 (5.1) had only POLISH findings; #1 (a null applicant entry throws in boardTick every
+second) folded into this slice: init and boardTick drop non-objects. #2 (portrait tablet) is the tablet's, not
+staff's; #3 (final wages for crew at a sold place) waits for milestone 6, when property can be sold.
+Built 5.2 in tlx-staff.js only (no tracklayer.js change; tlx-staff.js?v=2): INTERVIEW button on each applicant card
+(HIRE stays the card's Enter/A action) opens a chat view with four one-shot questions, two wage offers and HIRE AT.
+Overseller slip chances xp 0.3 / stove 0.6 / ref 0.85 (measured: a reference caught 85% of 240 oversellers, 0 of 120
+honest; all 120 honest checked). Caught: ask $75 -> $42 for a 12-claimed / 3-real applicant. Deal at 92% ($55 vs floor
+$50) sets the hire wage; lowball to a temper-0.9 applicant = insult + mute, HIRE still works. Design in EXPANSION 5.2.
+Gate: smoke, x1_save, x5_interview (A-G: keyboard Enter, pad A on HIRE AT, touch tap on an offer, reload keeps chat /
+caught / checked, a 5.1-style applicant interviews, a planted null entry loads), x5_staff. Stills
+~/.hermes/cache/scratch/tlloop/b_x52/ (chat readable, buttons fit the landscape tablet).
+Next for lane B: 5.3 happiness, raises, praise/criticism, notice and quitting (reads tr.temper / tr.work).
 
 ## 2026-11-14 — 5.1 Staff app: applicants, expiry, hire (lane B) (G4) — 979496c
 Builder pass, lane B (first pass on milestone 5; no beta reports on lane B systems yet). Design written into
