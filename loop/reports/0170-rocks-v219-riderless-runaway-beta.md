@@ -1,4 +1,5 @@
 # 0170 — rocks (v219) beta: riderless sled runs away backwards after a rock ejection (G1/base game) — main @ 2584fbe
+Note: 0169 (same part, tester 2) says "no BUG" but only sampled +1 s after an eject; this one samples 8 s.
 Scenario: tools/playtest/scenarios/g2_rocks_riderless.mjs (new; asserts + prints). Builder's g2_rocks.mjs rerun: ALL PASS. No stills (numbers only).
 
 ## Findings (most important first)
