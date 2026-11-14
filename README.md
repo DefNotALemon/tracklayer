@@ -398,6 +398,16 @@ wound, but only in the first six seconds after the hit; a wound that old has soa
 quay, the garage or the hospital patches you up. You carry three bandages and the quay restocks them. If your health
 hits zero it's the same defeat as any other: the Red Cross crew tows you back to the quay.
 
+**Clothing layers.** Under your riding kit you wear a base layer and a mid layer, from **Nordkinn Fisk & Friluft** by the
+quay (its Base layers and Mid layers tabs, beside the tackle). You start in a cotton tee with no mid layer, which adds no
+warmth. A merino top ($85, +0.5 warmth) or wool long johns ($140, +1.2), a fleece ($95, +1.2) or a down jacket ($240,
++2.4) add warmth like any piece of kit. Hard work on foot (wading powder, a jog, digging) works up a sweat, faster under
+a heavy mid layer, and a damp base layer chills you on the sled: damp cotton drains your warmth up to about 1.4× as
+fast and dries slowly, while merino and wool wick it and stay warm damp. Down is the warmest while it's dry and loses
+most of its loft when you sweat in it; a fleece shrugs it off. Through the ice soaks you to the skin. Any stove (a
+village, a cabin, the quay, a room) dries you out in about half a minute. Owned layers swap back free in the shop. The
+code is `tlx-gear.js`.
+
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth
 and the Red Cross sled drags you home, minus the cargo and a fee. A freight card whose leg would
 cost 70% or more of your warmth in the current light and weather, with the kit you're wearing, wears
@@ -651,7 +661,7 @@ The day follows the real light. In polar night you fish by headlamp and the glow
 Ice thickens through the winter and goes soft in the spring; under 12 cm the lake is off limits.
 The catch keeps in the cooler on the sled (10 fish) for about two days, then loses value. Sell it at the
 **fish buyer** on the quay pier, or take **FRESH FISH** orders from Parcels to homes and cabins for more.
-Rods, reels, line, augers and bait come from **Nordkinn Fisk & Friluft**, the tackle shop by the quay
+Rods, reels, line, augers and bait come from **Nordkinn Fisk & Friluft**, the tackle and outdoor shop by the quay
 (stop there and press **E**). The Logbook keeps your catch, kilos and personal bests.
 The fishing code is `icefish.js`.
 

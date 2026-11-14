@@ -9719,6 +9719,7 @@ function stats() {
   st.cold += pk.cold || 0; st.slots += pk.slots || 0; st.burn += pk.burn || 0; st.trail = pk.trail || 0; if (pk.light) st.light = Math.max(st.light, pk.light);
   let warm = 0;
   for (const slot of GEAR_ORDER) warm += gearDef(slot, GS.own.gear[slot]).warm;
+  if (window.TLXG) warm += TLXG.warm();          // base and mid layers under the kit (tlx-gear.js, 10.1)
   st.warm = warm + st.cold;                       // insulation, plus what the sled blocks
   st.coldMul = clamp(1.55 - st.warm * 0.11, 0.3, 1.6);
   st.drag = Math.max(0.35, st.drag);
@@ -13407,7 +13408,7 @@ function updGame(dt, spd) {
   const reC = reNearCab(P.x, P.z, 22), reHome = reC && GS.re && GS.re.own[reC.id] ? reC : null;
   if (reHome !== RE.here) { RE.here = reHome; if (reHome) toast(`${shortName(reHome)}: your depot. ${reHome.built ? "Warm stove inside. " : ""}The fuel cache pump fills you free; it goes on Monday's bill.`); }
   const night = 1 - dayFactor(), elev = clamp((groundAt(P.x, P.z) - 110) / 220, 0, 1);
-  const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul;
+  const cold = (0.3 + 0.35 * night + 0.9 * GS.storm + 0.35 * elev) * ST.coldMul * (window.TLXG ? TLXG.coldK() : 1);   // damp layers chill (tlx-gear.js, 10.1)
   if (elev > 0.5 && ST.warm < 7 && !GS.kitWarned) { GS.kitWarned = true; toast("You're under-dressed for the open fell. The garage sells warmer kit.", "warn"); }
   // a thermos or a stove: stop anywhere and you thaw out slowly, up to what the kit can manage
   const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
