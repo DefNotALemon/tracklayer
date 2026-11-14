@@ -126,6 +126,22 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **14 Nov, Lemon: guns and Tarkov-style customization, prioritized, frustrated at slow progress.** His
+  words: "add in can we add directives to add a lot more rocks... get other agents working on guns and gun
+  customization, and gun parts/upgrades like scopes, magazines, better ammos, grips to hold, longer barrels,
+  stocks, different handles, different frames, i want tarkov customization with streamlining for on the go
+  quick customization. i really want you to get going here, you've had days and produced very little
+  progress." This is G4 milestone 11 (EXPANSION.md, lane D), which lane D had not reached yet (still on
+  10.2+). Elevated: lane D builds 11 next, AHEAD of finishing 10.2-10.4 (the design, slices 11.1-11.5, is
+  written out in EXPANSION.md under milestone 11 now — read it there). 11.1 (core weapon model + gun shop
+  shell) and 11.2 (the quick-customize wheel — the actual centerpiece of this ask) were dispatched as an ad
+  hoc same-session builder pass on 14 Nov in worktree `tracklayer-guns`, NOT lane D's worktree, so lane D:
+  check EXPANSION.md's Status table before starting either slice — if they're landed, start at 11.3. If
+  progress still looks slow to Lemon: the platform runs one interactive delegate_task child at a time from a
+  live chat session, but the 4 lane crons (A-D) plus 2 beta testers run continuously and independently of
+  that — `hermes cron list` shows all of them `[active]`, firing every 10 min, each already landing versioned
+  commits (check `git log origin/main` for the pace). If a lane looks stuck, check its own cron's `Last run`/
+  failure streak before assuming nothing is happening.
 - **14 Nov, Lemon: a lot more visible rocks, with real collision behaviour (built this session).** His words:
   "add a lot more rocks, all of which are visible and pop out of the snow, and if you run over one from now on
   it either bucks you to the other side, or just throw you off if you're going fast enough, usually while

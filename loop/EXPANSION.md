@@ -482,7 +482,55 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
   game's free layers add 0 warmth: a player who never shops plays today's game. Sweat only from on-foot exertion
   (`FOOT.dig`, wading `FOOT.strain`, jog `FOOT.runW`), so riding parcel routes never wets you.
 - [ ] 11 Firearms and hunting: weapons, ammunition, seasons and quotas, butcher; people can never be shot.
-      Options: hunter's licence school, game warden.
+      Options: hunter's licence school, game warden. **Lemon, 14 Nov: wants Tarkov-style depth** — "guns and
+      gun customization, and gun parts/upgrades like scopes, magazines, better ammos, grips to hold, longer
+      barrels, stocks, different handles, different frames... Tarkov customization with streamlining for on
+      the go quick customization." Elevated ahead of 10.2-10.4 in lane D's queue (Owner note in LOOP.md);
+      build 11 before finishing the rest of 10. Slices (design below): 11.1 core weapon model + gun shop
+      shell (fills 10.5) + a hunting loop; 11.2 the quick-customize wheel (THE centerpiece of this ask); 11.3
+      ammo variety; 11.4 more part variety + a second frame; 11.5 the original milestone's seasons/quotas/
+      game warden/butcher. 11.1-11.2 were built in an ad hoc session pass (not lane D) on 14 Nov — check
+      Status before starting either so lane D doesn't duplicate it.
+  - [ ] 11.1 Core weapon model + gun shop shell. New `tlx-guns.js` (`TLX.register({id:"guns",...})`, state
+        `x.sys.guns = { owned: [...], parts: [...] }`). A **frame** (`FRAMES`: start with one, a bolt-action
+        hunting rifle, `id, name, slots:["barrel","stock","grip","magazine","sight"], base stats`) is the
+        base weapon; an owned gun instance is `{frame, parts:{barrel,stock,grip,magazine,sight}, ammo}` with
+        every slot filled by a default (free, stock) part so a bought rifle works immediately. Carry it on
+        the sled rack (reuse the existing rack/cargo-slot pattern from camping gear/skis) or holstered on
+        foot. Gun shop: a small INT room in Kjøllefjord (the 10.5 shell), counter panel in the icefish/`.ifpanel`
+        style, sells the frame and starting parts. Hunting: fire (keyboard/pad/touch, through `btn(action)`)
+        at the existing wildlife (`quadMake` reindeer/moose/hare/fox — reuse `WILD`, don't fork a new animal
+        system), a clean hit drops the animal for a pelt/meat sale; people can never be targeted (gate fire
+        input off entirely when aimed at a human-shaped target, no exceptions). Hunter's licence school
+        option (Settings > Options, on by default per G4 rule) gates hunting until taken, a short tutorial
+        card like the existing school courses.
+  - [ ] 11.2 The quick-customize wheel (the ask's centerpiece: "streamlining for on the go quick
+        customization"). A radial/wheel overlay bound to one key/button/touch gesture (hold, don't tap — like
+        a weapon wheel in other games) that opens INSTANTLY over gameplay (no tablet app, no deep menu,
+        works on foot or on the sled, pauses nothing): five slot icons (barrel/stock/grip/magazine/sight)
+        around the rifle's own silhouette in the middle; picking a slot shows only the parts the PLAYER
+        ALREADY OWNS for that slot (bought at the gun shop ahead of time — swapping is instant and free,
+        buying is still a shop trip) as a short horizontal strip, pick one and it snaps on with a sound/haptic
+        and the wheel closes. Stat deltas (accuracy spread, recoil recovery time, handling/ADS speed, weight
+        -> sled cargo weight, noise -> animal spook radius) apply live and show as small +/- bars while a
+        slot is open, same idea as a sled part's garage card. Adaptive prompts throughout (`btn()`, no
+        hard-coded key names); works on keyboard, pad (face buttons round a wheel) and touch (tap the slot
+        then the part, since there's no analog stick to spin on all touch devices). This is purely a swap of
+        ALREADY-OWNED parts; the gun shop remains the only place to buy a new part outright.
+  - [ ] 11.3 Ammo variety. 2-3 cartridge grades for the rifle's calibre (e.g. budget/standard/premium: price
+        vs. accuracy spread and clean-kill chance at range) bought at the gun shop, loaded into the magazine
+        slot's capacity (a bigger magazine part = more rounds before reload, a real Tarkov-style trade-off:
+        more capacity usually costs more and weighs more).
+  - [ ] 11.4 Part variety + a second frame. 3-4 real options per slot with genuine trade-offs (short/long
+        barrel: handling vs. range and noise; bipod-grip vs. standard: steadier aim vs. slower ADS; wood vs.
+        synthetic stock: weight vs. cold-weather grip feel; iron sight/low-power scope/long-range scope: FOV
+        vs. effective range). Add a second frame (e.g. a lever-action carbine or shotgun) with its own slot
+        set so "different frames" (Lemon's words) is real, not just skins.
+  - [ ] 11.5 The original milestone: hunting seasons and species quotas (tie into the Calendar), a game
+        warden option who can fine/confiscate over quota or hunting a protected/out-of-season species, and a
+        butcher step (dress the animal for meat/pelt value, time cost on foot, a knife item if one doesn't
+        exist yet).
+
 - [ ] 12 Fire watch and trails: towers, fire finder, smoke reports, care packages, trails laid by walking
       (option), hikers, parking lots.
 - [ ] 13 Birch sap and berries; first balance pass; property table + cadence scenario in LOOP.md.
