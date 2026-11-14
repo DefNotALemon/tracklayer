@@ -3,6 +3,31 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 18:35 — 6.2a the lamp at Slettnes: oil tank, drums from the quay, Lights app, Monday stipend (lane B) (G4) — ca5b8ac
+Builder pass, lane B. Orient: the worktree held a dead pass's 6.2a (17:41-18:00: `tlx-lights.js`, `x6_lamp.mjs`, three
+bridge hunks; its last run died on a cdnjs blip, "THREE is not defined"). Stashed, rebased, popped, finished here
+rather than started over: the code was complete and the scenario now passes as left. Triage 192-198 for lane B: only
+0196 (6.1b beta): #1 and #2 POLISH (door cooldown after leaving a room; `staff.post` not idempotent, test path only),
+#3 an unconfirmed BUG (reload inside a room comes up riding, maybe every interior): NOT fixed this pass, it is next
+pass's first job. Others are lanes A/C/D's.
+6.2 split in EXPANSION.md: 6.2a (this) and 6.2b (the two smaller lights); the design is written there.
+Built (`tlx-lights.js` v1, new): the lamp burns 2.5 L an hour from a 180 L tank only while the sun is under -2 degrees
+(`api.sunEl`, new api field), stepped in quarter hours. Drums ($45, 60 L, 6 at most) are ordinary claims from the quay
+to the relay site with `own: "lights"`, so pickup, slots, Jobs row and compass are the parcel system's. Tower room: PUMP
+at the rack (5 game s), LIGHT at the stair, through the footx provider (keyboard E, pad L3, touch button). Lights app
+with a card per lamp and statements; Monday pays $12 a lamp hour.
+Bridges in tracklayer.js (3): `deliver()` hands loads with `j.own` to `TLX[j.own].land` (no pay, no delivery counted);
+the relay blink asks `TLX.lights.out("slettnes")`; `sunEl` in the api. `x1_save.mjs` knows the `lights` id.
+Numbers (`x6_lamp.mjs`, 44 asserts A-I, exit 0, page errors none): a December day has 18.0 dark hours -> 18.00 lamp
+hours, 45.0 L; one 24 h clock jump burns the same; 10 L = 4.00 lamp hours then dark (tower flashes 0 of 40 samples,
+beam 0), relit by pad L3 -> flashes again; 3 drums $135, cap 6; a 1-slot sled takes 1 of 3, 60 L into the store, cash
+and delivered unchanged; pump 0 -> 60 L; 48 h = 37.3 lamp hours = $447; a week = 133 dark hours = $1,596 for 6 drums
+($270). Reload keeps tank/store/week/statements, a drum aboard waits at the quay again; a pre-6.2a save with the
+station owned gets its lamp lit with 45 L.
+Stills (`~/.hermes/cache/scratch/tlloop/b62b/sheet.jpg`): app card and statement lay out cleanly; the pumping figure
+stands at the drums with one arm out. Honest gaps: no hand-pump prop in the hand and no stair-climb animation (LIGHT is
+a toast), which falls short of the animation rule: listed under 6.2a "Not done". Not beta-tested yet.
+
 ## 2026-11-14 12:20 — 6.1b property types: Slettnes lighthouse station, rooms with their own dirt (lane B) (G4) — 3ff79c9
 Builder pass, lane B. Orient: worktree clean. Triage 188-191: none on a lane-B system (0188 wheel, 0190 hunting are
 lane D's; 0189 semis lane A's; 0191 regression sweep clean), so the next unticked slice: 6.1b. Its design was one line;
