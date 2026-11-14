@@ -198,6 +198,12 @@ works only shows once they're on the job. Applicants wait a few days for an answ
 while the job is open. A caretaker keeps the cabin aired, warm and booked, so it's let more nights. Wages come out
 every Monday (part of a week for someone who started midweek). If you can't cover them the rest is owed, and nobody
 works until you pay it from the app. You can let someone go once you've paid what you owe.
+INTERVIEW an applicant first and it opens a chat: ask about their experience, what they'd do when the stove won't
+draw in a cold snap, for a reference you can ring, and why they want the job (each once). Someone who padded their
+application tends to slip when you ask for detail, and a reference is the surest test: caught out, their card says
+what they really have and they ask less. Their tone gives away their temper, and why they want the job says a lot
+about how hard they'll work. You can offer a lower wage, but push too hard and they lose patience; a short-tempered
+one stops talking money altogether.
 
 ## Search and rescue
 
