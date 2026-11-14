@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-14 — More visible rocks and rock collision (Lemon's ask) — HASH
+## 2026-11-14 — More visible rocks and rock collision (Lemon's ask) — 1122b8d
 Before: ~6500 rocks, only on the fell >160 m and the tideline, placed at ground + fresh*0.3 so snow buried part of
 them; a rock was a generic hard obstacle (31.3 m/s eject, else a 1.45x wall bounce). After: 30.5k rocks (6.5k old +
 24k new, `buildRockField()` run after `initExpansion()` so road A*/bed never see them: clusters and singles over the
