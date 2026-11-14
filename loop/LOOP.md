@@ -138,7 +138,24 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
   stop or a free glide-past). Give rocks their own obstacle flag (don't just reuse generic "hard" — that's shared
   with buildings/posts, which should keep their current full-stop feel) so the tuning is isolated. Keep well clear
   of town/depot/doors/road beds (don't make Kjøllefjord or the road network suddenly full of rock hazards).
-- **14 Nov, Lemon: hand-drawn map redo, towns with real block structure (built this session).** His words:
+- **14 Nov, Lemon: PHYSICAL 3D town redo, towns with real block structure (correction, built this session).**
+  His words: "hand draw the map again with much more depth to the towns so they look designed around roads
+  with city blocks internally, and plenty of snowmobiling stuff on the outskirts... i want the map to be
+  more cozy in towns and realistic" — then, when the first pass only reworked the tablet Map app's chart,
+  he corrected it: "i meant the physical map, like the 3d world." So this is NOT a chart/rendering task:
+  it's the actual 3D town geometry. `buildTown()` (~line 11597) currently places houses along organic
+  depot→door lanes (`buildLanes`, A* routed round obstacles) radiating from the quay — not a street grid.
+  Scope: (1) regenerate Kjøllefjord's actual layout so real streets form a grid with interior blocks of
+  houses between them (actual road meshes/plowed lanes in the 3D world, not a map overlay); (2) the town
+  should feel cozier and more realistic up close (the houses, yards, lighting — whatever reads as "designed"
+  rather than scattered); (3) the outskirts (edge of town / backcountry approach) get real 3D snowmobiling
+  infrastructure — trailhead signage, a groomer shed/sled parking area, fuel cabins, warming huts — as actual
+  placed structures, not map icons. Hard constraint: doors must stay reachable, plow lanes must still clear
+  to every door, NPC/traffic routing must still work, and old saves must still load (`x1_save.mjs`). Test
+  with a chase-cam/overhead screenshot of Kjøllefjord from above and street-level, judged with vision, not
+  just code review. The earlier "hand-drawn map" Owner note above this one landed real value (tablet chart
+  detail, v220) but was the wrong layer — leave that landed, this note is the actual follow-up it pointed to.
+- **14 Nov, Lemon: hand-drawn map redo, towns with real block structure (built this session, landed v220 — see correction above).** His words:
   "hand draw the map again with much more depth to the towns so they look designed around roads with city
   blocks internally, and plenty of snowmobiling stuff on the outskirts... i want the map to be more cozy in
   towns and realistic." Target is the tablet Map app chart (`buildMapBg`/`drawMap`, canon section above — still
