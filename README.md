@@ -299,6 +299,13 @@ draws 32 cm: run her into the shallows or a rocky shore and she grounds (hard, a
 and the brake backs her off. Step out at the jetty, or onto any low bit of shore within a step of
 the gunwale; where the shore is too high, the game tells you so and you stay aboard.
 
+Dyfjord, Lebesby and Ifjord have jetties of their own (anchor pins on the Map). Tie up alongside
+one, or idle there, and it works as the village: parcels for it are handed over and paid as usual,
+pickups waiting there are loaded, and the quay jetty takes anything bound for the quay. In the boat
+the compass points at your target's jetty ("to its jetty"), or tells you there's "no jetty there".
+The east coast (Mehamn, Gamvik, Skjånes, Slettnes) lies on another sea that no water route from
+Kjøllefjord reaches, so it has no jetty yet.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a

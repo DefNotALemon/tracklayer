@@ -8084,6 +8084,7 @@ TABLET.register({
       tabPin(g, x, y, p.col, "S", 10); tabLabel(g, p.name, x, y + 14, 12, p.col);
     }
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
+    for (const p of TABLET.layerPts("docks")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b6a8e", "\u2693", 7); if (sc > 2.5) tabLabel(g, p.name, x, y + 12, 11, "#2b6a8e"); }   // jetties (tlx-boats.js, 14.2a)
     for (const p of tabVehPts()) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b4a5e", p.kind === "sled" ? "S" : p.kind === "boat" ? "B" : "T", 9); tabLabel(g, p.name, x, y + 14, 12, "#2b4a5e"); }   // where you left the sled / the truck
     const [px, py] = w2c(me.x, me.z);
     g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw);
@@ -13651,7 +13652,7 @@ function updGame(dt, spd) {
   else if (!near && !RE.here && !hospWarm) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
   if (GS.warmth <= 0) { blackout(HELP.on && HELP.kind === "sea" ? "sea" : "cold"); return; }
-  { const wl = wlvAt(P.x, P.z);
+  { const wl = VEH.cur && VEH.cur.floats ? null : wlvAt(P.x, P.z);   // P is a boat (tlx-boats.js): her hull dips into the swell, nobody drowns (beta 0178 #1)
     // afloat and dead in the water with nobody coming (beta 0131 #1: a body set down on a cliff slid back in and sat at
     // the waterline, just above the sink test, for ever): after 4 s that's a dunking too
     HELP.stillWet = wl !== null && P.wet && !HELP.on && !(HELP.dryT > 0) && Math.hypot(P.vx, P.vz) < 1 ? (HELP.stillWet || 0) + dt : 0;
@@ -13731,7 +13732,9 @@ function updGameHud() {
   // a job picked in the Jobs app (or with J) overrides all of the above until it's done
   const jl = jobsList(), tr = jobTracked(jl);
   if (tr) tgt = tr.tgt;
-  const dx = tgt.x - P.x, dz = tgt.z - P.z, dist = Math.hypot(dx, dz);
+  // in the boat (14.2a) the arrow aims at the target's jetty when it has one (tlx-boats.js)
+  const inBoat = !FOOT.on && VEH.cur && VEH.cur.pin === "boat" && window.TLXB, aim = inBoat && TLXB.aimFor(tgt) || tgt;
+  const dx = aim.x - P.x, dz = aim.z - P.z, dist = Math.hypot(dx, dz);
   let rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
   $("arrow").style.color = tr ? tr.col : GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
@@ -13766,6 +13769,7 @@ function updGameHud() {
   } else if (WP.x !== null) { $("jobTitle").textContent = "Marker"; $("jobSub").textContent = `${fmtMi(dist)} · tap the Map to move it, CLEAR MARKER to drop it`; }
   else if (GS.near === depot) { $("jobTitle").textContent = "Kjøllefjord quay"; $("jobSub").textContent = "Warm up and refuel"; }
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
+  if (inBoat && SITES.includes(tgt) && !tutTarget()) $("jobSub").textContent += aim !== tgt ? " · to its jetty" : " · no jetty there";
   if (!tr) JOBT.auto = $("jobTitle").textContent;
   { const isJob = !!(tr || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)
     const rw = window.TLXR && TLXR.tripNote ? TLXR.tripNote(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt, isJob) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
@@ -17304,6 +17308,8 @@ function initExpansion() {
     // stores (10.2): a walk-in room, the counter panel (icefish.js's shop in another store's colours), the riding kit
     intAdd: intAddRoom, townR: TOWN_R, fishSites: FISHSITES, shop: (store, tab) => { if (FISH && FISH.openShop) FISH.openShop(tab, store); },
     shopOpen: () => !!(FISH && FISH.panelOpen && FISH.panelOpen()),
+    // jetties (14.2a): a village jetty works as the village for the boat (hand over its parcels, load its pickups)
+    deliver, collectClaims,
     kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
       wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }

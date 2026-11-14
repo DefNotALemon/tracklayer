@@ -61,9 +61,9 @@ function shoreNormal(x, z) {                                                   /
   for (let k = 0; k < 16; k++) { const b = k * Math.PI / 8, cx = Math.sin(b), cz = Math.cos(b); for (const r of [3, 6]) if (w.isSea(x + cx * r, z + cz * r)) { sx += cx; sz += cz; } }
   const l = Math.hypot(sx, sz); return l < 1e-6 ? null : [sx / l, sz / l];
 }
-function siteDock(cx, cz, avoid) {                                             // the best jetty near (cx, cz): low shore, deep water close in
+function siteDock(cx, cz, avoid, r0 = 30, r1 = 260) {                           // the best jetty near (cx, cz): low shore, deep water close in
   const w = api.world; let best = null, bs = 1e9;
-  for (let r = 30; r <= 260; r += 4) for (let a = 0; a < 6.283; a += 0.05) {
+  for (let r = r0; r <= r1; r += 4) for (let a = 0; a < 6.283; a += 0.05) {
     const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
     if (w.isSea(x, z) || w.isWater(x, z)) continue;
     const g = w.groundAt(x, z); if (g < 0.25 || g > 4.5) continue;
@@ -130,6 +130,61 @@ function dockPush(P, vx, vz) {
     return [vx, vz, true];
   }
   return [vx, vz, false];
+}
+// which water joins which: one flood fill of the sea from the quay jetty's end (16 m cells, 4-connected), so a village
+// jetty is only built where the skiff can actually get to it
+const SEA_C = 16;
+let SEA = null;
+function seaFill(x0, z0) {
+  const w = api.world, H = w.half, N = Math.ceil(w.size / SEA_C), seen = new Uint8Array(N * N), q = new Int32Array(N * N);
+  const cell = (x, z) => { const i = Math.floor((x + H) / SEA_C), j = Math.floor((z + H) / SEA_C); return i < 0 || j < 0 || i >= N || j >= N ? -1 : j * N + i; };
+  const wet = k => { const i = k % N, j = (k / N) | 0; return w.isSea(-H + (i + 0.5) * SEA_C, -H + (j + 0.5) * SEA_C); };
+  const s = cell(x0, z0); if (s < 0) return null;
+  let h = 0, t = 0; seen[s] = 1; q[t++] = s;
+  while (h < t) {
+    const k = q[h++], i = k % N, j = (k / N) | 0;
+    for (const n of [i > 0 ? k - 1 : -1, i < N - 1 ? k + 1 : -1, j > 0 ? k - N : -1, j < N - 1 ? k + N : -1]) if (n >= 0 && !seen[n]) { seen[n] = 2; if (wet(n)) { seen[n] = 1; q[t++] = n; } }
+  }
+  return { seen, cell, cells: t };
+}
+function dockEnd(D) { const p = dockWorld(D, D.len + 2, 0); return { x: p[0], z: p[1] }; }
+function seaLinked(x, z) {
+  if (!SEA) return true;
+  for (const [dx, dz] of [[0, 0], [SEA_C, 0], [-SEA_C, 0], [0, SEA_C], [0, -SEA_C]]) { const k = SEA.cell(x + dx, z + dz); if (k >= 0 && SEA.seen[k] === 1) return true; }
+  return false;
+}
+// the jetties of the villages and the lighthouse: the same jetty the quay has, sited the same way
+function siteVillageDocks() {
+  const W = api.world, quay = DOCKS[0]; if (!quay) return;
+  const e = dockEnd(quay); SEA = seaFill(e.x, e.z);
+  for (const s of W.SITES) {
+    if (!(s.kind === "village" || s.type === "relay") || s.x === undefined) continue;
+    const avoid = DOCKS.map(D => [D.x, D.z, 60]);
+    const D = siteDock(s.x, s.z, avoid) || siteDock(s.x, s.z, avoid, 264, 520);
+    if (!D || !seaLinked(dockEnd(D).x, dockEnd(D).z)) continue;
+    D.site = s; D.name = shortSite(s) + " jetty"; DOCKS.push(D); buildDock(D);
+  }
+}
+function shortSite(s) { return s.type === "relay" ? "Slettnes" : s.type === "depot" ? "Quay" : String(s.name).split(" ")[0]; }
+function dockFor(site) { return DOCKS.find(D => D.site === site) || null; }
+// alongside a jetty: from its root to 4 m past the end, within ~4 m of the planks
+function dockAt(x, z) {
+  for (const D of DOCKS) { const q = dockLocal(D, x, z); if (q.u > -1 && q.u < D.len + 4 && Math.abs(q.v) < D.wid / 2 + 2 * HB + 1.6) return D; }
+  return null;
+}
+// where the compass points for a site when you're in the boat: the outer end of its jetty
+function aimFor(site) { const D = site && dockFor(site); return D ? dockEnd(D) : null; }
+// tied up (or idling) alongside a jetty, the jetty works as its village: parcels for it hand over, pickups there load
+function dockWork(R) {
+  const P = api.P, GS = api.GS, v = Math.hypot(P.vx, P.vz);
+  const D = v < 2.5 && !api.busy() ? dockAt(P.x, P.z) : null, site = D ? D.site : null;
+  if (site !== R.atSite) {
+    const first = R.atSite === undefined; R.atSite = site;
+    if (site && !first && !GS.load.some(j => j.dest === site) && !GS.claims.some(j => (j.from || api.world.depot) === site)) api.toast(`${D.name[0].toUpperCase() + D.name.slice(1)}.${site.type === "depot" ? "" : ` ${site.name} is up the shore.`}`);
+  }
+  if (!site) return;
+  if (GS.load.some(j => j.dest === site)) api.deliver(site);
+  if (GS.claims.length) api.collectClaims(site);
 }
 
 /* ---------------- the model: a lofted V hull, thwarts, floorboards, the outboard and its tiller ---------------- */
@@ -376,6 +431,7 @@ function tick(R, r, isCur, dt) {
     const seated = !FOOT.on && !api.MNT.on && !api.DMT.on;
     R.drvBody.visible = seated && !api.fp();
     if (R.drvBody.visible) poseSeated(R);
+    if (seated) dockWork(R); else R.atSite = undefined;
     const ST = api.ST(); if (ST) ST.coldMul = seated ? R.baseCold * ROW.cold : R.baseCold;
     R.tillerG.rotation.y = 0;
   } else { R.drvBody.visible = false; parkedTick(R, r, dt); }
@@ -514,7 +570,7 @@ function dismountTick(R, dt) {
 /* ---------------- the VEH.cur driver ---------------- */
 function driver(R) {
   return {
-    pin: "boat",
+    pin: "boat", floats: true,                                                  // the game's drown test leaves P alone (beta 0178 #1)
     get mass() { return ROW.mass + 90; },
     core: dt => core(R, dt),
     restat(ST) {
@@ -542,7 +598,7 @@ function boats() { return S().owned.filter(r => r.id === ROW.id); }
 function freeBerth() {
   const s = S(), P = api.P, taken = [];
   for (const r of s.owned) { const cur = s.cur === r.uid; taken.push(cur ? [P.x, P.z] : [r.x, r.z]); }
-  for (const D of DOCKS) for (const sd of [-1, 1]) { if (!berthOK(D, sd)) continue; const b = berthPose(D, sd); if (taken.every(([x, z]) => Math.hypot(x - b.x, z - b.z) > 3)) return b; }
+  for (const D of DOCKS) for (const sd of [-1, 1]) { if (D.site !== api.world.depot || !berthOK(D, sd)) continue; const b = berthPose(D, sd); if (taken.every(([x, z]) => Math.hypot(x - b.x, z - b.z) > 3)) return b; }
   return null;
 }
 function buy() {
@@ -564,22 +620,24 @@ function garageRows(body, row) {
   row(ROW.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${ROW.blurb}`, n ? `Owned ×${n} · $${ROW.cost}` : "$" + ROW.cost, full || GS.cash < ROW.cost ? "locked" : "", () => buy(), String(ROW.year));
   for (const r of boats()) {
     const e = document.createElement("div"); e.className = "bfoot";
-    const D = DOCKS[0], dd = D ? Math.round(Math.hypot(r.x - D.x, r.z - D.z)) : 0;
-    e.textContent = `${ROW.name}: ${Math.round(r.cond)}% hull, ${Number(r.fuel).toFixed(0)} of ${ROW.fuel} L, ${dd < 40 ? "at the jetty" : dd + " m from the jetty"}.`;
+    let D = DOCKS[0], dd = 1e9; for (const Q of DOCKS) { const d = Math.hypot(r.x - Q.x, r.z - Q.z); if (d < dd) { dd = d; D = Q; } }
+    dd = Math.round(dd);
+    e.textContent = `${ROW.name}: ${Math.round(r.cond)}% hull, ${Number(r.fuel).toFixed(0)} of ${ROW.fuel} L, ${!D ? "afloat" : dd < 40 ? "at the " + D.name : dd + " m from the " + D.name}.`;
     body.appendChild(e);
   }
-  const note = document.createElement("div"); note.className = "bfoot"; note.textContent = "Walk out along the jetty and get in. Step out at the jetty or onto any low bit of shore.";
+  const note = document.createElement("div"); note.className = "bfoot"; note.textContent = `Walk out along the jetty and get in. Step out at any jetty or onto a low bit of shore. ${Math.max(0, DOCKS.length - 1)} villages have a jetty of their own: tie up alongside and their parcels hand over there.`;
   body.appendChild(note);
 }
 
 function init(a) {
   api = a; T = a.THREE;
   const D = siteDock(a.world.depot.x, a.world.depot.z, []);
-  if (D) { DOCKS.push(D); buildDock(D); }
+  if (D) { D.site = a.world.depot; D.name = "quay jetty"; DOCKS.push(D); buildDock(D); siteVillageDocks(); }
   a.veh.floor = floorAt;
+  a.TABLET.addLayer("docks", () => DOCKS.map(D => { const e = dockEnd(D); return { x: e.x, z: e.z, name: D.name, kind: "dock" }; }));
 }
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
 TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { ROW, DOCKS, siteDock: (x, z) => siteDock(x, z, []), shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
+window.TLXB = { ROW, DOCKS, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();

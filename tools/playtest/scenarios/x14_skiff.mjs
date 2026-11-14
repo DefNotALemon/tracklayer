@@ -26,7 +26,7 @@ await ev(`crashCancel(); FOOT.on = false; true`);
 // ---- 1. the jetty
 let s = await J(`(() => { const D = TLXB.DOCKS[0]; if (!D) return { n: 0 }; const m = ${dockW("D.len - 2", 0)}; return { n: TLXB.DOCKS.length, dd: Math.hypot(D.x - depot.x, D.z - depot.z), len: D.len, y: D.y, gy: D.gy, fl: TLXB.floorAt(m[0], m[1]), sea: isSea(m[0], m[1]), dep: TLXB.depthAt(m[0], m[1]), tabs: VEH.tabs.map(t => t.name) }; })()`);
 console.log("dock", JSON.stringify(s));
-ok(s.n === 1 && s.dd < 300, `a jetty is sited near the quay (${s.dd && s.dd.toFixed(0)} m from the depot, ${s.len} m long)`);
+ok(s.n >= 1 && s.dd < 300, `a jetty is sited near the quay (${s.dd && s.dd.toFixed(0)} m from the depot, ${s.len} m long)`);
 ok(s.sea && s.dep > 1 && Math.abs(s.fl - s.y) < 0.01, `its outer end stands over ${s.dep && s.dep.toFixed(1)} m of sea with planks at ${s.y} m`);
 ok(s.tabs.includes("Boats") && s.tabs.indexOf("Trucks") < s.tabs.indexOf("Boats"), "the garage has a Boats tab after Trucks: " + s.tabs.join(","));
 // walk out along it: the sea wall lets you onto the planks, at deck height
