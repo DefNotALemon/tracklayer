@@ -620,6 +620,13 @@ street slowly to its own door, round the corners and past the houses, and parks 
 in its own colour. Stand in the street in front of it and it waits for you. Switch "Road traffic" off
 and every owner is home.
 
+Lorries share the roads too: a refrigerated box on a two-axle day cab, a long-haul curtainsider behind a
+high-roof sleeper, a fuel tanker. They run slower than the cars (about 40 km/h) and take the bends gently,
+and the trailer swings on its coupling: it cuts inside every bend and straightens out behind the tractor.
+A car stuck behind one waits behind its tail and overtakes the whole length when the road is clear. A
+lorry won't turn round on a narrow road: at a drift or the road's end it waits, engine idling, and has
+gone the next time you come by. Ride into one and you bounce off it like a wall.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

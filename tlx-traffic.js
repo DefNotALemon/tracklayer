@@ -39,6 +39,17 @@
 // then a car leaves the road at its end or on a street hop, drives the village street to one of those doors and parks
 // there as that owner's car (see the block above homesPrep). TLXT.homes / homesDone / sendHome / homePath report it.
 //
+// SEMIS (3.5a). TRAF.semi.n more drivers are articulated lorries (tlx-semis.js: a distribution box, a long-haul
+// curtainsider, a fuel tanker), driven by the same road driver: slower (TRAF.semi.vmax, bends at vk x the car speed),
+// pulling away gently, stopping with their bumper (not their middle) the gap short. The trailer swings on the
+// coupling: each frame its axle point is pulled straight toward the kingpin on the tractor until it is the trailer's
+// wheelbase behind it (c.ax/az; the kingpin c.hx/hz, trailer heading c.tyaw, articulation c.art in radians), so it
+// cuts inside every bend and straightens after. A semi is solid along its whole length (c.circ), and drivers behind
+// one stop short of its TAIL (c.pts: the points others see). A semi never U-turns on a two-lane road: at the road's
+// end, a drift or anything that won't move it waits, engine idling, and has gone (turned at a lay-by) once you're
+// TRAF.semi.gone m off. It pulls out round something standing in the lane like a car, moving back in only once its
+// trailer is past. Semis never drive home to a parked spot.
+//
 // Option "traffic" (Settings > Options, on): off hides every car and stops all of it (and every owner is home).
 //
 // TLXT (window, for later slices and scenarios): cars [{ rt, s, dir, v, st, x, z, y, yaw, why, lane, pass, roll }],
@@ -79,6 +90,9 @@ const TRAF = {
   // the spot; held up give s with you out of sight, it parks (or gives up if the spot itself is taken); a spot is only
   // used if the whole drive keeps the three r 0.95 circles at least sweep m clear (0.95 - 0.88 half width = 0.07 slack)
   home: { share: 0.3, every: [110, 220], near: 420, from: [170, 300], P: 0.5, reach: 140, gap: 5.5, look: 25, give: 30, sweep: -0.06, dec: 1.0 },
+  // semis (3.5a): how many per preset, top speed m/s, share of the car's bend speed, pull-away m/s^2, body circle radius,
+  // how far off you must be before one that is waiting (end, drift, blocked) is gone
+  semi: { n: { low: 1, high: 2 }, vmax: 11, vk: 0.88, acc: 0.6, r: 1.27, gone: 250 },
   cols: [0xe9ebee, 0xb9bec4, 0x4a4f55, 0x1d2024, 0x1f2f4f, 0x8d1f1c, 0x2d4635, 0x6d7a86, 0x9a8a6c, 0xe9ebee]
 };
 let api = null, M = null;
@@ -154,9 +168,9 @@ function stopAhead(c, B, sh0) {
     const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz;
     if (a <= 0 || a > TRAF.look) return;
     if (Math.abs(dz * fx - dx * fz - sh) > TRAF.laneW) return;
-    const dd = a - TRAF.gap; if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; }
+    const dd = a - TRAF.gap - (c.fro || 0); if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; }
   };
-  for (const o of T.cars) if (o !== c && o.on) each(o.x, o.z, "car", o.st === "turn" ? 1 : o.v);
+  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.semi && o.pts) for (const p of o.pts) each(p[0], p[1], "car", v); else each(o.x, o.z, "car", v); }
   if (B) for (const b of B) each(b.x, b.z, b.who, Math.hypot(b.vx, b.vz));
   return { d, why, a: a0, mv };
 }
@@ -165,7 +179,7 @@ T.stopAhead = c => stopAhead(c, bodies());
 function laneClear(c, B, look) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sh = -TRAF.lane - (c.lane ?? TRAF.lane);
   const bad = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz; return a > -8 && a < look && Math.abs(dz * fx - dx * fz - sh) < TRAF.laneW; };
-  for (const o of T.cars) if (o !== c && o.on && bad(o.x, o.z)) return false;
+  for (const o of T.cars) if (o !== c && o.on) { if (o.semi && o.pts) { if (o.pts.some(p => bad(p[0], p[1]))) return false; } else if (bad(o.x, o.z)) return false; }
   if (B) for (const b of B) if (bad(b.x, b.z)) return false;
   return true;
 }
@@ -183,10 +197,61 @@ function setPose(c, dt) {
   c.yaw = Math.atan2(q1.x - q0.x, q1.z - q0.z) - Math.atan2(c.lv, Math.max(3, c.v || 0));
 }
 function ground(c) {
-  const W = api.world, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
-  const yf = W.surf(c.x + fx * 1.4, c.z + fz * 1.4), yb = W.surf(c.x - fx * 1.4, c.z - fz * 1.4);
-  c.y = (yf + yb) / 2; c.pitch = -Math.atan2(yf - yb, 2.8);
+  const W = api.world, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), h = c.semi ? 2.2 : 1.4;
+  const yf = W.surf(c.x + fx * h, c.z + fz * h), yb = W.surf(c.x - fx * h, c.z - fz * h);
+  c.y = (yf + yb) / 2; c.pitch = -Math.atan2(yf - yb, 2 * h);
 }
+// ---- semis (3.5a): the trailer on the coupling
+const SEMI = TRAF.semi;
+function semiSetup(c, type) {
+  const TY = window.TLXS.TYPES, ks = Object.keys(TY);
+  c.semiK = TY[type] ? type : ks[Math.floor(Math.random() * ks.length)];
+  const t = c.T = TY[c.semiK];
+  c.fro = t.tr.front + 0.3 - 2.15;                                            // bumper ahead of a car's
+  c.colCab = t.cabs[Math.floor(Math.random() * t.cabs.length)]; c.colTl = t.tl.cols[Math.floor(Math.random() * t.tl.cols.length)];
+  c.yawP = c.yaw; c.steer = 0;
+  // the trailer's axles on the lane behind the kingpin (so a lorry put on a bend starts on the road, not cutting across)
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), hx = c.x + fx * t.tr.fifth, hz = c.z + fz * t.tr.fifth;
+  let ax = hx - fx * t.tl.L, az = hz - fz * t.tl.L;
+  if (c.r) {
+    const p = at(c.r, c.s + c.dir * (t.tr.fifth - t.tl.L), c.k), gx = p.tx * c.dir, gz = p.tz * c.dir, lx = p.x - gz * c.lane, lz = p.z + gx * c.lane;
+    const d = Math.hypot(hx - lx, hz - lz); if (d > 1) { ax = hx - (hx - lx) / d * t.tl.L; az = hz - (hz - lz) / d * t.tl.L; }
+  }
+  c.ax = ax; c.az = az; semiTrail(c, 0);
+}
+function semiTrail(c, dt) {
+  const t = c.T, L = t.tl.L, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), hx = c.x + fx * t.tr.fifth, hz = c.z + fz * t.tr.fifth;
+  const dx = hx - c.ax, dz = hz - c.az, d = Math.hypot(dx, dz);
+  if (!(d > 0.5) || Math.abs(d - L) > 6) { c.ax = hx - fx * L; c.az = hz - fz * L; }    // a jump (spawned elsewhere): straight behind
+  else { c.ax = hx - dx / d * L; c.az = hz - dz / d * L; }                    // pulled toward the kingpin: the tractrix
+  c.hx = hx; c.hz = hz; c.tyaw = Math.atan2(hx - c.ax, hz - c.az);
+  let a = c.yaw - c.tyaw; while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; c.art = a;
+  const W = api.world, yh = W.surf(hx, hz), ya = W.surf(c.ax, c.az); c.ty = yh; c.tpitch = -Math.atan2(yh - ya, L);
+  // the front wheels' angle from how fast it turns (Ackermann: tan(steer) = wheelbase x yaw rate / v), eased
+  if (dt > 0) {
+    let w = c.yaw - (c.yawP ?? c.yaw); while (w > Math.PI) w -= 2 * Math.PI; while (w < -Math.PI) w += 2 * Math.PI;
+    const wb = t.tr.axles[0].z - (t.tr.axles.length > 2 ? (t.tr.axles[1].z + t.tr.axles[2].z) / 2 : t.tr.axles[1].z);
+    const want = c.v > 0.5 ? Math.max(-0.6, Math.min(0.6, Math.atan(wb * (w / dt) / c.v))) : (c.steer || 0);
+    c.steer = (c.steer || 0) + (want - (c.steer || 0)) * Math.min(1, dt * 4);
+  }
+  c.yawP = c.yaw;
+  // what others see (tractor middle, trailer middle, and a "car" just ahead of the tail) and the solid circles
+  const gx = Math.sin(c.tyaw), gz = Math.cos(c.tyaw), rear = -(L + t.tl.over);
+  c.pts = [[c.x, c.z], [hx + gx * rear / 2, hz + gz * rear / 2], [hx + gx * (rear + 2.15), hz + gz * (rear + 2.15)]];
+  const circ = [];
+  for (let u = t.tr.end + 1.0; u <= t.tr.front - 0.9; u += 1.9) circ.push([c.x + fx * u, c.z + fz * u, SEMI.r]);
+  circ.push([c.x + fx * (t.tr.front - 0.9), c.z + fz * (t.tr.front - 0.9), SEMI.r]);
+  for (let u = t.tl.front - 1.2; u >= rear + 1.2; u -= 2.3) circ.push([hx + gx * u, hz + gz * u, SEMI.r]);
+  circ.push([hx + gx * (rear + 1.2), hz + gz * (rear + 1.2), SEMI.r]);
+  c.circ = circ;
+}
+// a semi that would turn round (road's end, a drift, held up) waits instead, and goes once you are far off
+function turnOr(c, you) {
+  if (!c.semi) { startTurn(c); return; }
+  c.waiting = true;
+  if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > SEMI.gone) spawn(c, false);
+}
+T.semiInfo = i => { const c = T.cars[i]; if (!c || !c.semi) return null; return { i, on: c.on, type: c.semiK, x: c.x, z: c.z, yaw: c.yaw, hx: c.hx, hz: c.hz, ax: c.ax, az: c.az, tyaw: c.tyaw, art: c.art, L: c.T.tl.L, len: c.T.len, v: c.v, why: c.why, waiting: !!c.waiting, steer: c.steer, pts: c.pts, circ: c.circ }; };
 function spawn(c, first) {
   const you = youPos(), [lo, hi] = first ? TRAF.spawn0 : TRAF.spawn, rs = T.routes;
   release(c); c.on = false; c.retry = 3; c.tried = {};
@@ -198,18 +263,20 @@ function spawn(c, first) {
     if (d < lo || d > hi || r.street[p.k]) continue;
     if (r.rt.seg.some(g => g.shut && s > g.a - 60 && s < g.a + seg + 60)) continue;
     if (T.cars.some(o => o !== c && o.on && Math.hypot(o.x - p.x, o.z - p.z) < TRAF.gapCars)) continue;
-    Object.assign(c, { on: true, r, s, k: p.k, dir: Math.random() < 0.5 ? 1 : -1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0 });
-    c.lane = TRAF.lane; setPose(c, 0); c.v = Math.min(TRAF.vmax, vProf(r, s, c.k, c.dir)) * 0.8; ground(c);
+    Object.assign(c, { on: true, r, s, k: p.k, dir: Math.random() < 0.5 ? 1 : -1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false });
+    c.lane = TRAF.lane; setPose(c, 0); c.v = Math.min(c.semi ? SEMI.vmax : TRAF.vmax, vProf(r, s, c.k, c.dir)) * 0.8; ground(c);
+    if (c.semi) semiSetup(c);
     return true;
   }
   return false;
 }
 T.lanePt = (id, s, dir) => { const r = T.routes.find(q => q.id === id); if (!r) return null; const p = at(r, s, 0), d = dir < 0 ? -1 : 1, fx = p.tx * d, fz = p.tz * d; return { x: p.x - fz * TRAF.lane, z: p.z + fx * TRAF.lane, cx: p.x, cz: p.z, yaw: Math.atan2(fx, fz) }; };
-T.place = (id, s, dir, i) => {                                            // i (default 0): which car; car 0 hides the rest
+T.place = (id, s, dir, i, type) => {                                      // i (default 0): which car; car 0 hides the rest; type: a semi's size
   const r = T.routes.find(q => q.id === id), c = T.cars[i | 0]; if (!r || !c) return null;
   T.hold = true; release(c);
-  Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0 });
+  Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false });
   c.lane = TRAF.lane; setPose(c, 0); ground(c);
+  if (c.semi) semiSetup(c, type);
   if (!(i | 0)) for (const o of T.cars) if (o !== c) o.on = false;
   return c;
 };
@@ -236,29 +303,29 @@ function driveStep(c, dt, B, you) {
   const r = c.r; c.dtLast = dt;
   if (c.hold > 0) { c.hold -= dt; c.v = 0; return; }                         // just bumped: the driver sits a moment
   const sa = stopAhead(c, B); c.why = sa.why; c.ahead = sa.d;
-  const prof = vProf(r, c.s, c.k, c.dir), seg = window.TLXR.ROADS.seg;
-  let vt = Math.min(prof, Math.sqrt(2 * TRAF.brake * Math.max(0, sa.d)));
+  const prof = vProf(r, c.s, c.k, c.dir) * (c.semi ? SEMI.vk : 1), seg = window.TLXR.ROADS.seg;
+  let vt = Math.min(prof, c.semi ? SEMI.vmax : 1e9, Math.sqrt(2 * TRAF.brake * Math.max(0, sa.d)));
   if (r.rt.seg.some(g => g.shut && c.s >= g.a && c.s < g.a + seg)) vt = Math.min(vt, 3);   // ploughing through a fresh drift
   if (c.pass) vt = Math.min(vt, Math.abs(c.lane - c.laneT) > 0.8 ? 1.5 : TRAF.passV);       // moving over at a crawl, past at a creep
   // braking: the profile's 3.2 m/s^2, or as hard as it takes to stand by the gap when something turns up close in
   // front of a car at speed (a walker stepping out 45 m ahead of a car at 12.5 m/s), up to 2.5x
   const need = c.v * c.v / (2 * Math.max(0.4, sa.d));
   const brk = vt < c.v ? Math.min(TRAF.brake * 2.5, Math.max(TRAF.brake, need * 1.15, sa.d < 12 ? TRAF.brake * 2 : 0)) : TRAF.brake;
-  c.v += Math.max(-brk * dt, Math.min(TRAF.acc * dt, vt - c.v));
+  c.v += Math.max(-brk * dt, Math.min((c.semi ? SEMI.acc : TRAF.acc) * dt, vt - c.v));
   if (c.v < 0) c.v = 0;
   c.s += c.dir * c.v * dt;
   c.s = Math.max(r.s0, Math.min(r.s1, c.s));
   setPose(c, dt);
   passStep(c, sa, B);
-  homeCheck(c, r); if (c.st === "home") return;                               // off the road to a door (3.4b2b)
+  if (!c.semi) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
   if (sa.d < 0.6 && c.v < 0.3) {
     if (sa.why === "end") {
       // the end of the road: out of sight it drives on into the village (another car turns up elsewhere); in sight it turns
       if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > 300) { spawn(c, false); return; }
-      c.t += dt; if (c.t > TRAF.waitEnd && !c.pass) startTurn(c);
-    } else if (sa.why === "shut") { c.t += dt; if (c.t > TRAF.waitShut && !c.pass) startTurn(c); }
-    else { c.blocked += dt; if (c.blocked > TRAF.blockT && !c.pass) startTurn(c); }
-  } else { c.t = 0; if (c.v > 1) c.blocked = 0; }
+      c.t += dt; if (c.t > TRAF.waitEnd && !c.pass) turnOr(c, you);
+    } else if (sa.why === "shut") { c.t += dt; if (c.t > TRAF.waitShut && !c.pass) turnOr(c, you); }
+    else { c.blocked += dt; if (c.blocked > TRAF.blockT && !c.pass) turnOr(c, you); }
+  } else { c.t = 0; c.waiting = false; if (c.v > 1) c.blocked = 0; }
 }
 // pulling out round a thing standing in the lane, and back in once past it
 function passStep(c, sa, B) {
@@ -267,10 +334,11 @@ function passStep(c, sa, B) {
     const stuck = sa.d < 0.6 && c.v < 0.3 && !sa.mv && sa.why !== "end" && sa.why !== "shut" && !r.street[c.k];
     c.pw = stuck ? (c.pw || 0) + (c.dtLast || 0) : 0;
     if (c.pw < TRAF.passWait) return;
+    const tail = c.semi ? c.T.len - c.T.tr.front : 0;                          // a semi moves back in once its trailer is past
     const lim = stopAhead(c, null, 99);                                        // the road's own limits only (end, drift)
-    if (lim.d < sa.a + TRAF.passBy + 12) return;                                // no room to get past and back in
-    if (!laneClear(c, B, TRAF.passLook)) return;                               // something coming or in the other lane
-    c.pass = { st: "out", by: c.s + c.dir * (sa.a + TRAF.passBy), who: sa.why }; c.laneT = -TRAF.lane; c.pw = 0; T.passes = (T.passes || 0) + 1;
+    if (lim.d < sa.a + TRAF.passBy + 12 + tail) return;                         // no room to get past and back in
+    if (!laneClear(c, B, TRAF.passLook + tail)) return;                        // something coming or in the other lane
+    c.pass = { st: "out", by: c.s + c.dir * (sa.a + TRAF.passBy + tail), who: sa.why }; c.laneT = -TRAF.lane; c.pw = 0; T.passes = (T.passes || 0) + 1;
     return;
   }
   const P = c.pass;
@@ -473,7 +541,7 @@ function homeTick(dt, you) {
   const free = T.homes.filter(h => homeFree(h) && Math.hypot(h.x - you.x, h.z - you.z) < HOME.near);
   if (!free.length) return;
   const h = free[Math.floor(Math.random() * free.length)], seg = window.TLXR.ROADS.seg;
-  const cand = T.cars.filter(c => !c.on || (c.st === "drive" && c.homeI == null && Math.hypot(c.x - you.x, c.z - you.z) > 500)).sort((a, b) => (a.on - b.on));
+  const cand = T.cars.filter(c => !c.semi && (!c.on || (c.st === "drive" && c.homeI == null && Math.hypot(c.x - you.x, c.z - you.z) > 500))).sort((a, b) => (a.on - b.on));
   const c = cand[0]; if (!c) return;
   for (let k = 0; k < 6; k++) {
     const D = HOME.from[0] + Math.random() * (HOME.from[1] - HOME.from[0]), r = h.r, dir = h.side !== 0 ? h.side : 1;
@@ -493,19 +561,19 @@ T.homePath = (hi, dir) => { const h = T.homes[hi]; return h ? pathOf(h, h.side |
 function collide(c, dt) {
   const P = api.P, F = api.FOOT, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   const cvx = c.st === "drive" ? fx * c.v : 0, cvz = c.st === "drive" ? fz * c.v : 0;
-  const circ = [-TRAF.off, 0, TRAF.off].map(u => [c.x + fx * u, c.z + fz * u]);
+  const circ = c.semi && c.circ ? c.circ : [-TRAF.off, 0, TRAF.off].map(u => [c.x + fx * u, c.z + fz * u, TRAF.r]);
   if (F.on) {
-    for (const [x, z] of circ) {
-      const dx = F.x - x, dz = F.z - z, d = Math.hypot(dx, dz), rr = TRAF.r + 0.36;
+    for (const [x, z, cr] of circ) {
+      const dx = F.x - x, dz = F.z - z, d = Math.hypot(dx, dz), rr = cr + 0.36;
       if (d < rr && d > 1e-6) { F.x = x + dx / d * rr; F.z = z + dz / d * rr; if (c.v > 1.5) { c.v = 0; c.hold = Math.max(c.hold, 2); } }
     }
     return;
   }
-  if (P.y > c.y + 1.5) return;                                               // over the roof
+  if (P.y > c.y + (c.semi ? 4.2 : 1.5)) return;                              // over the roof
   const pf = [Math.sin(P.yaw), Math.cos(P.yaw)], veh = api.veh && api.veh.cur;
   const mine = veh ? [[1.6, 1.0], [0, 1.0], [-1.6, 1.0]] : [[1.15, 0.62], [-0.7, 0.7]];
-  for (const [off, pr] of mine) for (const [x, z] of circ) {
-    const px = P.x + pf[0] * off, pz = P.z + pf[1] * off, dx = px - x, dz = pz - z, d = Math.hypot(dx, dz), rr = TRAF.r + pr;
+  for (const [off, pr] of mine) for (const [x, z, cr] of circ) {
+    const px = P.x + pf[0] * off, pz = P.z + pf[1] * off, dx = px - x, dz = pz - z, d = Math.hypot(dx, dz), rr = cr + pr;
     if (d >= rr || d < 1e-6) continue;
     const nx = dx / d, nz = dz / d, pen = rr - d;
     P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02);
@@ -514,7 +582,7 @@ function collide(c, dt) {
       const hit = -vn;
       P.vx -= 1.45 * vn * nx; P.vz -= 1.45 * vn * nz;
       if (hit > 2) { if (api.thud) api.thud(Math.min(1, hit / 20)); P.shake = Math.max(P.shake || 0, Math.min(1, hit / 14)); }
-      if (hit > 4) { api.cargoHit(hit); if (!c.bumpT || api.now() - c.bumpT > 6) { c.bumpT = api.now(); T.hits++; api.toast(hit > 9 ? "Crunch: straight into a car. The driver gets out to look at the dent and shakes their head." : "Bump: into a car. The driver waves you on, not amused.", "warn"); } }
+      if (hit > 4) { api.cargoHit(hit); if (!c.bumpT || api.now() - c.bumpT > 6) { c.bumpT = api.now(); T.hits++; api.toast(c.semi ? (hit > 9 ? "Crunch: straight into a lorry. The driver climbs down to look and shakes their head." : "Bump: into a lorry. The driver leans out and waves you off, not amused.") : (hit > 9 ? "Crunch: straight into a car. The driver gets out to look at the dent and shakes their head." : "Bump: into a car. The driver waves you on, not amused."), "warn"); } }
       c.v = 0; c.hold = Math.max(c.hold, 3);
     }
   }
@@ -541,6 +609,12 @@ function build(a) {
   // the wheels on their own (4 per car), so they turn as the car rolls: one more draw call
   T.wheels = new TT.InstancedMesh(G.wheel, new TT.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.1 }), n * 4);
   T.wheels.frustumCulled = false; T.wheels.castShadow = !low; T.wheels.receiveShadow = true; T.wheels.name = "traffic_wheels"; T.wheels.count = 0; grp.add(T.wheels);
+  // semis (3.5a): each lorry's two groups are built on first use per size (tlx-semis.js); their wheels are one more
+  // instanced mesh (up to 6 axles x 2 a lorry; a twin-tyre pair is one wide wheel)
+  const ns = T.cars.filter(c => c.semi).length;
+  T.swheels = new TT.InstancedMesh(G.wheel, T.wheels.material, Math.max(1, ns * 12));
+  T.swheels.frustumCulled = false; T.swheels.castShadow = !low; T.swheels.receiveShadow = true; T.swheels.name = "traffic_semi_wheels"; T.swheels.count = 0; grp.add(T.swheels);
+  T.low = low;
   // the headlight beams (3.4b2a): additive, no depth write, no fog (faded by distance in draw()), drawn after the snow
   T.beams = new TT.InstancedMesh(beamGeo(TT), new TT.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: TT.AdditiveBlending, depthWrite: false, fog: false, side: TT.FrontSide }), n);
   T.beams.setColorAt(n - 1, col.setScalar(0));   // before count = 0: setColorAt sizes the colour buffer by count
@@ -553,7 +627,7 @@ function draw() {
   const { m, q, e, p, s, col, w, wr } = T.q;
   let j = 0;
   for (const c of T.cars) {
-    if (!c.on) continue;
+    if (!c.on || c.semi) continue;
     e.set(c.pitch || 0, c.yaw, 0); q.setFromEuler(e); p.set(c.x, c.y - 0.04, c.z); s.set(1, c.sy, c.sx); m.compose(p, q, s);
     for (const k in M) M[k].setMatrixAt(j, m);
     col.setHex(c.col); M.paint.setColorAt(j, col);
@@ -564,6 +638,7 @@ function draw() {
   for (const k in M) { M[k].count = j; M[k].instanceMatrix.needsUpdate = true; }
   T.wheels.count = j * 4; T.wheels.instanceMatrix.needsUpdate = true;
   if (M.paint.instanceColor) M.paint.instanceColor.needsUpdate = true;
+  drawSemis();
   const night = 1 - (api.dayFactor ? api.dayFactor() : 1);
   T.lampMat.color.setScalar(0.55 + 1.6 * night);
   // the beams (3.4b2a): each car's brightness = how dark it is x how close to the camera (additive light glows through
@@ -577,13 +652,50 @@ function draw() {
     const d = cam ? Math.hypot(c.x - cam.position.x, c.z - cam.position.z) : 0;
     const k = bk * Math.max(0, Math.min(1, (TRAF.beamFar[1] - d) / (TRAF.beamFar[1] - TRAF.beamFar[0])));
     T.beamK.push(+k.toFixed(3));
-    M.dark.getMatrixAt(jb, m); B.setMatrixAt(jb, m); col.setScalar(k * TRAF.beamI); B.setColorAt(jb, col);
+    // the car's own frame (a semi's: its tractor, the cones moved out to its bumper)
+    e.set(c.pitch || 0, c.yaw, 0); q.setFromEuler(e); p.set(c.x, c.y - 0.04, c.z); s.set(1, c.semi ? 1 : c.sy, c.semi ? 1 : c.sx); m.compose(p, q, s);
+    if (c.semi) m.multiply(w.makeTranslation(0, 0.02, c.fro));
+    B.setMatrixAt(jb, m); col.setScalar(k * TRAF.beamI); B.setColorAt(jb, col);
     if (bk > 0) poolDraw(c, jb, k);
     jb++;
   }
   B.count = bk > 0 ? jb : 0; B.visible = bk > 0; B.instanceMatrix.needsUpdate = true; if (B.instanceColor) B.instanceColor.needsUpdate = true;
   const PG = T.pool.geometry; T.pool.visible = bk > 0;
   if (bk > 0) { PG.setDrawRange(0, jb * (POOL.nx - 1) * (POOL.nz - 1) * 6); PG.attributes.position.needsUpdate = true; PG.attributes.color.needsUpdate = true; }
+}
+// the semis (3.5a): place the tractor and trailer groups, and their wheels (rolled, the steer axle turned)
+function semiMeshes(c) {
+  c.ms = c.ms || {};
+  if (!c.ms[c.semiK]) {
+    const o = c.ms[c.semiK] = window.TLXS.make(api.THREE, api.mesh.std, T.lampMat, c.semiK, T.low);
+    for (const g of [o.tractor, o.trailer]) { g.matrixAutoUpdate = false; g.visible = false; T.group.add(g); }
+  }
+  for (const k in c.ms) if (k !== c.semiK) c.ms[k].tractor.visible = c.ms[k].trailer.visible = false;
+  return c.ms[c.semiK];
+}
+function drawSemis() {
+  const { m, q, e, p, w, wr } = T.q, sv = T.q.sv || (T.q.sv = new api.THREE.Vector3()), mt = T.q.mt || (T.q.mt = new api.THREE.Matrix4()), ws = T.q.ws || (T.q.ws = new api.THREE.Matrix4());
+  let j = 0;
+  for (const c of T.cars) {
+    if (!c.semi) continue;
+    if (!c.on || c.hx == null) { if (c.ms) for (const k in c.ms) c.ms[k].tractor.visible = c.ms[k].trailer.visible = false; continue; }
+    const o = semiMeshes(c), t = c.T, R = t.wheelR, roll = (c.roll || 0) * TRAF.wheelR / R;
+    o.paint[0].color.setHex(c.colCab); o.paint[1].color.setHex(c.colTl);
+    e.set(c.pitch || 0, c.yaw, 0); q.setFromEuler(e); p.set(c.x, c.y - 0.04, c.z); sv.set(1, 1, 1); mt.compose(p, q, sv);
+    o.tractor.matrix.copy(mt); o.tractor.matrixWorldNeedsUpdate = true; o.tractor.visible = true;
+    e.set(c.tpitch || 0, c.tyaw, 0); q.setFromEuler(e); p.set(c.hx, c.ty - 0.04, c.hz); m.compose(p, q, sv);
+    o.trailer.matrix.copy(m); o.trailer.matrixWorldNeedsUpdate = true; o.trailer.visible = true;
+    wr.makeRotationX(roll);
+    const wheel = (base, x, z, wid, steer) => {
+      ws.makeScale(wid / 0.24, R / 0.33, R / 0.33);
+      w.makeTranslation(x, R, z); if (steer) w.multiply(T.q.st.makeRotationY(steer)); w.multiply(wr).multiply(ws).premultiply(base);
+      T.swheels.setMatrixAt(j++, w);
+    };
+    T.q.st = T.q.st || new api.THREE.Matrix4();
+    for (const a of t.tr.axles) for (const sd of [-1, 1]) wheel(mt, sd * (a.steer ? 1.04 : 0.93), a.z, a.steer ? 0.32 : 0.62, a.steer ? c.steer || 0 : 0);
+    for (const a of t.tl.axles) for (const sd of [-1, 1]) wheel(m, sd * 0.93, -t.tl.L + a, 0.62, 0);
+  }
+  T.swheels.count = j; T.swheels.instanceMatrix.needsUpdate = true;
 }
 
 // ---- the beams (3.4b2a): two soft cones from the headlamps, one additive
@@ -629,7 +741,7 @@ function poolBuild(TT, n) {
 }
 function poolDraw(c, slot, k) {
   const g = T.pool.geometry, P = g.attributes.position.array, C = g.attributes.color.array, fall = T.pool.userData.fall, per = POOL.nx * POOL.nz;
-  const L = (window.TLXC && TLXC.CARS ? TLXC.CARS.len : 4.3) / 2 * (c.sx || 1), fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx, surf = api.world.surf;
+  const L = (window.TLXC && TLXC.CARS ? TLXC.CARS.len : 4.3) / 2 * (c.semi ? 1 : c.sx || 1) + (c.fro || 0), fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx, surf = api.world.surf;
   for (let j = 0; j < POOL.nz; j++) for (let i = 0; i < POOL.nx; i++) {
     const v = j * POOL.nx + i, o = (slot * per + v) * 3, along = L + POOL.z0 + (j / (POOL.nz - 1)) * POOL.len, side = (i / (POOL.nx - 1) - 0.5) * POOL.w;
     const x = c.x + fx * along + rx * side, z = c.z + fz * along + rz * side;
@@ -658,10 +770,11 @@ function humTick(you) {
   for (const c of T.cars) {
     if (!c.on) continue;
     const d = Math.hypot(c.x - you.x, c.z - you.z); if (d > TRAF.humR) continue;
-    const near = Math.pow(1 - d / TRAF.humR, 2), g = near * (0.45 + 0.55 * Math.min(1, Math.abs(c.v) / TRAF.vmax));
+    const near = Math.pow(1 - d / TRAF.humR, 2), g = near * (0.45 + 0.55 * Math.min(1, Math.abs(c.v) / TRAF.vmax)) * (c.semi ? 1.5 : 1);
     if (g > bg) { bg = g; best = c; }
   }
-  const inside = api.INT && api.INT.on ? 0.25 : 1, gain = TRAF.humG * bg * inside, f = best ? 32 + Math.abs(best.v) * 4.4 : 32;
+  // a lorry's diesel sits lower and turns slower than a car's petrol engine
+  const inside = api.INT && api.INT.on ? 0.25 : 1, gain = TRAF.humG * Math.min(1.3, bg) * inside, f = best ? (best.semi ? 24 + Math.abs(best.v) * 2.6 : 32 + Math.abs(best.v) * 4.4) : 32;
   T.humGain = +gain.toFixed(4); T.humF = +f.toFixed(1); T.humCar = best ? best.i : -1;
   const h = humVoice(); if (!h) return;
   const t = h.au.AC.currentTime; h.last = performance.now(); h.gain = gain; h.f = f;
@@ -691,6 +804,7 @@ function tick(dt) {
     if (!c.on) continue;
     { const dx = c.x - x0, dz = c.z - z0, d = Math.hypot(dx, dz); if (d < 5) c.roll = ((c.roll || 0) + Math.sign(dx * Math.sin(c.yaw) + dz * Math.cos(c.yaw)) * d / TRAF.wheelR) % (Math.PI * 2); }
     ground(c);
+    if (c.semi) semiTrail(c, dt);
     if (!(api.INT && api.INT.on)) collide(c, dt);
   }
   draw();
@@ -710,6 +824,9 @@ TLX.register({
       T.n = a.GFX && a.GFX.low ? TRAF.n.low : TRAF.n.high;
       T.cars = [];
       for (let i = 0; i < T.n; i++) T.cars.push({ i, on: false, retry: 0, col: TRAF.cols[(i * 7 + 3) % TRAF.cols.length], sx: i % 3 === 2 ? 1.08 : 1, sy: i % 3 === 2 ? 1.12 : 1, lane: TRAF.lane, k: 0, hold: 0, blocked: 0 });
+      // the semis (3.5a) come after the cars, so car indices (tests, homes) are unchanged
+      T.nSemi = window.TLXS ? (a.GFX && a.GFX.low ? SEMI.n.low : SEMI.n.high) : 0;
+      for (let i = 0; i < T.nSemi; i++) T.cars.push({ i: T.n + i, semi: true, on: false, retry: 0, col: 0xffffff, sx: 1, sy: 1, lane: TRAF.lane, k: 0, hold: 0, blocked: 0 });
       build(a);
       // going home (3.4b2b): which parked cars a car can drive to, and the owners who are out right now
       const th = performance.now();
