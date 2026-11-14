@@ -1,5 +1,5 @@
-# 0173 — on-foot camera beside buildings (beta 0165 #4 fix, v219) — main @ 96eb49f
-Scenarios: `x3_footcam_eave.mjs` (builder's, rerun), new `x3_footcam_sky_yaws.mjs`. Keyboard only, night (GS.hour 46), weather pinned. Sheet: `~/.hermes/cache/scratch/tlloop/reports/0173.jpg`.
+# 0174 — on-foot camera beside buildings (beta 0165 #4 fix, v219) — main @ 96eb49f
+Scenarios: `x3_footcam_eave.mjs` (builder's, rerun), new `x3_footcam_sky_yaws.mjs`. Keyboard only, night (GS.hour 46), weather pinned. Sheet: `~/.hermes/cache/scratch/tlloop/reports/0174.jpg`.
 
 ## Findings
 1. [Verified] Builder's `x3_footcam_eave`: 79 spots (every site building + garage + hospital, 4 faces each), 0 fail, camera always 0.35 m outside the eave line, first ray hit from camera to chest is the walker every time, no page errors.
