@@ -6482,6 +6482,12 @@ function deliver(site) {
     for (const j of crates) mktDeliver(j);
     restat(); applyLoadout(); save(); TABLET.refresh();
   }
+  const mine = GS.load.filter(j => j.own && j.dest === site);   // your own goods for a place of yours (6.2a: paraffin drums; `j.own` names the tlx system): no pay, no delivery counted
+  if (mine.length) {
+    GS.load = GS.load.filter(j => !mine.includes(j));
+    for (const j of mine) { const sy = TLX[j.own]; if (sy && sy.land) sy.land(j, site); }
+    restat(); applyLoadout(); save(); TABLET.refresh();
+  }
   const here = GS.load.filter(j => j.dest === site && !(j.sea && !afloat()));   // sea freight (14.2b) hands over from the boat only
   if (!here.length) return;
   const tutD = here.some(j => j.tut);
@@ -13768,7 +13774,7 @@ function updGame(dt, spd) {
   const pend = !GS.load.length && !GS.groomJob && pendingPickup(), pendSite = pend && SITES.find(s => s.id === pend.site);
   const clSites = !GS.load.length && GS.claims.length ? new Set(GS.claims.map(j => j.from || depot)) : null;
   for (const s of SITES) if (s.beacon) s.beacon.visible = (SCHOOL.on || SCHOOL.guide ? false : GS.load.length ? GS.load.some(j => j.dest === s) : pendSite ? s === pendSite : clSites ? clSites.has(s) : (s === depot && near !== depot && (!roaming() || GS.mail.length > 0))) || !!(FISH && !SCHOOL.on && FISH.beacon(s));
-  const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
+  const relay = SITES.find(s => s.type === "relay"); if (relay && relay.blink) { relay.blink.visible = (gameClock % 3.2) < 0.6 && !(TLX.lights && TLX.lights.out("slettnes")) /* 6.2a: your own lamp, run dry, is dark */; if (relay.beam) relay.beam.intensity = relay.blink.visible ? 2.4 * (1 - dayFactor()) : 0; }
   updTurbines(dt); updSteamer(dt);
 
   updNpcs(dt);
@@ -17384,6 +17390,8 @@ function initExpansion() {
     wild: { groups: () => WILD.groups, shot: wildShot, spook: wildSpook }, people: peopleOut, crack,
     // jetties (14.2a): a village jetty works as the village for the boat (hand over its parcels, load its pickups)
     deliver, collectClaims,
+    // lighthouses (6.2a): the sun's height (degrees) at an hour of the day, for the lamp's sun valve
+    sunEl,
     kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
       wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }

@@ -190,6 +190,16 @@ Walk in and look round before you buy. Guests pay to sleep in the keeper's house
 collects its own grit and dust**: sweeping the keeper's house does nothing for the tower floor, the app shows a row
 per room, and the nights let follow the rooms' average. It has stood empty, so it's dusty when you get the keys.
 You can hire a caretaker for it in Staff, and it shows on the Map's Depots layer.
+With the keys comes **the lamp**, and a **Lights** app on the tablet. The lamp burns paraffin from a 180 L tank at the
+foot of the tower, 2.5 L an hour, and a sun valve shuts it by day: it burns only while the sun is down, so a full tank
+is about three days of polar night. Kystverket pays a **stipend of $12 for every hour it's lit**, on Mondays, with a
+statement in the app; dark hours it should have burned are counted there and earn nothing. Oil comes in 60 L drums
+($45, ordered in the app): a drum waits at the Kjøllefjord quay like any claimed pickup (the Jobs app and the compass
+track it, it rides in a parcel slot), and stopping at the lighthouse rolls it into the oil store. In the tower room,
+stand at the drum rack and use the use control to **pump a drum into the tank** by hand (a few seconds; use again to
+stop). If the tank runs dry the lamp goes out, the tower stops flashing, the app badges it, and it stays dark until
+there's oil in the tank and you've used the use control at the foot of the stair to **climb up and light it**. The
+last keeper leaves you about 18 hours of oil. A light you don't own is Kystverket's and never goes out.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight
