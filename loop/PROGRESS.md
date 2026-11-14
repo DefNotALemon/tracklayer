@@ -3,6 +3,38 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 11.1b the rifle in the field: shoulder, aim, fire, dress, sell (lane D) (G4) — 1864128
+Builder pass, lane D. Triage: beta 0184 (11.1a gun shop) has no BLOCKER/BUG; its #1 POLISH (x11_gunshop read TLXGUN
+before a reload had finished, 1 run in 3) is fixed here in both x11 scenarios (`ready()` polls instead of a 500 ms
+sleep); #3 (sign hard to read from the street) and #4 (night room lit on the left only) stay open as POLISH. Next
+unticked slice was 11.1b.
+`tlx-guns.js` v2, block "in the field". `btn("rifle")` = L / pad A on foot / touch RIFLE (reads LOWER while up): the
+rifle comes to the shoulder on foot outdoors, refused in town (townR + 40 m) and within 70 m of a site. Shouldered is
+first person down a view model built from the fitted parts (barrel length, magazine, stock, irons with a real notch
+and post, the red dot's open window, the scope as a ring + fov 52 / zoom); the walker is hidden, the boots are planted
+and readInput hands the walk controls to the aim (a tap creeps, held it builds, a scope swings slower). Sway settles
+in ~2 s held still, widens with the spread stat, a swing and lost breath. Trigger = the use control through a footx
+provider (FIRE), so keyboard E, pad L3 and the touch button all work with no new binding. Bolt 0.95 s x recoil;
+the magazine tops up from the pack a round at a time. The shot: ray + spread, stops at the first hill, first live WILD
+animal whose chest it crosses; inside stats.range it drops, past it a miss whose toast gives the distance and the
+rifle's reach. Herds within 420 m x noise flee. People never: `unsafe()` refuses the shot, spends no round and says
+why (rider / rescue case / dog / car near the line out to 700 m; the town, a site or a lit door on it). DRESS at the
+carcass, 260 kg carried, the shop's new Game tab pays. Bridges in tracklayer.js: BTN.rifle, KeyL, pad A on foot,
+#tcRifle, the aim capture in readInput, api.wild (groups / shot / spook), api.people, api.crack.
+Numbers (`x11_hunt.mjs`, 54 asserts): raised in ~1 s, 3 rounds loaded from 20; A held 1.2 s swings 0.85 rad with
+0.000 m of boot travel; sway wanders while unsettled and settles in ~2 s (settled: about +-0.4 m at 90 m with the stock build, so the shot is timed); reindeer at 90 m: kill, 2 herds spooked, no second shot until the bolt
+closes; moose at 200 m: "past this rifle's clean reach (140 m)", alive; scope fitted: fov 8.7, ring up, reach 250 m,
+same moose shot kills; rider at 130 m behind a reindeer, dog 3 m off the line, car at 400 m, town, Dyfjord: all on
+safe with the round count unchanged; dress reindeer + moose = 218 kg, a second moose refused, Game tab $850, sold;
+pad A / stick + RT / L3 and touch RIFLE / FIRE / LOWER do the same; tablet lowers it; reload keeps game, tally,
+rounds; corrupt game list and an 11.1a save load clean.
+Stills `~/.hermes/cache/scratch/tlloop/x11h/` + `x11h2/`: the first view model was a tan plank held off to the right
+with a bolt knob the size of a fist; rebuilt as a centred down-the-sights view (darker walnut, notch + post, open
+red-dot window, small bolt). Scope ring and touch layout (LOWER above FIRE) clean.
+Not done, written into EXPANSION.md as 11.1c: the rifle is not yet visible slung on the walker or on the sled rack in
+third person, trees don't stop a bullet (hills do), and keyboard players aim with A/D/W/S, no mouse look. Not judged:
+the gunshot sound (headless is muted) and the feel of the swing rate on a real pad.
+
 ## 2026-11-14 — 14.2b sea jobs BY BOAT, a jetty's warmth, the quay jetty's fuel (lane C) (G4) — c13d125
 Builder pass, lane C. Read Playtest 0182 (14.2a): three POLISH, no BLOCKER/BUG (#1 bow digs to -0.5 m in a full storm,
 #2 a walker on the planks with a parcel gets no "bring the boat" cue, #3 is a confirmation), so the pass took the next

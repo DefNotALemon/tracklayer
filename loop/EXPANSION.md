@@ -17,7 +17,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; next: 6.1b (new property types) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
-| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; next: 11.1b (carry, fire, hunt the wildlife), then 11.2 wheel |
+| 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; next: 11.2 wheel (then 11.1c the rifle seen on you, 11.3 ammo) |
 | 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; next: 14.3 (open-water fishing), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
@@ -552,11 +552,21 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         glass case, antlers, ammo shelf, stove, counter), panel `api.shop("guns")` with tabs Licence / Rifles / Parts
         (stat-delta chips per card) / Ammunition ($38 for 20, 120 max). Option `huntlic` (on): the course ($180) gates
         buying a rifle. Saved x.sys.guns {owned, cur, parts, ammo, licence}, sanitized on load. Test x11_gunshop.mjs.
-  - [ ] 11.1b Carry, fire, hunt (the rest of 11.1 below): the rifle on the sled rack / slung on foot, load from the
-        pack (`rounds`, cap from stats), aim (zoom from the sight, sway from spread/handling) and fire through
-        `btn(action)` on all three schemes, hits on WILD animals (clean-kill chance from range + spread), a carcass to
-        sell (pelt/meat at the gun shop counter until 11.5's butcher), noise -> spook radius. People never: the trigger
-        is dead whenever the aim ray passes within reach of any human figure (walkers, drivers, riders, staff).
+  - [x] 11.1b (v231, tlx-guns v2, lane D) In the field: shoulder, aim, fire, dress, sell. `btn("rifle")` (L / pad A on foot /
+        touch RIFLE-LOWER) shoulders it on foot outdoors, refused within townR + 40 m of the depot or 70 m of a site.
+        Shouldered = first person down the rifle (view model built from the fitted parts; irons / red-dot window / scope
+        ring + fov 52 / zoom), boots planted, the walk controls swing the aim (readInput hands FOOT.turn / fwd to AIM), sway
+        that settles in ~2 s still and scales with the spread stat and breath. Trigger = the use control (footx FIRE).
+        Bolt cycle 0.95 s x recoil, auto top-up from the pack a round at a time. Shot = ray + spread, stops at the first
+        hill, takes the first live WILD animal whose chest it crosses; inside stats.range it drops, past it a miss that
+        says why. Noise: herds within 420 m x noise flee (bears don't). PEOPLE NEVER: `unsafe()` refuses the shot (no
+        round spent, toast, ON SAFE) with a rider / rescue case / the dog / a traffic car within 6 m + 3% of the line out
+        to 700 m, or the town, a site (45 m) or a lit door (22 m) on it. DRESS at the carcass (footx), tally
+        x.sys.guns.game, 260 kg carried, sold on the shop's Game tab (reindeer $230, moose $620, fox $85, hare $22; a
+        grizzly / lemming / ermine pays nothing: 11.5's warden decides what a grizzly costs you). Bridges: BTN.rifle + its
+        key / pad / touch, the aim capture in readInput, api.wild / people / crack. Test x11_hunt.mjs.
+  - [ ] 11.1c The rifle seen on you: slung across the walker's back and on the sled's rack while you own one (third
+        person), trees stopping a bullet (today only hills do), and mouse-look aim for keyboard players (today A / D / W / S).
   - [ ] 11.1 Core weapon model + gun shop shell. New `tlx-guns.js` (`TLX.register({id:"guns",...})`, state
         `x.sys.guns = { owned: [...], parts: [...] }`). A **frame** (`FRAMES`: start with one, a bolt-action
         hunting rifle, `id, name, slots:["barrel","stock","grip","magazine","sight"], base stats`) is the
