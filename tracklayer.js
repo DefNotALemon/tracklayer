@@ -5593,7 +5593,10 @@ function buildSites() {
         add(g, new THREE.BoxGeometry(0.12, 1.0, 2.6), L(0xd8d2c4), D / 2 + 2.5, 2.4, -W / 2 - 1.5);
         addOb({ x: bx + D / 2 + 2.2, z: bz + W / 2 - 1, r: 0.6, top: 1e9 });
       }
-      for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9, ax: 0 });
+      // the walls + the roof's overhang (0.5 m at the eaves, 0.55 m at the gable ends) as a box for camWallClip: the round
+      // obstacles alone stop 0.4 m short of the walls, so the on-foot camera behind you sat inside them (beta 0165 #4)
+      const sbox = { x: bx, z: bz, c: 1, s: 0, hw: D / 2 + 0.55, hd: W / 2 + 0.6 };
+      for (let u = -D / 2 + 1.3; u <= D / 2 - 1.2; u += 1.9) for (let v = -W / 2 + 1.3; v <= W / 2 - 1.2; v += 1.9) addOb({ x: bx + u, z: bz + v, r: 1.45, top: 1e9, ax: 0, box: sbox });
       if (s.kind === "village") KIT.village(s, 1000 + s.id.length * 77 + s.seed[0]);
       if (s.kind === "home") {
         // a stacked woodpile along the gable end and a mailbox post out by the track
@@ -11739,7 +11742,8 @@ function buildTown() {
   bx(gg, 0.08, 0.46, 4.6, woodD, 5.56, 3.63, 0.4).castShadow = false;
   const gn = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.4), signMat(signTex("NORDKINN SKUTER & SERVICE", null, "#efe9dc", "#1c2b3a", 1100, 100), 0.15));
   gn.position.set(5.605, 3.63, 0.4); gn.rotation.y = Math.PI / 2; gg.add(gn);
-  for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9, ax: 0 });
+  const gbox = { x: gx, z: gz, c: 1, s: 0, hw: 5.85, hd: 4.35 };      // walls + snow-loaded roof, for camWallClip (beta 0165 #4)
+  for (let u = -4.5; u <= 4.5; u += 2.2) for (let v = -3; v <= 3; v += 2.2) addOb({ x: gx + u, z: gz + v, r: 1.5, top: 1e9, ax: 0, box: gbox });
   bx(gg, 1.0, 0.8, 1.0, wood, -4.2, 0.4, 4.6); bx(gg, 0.9, 0.7, 0.9, wood, -2.8, 0.35, 4.8);
   put(gg, new THREE.TorusGeometry(0.85, 0.16, 8, 18), L(0x14181d), 3.4, 1.0, 4.6).rotation.set(0.25, 0.4, 0);
 
@@ -16652,7 +16656,8 @@ function buildHospital() {
   bx(amb, 1.6, 0.18, 0.4, L(0x3a8cff), 0, 2.78, 1.4).material = new THREE.MeshBasicMaterial({ color: 0x5aa0ff });
   for (const [u, v] of [[-1, 2.2], [1, 2.2], [-1, -1.6], [1, -1.6]]) put(amb, new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), L(0x15181b), u * 1.05, 0.42, v).rotation.z = Math.PI / 2;
   // obstacles: the building, the canopy posts and the ambulance
-  for (let u = -W / 2 + 1.2; u <= W / 2 - 1.1; u += 2.1) for (let v = -D / 2 + 1.2; v <= D / 2 - 1.1; v += 2.1) addOb({ x: x + ax * u + dx * v, z: z + az * u + dz * v, r: 1.5, top: 1e9, ax: ry });
+  const hbox = { x, z, c: Math.cos(ry), s: Math.sin(ry), hw: W / 2 + 0.15, hd: D / 2 + 0.15 };   // for camWallClip (beta 0165 #4)
+  for (let u = -W / 2 + 1.2; u <= W / 2 - 1.1; u += 2.1) for (let v = -D / 2 + 1.2; v <= D / 2 - 1.1; v += 2.1) addOb({ x: x + ax * u + dx * v, z: z + az * u + dz * v, r: 1.5, top: 1e9, ax: ry, box: hbox });
   for (const sx of [-3, 3]) addOb({ x: x + ax * sx + dx * (D / 2 + 3.1), z: z + az * sx + dz * (D / 2 + 3.1), r: 0.25, top: 1e9 });
   for (const v of [-1.4, 0.6, 2.6]) addOb({ x: x + ax * (-W / 2 - 2.6) + dx * v, z: z + az * (-W / 2 - 2.6) + dz * v, r: 1.25, top: 1e9, ax: ry });
   for (const v of [-2.8, 3.8]) addOb({ x: x + ax * (-W / 2 - 4.9) + dx * v, z: z + az * (-W / 2 - 4.9) + dz * v, r: 0.25, top: 1e9 });
