@@ -140,7 +140,12 @@ function loadAmmo(id, quiet) {
   const g = gun(), a = AMMOS.find(d => d.id === id); if (!g || !a) return false;
   if (g.ammo === id) return true;
   if (pk(id) <= 0) return false;
-  pkAdd(g.ammo, g.rounds); g.rounds = 0; g.ammo = id;
+  /* beta 0192 #1: the magazine's rounds go back in a pack that takes AMMO.max. With the pack that full, as many of the
+     new load go straight into the magazine as it takes to make the room (a round out for each round in); if you don't
+     carry that many of the new load there's no room to do it, and the swap is refused. */
+  const over = Math.max(0, pkTotal() + g.rounds - AMMO.max);
+  if (over > pk(id)) { api.toast(`The pack's full (${pkTotal()} of ${AMMO.max}): no room for the ${g.rounds} ${ammoDef(g.ammo).short} ${g.rounds === 1 ? "round" : "rounds"} in the magazine. Fire a few off first.`, "warn"); return false; }
+  pkAdd(g.ammo, g.rounds); g.ammo = id; g.rounds = over; pkAdd(id, -over);
   if (AIM.on) { AIM.load = TUNE.load; AIM.vmKey = ""; }
   api.save(); if (!quiet) api.toast(`${a.short[0].toUpperCase() + a.short.slice(1)} rounds for the magazine: ${pk(id)} in the pack.`, "good");
   return true;
@@ -153,19 +158,27 @@ function fit(slot, id, quiet) {
   const g = gun(), L = partList(slot); if (!g || !L) return false;
   const p = L.find(o => o.id === id); if (!p || !ownsPart(slot, id) || !frameDef(g.frame).slots.includes(slot)) return false;
   if (g.parts[slot] === id) return true;
+  const cap = stats(Object.assign({}, g, { parts: Object.assign({}, g.parts, { [slot]: id }) })).cap;
+  if (g.rounds > cap) {                                               // a smaller magazine: the spare rounds go back in the pack, if it has the room (beta 0192 #1)
+    const spare = g.rounds - cap;
+    if (pkTotal() + spare > AMMO.max) { api.toast(`${p.name}: it holds ${cap}, and the pack's too full (${pkTotal()} of ${AMMO.max}) for the ${spare} ${spare === 1 ? "round" : "rounds"} left over. Fire a few off first.`, "warn"); return false; }
+    pkAdd(g.ammo, spare); g.rounds = cap;
+  }
   g.parts[slot] = id;
-  const cap = stats(g).cap; if (g.rounds > cap) { pkAdd(g.ammo, g.rounds - cap); g.rounds = cap; }   // a smaller magazine: the spare rounds go back in the box
   api.save(); if (!quiet) api.toast(`${p.name} on the rifle.`, "good");
   return true;
 }
 function buyPart(slot, id) {
   const s = S(), L = partList(slot), p = L && L.find(o => o.id === id), G = api.GS; if (!s || !p) return false;
   if (!gun()) { api.toast("Buy the rifle first: parts fit a rifle.", "warn"); return false; }
+  let bought = false;
   if (!ownsPart(slot, id)) {
     if (G.cash < p.cost) { api.toast(`That's ${cash$(p.cost)}. You have ${cash$(G.cash)}.`, "warn"); return false; }
-    G.cash -= p.cost; s.parts[slot + ":" + id] = 1;
+    G.cash -= p.cost; s.parts[slot + ":" + id] = 1; bought = true;
   }
-  return fit(slot, id);
+  if (fit(slot, id)) return true;
+  if (bought) api.save();                                             // paid for, but it couldn't go on (a full pack): it's yours, the card says Owned
+  return bought;
 }
 function buyRifle(fid) {
   const s = S(), f = frameDef(fid), G = api.GS; if (!s || !f) return false;
@@ -421,6 +434,11 @@ function slungWhy() {
   return null;
 }
 const can = () => !!gun() && outdoors();          // the touch button shows whenever a rifle is on your back out of doors
+/* beta 0190 #1: a menu over the game (Settings, the garage, the god panel, the death card). The keyboard's use key still
+   reaches the trigger under Settings, so the rifle itself checks: a menu coming up slings it, and it neither fires nor
+   comes up while one is open. */
+const elUp = id => { const e = document.getElementById(id); return !!e && !e.hidden; };
+const menuUp = () => !!(api.GS.garageOpen || api.GS.dead || elUp("settings") || elUp("god"));
 function lower(quiet) {
   if (!AIM.on) return;
   AIM.on = false; AIM.t = 0; AIM.kick = 0; AIM.ax = AIM.ay = 0;
@@ -430,7 +448,7 @@ function lower(quiet) {
   if (!quiet) api.toast("Rifle slung.");
 }
 function toggle() {
-  if (!api || !api.started()) return false;
+  if (!api || !api.started() || menuUp()) return false;
   if (AIM.on) { lower(); return true; }
   const why = slungWhy();
   if (why === "none" || why === "foot") { if (why === "none" && outdoors()) api.toast(`No rifle. ${FULL_NAME} in Kjøllefjord sells one.`, "warn"); return false; }
@@ -528,7 +546,7 @@ function target(dx, dy, dz) {
   return best;
 }
 function fire() {
-  const g = gun(), s = S(); if (!AIM.on || !g) return false;
+  const g = gun(), s = S(); if (!AIM.on || !g || menuUp()) return false;
   if (AIM.t < 1 || AIM.bolt > 0 || (AIM.load > 0 && g.rounds <= 0)) return false;
   AIM.load = 0;                                                       // firing breaks off topping the magazine up
   if (g.rounds <= 0) { AIM.last = { res: "empty" }; if (api.now() - AIM.dry > 1.5) { AIM.dry = api.now(); const has = feed(g, true); if (has && AIM.load <= 0) AIM.load = TUNE.load; api.toast(has ? "Click. Empty: loading." : "Click. Empty, and not a round in the pack.", "warn"); } return false; }
@@ -594,7 +612,7 @@ const gameTab = {
 function aimTick(dt) {
   const F = api.FOOT, g = gun();
   if (!AIM.on) return;
-  if (!g || !F.on || api.INT.on || !api.swapOk() || api.tablet() || F.ski || (api.shopOpen && api.shopOpen())) { lower(true); return; }
+  if (!g || !F.on || api.INT.on || !api.swapOk() || api.tablet() || F.ski || (api.shopOpen && api.shopOpen()) || menuUp()) { lower(true); return; }
   const st = stats(g), s = S(), W = api.world, cam = api.camera;
   AIM.t = Math.min(1, AIM.t + dt / (TUNE.raise * (1.5 - st.handling * 0.08)));
   // swing: a tap creeps, a held push builds; a scope slows it to keep the animal in the glass

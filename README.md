@@ -503,7 +503,8 @@ a licence holder; switch it off in Settings > Options), **Rifles** (a bolt-actio
 parts and showing its stats), **Parts** (barrel, stock, grip, magazine and sight, three of each, every one a trade-off:
 the carbine barrel swings faster but reaches less and is louder, the 3-9x scope reaches 250 m and steadies the shot but
 weighs and slows the swing, a bigger magazine holds more rounds and hangs heavier; each card shows the stat changes
-before you buy) and **Ammunition** (four loads for the .308, 20 to a box, 120 rounds in the pack all told: **soft point** $38, the
+before you buy) and **Ammunition** (four loads for the .308, 20 to a box, 120 rounds in the pack all told, and it stays 120: with the pack full, a change of load trades rounds one for one
+with the magazine, and a smaller magazine waits until there is room for the rounds it won't hold: **soft point** $38, the
 standard the sights are set for; **surplus ball** $24, cheap, looser groups and a fifth less clean reach; **match** $74,
 tighter groups and 15% more reach with a sharper push; **subsonic** $58, no crack, so only herds within about 170 m
 bolt instead of 420 m, but it kills clean only to about half the distance. The magazine holds one load at a time:
@@ -512,7 +513,7 @@ new load. Run a load dry and the rifle goes on to the next one you carry and say
 swap it on and off free. A fifth tab, **Game**, buys what you bring in off the fell. The code is `tlx-guns.js`.
 
 **Hunting.** On foot, out on the fell and well clear of town, the villages and the cabins, **L** (pad A, the RIFLE button
-on touch) brings the rifle to your shoulder, and the same control slings it again; in town it stays slung. Shouldered,
+on touch) brings the rifle to your shoulder, and the same control slings it again; in town it stays slung, and opening Settings slings it (nothing fires under a menu). Shouldered,
 you look down the rifle you built: open sights, the red dot's window, or the scope's ring and its magnified view. Your
 boots stay planted and the walk controls swing the aim (a tap creeps, held it builds; a scope swings slower). The view
 breathes: hold still a couple of seconds and it settles, swing hard or arrive out of breath and it wanders, and a
