@@ -621,4 +621,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 (POLISH, 0167 #1/#2, 0164 #5): owners-out re-rolls on reload (seed it from the day if wanted); a homing car
       waits for you forever within 120 m with no cue; car beams burn all polar-night day (keyed off dayFactor).
 
-Last triaged report: 176
+Last triaged report: 182

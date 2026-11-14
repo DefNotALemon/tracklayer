@@ -51,6 +51,29 @@ red-dot window, small bolt). Scope ring and touch layout (LOWER above FIRE) clea
 Not done, written into EXPANSION.md as 11.1c: the rifle is not yet visible slung on the walker or on the sled rack in
 third person, trees don't stop a bullet (hills do), and keyboard players aim with A/D/W/S, no mouse look. Not judged:
 the gunshot sound (headless is muted) and the feel of the swing rate on a real pad.
+## 2026-11-14 — 3.5a semis on the roads (lane A) (G4) — e7bb930
+Builder pass, lane A. Triage 177-182: 0177 (sign-aware brake, base game) VERIFIED + 2 POLISH on test flakiness, not
+queued; 0179 (App Store strip, base) 3 POLISH, not queued; 0181 (3.4b2b, lane A) no BLOCKER/BUG; 0178/0182 are lane C's,
+0180 lane B's. Last triaged 176 -> 182. Built 3.5a; split 3.5 into 3.5a (AI semis), 3.5b (a semi you drive, fifth-wheel
+coupling) and 3.5c (option storm closures + convoys), designs in EXPANSION.md.
+New `tlx-semis.js` (shapes + sizes, TLXS): dist (2-axle day cab + 10.5 m reefer, 14.0 m), haul (3-axle high-roof sleeper
++ 13.6 m curtainsider, 16.5 m), tank (3-axle day cab + 11.6 m tanker, 15.1 m); tractor and trailer are each 3 merged
+meshes (paint tinted per lorry, the rest vertex-coloured, unlit lamps on the traffic's lamp material), wheels one more
+instanced mesh (the cars' wheel scaled to r 0.52, twin tyres one wide wheel, steer axle turned from the yaw rate).
+tlx-traffic v5: 1 (low) / 2 semis after the cars (car indices unchanged), same road driver at max 11 m/s, bends 0.88x,
+pull-away 0.6; trailer on a tractrix (axle point pulled toward the kingpin to exactly its wheelbase each frame); others
+see three points (tractor, trailer middle, tail) so cars stop short of the tail and pass the whole length; solid along
+its length; never U-turns (waits at an end/drift/blockage, gone once you're 250 m off); no drives home; diesel hum;
+"lorry" bump toasts. Beams/pool follow the tractor's bumper.
+Numbers (`x3_semis.mjs`): straight top 9.6 m/s (<= 11), articulation 0.00 deg, wheelbase error 3e-15 m; tightest bend on
+the network (R 11.9 m, Gamvik street) articulation 32 deg, trailer axles <= 2.1 m off the centreline; a car stops 3.2 m
+short of a stopped semi's tail, pulls out, never closer than 0.98 m body to body, back in 9.3 m ahead of the tractor's
+middle; at the road's end it waits (no U-turn) and is re-placed once you're 450+ m off; a sled driven into the tail
+bumps (1, lorry toast) and ends outside it; a walker inside is pushed out; traffic incl. one semi adds 7 draw calls.
+x3_traffic's mesh/driver counts now exclude the semis (their own groups). Stills `~/.hermes/cache/scratch/tlloop/x35a/`
+(three sizes side + front, bend from above, night front) judged: read as semis, wheels on the snow, coupled, no gaps.
+Windscreens read light grey in low sun (specular), left.
+Gate (after rebasing over v230): smoke, x1_save, x3_semis, x3_traffic, x3_pass, x3_home all exit 0, page errors none.
 
 ## 2026-11-14 — 14.2b sea jobs BY BOAT, a jetty's warmth, the quay jetty's fuel (lane C) (G4) — c13d125
 Builder pass, lane C. Read Playtest 0182 (14.2a): three POLISH, no BLOCKER/BUG (#1 bow digs to -0.5 m in a full storm,
