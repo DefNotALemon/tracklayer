@@ -13,7 +13,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); next: 3.5 (semis) |
-| 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; next: 5.3 (lane B) |
+| 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; next: 14.2 (village docks + water deliveries) |
@@ -445,9 +445,25 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
       Saved per applicant: chat, pat, floor, ref, asked, caught, chk, deal, mute (5.1 applicants get them lazily);
       caught/chk ride onto the crew record. Also beta 0173 #1: null applicant/crew entries are dropped on load and
       in the board tick. Test `x5_interview.mjs`.
-- [ ] 5.3 Happiness, raises, praise/criticism in person, notice and quitting, Monday wages.
+- [x] 5.3 Happiness, raises, praise/criticism in person, notice and quitting, Monday wages.
+      Design (lane B, 14 Nov): each crew record gets `hap` (0-100, hidden as a number; the card shows a word: Happy
+      >= 70, Content >= 50, Fed up >= 30, Miserable), `mood` (what you said lately, -30..+30, fades 6 a game day),
+      `lowT`, `notice`, `ask`, `talk`, `push`; 5.1/5.2 crew get them lazily (hap 65). hap eases toward a target at
+      8 points a game day (16 while owed and falling): 64 + wage fairness (wage vs the fair wage for their REAL
+      experience, (w/fair - 1) x 90 clamped -25..+18) + mood - 10 x temper + 1 a week served (max 6) - 35 while
+      wages are owed. Work: the occupancy lift x (0.5 + hap/140, 0.5..1.15), x1.2 for 3 game days after a criticism
+      that landed, x0.8 while on notice. IN PERSON: PRAISE and CRITICISE work only within 30 m of their workplace
+      (else the button says where to go), once per 12 game hours each person. Praise: mood +10 (+4 if praised in the
+      last 2 days). Criticism: mood -(8 + 10 x temper); with hap >= 35 they knuckle down (the x1.2), under that a
+      temper > 0.5 hands in notice on the spot. RAISE (anywhere): +10% (min $3), mood +12 (+5 if already paid over
+      1.3 x fair). Asking: hap < 50, hired 5+ game days, no ask in 7 days, not on notice -> they ask for +12-20%
+      (notification); GIVE = wage + mood +15, REFUSE = mood -(6 + 10 x temper), and a hot one under 40 hands in
+      notice. Notice: 24 game hours under 25 -> one week's notice (notification); hap back to 50 withdraws it;
+      at the end they leave, paid pro rata (short = owed) and the job is posted again. Option `walkout`
+      ("Unpaid staff walk out", on): wages owed for 72 game hours and everyone walks out (the debt stays).
+      Monday wages unchanged from 5.1 (the slip now counts the unhappy). Test `x5_mood.mjs`.
 - [ ] 5.4 Plow drivers: own truck or mine, present in the world, get stuck, ping; tow them, send someone, pay a tow.
-- [ ] Options: unpaid-wage penalty, staff improve with time, returning applicants show their record.
+- [ ] Options: unpaid-wage penalty (done in 5.3: `walkout`), staff improve with time, returning applicants show their record.
 
 ### 6. Upkeep and lighthouses (`tlx-property.js`, `tlx-lights.js`)
 - [ ] 6.1 Real Estate sells new property types; dust and grit, sweeping and dusting, cleaning kits.

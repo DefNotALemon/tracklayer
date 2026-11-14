@@ -3,6 +3,27 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 5.3 staff happiness, praise/criticism in person, raises, notice and quitting (lane B) (G4) — b2b7b31
+Builder pass, lane B. Reports 175-179 hold nothing for lane B (cab map, clothing, skiff, App Store: lanes A/C/D).
+Built 5.3 in tlx-staff.js only (no tracklayer.js change; tlx-staff.js?v=3). Design written into EXPANSION 5.3 first.
+Each crew record gets a hidden hap 0-100 (card shows Happy/Content/Fed up/Miserable) easing 8/game day (16 while owed
+and falling) toward 64 + pay fairness vs the fair wage for REAL experience (±, clamped -25..+18) + mood - 10 x temper
++ tenure - 35 while owed. Work = occupancy lift x (0.5 + hap/140) x1.2 for 3 days after a criticism that landed, x0.8
+on notice. PRAISE/CRITICISE only within 30 m of their cabin (FOOT or the vehicle), once per 12 game h; RAISE +10%
+anywhere; unhappy (< 50) staff 5+ days in ask for +12-20% (GIVE/REFUSE). 24 h under 25 = a week's notice, back to 50
+withdraws it, at the end they leave paid pro rata and the job reposts. Option `walkout` (on): 72 game h owed -> all
+walk out, debt stays. 5.2 crew records get hap 65 lazily.
+Numbers (`x5_mood.mjs`): new hire hap 72; underpaid at 0.6 x fair: target 37, hap 70 -> 54 in 48 game h, lift 8.1% ->
+7.2%; praise +10, again at once refused, 13 h later +4; criticism of a content hot-head: work x1.20, mood -17; fed-up
+hot-head criticised -> notice, card "Leaves in 7 days"; misery -> notice, a fair wage -> 51 and notice withdrawn;
+walkout off: 80 h owed, nobody leaves; on: walked out at 72 h, $276 still owed.
+Also: x5_staff D read reOcc twice with an aurora flipping in between (58.0% -> 55.9% with a +3.9 caretaker): now reads
+base and with-caretaker in one frame.
+Gate: smoke, x1_save, x5_mood (A-H: keyboard Enter on PRAISE, pad A on GIVE, touch tap on RAISE, reload keeps
+hap/notice/ask, a 5.2-style crew record loads), x5_staff, x5_interview. Stills ~/.hermes/cache/scratch/tlloop/b_x53/
+(crew cards: mood chip, ON NOTICE, four buttons fit in one row on the landscape tablet).
+Next for lane B: milestone 6 (6.1 Real Estate property types, dust and cleaning). 5.4 plow drivers is lane A's.
+
 ## 2026-11-14 — App Store card strip follows keyboard/pad focus (beta 0168 #1, lane A BUG) (G4) — bf7d5b7
 Builder pass, lane A. Triage 175-176: 0175 #2-#4 (two trucks both "Pickup", truck pin over the quay label, no vehicle
 layer chip) POLISH, not queued; 0176 is lane D's (10.1). Last triaged 174 -> 176.
