@@ -3,6 +3,30 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 14.1 the skiff and the small-boat jetty (G4) — 31025e6
+Builder pass, lane C (first lane-C pass: milestone 14 had no design, so its slices 14.1-14.5 were written into
+EXPANSION.md first, then 14.1 built). New `tlx-boats.js`: the Fjordsnekka 460 skiff ($2,600, garage Boats tab, max 2)
+and a timber jetty sited at boot off the shore near the quay (`siteDock`; here 90 m from the depot, a 1:3 gangway
+with a handrail from the 4.1 m shore down to a level deck at 0.95 m, 15 m over 5.6 m of water, a berth each side).
+The skiff is a vehicle through a new kind registry in tlx-vehicles.js (`TLXV.addKind(row, impl)`): swap of `P`, save,
+reload, the nearest-vehicle rule, Q / LB / touch and the "get in the skiff" hint are the pickup's; boats don't count
+against the three trucks, don't show on the Trucks tab, have no hitch ball. tracklayer.js hooks: `VEH.floor` (jetty
+planks in `walkFloor`, `hardS` and past the sea wall in footStep/skiStep) and a "B" pin on the Map.
+Water model: power-limited thrust (20 hp x 0.55), drag 7 v^2 + a 330 N planing hump at 4.6 m/s + 45 v, keel damping,
+tiller yaw scaled by flow, 40% astern, swell from GS.storm driving heave/pitch/roll springs, slams at speed in a sea,
+grounding on bow/stern depth vs the 0.32 m draft (thud, dents over 2.5 m/s), jetty piles are a wall, relaunch to the
+last water if a reset leaves her on land. Getting in/out: walk to the gunwale, step-in keyframes (lead foot down,
+weight across with a heel impulse, second foot, turn, sit at the tiller), the reverse onto the jetty or a low shore
+(`landSpot`: standable within ~1.1 m of the gunwale and under 1.4 m above the water), else a "too high" toast.
+Numbers (`x14_skiff.mjs`, gameClock): 7.5 m/s at 3.5 s, 8.7 m/s at 9 s; 1.8 rad of turn in 3 s; reverse stops her from
+8.7 m/s in 3.0 s; waterline -0.08..+0.09 m; aground at a steep shore in 3.6 m of water (bow on the rocks), Q refuses
+there and works at the berth; reload keeps her within 0.01 m; reload while seated comes back afloat and drives.
+Stills `~/.hermes/cache/scratch/tlloop/c14/r4/sheet.jpg` (jetty overview with gangway + rail, moored, stepping in,
+planing with the helmsman at the tiller, seated rear view): reads as a skiff with an outboard; the first rail try
+(one 3 m bar per pile) showed broken stubs and was rebuilt per deck bay.
+Gate: smoke, x1_save, x14_skiff, x2_pickup (the vehicles registry) pass.
+Follow-ups (14.2+): village docks + water deliveries; mooring lines; ferry/skiff collision; used boats on Bytteboden.
+
 ## 2026-11-14 02:00 — sign-aware brake: riderless sled no longer runs away backwards (beta 0170 #1 + Owner 13 Nov, lane A BUG) (G4) — aebf9af
 Builder pass, lane A. Triage 169-174: 0170 #1 BUG = this (also the 13 Nov Owner note and the "empty tank gains speed
 in reverse" Owner item, same cause on the flat); 0170 #2 (g2_rocks crawl case never reaches the stone) test-only,

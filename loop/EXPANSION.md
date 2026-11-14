@@ -16,6 +16,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; next: 5.3 (lane B) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 clothing layers landed (v222, tlx-gear v1); next: 10.2 the winter store |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; next: 14.2 (village docks + water deliveries) |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -548,7 +549,44 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 
 ### 14-15
 - [ ] 14 Boats and docks: skiff first, docks, sea and lake handling, water deliveries, open-water fishing, Boats
-      app, boatyard. Options: rowboat, canoe, ferry as a passenger.
+      app, boatyard. Options: rowboat, canoe, ferry as a passenger. Slices (lane C, written 14 Nov):
+  - [x] 14.1 (v224) The skiff and the small-boat jetty (`tlx-boats.js`). A 4.6 m aluminium skiff with a 20 hp tiller
+        outboard (Kjøllefjord Båt & Motor, $2,600: about the Sprint-to-Summit rung), bought from a Boats tab in the
+        garage and moored at a new timber jetty (småbåthavn) on piles off the lowest stretch of shore near the quay
+        (the concrete quay stands ~9 m above the water: no one climbs into a skiff from that). The jetty is a
+        `DOCKS` record ({x, z, yaw, len, wid, y}); the walker walks out along it (`VEH.floor(x, z)` in `walkFloor` and
+        past the sea wall in `footStep`, the only tracklayer.js hooks besides a map glyph). The skiff is a vehicle like
+        the pickup (owns `P` while you're in it, a parked record otherwise) through a small kind registry in
+        tlx-vehicles.js (`TLXV.addKind(row, impl)`: runtime / driver / tick / dist / reset), so swap, save, reload,
+        the nearest-vehicle rule, mount key and hints work unchanged; boats don't count against the forecourt's three
+        trucks. Water model: displacement hull with a planing hump (power-limited thrust, drag ~ k v^3 at speed so
+        20 hp tops out near 9-10 m/s with one aboard), keel damping on sideways slip, tiller yaw that needs flow
+        (thrust or speed), reverse at 40%, waves from the weather (0.1 m crest to trough calm, ~0.7 m in a storm; the hull
+        heaving, pitching and rolling over the swell, slamming at speed in a sea), the shallows ground it (bow depth
+        under the 0.32 m draft: stops, a scrape, damage above 2.5 m/s; back off with reverse), lake ice and land are
+        land. Getting in or out: from the jetty or any low shore (dry ground within 2.6 m of the gunwale, under 1.3 m
+        above the water): walk to the gunwale, step down in, weight across, second foot, turn aft, sit at the tiller
+        (and the reverse), the boat heeling as you step. A reset or a bad pose that puts it on land puts it back on its
+        last water. Open boat: 1.25x the cold of the sled's baseline. 25 L tank, burn against throttle, 4 parcels in
+        the boat (they ride along; coastal deliveries are 14.2). Saved in `x.vehicles` with the trucks. Test
+        `x14_skiff.mjs`.
+        As built: the coast near Kjøllefjord stands 2-4 m above the water almost everywhere, so the jetty root is a
+        gangway with a handrail at ~1:3 from the shore (4.1 m up, 90 m from the depot) down to a level deck at 0.95 m,
+        15 m long over 5.6 m of water, a berth each side of the outer end (`siteDock`: shore 0.25-4.5 m, a straight run
+        of sea to 1.6 m depth). Measured (x14_skiff, gameClock): 7.5 m/s at 3.5 s, 8.7 m/s (19 mph) at 9 s and still
+        creeping up; tiller 1.8 rad in 3 s at speed; reverse stops her from 8.7 m/s in 3 s, then 2.3 m/s astern; she
+        floats within +-0.1 m of the waterline in calm. Most of this shore is too high to step onto (the steep shore
+        grounds her bow on the rocks in deep water): Q there says so and keeps you aboard. `TLXV.addKind` impls:
+        init (run first in the vehicles init, so a reload straight into the boat works), runtime, driver, tick, reset,
+        dist, tab. Not done: no mooring lines; the walker's sled hint/pin shows "B" on the Map only; the ferry ignores
+        the skiff (no collision); the boat isn't in Bytteboden's used market.
+  - [ ] 14.2 Docks at every village harbour (same jetty, sited by the same low-shore search) and water deliveries:
+        parcels for a coastal site hand over at its dock; a few sea jobs on the board for skiff owners; Jobs row.
+  - [ ] 14.3 Open-water fishing from the boat (jig and handline; the Fiskemottak buys; reuses icefish.js's catch).
+  - [ ] 14.4 Boats app (your boats, fuel, where they're moored, a tow home for a fee) and the boatyard at the quay
+        (hull repairs, condition from groundings, winter haul-out).
+  - [ ] 14.5 Options: rowboat (oars, no fuel), canoe (lakes once they open), ferry as a passenger (the coastal steamer
+        between quays for a fare).
 - [ ] 15 Aircraft and Bush Mail: bush plane (floats / skis / wheels), flight model on all three control schemes,
       Mehamn airfield, plateau strip, quay seaplane dock, Bush Mail / Aircraft / Hangar apps. Options: pilot's
       licence school, preheating, own airstrip, inspections.
