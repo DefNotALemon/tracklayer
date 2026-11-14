@@ -7,7 +7,8 @@
 //          The first part of every slot is the frame's own stock part: free, and fitted to a new rifle, so a rifle
 //          works the moment you buy it. Other parts are bought at the gun shop; once owned they swap on free, at the
 //          counter now and anywhere with the quick-customize wheel (11.2, which calls fit()).
-//   GUN    an owned rifle: { frame, parts: { barrel, stock, grip, magazine, sight }, rounds } (rounds = in the magazine).
+//   GUN    an owned rifle: { frame, parts: { barrel, stock, grip, magazine, sight }, rounds, ammo } (rounds = in the
+//          magazine, ammo = which load they are: AMMOS, 11.3).
 //   STATS  stats(gun): spread (MOA: smaller is more accurate), recoil (how far the muzzle kicks; slower follow-up),
 //          handling (how fast it comes up and swings: aim speed), kg (carried weight), noise (x the spook radius of
 //          animals, 11.1b), range (m of clean-kill reach), cap (rounds a magazine holds), zoom (x magnification).
@@ -23,10 +24,11 @@
 // Carrying it into the field, aiming, firing and the game you bring back are 11.1b: the block "in the field" below.
 // People can never be shot: the trigger stays on safe with anyone, or any house, near the line of fire.
 //
-// SAVED under x.sys.guns: { owned: [gun...], cur, parts: { "sight:scope39": 1, ... }, ammo, licence, game: [{ k }],
-// taken: { kind: n } }. An old save, or a corrupt entry, starts with no rifle, no parts, no ammo, no licence, no game.
+// SAVED under x.sys.guns: { owned: [gun...], cur, parts: { "sight:scope39": 1, ... }, ammo, alt: { load: n }, licence,
+// game: [{ k }], taken: { kind: n } }. An old save, or a corrupt entry, starts with no rifle, no parts, no ammo, no licence, no game.
 // Bridges in tracklayer.js: BTN.rifle + its key / pad / touch binding, the aim taking the walk controls in readInput,
-// and api.wild / api.people / api.crack. Tests: x11_gunshop.mjs (the shop), x11_hunt.mjs (the field).
+// and api.wild / api.people / api.crack. Tests: x11_gunshop.mjs (the shop), x11_hunt.mjs (the field),
+// x11_ammo.mjs (the four loads).
 (() => {
 "use strict";
 const SLOTS = ["barrel", "stock", "grip", "magazine", "sight"];
@@ -64,7 +66,24 @@ const PARTS = {
     { id: "scope39", name: "3-9x hunting scope", cost: 480, d: { "=zoom": 6, range: 110, spread: -0.6, kg: 0.5, handling: -1 }, note: "A proper hunting scope. Reaches across a valley and steadies the shot; heavy, and slow to swing on a running hare." }
   ]
 };
-const AMMO = { id: "sp308", name: ".308 soft point, box of 20", cost: 38, n: 20, max: 120 };
+/* Cartridges (11.3). One calibre, four loads; the first is the standard soft point every rifle starts on. d: stat deltas
+   like a part's, with "*stat" a multiplier (reach and noise scale with the load, they don't shift by a fixed amount).
+   The magazine holds ONE load at a time (gun.ammo); changing load (the shop's Ammunition tab, or the Ammo slot of the
+   quick wheel) empties the magazine back into the pack and it refills from the new load, a round at a time. When the load
+   in use runs out, the magazine fills from the next load you carry and says so. The pack takes AMMO.max rounds, all loads
+   together. Saved: s.ammo = soft points in the pack (the field every save since 11.1a has), s.alt = { id: n } the others. */
+const AMMOS = [
+  { id: "sp308", short: "soft point", name: ".308 soft point, box of 20", cost: 38, n: 20, d: {},
+    note: "Bonded soft points: they hold together through a moose's shoulder and drop it clean. The load the rifle's sights are set for." },
+  { id: "fmj308", short: "surplus ball", name: ".308 surplus ball, box of 20", cost: 24, n: 20, d: { spread: 0.6, "*range": 0.8 },
+    note: "Old army full-metal-jacket, sold by weight. Cheap, and it shows: looser groups, and a bullet that doesn't open up kills clean only closer in." },
+  { id: "match308", short: "match", name: ".308 match bonded, box of 20", cost: 74, n: 20, d: { spread: -0.5, "*range": 1.15, recoil: 0.05 },
+    note: "Hand-weighed bonded bullets over a hotter charge. Tighter groups and more reach from the same rifle; a sharper push, and nearly twice the price." },
+  { id: "sub308", short: "subsonic", name: ".308 subsonic, box of 20", cost: 58, n: 20, d: { "*noise": 0.4, "*range": 0.55, recoil: -0.3, spread: 0.3 },
+    note: "A heavy bullet loaded below the speed of sound: no crack, so the next herd over keeps grazing. It drops fast: a close-range load." }
+];
+const AMMO = Object.assign({ max: 120 }, AMMOS[0]);
+const ammoDef = id => AMMOS.find(a => a.id === id) || AMMOS[0];
 const LICENCE = 180;
 const LIC_RULES = [
   "Know your animal before you touch the trigger: moose, reindeer, fox and hare are game; nothing else is.",
@@ -94,11 +113,38 @@ function stats(gun) {
     const p = partDef(slot, gun.parts && gun.parts[slot]); if (!p) continue;
     for (const k in p.d) { if (k[0] === "=") s[k.slice(1)] = p.d[k]; else s[k] += p.d[k]; }
   }
+  const am = ammoDef(gun.ammo).d;                                      // the load in the magazine (11.3)
+  for (const k in am) { if (k[0] === "*") s[k.slice(1)] *= am[k]; else s[k] += am[k]; }
   s.spread = Math.max(0.4, +s.spread.toFixed(2)); s.recoil = Math.max(0.3, +s.recoil.toFixed(2)); s.handling = clamp(+s.handling.toFixed(2), 1, 10);
-  s.kg = +s.kg.toFixed(2); s.noise = Math.max(0.5, +s.noise.toFixed(2)); s.range = Math.round(s.range);
+  s.kg = +s.kg.toFixed(2); s.noise = Math.max(0.3, +s.noise.toFixed(2)); s.range = Math.round(s.range);
   return s;
 }
-function newGun(fid) { const f = frameDef(fid), parts = {}; for (const sl of f.slots) parts[sl] = PARTS[sl][0].id; return { frame: fid, parts, rounds: 0 }; }
+function newGun(fid) { const f = frameDef(fid), parts = {}; for (const sl of f.slots) parts[sl] = PARTS[sl][0].id; return { frame: fid, parts, rounds: 0, ammo: AMMOS[0].id }; }
+// ---- the pack's rounds, by load ----
+function pk(id) { const s = S(); if (!s) return 0; return id === AMMOS[0].id ? s.ammo : (isObj(s.alt) && s.alt[id] > 0 ? s.alt[id] : 0); }
+function pkAdd(id, n) { const s = S(); if (!s || !AMMOS.some(a => a.id === id)) return; if (id === AMMOS[0].id) s.ammo = Math.max(0, s.ammo + n); else { if (!isObj(s.alt)) s.alt = {}; const v = Math.max(0, (s.alt[id] || 0) + n); if (v) s.alt[id] = v; else delete s.alt[id]; } }
+const pkTotal = () => AMMOS.reduce((a, d) => a + pk(d.id), 0);
+// the loads you can put in the rifle right now: what's in the magazine and whatever the pack holds
+function ammoCarried() { const g = gun(); return AMMOS.filter(a => pk(a.id) > 0 || (g && g.ammo === a.id)); }
+// what the magazine fills from: its own load while the pack has any, else (once it's empty) the next load you carry
+function feed(g, say) {
+  if (pk(g.ammo) > 0) return true;
+  if (g.rounds > 0) return false;
+  const a = AMMOS.find(d => pk(d.id) > 0); if (!a) return false;
+  const was = ammoDef(g.ammo); g.ammo = a.id;
+  if (say) api.toast(`Out of ${was.short} rounds: loading ${a.short}.`, "warn");
+  return true;
+}
+// change the load in the rifle: the magazine's rounds go back in the pack, it refills from the new load
+function loadAmmo(id, quiet) {
+  const g = gun(), a = AMMOS.find(d => d.id === id); if (!g || !a) return false;
+  if (g.ammo === id) return true;
+  if (pk(id) <= 0) return false;
+  pkAdd(g.ammo, g.rounds); g.rounds = 0; g.ammo = id;
+  if (AIM.on) { AIM.load = TUNE.load; AIM.vmKey = ""; }
+  api.save(); if (!quiet) api.toast(`${a.short[0].toUpperCase() + a.short.slice(1)} rounds for the magazine: ${pk(id)} in the pack.`, "good");
+  return true;
+}
 function gun() { const s = S(); return s && s.cur >= 0 ? s.owned[s.cur] || null : null; }
 function ownsPart(slot, id) { const s = S(), p = partList(slot) && partList(slot).find(o => o.id === id); return !!s && !!p && (p.cost === 0 || !!s.parts[slot + ":" + id]); }
 function ownedParts(slot) { return (partList(slot) || []).filter(p => ownsPart(slot, p.id)); }
@@ -108,7 +154,7 @@ function fit(slot, id, quiet) {
   const p = L.find(o => o.id === id); if (!p || !ownsPart(slot, id) || !frameDef(g.frame).slots.includes(slot)) return false;
   if (g.parts[slot] === id) return true;
   g.parts[slot] = id;
-  const cap = stats(g).cap; if (g.rounds > cap) { S().ammo += g.rounds - cap; g.rounds = cap; }   // a smaller magazine: the spare rounds go back in the box
+  const cap = stats(g).cap; if (g.rounds > cap) { pkAdd(g.ammo, g.rounds - cap); g.rounds = cap; }   // a smaller magazine: the spare rounds go back in the box
   api.save(); if (!quiet) api.toast(`${p.name} on the rifle.`, "good");
   return true;
 }
@@ -130,12 +176,13 @@ function buyRifle(fid) {
   api.toast(`${f.name}: yours. It's fitted with its stock parts; the Parts tab swaps them. Buy a box of rounds before you head out.`, "good");
   return true;
 }
-function buyAmmo() {
-  const s = S(), G = api.GS; if (!s) return false;
+function buyAmmo(id) {
+  const s = S(), G = api.GS, a = id === undefined ? AMMOS[0] : AMMOS.find(d => d.id === id); if (!s || !a) return false;
   if (!gun()) { api.toast("Buy a rifle first.", "warn"); return false; }
-  if (s.ammo + AMMO.n > AMMO.max) return false;
-  if (G.cash < AMMO.cost) { api.toast(`A box is ${cash$(AMMO.cost)}. You have ${cash$(G.cash)}.`, "warn"); return false; }
-  G.cash -= AMMO.cost; s.ammo += AMMO.n; api.save(); api.toast(`A box of ${AMMO.n}: ${s.ammo} rounds in the pack.`, "good");
+  if (pkTotal() + a.n > AMMO.max) return false;
+  if (G.cash < a.cost) { api.toast(`A box is ${cash$(a.cost)}. You have ${cash$(G.cash)}.`, "warn"); return false; }
+  G.cash -= a.cost; pkAdd(a.id, a.n); api.save();
+  api.toast(a === AMMOS[0] ? `A box of ${a.n}: ${pk(a.id)} rounds in the pack.` : `A box of ${a.n} ${a.short}: ${pk(a.id)} of them in the pack, ${pkTotal()} rounds in all.`, "good");
   return true;
 }
 function takeCourse() {
@@ -182,7 +229,7 @@ const rifleTab = {
       const own = s.owned.some(g => g.frame === f.id), lic = !licNeeded() || s.licence;
       const lbl = own ? "Owned" : !lic ? "Licence first (Licence tab)" : cash < f.cost ? `${cash$(f.cost)} · not enough cash` : `Buy · ${cash$(f.cost)}`;
       const g = own ? s.owned.find(x => x.frame === f.id) : newGun(f.id);
-      const fitted = own ? `<p class="ifnote">Fitted: ${f.slots.map(sl => esc(partDef(sl, g.parts[sl]).name)).join(" · ")}. ${g.rounds} in the magazine, ${s.ammo} in the pack.</p>` : "";
+      const fitted = own ? `<p class="ifnote">Fitted: ${f.slots.map(sl => esc(partDef(sl, g.parts[sl]).name)).join(" · ")}. ${g.rounds} in the magazine, ${pkTotal()} in the pack.</p>` : "";
       return card(esc(f.name), cash$(f.cost), esc(f.note) + `</p>${fitted}<p class="ifnote">${own ? "As built" : "Stock"}:`, statTable(g),
         `<button type="button" data-grifle="${f.id}" ${own || !lic || cash < f.cost ? "disabled" : ""}>${lbl}</button>`);
     }).join("");
@@ -211,16 +258,32 @@ const partsTab = {
 };
 const ammoTab = {
   id: "g_ammo", label: "Ammunition", stores: [STORE],
-  note: "Soft-point hunting rounds for the .308. Carried in the pack; the magazine holds what its part allows.",
+  note: "Four loads for the .308, each a trade. The magazine holds one load at a time; the pack carries 120 rounds, all loads together. Change load here, or on the trail from the gun wheel's Ammo slot.",
   render(cash) {
-    const s = S(), g = gun(), full = s.ammo + AMMO.n > AMMO.max;
-    const lbl = !g ? "Buy a rifle first" : full ? `Carrying ${s.ammo}: that's all the pack takes` : cash < AMMO.cost ? `${cash$(AMMO.cost)} · not enough cash` : `Buy a box · ${cash$(AMMO.cost)}`;
-    return card(esc(AMMO.name), cash$(AMMO.cost), "Bonded soft points: they hold together through a moose's shoulder and drop it clean.",
-      `<span class="ifchip${s.ammo ? " ok" : ""}">${s.ammo} in the pack</span>` + (g ? `<span class="ifchip">${g.rounds} of ${stats(g).cap} in the magazine</span>` : ""),
-      `<button type="button" data-gammo="1" ${!g || full || cash < AMMO.cost ? "disabled" : ""}>${lbl}</button>`);
+    const g = gun(), tot = pkTotal();
+    return AMMOS.map(a => {
+      const n = pk(a.id), full = tot + a.n > AMMO.max, on = !!g && g.ammo === a.id;
+      const lbl = !g ? "Buy a rifle first" : full ? `Carrying ${tot}: that's all the pack takes` : cash < a.cost ? `${cash$(a.cost)} · not enough cash` : `Buy a box · ${cash$(a.cost)}`;
+      return card(esc(a.name), cash$(a.cost), esc(a.note),
+        ammoChips(a, g) + `<span class="ifchip${n ? " ok" : ""}">${n} in the pack</span>` + (on ? `<span class="ifchip ok">Loaded · ${g.rounds} of ${stats(g).cap} in the magazine</span>` : ""),
+        `<button type="button" data-gammo="${a.id}" ${!g || full || cash < a.cost ? "disabled" : ""}>${lbl}</button>` +
+        (g && !on && n > 0 ? `<button type="button" data-gload="${a.id}">Load these</button>` : "")).replace('<div class="ifit">', `<div class="ifit${on ? " on" : ""}">`);
+    }).join("");
   },
-  bind(root, rerender) { const b = root.querySelector("button[data-gammo]"); if (b) b.onclick = () => { if (buyAmmo()) rerender(); }; }
+  bind(root, rerender) {
+    root.querySelectorAll("button[data-gammo]").forEach(b => b.onclick = () => { if (buyAmmo(b.dataset.gammo)) rerender(); });
+    root.querySelectorAll("button[data-gload]").forEach(b => b.onclick = () => { if (loadAmmo(b.dataset.gload)) rerender(); });
+  }
 };
+// what a load changes, against the standard soft point in the same rifle
+function ammoChips(a, g) {
+  const base = g || newGun(FRAMES[0].id), cur = stats(Object.assign({}, base, { ammo: AMMOS[0].id })), nx = stats(Object.assign({}, base, { ammo: a.id })); let out = "";
+  for (const [k, lbl, fmt, good] of STAT_ROWS) {
+    const dv = nx[k] - cur[k]; if (Math.abs(dv) < 1e-6) continue;
+    out += `<span class="ifchip ${dv * good > 0 ? "ok" : "bad"}">${lbl} ${dv > 0 ? "+" : "−"}${k === "spread" ? Math.abs(dv).toFixed(1) : k === "noise" || k === "recoil" ? Math.abs(dv).toFixed(2) : Math.round(Math.abs(dv))}</span>`;
+  }
+  return out || `<span class="ifchip">The standard load</span>`;
+}
 
 // ---- where the shop is, its sign, and the room ----
 function pickDoor() {
@@ -375,8 +438,9 @@ function toggle() {
   if (why) { api.toast(why === "town" ? "Not in town: the rifle stays slung and empty until you're out on the fell." : `Too close to ${why.slice(5)}: the rifle stays slung near houses.`, "warn"); return false; }
   const g = gun(), s = S(), st = stats(g);
   AIM.on = true; AIM.t = 0; AIM.pitch = 0; AIM.hold = 0; AIM.still = 0; AIM.kick = 0; AIM.bolt = 0; AIM.dry = 0;
-  AIM.load = g.rounds < st.cap && s.ammo > 0 ? TUNE.load : 0;
-  api.toast(g.rounds || s.ammo ? `Rifle up. ${api.keyHint("use", "fire")} · ${api.keyHint("rifle", "sling it")}` : "Rifle up, and empty: not a round in the magazine or the pack.", g.rounds || s.ammo ? undefined : "warn");
+  const has = feed(g, true);
+  AIM.load = g.rounds < st.cap && has ? TUNE.load : 0;
+  api.toast(g.rounds || has ? `Rifle up. ${api.keyHint("use", "fire")} · ${api.keyHint("rifle", "sling it")}` : "Rifle up, and empty: not a round in the magazine or the pack.", g.rounds || has ? undefined : "warn");
   return true;
 }
 // the rifle you look down, built from the parts fitted (so a new barrel or a scope shows the moment it's on)
@@ -467,7 +531,7 @@ function fire() {
   const g = gun(), s = S(); if (!AIM.on || !g) return false;
   if (AIM.t < 1 || AIM.bolt > 0 || (AIM.load > 0 && g.rounds <= 0)) return false;
   AIM.load = 0;                                                       // firing breaks off topping the magazine up
-  if (g.rounds <= 0) { AIM.last = { res: "empty" }; if (api.now() - AIM.dry > 1.5) { AIM.dry = api.now(); api.toast(s.ammo > 0 ? "Click. Empty: loading." : "Click. Empty, and not a round in the pack.", "warn"); } return false; }
+  if (g.rounds <= 0) { AIM.last = { res: "empty" }; if (api.now() - AIM.dry > 1.5) { AIM.dry = api.now(); const has = feed(g, true); if (has && AIM.load <= 0) AIM.load = TUNE.load; api.toast(has ? "Click. Empty: loading." : "Click. Empty, and not a round in the pack.", "warn"); } return false; }
   const why = unsafe(_eye.x, _eye.z, _dir.x, _dir.z);
   if (why) { AIM.last = { res: "safe", why }; AIM.safeT = 2.5; api.toast(why, "warn"); return false; }
   const st = stats(g), sg = st.spread * MOA * 0.5, rn = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
@@ -483,11 +547,11 @@ function fire() {
     const d = Math.round(hit.t), nm = KIND_NAME[hit.G.kind] || hit.G.kind;
     if (hit.t <= st.range) { api.wild.shot(hit.G, hit.q); res = "kill"; s.taken[hit.G.kind] = (s.taken[hit.G.kind] || 0) + 1;
       msg = GAME[hit.G.kind] ? `The ${nm} drops where it stood, ${d} m out. Walk up to it to dress it.` : hit.G.kind === "bear" ? `The grizzly goes down, ${d} m out.` : `The ${nm} is hit, ${d} m out. Not game: nothing to take.`; }
-    else { res = "short"; msg = `${d} m: past this rifle's clean reach (${st.range} m). The round drops under the ${nm}'s chest and it's gone.`; }
+    else { res = "short"; msg = `${d} m: past this rifle's clean reach${g.ammo !== AMMOS[0].id ? " with " + ammoDef(g.ammo).short + " rounds" : ""} (${st.range} m). The round drops under the ${nm}'s chest and it's gone.`; }
   } else if (hit && hill >= 0) { res = "hill"; msg = "Snow jumps off the rise in front of it: the ground was in the way."; }
-  AIM.last = { res, kind: hit ? hit.G.kind : null, d: hit ? hit.t : 0, spooked: n, rounds: g.rounds };
+  AIM.last = { res, kind: hit ? hit.G.kind : null, d: hit ? hit.t : 0, spooked: n, rounds: g.rounds, ammo: g.ammo, reach: st.range, heard: SPOOK_R * st.noise };
   if (msg) api.toast(msg, res === "kill" ? "good" : "warn");
-  if (g.rounds <= 0 && s.ammo > 0) AIM.load = AIM.bolt + TUNE.load;
+  if (g.rounds <= 0 && feed(g, true)) AIM.load = AIM.bolt + TUNE.load;
   api.save();
   return true;
 }
@@ -543,7 +607,7 @@ function aimTick(dt) {
   if (AIM.bolt > 0) AIM.bolt = Math.max(0, AIM.bolt - dt);
   if (AIM.safeT > 0) AIM.safeT -= dt;
   if (AIM.load > 0 && (AIM.load -= dt) <= 0) {
-    if (g.rounds < st.cap && s.ammo > 0) { g.rounds++; s.ammo--; AIM.load = g.rounds < st.cap && s.ammo > 0 ? TUNE.load : 0; if (!AIM.load) api.save(); } else AIM.load = 0;
+    if (g.rounds < st.cap && feed(g, true)) { g.rounds++; pkAdd(g.ammo, -1); AIM.load = g.rounds < st.cap && pk(g.ammo) > 0 ? TUNE.load : 0; if (!AIM.load) api.save(); } else AIM.load = 0;
   }
   // sway: two slow breaths out of step; unsettled it is 3x wider, out of breath wider still
   AIM.ph += dt;
@@ -570,7 +634,7 @@ function aimTick(dt) {
   const cls = up < 0.98 ? "" : st.zoom > 1.5 ? "" : g.parts.sight === "red1" ? "dot" : "post";
   if (ret.className !== "ret " + cls) ret.className = "ret " + cls;
   sc.hidden = !(scoped && up >= 0.98);
-  const txt = AIM.safeT > 0 ? "ON SAFE" : AIM.load > 0 && AIM.bolt <= 0 ? `LOADING · ${g.rounds} / ${st.cap}` : `${g.rounds} / ${st.cap} · ${s.ammo} in the pack`;
+  const txt = AIM.safeT > 0 ? "ON SAFE" : AIM.load > 0 && AIM.bolt <= 0 ? `LOADING · ${g.rounds} / ${st.cap}` : `${g.rounds} / ${st.cap} · ${pk(g.ammo)} in the pack` + (g.ammo !== AMMOS[0].id || pkTotal() !== pk(g.ammo) ? " · " + ammoDef(g.ammo).short.toUpperCase() : "");
   if (amm.textContent !== txt) amm.textContent = txt;
   amm.classList.toggle("safe", AIM.safeT > 0);
 }
@@ -582,10 +646,13 @@ function sanitize(s) {
   s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(g => isObj(g) && frameDef(g.frame)).map(g => {
     const f = frameDef(g.frame), parts = {};
     for (const sl of f.slots) { const id = isObj(g.parts) ? g.parts[sl] : null; parts[sl] = ownsPart(sl, id) ? id : PARTS[sl][0].id; }
-    const ng = { frame: f.id, parts, rounds: 0 }; ng.rounds = clamp(Math.floor(+g.rounds || 0), 0, stats(ng).cap); return ng;
+    const ng = { frame: f.id, parts, rounds: 0, ammo: ammoDef(g.ammo).id }; ng.rounds = clamp(Math.floor(+g.rounds || 0), 0, stats(ng).cap); return ng;
   });
   s.cur = s.owned.length ? clamp(Math.floor(+s.cur || 0), 0, s.owned.length - 1) : -1;
   s.ammo = clamp(Math.floor(+s.ammo || 0), 0, AMMO.max); s.licence = s.licence === true;
+  { const alt = {}; let room = AMMO.max - s.ammo;                      // the other loads: known ids, whole counts, the pack's 120 in all
+    if (isObj(s.alt)) for (const a of AMMOS.slice(1)) { const n = clamp(Math.floor(+s.alt[a.id] || 0), 0, room); if (n > 0) { alt[a.id] = n; room -= n; } }
+    s.alt = alt; }
   s.game = (Array.isArray(s.game) ? s.game : []).filter(it => isObj(it) && GAME[it.k]).slice(0, 40).map(it => ({ k: it.k }));
   if (!isObj(s.taken)) s.taken = {};
   for (const k of Object.keys(s.taken)) { if (!KIND_NAME[k] || !(s.taken[k] > 0)) delete s.taken[k]; else s.taken[k] = Math.floor(s.taken[k]); }
@@ -593,8 +660,8 @@ function sanitize(s) {
 
 TLX.option({ id: "huntlic", name: "Hunter's licence", hint: "The gun shop sells a rifle only after a short licence course at its counter ($180). Off = no licence needed.", sys: "guns" });
 TLX.register({
-  id: "guns", v: 2,
-  state0: () => ({ owned: [], cur: -1, parts: {}, ammo: 0, licence: false, game: [], taken: {} }),
+  id: "guns", v: 3,
+  state0: () => ({ owned: [], cur: -1, parts: {}, ammo: 0, alt: {}, licence: false, game: [], taken: {} }),
   migrate(st) { return st; },
   init(a) {
     api = a; const s = S(); if (s) sanitize(s);
@@ -608,6 +675,6 @@ TLX.guns = { aim: AIM, toggle, can, fire, lower };
 TLX.shopTabs = (TLX.shopTabs || []).concat([licTab, rifleTab, partsTab, ammoTab, gameTab]);
 TLX.stores = Object.assign(TLX.stores || {}, { [STORE]: { eyebrow: "Jakt &amp; Våpen · Kjøllefjord", title: "Guns & ammunition",
   foot: "Parts you've bought are yours: swap them on and off free. People can never be shot, by anyone, ever." } });
-window.TLXGUN = { SLOTS, FRAMES, PARTS, AMMO, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef,
+window.TLXGUN = { SLOTS, FRAMES, PARTS, AMMO, AMMOS, ammoDef, ammoCarried, loadAmmo, pk, pkTotal, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef,
   AIM, TUNE, GAME, CARRY_KG, SPOOK_R, toggle, lower, fire, can, slungWhy, unsafe, target, carcass, dress, sellGame, carriedKg, eye: _eye, dir: _dir };
 })();

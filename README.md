@@ -477,7 +477,12 @@ a licence holder; switch it off in Settings > Options), **Rifles** (a bolt-actio
 parts and showing its stats), **Parts** (barrel, stock, grip, magazine and sight, three of each, every one a trade-off:
 the carbine barrel swings faster but reaches less and is louder, the 3-9x scope reaches 250 m and steadies the shot but
 weighs and slows the swing, a bigger magazine holds more rounds and hangs heavier; each card shows the stat changes
-before you buy) and **Ammunition** (.308 soft points, $38 for 20, up to 120 in the pack). A part you've bought is yours:
+before you buy) and **Ammunition** (four loads for the .308, 20 to a box, 120 rounds in the pack all told: **soft point** $38, the
+standard the sights are set for; **surplus ball** $24, cheap, looser groups and a fifth less clean reach; **match** $74,
+tighter groups and 15% more reach with a sharper push; **subsonic** $58, no crack, so only herds within about 170 m
+bolt instead of 420 m, but it kills clean only to about half the distance. The magazine holds one load at a time:
+*Load these* on a card, or the wheel's Ammo slot out on the fell, empties it back into the pack and it refills from the
+new load. Run a load dry and the rifle goes on to the next one you carry and says so). A part you've bought is yours:
 swap it on and off free. A fifth tab, **Game**, buys what you bring in off the fell. The code is `tlx-guns.js`.
 
 **Hunting.** On foot, out on the fell and well clear of town, the villages and the cabins, **L** (pad A, the RIFLE button
@@ -494,10 +499,11 @@ $85, hare $22 at the gun shop's Game tab, up to 260 kg carried. **People can nev
 dog, a house or the town anywhere near the line of fire the rifle stays on safe, no round is spent, and it says why.
 
 **The quick-customize wheel.** Hold **R** (D-pad left on a pad, the GUN button on touch) and a wheel opens over the game at
-once, pausing nothing, on foot or on the sled, even with the rifle at your shoulder: the five slots (barrel, stock, grip,
-magazine, sight) round a picture of your rifle as it is fitted now. Pick a slot (1-5, D-pad / stick / LB RB, or tap it) and
+once, pausing nothing, on foot or on the sled, even with the rifle at your shoulder: the five part slots (barrel, stock, grip,
+magazine, sight) and a sixth, Ammo, round a picture of your rifle as it is fitted now. Pick a slot (1-6, D-pad / stick / LB RB, or tap it) and
 a strip shows only the parts you already own for it, each with small bars for what it would change against what's fitted
-(accuracy, recoil, handling, reach, weight, noise). Pick one (1-9, A, or tap it) and it snaps on and the wheel closes.
+(accuracy, recoil, handling, reach, weight, noise). Pick one (1-9, A, or tap it) and it snaps on and the wheel closes. The Ammo slot lists the loads in your pack with
+how many of each, and picking one changes what the magazine fills from.
 **Esc** (B on a pad, the ✕ on touch) closes it. Buying a part is still only at Jakt & Våpen. The code is `tlx-gunwheel.js`.
 
 Fuel and warmth both run down. Villages, cabins and the quay refill them. Run out of warmth

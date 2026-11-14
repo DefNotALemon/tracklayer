@@ -9818,7 +9818,7 @@ const BTN = {
   reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
   bandage: { kbm: "U", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "BANDAGE" },   // tlx-wounds.js: dress an open wound, fast
   gun: { kbm: "R", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "GUN" },   // tlx-gunwheel.js: HOLD to open the quick-customize wheel (a pad tap still wipes the visor)
-  wmove: { kbm: "1-5", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
+  wmove: { kbm: "1-6", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
   rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise

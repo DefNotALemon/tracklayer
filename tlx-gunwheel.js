@@ -9,7 +9,8 @@
 // (TLXGUN.ownedParts), each with small +/- bars against what's fitted (accuracy, recoil, handling, reach, weight, noise: the
 // same stats() the shop's cards use). Pick one: TLXGUN.fit() swaps it on free, it snaps on (a thud and a buzz on a phone), the
 // wheel closes. Buying a new part stays the shop's job; the wheel is purely a swap of parts already in the kit.
-//   Keyboard: hold R, then 1-5 for the slot and 1-9 for the part (or click), R or Esc closes (Esc doesn't open Settings).
+//   A sixth slot, Ammo (11.3), does the same for the load in the magazine: the strip shows the loads in your pack.
+//   Keyboard: hold R, then 1-6 for the slot and 1-9 for the part (or click), R or Esc closes (Esc doesn't open Settings).
 //   Pad: hold D-pad left (a quick tap still wipes the visor), D-pad / stick / LB RB move round, A picks, B backs out.
 //   Touch: hold GUN, tap the slot, tap the part, or the ✕. Holding opens it; letting go leaves it open for the picks.
 // Every label comes from the api's btn() / keyHint(), never a typed key name. Nothing here fires, aims or hits anything: the
@@ -32,8 +33,11 @@ const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const $ = id => document.getElementById(id);
 const stats = g => GN().stats(g || gun());
-const slotsOf = g => GN().frameDef(g.frame).slots;
-const SLOTN = { barrel: "Barrel", stock: "Stock", grip: "Grip", magazine: "Magazine", sight: "Sight" };
+const slotsOf = g => GN().frameDef(g.frame).slots.concat(GN().AMMOS ? ["ammo"] : []);          // the rifle's part slots, then the load in its magazine (11.3)
+const SLOTN = { barrel: "Barrel", stock: "Stock", grip: "Grip", magazine: "Magazine", sight: "Sight", ammo: "Ammo" };
+const Cap = s => s[0].toUpperCase() + s.slice(1);
+const curOf = (g, s) => s === "ammo" ? GN().ammoDef(g.ammo).id : g.parts[s];
+const withPick = (g, s, id) => s === "ammo" ? Object.assign({}, g, { ammo: id }) : Object.assign({}, g, { parts: Object.assign({}, g.parts, { [s]: id }) });
 const modal = () => api.GS.garageOpen || !$("settings").hidden || (!!$("god") && !$("god").hidden) || api.tablet() || api.shopOpen() || api.busy() || api.GS.dead;
 
 function css() {
@@ -98,9 +102,10 @@ function silhouette(g) {
   else o += `<rect x="${bx + 2}" y="${by - 16}" width="64" height="12" rx="6" fill="#1b1e22"/><rect x="${bx + 8}" y="${by - 12}" width="6" height="12" fill="#2a2d31"/><circle cx="${bx + 66}" cy="${by - 10}" r="6.5" fill="#2e4a63"/>`;
   return o + "</svg>";
 }
-const ownedFor = slot => GN().ownedParts(slot);
+// what the strip offers: parts you own for the slot; for Ammo, the loads in the pack (and the one in the magazine)
+const ownedFor = slot => slot === "ammo" ? GN().ammoCarried().map(a => ({ id: a.id, name: Cap(a.short) + " rounds", note: a.note, n: GN().pk(a.id) })) : GN().ownedParts(slot);
 function deltaRows(slot, p) {
-  const g = gun(), cur = stats(g), nx = stats(Object.assign({}, g, { parts: Object.assign({}, g.parts, { [slot]: p.id }) }));
+  const g = gun(), cur = stats(g), nx = stats(withPick(g, slot, p.id));
   return BAR.map(([k, lbl, sc, good]) => {
     const d = nx[k] - cur[k], better = d * good, w = Math.min(1, Math.abs(d) / sc) * 50, cls = better > 1e-6 ? "up" : better < -1e-6 ? "dn" : "";
     const a = Math.abs(d), n = a < 1e-6 ? "·" : (d > 0 ? "+" : "−") + (k === "range" ? Math.round(a) : k === "handling" ? a.toFixed(1) : a.toFixed(2));
@@ -112,14 +117,14 @@ function renderWheel() {
   const sl = slotsOf(g), N = sl.length, st = stats(g);
   let slots = "";
   sl.forEach((s, i) => {
-    const a = -Math.PI / 2 + i * 2 * Math.PI / N, x = 50 + 41 * Math.cos(a), y = 50 + 41 * Math.sin(a), p = GN().partDef(s, g.parts[s]);
+    const a = -Math.PI / 2 + i * 2 * Math.PI / N, x = 50 + 41 * Math.cos(a), y = 50 + 41 * Math.sin(a), p = s === "ammo" ? { name: Cap(GN().ammoDef(g.ammo).short) } : GN().partDef(s, g.parts[s]);
     slots += `<button type="button" class="gws${W.hl === i && W.stage === "slot" ? " hl" : ""}${W.slot === i ? " on" : ""}" data-slot="${i}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><em>${i + 1}</em>${SLOTN[s]}<i>${esc(p.name)}</i></button>`;
   });
   let strip = "", help = "";
   if (W.slot >= 0) {
-    const s = sl[W.slot], list = ownedFor(s), cur = g.parts[s];
-    strip = `<div class="gwst" id="gnStrip">${list.map((p, i) => `<button type="button" class="gwc${i === W.part ? " hl" : ""}${p.id === cur ? " eq" : ""}" data-part="${p.id}"><b>${i + 1}. ${esc(p.name)}</b><small>${p.id === cur ? "FITTED" : esc(p.note.split(". ")[0])}</small>${p.id === cur ? "" : deltaRows(s, p)}</button>`).join("")}</div>`;
-    help = list.length < 2 ? `Only the stock ${SLOTN[s].toLowerCase()} so far: buy more at Jakt & Våpen.` : `${api.btn("pick")} fits it · ${api.btn("wclose")} back`;
+    const s = sl[W.slot], list = ownedFor(s), cur = curOf(g, s), am = s === "ammo";
+    strip = `<div class="gwst" id="gnStrip">${list.map((p, i) => `<button type="button" class="gwc${i === W.part ? " hl" : ""}${p.id === cur ? " eq" : ""}" data-part="${p.id}"><b>${i + 1}. ${esc(p.name)}</b><small>${am ? (p.id === cur ? "LOADED · " : "") + p.n + " in the pack" : p.id === cur ? "FITTED" : esc(p.note.split(". ")[0])}</small>${p.id === cur ? "" : deltaRows(s, p)}</button>`).join("")}</div>`;
+    help = list.length < 2 ? (am ? "One load in the pack: Jakt & Våpen sells three more." : `Only the stock ${SLOTN[s].toLowerCase()} so far: buy more at Jakt & Våpen.`) : `${api.btn("pick")} ${am ? "loads it" : "fits it"} · ${api.btn("wclose")} back`;
   } else help = `${api.btn("wmove")} pick a slot · ${api.btn("wclose")} close · swaps parts you own, buying is at Jakt & Våpen`;
   wheel.innerHTML = `<div class="gwp"><button type="button" class="gwx" id="gnX" aria-label="Close">✕</button>
     <div class="gwr">${silhouette(g)}${slots}</div>${strip}
@@ -139,10 +144,15 @@ function openWheel() {
 function closeWheel() { W.open = false; W.slot = -1; if (wheel) wheel.hidden = true; }
 function openSlot(i) {
   const g = gun(); if (!g) return; const s = slotsOf(g)[i]; if (!s) return;
-  W.slot = i; W.hl = i; W.stage = "part"; const list = ownedFor(s); W.part = Math.max(0, list.findIndex(p => p.id === g.parts[s])); renderWheel();
+  W.slot = i; W.hl = i; W.stage = "part"; const list = ownedFor(s); W.part = Math.max(0, list.findIndex(p => p.id === curOf(g, s))); renderWheel();
 }
 function pickPart(id) {
   const g = gun(); if (!g || W.slot < 0) return false; const s = slotsOf(g)[W.slot];
+  if (s === "ammo") {                                                            // a load you carry: the magazine empties into the pack and refills from it
+    if (!GN().loadAmmo(id, true)) return false;
+    try { api.thud(0.18); if (navigator.vibrate) navigator.vibrate(18); } catch (e) { }
+    api.toast(`${Cap(GN().ammoDef(id).short)} rounds loaded: ${GN().pk(id)} in the pack.`, "good"); closeWheel(); return true;
+  }
   if (!GN().ownsPart(s, id) || !GN().fit(s, id, true)) return false;          // swapping is for parts you own: buying is the shop's job
   const p = GN().partDef(s, id);
   try { api.thud(0.18); if (navigator.vibrate) navigator.vibrate(18); } catch (e) { }
@@ -213,7 +223,7 @@ function hintTick() {
   hinted = true; api.toast(`Hold ${api.btn("gun")} to change the parts on your rifle.`);
 }
 TLX.register({
-  id: "gunwheel", v: 1,
+  id: "gunwheel", v: 2,
   state0: () => ({}),
   init(a) {
     api = a;
@@ -223,7 +233,7 @@ TLX.register({
   tick(dt) {
     if (!api || dt <= 0 || !GN()) return;
     if (!api.started()) { if (W.open) closeWheel(); return; }
-    if (W.open && (!api.swapOk() || !$("settings").hidden)) closeWheel();
+    if (W.open && (!api.swapOk() || !$("settings").hidden || api.tablet() || api.shopOpen())) closeWheel();   /* beta 0188 #1: the tablet (or a shop panel) coming up shuts the wheel, or its key capture starves them */
     holdTick(dt);
     if (W.open) padWheel();
     touchTick(); hintTick();
