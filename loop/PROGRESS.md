@@ -3,6 +3,44 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 — 14.3 open-water fishing: a handline from the skiff (lane C) (G4) — b32ad91
+Builder pass, lane C. Reports 0183-0191 have nothing on boats, so the pass took the next slice, 14.3; its design is in
+EXPANSION 14.3. LOOP.md's "Last triaged" counter is lane A's, left alone.
+New file tlx-seafish.js (v1): plugs into the skiff through a new `TLXB.addOn` in tlx-boats.js (v4: init / tick / use /
+useLabel / useHint / grab / stop / pose hooks; the boat's driver gains use, useLabel, useHint, grab; `R.fishing` parks the
+motor). No TLX.register, nothing of its own saved. Six sea species (saithe, cod, haddock, wolffish, redfish, halibut) join
+icefish.js's table through a new `TLFish.addSpecies` (icefish v42: also the buyer's board, a "From the boat" logbook
+section, `TLFish.coolerMax`), so the catch is an ordinary cooler row: sold at the Fiskemottak, kept across saves.
+tracklayer.js (bridges only, 6 lines): E and pad L3 fall through `FISH.ctx()` to `VEH.cur.use()` before the horn; the
+touch pill shows `VEH.cur.useLabel()` (FISH / STOW) and calls use; the ride hint takes `VEH.cur.useHint()`; `readInput`
+offers gas and brake to `VEH.cur.grab()` and zeroes them when it takes them. No new BTN row (use, gas, brake are bound on
+all three schemes already).
+Numbers (`x14_fishing.mjs`, 52 asserts, gameClock): 13 species in the table, none in a lake's mix. Hint over 21 m off the
+quay jetty: "E: handline over the side · 21 m under the keel", "L3: ..." on a pad, "... · tap FISH" on touch with the
+pill reading FISH then STOW. Under way at 3.9 m/s and in 2.7 m of water: no handline. Line down, holding gas 2 s: boat
+0 m/s, throttle to the motor 0. Brake pays out 3.00 m/s, stops at 21.35 m over 21.4 m; gas hauls 1.50 m/s; a lift after a
+drop takes "worked" 0 -> 0.32. Takers: mid-water saithe only; near the bottom in 21 m cod, haddock, saithe, wolffish; in
+50 m all six; a worked pilk draws 2.9x a still one, one lying on the bottom 0.35x. Marks 0.00-1.00 within 900 m of the
+jetty. On the best mark a tug after 9 and 22 game s (two runs): a 5.4 kg cod (78 cm, $23) and a 3.2 kg saithe, both
+played aboard by the scenario's own haul-and-ease loop. A 30 kg halibut hauled against its run: line parted, 5 s for a new
+pilk, no line out meanwhile. A 9 kg cod: tension 1.15 hauling on its run ("IT'S RUNNING: ease off!"), aboard when eased
+(92 cm, $38). Pad: LT 6.2 m of line in 2 s, RT lands a saithe, L3 stows; then gas drives the boat again (6.3 m/s). Cooler
+at 10: the next fish is logged and let go. Storm 0.9: line wound in, a new one refused. Buyer: board prices Cod and
+Halibut beside Arctic char, 5 kg of cod + 4 kg of saithe sold for $32. Reload: the halibut in the cooler and the sea
+bests load, line back on its frame.
+Stills `~/.hermes/cache/scratch/tlloop/c143b/` (s1 sheet: four angles of the haul, the fish coming over the gunwale,
+night; s1p: phone landscape): first pass had a boot through the hull side and the panel on top of the toasts; fixed
+(half turn on the thwart with the knees tucked, panel moved to bottom centre) and reshot. Phone: the panel clears every
+touch control but sits over the boat.
+Gate (rebased once: lane D took v233, so script v234; smoke, x1_save, x14_fishing re-run after it): smoke, x1_save,
+x14_fishing exit 0, page errors none; before the rebase also x14_skiff, x14_seajobs, x14_docks exit 0.
+Not done / honest limits: the hauling pose is a two-arm cycle on a seated figure, judged from stills 160 ms apart, not a
+simulated body: fine at game-camera distance, plain up close; the fish on the line is one lofted blob + tail in the
+species' colour; no fish box in the boat; no tackle to buy (the handline comes with the boat); the marks are invisible
+(no gulls, no sounder); bite rate and prices are first guesses (a cooler of ten is roughly $150-250, about a quarter of
+one long sea job) and want a beta pass; the scenario lands its fish with a script that reads `fish.run`, a player reads
+the panel. Next for lane C: 14.4 (Boats app, boatyard).
+
 ## 2026-11-14 — 11.3 ammo variety: four loads for the .308 (lane D) (G4) — 081148f
 Builder pass, lane D. Orient: the worktree held a dead pass's uncommitted 11.3 (tlx-guns, tlx-gunwheel, README, the
 BTN `wmove` row, x11_wheel's slot count) with no scenario, no tick and no log; read the diff, kept it, finished it

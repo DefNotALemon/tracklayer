@@ -18,7 +18,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; next: 14.3 (open-water fishing), then 0178 #2/#3 and 0182 #1/#2 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; next: 14.4 (Boats app, boatyard), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -720,7 +720,34 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
           quay to Ifjord pays $1,420 with the Ifjordfjellet road shut for the winter ($1,065 open). Not done: sea jobs
           are not saved while posted or claimed (no parcel is); a sea parcel cannot be moved from the boat to a truck;
           on foot on the planks the compass still gives no cue (0182 #2).
-  - [ ] 14.3 Open-water fishing from the boat (jig and handline; the Fiskemottak buys; reuses icefish.js's catch).
+  - [x] 14.3 (v234, tlx-seafish.js v1, tlx-boats v4, icefish v42) Open-water fishing from the boat (jig and handline;
+        the Fiskemottak buys; reuses icefish.js's catch). Design (lane C, 14 Nov): its own file, plugged into the
+        skiff through `TLXB.addOn({ init, tick, use, useLabel, useHint, grab, stop, pose })` (tlx-boats.js calls
+        them; the driver gains `use / useLabel / useHint / grab`), no TLX.register and nothing of its own saved.
+        Seated, under 0.8 m/s, 4 m+ under the keel, storm under 0.65: the use control (E / L3 / the touch pill, which
+        reads FISH then STOW) puts a handline over the side. tracklayer.js bridges: E and L3 fall through
+        `FISH.ctx()` to `VEH.cur.use()` before the horn; the touch pill takes `VEH.cur.useLabel()`; the ride hint
+        takes `VEH.cur.useHint()`; `readInput` offers gas and brake to `VEH.cur.grab(thr, brk)` and zeroes them when
+        it takes them (so the motor, and its sound, get nothing). Line: brake pays out 3 m/s to the bottom, gas
+        hauls 1.5 m/s; a lift after a drop or a pause is a jig stroke (+0.4 "worked", decaying 0.22/s). Six species
+        added to icefish's `SPECIES` through the new `TLFish.addSpecies` (never in a lake's mix): saithe, cod,
+        haddock, wolffish, redfish, halibut, each with the bottom depths it lives over, how far off the bottom it
+        feeds, how hard it wants the pilk worked, price per kg and pull. Bites per second = 0.045 x the takers'
+        weights x (0.3 + 1.4 x the mark) x time of day; the marks are a fixed value-noise pattern over the sea
+        (`TLXSF.markAt`). A tug gives 1.5 s to haul. The fight: the fish runs for 1.1-2.2 s between rests; hauling on
+        a run takes the line past its limit and 1 s of that parts it (pilk gone, 5 s to tie on another); slack for
+        3.5 s may shake the hook; under 0.5 m it is aboard. The catch is a cooler row like any lake fish
+        (`{sp, kg, cm, v, t, lake: "the fjord off <place>"}`), counted in the logbook; a full cooler (10) logs it and
+        lets it go. icefish.js: the buyer's board lists the sea prices, the logbook gains "From the boat" once
+        there is a sea best, `TLFish.coolerMax()`. The helmsman half turns on the thwart and hauls hand over hand
+        (phase from the line's speed), a line runs from the hands over the gunwale into the water, the fish comes
+        over the gunwale on it. Test `x14_fishing.mjs` (52 asserts).
+        As built: off the quay the fjord is 21 m deep (cod, haddock, wolffish, saithe); the 40 m+ water for
+        redfish is further out (the sea runs to 75 m). On the best mark near the quay jetty a tug came after 9
+        and 22 game s of jigging; a 9 kg cod is 92 cm and $38, a cooler of ten mixed fish is about $150-250
+        (a 30 kg halibut alone is ~$390). Not done: no tackle to buy (the handline comes with the boat; better
+        lines / a gaff can go with the boatyard in 14.4); no fish box model in the boat; the marks are not shown
+        (no gulls, no sounder); fish are not sold from the boat at the quay jetty (walk or ride to the pier).
   - [ ] 14.4 Boats app (your boats, fuel, where they're moored, a tow home for a fee) and the boatyard at the quay
         (hull repairs, condition from groundings, winter haul-out).
   - [ ] 14.5 Options: rowboat (oars, no fuel), canoe (lakes once they open), ferry as a passenger (the coastal steamer
