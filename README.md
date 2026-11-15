@@ -361,6 +361,16 @@ a fuel sled, and nobody is left out there for want of cash: it takes what you ha
 quay jetty she fills again. Under the cards the app lists every jetty with its distance by sea
 from your boat and any sea jobs waiting on it.
 
+**The boatyard.** Beside the quay jetty stands Kjøllefjord Båt & Motor's yard: a red boathouse on
+piles over the water's edge, a slip running from its doors down into the fjord with a hull on the
+cradle, and a plank walk across from the jetty's deck to its side door. Run the skiff aground
+hard and her hull dents, which costs her power; the yard knocks the dents out for $8 a point of
+hull (at least $20, $800 for a wreck). She has to be at the quay jetty, within reach of the slip,
+and you have to be out of her. Order it from the Boats app, where a dented boat gets a
+**Boatyard** card with the price and **REPAIR HULL** (or where to bring her), or walk across to
+the shed's door and use the use control there (E, L3, the REPAIR button on touch). The skiff
+can't run through the shed, the slip or the walk.
+
 **Fishing from the boat.** Stopped over 4 m or more of water, the use control (E, L3, the FISH
 button on touch) puts a handline over the side: a wooden frame of heavy line with a pilk on the end.
 With the line down, brake lets it out (the pilk sinks about 3 m a second until it lies on the

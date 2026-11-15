@@ -1,4 +1,4 @@
-// Tracklayer — boats (expansion slices 14.1-14.4a, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
+// Tracklayer — boats (expansion slices 14.1-14.4b1, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
 //
 // WHAT IT IS. A 4.6 m aluminium skiff with a 20 hp tiller outboard, bought at the garage (Boats tab) and moored at a timber
 // jetty on piles (the småbåthavn) off the lowest bit of shore near the quay: the concrete quay stands ~9 m above the water,
@@ -21,6 +21,10 @@
 // THE BOATS APP AND THE TOW HOME (14.4a). Once you own a boat the tablet has a Boats app: each boat's hull, fuel, cargo and
 // where she lies, a marker for the Map, the jetties by sea, and a tow back to her berth at the quay jetty by the harbour
 // boat for a fee by the distance by sea. An empty tank at sea calls the same tow with the help control.
+//
+// THE BOATYARD (14.4b1). A slip and a red shed beside the quay jetty (Kjøllefjord Båt & Motor). Dents from groundings are
+// mended there for so much a point of hull, with the boat at the quay jetty and nobody in her: from the Boats app's
+// Boatyard card, or on foot at the shed's side door with the use control.
 //
 // tracklayer.js hooks for this file: VEH.floor (the jetty planks in walkFloor and past the sea wall in footStep) and the
 // "B" pin on the Map. Place comes from api.world (depot, sea mask, ground), never a Nordkinn constant.
@@ -58,6 +62,7 @@ function rampEnd(D) { return Math.max(2, (D.gy - D.y) * 3.2 - ROOT_BACK); }
 function deckY(D, u) { const e = rampEnd(D); return u < e ? lerp(D.gy + 0.04, D.y, sstep(-ROOT_BACK, e, u)) : D.y; }
 function floorAt(x, z) {                                                       // VEH.floor: jetty planks here, or null
   for (const D of DOCKS) { const q = dockLocal(D, x, z); if (q.u > -ROOT_BACK && q.u < D.len && Math.abs(q.v) < D.wid / 2) return deckY(D, q.u); }
+  if (BY && BY.walk) { const q = dockLocal(BY.D, x, z), k = BY.walk; if (q.u > k.u0 && q.u < k.u1 && q.v > k.v0 && q.v < k.v1) return k.y; }   // the walk across to the boatyard's door (14.4b1)
   return null;
 }
 function depthAt(x, z) {                                                       // water under a point: m, or -1 on land / ice
@@ -430,7 +435,7 @@ function core(R, dt) {
     if (imp > 0.6 && R.aground <= 0) {
       api.thud(Math.min(1, imp / 6)); P.shake = Math.max(P.shake || 0, Math.min(0.7, imp / 8));
       if (imp > 2.5) { R.rec.cond = Math.max(0, (R.rec.cond == null ? 100 : R.rec.cond) - Math.min(25, (imp - 2.5) * 5)); if (api.cargoHit) api.cargoHit(imp * 0.5); }
-      if (R.warnT <= 0) { api.toast(imp > 2.5 ? "Aground, hard: the hull's dented. Back off in reverse." : `Aground in the shallows. ${api.btn("brake")} backs her off.`, imp > 2.5 ? "bad" : "warn"); R.warnT = 8; }
+      if (R.warnT <= 0) { api.toast(imp > 2.5 ? "Aground, hard: the hull's dented. Back off in reverse. The boatyard by the quay jetty mends dents." : `Aground in the shallows. ${api.btn("brake")} backs her off.`, imp > 2.5 ? "bad" : "warn"); R.warnT = 8; }
     }
     R.aground = 0.6;
     vx = vz = 0; vf = 0;                                                        // she sits on the bottom; reverse (or forward) the other way frees her
@@ -438,6 +443,7 @@ function core(R, dt) {
   } else R.aground = Math.max(0, R.aground - dt);
   R.warnT = Math.max(0, R.warnT - dt);
   [vx, vz] = dockPush(P, vx, vz);
+  [vx, vz] = yardPush(P, vx, vz);
   P.x += vx * dt; P.z += vz * dt;
   const lim = w.half - 30; P.x = clamp(P.x, -lim, lim); P.z = clamp(P.z, -lim, lim);
   P.vx = vx; P.vz = vz; P.vy = 0; P.gnd = true; P.wet = false; P.sink = 0; P.airT = 0;
@@ -722,7 +728,7 @@ function garageRows(body, row) {
     e.textContent = `${ROW.name}: ${Math.round(r.cond)}% hull, ${Number(r.fuel).toFixed(0)} of ${ROW.fuel} L, ${!D ? "afloat" : dd < 40 ? "at the " + D.name : dd + " m from the " + D.name}.`;
     body.appendChild(e);
   }
-  const note = document.createElement("div"); note.className = "bfoot"; note.textContent = `Walk out along the jetty and get in. Step out at any jetty or onto a low bit of shore. ${Math.max(0, DOCKS.length - 1)} villages have a jetty of their own: tie up alongside and their parcels hand over there.`;
+  const note = document.createElement("div"); note.className = "bfoot"; note.textContent = `Walk out along the jetty and get in. Step out at any jetty or onto a low bit of shore. ${Math.max(0, DOCKS.length - 1)} villages have a jetty of their own: tie up alongside and their parcels hand over there. Dents from the shallows are mended at the boatyard beside the quay jetty, ${api.fmtCash(YARD.perPt)} a point of hull.`;
   body.appendChild(note);
 }
 
@@ -817,23 +823,211 @@ function appRender(el) {
       pay: home ? "" : money(towFee(r)), act: home ? "" : "btw:" + r.uid, actLabel: "TOW HOME", blocked: !!why })
       .replace(home ? "\u0000" : `data-act="btw:${r.uid}">TOW HOME</button>`, `data-act="btw:${r.uid}">TOW HOME</button>${extra}`)
       .replace(home && extra ? `</div></div>` : "\u0000", `<div class="tca"><span class="tpay"></span>${extra}</div></div></div>`);
+    if (c < 99.5) {                                                             // the boatyard's card under a dented boat (14.4b1)
+      const near = atYard(r), whyR = repairBlock(r);
+      h += U.tabCard({ tf: "byc:" + r.uid, title: "Boatyard · hull repair", chips: near ? U.chip("AT THE SLIP", "ok") : U.chip("NOT HERE"),
+        meta: near ? "The yard hauls her up the slip beside the quay jetty" : "Bring her to the quay jetty: the boatyard's slip is beside it",
+        note: `Dents knocked out and the seams welded, ${Math.round(c)}% back to 100%: ${money(YARD.perPt)} a point of hull.${near && whyR ? " " + U.esc(whyR) : ""}`,
+        pay: money(repairCost(r)), act: "bry:" + r.uid, actLabel: "REPAIR HULL", blocked: !!whyR });
+    }
   });
   if (DOCKS.length) {
     const b0 = bs[0] && posOf(bs[0]);
     h += U.sec("Jetties", b0 ? "by sea from your boat" : "");
     h += `<div class="tsml2">${DOCKS.map(D => { const e = dockEnd(D), km = b0 ? seaKmAt(D, b0.x, b0.z) : 0, here = b0 && dockAt(b0.x, b0.z) === D, jobs = seaJobs().filter(j => j.from === D.site && !(GS.load || []).includes(j)).length;
-      return `<div class="tsm2" style="grid-template-columns:minmax(0,8.5em) minmax(0,1fr) auto"><b>${U.esc(D.name[0].toUpperCase() + D.name.slice(1))}</b><span>${here ? "she's here" : km.toFixed(1) + " km"}${D.site === api.world.depot ? " · fuel, your berths" : " · warmth"}${jobs ? ` · ${jobs} sea job${jobs > 1 ? "s" : ""} from here` : ""}</span>${here ? U.chip("HERE", "ok") : ""}</div>`; }).join("")}</div>`;
+      return `<div class="tsm2" style="grid-template-columns:minmax(0,8.5em) minmax(0,1fr) auto"><b>${U.esc(D.name[0].toUpperCase() + D.name.slice(1))}</b><span>${here ? "she's here" : km.toFixed(1) + " km"}${D.site === api.world.depot ? " · fuel, your berths" + (BY ? ", the boatyard" : "") : " · warmth"}${jobs ? ` · ${jobs} sea job${jobs > 1 ? "s" : ""} from here` : ""}</span>${here ? U.chip("HERE", "ok") : ""}</div>`; }).join("")}</div>`;
   }
   h += `<p class="tnote2">Out of fuel at sea? ${api.btn("help")} calls the harbour boat for the same tow. She fills up tied alongside the quay jetty.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='btw:']")) b.addEventListener("click", () => { tow(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
   for (const b of el.querySelectorAll("[data-act^='btm:']")) b.addEventListener("click", () => mark(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='bry:']")) b.addEventListener("click", () => { repair(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
 }
+
+/* ---------------- the boatyard (14.4b1): a slip and a shed beside the quay jetty, hull repairs ----------------
+   Kjøllefjord Båt & Motor's yard. Sited at boot from the world like the jetties (nothing saved). The shore here is a bank
+   several metres high, so the yard is a naust on piles over the water's edge: a strip parallel to the quay jetty, 9.5 m
+   or more to one side of it, the shed's floor a step above the jetty's deck, starting where the bank has dropped clear
+   of it. From its double doors two rails on timber bents run down at YARD.slope to 0.8 m under water, a cradle on them.
+   A plank walk on piles crosses from the jetty's deck to the shed's side door (walkable: floorAt), landward of the
+   berths. The skiff is kept out of the shed, the head of the slip and the walk (yardPush, in the jetty's frame).
+   Repairs: YARD.perPt a point of hull, back to 100%, with the boat within YARD.reach of the slip's foot (on a quay-jetty
+   berth, or nosed in beside it) and nobody sat in her. Ordered from the Boats app's "Boatyard" card under a dented boat,
+   or on foot at the shed's side door with the use control (an api.footx provider, so keyboard, pad L3 and the touch
+   button all have it and the hint line names it). Without a place for the yard (no water fits) repairs are taken at
+   the quay jetty's end instead. */
+const YARD = { perPt: 8, min: 20, reach: 45, door: 2.6, W: 6.4, L: 9.6, H: 3.1, rise: 1.7, slope: 0.25, gauge: 1.5, name: "Kjøllefjord Båt & Motor" };
+let BY = null;
+function siteYard(D) {
+  const w = api.world, c = D.y + 0.25, e = rampEnd(D), stern = D.len - 2 * HL - 0.8; let best = null, bs = 1e9;
+  for (const sd of [1, -1]) for (const v of [9.5, 11, 12.5]) {
+    const gAt = (u, dv) => { const p = dockWorld(D, u, sd * (v + dv)); return w.groundAt(p[0], p[1]); };
+    // the shed stands on piles from where the bank has dropped clear of its floor (and the jetty's deck has levelled)
+    let u0 = e - 0.7;
+    for (let u = e - 0.7; u <= e + 8; u += 0.8) for (const dv of [-YARD.W / 2, 0, YARD.W / 2]) if (gAt(u, dv) > c - 0.4) u0 = u + 0.8;
+    let clear = true; for (let u = u0; u <= u0 + YARD.L && clear; u += 0.8) for (const dv of [-YARD.W / 2, 0, YARD.W / 2]) if (gAt(u, dv) > c - 0.4) clear = false;
+    if (!clear) continue;
+    // the rails from its doors to 0.8 m under water: nothing of the sea bed in their way, a metre of water at the foot
+    const uT = u0 + YARD.L + 0.6, uF = uT + (c + 0.8) / YARD.slope;
+    let okS = true; for (let u = uT; u <= uF; u += 0.5) if (gAt(u, 0) + 0.2 > c - YARD.slope * (u - uT)) okS = false;
+    const pf = dockWorld(D, uF, sd * v); if (!okS || !w.isSea(pf[0], pf[1]) || depthAt(pf[0], pf[1]) < 1.0) continue;
+    const ud = u0 + 1.3, sc = v + (u0 - (e - 0.7)) * 0.5 + Math.max(0, ud + 0.6 - (stern - 0.3)) * 5;   // the walk across must not lie over a berth
+    if (sc < bs) { bs = sc; best = { D, sd, v, u0, uT, uF, ud, c }; }
+  }
+  return best;
+}
+function buildYard(B) {
+  const w = api.world, D = B.D, o = dockWorld(D, B.uT, B.sd * B.v), g = new T.Group(); g.position.set(o[0], 0, o[1]); g.rotation.y = D.yaw;
+  const toW = (x, z) => dockWorld(D, B.uT + z, B.sd * B.v + x);                // the group's frame: x across, z down the slip, y = world height
+  const std = (col, r = 0.9, m = 0) => new T.MeshStandardMaterial({ color: col, roughness: r, metalness: m });
+  const red = std(0x7a2a22, 0.92), redD = std(0x5c1f1a, 0.92), white = std(0xe9e6dc, 0.85), tim = std(0x4a3f33, 0.95), plank = std(0x6b5a48, 0.92);
+  const steel = std(0x33373b, 0.55, 0.5), snow = std(0xeef3f8, 0.95), roofM = std(0x2b2d30, 0.8), green = std(0x24463a, 0.8);
+  const glow = new T.MeshStandardMaterial({ color: 0x191713, roughness: 0.4, emissive: 0xffbd6b, emissiveIntensity: 0 });
+  const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0, par = g, sh = true) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = sh; m.receiveShadow = true; par.add(m); return m; };
+  const { W, L, H, rise, slope, gauge } = YARD, c = B.c, Ls = B.uF - B.uT, ang = Math.atan(slope), yAt = z => c - slope * z, zs = -0.6 - L / 2, sx = -B.sd;
+  const pile = (x, z, top, r = 0.13) => { const p = toW(x, z), bed = Math.min(w.groundAt(p[0], p[1]), top - 0.5) - 0.3, h = top - bed; add(new T.CylinderGeometry(r - 0.02, r, h, 8), tim, x, bed + h / 2, z); };
+  // ---- the slip: stringers, rails, sleepers, bents down to the sea bed, the snow lying on it above the tide
+  const Lr = Ls / Math.cos(ang);
+  for (const s of [-1, 1]) {
+    add(new T.BoxGeometry(0.2, 0.26, Lr), tim, s * gauge / 2, yAt(Ls / 2) - 0.19, Ls / 2, ang);
+    add(new T.BoxGeometry(0.07, 0.08, Lr), steel, s * gauge / 2, yAt(Ls / 2) - 0.02, Ls / 2, ang, 0, 0, g, false);
+  }
+  for (let z = 0.4; z < Ls; z += 1.1) add(new T.BoxGeometry(gauge + 0.7, 0.12, 0.2), tim, 0, yAt(z) - 0.38, z, ang, 0, 0, g, false);
+  for (let z = 1.2; z < Ls; z += 2.2) {
+    const top = yAt(z) - 0.44;
+    for (const s of [-1, 1]) pile(s * (gauge / 2 + 0.25), z, top + 0.3);
+    add(new T.BoxGeometry(gauge + 1.0, 0.16, 0.18), tim, 0, top - 0.02, z, 0, 0, 0, g, false);
+  }
+  { const zn = Math.max(0, (c - 0.75) / slope); if (zn > 0.8) add(new T.BoxGeometry(gauge - 0.2, 0.1, zn / Math.cos(ang)), snow, 0, yAt(zn / 2) - 0.25, zn / 2, ang, 0, 0, g, false); }
+  add(new T.BoxGeometry(gauge + 1.2, 0.14, 0.75), tim, 0, c - 0.09, -0.3);                                        // the apron at the doors
+  // ---- the cradle on the rails with a hull on it, held on its wire
+  const zc = clamp(Ls * 0.34, 2.4, 3.6), cg = new T.Group(); cg.position.set(0, yAt(zc), zc); cg.rotation.x = ang; g.add(cg);
+  for (const s of [-1, 1]) {
+    add(new T.BoxGeometry(0.14, 0.16, 4.2), tim, s * gauge / 2, 0.3, 0, 0, 0, 0, cg);
+    for (const e of [-1, 1]) {
+      add(new T.CylinderGeometry(0.13, 0.13, 0.08, 10), steel, s * gauge / 2, 0.13, e * 1.6, 0, 0, Math.PI / 2, cg);
+      add(new T.BoxGeometry(0.12, 0.7, 0.14), tim, s * 0.9, 0.8, e * 1.25, 0, 0, -s * 0.2, cg);                    // the bunks she sits between
+    }
+  }
+  for (const z of [-1.7, 0, 1.7]) add(new T.BoxGeometry(gauge + 0.5, 0.14, 0.16), tim, 0, 0.44, z, 0, 0, 0, cg);
+  if (!HULL) HULL = hullGeo();
+  add(HULL, mats().hull, 0, 0.8, 0.1, 0, Math.PI, 0, cg);                                                         // bow to the shed, keel on the cross beams
+  add(new T.BoxGeometry(0.025, 0.025, 0.9), steel, 0, 0.5, -2.5, 0, 0, 0, cg, false);
+  // ---- the shed on its piles over the water's edge: plank floor, red boarded walls, white corner boards, gables, a snowed roof
+  const fy = c;
+  add(new T.BoxGeometry(W + 0.3, 0.22, L + 0.3), plank, 0, fy - 0.11, zs);
+  for (const x of [-W / 2 + 0.1, 0, W / 2 - 0.1]) for (let k = 0; k < 5; k++) pile(x, zs - L / 2 + 0.2 + k * (L - 0.4) / 4, fy - 0.2, 0.15);
+  for (const s of [-1, 1]) add(new T.BoxGeometry(0.14, H, L), red, s * W / 2, fy + H / 2, zs);
+  for (const e of [-1, 1]) add(new T.BoxGeometry(W, H, 0.14), red, 0, fy + H / 2, zs + e * L / 2);
+  for (const s of [-1, 1]) for (const e of [-1, 1]) add(new T.BoxGeometry(0.2, H, 0.2), white, s * W / 2, fy + H / 2, zs + e * L / 2, 0, 0, 0, g, false);
+  const gg = new T.BufferGeometry(); gg.setAttribute("position", new T.Float32BufferAttribute([-W / 2, 0, 0, W / 2, 0, 0, 0, rise, 0], 3)); gg.computeVertexNormals();
+  const redDS = red.clone(); redDS.side = T.DoubleSide;
+  for (const e of [-1, 1]) add(gg, redDS, 0, fy + H, zs + e * (L / 2 + 0.05));
+  const over = 0.45, ra = Math.atan2(rise, W / 2), sl = (W / 2 + over) / Math.cos(ra);
+  for (const s of [-1, 1]) {
+    const mx = s * (W / 2 + over) / 2, my = fy + H + rise - Math.tan(ra) * (W / 2 + over) / 2;
+    add(new T.BoxGeometry(sl, 0.1, L + 0.8), roofM, mx, my + 0.05, zs, 0, 0, -s * ra);
+    add(new T.BoxGeometry(sl - 0.12, 0.2, L + 0.7), snow, mx + s * 0.08, my + 0.2, zs, 0, 0, -s * ra, g, false);
+  }
+  add(new T.BoxGeometry(0.6, 0.2, L + 0.7), snow, 0, fy + H + rise + 0.14, zs, 0, 0, 0, g, false);
+  add(new T.CylinderGeometry(0.11, 0.11, 1.3, 8), steel, -sx * 1.4, fy + H + rise - 0.1, zs + 2.6);                  // the stove pipe
+  // the double doors on the rails, their frame and braces, the sign over them
+  const zf = -0.6;
+  for (const s of [-1, 1]) {
+    add(new T.BoxGeometry(1.56, 2.6, 0.07), redD, s * 0.8, fy + 1.32, zf + 0.1, 0, 0, 0, g, false);
+    add(new T.BoxGeometry(0.14, 2.74, 0.09), white, s * 1.68, fy + 1.37, zf + 0.1, 0, 0, 0, g, false);
+    add(new T.BoxGeometry(0.1, 2.85, 0.03), white, s * 0.8, fy + 1.32, zf + 0.15, 0, 0, s * 0.5, g, false);
+  }
+  add(new T.BoxGeometry(3.5, 0.14, 0.09), white, 0, fy + 2.7, zf + 0.1, 0, 0, 0, g, false);
+  { const cv = document.createElement("canvas"); cv.width = 512; cv.height = 72; const x = cv.getContext("2d");
+    x.fillStyle = "#e9e6dc"; x.fillRect(0, 0, 512, 72); x.fillStyle = "#1d2a33"; x.font = "bold 40px Georgia, serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("BÅT & MOTOR · SLIPP", 256, 38);
+    const tx = new T.CanvasTexture(cv); if (T.sRGBEncoding) tx.encoding = T.sRGBEncoding;
+    add(new T.PlaneGeometry(3.3, 0.46), new T.MeshStandardMaterial({ map: tx, roughness: 0.85 }), 0, fy + H + 0.2, zf + 0.13, 0, 0, 0, g, false); }
+  // the side door on the jetty side, a window and a lamp that come on as the day goes
+  const zd = B.ud - B.uT, wx = sx * W / 2;
+  add(new T.BoxGeometry(0.1, 2.2, 1.1), white, wx + sx * 0.04, fy + 1.1, zd, 0, 0, 0, g, false);
+  add(new T.BoxGeometry(0.06, 2.0, 0.9), green, wx + sx * 0.09, fy + 1.02, zd, 0, 0, 0, g, false);
+  add(new T.BoxGeometry(0.1, 1.0, 1.3), white, wx + sx * 0.04, fy + 1.75, zd + 3.2, 0, 0, 0, g, false);
+  const glass = add(new T.BoxGeometry(0.06, 0.8, 1.1), glow, wx + sx * 0.08, fy + 1.75, zd + 3.2, 0, 0, 0, g, false);
+  add(new T.BoxGeometry(0.16, 0.05, 0.05), steel, wx + sx * 0.12, fy + 2.5, zd, 0, 0, 0, g, false);
+  add(new T.BoxGeometry(0.14, 0.14, 0.2), glow, wx + sx * 0.24, fy + 2.44, zd, 0, 0, 0, g, false);
+  glass.onBeforeRender = () => { glow.emissiveIntensity = 0.12 + 1.7 * (1 - api.dayFactor()); };
+  // the walk across from the jetty's deck to that door: planks on piles, a rail each side, a step up at the sill
+  const gapX = B.v - W / 2 - D.wid / 2, xm = sx * (W / 2 + gapX / 2), dy = D.y;
+  add(new T.BoxGeometry(gapX + 0.1, 0.08, 1.2), plank, xm, dy - 0.04, zd);
+  add(new T.BoxGeometry(0.55, c - dy, 1.1), plank, wx + sx * 0.3, dy + (c - dy) / 2, zd);
+  for (const e of [-1, 1]) {
+    add(new T.BoxGeometry(gapX - 0.3, 0.05, 0.05), steel, xm, dy + 0.95, zd + e * 0.56, 0, 0, 0, g, false);
+    add(new T.BoxGeometry(gapX + 0.1, 0.05, 0.16), snow, xm, dy + 0.02, zd + e * 0.5, 0, 0, 0, g, false);
+    for (const k of [0.12, 0.5, 0.88]) { const x = sx * (W / 2 + gapX * k); add(new T.BoxGeometry(0.05, 0.95, 0.05), steel, x, dy + 0.47, zd + e * 0.56, 0, 0, 0, g, false); pile(x, zd + e * 0.5, dy - 0.08, 0.11); }
+  }
+  api.scene.add(g);
+  // where the walker may stand (floorAt) and what the skiff must keep out of (yardPush), in the jetty's own frame
+  const vs = B.sd * B.v, lo = (a, b) => Math.min(a, b), hi = (a, b) => Math.max(a, b), vj = B.sd * D.wid / 2, vw = B.sd * (B.v - W / 2);
+  B.walk = { u0: B.ud - 0.6, u1: B.ud + 0.6, v0: lo(vj, vw), v1: hi(vj, vw), y: dy };
+  B.rects = [{ u0: B.u0, u1: B.uT - 0.6, v0: vs - W / 2, v1: vs + W / 2 }, { u0: B.uT - 0.6, u1: B.uT + (c + 0.35) / slope, v0: vs - gauge / 2 - 0.35, v1: vs + gauge / 2 + 0.35 }, { u0: B.ud - 0.6, u1: B.ud + 0.6, v0: lo(vj, vw), v1: hi(vj, vw) }];
+  const pd = toW(sx * (W / 2 + 0.95), zd), pf = toW(0, Ls), ps = toW(0, zs);
+  Object.assign(B, { mesh: g, floor: fy, door: { x: pd[0], z: pd[1] }, foot: { x: pf[0], z: pf[1] }, shed: { x: ps[0], z: ps[1] } });
+}
+// the skiff can't run through the shed, the head of the slip or the walk across: pushed out the nearest way, like the jetty's piles
+function yardPush(P, vx, vz) {
+  if (!BY || !BY.rects) return [vx, vz];
+  const D = BY.D, q = dockLocal(D, P.x, P.z), fx = Math.sin(D.yaw), fz = Math.cos(D.yaw), m = HB * 0.95;
+  for (const r of BY.rects) {
+    const a = q.v - (r.v0 - m), b = (r.v1 + m) - q.v, e = q.u - (r.u0 - m), d = (r.u1 + m) - q.u;
+    if (a <= 0 || b <= 0 || e <= 0 || d <= 0) continue;
+    const mn = Math.min(a, b, e, d); let nu = 0, nv = 0;
+    if (mn === a) { q.v = r.v0 - m; nv = -1; } else if (mn === b) { q.v = r.v1 + m; nv = 1; } else if (mn === e) { q.u = r.u0 - m; nu = -1; } else { q.u = r.u1 + m; nu = 1; }
+    const p = dockWorld(D, q.u, q.v); P.x = p[0]; P.z = p[1];
+    const nX = fz * nv + fx * nu, nZ = -fx * nv + fz * nu, into = vx * nX + vz * nZ; if (into < 0) { vx -= into * nX * 1.3; vz -= into * nZ * 1.3; }
+  }
+  return [vx, vz];
+}
+const condOf = r => { const c = Number(r.cond == null ? 100 : r.cond); return Number.isFinite(c) ? clamp(c, 0, 100) : 100; };
+function yardPt() { return BY ? BY.foot : DOCKS[0] ? dockEnd(DOCKS[0]) : null; }
+function atYard(r) { const p = posOf(r), y = yardPt(); return !!y && Math.hypot(p.x - y.x, p.z - y.z) <= YARD.reach; }
+function repairCost(r) { const c = condOf(r); return c >= 99.5 ? 0 : Math.max(YARD.min, Math.round((100 - c) * YARD.perPt / 5) * 5); }
+// why the yard can't mend her just now ("" = it can)
+function repairBlock(r) {
+  const GS = api.GS, cur = S().cur === r.uid, R = RTS.get(r.uid);
+  if (condOf(r) >= 99.5) return "Her hull is sound: nothing for the yard to do.";
+  if (R && R.towing) return "The harbour boat has her.";
+  if (GS.dead || api.busy() || api.HELP.on || (cur && (api.MNT.on || api.DMT.on))) return "Not just now.";
+  if (!atYard(r)) return "Bring her to the quay jetty first: the boatyard's slip is beside it.";
+  if (aboardOf(r)) return "Step ashore first: the yard can't haul her out with you sat in her.";
+  const c = repairCost(r); if (GS.cash < c) return `The yard wants ${api.fmtCash(c)} for that hull. You have ${api.fmtCash(GS.cash)}.`;
+  return "";
+}
+function repair(uid) {
+  const GS = api.GS, r = S().owned.find(q => q.uid === uid && q.id === ROW.id); if (!r) return false;
+  const why = repairBlock(r); if (why) { api.toast(why, "warn"); return false; }
+  const c = repairCost(r), was = Math.round(condOf(r));
+  GS.cash -= c; r.cond = 100;
+  api.thud(0.35); setTimeout(() => api.thud(0.25), 260); setTimeout(() => api.thud(0.3), 520);
+  api.toast(`The yard had her up the slip: dents knocked out and the seams welded, ${was}% to 100%, ${api.fmtCash(c)}. She's back on the water.`, "good");
+  api.save(); api.TABLET.refresh("boats");
+  return true;
+}
+// at the shed's side door, on foot: the use control (keyboard, pad L3, the touch button)
+const YPROV = {
+  use() {
+    const F = api.FOOT; if (!BY || !F.on || api.MNT.on || api.DMT.on || (api.INT && api.INT.on)) return null;
+    if (Math.hypot(F.x - BY.door.x, F.z - BY.door.z) > YARD.door) return null;
+    const dent = boats().filter(r => condOf(r) < 99.5), here = dent.find(r => atYard(r));
+    if (here) return { label: "REPAIR", hint: () => api.keyHint("use", `have the yard mend the ${ROW.name}'s hull (${api.fmtCash(repairCost(here))})`), act: () => repair(here.uid) };
+    return { label: "BOATYARD", hint: () => api.keyHint("use", "ask at the boatyard"), act: () => api.toast(
+      dent.length ? `${YARD.name}: bring her round to the quay jetty and they'll have her up the slip. About ${api.fmtCash(repairCost(dent[0]))} for her hull as it is.`
+      : boats().length ? `${YARD.name}: her hull is sound, nothing for the yard to do. Dents from the shallows are mended here, ${api.fmtCash(YARD.perPt)} a point.`
+      : `${YARD.name}: the yard mends hulls on the slip here. Their ${ROW.name} is sold from the garage's Boats tab.`, "info") };
+  }
+};
 
 function init(a) {
   api = a; T = a.THREE;
   const D = siteDock(a.world.depot.x, a.world.depot.z, []);
   if (D) { D.site = a.world.depot; D.name = "quay jetty"; DOCKS.push(D); buildDock(D); siteVillageDocks(); }
+  if (D) try { BY = siteYard(D); if (BY) buildYard(BY); } catch (e) { console.error("TLX boatyard", e); BY = null; }
+  if (a.footx && !a.footx.includes(YPROV)) a.footx.push(YPROV);
   a.veh.floor = floorAt;
   a.TABLET.register({ id: "boats", name: "Boats", icon: B_ICON, order: 8.6, live: 4,
     hidden: () => !boats().length, badge: () => boats().some(r => fuelOf(r) <= 0) ? "!" : "", render: appRender });
@@ -843,5 +1037,6 @@ function init(a) {
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
 TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaKmAt, tow, towFee, towKm, towBlock, whereOf, rangeKm, mark, TOW, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
+window.TLXB = { YARD, yard: () => BY && { x: BY.shed.x, z: BY.shed.z, door: BY.door, foot: BY.foot, floor: BY.floor, side: BY.sd, off: BY.v, len: BY.uF - BY.uT, u0: BY.u0, ud: BY.ud, yaw: BY.D.yaw, walk: BY.walk, rects: BY.rects, mesh: BY.mesh }, repair, repairCost, repairBlock, atYard,
+  addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaKmAt, tow, towFee, towKm, towBlock, whereOf, rangeKm, mark, TOW, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();
