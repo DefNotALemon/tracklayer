@@ -3,7 +3,7 @@
 Newest first. One entry per builder pass:
 
 ```
-## 2026-11-14 23:00 — Kjøllefjord roads, no fences (Owner request, session) — c230ca8
+## 2026-11-14 23:00 — Kjøllefjord roads, no fences (Owner request, session) — 7bc3b77
 Lemon (a Mainer) asked to drop the town's picket fences and show the streets as roads with a thin layer of snow and
 curbs. `townRoads()` (tracklayer.js v238, run from boot after initExpansion) lays an asphalt ribbon on `surf()`+4 cm over
 the 7 street lines and the depot yard lane (cut where streets cross; 12 junction squares), canvas texture with bare wheel
