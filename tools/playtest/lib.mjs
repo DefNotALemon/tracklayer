@@ -82,7 +82,7 @@ export const park = (cx = "P.x + 400", cz = "P.z + 300") => ev(`(() => {
   }
   return null; })()`);
 
-export async function boot({ width = 1280, height = 720 } = {}) {
+export async function boot({ width = 1280, height = 720, dsf = 1, launch: doLaunch = true } = {}) {
   const r = await fetch(`http://127.0.0.1:${PORT}/json/new?about:blank`, { method: "PUT" }); const p = await r.json();
   ws = new WebSocket(p.webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
   ws.onmessage = m => { const d = JSON.parse(m.data);
@@ -90,19 +90,20 @@ export async function boot({ width = 1280, height = 720 } = {}) {
     else if (d.method === "Runtime.exceptionThrown") errors.push("EXC " + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text).slice(0, 400));
     else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") errors.push("ERR " + d.params.args.map(a => a.value || a.description).join(" ").slice(0, 300)); };
   await send("Runtime.enable"); await send("Page.enable"); await send("Network.enable"); await send("Network.setCacheDisabled", { cacheDisabled: true });
-  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: dsf, mobile: false });
   // headless Chrome sees the Mac's real gamepads (a controller left on the desk steered the walker in circles): hide
   // them. A scenario can drive a scripted pad instead: window.__fakePad = { id, mapping: "standard", connected: true,
   // buttons: [{ pressed, value } x17], axes: [0, 0, 0, 0], timestamp } (see padSet()).
   await send("Page.addScriptToEvaluateOnNewDocument", { source: "navigator.getGamepads = () => window.__fakePad ? [window.__fakePad] : [];" });
   await send("Page.navigate", { url: URL });
-  await launch();
+  await launch(doLaunch);
 }
-async function launch() {
+async function launch(go = true) {
   let ok = false;
   for (let i = 0; i < 120; i++) { await sleep(500); try { if (await raw("typeof window.__tl === 'function' && window.__tl(\"typeof titleLaunch === 'function' && TT.mode === 'menu'\")")) { ok = true; break; } } catch (e) { } }
   if (!ok) { console.log("BOOT FAILED: title menu never appeared.", errors.join("\n")); await done(3); }
   await sleep(1200);
+  if (!go) return;
   await ev("titleLaunch(); true"); await sleep(3000);
   await tap("KeyH");          // hide the help panel
   await sleep(500);

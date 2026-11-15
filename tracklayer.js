@@ -130,11 +130,17 @@ function snowFieldGLSL() {
      float fdH(vec2 p, float near, float nc) {
        vec2 q = vec2(dot(p, vec2(0.8, 0.6)), dot(p, vec2(-0.6, 0.8)));
        q.y += (fdN(p * 0.004) - 0.5) * 140.0;
-       vec2 w = fdW(p);
-       float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);
-       return fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007)) + (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near
-         + mix(0.5, fdN(q * vec2(0.09, 0.22)), 1.0 - smoothstep(0.8, 3.0, fdFp)) * 0.25 * near     // 8-11 m undulations
-         + mix(0.5, fdN(q * vec2(0.3, 0.8)), 1.0 - smoothstep(0.3, 1.2, fdFp)) * 0.08 * near;    // 3 m wavelets
+       float h = fdN(p * 0.011) * 0.9 + fdN(q * vec2(0.01, 0.04)) * 1.5 * (0.3 + fdN(p * 0.007));
+       // perf: the close dunes, undulations and wavelets all carry a factor of near, which is exactly 0 past ~450 m (most of
+       // the far terrain), so those 7 noise reads are skipped there. Same value, about half the cost per far pixel.
+       if (near > 0.0) {
+         vec2 w = fdW(p);
+         float n1 = fdN(w * vec2(0.04, 0.11)), cr = 1.0 - abs(n1 * 2.0 - 1.0);
+         h += (mix(n1 * 0.8, cr * cr * 0.75, nc) + fdN(w * vec2(0.022, 0.065)) * 0.4) * near
+           + mix(0.5, fdN(q * vec2(0.09, 0.22)), 1.0 - smoothstep(0.8, 3.0, fdFp)) * 0.25 * near     // 8-11 m undulations
+           + mix(0.5, fdN(q * vec2(0.3, 0.8)), 1.0 - smoothstep(0.3, 1.2, fdFp)) * 0.08 * near;    // 3 m wavelets
+       }
+       return h;
      }\n`;
 }
 
@@ -412,7 +418,7 @@ const GFX = (() => {
   const url = /[?&]gfx=(low|high)\b/.exec(location.search), q = url ? url[1] : pick === "auto" ? (mobile ? "low" : "high") : pick;
   const low = q === "low", dpr = window.devicePixelRatio || 1, auto = !url && pick === "auto";
   return { pick, auto, low, mobile, phone, ios, standalone, dpr,
-    prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: low ? 0.55 : 0.75, pr: Math.min(dpr, low ? 1 : 1.5),
+    prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: 0.5, pr: Math.min(dpr, low ? 1 : 1.5),
     treeR0: low ? 750 : 1900, treeR: low ? 750 : 1900, shMap0: low ? 1024 : 2048,
     farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
 })();
@@ -551,7 +557,8 @@ const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uT
 // it rakes (clear-day sun as the key light, else 0: no moon/headlight shadows from it). The patch marches the drift
 // height toward the real 4° winter sun and darkens the direct light on lee sides of ripples and swells.
 const skyRefU = { uSkyRef: { value: new THREE.Color(1, 1, 1) }, uSkyK: { value: 0.75 }, uSunRef: { value: new THREE.Color(1, 1, 1) }, uSunK: { value: 1.0 }, uSunW: { value: sunDir },
-  uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 }, uDrT: { value: 0 }, uDrW: { value: new THREE.Vector2(1, 0) } };
+  uSunT: { value: new THREE.Vector3(0, 0.07, 1) }, uMicroK: { value: 0 }, uDrT: { value: 0 }, uDrW: { value: new THREE.Vector2(1, 0) },
+  uMarchP: { value: GFX.low ? 3 : 6 }, uMarchF: { value: GFX.low ? 3 : 5 } };   // lee-shadow march steps (patch / far), set by the governor
 // Lake skin (v109): a frozen Finnmark lake is wind-scoured ice under streaks of thin snow, not one flat grey-blue disc.
 // lkBare(p, fine) = 0 snow-streaked .. 1 bare scoured ice, in long streaks along the north-westerly (~80 x 17 m, bent by
 // a slow wander, plus 25 x 4 m fine streaks weighted by `fine`) with about half bare. The patch and the far terrain both read
@@ -593,7 +600,7 @@ patchMat.onBeforeCompile = sh => {
   // Drift shadows (v100): the lifted key light alone leaves the foreground evenly lit, but under a real 4° sun every
   // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
   // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
+  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchP; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
     `${snowFieldGLSL()}float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -609,6 +616,14 @@ patchMat.onBeforeCompile = sh => {
        vec2 w = fdW(p);
        float sw = fdN(p * 0.011);
        return base + (mix(0.5, tlN(w * vec2(0.25, 1.1)), tlKc) * 0.025 + mix(0.5, tlN(w * vec2(0.7, 2.6)), tlKf) * 0.0075 + mix(0.5, tlN(w * vec2(1.6, 6.5)), 1.0 - smoothstep(0.012, 0.075, fdFp) ) * 0.0022) * (0.35 + sw);
+     }
+     // the lee-shadow march only: the same dunes and coarse ripples, minus the two finest octaves (0.0075 and 0.0022 m tall)
+     // that vanish against the sun ray's rise at the long steps
+     float tlDriftLite(vec2 p) {
+       float base = fdH(p, 1.0, 1.0);
+       vec2 w = fdW(p);
+       float sw = fdN(p * 0.011);
+       return base + mix(0.5, tlN(w * vec2(0.25, 1.1)), tlKc) * 0.025 * (0.35 + sw);
      }\n` +
     sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float tlSh = 1.0;
@@ -630,7 +645,7 @@ patchMat.onBeforeCompile = sh => {
           if (uMicroK > 0.01) {
             float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
             float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 0.3;
-            for (int i = 0; i < ${GFX.low ? 3 : 6}; i++) { occ = max(occ, (tlDrift(p + sd * d) - h0) * 6.0 - tE * d); d *= 1.75; }
+            for (int i = 0; i < 6; i++) { if (float(i) >= uMarchP) break; occ = max(occ, ((i < 3 ? tlDrift(p + sd * d) : tlDriftLite(p + sd * d)) - h0) * 6.0 - tE * d); d *= 1.75; }
             tlSh = 1.0 - smoothstep(0.0, 0.04 + tlFp * 0.2, occ) * 0.8 * relief * uMicroK;   // lee edge softens with the footprint
           }
         }
@@ -738,10 +753,23 @@ const trailTex = new THREE.DataTexture(trailData, TR, TR, THREE.RGBAFormat);
 trailTex.magFilter = THREE.LinearFilter; trailTex.minFilter = THREE.LinearFilter;
 farU.uTrail.value = trailTex;
 let trailDirty = false, trailClock = 0;
+// perf: the trail texture is 16 MB. It used to be re-sent whole (and fadeTrails walked all 4M texels) every second or so,
+// a 10-20 ms hitch each time. Now only the rows that were marked are walked and uploaded (texSubImage2D), like the snow patch.
+let trR0 = TR, trR1 = -1, trD0 = TR, trD1 = -1, trFull = true;
+function flushTrail() {
+  trailClock = 0; trailDirty = false;
+  const j0 = trD0, j1 = trD1; trD0 = TR; trD1 = -1;
+  const tp = renderer.properties.get(trailTex), gl = renderer.getContext();
+  if (trFull || !renderer.capabilities.isWebGL2 || !tp.__webglTexture || tp.__version !== trailTex.version) { trailTex.needsUpdate = true; trFull = false; return; }
+  if (j1 < j0) return;
+  renderer.state.bindTexture(gl.TEXTURE_2D, tp.__webglTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, j0, TR, j1 - j0 + 1, gl.RGBA, gl.UNSIGNED_BYTE, trailData.subarray(j0 * TR * 4, (j1 + 1) * TR * 4));
+}
 function markTrail(x, z, faint) {
   const tx = clamp(((x + HALF) / (WORLD / TR)) | 0, 0, TR - 1), tz = clamp(((z + HALF) / (WORLD / TR)) | 0, 0, TR - 1), o = (tz * TR + tx) * 4;
   const v = faint ? 170 : 255;
-  if (trailData[o] < v) { trailData[o] = v; trailDirty = true; }
+  if (trailData[o] < v) { trailData[o] = v; trailDirty = true; if (tz < trR0) trR0 = tz; if (tz > trR1) trR1 = tz; if (tz < trD0) trD0 = tz; if (tz > trD1) trD1 = tz; }
 }
 
 /* ---------------- boot ---------------- */
@@ -826,7 +854,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
+    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchF; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
       snowFieldGLSL() +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float fdSh = 1.0;
@@ -859,7 +887,7 @@ function buildFar() {
           if (uMicroK > 0.01 && dist < 2200.0) {
             float lh = length(uSunT.xz); vec2 sd = uSunT.xz / max(lh, 1e-4);
             float tE = max(uSunT.y, 0.035) / max(lh, 1e-4), occ = -1.0, d = 3.0;
-            for (int i = 0; i < ${GFX.low ? 3 : 5}; i++) { occ = max(occ, (fdH(vWxz + sd * d, near, nc) - h0) * 6.0 - tE * d); d *= 2.0; }
+            for (int i = 0; i < 5; i++) { if (float(i) >= uMarchF) break; occ = max(occ, (fdH(vWxz + sd * d, near, nc) - h0) * 6.0 - tE * d); d *= 2.0; }
             fdSh = 1.0 - smoothstep(0.0, 0.3, occ) * 0.85 * fdSnow * uMicroK * (1.0 - smoothstep(1200.0, 2200.0, dist));
           }
         }
@@ -1030,7 +1058,7 @@ function buildPines(birch) {
       const v = 0.8 + rnd() * 0.35; c.setRGB(v, v * (0.95 + rnd() * 0.12), v * (0.9 + rnd() * 0.1)); tm.setColorAt(i, c);
       addOb({ x, z, r: 0.42 * s, top: 1e9, tree: i, pine: true, cell: ci, s, sy, yaw, y: p.y, snowy: true, wob: null });
     });
-    tm.castShadow = cap.castShadow = true; scene.add(tm, cap);
+    tm.castShadow = cap.castShadow = true; tm.frustumCulled = cap.frustumCulled = true; scene.add(tm, cap);   // r128's InstancedMesh switches culling off; the cell's own sphere is right, so cull by it (main and shadow pass)
   }
   window.PINE_COUNT = pines.length;
 }
@@ -1099,7 +1127,7 @@ function buildProps() {
     const share = gm => { const c = new THREE.BufferGeometry(); for (const a in gm.attributes) c.setAttribute(a, gm.attributes[a]); c.boundingSphere = bs; return c; };
     const tm = new THREE.InstancedMesh(share(treeGeo), trunkMat, list.length), cap = new THREE.InstancedMesh(share(capGeo), capMat, list.length);
     list.forEach((t, i) => { tm.setMatrixAt(i, t.m); cap.setMatrixAt(i, t.m); tm.setColorAt(i, col.setRGB(t.c[0], t.c[1], t.c[2])); });
-    tm.castShadow = cap.castShadow = true; scene.add(tm, cap);
+    tm.castShadow = cap.castShadow = true; tm.frustumCulled = cap.frustumCulled = true; scene.add(tm, cap);   // r128's InstancedMesh switches culling off; the cell's own sphere is right, so cull by it (main and shadow pass)
     birchCells.push({ tm, cap, x: cx, z: cz });
   }
   buildPines(trees);
@@ -3327,7 +3355,7 @@ function buildRockField() {
     });
     const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) g2.setAttribute(k, geo.attributes[k]); g2.setIndex(geo.index);
     g2.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, (lo + hi) / 2, cz), Math.hypot(rr + 4, (hi - lo) / 2 + 4));
-    im.geometry = g2; im.castShadow = true; im.receiveShadow = true; scene.add(im);
+    im.geometry = g2; im.castShadow = true; im.receiveShadow = true; im.frustumCulled = true; scene.add(im);
   }
   ROCK_FIELD.n = list.length; ROCK_FIELD.cells = by.size;
 }
@@ -4689,7 +4717,7 @@ function meltRefreeze() {
   meltSeason(); meltStep(0); MELT.sweep = null; MELT.crack = 0;
   for (const c of activeChunks) chunks[c.key] = undefined;
   activeChunks.length = 0; refillIdx = 0;
-  trailData.fill(0); trailTex.needsUpdate = true; tctx.clearRect(0, 0, MB, MB);
+  trailData.fill(0); trailTex.needsUpdate = true; trR0 = TR; trR1 = -1; trD0 = TR; trD1 = -1; trFull = false; tctx.clearRect(0, 0, MB, MB);
   for (const L of LKS) if (L && L.mesh) L.mesh.visible = false;
   recenter(P.x, P.z, true);
 }
@@ -5419,7 +5447,58 @@ const KIT = (() => {
   // the work sheds' flat roofs: a dark drip-edge ring tucked under the snow load's overhang, over the fascia, so the
   // white fascia and the white snow above it stop reading as one thick slab (the houses' roofTrim drip edge, v132)
   K.dripRing = (g, w, d, yTop) => { K.bx(g, w, 0.06, d, K.drip, 0, yTop - 0.03, 0).castShadow = false; };
-  K.put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  K.pend = [];                                                         // every K.put mesh until K.bake() folds them together
+  K.put = (g, geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; g.add(m); if (K.pend) K.pend.push(m); return m; };
+  // Draw-call diet: a house is ~15 K.put meshes (walls, roof boards, snow, chimney, trim, glass...) and the town has dozens of
+  // them, so ~800 draw calls a frame, twice with the shadow pass. Nothing keeps a K.put mesh after it's built (callers only
+  // set castShadow / rotation on the returned mesh straight away), so once the world is built every group's meshes that share
+  // a material and shadow flags are baked into one, transforms and all: same pixels, a fraction of the calls.
+  K.bake = () => {
+    const list = K.pend; K.pend = null; const st = { from: 0, to: 0 }; if (!list) return st;
+    const nm = new THREE.Matrix3(), v = new THREE.Vector3(), mw = new THREE.Matrix4(), buckets = new Map(), CELL_W = 96;
+    // meshes of a static building group (house, lamp, drying rack) fold into world-space chunks of the town, and so do the
+    // houses' neighbours; anything else (cabin yard kit that toggles, the steamer that sails) only folds within its own group
+    for (const m of list) {
+      const geo = m.geometry;
+      if (!m.parent || Array.isArray(m.material) || m.children.length || m.renderOrder || !geo.attributes.position || m.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) continue;
+      const world = !!m.parent.userData.kStatic;
+      let where = "P" + m.parent.uuid;
+      if (world) { m.updateWorldMatrix(true, false); where = "W" + Math.floor(m.matrixWorld.elements[12] / CELL_W) + "," + Math.floor(m.matrixWorld.elements[14] / CELL_W); }
+      const key = where + "|" + m.material.uuid + "|" + (m.castShadow ? 1 : 0) + (m.receiveShadow ? 1 : 0) + (m.visible ? 1 : 0) + "|" + Object.keys(geo.attributes).sort().join(",") + (geo.index ? "i" : "n");
+      let b = buckets.get(key); if (!b) buckets.set(key, b = { world, parent: m.parent, list: [] }); b.list.push(m);
+    }
+    for (const bk of buckets.values()) {
+      const b = bk.list; st.from += b.length; if (b.length < 2) { st.to += b.length; continue; }
+      const names = Object.keys(b[0].geometry.attributes), indexed = !!b[0].geometry.index; let nv = 0, ni = 0;
+      for (const m of b) { nv += m.geometry.attributes.position.count; ni += indexed ? m.geometry.index.count : 0; }
+      const out = {}; for (const n of names) out[n] = new Float32Array(nv * b[0].geometry.attributes[n].itemSize);
+      const idx = indexed ? (nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni)) : null; let vo = 0, io = 0;
+      for (const m of b) {
+        if (bk.world) mw.copy(m.matrixWorld); else { m.updateMatrix(); mw.copy(m.matrix); }
+        nm.getNormalMatrix(mw); const geo = m.geometry, cnt = geo.attributes.position.count;
+        for (const n of names) {
+          const at = geo.attributes[n], dst = out[n], isz = at.itemSize;
+          if (n === "position" || n === "normal") {
+            for (let i = 0; i < cnt; i++) {
+              v.set(at.getX(i), at.getY(i), at.getZ(i));
+              if (n === "position") v.applyMatrix4(mw); else v.applyMatrix3(nm).normalize();
+              dst[(vo + i) * 3] = v.x; dst[(vo + i) * 3 + 1] = v.y; dst[(vo + i) * 3 + 2] = v.z;
+            }
+          } else for (let i = 0; i < cnt; i++) for (let k = 0; k < isz; k++) dst[(vo + i) * isz + k] = at.array[i * isz + k];
+        }
+        if (indexed) { const ia = geo.index.array; for (let i = 0; i < ia.length; i++) idx[io + i] = ia[i] + vo; io += ia.length; }
+        vo += cnt; m.parent.remove(m);
+      }
+      const mg = new THREE.BufferGeometry(); for (const n of names) mg.setAttribute(n, new THREE.BufferAttribute(out[n], b[0].geometry.attributes[n].itemSize));
+      if (idx) mg.setIndex(new THREE.BufferAttribute(idx, 1));
+      mg.computeBoundingSphere();
+      const mm = new THREE.Mesh(mg, b[0].material); mm.castShadow = b[0].castShadow; mm.receiveShadow = b[0].receiveShadow; mm.visible = b[0].visible; mm.name = "kitBaked";
+      (bk.world ? scene : bk.parent).add(mm);
+      for (const m of b) m.geometry.dispose();
+      st.to++;
+    }
+    return st;
+  };
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
   // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
   K.house = (x, z, w, d, h, ry, mat, lit) => {
@@ -5428,7 +5507,7 @@ const KIT = (() => {
     if (lit !== false) addYard(x + Math.sin(ry) * (d / 2 + 5), z + Math.cos(ry) * (d / 2 + 5), 3.5);   // and a plowed apron out from the door (local +z), so you walk up to it on hard pack
     if (lit !== false) K.doors.push({ x, z, nx: Math.sin(ry), nz: Math.cos(ry), d, rr: Math.max(w, d) / 2 + 3.5 });   // buildTown plows a lane to it
     const g = new THREE.Group();
-    g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g);
+    g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g); g.userData.kStatic = true;
     // walls and gables wear vertical board cladding (houseClad), UVs in metres so every house gets the same board width
     const wallG = new THREE.BoxGeometry(w, h, d); houseUV(wallG, w, d, 0);
     K.put(g, wallG, houseClad(mat), 0, h / 2, 0);
@@ -5464,7 +5543,7 @@ const KIT = (() => {
     return g;
   };
   K.lamp = (x, z) => {
-    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); scene.add(g);
+    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); scene.add(g); g.userData.kStatic = true;
     K.put(g, new THREE.CylinderGeometry(0.07, 0.09, 4, 8), K.metal, 0, 2, 0);
     K.put(g, new THREE.SphereGeometry(0.22, 10, 8), lampHeadMat(), 0, 4.1, 0).castShadow = false;
     K.put(g, new THREE.ConeGeometry(0.34, 0.3, 10), K.metal, 0, 4.35, 0);
@@ -5474,7 +5553,7 @@ const KIT = (() => {
   };
   // hjell: the A-frame racks the cod hangs on to dry
   K.hjell = (x, z, len, ry) => {
-    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); g.rotation.y = ry; scene.add(g);
+    const g = new THREE.Group(); g.position.set(x, groundAt(x, z) - 0.2, z); g.rotation.y = ry; scene.add(g); g.userData.kStatic = true;
     const n = Math.max(2, Math.round(len / 3));
     for (let i = 0; i < n; i++) {
       const u = -len / 2 + i * len / (n - 1);
@@ -6018,8 +6097,8 @@ function refill() {
 function fadeTrails(dt) {
   GS.fadeT += dt; if (GS.fadeT < 1) return;
   const e = Math.exp(-lerp(1 / 360, 1 / 45, GS.storm) * GS.fadeT); GS.fadeT = 0;
-  for (let o = 0; o < trailData.length; o += 4) if (trailData[o]) trailData[o] = (trailData[o] * e) | 0;
-  trailDirty = true;
+  for (let o = trR0 * TR * 4, end = (trR1 + 1) * TR * 4; o < end; o += 4) if (trailData[o]) trailData[o] = (trailData[o] * e) | 0;
+  if (trR1 >= trR0) { trailDirty = true; if (trR0 < trD0) trD0 = trR0; if (trR1 > trD1) trD1 = trR1; }
   tctx.save(); tctx.globalCompositeOperation = "destination-out"; tctx.fillStyle = `rgba(0,0,0,${(1 - e).toFixed(4)})`; tctx.fillRect(0, 0, MB, MB); tctx.restore();
 }
 
@@ -9203,7 +9282,7 @@ function buildSettings() {
   const gfxSync = () => { gb.textContent = GL[SET.gfx]; $("fpsBtn").textContent = SET.fps ? "Frame rate: shown" : "Frame rate: hidden"; $("fps").hidden = !SET.fps; };
   gb.addEventListener("click", () => {
     SET.gfx = SET.gfx === "auto" ? "high" : SET.gfx === "high" ? "low" : "auto"; saveSettings(); gfxSync();
-    GFX.auto = QG.on = SET.gfx === "auto"; QG.cap = 0; QG.prev = null; QG.apply(SET.gfx === "high" ? 1 : SET.gfx === "low" ? 2 : GFX.low ? 2 : 1);
+    GFX.auto = QG.on = SET.gfx === "auto"; QG.cap = 0; QG.prev = null; QG.apply(SET.gfx === "high" ? 0 : SET.gfx === "low" ? 3 : QG.rung);
   });
   $("fpsBtn").addEventListener("click", () => { SET.fps = !SET.fps; saveSettings(); gfxSync(); });
   gfxSync(); fullscreenUI();
@@ -17525,68 +17604,80 @@ function optSync() {
 /* ---------------- loop ---------------- */
 const H = 1 / 120;
 /* ---------------- frame-rate governor ---------------- */
-// On "auto" graphics the game watches its own frame times and walks a quality ladder: down a rung whenever the
-// median frame over a ~1.5 s window misses the goal (55 fps), back up one rung after a long steady spell. It stops
-// dropping when a drop didn't help (the frame rate is capped by the screen or the phone, e.g. an iPhone in Low Power
-// Mode runs every page at 30 fps): it puts that rung back and holds the cap as the goal instead of blurring the
-// picture for nothing. A failed step back up doubles the wait before the next try. The rungs change only the knobs
-// that are cheap to change live; MSAA and the shader loop counts come from the preset at load.
+// On "auto" graphics the game watches its own frame times and walks a quality ladder: down whenever the median frame
+// over a ~0.5 s window misses the goal (57 fps), by as many rungs as the miss calls for (each rung is worth ~20% of the
+// frame), and back up one rung after a long steady spell. The shaders here are fill-bound (two raymarched snow shaders
+// on every ground pixel), so the first thing every rung gives up is render resolution, in fine steps, then the
+// lee-shadow march length, shadow redraw rate and tree distance. It stops dropping when a drop didn't help (the frame
+// rate is capped by the screen or the phone, e.g. an iPhone in Low Power Mode runs every page at 30 fps): it puts that
+// rung back and holds the cap as the goal instead of blurring the picture for nothing. A failed step back up doubles
+// the wait before the next try. The rung that held is remembered per screen size, so the next launch (title screen
+// included) starts there instead of re-learning it. MSAA and the shadow filter come from the preset at load.
 const QG = {
-  rungs: [                                                  // pr: x the preset's pixel ratio (clamped prMin..prMax); sh: shadow
-    { pr: 1.25, sh: 1, map: 1, tree: 1 },                   // redraw every N frames; map: x shadow map size; tree: x tree distance
-    { pr: 1, sh: 1, map: 1, tree: 1 },                      // 1: the "high" preset as built (desktops start here)
-    { pr: 1, sh: 2, map: 1, tree: 0.85 },                   // 2: the "low" preset (phones start here)
-    { pr: 0.85, sh: 3, map: 1, tree: 0.75 },
-    { pr: 0.75, sh: 4, map: 0.5, tree: 0.62 },
-    { pr: 0.65, sh: 6, map: 0.5, tree: 0.5 },
-    { pr: 0.55, sh: 8, map: 0.5, tree: 0.42 },
+  rungs: [                                                  // pr: absolute pixel ratio (clamped GFX.prMin..GFX.prMax); sh: shadow redraw every
+    { pr: 1.5, sh: 1, map: 1, tree: 1, mk: 6 },             // N frames; map: x shadow map size; tree: x tree distance; mk: lee-shadow march steps
+    { pr: 1.3, sh: 1, map: 1, tree: 1, mk: 6 },             // 0: the "high" preset as built
+    { pr: 1.15, sh: 1, map: 1, tree: 1, mk: 6 },
+    { pr: 1, sh: 2, map: 1, tree: 0.85, mk: 6 },            // 3: the "low" preset (phones start here, on 3 march steps)
+    { pr: 0.9, sh: 2, map: 1, tree: 0.8, mk: 4 },
+    { pr: 0.8, sh: 3, map: 1, tree: 0.75, mk: 3 },
+    { pr: 0.7, sh: 4, map: 0.5, tree: 0.62, mk: 3 },
+    { pr: 0.6, sh: 6, map: 0.5, tree: 0.5, mk: 3 },
+    { pr: 0.5, sh: 8, map: 0.5, tree: 0.42, mk: 2 },
   ],
-  rung: 1, on: false, win: [], winT: 0, settle: 0, prev: null, cap: 0, capT: 0, good: 0, probe: false, upWait: 15, upT: 0,
-  med: 16.7, fps: 60, sh: 0,
+  rung: 1, on: false, win: [], winT: 0, settle: 0, prev: null, cap: 0, capT: 0, good: 0, probe: false, upWait: 12, upT: 0,
+  med: 16.7, fps: 60, sh: 0, key: "",
   start() {
-    this.on = GFX.auto; this.rung = GFX.low ? 2 : 1; this.apply(this.rung);
+    this.on = GFX.auto;
+    this.key = Math.round(innerWidth) + "x" + Math.round(innerHeight) + "@" + GFX.dpr;
+    let r = GFX.low ? 3 : 1;
+    if (this.on) try { const m = JSON.parse(localStorage.getItem("tracklayer.qg.v1") || "null"); if (m && m.key === this.key && m.rung >= 0 && m.rung < this.rungs.length) r = m.rung; } catch (e) { }
+    this.rung = r; this.apply(r);
   },
+  remember() { if (this.on) try { localStorage.setItem("tracklayer.qg.v1", JSON.stringify({ key: this.key, rung: this.rung })); } catch (e) { } },
   apply(i) {
     this.rung = i = clamp(i, 0, this.rungs.length - 1); const r = this.rungs[i];
-    const pr = clamp(GFX.pr * r.pr, GFX.prMin, GFX.prMax);
+    const pr = clamp(Math.min(r.pr, GFX.dpr), GFX.prMin, GFX.prMax);
     if (Math.abs(renderer.getPixelRatio() - pr) > 0.01) renderer.setPixelRatio(pr);
     GFX.shadowEvery = r.sh; GFX.treeR = GFX.treeR0 * r.tree; _pineT = 0;
+    skyRefU.uMarchP.value = GFX.low ? Math.min(r.mk, 3) : r.mk; skyRefU.uMarchF.value = Math.min(r.mk, GFX.low ? 3 : 5);
+    document.documentElement.classList.toggle("lq", i >= 4);       // past this rung the HUD panels drop their backdrop blur too
     const ms = Math.max(512, GFX.shMap0 * r.map);
     if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
     renderer.shadowMap.needsUpdate = true;
-    this.win.length = 0; this.winT = 0; this.settle = 0.8;          // let the new setting bed in before judging it
+    this.win.length = 0; this.winT = 0; this.settle = 0.3;          // let the new setting bed in before judging it
   },
   // called once per frame with the real interval (ms) since the last one
   tick(ms) {
     if (document.hidden || ms > 2000) { this.win.length = 0; this.winT = 0; return; }  // tab away or a load stall: start the window over
     if (this.settle > 0) { this.settle -= ms / 1000; return; }
     this.win.push(ms); this.winT += ms;                         // the median shrugs off single hitches; a slow phone still gets judged
-    if (!(this.winT >= 1500 && this.win.length >= 12) && !(this.winT >= 4000 && this.win.length >= 4)) return;
+    if (!(this.winT >= 500 && this.win.length >= 10) && !(this.winT >= 1200 && this.win.length >= 3)) return;
     const w = this.win.slice().sort((a, b) => a - b), med = w[w.length >> 1]; this.win.length = 0; this.winT = 0;
     this.med = med; this.fps = 1000 / med;
     if (!this.on || !ready) return;
-    const goal = this.cap ? this.cap * 1.08 : 1000 / 55, now = performance.now() / 1000;
+    const goal = this.cap ? this.cap * 1.08 : 1000 / 57, now = performance.now() / 1000;
     if (this.cap && now > this.capT) this.cap = 0;            // re-test the cap now and then (Low Power Mode may be off now)
     if (this.prev) {                                           // judge the last step
       const p = this.prev; this.prev = null;
       if (p.dir > 0 && med > p.med * 0.92 && med > goal) {    // went down a rung and it barely helped: capped, not overloaded
-        this.cap = Math.max(p.med, med); this.capT = now + 180; this.apply(p.rung); return;
+        this.cap = Math.max(p.med, med); this.capT = now + 180; this.apply(p.rung); this.remember(); return;
       }
       if (p.dir < 0 && med > goal) {                            // went up a rung and lost the frame rate: back down, wait longer next time
-        this.upWait = Math.min(240, this.upWait * 2); this.upT = now + this.upWait; this.apply(p.rung); return;
+        this.upWait = Math.min(240, this.upWait * 2); this.upT = now + this.upWait; this.apply(p.rung); this.remember(); return;
       }
     }
     if (med > goal && this.rung < this.rungs.length - 1) {
       this.good = 0; this.prev = { dir: 1, med, rung: this.rung };
-      this.apply(this.rung + (med > goal * 1.8 ? 2 : 1)); return;
+      this.apply(this.rung + clamp(Math.round(Math.log(med / goal) / Math.log(1.2)), 1, 4)); this.remember(); return;
     }
     if (med <= goal) {
       if (++this.good >= 4 && this.rung > 0 && now > this.upT) {
-        this.good = 0; this.upT = now + this.upWait; this.prev = { dir: -1, med, rung: this.rung }; this.apply(this.rung - 1);
+        this.good = 0; this.upT = now + this.upWait; this.prev = { dir: -1, med, rung: this.rung }; this.apply(this.rung - 1); this.remember();
       }
     } else this.good = 0;
   },
-  label() { return (this.on ? "auto " : GFX.low ? "low " : "high ") + (this.rungs.length - this.rung) + "/" + this.rungs.length + (this.cap ? " · held" : ""); },
+  label() { return (this.on ? "auto " : GFX.low ? "low " : "high ") + (this.rungs.length - this.rung) + "/" + this.rungs.length + " · " + renderer.getPixelRatio().toFixed(2) + "x" + (this.cap ? " · held" : ""); },
 };
 QG.start();
 let hudFpsT = 0;
@@ -17613,7 +17704,7 @@ function frame(t) {
   updSpray(dt); updMuck(dt); updSparks(dt); updFlakes(dt); updChimSmoke(dt); updPending(dt); updWobble(dt); pineCull(dt); P.dumped = Math.max(0, P.dumped - dt);
   if (started) { updAudio(spd); markMap(); }
   flushSnow();
-  trailClock += dt; if (trailDirty && trailClock > 0.25) { trailTex.needsUpdate = true; trailDirty = false; trailClock = 0; }
+  trailClock += dt; if (trailDirty && trailClock > 0.25) flushTrail();
   hudT += dt; if (hudT > 0.066) { hudT = 0; if (started) { updHud(spd); updGameHud(); updWinchHud(); updTouch(); drawMap(); } }
   tabView_sync(); tabDash(dt); TABLET.place();
   if (++QG.sh >= GFX.shadowEvery) { QG.sh = 0; renderer.shadowMap.needsUpdate = true; }
@@ -17744,6 +17835,7 @@ function boot() {
   });
   P.y = surf(P.x, P.z);
   recenter(P.x, P.z, true);
+  window.__bake = KIT.bake();
   ready = true;
   loadSettings(); buildSettings(); buildGarageTabs(); ctFonts(); setTimeout(() => tabChart(), 2500);
   titleReady();

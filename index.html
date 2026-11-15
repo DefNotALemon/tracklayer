@@ -1038,6 +1038,9 @@
   }
   body.showroom #vit,body.showroom #compass{visibility:hidden}
   body.tabOn #vit,body.tabOn #compass{opacity:.16}
+  /* perf: a backdrop blur re-reads the WebGL canvas behind it every frame. Off on phones/tablets and on the governor's low rungs (html.lq), with a firmer fill on the HUD panels so they still read */
+  html.mobile .panel,html.lq .panel{background:rgba(13,24,34,.84)}
+  html.mobile *,html.lq *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 </style>
 
 <canvas id="gl"></canvas>
@@ -1260,5 +1263,5 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tracklayer.js?v=238"></script>
+<script src="tracklayer.js?v=239"></script>
 </body></html>
