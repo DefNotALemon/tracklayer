@@ -629,4 +629,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       beside you" toast is wrong by 70 m. 0183 #3: retire or update `g1_townlots.mjs` (pre-grid lot offsets).
       0187 #3: the Map chart is a bright cream sheet at night.
 
-Last triaged report: 187
+Last triaged report: 200

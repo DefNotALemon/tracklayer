@@ -3,6 +3,40 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 21:20 — 3.5b2a semitrailers: lay-bys, fifth-wheel coupling, landing legs, weight and off-tracking (lane A) (G4) — d14a541
+Builder pass, lane A. Orient: the worktree held a dead pass's 3.5b2a (18:26: `tlx-rig.js`, `x3_rig.mjs`, the
+`TLXV.addLoad` / `TLXV.pose` hooks, README, EXPANSION, all written; it died in the gate after an `x1_save` CDN flake
+"THREE is not defined" and an `x3_tractor` run whose Chrome went away mid-scenario). This pass finished it instead
+of starting something new: stash, rebase onto lane B's 6.2a, keep both ids on x1_save's shared line
+(`"lights", "rig"`), read the code through, re-gate, land. Triage 188-200: no BLOCKER or BUG on a lane-A system
+(0189/0200 semis, 0195/0197 tractor: POLISH only, listed below).
+Built (`tlx-rig.js` v1, new; `tlx-vehicles.js` v20; nothing in tracklayer.js): 3.5b2 split in two, this is the
+first half. Two semitrailers (TLXS's trailer models with their own wheels and wind-down legs) stand in plowed
+lay-bys found at boot by `findBay` (first straight, level, clear 37 m of shoulder): box trailer 257 m out on fv888,
+tanker 150 m from Lebesby's end. Coupling: fifth wheel within 0.45 m of the kingpin, under 2.0 m/s, within 10 deg;
+refusals say why; re-arms after 1.2 m clear; the trailer's front plate stops a cab that runs on under it. Legs are
+an `api.footx` provider (LEGS UP / UNCOUPLE: use key, pad L3, touch button), legs down holds the lorry, uncoupling
+refused over 8% of grade. The trailer follows on a tractrix from the tractor's pose (clamped at 60 deg), and loads
+the truck through a new general hook `TLXV.addLoad(fn)` -> `{ kg, pin, drag, brakeN, hold }` (whole mass as
+inertia, 24% on the tractor's tyres, axle rolling by snow sink, 16 kN brake per axle capped at 0.4 g). Chase camera
+backs off via `VEH.camTow`; Map pins on the vehicles layer; state `rig.t[spot] = { x, z, yaw, on, legs }`; a save
+naming a tractor that is gone loads the trailer on its legs.
+Numbers (`x3_rig.mjs`, 38 asserts): 14,400 kg coupled against 7,200 bobtail; 3.2 m/s after 4 s on a road with
+10 cm of snow (bobtail 8.6); trailer drag 3.5 kN on 9.7 cm of sink.
+Stills (`~/.hermes/cache/scratch/tlloop/x35b2/sheet.jpg`): the
+trailer sits level on its legs and wheels, the tractor carries its front with no gap visible at contact-sheet size, it tracks inside the
+bend from above, reads at night under the tractor's lamps.
+Gate: smoke, x1_save, x3_rig (38 asserts) and x3_tractor all exit 0, page errors none, on lane B's 6.2a; lane C's
+14.4a landed during it (index.html script tags collided: both kept), so smoke, x1_save and x3_rig were run again
+on top of it before the push, all exit 0.
+Not done, left as 3.5b2b (unticked in EXPANSION.md): the jackknife as a held tractor with a message (today only the
+60 deg clamp), the trailer as a solid thing for walker / sled / traffic, straight reversing asserted over 20 m, a
+trailer left behind on a vehicle swap or sale, the curtainsider's spot, coupled top speed and hill numbers, marker
+lamps at night. Until then you can walk and ride through a parked trailer.
+Follow-ups for lane A from the betas (POLISH, not built): 0195 #1 the lorry out of fuel says nothing; 0197 #1
+repair cost is flat $20 a point for every truck; 0200 #1/#2 a semi passes a sled in its lane at 3.2 m and does not
+slow for one 3 m off the centre line; 0200 #4 `x3_semis_sled_beta2.mjs` step A's 6 m threshold is the test's error.
+
 ## 2026-11-14 21:15 — 14.4a the Boats app and the tow home (lane C) (G4) — 10bb1f4
 Builder pass, lane C. Orient: the worktree held a finished 14.4a from three dead passes (11:48, 17:06, 18:20: code,
 README, EXPANSION.md design + tick, `x14_boatsapp.mjs`; the 18:20 pass wrote a PROGRESS entry claiming a clean gate, but
