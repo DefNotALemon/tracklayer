@@ -453,10 +453,14 @@ what your snowshoes or skis do for you), not wherever you left the sled. Every l
 door, so you reach the hard pack well before you reach the step. Kjøllefjord is laid out on a street grid: three
 plowed east-west streets (the middle one, Kaigata, runs out to the pier) crossed by four north-south ones (the
 depot's street is the one a new save spawns facing down). Between them the houses stand in regular lots, gable
-to the street, back to back round a shared back alley, each with a picket fence on the lot lines, a shed and
+to the street, back to back round a shared back alley, each with a shed and
 woodpile in the back yard, a mailbox, a porch lamp and fairy lights; the store is on Kaigata, the church closes
 the south end, and a street lamp stands on every other lot line. A short plowed spur runs from each door to its
 street, so the walk from the quay to any door in town is hard pack all the way and nothing stands in the lane.
+The streets are real roads, the way a plowed Maine street looks: dark asphalt showing through with a thin film of salt and
+snow (bare wheel tracks, a snowy ridge down the middle over a faint yellow centre line, packed snow in the gutters), a low grey
+concrete curb with a snow cap down both sides, and storm drains at the corners. The curb opens wherever a house spur or yard
+lane meets the street, and it is only for looks: a sled rolls over it without a bump. There are no fences in town.
 On the east edge of town, at the end of the groomed trail, sits the sled country: a groomer shed with its
 piste groomer parked out front, a plowed sled park (six sleds on a log rail, block-heater posts), a warming
 hut with a lit stove, a jerry-can stand, the SKUTERLØYPE trailhead arch, a trail map board and orange stakes

@@ -89,13 +89,12 @@ if (sp) {
   await sleep(1000);
   await down("KeyW");
   let vBefore = null, vAt = null, maxInto = 0;
-  for (let i = 0; i < 40; i++) {                                         // poll the ride: speed just before the curb line vs just after it
-    await sleep(60);
+  for (let i = 0; i < 60; i++) {                                         // poll the ride: speed on the approach vs the first sample past the curb line (2.55 m)
+    await sleep(40);
     const s = JSON.parse(await ev("JSON.stringify({ x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz) })")), into = (s.z - sp.sz) * dir;
     maxInto = Math.max(maxInto, into);
-    if (into > -3.6 && into < -2.6 && vBefore === null) vBefore = s.v;      // sled centre ~2.6 m short of the street's centre line: the nose is at the curb
-    if (into > 1.2 && into < 2.2 && vAt === null) vAt = s.v;               // centre 1.2-2.2 m past it: the whole sled has crossed the curb line (2.55 m)
-    if (vAt !== null || into > 6) break;
+    if (into < -2.6 && into > -8) vBefore = s.v;
+    if (into > 1.5) { vAt = s.v; break; }
   }
   await up("KeyW");
   console.log("spur ride", JSON.stringify({ maxInto: +maxInto.toFixed(1), vBefore, vAt }));

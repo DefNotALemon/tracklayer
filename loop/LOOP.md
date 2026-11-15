@@ -126,6 +126,11 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **14 Nov, Lemon: Kjøllefjord roads, no fences.** His words: "remove the fences from the tracklayer towns, i like
+  the idea but i'd rather have the roads visible as roads that still have a slight layer of snow on them and a curb on
+  the sides? idk what else could be done that's just my thought as a mainer". Done in v238 (`townRoads()`): picket
+  fences gone, the street grid is an asphalt ribbon with a thin snow film, curbs with snow caps (gaps at spurs), storm
+  drains. Villages' own streets (`tlx-roads.js`) and the long roads were NOT given the ribbon; follow-on if he wants it.
 - **14 Nov, Lemon: guns and Tarkov-style customization, prioritized, frustrated at slow progress.** His
   words: "add in can we add directives to add a lot more rocks... get other agents working on guns and gun
   customization, and gun parts/upgrades like scopes, magazines, better ammos, grips to hold, longer barrels,
