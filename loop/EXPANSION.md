@@ -14,7 +14,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); 3.5a semis on the roads in three sizes, trailer on a tractrix coupling (tlx-semis v1, tlx-traffic v5); 3.5b1 the tractor unit you buy and drive, Freight licence, no trailer yet (tlx-vehicles v19); 3.5b2a semitrailers in road lay-bys, fifth-wheel coupling, landing legs, the trailer's weight and off-tracking (tlx-rig v1, tlx-vehicles v20); next: 3.5b2b (jackknife hold, the trailer as a solid thing, straight reversing) |
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
-| 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); 6.1b landed (v235, tlx-property v3): Real Estate has a page per property type, Slettnes lighthouse station is for sale (keeper's house + tower room, each room its own dirt, let by the night, caretaker); 6.1 done; 6.2a landed (v236, tlx-lights v1): the lamp at Slettnes burns paraffin while the sun is down, 180 L tank, drums ordered in the Lights app and hauled from the quay, pumped in by hand, relit by hand, Monday stipend by lamp hours; next: 0196 #3 (reload inside a room, unconfirmed BUG), then 6.2b (the two smaller lights) |
+| 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); 6.1b landed (v235, tlx-property v3): Real Estate has a page per property type, Slettnes lighthouse station is for sale (keeper's house + tower room, each room its own dirt, let by the night, caretaker); 6.1 done; 6.2a landed (v236, tlx-lights v1): the lamp at Slettnes burns paraffin while the sun is down, 180 L tank, drums ordered in the Lights app and hauled from the quay, pumped in by hand, relit by hand, Monday stipend by lamp hours; 0196 #3 dropped (no save holds a position: every reload, from anywhere, starts on the sled at the quay; a base-game design question, not a 6.1b bug); 6.2b landed (tlx-lights v2, tlx-property v4): two smaller sea lights for sale, Finnkirka ($4,400) and Kinnarodden ($5,200), a lantern hut each with its own flash, 80 L tank, $6 / $7 a lamp hour, drums ordered and hauled per light: 6.2 done; next: 6.3 (keepers and oil drivers) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; beta fix 0190 #1 + 0192 #1 (tlx-guns v4): nothing fires under Settings and Settings slings the rifle, the pack stays at 120 when rounds come back out of the magazine; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
@@ -588,7 +588,7 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         `api.ui` gained fmtMi. Test `x6_types.mjs`.
         Left for 6.2: the lamp, oil tank and drums, Lights app, stipend, the two smaller lights (each an
         `addListing` of type "light"). Not done here: upgrades for a listing, a fuel cache at the station.
-- [ ] 6.2 Slettnes buyable: oil tank (about three game days), oil drums hauled from town, lamp state, Lights app,
+- [x] 6.2 Slettnes buyable: oil tank (about three game days), oil drums hauled from town, lamp state, Lights app,
       Monday stipend by lamp hours. Two smaller lights on other headlands. Split (lane B, 14 Nov):
   - [x] 6.2a The lamp at Slettnes (`tlx-lights.js` v1, saved `x.sys.lights` = `{ lamps: { id: { oil, store, on, lit,
         need, low } }, quay, hT, last }`; v236). `LAMPS` rows name the tlx-property listing that owns the lamp, the
@@ -616,10 +616,34 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         Test `x6_lamp.mjs` (44 asserts A-I).
         Not done: a hand-pump prop and a climb-the-stair animation (LIGHT is a toast), the tank drawn as a gauge
         in the room, summer skip (the midnight sun burns nothing, so nothing to bill).
-  - [ ] 6.2b Two smaller lights on other headlands: each a `TLX.prop.addListing` of type "light" (one room, its own
-        small tower mesh and blink) + a `LAMPS` row; smaller tank and stipend. The Lights app already lists every
-        lamp you own; `mkClaim` needs the lamp picked in the order (the card's button already carries the id) and
-        `sync()` must rebuild claims per lamp (today it rebuilds for the first owned lamp: store `quay` per lamp).
+  - [x] 6.2b Two smaller lights on other headlands (tlx-lights v2, tlx-property v4; no tracklayer.js change).
+        Design (lane B, 14 Nov): table `SMALL` in tlx-lights.js, one row a light: **Finnkirka light** ($4,400, seed
+        -3740/-820: the headland at the mouth of the Kjøllefjord, 2.4 km west of the quay) and **Kinnarodden
+        light** ($5,200, seed -1060/-3820: the north tip). Each row carries its region (`nordkinn`; another world
+        places none), and `placeSmall()` searches 140 m round the seed for the flattest open ground with the most
+        sea about it (never a Nordkinn constant beyond the seed); the door faces inland. Each is a
+        `TLX.prop.addListing` of type "light" from tlx-lights.js with ONE room (`<id>:hut`, 4.2 m square: bunk,
+        stove, two drums on the rack, the ladder to the hatch), let at $35 a night (28% bare), and a `LAMPS` row
+        with its own numbers (`N(lp, key)`: the row's or `LIGHTS`'s): tank 80 L, burn 1 L a lamp hour (80 h, about
+        four December days), stipend $6 (Finnkirka) / $7 (Kinnarodden), 20 L with the keys, 3 drums at most.
+        Economy at the December start: 128 dark hours a week = $767 / $894 stipend for 128 L (3 drums, $135) plus
+        about $70 in lets: five to six weeks on the price, for a ride out every four days.
+        Outside: a whitewashed hut on a stone footing, pyramid roof, gallery, a banded iron column, the lantern
+        (`buildSmall`, 26 meshes, one hard obstacle r 2 m), a blink sphere and an additive halo sprite at night (no
+        PointLight: adding lights recompiles every material). `flash` per row: Finnkirka two 0.6 s flashes in 8 s,
+        Kinnarodden occulting (4.2 s on in 6). `flashTick()` shows it unless it is YOURS and out.
+        They are not SITES (nothing else should start treating a lantern hut as a village): a drum's `dest` is the
+        light's own drop point (`m.drop`, 6 m inland of the hut, `type: "light"`), and `dropTick()` calls
+        `api.deliver(drop)` when the active vehicle is stopped (< 4 m/s) within 22 m, so the 6.2a bridge in
+        `deliver()` does the rest; the skiff can land drums too if it gets that close.
+        Drums per light: each lamp record has `q` (paid for, at the quay or aboard); `order(id)`, `stock`, `land`
+        and `sync()` work per lamp (sync rebuilds each light's claims after a reload, with that light's dest).
+        6.2a's single `quay` count is folded into Slettnes's `q` on load and dropped from the state. App: the
+        sub-line lists the rates ("$12 / $6 a lamp hour"), each card its own tank, rate and drums; the texts say
+        "ladder" / "the lantern hut" for a small light. Real Estate cards say "1 ROOM" for one room.
+        Test `x6_smalllights.mjs` (A-I); `x6_lamp.mjs` reads the per-lamp count.
+        Not done: a chart glyph for the small lights on the Map (they pin on the Depots layer once owned), a
+        plowed apron at the door, a climb animation (LIGHT is still a toast, as in 6.2a).
 - [ ] 6.3 Keepers and oil drivers. Options: lens polishing, passing ships, extra upkeep tasks.
 
 ### 7. Lodging (`tlx-lodging.js`)

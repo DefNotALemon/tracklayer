@@ -3,6 +3,36 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 21:40 — 6.2b the two smaller lights: Finnkirka and Kinnarodden, drums ordered per light (lane B) (G4) — ff195f5
+Builder pass, lane B. Orient: worktree clean, rebased, 255 GB free. Triage for lane B: nothing new since 0196.
+**0196 #3 (unconfirmed BUG, reload inside a room comes up riding) dropped, not a bug of 6.1b:** `save()` holds no
+position at all (no P, FOOT or INT field), so every reload, from any room or from the open fell, starts on the sled at
+the quay. That is the base game's design since v1; changing it is a base-game decision (lane A / Lemon), not a fix here.
+Built 6.2b (design in EXPANSION.md): `tlx-lights.js` v2 adds table `SMALL` and, from it, two `TLX.prop.addListing`
+listings of type "light" plus two `LAMPS` rows. `placeSmall()` finds the flattest open ground with the most sea round
+it within 140 m of each row's seed; `buildSmall()` is the lantern hut (26 meshes, one obstacle, a blink sphere and an
+additive halo sprite, no new scene light). Per-lamp numbers through `N(lp, key)`; drums on order moved from one
+`quay` count to `q` on each lamp record (order, stock cap, land, sync and the app card all per lamp; 6.2a's `quay` is
+folded into Slettnes on load). The small lights are not SITES: `dropTick()` calls `api.deliver(drop)` when the active
+vehicle stops within 22 m. No tracklayer.js change (script stays v237); tlx-property v4 says "1 ROOM" for one room.
+Numbers (`x6_smalllights.mjs`, 41 asserts A-I, exit 0, page errors none): Finnkirka at -3710/-760 (ground 8.3 m, slope
+0, sea on 8/16 at 150 m, 1.6 km from Neset, 2.4 km from the quay), Kinnarodden at -1050/-3780 (4.0 m, sea 6/16, 1.8 km
+from Mehamn), 4.0 km apart, both reachable overland; flashes 15% / 70% duty by design; $4,400 buys Finnkirka lit with
+20 of 80 L; a December day = 18.0 lamp hours = 18.0 L; 5 L -> out after 5.00 h, its flash 0 while Kinnarodden's goes
+on; 3 drums cap ($135), Slettnes's 2 counted apart; stopped at the hut only Finnkirka's drum lands (60 L, no pay, no
+delivery), Slettnes's at the lighthouse; pump 0 -> 60 -> 80 L (40 L stays in the drum); L3 at the ladder relights;
+touch reads PUMP; Monday 18.3 h x ($6 + $12) = $329; a week = 128 dark hours = $767 / $894 for 3 drums ($135); reload
+keeps each light's drums; a 6.2a save's `quay: 2` becomes Slettnes's two claims.
+Gate: first run x6_lamp D ("the tower no longer flashes") and x6_types C failed. x6_types C was the test's own
+assumption (no BUY IT on the page once Slettnes is yours: two more lights are for sale now), reworded. x6_lamp D
+passed alone and is a harness flake that predates this: the walker stands outdoors for minutes, and when the cold
+blacks him out `updGame` returns before the blink line, so the check reads a stale frame. Both lamp scenarios now
+keep `GS.warmth` up. Second gate, after the rebase onto v237: smoke, x1_save, x6_smalllights, x6_lamp, x6_types all exit 0, page errors none.
+Stills (`~/.hermes/cache/scratch/tlloop/b62c/r1/`): both huts sit on the snow with door, step, sign and ring; the
+night halo is round and modest; the hut room shows drums, stove, bunk, crate; the pumping figure stands at the rack.
+Honest gaps: LIGHT is still a toast (no ladder climb), no chart glyph for the small lights before you own them, deep
+snow at the door (no plowed apron), the exterior door is a flat slab. Not beta-tested yet.
+
 ## 2026-11-14 21:20 — 3.5b2a semitrailers: lay-bys, fifth-wheel coupling, landing legs, weight and off-tracking (lane A) (G4) — d14a541
 Builder pass, lane A. Orient: the worktree held a dead pass's 3.5b2a (18:26: `tlx-rig.js`, `x3_rig.mjs`, the
 `TLXV.addLoad` / `TLXV.pose` hooks, README, EXPANSION, all written; it died in the gate after an `x1_save` CDN flake
