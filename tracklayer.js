@@ -11910,7 +11910,7 @@ function placeQuay() {
    Now it is laid out round real streets: three E-W streets (z = -36, 12, 60 from the depot; the middle one, Kaigata, runs
    out to the pier) crossed by four N-S streets (x = -42, 2, 48, 84; x = 2 is the depot's own, the sled spawns facing down it).
    Between the streets the houses stand in regular lots, gable to the street, back to back round a shared back alley, each with
-   its picket fence on the lot lines, a shed and a woodpile in the back yard, a mailbox at the street, a porch lamp and a string
+   a shed and a woodpile in the back yard, a mailbox at the street, a porch lamp and a string
    of fairy lights. The streets are plowed lanes (r 2.4, strength 0.9 like the roads), a lamp stands on every other lot line.
    buildLanes() then only has to plow a short spur from each door's apron to its street (D.grid) instead of routing every door
    to the depot. Kjøllefjord's real obstacles (depot, garage, anything already in obGrid) just veto a lot. */
@@ -11933,7 +11933,7 @@ function townClearTrees(x, z, r) {                                   // pines in
 }
 function townBlocks() {
   const { bx, put, house, lamp, L, snowM, woodD, wood, red, white, glowM } = KIT, d0 = depot, G = TOWNG, rnd = mulberry32(141114);
-  const HW = G.HW, RD = 21.0;                                          // street half width; back fence, metres from a street's centre line
+  const HW = G.HW, RD = 21.0;                                          // street half width; back alley, metres from a street's centre line
   // ---- the streets: plowed lanes, drawn on the chart (TOWNL) too
   const mk = (ax, az, bx2, bz2) => ({ a: [d0.x + ax, d0.z + az], b: [d0.x + bx2, d0.z + bz2] });
   const legs = [];
@@ -11947,20 +11947,8 @@ function townBlocks() {
   { const lr = [[d0.x - 5, d0.z + 7], [d0.x + G.X[1], d0.z + 7]]; addLane(lr, 1.5); TOWNL.push(lr); }   // the depot yard to its street, south of the depot pen, where the sled spawns
   // ---- lots: four rows of houses, gable to the street, back to back round the alleys
   const pal = [red, white, KIT.yellow, KIT.blue, L(0x5a4b3c), wood, L(0x7a5a3a), L(0x8a3f2c), L(0x6d7f8c)];
-  const wd = [], sn = [], rd = [], gl = [], fw = [], fs = [];       // merged box lists: shed/wood, snow, red, glow; fence pale, fence snow caps
+  const wd = [], sn = [], rd = [], gl = [];                         // merged box lists: shed/wood, snow, red, glow
   const H = (x, z) => groundAt(x, z);
-  const fence = (x0, z0, x1, z1) => {                                 // a picket fence run on world axes, one merged mesh for the whole town
-    const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0) / 2.2));
-    const px = i => x0 + (x1 - x0) * i / n, pz = i => z0 + (z1 - z0) * i / n;
-    for (let i = 0; i <= n; i++) { fw.push([0.14, 1.12, 0.14, px(i), H(px(i), pz(i)) + 0.5, pz(i)]); }
-    for (let i = 0; i < n; i++) {
-      const mx = (px(i) + px(i + 1)) / 2, mz = (pz(i) + pz(i + 1)) / 2, my = (H(px(i), pz(i)) + H(px(i + 1), pz(i + 1))) / 2, l = 2.2, rz = (H(px(i + 1), pz(i + 1)) - H(px(i), pz(i))) * (alongX ? Math.sign(x1 - x0) : 0);
-      for (const yy of [0.38, 0.8]) fw.push(alongX ? [l, 0.08, 0.07, mx, my + yy, mz] : [0.07, 0.08, l, mx, my + yy, mz]);
-      const k = Math.round(l / 0.4);
-      for (let p = 0; p < k; p++) { const f = (p + 0.5) / k, qx = px(i) + (px(i + 1) - px(i)) * f, qz = pz(i) + (pz(i + 1) - pz(i)) * f; fw.push(alongX ? [0.08, 0.86, 0.035, qx, H(qx, qz) + 0.48, qz] : [0.035, 0.86, 0.08, qx, H(qx, qz) + 0.48, qz]); }
-      fs.push(alongX ? [l, 0.06, 0.13, mx, my + 1.1, mz] : [0.13, 0.06, l, mx, my + 1.1, mz]);
-      addOb({ x: mx, z: mz, r: 0.5, top: H(mx, mz) + 1.1 }); }
-  };
   const free = (x, z, R) => { for (const [u, v] of [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [R, R], [-R, R], [R, -R], [-R, -R]]) if (isSea(x + u, z + v)) return false; return slopeAt(x, z, 4) < 0.22 && !obNear(x, z, R * 0.7 + 0.5); };
   const xi = [[G.X[0], G.X[1]], [G.X[1], G.X[2]], [G.X[2], G.X[3]]];
   let nHouses = 0;
@@ -11969,12 +11957,10 @@ function townBlocks() {
     const sz = d0.z + sz0, ry = side > 0 ? Math.PI : 0, rear = sz + side * RD;
     xi.forEach(([xa, xb], ii) => {
       const lo = d0.x + xa + HW + 1.2, hi = d0.x + xb - HW - 1.2, n = Math.max(2, Math.round((hi - lo) / 13.2)), lw = (hi - lo) / n;
-      for (let i = 0; i <= n; i++) {                                  // lot lines: a fence from the back alley up to the house fronts
+      for (let i = 0; i <= n; i++) {                                  // lot lines: a street lamp on every other one
         const bx0 = lo + i * lw;
-        if (!isSea(bx0, sz + side * 12) && !isSea(bx0, rear)) fence(bx0, rear, bx0, sz + side * 8);
         if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 0.9), 0.8)) lamp(bx0, sz + side * (HW + 0.9));
       }
-      if (!isSea(lo, rear) && !isSea(hi, rear)) fence(lo, rear, hi, rear);
       for (let i = 0; i < n; i++) {
         const cx = lo + (i + 0.5) * lw, w = Math.min(lw - 5, 7 + rnd() * 1.5), d = 6 + rnd() * 1.3, h = 2.8 + rnd() * 0.4, fy = 3.6 + rnd() * 0.9, off = HW + fy + d / 2, cz = sz + side * off, mat = pal[Math.floor(rnd() * pal.length)];
         const skip = rnd() < 0.14, ox = cx - d0.x, oz = cz - d0.z, special = sz0 === G.Z[1] && side === -1 && ii === 0 && i === 0 ? "fish" : sz0 === G.Z[1] && side === 1 && ii === 1 && i === 1 ? "store" : null;
@@ -12021,8 +12007,6 @@ function townBlocks() {
       bx(ch, 0.12, 1.2, 0.12, KIT.metal, 0, 15.6, 6.5); bx(ch, 0.7, 0.12, 0.12, KIT.metal, 0, 15.4, 6.5);
       for (const zz of [-4, 0, 4]) for (const sd of [-1, 1]) bx(ch, 0.08, 1.6, 0.9, glowM, sd * 4.55, 2.4, zz);
     } }
-  if (fw.length) { const m = put(scene, mergeBoxes(fw), L(0xd9d3c5), 0, 0, 0); m.castShadow = true; m.receiveShadow = true; }
-  if (fs.length) { const m = put(scene, mergeBoxes(fs), snowM, 0, 0, 0); m.castShadow = false; }
   // ---- junction lamps, where the streets cross (every second one) and one at each end of Kaigata
   let ji = 0;
   for (const x of G.X) for (const z of G.Z) {
@@ -12030,6 +12014,120 @@ function townBlocks() {
     if (!isSea(lx, lz) && !obNear(lx, lz, 1.2)) lamp(lx, lz);
   }
   townBlocks.n = nHouses;
+}
+
+/* ---------------- Kjøllefjord's streets as roads (v238) ----------------
+   Lemon (a Mainer): the streets were only plowed lanes, so the town read as a few white trails. townRoads() lays what a
+   plowed Maine street looks like on top of them: an asphalt ribbon the width of the lane (junction squares where they cross),
+   dark and wet-looking with a thin salty snow film (a canvas texture: bare wheel tracks, a plow ridge down the middle with the
+   centre line faint under it, packed snow toward the gutters), a low concrete curb with a snow cap down both sides, and a
+   storm-drain grate at each junction corner. Curbs open wherever a house spur / yard lane (YARDS with r <= 2.2) meets the street, so
+   a sled or a walker crosses into a yard unhindered. It is all visual: no colliders (the sled rides straight over a curb), and
+   the lane's plowing (YARDS) is untouched, so the feel is the same. The ribbon is laid on surf() (the plowed snow level) plus a
+   hair so the near snow field can't cover it. One mesh per material, built once from boot() after the lanes exist. */
+function townRoadTex() {
+  const W = 128, Hh = 256, c = document.createElement("canvas"); c.width = W; c.height = Hh; const g = c.getContext("2d"), r = mulberry32(2711);
+  g.fillStyle = "#2c2e32"; g.fillRect(0, 0, W, Hh);
+  for (let i = 0; i < 5200; i++) { const v = 24 + Math.floor(r() * 46); g.fillStyle = `rgba(${v},${v + 1},${v + 4},0.55)`; g.fillRect(r() * W, r() * Hh, 1 + (r() < 0.2), 1); }
+  for (const u of [0.3, 0.7]) { const gr = g.createLinearGradient((u - 0.09) * W, 0, (u + 0.09) * W, 0); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(0.5, "rgba(8,8,10,0.38)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect((u - 0.09) * W, 0, 0.18 * W, Hh); }
+  g.fillStyle = "rgba(214,176,52,0.75)"; for (let y = 0; y < Hh; y += 128) g.fillRect(W * 0.5 - 2, y + 8, 4, 62);   // faint centre dashes, snowed over below
+  const film = (x, y, rad, a) => { g.fillStyle = `rgba(222,228,235,${a})`; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill(); };
+  for (let i = 0; i < 1500; i++) film(r() * W, r() * Hh, 0.5 + r() * 1.3, 0.05 + r() * 0.14);                      // salt and dust over the whole surface
+  for (let i = 0; i < 260; i++) film(W * (0.5 + (r() - 0.5) * 0.14), r() * Hh, 0.8 + r() * 2.2, 0.1 + r() * 0.25);  // the plow ridge between the wheel tracks
+  for (let i = 0; i < 90; i++) { const x = r() * W, y = r() * Hh, l = 6 + r() * 22; g.fillStyle = `rgba(222,228,235,${0.05 + r() * 0.1})`; g.fillRect(x, y, 1 + r() * 2.2, l); }   // plow streaks along the lane
+  for (let i = 0; i < 520; i++) { const e = r() < 0.5 ? 1 : -1, d = Math.pow(r(), 2.2) * 0.2; film(W * (e > 0 ? 1 - d : d), r() * Hh, 0.9 + r() * 2.4, 0.15 + r() * 0.4); }   // packed snow in the gutters
+  g.fillStyle = "rgba(200,206,214,0.5)"; g.fillRect(0, 0, 3, Hh); g.fillRect(W - 3, 0, 3, Hh);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+function townRoads() {
+  const G = TOWNG, d0 = depot, HW = G.HW, { L, snowM } = KIT, LIFT = 0.04, CURB_H = 0.22, CURB_W = 0.3;
+  if (!G.lines.length) return;
+  const H = (x, z) => surf(x, z) + LIFT;
+  const tex = townRoadTex();
+  const matR = new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff, roughness: 0.92, metalness: 0 });
+  const matJ = matR;                                               // one texture; junction squares just use its plain middle strip
+  const asphalt = { pos: [], uv: [], idx: [] }, curbs = { pos: [], nor: [], idx: [] }, caps = { pos: [], nor: [], idx: [] }, grates = { pos: [], nor: [], idx: [] };
+  // a general quad strip (ribbon) from t0..t1 along leg a->b, offsets u0..u1 across it
+  const ribbon = (a, b, t0, t1, hw, nu = 6) => {
+    const Ln = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / Ln, dz = (b[1] - a[1]) / Ln, nx = -dz, nz = dx, m = Math.max(1, Math.ceil((t1 - t0) / 1.4)), base = asphalt.pos.length / 3;
+    for (let i = 0; i <= m; i++) { const t = t0 + (t1 - t0) * i / m; for (let j = 0; j <= nu; j++) { const u = -hw + 2 * hw * j / nu, x = a[0] + dx * t + nx * u, z = a[1] + dz * t + nz * u; asphalt.pos.push(x, H(x, z), z); asphalt.uv.push(j / nu, t / 9.6); } }
+    for (let i = 0; i < m; i++) for (let j = 0; j < nu; j++) { const p = base + i * (nu + 1) + j, q = p + nu + 1; asphalt.idx.push(p, p + 1, q, p + 1, q + 1, q); }
+  };
+  // legs: the seven street lines (cut at every street that crosses them) and the depot yard lane
+  const streets = G.lines.map(l => ({ a: [l[0], l[1]], b: [l[2], l[3]], hw: HW })); G.road = { segs: [], junctions: [], curbPieces: 0, gaps: 0, gapPts: [], lines: streets.length };
+  // lane samples (every 0.4 m) of every narrow lane that could cross a curb: a curb piece is left out where one crosses it at an angle
+  // (a spur or yard lane going into a lot), not where a lane just runs alongside the street
+  const smp = [];
+  for (const Y of YARDS) {
+    if (Y.r > 2.2 || Math.hypot(Y.x - d0.x, Y.z - d0.z) > TOWN_R + 20) continue;
+    const ux = Y.x2 - Y.x, uz = Y.z2 - Y.z, Ln = Math.hypot(ux, uz); if (Ln < 0.1) continue;
+    const n = Math.ceil(Ln / 0.4); for (let i = 0; i <= n; i++) smp.push([Y.x + ux * i / n, Y.z + uz * i / n, Y.r, ux / Ln, uz / Ln]);
+  }
+  const crossesAt = (xa, za, xb, zb) => {                          // does a lane cross the curb piece xa,za -> xb,zb at an angle?
+    const dx = xb - xa, dz = zb - za, Lp = Math.hypot(dx, dz), px = dx / Lp, pz = dz / Lp, ll = Lp * Lp;
+    for (const [x, z, r, lx, lz] of smp) {
+      if (Math.abs(lx * pz - lz * px) < 0.25) continue;
+      const t = clamp(((x - xa) * dx + (z - za) * dz) / ll, 0, 1);
+      if (Math.hypot(x - xa - dx * t, z - za - dz * t) < r + 0.3) return true;
+    }
+    return false;
+  };
+  const all = streets.concat([{ a: [d0.x - 5, d0.z + 7], b: [d0.x + 2, d0.z + 7], hw: 1.5, yard: true }]);
+  for (const S of all) {
+    const Ln = Math.hypot(S.b[0] - S.a[0], S.b[1] - S.a[1]), dx = (S.b[0] - S.a[0]) / Ln, dz = (S.b[1] - S.a[1]) / Ln, ew = Math.abs(dz) < 1e-6;
+    // cut the leg where a perpendicular street crosses (the junction square fills it)
+    let cuts = [];
+    for (const O of streets) {
+      if (O === S) continue; const oew = Math.abs(O.b[1] - O.a[1]) < 1e-6; if (oew === ew) continue;
+      const c = oew ? O.a[1] : O.a[0], lo = oew ? Math.min(O.a[0], O.b[0]) : Math.min(O.a[1], O.b[1]), hi = oew ? Math.max(O.a[0], O.b[0]) : Math.max(O.a[1], O.b[1]);
+      const pos = ew ? S.a[1] : S.a[0]; if (pos < lo - HW || pos > hi + HW) continue;          // this street doesn't reach across here
+      const t = ew ? (c - S.a[0]) / dx : (c - S.a[1]) / dz; cuts.push(t);
+    }
+    cuts.sort((p, q) => p - q);
+    let t0 = 0; const spans = [];
+    for (const t of cuts) { if (t - HW > t0 + 0.2) spans.push([t0, t - HW]); t0 = Math.max(t0, t + HW); }
+    if (Ln > t0 + 0.2) spans.push([t0, Ln]);
+    for (const [s0, s1] of spans) {
+      ribbon(S.a, S.b, s0, s1, S.hw); G.road.segs.push({ a: [S.a[0] + dx * s0, S.a[1] + dz * s0], b: [S.a[0] + dx * s1, S.a[1] + dz * s1], hw: S.hw });
+      // curbs down both sides, in pieces ~1.25 m long that follow the surface; a piece within reach of a spur or yard lane is left out
+      const nP = Math.max(1, Math.round((s1 - s0) / 1.25)), nx = -dz, nz = dx;
+      for (const sd of [-1, 1]) for (let i = 0; i < nP; i++) {
+        const ta = s0 + (s1 - s0) * i / nP, tb = s0 + (s1 - s0) * (i + 1) / nP, off = sd * (S.hw + CURB_W / 2);
+        const xa = S.a[0] + dx * ta + nx * off, za = S.a[1] + dz * ta + nz * off, xb = S.a[0] + dx * tb + nx * off, zb = S.a[1] + dz * tb + nz * off;
+        if (crossesAt(xa, za, xb, zb)) { G.road.gaps++; G.road.gapPts.push([(xa + xb) / 2, (za + zb) / 2]); continue; }
+        if (isSea(xa, za) || isSea(xb, zb)) continue;
+        const ya = surf(xa, za) + CURB_H - 0.015, yb = surf(xb, zb) + CURB_H - 0.015, yo = Math.min(ya, yb) - CURB_H - 0.05;   // top follows the street, the foot is buried below it
+        const box = (o, w, y0a, y0b, ytop) => {                     // a sloped box: bottom ytop-h, top follows (ya..yb)
+          const ex = nx * w / 2, ez = nz * w / 2, base = o.pos.length / 3;
+          const Va = [[xa - ex, za - ez], [xa + ex, za + ez], [xb + ex, zb + ez], [xb - ex, zb - ez]], hh = [y0a, y0a, y0b, y0b];
+          for (let k = 0; k < 4; k++) o.pos.push(Va[k][0], hh[k], Va[k][1]);          // 0-3 top
+          for (let k = 0; k < 4; k++) o.pos.push(Va[k][0], yo, Va[k][1]);             // 4-7 bottom
+          for (const q of [0, 1, 2, 0, 2, 3, 0, 5, 1, 0, 4, 5, 1, 6, 2, 1, 5, 6, 2, 7, 3, 2, 6, 7, 3, 4, 0, 3, 7, 4]) o.idx.push(base + q);
+        };
+        box(curbs, CURB_W, ya, yb); box(caps, CURB_W * 0.7, ya + 0.03, yb + 0.03); G.road.curbPieces++;
+      }
+    }
+  }
+  // junction squares + a storm drain at each corner
+  for (const X of G.X) for (const Z of G.Z) {
+    const cx = d0.x + X, cz = d0.z + Z; if (isSea(cx, cz)) continue;
+    const A = [cx - HW, cz], B = [cx + HW, cz]; ribbon(A, B, 0, 2 * HW, HW, 6); G.road.junctions.push([cx, cz]);
+    for (const [sx, sz] of [[-1, -1], [1, 1]]) {                    // two grates, on opposite corners, just inside the curb line
+      const gx = cx + sx * (HW - 0.4), gz = cz + sz * (HW + 1.4); if (isSea(gx, gz)) continue; const gy = H(gx, gz) + 0.012, base = grates.pos.length / 3;
+      const hx = 0.36, hz = 0.24; for (const [u, v] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) grates.pos.push(gx + u, gy, gz + v);
+      grates.idx.push(base, base + 2, base + 1, base, base + 3, base + 2);
+    }
+  }
+  const mk = (o, mat, norm, shadow) => {
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(o.pos, 3));
+    if (o.uv) geo.setAttribute("uv", new THREE.Float32BufferAttribute(o.uv, 2)); geo.setIndex(o.idx); geo.computeVertexNormals();
+    if (!geo.attributes.normal) return null; const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = false; m.frustumCulled = true; scene.add(m); return m;
+  };
+  const matC = L(0x6f7378), matG = L(0x17191c);
+  G.road.meshes = [mk(asphalt, matR), mk(curbs, matC), mk(caps, snowM), mk(grates, matG)].filter(Boolean);
+  G.road.meshes[0].userData.townRoad = "asphalt"; G.road.meshes[1].userData.townRoad = "curb";
+  matR.polygonOffset = true; matR.polygonOffsetFactor = -2; matR.polygonOffsetUnits = -2;
 }
 
 /* ---------------- sled country: the snowmobile trailhead on Kjøllefjord's east edge (v223) ----------------
@@ -17639,7 +17737,7 @@ function boot() {
   P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; camState.yaw = SPAWN.yaw;
   buildFar(); buildProps(); buildSites(); buildSchools(); buildRE(); buildViews(); buildTown(); buildTownSigns(); buildStations(); buildFuelCabins(); buildDog(); buildTow(); load(); buildMapBg(); ctBuild(); buildLakeWater(); meltBoot();
   buildNpcs(); buildWalker(); buildWinchGear();
-  buildFishShops(); buildHospital(); initFishing(); buildLanes(); initExpansion(); buildRockField();
+  buildFishShops(); buildHospital(); initFishing(); buildLanes(); initExpansion(); townRoads(); buildRockField();
   NPCS.forEach((n, i) => {                       // start them out on the map, not in your lap
     const s0 = SITES[2 + i * 2] || SITES[1];
     n.x = s0.x + 40; n.z = s0.z + 40; n.y = surf(n.x, n.z); n.yaw = Math.random() * 6.28; npcPickTarget(n);
