@@ -37,6 +37,47 @@ after (7.57): that assert sits 0.1 m/s from its limit on main too and the run ne
 Not done: the repair takes no time and she is not seen hauled out (the hull on the cradle is scenery); no Map pin; no
 going inside; parked boats are not pushed by `yardPush`; the other jetties have no yard. Two older 14.4a stashes are
 still in the stash list (safe to drop, as the last entry said).
+## 2026-11-14 22:15 — 3.5b2b1 semitrailers are solid, the jackknife holds the lorry, straight reversing (lane A) (G4) — 1b08d3e
+Beta 0205 #1/#2 (BUG, filed while this pass was gating: a road car stops 0.9 m inside the back of your coupled
+trailer, a standing trailer is in no traffic list) is this slice's `TLXRIG.bodies`: the tester's own
+`x3_rig_traffic_break.mjs`, written to fail until fixed, passes on this commit (closest 3.20 m). Triaged to 205.
+Builder pass, lane A. Orient: worktree clean, rebased onto lane C's 14.4a, then onto lane B's 6.2b before the last
+gate. Triage 201-204: no BLOCKER or BUG on a lane-A system (0201 get-in hints, 0202 rig swap/sell, 0204 slope
+uncouple: POLISH only, listed below). So the next unticked slice: 3.5b2b, split in two; this is the first half.
+Built (`tlx-rig.js` v2, `tlx-vehicles.js` v21, `tlx-traffic.js` v6; nothing in tracklayer.js):
+- Solid. Each trailer is 6 circles (r 1.3, nose to tail, at most 1.9 m apart) in the game's own obstacle grid
+  (`api.world.addOb` / `dropOb`, the parked cars' way), dropped and re-added whenever the trailer has moved 3 cm,
+  so walker, sled and pickup meet it through the code they already have. `collide` in tlx-vehicles asks
+  `TLXRIG.pass(o, uid, def)`: the lorry it is coupled to passes all of them, another tractor unit only the front
+  ones and only in line ahead of the kingpin (backing in to couple). `TLXRIG.bodies(out)` gives tlx-traffic's
+  `bodies()` the body's middle and a point ahead of its tail, so a driver stops for the trailer, not the cab.
+- Jackknife. Past 60 deg while backing up, the tractor is put back where it stood a frame ago and loses its
+  rearward speed; toast "Jackknifed: ... Pull forward to straighten it out." The load hook has a new `held` flag
+  so the lorry's own "wheels can't find grip backing up" line stays quiet (the first run showed both toasts).
+  Going forward the 60 deg stays a clamp: holding there would trap the player.
+Numbers (`x3_rigsolid.mjs`, new, 20 asserts): a walker held into the side for 5 s stays 1.39 m from the centre
+line (body 1.28); the sled at 7 m/s stops at 2.82 m; the tractor's centre at 4.45 m; coupling still works; 0
+circles left in the lay-by once it is on the road; 20 m straight back in 12 s with 19-21 taps of steering from a
+4 deg start, never past 4 deg; jackknife held within 0.04-0.07 m at 60.0 deg, forward 12 m straightens it to
+12 deg; a car at 10.5 m/s stops 6.0 m behind the tail; solid after a reload.
+Stills (`~/.hermes/cache/scratch/tlloop/x35b2b/`): s1 the walker stands against the tanker's side, outside it;
+s2 from above the box trailer at 60 deg with its corner at the back of the cab, one toast.
+`x3_rig.mjs` changed in one place: its "clear ground" check used `obNear`, which now finds the trailer itself;
+it skips `o.rig` obstacles.
+Gate, on lane B's 6.2b (735f9de): smoke, x1_save, x3_rigsolid, x3_rig, x3_semis all exit 0, page errors none
+(x3_tractor exit 0 in the gate before the rebase). The first gate,
+run while two other lanes were gating, had x3_rigsolid die without a result and x3_rig miss the "legs still down"
+toast; both passed run alone, and the gate was run again whole after the rebase.
+Test note: the jackknife step lays 4 cm of snow in a 26 m box first. Bent 50 deg on the road the trailer's axles
+are 5.6 m off the centre line in deep powder and the rig cannot move at all, forward or back (true to the
+physics, but nothing tells the driver which end is stuck: follow-up below).
+Not done, left as 3.5b2b2 (unticked): a rig left behind on a swap or a sale (0202 #1/#2), the curtainsider's
+lay-by, coupled top speed and hill numbers, marker lamps at night. Also: a moving trailer is not stopped by
+houses or parked cars (only its tractor is), and traffic stops for the body but does not collide with it.
+Follow-ups for lane A (POLISH, not built): a rig whose TRAILER is bogged says nothing about the trailer (the
+lorry's own "why won't it move" lines talk about the lorry's wheels); 0204 #2 the legs prompt reads LEGS UP /
+UNCOUPLE on ground too steep to uncouple on; 0201 #1 "walk back" when the vehicle is ahead; the on-foot/ice
+fishing hint "get off and fish Sikvatnet" shows while seated in the lorry on the road across the lake.
 
 ## 2026-11-14 21:40 — 6.2b the two smaller lights: Finnkirka and Kinnarodden, drums ordered per light (lane B) (G4) — ff195f5
 Builder pass, lane B. Orient: worktree clean, rebased, 255 GB free. Triage for lane B: nothing new since 0196.
