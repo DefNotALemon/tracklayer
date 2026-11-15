@@ -3,6 +3,41 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 21:15 — 14.4a the Boats app and the tow home (lane C) (G4) — 10bb1f4
+Builder pass, lane C. Orient: the worktree held a finished 14.4a from three dead passes (11:48, 17:06, 18:20: code,
+README, EXPANSION.md design + tick, `x14_boatsapp.mjs`; the 18:20 pass wrote a PROGRESS entry claiming a clean gate, but
+its logs show x14_seajobs dying with exit 13 and x14_fishing terminated, and nothing was committed). This pass did not
+write the slice: it read the whole diff, rebased it on main (lane B's 6.2a had taken v236 and added `sunEl` beside
+`api.mark` in `initExpansion`: both kept, script now v237), gated it from scratch and landed it. Two older copies are
+still in the stash list (`lane C 14.4a dead pass 11:48`, `... pass 20:56 rebase carry`): both are this slice, safe to
+drop. Triage: 0194 (14.3 handline) has three POLISH and no BUG; 0195-0200 are other lanes' systems. LOOP.md's "Last
+triaged" left alone (lane A keeps it).
+Built (`tlx-boats.js` v5, nothing new saved, no TLX.register): a tablet app "Boats", hidden until a boat is owned, "!"
+badge on a dry tank. A card per boat: ABOARD / MOORED / AFLOAT, NO FUEL / LOW FUEL, HULL n%; where she lies and how far
+that is by sea from the quay jetty; fuel and the range flat out; what the dents cost; parcels aboard. MARK ON MAP sets
+the Map's marker (`api.mark`). TOW HOME: $40 + $30 a km by sea (`TLXB.seaKmAt`, the sea jobs' flood fill from a jetty to
+any point), x1.5 with the storm over 0.5, to a free quay berth; refused at the quay jetty, with no berth free, mid-step,
+in the school or a rescue, or short of cash. Aboard: handline in, tablet down, fade (`#tlxbFade`), boat and rider on the
+berth, clock on by km / 11 km/h. Not aboard: she is moved at once. An empty tank at sea: the warning names the tow and
+its price, and the help control calls it (takes what cash there is, never refuses). Under the cards every jetty with its
+sea distance, what it gives and the sea jobs waiting.
+Bridges in tracklayer.js (3 lines): `VEH.cur.help()` in `callForHelp`, `VEH.cur.helpText()` in the out-of-fuel toast,
+`api.mark`.
+Numbers (`x14_boatsapp.mjs`, 47 asserts, all pass, from the 18:23 run's log; this pass's run passed too): Dyfjord to the
+quay 2.0 km / $100 ($150 in a blow), Lebesby 5.8 km / $215; a tow from Dyfjord aboard moves the clock 13 game minutes;
+a dry tank 1.0 km out is a $70 tow; a full tank reads 42 km flat out; hull 60% reads "10% of her power".
+Stills `~/.hermes/cache/scratch/tlloop/shots/1114-210634-66944/`: x14a_2_dyfjord (one card + the four jetties: nothing
+clipped, TOW HOME right-aligned with its price), x14a_6_two (two cards, TOW HOME and MARK ON MAP on one row, HEAVY
+WEATHER RATE chip, HULL 60% chip). Seen: the test's back-to-back toasts sit over the app's head row in both stills.
+Not judged: the app on a phone in portrait, the fade on a pad, the tablet in first person on the boat.
+Gate (this pass, after the rebase): syntax, smoke, x1_save, x14_boatsapp, x14_skiff exit 0, page errors none; then
+x14_seajobs, x14_docks, x14_fishing alone: all three exit 0, page errors none.
+Not done (in EXPANSION.md too): no harbour boat is seen, the tow is a fade; a boat fetched while you stand beside her
+just goes; no warmth charged under tow; the fee is taken before the fade, so a reload in that half second pays for a
+tow that did not happen; no repair (14.4b: the boatyard, tackle, winter haul-out, next for lane C).
+Still open for lane C: 0178 #2/#3, 0182 #1/#2, 0194 #1-#3 POLISH (handline HUD over the tablet, gas hauls with the
+tablet open, `F.fish` left set after a swap).
+
 ## 2026-11-14 18:35 — 6.2a the lamp at Slettnes: oil tank, drums from the quay, Lights app, Monday stipend (lane B) (G4) — ca5b8ac
 Builder pass, lane B. Orient: the worktree held a dead pass's 6.2a (17:41-18:00: `tlx-lights.js`, `x6_lamp.mjs`, three
 bridge hunks; its last run died on a cdnjs blip, "THREE is not defined"). Stashed, rebased, popped, finished here

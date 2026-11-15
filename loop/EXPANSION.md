@@ -18,7 +18,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; beta fix 0190 #1 + 0192 #1 (tlx-guns v4): nothing fires under Settings and Settings slings the rifle, the pack stays at 120 when rounds come back out of the magazine; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; next: 14.4 (Boats app, boatyard), then 0178 #2/#3 and 0182 #1/#2 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); next: 14.4b (boatyard: repairs, tackle, winter haul-out), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -831,7 +831,34 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
         lines / a gaff can go with the boatyard in 14.4); no fish box model in the boat; the marks are not shown
         (no gulls, no sounder); fish are not sold from the boat at the quay jetty (walk or ride to the pier).
   - [ ] 14.4 Boats app (your boats, fuel, where they're moored, a tow home for a fee) and the boatyard at the quay
-        (hull repairs, condition from groundings, winter haul-out).
+        (hull repairs, condition from groundings, winter haul-out). Split (lane C, 14 Nov) into:
+    - [x] 14.4a (v237, tlx-boats v5) The Boats app and the tow home. Design: a tablet app registered from
+          tlx-boats.js's init (`TABLET.register`, hidden until a boat is owned, a "!" badge while one has a dry tank),
+          no TLX.register and nothing new saved. A card per boat: chips ABOARD / MOORED / AFLOAT, NO FUEL / LOW FUEL,
+          HULL n% once dented; where she lies ("at the Dyfjord jetty", "afloat, 930 m off the quay jetty") and how far
+          that is by sea from the quay jetty; fuel and the range it gives flat out (from the burn in `core`); what the
+          dents cost (the 25% of power `core` already takes at 0%); parcels aboard. MARK ON MAP (not aboard) puts the
+          Map's marker (`WP`, bridge `api.mark`) on her, so the compass leads to her when nothing else is tracked.
+          TOW HOME: the harbour boat brings her to a free berth at the quay jetty for $40 + $30 per km by sea
+          (`TLXB.seaKmAt(dock, x, z)`: the sea jobs' flood-fill distance, now from a jetty to any point), x1.5 with
+          the storm over 0.5. Refused at the quay jetty, with no free berth there, mid-step in or out, in the school
+          or a rescue, or without the cash. Not aboard: she is moved at once and you make your own way. Aboard: the
+          handline comes in, the tablet goes down, the screen fades (`#tlxbFade`), she and you are on the berth and
+          the clock has moved on by km / 11 km/h. Parcels aboard stay aboard. An empty tank at sea: the game's
+          warning reads "for a tow to the quay jetty ($n)" and the help control calls this tow instead of sending a
+          fuel sled over the water (bridges: `VEH.cur.help()` in `callForHelp`, `VEH.cur.helpText()` in the warning),
+          lenient: it takes what cash you have and never refuses for want of it. Under the cards, every jetty with its
+          distance by sea from your first boat, what it gives (fuel and berths / warmth) and the sea jobs waiting on
+          it. Test `x14_boatsapp.mjs` (47 asserts).
+          As built: Dyfjord to the quay is 2.0 km and $100; Lebesby 5.8 km and $215; a tow from Dyfjord aboard moves
+          the clock 13 game minutes; a full tank reads 42 km flat out. Not done: the tow is a fade, no harbour boat is
+          seen; a boat fetched while you stand beside her just goes; warmth is not charged for the time under tow; the
+          app does not show the fishing marks or the cooler; no repair here (14.4b).
+    - [ ] 14.4b The boatyard at the quay: a slip and a shed by the quay jetty, hull repairs there ($ per condition
+          point like the garage's, the boat within reach of the slip), a REPAIR line on the Boats card that says where
+          to bring her, tackle for the handline (14.3's "not done"), and the winter haul-out (a fee to have her
+          lifted out and stored: no storm wear while she is out; storm wear on a boat left afloat is part of this
+          slice and ships as an option).
   - [ ] 14.5 Options: rowboat (oars, no fuel), canoe (lakes once they open), ferry as a passenger (the coastal steamer
         between quays for a fare).
 - [ ] 15 Aircraft and Bush Mail: bush plane (floats / skis / wheels), flight model on all three control schemes,
