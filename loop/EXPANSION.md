@@ -18,7 +18,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; beta fix 0190 #1 + 0192 #1 (tlx-guns v4): nothing fires under Settings and Settings slings the rifle, the pack stays at 120 when rounds come back out of the magazine; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); next: 14.4b (boatyard: repairs, tackle, winter haul-out), then 0178 #2/#3 and 0182 #1/#2 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); 14.4b1 landed (tlx-boats v6): the boatyard beside the quay jetty (a boathouse on piles, a slip with a hull on the cradle, a plank walk from the jetty to its door) and hull repairs at $8 a point from the Boats app's Boatyard card or the shed door's use control; next: 14.4b2 (tackle), 14.4b3 (winter haul-out, storm wear option), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -904,11 +904,42 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
           the clock 13 game minutes; a full tank reads 42 km flat out. Not done: the tow is a fade, no harbour boat is
           seen; a boat fetched while you stand beside her just goes; warmth is not charged for the time under tow; the
           app does not show the fishing marks or the cooler; no repair here (14.4b).
-    - [ ] 14.4b The boatyard at the quay: a slip and a shed by the quay jetty, hull repairs there ($ per condition
+    - [ ] 14.4b (b1 landed, b2-b3 open) The boatyard at the quay: a slip and a shed by the quay jetty, hull repairs there ($ per condition
           point like the garage's, the boat within reach of the slip), a REPAIR line on the Boats card that says where
           to bring her, tackle for the handline (14.3's "not done"), and the winter haul-out (a fee to have her
           lifted out and stored: no storm wear while she is out; storm wear on a boat left afloat is part of this
-          slice and ships as an option).
+          slice and ships as an option). Split (lane C, 14 Nov) into:
+      - [x] 14.4b1 (tlx-boats v6) The yard itself and hull repairs. Design: `siteYard(D)` puts the yard beside the
+            quay jetty at boot (nothing saved). The shore there is a bank 4-9 m high (a first cut with the shed on the
+            bank came out with its floor at 9.9 m and a 43 m slip on stilts: thrown away), so the yard is a naust on
+            piles over the water's edge: a strip parallel to the jetty, 9.5 m or more to one side, the floor one
+            step (0.25 m) above the jetty's deck, starting where the bank has dropped clear of the floor and the
+            jetty's deck has levelled. The shed is 6.4 x 9.6 m, falu red, snow on the roof, double doors and a sign
+            ("BÅT & MOTOR · SLIPP") to seaward, a window and a lamp on the jetty side that light as the day goes
+            (emissive by `api.dayFactor`, set in a mesh's `onBeforeRender`: boats.js has no tick without a boat).
+            From the doors two rails on timber bents run down at 1:4 to 0.8 m under water (1 m+ of depth at the
+            foot, nothing of the sea bed in the way), with a cradle on them and a hull on the cradle, bow to the
+            shed. A plank walk on piles with a rail each side crosses from the jetty's deck to the shed's side door,
+            landward of the berthed hulls; `floorAt` (so `VEH.floor`) makes it walkable. `yardPush` (after
+            `dockPush` in `core`) keeps the skiff out of three rectangles in the jetty's frame: the shed, the slip
+            down to where the rails are 0.35 m under, the walk. Repair: `YARD.perPt` $8 a point of hull (least $20;
+            a wreck is $800 against $2,600 new), back to 100% at once, with the boat within `YARD.reach` 45 m of the
+            slip's foot (the quay berths are 15 and 18 m from it) and nobody sat in her. Two ways to order it: the
+            Boats app grows a "Boatyard · hull repair" card under a dented boat (AT THE SLIP / NOT HERE, the price,
+            REPAIR HULL, the reason when it can't) and at the shed's door the on-foot use control (an `api.footx`
+            provider: use key, pad L3, the touch button) reads REPAIR with the price when a dented boat of yours is
+            in reach, otherwise BOATYARD and says what the yard does or where to bring her. No bridge in
+            tracklayer.js. Test `x14_yard.mjs` (50 asserts).
+            As built: the yard took the side away from the depot, 9.5 m off the jetty; the shed starts 6.9 m along
+            it over 5.9 m of water, the slip is 8 m, its foot in 8.6 m of water, the walk is 5.3 m. Not done: the
+            repair takes no time and nothing is seen of it (she is not hauled out: the hull on the cradle is
+            scenery); no pin on the Map (it sits on the quay jetty's anchor); the walker can't go inside; the other
+            jetties have no yard; parked boats are not pushed, only the one you drive.
+      - [ ] 14.4b2 Tackle at the boatyard for the handline (14.3's "not done": a stronger line, a gaff, a second
+            pilk), sold at the shed door through the store panel (`api.shop`), saved with the boat's state.
+      - [ ] 14.4b3 Winter haul-out and storm wear: a fee to have her lifted out and stood on the cradle / the hard
+            by the shed (no wear while she is out, launched again from the app or the door); storm wear on a boat
+            left afloat in a blow ships as an option (`TLX.option`), on by default.
   - [ ] 14.5 Options: rowboat (oars, no fuel), canoe (lakes once they open), ferry as a passenger (the coastal steamer
         between quays for a fare).
 - [ ] 15 Aircraft and Bush Mail: bush plane (floats / skis / wheels), flight model on all three control schemes,

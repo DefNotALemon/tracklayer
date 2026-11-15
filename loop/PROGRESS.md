@@ -3,6 +3,41 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 22:00 — 14.4b1 the boatyard beside the quay jetty and hull repairs (lane C) (G4) — f612edc
+Builder pass, lane C. Orient: worktree clean, rebased (lane A's 3.5b2a). Triage: 0201-0204 are other lanes' systems
+(0203's two POLISH on hidden tablet apps touch Boats only as "hidden until owned", which is as designed); no BLOCKER
+or BUG on boats. Next unticked slice was 14.4b, too big for a pass: split in EXPANSION.md into 14.4b1 (the yard and
+repairs, this pass), 14.4b2 (tackle), 14.4b3 (winter haul-out + the storm-wear option).
+Built (`tlx-boats.js` v6; nothing in tracklayer.js, nothing new saved): `siteYard` / `buildYard` put Kjøllefjord Båt &
+Motor's yard beside the quay jetty at boot. First cut put the shed on the shore behind the slip: the bank there is
+4-9 m high, the floor came out at 9.9 m with a 43 m slip on stilts (stills `c144b1_r1`), so it was thrown away. As
+landed it is a naust on piles over the water's edge, parallel to the jetty and 9.5 m to one side: floor one step above
+the jetty's deck, 6.4 x 9.6 m, falu red, snowed roof, double doors and a sign to seaward, a window and lamp that light
+by `api.dayFactor`; two rails on bents at 1:4 from the doors to 0.8 m under water with a cradle and a hull on it; a
+plank walk on piles from the jetty's deck to the side door, landward of the berths, walkable through `floorAt`.
+`yardPush` keeps the driven skiff out of the shed, the slip's head and the walk. Repairs: $8 a point of hull (least
+$20), back to 100%, boat within 45 m of the slip's foot and nobody aboard; ordered from a new "Boatyard · hull repair"
+card under a dented boat in the Boats app, or at the shed door through an `api.footx` provider (REPAIR with the
+price, else BOATYARD with what the yard does / where to bring her). The hard-grounding toast and the garage's Boats tab
+now name the yard.
+Numbers (`x14_yard.mjs`, 50 asserts, all pass): yard on the side away from the depot, shed from 6.9 m along the jetty
+over 5.9 m of water, slip 8 m with its foot in 8.6 m of water, berths 15.1 and 17.5 m from the foot and clear of the
+push rectangles, walk 5.3 m (walked with W from the deck to the door, planks all the way, the wall stops you); 60% hull
+= $320, 99% = $20, 0% = $800; use key, pad L3 (hint names the pad button), touch REPAIR button and the app's button each
+mend and charge; refused short of cash, aboard ("step ashore first") and away at Dyfjord ("bring her to the quay
+jetty"); a reload keeps the dent and the yard's place; lamp emissive 0.12 at noon, 1.82 at midnight.
+Stills (`~/.hermes/cache/scratch/tlloop/c144b1_r3/sheet.jpg`, `c144b1_p1/sheet.jpg`): the boathouse reads as a naust on
+piles beside the jetty, the sign is legible, the hull sits between the cradle's bunks bow to the doors with her stern
+at the water, the walk and its rails meet the door, the window and lamp glow at night. The night still from seaward
+(y8) came out as a repeat of y7's view: the camera move did not take before the shot, not looked into.
+Gate, on top of lane B's 6.2b (rebased before the last run): smoke, x1_save, x14_yard, x14_boatsapp exit 0, page errors
+none. Before the rebase also x14_docks, x14_seajobs, x14_fishing exit 0. x14_skiff failed once in the gate ("climbs
+onto the plane rather than leaping": 7.69 m/s at 3.5 s against a limit of top - 1 = 7.7) and passed alone straight
+after (7.57): that assert sits 0.1 m/s from its limit on main too and the run never comes near the yard; left as is.
+Not done: the repair takes no time and she is not seen hauled out (the hull on the cradle is scenery); no Map pin; no
+going inside; parked boats are not pushed by `yardPush`; the other jetties have no yard. Two older 14.4a stashes are
+still in the stash list (safe to drop, as the last entry said).
+
 ## 2026-11-14 21:40 — 6.2b the two smaller lights: Finnkirka and Kinnarodden, drums ordered per light (lane B) (G4) — ff195f5
 Builder pass, lane B. Orient: worktree clean, rebased, 255 GB free. Triage for lane B: nothing new since 0196.
 **0196 #3 (unconfirmed BUG, reload inside a room comes up riding) dropped, not a bug of 6.1b:** `save()` holds no
