@@ -773,7 +773,7 @@ function markTrail(x, z, faint) {
 }
 
 /* ---------------- boot ---------------- */
-let far, pineCells = [], birchCells = [], cargoMesh = null, started = false, ready = false;
+let far, pineCells = [], birchCells = [], rockCells = [], cargoMesh = null, started = false, ready = false;
 let FISH = null, FISHSITES = {};                                       // ice fishing (icefish.js) and where its shop and buyer stand
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
@@ -971,6 +971,21 @@ function breezeMat(snowy) {
   };
   return m;
 }
+// Far-tree geometry (perf): beyond ~400 m a pine is under 20 px tall, so the 750-triangle drooping-hem tree is swapped (per 512 m
+// cell, see pineCull) for ~100 triangles of the same tiers, colours and snow caps with 7 sides and no hem. The title screen and any
+// view across the forest was 7 of its 10 million triangles of trees nobody could tell apart from this.
+function pineGeosLo() {
+  const green = [0.10, 0.20, 0.15], snowC = [0.92, 0.95, 1.0], caps = [], parts = [paint(new THREE.CylinderGeometry(0.16, 0.24, 2.2, 5).translate(0, 1.1, 0), () => [0.33, 0.2, 0.13])];
+  [[1.9, 3.0, 2.6], [1.5, 2.7, 4.1], [1.05, 2.3, 5.5], [0.6, 1.7, 6.7]].forEach(([r, h, y]) => {
+    parts.push(paint(new THREE.ConeGeometry(r * 1.04, h, 7, 1).translate(0, y, 0), (x, py, z, ny) => {
+      const t = clamp((py - (y - h / 2)) / h, 0, 1), sn = ny < -0.5 ? 0 : 0.12 + t * 0.12;
+      return [lerp(green[0], snowC[0], sn), lerp(green[1], snowC[1], sn), lerp(green[2], snowC[2], sn)];
+    }));
+    const ch = h * 0.86, cr = r * 0.86 * 1.13, cy = y + h / 2 + 0.1 - ch / 2, bot = cy - ch / 2;
+    caps.push(paint(new THREE.ConeGeometry(cr, ch, 7, 1, true).translate(0, cy, 0), (x, py) => { const u = Math.pow(clamp((py - bot) / ch, 0, 1), 0.35); return [lerp(0.8, 1.0, u), lerp(0.87, 1.0, u), 1.0]; }));
+  });
+  return [mergeGeos(parts), mergeGeos(caps)];
+}
 /* Scots pine: the snow-pillowed tiered conifer. Dense groves down in the low, sheltered forest
    pockets (the Stabbursdalen idea), a scatter of them through the birch, and a few lone pines out
    on the sheltered southern slopes. Split into 512 m cells so the GPU can skip the ones off-screen. */
@@ -1040,7 +1055,7 @@ function buildPines(birch) {
     taken.add(Math.floor(x / 3) * 8192 + Math.floor(z / 3));
     pines.push([x, z, 0.7 + rnd() * 0.65]);
   }
-  const [trunkGeo, capGeo] = pineGeos(), cells = new Map(), NC = Math.ceil(WORLD / PINE_CELL);
+  const [trunkGeo, capGeo] = pineGeos(), [trunkLo, capLo] = pineGeosLo(), cells = new Map(), NC = Math.ceil(WORLD / PINE_CELL);
   for (const t of pines) { const k = Math.floor((t[1] + HALF) / PINE_CELL) * NC + Math.floor((t[0] + HALF) / PINE_CELL); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(t); }
   const share = (g, cx, cz, r) => { const c = new THREE.BufferGeometry(); for (const k in g.attributes) c.setAttribute(k, g.attributes[k]); c.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, 0, cz), r); c.boundingBox = null; return c; };
   const trunkMat = breezeMat(), capMat = breezeMat(true);
@@ -1051,7 +1066,8 @@ function buildPines(birch) {
     r = Math.hypot(r + 4, (hi - lo) / 2 + 12);
     const tg = share(trunkGeo, cx, 0, r), cg = share(capGeo, cx, 0, r); tg.boundingSphere.center.set(cx, (lo + hi) / 2 + 5, cz); cg.boundingSphere.center.copy(tg.boundingSphere.center);
     const tm = new THREE.InstancedMesh(tg, trunkMat, list.length), cap = new THREE.InstancedMesh(cg, capMat, list.length), ci = pineCells.length;
-    pineCells.push({ tm, cap, x: cx, z: cz });
+    const sl = g => { const c = new THREE.BufferGeometry(); for (const k in g.attributes) c.setAttribute(k, g.attributes[k]); c.boundingSphere = tg.boundingSphere; return c; };
+    pineCells.push({ tm, cap, x: cx, z: cz, r: tg.boundingSphere.radius, lod: 0, hi: [tg, cg], lo: [sl(trunkLo), sl(capLo)] });
     list.forEach(([x, z, s], i) => {
       const yaw = rnd() * 6.28, sy = s * (0.9 + rnd() * 0.3); q.setFromAxisAngle(up, yaw); sc.set(s, sy, s); p.set(x, groundAt(x, z) - 0.25, z);
       m4.compose(p, q, sc); tm.setMatrixAt(i, m4); cap.setMatrixAt(i, m4);
@@ -1068,7 +1084,40 @@ let _pineT = 0;
 function pineCull(dt) {
   if ((_pineT -= dt) > 0 || !(pineCells.length + birchCells.length)) return; _pineT = 0.5;
   const R = GFX.treeR + 400, cx = camera.position.x, cz = camera.position.z;
-  for (const cells of [pineCells, birchCells]) for (const c of cells) { const on = Math.hypot(c.x - cx, c.z - cz) < R; c.tm.visible = c.cap.visible = on; }
+  const lodR = GFX.low ? 260 : 400;
+  if (FARC.list.length) farCullTick(cx, cz);
+  for (const c of rockCells) c.im.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < R;      // boulder cells past the tree distance are fog anyway
+  for (const cells of [pineCells, birchCells]) for (const c of cells) {
+    const d = Math.hypot(c.x - cx, c.z - cz), on = d < R; c.tm.visible = c.cap.visible = on;
+    // a cell whose nearest tree is past lodR (hysteresis 40 m) draws the cheap far-tree geometry instead
+    if (on && c.lo) { const far = d - c.r > lodR + (c.lod ? -40 : 0); if (far !== !!c.lod) { c.lod = far ? 1 : 0; const g = far ? c.lo : c.hi; c.tm.geometry = g[0]; c.cap.geometry = g[1]; } }
+  }
+}
+// Small-object distance culling (perf). A mesh whose angular size is under ~3 px (it's farther than 700 radii, and past 250 m) is
+// taken out of the camera's layer mask, so the town's thousand small meshes seen from 2 km out cost no draw calls (main or shadow
+// pass). Layers, not .visible: nothing else toggles them. Candidates are the small static meshes present at the end of boot; one that
+// ever moves (a boat, an NPC, a door) is noticed by its world position changing and dropped from the list for good.
+const FARC = { list: [], T: 0 };
+function farCullBuild() {
+  scene.updateMatrixWorld(true);
+  const c = new THREE.Vector3();
+  scene.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.frustumCulled || o.layers.mask !== 1 || !o.geometry) return;
+    const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingSphere) return;
+    const e = o.matrixWorld.elements, sc = Math.max(Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10])), r = g.boundingSphere.radius * sc;
+    if (!(r < 12)) return;
+    c.copy(g.boundingSphere.center).applyMatrix4(o.matrixWorld);
+    FARC.list.push({ o, x: c.x, z: c.z, r, far: false, ex: e[12], ey: e[13], ez: e[14], dead: false, lim: Math.max(250, 700 * r) });
+  });
+}
+function farCullTick(cx, cz) {
+  for (const f of FARC.list) {
+    if (f.dead) continue;
+    const e = f.o.matrixWorld.elements;
+    if (Math.abs(e[12] - f.ex) + Math.abs(e[13] - f.ey) + Math.abs(e[14] - f.ez) > 0.02) { f.dead = true; f.o.layers.mask = 1; continue; }
+    const far = Math.hypot(f.x - cx, f.z - cz) - f.r > f.lim;
+    if (far !== f.far) { f.far = far; f.o.layers.mask = far ? 0 : 1; }
+  }
 }
 const trunkOf = o => (o.pine ? pineCells : birchCells)[o.cell].tm, capOf = o => (o.pine ? pineCells : birchCells)[o.cell].cap;
 function buildProps() {
@@ -1089,6 +1138,13 @@ function buildProps() {
     }
   }
   const treeGeo = mergeGeos(parts), capGeo = mergeGeos(caps);
+  // far birch (see pineGeosLo): the trunk, three bare limbs and three tufts of snow, ~110 triangles instead of ~630
+  const loParts = [paint(new THREE.CylinderGeometry(0.06, 0.2, 5.4, 5).translate(0, 2.7, 0), bark)], loCaps = [];
+  for (const [ang, y0, tilt, len] of [[0.4, 2.4, 0.62, 2.1], [2.7, 3.0, 0.7, 2.3], [4.6, 3.9, 0.55, 1.6]]) {
+    loParts.push(paint(new THREE.CylinderGeometry(0.03, 0.07, len, 3).translate(0, len / 2, 0).rotateZ(-tilt).rotateY(ang).translate(0, y0, 0), bark));
+    loCaps.push(paint(new THREE.SphereGeometry(0.22, 5, 3).scale(2, 0.5, 1).rotateY(ang).translate(Math.cos(ang) * Math.sin(tilt) * len, y0 + Math.cos(tilt) * len + 0.06, -Math.sin(ang) * Math.sin(tilt) * len), snowTop));
+  }
+  const treeLo = mergeGeos(loParts), capLoG = mergeGeos(loCaps);
   // birch stands only in the sheltered south. A few stragglers reach up the valleys; the open fell has none.
   const trees = [];
   for (let n = 0; n < 900000 && trees.length < 26000; n++) {
@@ -1126,9 +1182,10 @@ function buildProps() {
     const bs = new THREE.Sphere(new THREE.Vector3(cx, (lo + hi) / 2 + 3, cz), Math.hypot(r + 3, (hi - lo) / 2 + 8));
     const share = gm => { const c = new THREE.BufferGeometry(); for (const a in gm.attributes) c.setAttribute(a, gm.attributes[a]); c.boundingSphere = bs; return c; };
     const tm = new THREE.InstancedMesh(share(treeGeo), trunkMat, list.length), cap = new THREE.InstancedMesh(share(capGeo), capMat, list.length);
+    const loG = [share(treeLo), share(capLoG)];
     list.forEach((t, i) => { tm.setMatrixAt(i, t.m); cap.setMatrixAt(i, t.m); tm.setColorAt(i, col.setRGB(t.c[0], t.c[1], t.c[2])); });
     tm.castShadow = cap.castShadow = true; tm.frustumCulled = cap.frustumCulled = true; scene.add(tm, cap);   // r128's InstancedMesh switches culling off; the cell's own sphere is right, so cull by it (main and shadow pass)
-    birchCells.push({ tm, cap, x: cx, z: cz });
+    birchCells.push({ tm, cap, x: cx, z: cz, r: bs.radius, lod: 0, hi: [tm.geometry, cap.geometry], lo: loG });
   }
   buildPines(trees);
   WELLS_ON = true;                                                     // pines are in obGrid: freshBase digs their tree wells
@@ -3355,7 +3412,7 @@ function buildRockField() {
     });
     const g2 = new THREE.BufferGeometry(); for (const k in geo.attributes) g2.setAttribute(k, geo.attributes[k]); g2.setIndex(geo.index);
     g2.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, (lo + hi) / 2, cz), Math.hypot(rr + 4, (hi - lo) / 2 + 4));
-    im.geometry = g2; im.castShadow = true; im.receiveShadow = true; im.frustumCulled = true; scene.add(im);
+    im.geometry = g2; im.castShadow = true; im.receiveShadow = true; im.frustumCulled = true; scene.add(im); rockCells.push({ im, x: g2.boundingSphere.center.x, z: g2.boundingSphere.center.z, r: g2.boundingSphere.radius });
   }
   ROCK_FIELD.n = list.length; ROCK_FIELD.cells = by.size;
 }
@@ -17835,7 +17892,7 @@ function boot() {
   });
   P.y = surf(P.x, P.z);
   recenter(P.x, P.z, true);
-  window.__bake = KIT.bake();
+  window.__bake = KIT.bake(); farCullBuild();
   ready = true;
   loadSettings(); buildSettings(); buildGarageTabs(); ctFonts(); setTimeout(() => tabChart(), 2500);
   titleReady();

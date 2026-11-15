@@ -75,13 +75,13 @@ of the time you start at the depot as usual. New games never do this.
 
 **Graphics and phones.** The game knows when it's on a phone or tablet (including iPads, which report themselves as
 Macs, and Firefox / Chrome / Edge on iPhone). Phones start on the low preset, desktops on high, and on **Graphics:
-auto** (the default) it then watches its own frame rate and steps the detail down (render scale, how often the sun's
-shadows are redrawn, shadow map size, how far trees are drawn) until the frame rate holds steady, and back up when
-there's room. If dropping a step doesn't help (an iPhone in Low Power Mode is capped at 30 fps, for one) it puts the
+auto** (the default) it then watches its own frame rate and steps the detail down within about a second (render scale in fine steps, how long the snow's
+lee-shadow march is, how often the sun's shadows are redrawn, shadow map size, how far trees are drawn) until the frame rate holds steady, and back up when
+there's room. It remembers the step that held for your screen size, so the next launch (title screen included) starts there. If dropping a step doesn't help (an iPhone in Low Power Mode is capped at 30 fps, for one) it puts the
 detail back and holds instead of blurring the picture for nothing. **Settings > Graphics** can pin **high** or **low**
-instead, and **Frame rate: shown** puts a small readout at the top (fps, and the step it's on out of seven). Trees past
+instead, and **Frame rate: shown** puts a small readout at the top (fps, the step it's on out of nine, and the render scale). Trees past
 the draw distance aren't drawn at all (that alone cut a frame from ~21 million triangles to ~2.6 million on phones),
-and the sun's shadows follow you and the sled (they used to be drawn once at the title and never again).
+and the sun's shadows follow you and the sled (they used to be drawn once at the title and never again). Tree and boulder cells outside the view (and outside the shadow's reach) are skipped too, which took a town or title frame from ~10 million triangles to ~3 million, and a house's wall, roof and trim pieces are baked into a few meshes instead of ~15 each. HUD panels lose their backdrop blur on phones and on the lower steps, since a blur re-reads the 3D view behind it every frame.
 
 **Full screen.** On Android, iPad and desktop browsers, **MORE > FULL SCREEN** (or Settings > Graphics) hides the
 browser, and on a phone launching from the title goes full screen by itself. iPhone browsers can't hide their bars

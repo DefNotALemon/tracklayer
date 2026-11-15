@@ -2,6 +2,7 @@
 // CPU render-call ms, draw calls, triangles, wall fps, pixel ratio the governor settled on.
 //   PR=1.5   pin the pixel ratio and switch the governor off (apples-to-apples shader/draw cost; works on any version of the game)
 //   AUTO=1   leave the governor on and give each scene WARM seconds to settle (what a player gets by default)
+// SCENES=title,fell_riding,... limits which scenes are measured (title fell_riding town_idle town_riding night_town storm_riding).
 // W/H/DSF set the viewport (default 1728x1117 @2, a 16" MacBook Pro in the default scaled mode). SECS = measuring window. SHOTS=<prefix> saves stills.
 import { boot, ev, sleep, shot, tap, down, up, done } from "../lib.mjs";
 import { install, collect } from "../perfhook.mjs";
@@ -11,7 +12,9 @@ await boot({ width: W, height: H, dsf: DSF, launch: false });
 await install(ev);
 async function pin() { if (!AUTO) await ev(`QG.on = false; QG.apply(QG.rungs[0].mk !== undefined ? 0 : 1); ${PR ? `renderer.setPixelRatio(${PR});` : ""} true`); }
 const rows = [];
+const ONLY = process.env.SCENES ? process.env.SCENES.split(",") : null;
 async function measure(name) {
+  if (ONLY && !ONLY.includes(name)) return;
   await pin(); await sleep(AUTO ? WARM * 1000 : 2500);
   const r = await collect(ev, SECS, sleep); r.scene = name; r.qg = await ev("QG.label()"); rows.push(r);
   console.log("PERF " + JSON.stringify(r)); if (process.env.SHOTS) await shot(process.env.SHOTS + "_" + name);
