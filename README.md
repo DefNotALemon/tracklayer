@@ -200,6 +200,16 @@ stand at the drum rack and use the use control to **pump a drum into the tank** 
 stop). If the tank runs dry the lamp goes out, the tower stops flashing, the app badges it, and it stays dark until
 there's oil in the tank and you've used the use control at the foot of the stair to **climb up and light it**. The
 last keeper leaves you about 18 hours of oil. A light you don't own is Kystverket's and never goes out.
+Two **smaller sea lights** are for sale on the Lighthouses page as well: **Finnkirka light** ($4,400) on the headland
+at the mouth of the Kjøllefjord, west of town, and **Kinnarodden light** ($5,200) on the outermost point of the
+peninsula, far to the north. Each is a whitewashed lantern hut with the lamp on its roof and its own flash (Finnkirka
+two short flashes every eight seconds, Kinnarodden lit with a short eclipse every six), and one room behind a door
+ring: a bunk, a stove, the oil rack and the ladder up to the lamp. They run like Slettnes on smaller numbers: an 80 L
+tank, 1 L an hour (about four days of polar night), a stipend of $6 an hour at Finnkirka and $7 at Kinnarodden, 20
+hours of oil with the keys, and the bunk let to walkers at $35 a night. **Drums are ordered for one light**: the
+Lights app has a card per lamp with its own ORDER A DRUM (three at most for a small light), each drum is a pickup at
+the quay bound for that light, and stopping the sled (or the skiff) by the hut rolls that light's drums into its
+store and nobody else's. Pump at the rack and light the lamp at the foot of the ladder, as in the tower.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight

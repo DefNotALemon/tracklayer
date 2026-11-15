@@ -19,7 +19,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); 
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const clock = () => ev("gameClock");
 async function until(expr, secs) { const t0 = await clock(); while ((await clock()) - t0 < secs) { if (await ev(expr)) return true; await sleep(80); } return !!(await ev(expr)); }
-const Lr = () => J(`Object.assign({}, TLX.lights.rec("slettnes"), { quay: TLX.state("lights").quay, out: TLX.lights.out("slettnes") })`);
+const Lr = () => J(`Object.assign({}, TLX.lights.rec("slettnes"), { quay: TLX.lights.rec("slettnes").q, out: TLX.lights.out("slettnes") })`);
 // run the clock on by `hours` in `step`-hour steps, far from the station
 const pass = (hours, step = 0.5) => ev(`(() => { for (let t = 0; t < ${hours} - 1e-9; t += ${step}) { GS.hour += ${step}; TLX.lights.step(); } return true; })()`);
 const goAway = () => ev(`(() => { if (INT.on) intGoOut(); const l = TLX.prop.listing("slettnes"); crashCancel(); FOOT.on = true; FOOT.x = l.at.x - 700; FOOT.z = l.at.z + 500; FOOT.y = surf(FOOT.x, FOOT.z); INT.cd = 0; return true; })()`);
@@ -35,7 +35,8 @@ const RACK = [-0.75, 1.75], STAIR = [1.2, 0.2], MID = [0, -1.2];
 // is the tower's lamp seen flashing at all over a few flash periods?
 async function flashes() { let n = 0; for (let i = 0; i < 40; i++) { if (await ev(`SITES.find(s => s.type === "relay").blink.visible`)) n++; await sleep(120); } return n; }
 
-await boot();
+const warm = () => ev(`window.__warm = window.__warm || setInterval(() => { GS.warmth = 100; }, 300); true`);   // stood outdoors for minutes: never let the cold black the walker out mid-check
+await boot(); await warm();
 await ev(`tutSkip(); crashCancel(); WX.at = () => 0; GS.storm = 0; GS.hour = 34; GS.cash = 20000; GS.apps.realestate = 1; TLX.state("staff").apps = []; TLX.state("staff").next = 1e9; true`);
 await sleep(1200);
 console.log("sled parked out of the way", JSON.stringify(await park()));   // off the quay: a sled standing there loads claimed drums at once
@@ -85,23 +86,23 @@ ok(/DARK/.test(txt) && /dry/.test(txt) && /The lamp is out, the tank is dry and 
 await shot("x6l_d_dark");
 
 // ---- E: order drums
-const blocked = await J(`(() => { GS.cash = 30; TABLET.render(); const b = document.querySelector('#tabV [data-act="lord:slettnes"]'); const bl = b.classList.contains("blocked"); b.click(); return { bl, cash: GS.cash, quay: TLX.state("lights").quay }; })()`);
+const blocked = await J(`(() => { GS.cash = 30; TABLET.render(); const b = document.querySelector('#tabV [data-act="lord:slettnes"]'); const bl = b.classList.contains("blocked"); b.click(); return { bl, cash: GS.cash, quay: TLX.lights.rec("slettnes").q }; })()`);
 ok(blocked.bl && blocked.cash === 30 && blocked.quay === 0, "E: ORDER A DRUM is blocked with $30 and takes nothing");
 await ev(`GS.cash = 1000; TABLET.render(); true`); await sleep(200);
-const ord = await J(`(() => { const d0 = GS.delivered; for (let i = 0; i < 3; i++) document.querySelector('#tabV [data-act="lord:slettnes"]').click(); const cl = GS.claims.filter(j => j.oil); return { cash: GS.cash, quay: TLX.state("lights").quay, n: cl.length, from: cl[0] && cl[0].from === depot, dest: cl[0] && cl[0].dest.type, rows: jobsList().filter(q => /Paraffin drum/.test(q.title)).map(q => q.title + " / " + q.meta), d0 }; })()`);
+const ord = await J(`(() => { const d0 = GS.delivered; for (let i = 0; i < 3; i++) document.querySelector('#tabV [data-act="lord:slettnes"]').click(); const cl = GS.claims.filter(j => j.oil); return { cash: GS.cash, quay: TLX.lights.rec("slettnes").q, n: cl.length, from: cl[0] && cl[0].from === depot, dest: cl[0] && cl[0].dest.type, rows: jobsList().filter(q => /Paraffin drum/.test(q.title)).map(q => q.title + " / " + q.meta), d0 }; })()`);
 ok(ord.cash === 1000 - 135 && ord.quay === 3 && ord.n === 3 && ord.from && ord.dest === "relay", `E: three drums at $45: $${1000 - ord.cash} paid, three claims from the quay to the lighthouse`);
 ok(ord.rows.length === 3 && /Pick up: Paraffin drum/.test(ord.rows[0]) && /waiting at/.test(ord.rows[0]), "E: the Jobs list tracks them: " + ord.rows[0]);
 txt = await page(); ok(/3 drums paid for, at the quay or aboard/.test(txt), "E: the card counts them");
-const cap = await J(`(() => { for (let i = 0; i < 6; i++) TLX.lights.order("slettnes"); return { quay: TLX.state("lights").quay, n: GS.claims.filter(j => j.oil).length, cash: GS.cash }; })()`);
+const cap = await J(`(() => { for (let i = 0; i < 6; i++) TLX.lights.order("slettnes"); return { quay: TLX.lights.rec("slettnes").q, n: GS.claims.filter(j => j.oil).length, cash: GS.cash }; })()`);
 ok(cap.quay === 6 && cap.n === 6 && cap.cash === 1000 - 270, "E: six on order is the limit: " + JSON.stringify(cap));
-await ev(`(() => { const s = TLX.state("lights"); GS.claims = GS.claims.filter(j => !j.oil).concat(GS.claims.filter(j => j.oil).slice(0, 3)); s.quay = 3; TABLET.toggle(false); return true; })()`);
+await ev(`(() => { const s = TLX.state("lights"); GS.claims = GS.claims.filter(j => !j.oil).concat(GS.claims.filter(j => j.oil).slice(0, 3)); TLX.lights.rec("slettnes").q = 3; TABLET.toggle(false); return true; })()`);
 
 // ---- F: haul them out
 const slots = await ev(`(() => { GS.own.sled = SLEDS[SLEDS.length > 3 ? 3 : SLEDS.length - 1].id; restat(); return ST.slots; })()`);
 const want = Math.min(3, slots);
 await ev(`(() => { crashCancel(); FOOT.on = false; VEH.cur = null; GS.load = []; P.x = depot.x - 5; P.z = depot.z + 3; P.y = surf(P.x, P.z); P.vx = P.vz = 0; GS.fuel = GS.cap; camState.init = false; return true; })()`);
 const loaded = await until(`GS.load.filter(j => j.oil).length >= ${want}`, 30); await sleep(300);
-let hl = await J(`({ ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length, quay: TLX.state("lights").quay, row: jobsList().filter(q => /Paraffin drum/.test(q.title)).map(q => q.title)[0] })`);
+let hl = await J(`({ ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length, quay: TLX.lights.rec("slettnes").q, row: jobsList().filter(q => /Paraffin drum/.test(q.title)).map(q => q.title)[0] })`);
 ok(loaded && hl.ab === want && hl.ab + hl.cl === 3 && hl.quay === 3, `F: stopped at the quay, ${hl.ab} of 3 drums go on (${slots} parcel slots); still 3 paid for (${hl.row})`);
 await shot("x6l_f_loaded");
 const before = await J(`({ cash: GS.cash, del: GS.delivered })`);
@@ -112,7 +113,7 @@ const toasts = await J(`[...document.querySelectorAll("#toasts > *")].map(e => e
 const afterD = await J(`({ cash: GS.cash, del: GS.delivered })`);
 ok(landed && r.store === want * 60 && r.quay === 3 - want && afterD.cash === before.cash && afterD.del === before.del, `F: at the lighthouse ${want} drums roll into the oil store (${r.store} L); no pay, no delivery counted; ${r.quay} still at the quay`);
 ok(toasts.some(t => /rolled into the oil store at Slettnes/.test(t)), "F: and the toast says so: " + (toasts.find(t => /oil store/.test(t)) || toasts.join(" | ")));
-await ev(`(() => { GS.claims = GS.claims.filter(j => !j.oil); TLX.state("lights").quay = 0; TLX.lights.rec("slettnes").store = 120; return true; })()`);
+await ev(`(() => { GS.claims = GS.claims.filter(j => !j.oil); TLX.lights.rec("slettnes").q = 0; TLX.lights.rec("slettnes").store = 120; return true; })()`);
 
 // ---- G: the tower room: pump, light
 await ev(`(() => { for (const id of ["house", "tower"]) { const q = TLX.prop.rec("slettnes:" + id); q.grit = 50; q.dust = 0; } TLX.state("prop").kit = 8; FOOT.on = true; return true; })()`);
@@ -167,18 +168,18 @@ await shot("x6l_h_statement"); await ev(`TABLET.toggle(false); true`); await sle
 // ---- I: saved
 console.log("sled parked out of the way", JSON.stringify(await park("depot.x + 500", "depot.z - 400")));
 await ev(`(() => { const q = TLX.lights.rec("slettnes"), s = TLX.state("lights"); q.oil = 77; q.store = 60; q.lit = 5; q.need = 6; GS.cash = 500; TLX.lights.order("slettnes"); TLX.lights.order("slettnes"); const c = GS.claims.find(j => j.oil); GS.claims.splice(GS.claims.indexOf(c), 1); GS.load.push(c); TLX.lights.sync(); save(); return true; })()`);
-const pre = await J(`({ quay: TLX.state("lights").quay, ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length })`);
-await reload(); await sleep(900);
-const sv = await J(`(() => { const q = TLX.lights.rec("slettnes"), s = TLX.state("lights"), ab0 = GS.load.filter(j => j.oil).length + GS.claims.filter(j => j.oil).length * 0; TLX.lights.sync(); return { oil: q.oil, store: q.store, on: q.on, lit: q.lit, quay: s.quay, ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length, last: s.last.length, own: TLX.lights.owns("slettnes") }; })()`);
+const pre = await J(`({ quay: TLX.lights.rec("slettnes").q, ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length })`);
+await reload(); await warm(); await sleep(900);
+const sv = await J(`(() => { const q = TLX.lights.rec("slettnes"), s = TLX.state("lights"), ab0 = GS.load.filter(j => j.oil).length + GS.claims.filter(j => j.oil).length * 0; TLX.lights.sync(); return { oil: q.oil, store: q.store, on: q.on, lit: q.lit, quay: q.q, ab: GS.load.filter(j => j.oil).length, cl: GS.claims.filter(j => j.oil).length, last: s.last.length, own: TLX.lights.owns("slettnes") }; })()`);
 ok(pre.quay === 2 && pre.ab === 1 && pre.cl === 1, "I: before the reload: one drum aboard, one at the quay " + JSON.stringify(pre));
 ok(sv.own && Math.abs(sv.oil - 77) < 1.5 && sv.store === 60 && sv.on && sv.lit >= 5 && sv.last >= 1 && sv.quay === 2 && sv.ab + sv.cl === 2, "I: the lamp, its oil, the week and the statement survive a reload; both drums are waiting to be picked up again: " + JSON.stringify(sv));
 // a drum aboard goes down with the load
 await ev(`tutSkip(); true`); await park("depot.x + 500", "depot.z - 400");
-await ev(`(() => { GS.load = GS.load.filter(j => !j.oil); GS.claims = GS.claims.filter(j => !j.oil); TLX.lights.sync(); TLX.state("lights").quay = 2; TLX.lights.sync(); const c = GS.claims.find(j => j.oil); GS.claims.splice(GS.claims.indexOf(c), 1); GS.load.push(c); TLX.lights.sync(); GS.load = []; TLX.lights.sync(); return true; })()`);
-const lost = await J(`({ quay: TLX.state("lights").quay, cl: GS.claims.filter(j => j.oil).length })`);
+await ev(`(() => { GS.load = GS.load.filter(j => !j.oil); GS.claims = GS.claims.filter(j => !j.oil); TLX.lights.sync(); TLX.lights.rec("slettnes").q = 2; TLX.lights.sync(); const c = GS.claims.find(j => j.oil); GS.claims.splice(GS.claims.indexOf(c), 1); GS.load.push(c); TLX.lights.sync(); GS.load = []; TLX.lights.sync(); return true; })()`);
+const lost = await J(`({ quay: TLX.lights.rec("slettnes").q, cl: GS.claims.filter(j => j.oil).length })`);
 ok(lost.quay === 1 && lost.cl === 1, "I: a drum lost with the load is gone; the one at the quay still waits: " + JSON.stringify(lost));
 const old = await J(`(() => { save(); const s = JSON.parse(localStorage.getItem("tracklayer.save.v2")); delete s.x.sys.lights; return s; })()`);
-await reload(old); await sleep(1800);
-const ov = await J(`(() => { const q = TLX.lights.rec("slettnes"), s = TLX.state("lights"); return { own: TLX.lights.owns("slettnes"), oil: q.oil, on: q.on, store: q.store, quay: s.quay, hidden: TABLET.byId.lights.hidden() }; })()`);
+await reload(old); await warm(); await sleep(1800);
+const ov = await J(`(() => { const q = TLX.lights.rec("slettnes"), s = TLX.state("lights"); return { own: TLX.lights.owns("slettnes"), oil: q.oil, on: q.on, store: q.store, quay: q.q, hidden: TABLET.byId.lights.hidden() }; })()`);
 ok(ov.own && ov.on && ov.oil > 40 && ov.oil <= 45 && ov.store === 0 && ov.quay === 0 && !ov.hidden, "I: a save from before 6.2a with the station owned gets its lamp, lit: " + JSON.stringify(ov));
 await done(fails ? 1 : 0);

@@ -107,7 +107,7 @@ txt = await page();
 ok(bb && !bb.blocked && bought.paid === 12500 && bought.own, `C: BUY IT takes $${bought.paid} and it's yours`);
 let rh = await R("house"), rt = await R("tower");
 ok(rh.dust > 25 && rt.dust > 25 && rh.grit > 5 && rt.grit > 5, `C: it stood empty: both rooms start dusty (house ${rh.grit}/${rh.dust}, tower ${rt.grit}/${rt.dust})`);
-ok(/Yours/.test(txt) && /Slettnes station/.test(txt) && /Keeper's house/.test(txt) && /Tower room/.test(txt) && /Floor a bit gritty · shelves a bit dusty/.test(txt) && /Cleaning kit/.test(txt) && /\$110 a night/.test(txt) && !/BUY IT/.test(txt) && !/−0%/.test(txt), "C: the page shows it as yours, a row per room, the kit row");
+ok(/Yours/.test(txt) && /Slettnes station/.test(txt) && /Keeper's house/.test(txt) && /Tower room/.test(txt) && /Floor a bit gritty · shelves a bit dusty/.test(txt) && /Cleaning kit/.test(txt) && /\$110 a night/.test(txt) && !/Slettnes lighthouse station/.test(txt) /* its for-sale card is gone (6.2b: other lights are still for sale) */ && !/−0%/.test(txt), "C: the page shows it as yours, a row per room, the kit row");
 const roww = await J(`[...document.querySelectorAll("#tabV .tprow b")].map(b => ({ t: b.textContent, h: b.getBoundingClientRect().height }))`);
 ok(roww.length >= 4 && roww.every(q => q.h < 26), "C: the row labels sit on one line: " + roww.map(q => q.t + " " + Math.round(q.h)).join(", "));
 await shot("x6t_c_owned");

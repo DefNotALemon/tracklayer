@@ -418,7 +418,7 @@ function rePage() {
   if (s.last.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>Lets +${api.fmtCash(q.rent)} · ${q.rented}/${q.nights} nights</span>${U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   h += U.sec("For sale", sale.length ? "no agent, no fees" : "");
   if (!sale.length) h += `<p class="tnote2">Nothing more of this kind on the books. Finnmark Eiendom will be in touch if anything comes up.</p>`;
-  for (const l of sale) h += U.tabCard({ tf: "prs:" + l.id, mini: mini(l), title: l.name, chips: U.chip(l.chip || T.name.toUpperCase()) + U.chip(`${l.rooms.length} ROOMS`) + U.chip(api.fmtCash(l.rent) + "/NIGHT"),
+  for (const l of sale) h += U.tabCard({ tf: "prs:" + l.id, mini: mini(l), title: l.name, chips: U.chip(l.chip || T.name.toUpperCase()) + U.chip(l.rooms.length === 1 ? "1 ROOM" : `${l.rooms.length} ROOMS`) + U.chip(api.fmtCash(l.rent) + "/NIGHT"),
     meta: `${dist(l)} from you · lets about ${api.fmtCash(l.rent * 7 * l.occ)} a week bare`, note: `${U.esc(l.blurb)} Walk in and have a look before you buy: ${l.rooms.map(r => r.name.toLowerCase()).join(", ")}.`,
     pay: api.fmtCash(l.price), act: "probuy:" + l.id, actLabel: "BUY IT", blocked: api.GS.cash < l.price });
   h += `<p class="tnote2">${T.sub ? T.sub + " " : ""}Guests take it on nights you're not there. Each room collects its own grit and dust, and a dirty room costs nights let.</p>`;
