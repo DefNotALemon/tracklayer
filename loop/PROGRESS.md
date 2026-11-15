@@ -3,6 +3,36 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 23:58 — Performance pass: ~2.5-4x less GPU on the title, town and storm views (v239)
+Owner ask: Tracklayer ran under 30 fps on desktop and was heavy on iPhone/iPad, title screen included. Profiled first
+(`tools/playtest/scenarios/perf_profile.mjs` + `perfhook.mjs`: GPU ms per frame from EXT_disjoint_timer_query, CPU ms,
+draw calls, triangles, per scene; `PR=1.5` pins the render scale and the governor for an apples-to-apples run, `AUTO=1`
+lets the governor settle). Findings, biggest first: (1) r128's `InstancedMesh` sets `frustumCulled = false`, so every tree
+and boulder cell inside the draw distance was drawn every frame, in the main pass and again in the shadow pass: 10 of the
+10.3 million triangles of the title and town were trees nobody could see; (2) the two snow shaders are fill-bound (the
+patch's lee-shadow march alone was ~60% of a fell frame at p10, `uMarchP` 6 -> 0 in a probe); (3) ~1,100-2,400 draw calls
+a frame (houses are ~15 meshes each, a thousand tiny town meshes drawn from 2 km out, both passes); (4) the governor needed
+2.3 s a rung, started desktops at the most expensive rung and could park itself at 15 fps for 3 minutes on a false "capped"
+verdict; (5) a 16 MB trail texture was re-sent whole and walked texel by texel every second.
+Changed: tree/boulder cells now cull by their own spheres (`frustumCulled = true`, also in the shadow pass) and boulder
+cells past the tree distance are hidden; far cells (nearest tree > 400 m, 260 m on phones) swap to ~100-triangle pines and
+birches (`pineGeosLo`, `pineCull`); `KIT.bake()` folds the K.put meshes of every building into a few meshes (house, lamp,
+rack groups are marked `kStatic` and bake into 96 m world chunks; other groups bake within themselves: 1,722 -> 686 meshes);
+`farCullTick` hides small static meshes under ~3 px from the camera layer mask (a mesh that ever moves is dropped from the
+list); `fdH` skips its close-dune terms where `near` is 0 (far terrain, same value); the patch's lee march uses a cheaper
+`tlDriftLite` from step 3 and both march lengths are uniforms (`uMarchP/F`) the governor lowers; governor: 9 rungs with pr
+from 1.5 to 0.5 in fine steps, 0.5 s window, drops several rungs at once in proportion to the miss, goal 57 fps, remembers
+its rung per screen size (`tracklayer.qg.v1`) so the title starts right, believes a "cap" only when the frame time sits on a
+16.7 ms multiple; trail texture uploads and fades only the touched rows (`flushTrail`); backdrop-filter blur off on phones
+and on rungs >= 4 (`html.mobile`, `html.lq`).
+Numbers (headless Chrome on the M1 Max, 1440x900 @2x, pr 1.5, governor pinned, GPU ms median of two paired rounds, base = origin/main v238):
+title 140 -> 56 ms (calls 1167 -> 508, tris 10.3M -> 4.1M); town riding 112 -> 29; night town 96 -> 31; storm 110 -> 35; town idle 109 -> 32
+(calls ~1275 -> ~650, tris 10.3M -> 3.6M); open fell riding 106 -> 89 (calls 2360 -> 750, tris 3.2M -> 2.8M; still shader-bound, so the
+governor lowers the scale there). The Mac was in Low Power Mode with other sessions' Chromes running, so absolute ms are inflated;
+the ratios held across rounds. Real iPhone/iPad speed cannot be measured headless.
+Gate: smoke, x1_save, g1_towngrid_beta, g1_forest, g3_pines_ride, x3_mobile, g1_town_quay, g2_iexit, g1_lanes pass
+(x3_mobile "gas pedal near top" failed once under load, speed 0.8 vs 2 m/s, and passed twice alone on this build).
+
 ## 2026-11-14 23:00 — Kjøllefjord roads, no fences (Owner request, session) — 7bc3b77
 Lemon (a Mainer) asked to drop the town's picket fences and show the streets as roads with a thin layer of snow and
 curbs. `townRoads()` (tracklayer.js v238, run from boot after initExpansion) lays an asphalt ribbon on `surf()`+4 cm over
