@@ -406,16 +406,25 @@ const toWorld = (P, lx, lz, out) => { const fx = Math.sin(P.yaw), fz = Math.cos(
 
 /* ---------------- the physics: core(dt) runs in place of physCore while you are in a vehicle ---------------- */
 const GR = 9.81;
+/* What else rides on a truck besides the rig on its ball: a semitrailer on a tractor unit's fifth wheel (3.5b2, tlx-rig.js).
+   TLXV.addLoad(fn): fn(uid) -> null, or { kg (its whole mass: inertia), pin (kg of it resting on the truck's own tyres:
+   more grip, more rolling), drag (N, its own axles' rolling), brakeN (N its own brakes add), hold (true: it can't be driven,
+   e.g. landing legs still down) }. */
+const LOADS = [], XL0 = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false };
+function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r; } return XL0; }
+// where a truck you own stands right now (the one you're in, or nearest on foot, is P): { x, z, yaw, def, cur }
+function truckPose(uid) { const r = rec(uid); if (!r || KINDS[r.id]) return null; const cur = S().cur === uid, p = cur ? api.P : r; return { x: p.x, z: p.z, yaw: p.yaw, def: byId(r.id), cur }; }
 function core(R, dt) {
   const P = api.P, input = api.input, FOOT = api.FOOT, BOG = api.BOG, HELP = api.HELP, GS = api.GS, d = R.def, w = api.world, ST = api.ST();
   if (HELP.on && HELP.kind === "sea") { P.vx = P.vz = P.vy = 0; P.y = Math.max(w.rideSurf(P.x, P.z), P.wl - 0.5); P.gnd = true; P.wet = true; return; }   // dunked, waiting on the rescue sled
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   const tw = api.towLive() ? api.tow : null;                                 // the rig on this truck's hitch (slice 2.5): its weight and its drag
   const hk = haulKg(R.rec.uid);                                              // the sled trailer on this ball (2.6a): inertia here, its rolling in Fres
-  const M = R.mass = d.mass + 6 * Math.min(8, smallN(api.GS.load)) + (tw ? tw.mass : 0) + hk, W = (M - (tw ? tw.mass : 0) - hk) * GR, started = api.started();   // the rig adds inertia; its own drag stands for its rolling
+  const xl = xLoad(R.rec.uid);                                               // a semitrailer on the fifth wheel (3.5b2, tlx-rig.js): inertia, the kingpin's share on these tyres
+  const M = R.mass = d.mass + 6 * Math.min(8, smallN(api.GS.load)) + (tw ? tw.mass : 0) + hk + xl.kg, W = (M - (tw ? tw.mass : 0) - hk - xl.kg + xl.pin) * GR, started = api.started();   // the rig adds inertia; its own drag stands for its rolling
   const wl0 = w.wlvAt(P.x, P.z), sea = wl0 !== null; if (sea) P.wl = wl0; else P.sink = 0;
   let vx = P.vx, vz = P.vz;
-  const parked = FOOT.on || GS.dead;                                         // standing or climbing in/out: the brake is on
+  const parked = FOOT.on || GS.dead || xl.hold;                              // standing or climbing in/out: the brake is on (or a coupled trailer's legs are down)
   // --- the four wheels: the snow in front of each sets its sink, rolling resistance and grip; its own cell sets where it sits
   // which way the tyres are about to roll: the way it's moving, or at a crawl the way the driver is asking (S held with no
   // throttle = reverse), so backing out reads the truck's own ruts behind it, not the unbroken bank it just braked into (0108 #1)
@@ -476,19 +485,19 @@ function core(R, dt) {
      pull past a small dead zone instead of 0..1 (beta 0116 #2: 30% LT made 2 kN against 1-2.7 kN of standing drag) */
   const brkR = input.brk > 0.08 ? 0.35 + 0.65 * input.brk : input.brk;
   if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * brkR * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
-  else if (input.brk > 0 && !parked) Fx = -Math.min(d.brakeN || 9500, T0 * 0.98) * input.brk * (vf > 0.4 ? 1 : 0.25);
+  else if (input.brk > 0 && !parked) Fx = -(Math.min(d.brakeN || 9500, T0 * 0.98) + xl.brakeN) * input.brk * (vf > 0.4 ? 1 : 0.25);   /* + the trailer's own axles braking (3.5b2) */
   /* traction control (beta 0129 #2): a 2019 pickup's ECU trims the throttle when the driven wheels slip while the truck can
      still make way, so a floored pedal (keyboard W is all or nothing) crawls on through powder it can beat instead of
      spinning itself into a hole the moment a 2% grade slows it. It can't help a truck whose snow alone outweighs its
      grip (sPre >= traction: 0.92 until beta 0140 #1, which made 40 cm a cliff): there the wheels spin and dig as before. The push is the same
      either way (min(Fe, T0)); only the spin that digs changes */
-  const sPre = W * (crS - crB + cb) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);   // the standing drag: no bow wave
+  const sPre = W * (crS - crB + cb) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid) + xl.drag;   // the standing drag: no bow wave
   if (Fe > T0 * 1.12 && d.tc !== false && sPre < T0) Fe = T0 * 1.12;
   R.fe = Fe; R.t0 = T0; R.fsnow = sPre;
   if (Fe > 0) { Fx += Math.min(Fe, T0); spin = Math.max(0, Fe - T0) / Math.max(T0, 600); }
   const vfPrev = vf; vf += Fx / M * dt;
   if (!rev && input.brk > 0 && vfPrev >= 0 && vf < 0) vf = 0;                     // the brake stops you; only S held at a standstill backs you up
-  const aero = (d.aero || 0.95) * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid);
+  const aero = (d.aero || 0.95) * vf * Math.abs(vf), Fres = W * (crS + cb) + Math.abs(aero) + (tw ? tw.drag : 0) + haulDrag(R.rec.uid) + xl.drag;
   const dv = Fres / M * dt; if (Math.abs(vf) <= dv) vf = 0; else vf -= Math.sign(vf) * dv;
 R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = vf; R.gok = P.y <= Hc + 0.12 ? 1 : 0;   /* telemetry: slope pull along the nose (m/s2, + = rolls it forward) */
   // --- steering: Ackermann from the wheelbase, lateral grip capped by what the tyres have left after the engine took its share
@@ -1785,5 +1794,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

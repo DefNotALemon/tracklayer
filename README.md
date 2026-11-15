@@ -701,8 +701,27 @@ rate. It carries two parcels in the cab, has twin tyres on the drive axle and no
 your sled rigs hitch to it.
 
 It is a road machine. On a plowed road or a plowed street it drives as described; in fresh powder it
-sinks at once, digs in and sits there until you dig it out or reset. The trailers it is built to pull,
-and the freight that pays for it, are not in the game yet.
+sinks at once, digs in and sits there until you dig it out or reset.
+
+**Semitrailers.** Two trailers stand on their landing legs in plowed lay-bys beside the road: a box
+trailer on the road out of Kjøllefjord, a couple of hundred metres past the last houses, and a tanker
+trailer outside Lebesby. Both are pinned on the Map with your vehicles. To couple one, back the
+tractor's fifth wheel under the trailer's front at a crawl and in line with it: the kingpin locks with
+a thud and the lorry stops. Come in faster than a walk, or more than about ten degrees off the
+trailer's line, and it does not lock; a message says which. The trailer's front stops the cab if you
+run on under it.
+
+A coupled trailer still stands on its legs, and the lorry will not move until they are up: get out,
+walk to the trailer's front and use the legs (the on-foot line reads "wind the box trailer's legs
+up"). After that it is on the lorry. It doubles the weight, so the rig pulls away at well under half
+the bare tractor's rate; its own axles add braking and their own drag in snow. It follows the fifth
+wheel the way the lorries in traffic do, cutting inside every bend and straightening out behind you,
+and swings the other way when you reverse. The chase camera sits further back to keep it in view.
+
+To leave it, stop on level ground, get out and use the legs again: they wind down, the fifth wheel
+lets go and the trailer stands where it is. Drive out from under it. It can be picked up again from
+wherever you left it, and the save keeps where each trailer stands and which lorry it is on. The
+freight that pays for hauling them is not in the game yet.
 
 ## The pickup
 
