@@ -13741,7 +13741,7 @@ function updGame(dt, spd) {
   if (freeFill) { GS.fuel = Math.min(GS.cap, GS.fuel + 6 * dt); GS.outWarned = GS.lowWarned = false; }
   fuelStep(dt, spd);
   if (GS.fuel < GS.cap * 0.2 && !GS.lowWarned && GS.fuel > 0 && !FS.spot && !freeFill && !fuelSpot()) { GS.lowWarned = true; if (sledDef().plug) { const np = nearestPlug(); toast(`Battery low. Any village, cabin or home will plug you in${np ? `: nearest ${np.name}, ${fmtMi(np.d)}` : ""}.`, "warn"); } else { const nf = nearestFuel(); toast(`Fuel low. ${nf ? `Nearest pumps: ${nf.name}, ${fmtMi(nf.d)}, ${fuelFmt(nf.price)}.` : "Stick to packed trail, it burns less."}`, "warn"); } }
-  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. ${INP.dev === "touch" ? "Tap " + btn("help") : "Press " + btn("help")} for a fuel delivery ($${helpCost("fuel")}), or walk it off.`, "bad"); }
+  if (GS.fuel <= 0 && !GS.outWarned) { GS.outWarned = true; toast(`Out of fuel. ${INP.dev === "touch" ? "Tap " + btn("help") : "Press " + btn("help")} ${VEH.cur && VEH.cur.helpText && !FOOT.on ? VEH.cur.helpText() : `for a fuel delivery ($${helpCost("fuel")}), or walk it off`}.`, "bad"); }
   schoolTick(dt, spd);
   sarTick(dt, spd);
   const work = near && spd < 4 && !SCHOOL.on;           // on a school course your own loads are parked in the yard
@@ -15683,6 +15683,7 @@ function startDrown() {
 function callForHelp() {
   if (GS.dead) return;
   if (HELP.on) { if (HELP.called) { toast("They're on their way. Hang on."); return; } helpCall(); return; }
+  if (GS.fuel <= 0 && VEH.cur && VEH.cur.help && !FOOT.on) { VEH.cur.help(); return; }   // a boat out of fuel at sea: the harbour boat tows her in (tlx-boats.js)
   if (GS.fuel <= 0) { HELP.on = true; HELP.kind = "fuel"; HELP.fee = helpCost("fuel"); HELP.phase = "wait"; HELP.t = 0; helpCall(); return; }
   toast(BOG.on ? `That's not a rescue job: get off (${btn("dismount")}) and winch or dig, or reset (${btn("reset")}).` : `You're not in trouble. ${btn("help")} calls a rescue, and only for the fjord or an empty tank. ${btn("reset")} resets a stuck ${VEH.cur ? VEH.noun.toLowerCase() : "sled"}.`, "warn");
 }
@@ -17392,6 +17393,8 @@ function initExpansion() {
     deliver, collectClaims,
     // lighthouses (6.2a): the sun's height (degrees) at an hour of the day, for the lamp's sun valve
     sunEl,
+    // the Boats app (14.4a): the Map's marker
+    mark: (x, z) => { WP.x = x; WP.z = z; },
     kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
       wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }

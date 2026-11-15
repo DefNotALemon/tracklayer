@@ -337,6 +337,20 @@ It pays by the distance by sea, and 35% more when the road between the two place
 shut for the winter (ROAD SHUT +35%). Tied up at a village's jetty you have the village's warmth,
 and at the quay jetty the quay's hose fills her tank.
 
+**The Boats app and the tow home.** Once you own a boat the tablet has a **Boats** app. Each boat
+gets a card: whether you're aboard, moored at a jetty or she's lying afloat somewhere (and how far
+off which jetty), how far that is by sea from the quay jetty, the fuel in her tank and roughly how
+far it takes her flat out, the state of her hull and what the dents cost her, and the parcels
+aboard. **MARK ON MAP** drops the Map's marker on a boat you've left somewhere, so the compass
+leads you back to her. **TOW HOME** has the harbour boat bring her to a free berth at the quay
+jetty: $40 and $30 for every kilometre by sea, half as much again in a blow. What's aboard stays
+aboard. If you're in her you ride along: the screen fades, and the clock has moved on by the time
+a tow takes (about 11 km/h). If you're not, she's fetched and you make your own way. Run the tank
+dry at sea and the help control (P, D-pad down, CALL HELP on touch) calls the same tow instead of
+a fuel sled, and nobody is left out there for want of cash: it takes what you have. Tied up at the
+quay jetty she fills again. Under the cards the app lists every jetty with its distance by sea
+from your boat and any sea jobs waiting on it.
+
 **Fishing from the boat.** Stopped over 4 m or more of water, the use control (E, L3, the FISH
 button on touch) puts a handline over the side: a wooden frame of heavy line with a pilk on the end.
 With the line down, brake lets it out (the pilk sinks about 3 m a second until it lies on the

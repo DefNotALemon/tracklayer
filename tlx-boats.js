@@ -1,4 +1,4 @@
-// Tracklayer — boats (expansion slices 14.1-14.3, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
+// Tracklayer — boats (expansion slices 14.1-14.4a, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
 //
 // WHAT IT IS. A 4.6 m aluminium skiff with a 20 hp tiller outboard, bought at the garage (Boats tab) and moored at a timber
 // jetty on piles (the småbåthavn) off the lowest bit of shore near the quay: the concrete quay stands ~9 m above the water,
@@ -17,6 +17,10 @@
 // GETTING IN AND OUT. From the jetty's planks or any low shore (dry, unblocked ground within ~1.1 m of the gunwale, no
 // more than 1.4 m above the water): walk to the gunwale, step down in with one foot, weight across (the boat heels),
 // the other foot, turn and sit at the tiller. Getting out is the same backwards onto the nearest such spot.
+//
+// THE BOATS APP AND THE TOW HOME (14.4a). Once you own a boat the tablet has a Boats app: each boat's hull, fuel, cargo and
+// where she lies, a marker for the Map, the jetties by sea, and a tow back to her berth at the quay jetty by the harbour
+// boat for a fee by the distance by sea. An empty tank at sea calls the same tow with the help control.
 //
 // tracklayer.js hooks for this file: VEH.floor (the jetty planks in walkFloor and past the sea wall in footStep) and the
 // "B" pin on the Map. Place comes from api.world (depot, sea mask, ground), never a Nordkinn constant.
@@ -221,12 +225,22 @@ function seaKm(A, B) {                                                         /
   const crow = Math.hypot(A.x - B.x, A.z - B.z) / 1000;
   if (A === B) return 0;
   if (!SEA) return crow * 1.3;
+  const k = seaCell(B), n = k >= 0 ? seaField(A)[k] : -1;
+  return n < 0 ? crow * 1.3 : Math.max(crow, n * SEA_C * 0.8 / 1000);
+}
+function seaField(A) {                                                         // steps over the quay's sea from this jetty's end to every cell (-1: not joined)
   if (!A.sd) {
     const N = SEA.N, sd = A.sd = new Int32Array(N * N).fill(-1), q = new Int32Array(N * N), s = seaCell(A);
     let h = 0, t = 0; if (s >= 0) { sd[s] = 0; q[t++] = s; }
     while (h < t) { const k = q[h++], i = k % N, j = (k / N) | 0; for (const n of [i > 0 ? k - 1 : -1, i < N - 1 ? k + 1 : -1, j > 0 ? k - N : -1, j < N - 1 ? k + N : -1]) if (n >= 0 && sd[n] < 0 && SEA.seen[n] === 1) { sd[n] = sd[k] + 1; q[t++] = n; } }
   }
-  const k = seaCell(B), n = k >= 0 ? A.sd[k] : -1;
+  return A.sd;
+}
+function seaKmAt(A, x, z) {                                                    // from a jetty to any point of the sea, km by water
+  const e = dockEnd(A), crow = Math.hypot(e.x - x, e.z - z) / 1000;
+  if (!SEA) return crow * 1.3;
+  let k = -1; for (const [dx, dz] of [[0, 0], [SEA_C, 0], [-SEA_C, 0], [0, SEA_C], [0, -SEA_C]]) { const c = SEA.cell(x + dx, z + dz); if (c >= 0 && SEA.seen[c] === 1) { k = c; break; } }
+  const n = k >= 0 ? seaField(A)[k] : -1;
   return n < 0 ? crow * 1.3 : Math.max(crow, n * SEA_C * 0.8 / 1000);
 }
 function seaJobs() { const GS = api.GS; return (GS.jobs || []).concat(GS.claims || []).filter(j => j && j.sea); }
@@ -337,10 +351,10 @@ function runtime(r, d) {
   const R = Object.assign({ grp, body, om: R0.om, prop: R0.prop, tillerG: R0.tiller, nav: R0.nav, drvBody: new T.Group(), drvArms: new T.Object3D(),
     yr: 0, til: 0, heave: 0, hv: 0, pitch: 0, pv: 0, roll: 0, rv: 0, A: null, aground: 0, warnT: 0, lastW: null, spray: 0, parcels: -1, pbox: null, cond: r.cond }, {});
   R.drvBody.visible = false; body.add(R.drvBody);
-  api.scene.add(grp);
+  api.scene.add(grp); RTS.set(r.uid, R);
   return R;
 }
-const R0 = {};
+const R0 = {}, RTS = new Map();                                                // uid -> the boat's runtime (the tow needs the current boat's)
 function driverFig(R) {
   if (R.fig) return R.fig;
   const g = api.newWalker(); R.drvBody.add(g); R.fig = g;
@@ -384,7 +398,7 @@ function core(R, dt) {
   const wl = w.wlvAt(P.x, P.z); if (wl !== null) P.wl = wl;
   const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), lx = fz, lz = -fx;
   let vf = P.vx * fx + P.vz * fz, vl = P.vx * lx + P.vz * lz;
-  const parked = FOOT.on || GS.dead || api.MNT.on || api.DMT.on || !!R.fishing, fuel = GS.fuel > 0 && !GS.dead;
+  const parked = FOOT.on || GS.dead || api.MNT.on || api.DMT.on || !!R.fishing || !!R.towing, fuel = GS.fuel > 0 && !GS.dead;
   const n = load(R), M = d.mass + 90 + 6 * n;
   const thr = fuel && !parked ? input.thr : 0, rev = fuel && !parked && input.brk > 0 && !(input.thr > 0);
   const pw = d.power * 0.55 * (0.75 + 0.25 * (R.rec.cond == null ? 1 : R.rec.cond / 100));
@@ -651,6 +665,8 @@ function driver(R) {
     pin: "boat", floats: true,                                                  // the game's drown test leaves P alone (beta 0178 #1)
     shore: () => shoreSite(R),                                                  // tied up at a jetty: its place's warmth, the quay's fuel (14.2b)
     // the use control in the boat (14.3): what it would do, do it, its hint; grab = it takes the gas / brake while it's on
+    // an empty tank at sea (14.4a): the help control calls the harbour boat's tow instead of a fuel sled; what the warning says
+    help: () => helpTow(R), helpText: () => `for a tow to the quay jetty (${api.fmtCash(towFee(R.rec))})`,
     use: () => !!addon("use", R), useLabel: () => addon("useLabel", R), useHint: () => addon("useHint", R) || "", grab: (thr, brk) => !!addon("grab", R, thr, brk),
     get mass() { return ROW.mass + 90; },
     core: dt => core(R, dt),
@@ -676,9 +692,9 @@ function reset(R) {
 
 /* ---------------- buying: the garage's Boats tab ---------------- */
 function boats() { return S().owned.filter(r => r.id === ROW.id); }
-function freeBerth() {
+function freeBerth(skip) {
   const s = S(), P = api.P, taken = [];
-  for (const r of s.owned) { const cur = s.cur === r.uid; taken.push(cur ? [P.x, P.z] : [r.x, r.z]); }
+  for (const r of s.owned) { if (r === skip) continue; const cur = s.cur === r.uid; taken.push(cur ? [P.x, P.z] : [r.x, r.z]); }
   for (const D of DOCKS) for (const sd of [-1, 1]) { if (D.site !== api.world.depot || !berthOK(D, sd)) continue; const b = berthPose(D, sd); if (taken.every(([x, z]) => Math.hypot(x - b.x, z - b.z) > 3)) return b; }
   return null;
 }
@@ -710,16 +726,122 @@ function garageRows(body, row) {
   body.appendChild(note);
 }
 
+/* ---------------- the Boats app and the tow home (14.4a) ----------------
+   The tablet's Boats app (hidden until you own a boat): a card per boat with her hull, fuel and the range that gives, the
+   parcels aboard and where she lies (aboard / moored at a jetty / afloat so far off the nearest one), MARK ON MAP (the
+   Map's marker, which the compass follows when nothing else is tracked) and TOW HOME; under them every jetty with its
+   distance by sea from your boat and the sea jobs waiting on it.
+   The tow: the harbour boat fetches her to a free berth at the quay jetty for TOW.base + TOW.perKm per km by sea (the
+   same flood-fill distance the sea jobs pay by), half as much again in a blow. Parcels aboard stay aboard. If you're
+   aboard you ride along: the screen fades and the clock moves on by the time a tow at TOW.kmh takes. An empty tank at
+   sea turns the help control into the same tow, and nobody is left out there for want of cash (it takes what you have).
+   Nothing new is saved: the boat's place is her record in x.vehicles. */
+const TOW = { base: 40, perKm: 30, storm: 1.5, kmh: 11 };
+const aboardOf = r => S().cur === r.uid && !api.FOOT.on;
+const posOf = r => S().cur === r.uid ? api.P : r;
+const fuelOf = r => S().cur === r.uid ? api.GS.fuel : Number(r.fuel) || 0;
+const loadOf = r => ((S().cur === r.uid ? api.GS.load : r.load) || []).filter(j => j && !j.big).length;
+function nearDock(x, z) { let D = null, dd = 1e9; for (const Q of DOCKS) { const e = dockEnd(Q), d = Math.hypot(x - e.x, z - e.z); if (d < dd) { dd = d; D = Q; } } return D ? { D, d: dd } : null; }
+function whereOf(r) {
+  const p = posOf(r), at = dockAt(p.x, p.z), n = nearDock(p.x, p.z);
+  if (at) return { at, text: `at the ${at.name}` };
+  if (!n) return { at: null, text: "afloat" };
+  return { at: null, text: `afloat, ${n.d < 950 ? Math.round(n.d / 10) * 10 + " m" : (n.d / 1000).toFixed(1) + " km"} off the ${n.D.name}` };
+}
+function towKm(r) { const p = posOf(r); return DOCKS[0] ? seaKmAt(DOCKS[0], p.x, p.z) : 0; }
+function towFee(r) { const rough = clamp(api.GS.storm || 0, 0, 1) > 0.5; return Math.round((TOW.base + TOW.perKm * towKm(r)) * (rough ? TOW.storm : 1) / 5) * 5; }
+// why she can't be towed just now ("" = she can). lenient: the empty-tank call, which never refuses for want of cash
+function towBlock(r, lenient) {
+  const GS = api.GS, cur = S().cur === r.uid, R = RTS.get(r.uid);
+  if (!DOCKS[0]) return "There is no jetty to tow her to.";
+  if (R && R.towing) return "The harbour boat has her already.";
+  if (GS.dead || api.busy() || api.HELP.on || (cur && (api.MNT.on || api.DMT.on))) return "Not just now.";
+  const p = posOf(r); if (dockAt(p.x, p.z) === DOCKS[0]) return "She's at the quay jetty already.";
+  if (!freeBerth(r)) return "No free berth at the quay jetty: move your other boat off it first.";
+  const fee = towFee(r); if (!lenient && GS.cash < fee) return `The tow is ${api.fmtCash(fee)}. You have ${api.fmtCash(GS.cash)}.`;
+  return "";
+}
+let FADE = null;
+function fade(fn) {                                                            // dark, do it, light again
+  if (!FADE) { FADE = document.createElement("div"); FADE.id = "tlxbFade"; FADE.style.cssText = "position:fixed;inset:0;z-index:5;background:#05070a;opacity:0;pointer-events:none;transition:opacity .5s linear"; document.body.appendChild(FADE); }
+  FADE.style.opacity = "1";
+  setTimeout(() => { try { fn(); } finally { setTimeout(() => { FADE.style.opacity = "0"; }, 450); } }, 560);
+}
+function tow(uid, lenient) {
+  const s = S(), GS = api.GS, P = api.P, r = s.owned.find(q => q.uid === uid && q.id === ROW.id); if (!r) return false;
+  const why = towBlock(r, lenient); if (why) { api.toast(why, "warn"); return false; }
+  const km = towKm(r), fee = Math.min(towFee(r), Math.max(0, GS.cash)), short = fee < towFee(r), b = freeBerth(r), cur = s.cur === r.uid, aboard = aboardOf(r), R = RTS.get(r.uid);
+  const dry = fuelOf(r) <= 0;
+  GS.cash -= fee;
+  const go = () => {
+    r.x = b.x; r.z = b.z; r.yaw = b.yaw;
+    if (cur) {
+      P.x = b.x; P.z = b.z; P.yaw = b.yaw; P.vx = P.vz = 0; P.yr = 0;
+      if (R) { R.yr = 0; R.aground = 0; R.lastW = { x: b.x, z: b.z, yaw: b.yaw }; R.atSite = undefined; }
+      if (aboard) { GS.hour += km / TOW.kmh; api.recenter(P.x, P.z, true); api.camState.init = false; api.camState.yaw = P.yaw; }
+    }
+    if (R) R.towing = false;
+    api.toast(aboard ? `The harbour boat towed you in: ${km.toFixed(1)} km by sea, ${api.fmtCash(fee)}${short ? " (all you had on you)" : ""}. She's on her berth at the quay jetty${dry ? ", and the quay's hose reaches down here: she fills while she's tied up" : ""}.`
+      : `The harbour boat fetched her: ${km.toFixed(1)} km by sea, ${api.fmtCash(fee)}. She's on her berth at the quay jetty. You make your own way there.`, "good");
+    api.save(); api.TABLET.refresh("boats");
+  };
+  if (aboard) {
+    for (const o of ADDONS) if (o.stop) o.stop(R);                              // the handline comes in first
+    if (R) R.towing = true; P.vx = P.vz = 0; api.TABLET.close(); fade(go);
+  } else go();
+  return true;
+}
+function helpTow(R) { if (!R.towing) tow(R.rec.uid, true); return true; }
+// how far a tank takes her flat out, km (the burn in core at the speed the drag settles on)
+function rangeKm(fuel) { const pw = ROW.power * 0.55, v = ROW.top, f = Math.min(1, pw / v / ROW.fmax); return fuel / ((0.0007 + f * 0.0115) * ROW.burn) * v / 1000; }
+function mark(uid) {
+  const r = S().owned.find(q => q.uid === uid); if (!r) return;
+  const p = posOf(r); api.mark(p.x, p.z);
+  api.toast("Marker set on your boat: it shows on the Map, and the compass leads to it when you have nothing else on.", "info"); api.ui.ping("note");
+}
+const B_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 14h18l-2.6 4.6H6z"/><path d="M12 14V4l5.5 7H12"/><path d="M2.5 21.2c1.6-1 3.2-1 4.8 0s3.2 1 4.8 0 3.2-1 4.8 0 3.2 1 4.6 0"/></svg>';
+function appRender(el) {
+  const U = api.ui, GS = api.GS, bs = boats(), money = api.fmtCash;
+  let h = U.tabHead("BOATS · YOUR MOORINGS", "Boats", money(GS.cash));
+  h += `<div class="tsub">${bs.length} of ${MAX_BOATS} berths taken at the quay jetty · the harbour boat tows for ${money(TOW.base)} and ${money(TOW.perKm)} a kilometre by sea${clamp(GS.storm || 0, 0, 1) > 0.5 ? " " + U.chip("HEAVY WEATHER RATE", "due") : ""}</div>`;
+  bs.forEach((r, i) => {
+    const w = whereOf(r), aboard = aboardOf(r), f = fuelOf(r), c = clamp(Number(r.cond == null ? 100 : r.cond), 0, 100), n = loadOf(r), km = towKm(r), why = towBlock(r), home = w.at === DOCKS[0];
+    const chips = (aboard ? U.chip("ABOARD", "ok") : w.at ? U.chip("MOORED", "ok") : U.chip("AFLOAT")) + (f <= 0 ? U.chip("NO FUEL", "due") : f < ROW.fuel * 0.2 ? U.chip("LOW FUEL", "due") : "") + (c < 99.5 ? U.chip(`HULL ${Math.round(c)}%`, c < 60 ? "due" : "") : "");
+    const extra = aboard ? "" : `<button type="button" class="tbtn ghost" data-tf="btm:${r.uid}" data-act="btm:${r.uid}">MARK ON MAP</button>`;
+    h += U.tabCard({ tf: "btc:" + r.uid, title: ROW.name + (bs.length > 1 ? " · no. " + (i + 1) : ""), chips,
+      meta: `${w.text[0].toUpperCase() + w.text.slice(1)}${home ? "" : ` · ${km.toFixed(1)} km by sea from the quay jetty`}`,
+      note: `Fuel ${f.toFixed(0)} of ${ROW.fuel} L${f > 0 ? `: about ${Math.round(rangeKm(f))} km flat out, further at an easy pace` : ": the tank is dry"}. `
+        + (c < 99.5 ? `Hull ${Math.round(c)}%: the dents cost her ${Math.round(25 * (1 - c / 100))}% of her power. ` : "Hull sound. ")
+        + `${n ? `${n} of ${ROW.slots} parcels aboard` : "Nothing aboard"}.`
+        + (home ? "" : ` ${aboard ? "A tow takes you along with her" : "A tow brings her home without you"}; what's aboard stays aboard.`),
+      pay: home ? "" : money(towFee(r)), act: home ? "" : "btw:" + r.uid, actLabel: "TOW HOME", blocked: !!why })
+      .replace(home ? "\u0000" : `data-act="btw:${r.uid}">TOW HOME</button>`, `data-act="btw:${r.uid}">TOW HOME</button>${extra}`)
+      .replace(home && extra ? `</div></div>` : "\u0000", `<div class="tca"><span class="tpay"></span>${extra}</div></div></div>`);
+  });
+  if (DOCKS.length) {
+    const b0 = bs[0] && posOf(bs[0]);
+    h += U.sec("Jetties", b0 ? "by sea from your boat" : "");
+    h += `<div class="tsml2">${DOCKS.map(D => { const e = dockEnd(D), km = b0 ? seaKmAt(D, b0.x, b0.z) : 0, here = b0 && dockAt(b0.x, b0.z) === D, jobs = seaJobs().filter(j => j.from === D.site && !(GS.load || []).includes(j)).length;
+      return `<div class="tsm2" style="grid-template-columns:minmax(0,8.5em) minmax(0,1fr) auto"><b>${U.esc(D.name[0].toUpperCase() + D.name.slice(1))}</b><span>${here ? "she's here" : km.toFixed(1) + " km"}${D.site === api.world.depot ? " · fuel, your berths" : " · warmth"}${jobs ? ` · ${jobs} sea job${jobs > 1 ? "s" : ""} from here` : ""}</span>${here ? U.chip("HERE", "ok") : ""}</div>`; }).join("")}</div>`;
+  }
+  h += `<p class="tnote2">Out of fuel at sea? ${api.btn("help")} calls the harbour boat for the same tow. She fills up tied alongside the quay jetty.</p>`;
+  el.innerHTML = `<div class="tapp">${h}</div>`;
+  for (const b of el.querySelectorAll("[data-act^='btw:']")) b.addEventListener("click", () => { tow(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
+  for (const b of el.querySelectorAll("[data-act^='btm:']")) b.addEventListener("click", () => mark(b.dataset.act.slice(4)));
+}
+
 function init(a) {
   api = a; T = a.THREE;
   const D = siteDock(a.world.depot.x, a.world.depot.z, []);
   if (D) { D.site = a.world.depot; D.name = "quay jetty"; DOCKS.push(D); buildDock(D); siteVillageDocks(); }
   a.veh.floor = floorAt;
+  a.TABLET.register({ id: "boats", name: "Boats", icon: B_ICON, order: 8.6, live: 4,
+    hidden: () => !boats().length, badge: () => boats().some(r => fuelOf(r) <= 0) ? "!" : "", render: appRender });
   a.TABLET.addLayer("docks", () => DOCKS.map(D => { const e = dockEnd(D); return { x: e.x, z: e.z, name: D.name, kind: "dock" }; }));
   for (const o of ADDONS) if (o.init) o.init(a, { ROW, HB, HL, FLOOR, GUN, DOCKS, bw, sheer, depthAt, shortSite, boats });
 }
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
 TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
+window.TLXB = { addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaKmAt, tow, towFee, towKm, towBlock, whereOf, rangeKm, mark, TOW, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();
