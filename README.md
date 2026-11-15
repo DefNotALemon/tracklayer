@@ -738,6 +738,12 @@ the bare tractor's rate; its own axles add braking and their own drag in snow. I
 wheel the way the lorries in traffic do, cutting inside every bend and straightening out behind you,
 and swings the other way when you reverse. The chase camera sits further back to keep it in view.
 
+A trailer is solid, standing or coupled: you walk round it, a sled or the pickup driven at its side
+stops against it, and drivers on the road stop behind its tail instead of behind your cab. Backing
+up takes small corrections, steering toward the side the trailer is drifting to. Let it swing too far
+and it jackknifes: at about sixty degrees the trailer's corner is against the cab, the lorry will not
+go back any further and a message says so. Pull forward and it straightens out behind you.
+
 To leave it, stop on level ground, get out and use the legs again: they wind down, the fifth wheel
 lets go and the trailer stands where it is. Drive out from under it. It can be picked up again from
 wherever you left it, and the save keeps where each trailer stands and which lorry it is on. The

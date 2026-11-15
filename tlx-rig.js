@@ -15,8 +15,8 @@
 //
 // HOW IT FOLLOWS. The same rule as 3.5a's traffic semis: each frame the trailer's axle point is pulled straight toward the
 // kingpin until it is the trailer's wheelbase behind it (a tractrix), so it cuts inside a bend, straightens after, and swings
-// the other way in reverse. Past RIG.jack of articulation the trailer binds against the cab (3.5b2b makes that a held
-// tractor with a toast). Its whole mass is inertia on the tractor, RIG.pin of it rests on the tractor's tyres (more grip and
+// the other way in reverse. Past RIG.jack of articulation the trailer binds against the cab: backing up, the tractor is held
+// there with a toast until it pulls forward (3.5b2b1). Its whole mass is inertia on the tractor, RIG.pin of it rests on the tractor's tyres (more grip and
 // more rolling), its own axles add rolling drag by their sink in the snow and their own braking.
 //
 // SAVED (state id "rig"): t: { <spot id>: { x, z, yaw (the axle point and heading), on (uid of the tractor it is coupled to,
@@ -44,7 +44,9 @@ const RIG = {
   reach: 2.9, legsZ: -1.6,  // m: you to the legs; the legs behind the kingpin
   grade: 0.08,              // the steepest ground a trailer may be stood on
   stop: 0.75,               // m: how far past the kingpin the fifth wheel can run before the trailer's front plate stops the cab
-  far: 600
+  far: 600,
+  solidR: 1.3, solidStep: 1.9,                                       // the body as obstacle circles: radius (half its 2.55 m width), spacing along it, m
+  frontPass: 3.6            // m behind the kingpin: the part of the body a tractor backing in along its line runs under
 };
 const TRAILERS = {                                                   // by TLXS type: empty mass kg, what it is called, its colour
   dist: { name: "box trailer", kg: 7200, col: 0xeef0f2 },
@@ -121,13 +123,64 @@ function build(T) {
 /* ---------------- following the fifth wheel ---------------- */
 function drop(T) { T.s.on = null; T.s.legs = 1; T.art = 0; }
 function follow(T) {
-  const s = T.s; if (s.on == null) return;
-  const h = hostOf(T); if (!h) { drop(T); return; }                  // the tractor is gone (sold): it stands where it stood
-  const f = fifth(h), dx = s.x - f[0], dz = s.z - f[1], d = Math.hypot(dx, dz), back = h.yaw + Math.PI;
+  const s = T.s; if (s.on == null) { T.hp = null; return; }
+  let h = hostOf(T); if (!h) { drop(T); return; }                    // the tractor is gone (sold): it stands where it stood
+  let f = fifth(h), dx = s.x - f[0], dz = s.z - f[1], d = Math.hypot(dx, dz), back = h.yaw + Math.PI;
   let a = d > 40 || d < 0.01 ? back : Math.atan2(dx, dz);            // a jump (a rescue, a reset): straight behind
-  const rel = wrapA(a - back);
-  if (Math.abs(rel) > RIG.jack) a = back + Math.sign(rel) * RIG.jack;
+  let rel = wrapA(a - back);
+  if (Math.abs(rel) > RIG.jack) {
+    // jackknifed (3.5b2b1). Backing up, the trailer's corner is against the cab and nothing more gives: the tractor is put
+    // back where it stood a frame ago and loses its rearward speed, until it pulls forward. Going forward the trailer can
+    // only be dragged round (its tyres scrub), so there it stays the clamp.
+    const P = api.P, live = h.cur && !api.FOOT.on, vf = live ? P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw) : 0;
+    if (live && vf < -0.03 && T.hp && Math.hypot(P.x - T.hp[0], P.z - T.hp[1]) < 2) {
+      P.x = T.hp[0]; P.z = T.hp[1]; P.yaw = T.hp[2]; P.yr = 0;
+      const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw), v = P.vx * sy + P.vz * cy; if (v < 0) { P.vx -= v * sy; P.vz -= v * cy; }
+      T.jkT = api.now();
+      say(T, "Jackknifed: the trailer is hard against the cab and will not go back any further. Pull forward to straighten it out.");
+      h = hostOf(T); f = fifth(h); dx = s.x - f[0]; dz = s.z - f[1]; d = Math.hypot(dx, dz); back = h.yaw + Math.PI;
+      a = d < 0.01 ? back : Math.atan2(dx, dz); rel = wrapA(a - back);
+    }
+    if (Math.abs(rel) > RIG.jack) a = back + Math.sign(rel) * RIG.jack;
+  }
   s.x = f[0] + Math.sin(a) * T.L; s.z = f[1] + Math.cos(a) * T.L; s.yaw = Math.atan2(f[0] - s.x, f[1] - s.z); T.art = wrapA(s.yaw - h.yaw);
+  if (h.cur) { const P = api.P; (T.hp || (T.hp = [0, 0, 0]))[0] = P.x; T.hp[1] = P.z; T.hp[2] = P.yaw; } else T.hp = null;
+}
+
+/* ---------------- solid (3.5b2b1): the body as circles in the game's obstacle grid ----------------
+   The walker, the sled, the pickup and anything else that reads the grid is stopped by a trailer, standing or coupled. The
+   circles are moved with it (dropped at the old place, added at the new) whenever it has moved. The lorry it is coupled to
+   passes through all of them (the jackknife rule above keeps its cab off the trailer); any other tractor unit passes only the
+   front ones, and only while it is in line ahead of the kingpin, backing in (TLXRIG.pass, asked by tlx-vehicles.js collide). */
+function solidInit(T) {
+  const q = T.q, a = q.front - 1.05, b = -(T.L + q.over) + 1.05, n = Math.max(2, Math.ceil((a - b) / RIG.solidStep) + 1);
+  T.obs = []; T.gx = NaN;
+  for (let i = 0; i < n; i++) { const u = a + (b - a) * i / (n - 1); T.obs.push({ x: 0, z: 0, r: RIG.solidR, top: 1e9, rig: T.sp.id, u, front: u > -RIG.frontPass, ax: 0 }); }
+}
+function grid(T) {
+  const s = T.s, W = api.world; if (!T.obs || !W.addOb || !W.dropOb) return;
+  if (Math.abs(s.x - T.gx) < 0.03 && Math.abs(s.z - T.gz) < 0.03 && Math.abs(wrapA(s.yaw - T.gyaw)) < 0.004) return;
+  const k = kingpin(T), fx = Math.sin(s.yaw), fz = Math.cos(s.yaw), had = T.gx === T.gx;
+  for (const o of T.obs) { if (had) W.dropOb(o); o.x = k[0] + fx * o.u; o.z = k[1] + fz * o.u; o.ax = s.yaw; W.addOb(o); }
+  T.gx = s.x; T.gz = s.z; T.gyaw = s.yaw;
+}
+function pass(o, uid, def) {
+  const T = LIST.find(T => T.sp.id === o.rig); if (!T) return true;
+  if (T.s.on === uid) return true;
+  if (!o.front || !def || def.fifthZ == null) return false;
+  const h = TLXV.pose(uid); if (!h) return false;
+  const s = T.s, k = kingpin(T), tx = Math.sin(s.yaw), tz = Math.cos(s.yaw), ex = h.x - k[0], ez = h.z - k[1];
+  return ex * tx + ez * tz > 0.2 && Math.abs(ex * tz - ez * tx) < 2.2 && Math.abs(wrapA(h.yaw - s.yaw)) < 0.7;
+}
+// what a road driver stops for (tlx-traffic.js bodies()): the middle of the body and a point just ahead of its tail
+function bodies(out) {
+  if (!api) return out;
+  const P = api.P;
+  for (const T of LIST) {
+    const s = T.s, fx = Math.sin(s.yaw), fz = Math.cos(s.yaw), h = s.on != null ? hostOf(T) : null, mv = !!(h && h.cur && !api.FOOT.on);
+    for (const u of [T.L * 0.5, 1.5 - T.q.over]) out.push({ x: s.x + fx * u, z: s.z + fz * u, vx: mv ? P.vx || 0 : 0, vz: mv ? P.vz || 0 : 0, who: "parked" });
+  }
+  return out;
 }
 function say(T, msg, kind) { const t = api.now(); if (t - (T.saidT || -99) < 5) return; T.saidT = t; api.toast(msg, kind || "warn"); }
 function couple(T, uid) {
@@ -215,7 +268,7 @@ function tick(dt) {
   try {
     for (const T of LIST) follow(T);
     if (api.started()) { coupleTick(); holdTick(); }
-    for (const T of LIST) pose(T, dt);
+    for (const T of LIST) { grid(T); pose(T, dt); }
   } catch (e) { if (!G.err) console.error("TLX rig tick", e); G.err = String(e); }
 }
 // what the tractor carries (TLXV.addLoad): one object per trailer, refilled in place
@@ -223,18 +276,20 @@ function loadOf(uid) {
   for (const T of LIST) if (T.s.on === uid) {
     const o = T.load, kg = T.def.kg, ax = kg * (1 - RIG.pin);
     const ex = Math.max(0, T.sink - 0.22);                           // the truck tyres' own rolling rule (tlx-vehicles.js core), less the bow wave
-    o.kg = kg; o.pin = kg * RIG.pin; o.drag = ax * 9.81 * (RIG.cr + 0.55 * Math.min(T.sink, 0.22) + 0.25 * ex + 0.4 * ex * ex); o.brakeN = Math.min(T.q.axles.length * RIG.brakeAxle, RIG.mu * ax * 9.81); o.hold = !!T.s.legs;
+    o.kg = kg; o.pin = kg * RIG.pin; o.drag = ax * 9.81 * (RIG.cr + 0.55 * Math.min(T.sink, 0.22) + 0.25 * ex + 0.4 * ex * ex); o.brakeN = Math.min(T.q.axles.length * RIG.brakeAxle, RIG.mu * ax * 9.81); o.hold = !!T.s.legs; o.held = api.now() - (T.jkT ?? -99) < 0.5;
     return o;
   }
   return null;
 }
-const view = T => { const k = kingpin(T); return { id: T.sp.id, type: T.sp.type, name: T.def.name, x: T.s.x, z: T.s.z, yaw: T.s.yaw, kx: k[0], kz: k[1], on: T.s.on, legs: T.s.legs, art: T.art || 0, kg: T.def.kg, L: T.L, sink: T.sink, home: T.home, arm: T.arm, said: T.saidT, drag: T.load.drag, vis: !!(T.grp && T.grp.visible), legY: T.legG ? T.legG.position.y : null, nW: T.wheels ? T.wheels.length : 0 }; };
+const view = T => { const k = kingpin(T); return { id: T.sp.id, type: T.sp.type, name: T.def.name, x: T.s.x, z: T.s.z, yaw: T.s.yaw, kx: k[0], kz: k[1], on: T.s.on, legs: T.s.legs, art: T.art || 0, kg: T.def.kg, L: T.L, over: T.q.over, front: T.q.front, jk: api.now() - (T.jkT ?? -99) < 0.4, sink: T.sink, home: T.home, arm: T.arm, said: T.saidT, drag: T.load.drag, vis: !!(T.grp && T.grp.visible), legY: T.legG ? T.legG.position.y : null, nW: T.wheels ? T.wheels.length : 0 }; };
 Object.assign(G, {
   list: () => LIST.map(view),
   kingpin: id => { const T = LIST.find(T => T.sp.id === id); return T ? kingpin(T) : null; },
   legsPt: id => { const T = LIST.find(T => T.sp.id === id); return T ? legsPt(T) : null; },
   fifth: uid => { const h = window.TLXV && TLXV.pose(uid); return h && h.def.fifthZ != null ? fifth(h) : null; },
-  grp: id => { const T = LIST.find(T => T.sp.id === id); return T ? T.grp : null; }
+  grp: id => { const T = LIST.find(T => T.sp.id === id); return T ? T.grp : null; },
+  pass, bodies,
+  circles: id => { const T = LIST.find(T => T.sp.id === id); return T && T.obs ? T.obs.map(o => ({ x: o.x, z: o.z, r: o.r, u: o.u, front: o.front })) : null; }
 });
 window.TLXRIG = G;
 
@@ -258,7 +313,7 @@ TLX.register({
         if (!h || h.def.fifthZ == null || taken.has(s.on)) { s.on = null; s.legs = 1; } else { taken.add(s.on); s.legs = s.legs ? 1 : 0; }
         st.t[sp.id] = s;
         const T = { sp, s, def, q, L: q.L, spin: 0, arm: true, sink: 0, art: 0, home: home ? { x: home.x, z: home.z, yaw: home.yaw, s: home.s } : null, load: { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false } };
-        LIST.push(T); follow(T);
+        LIST.push(T); follow(T); solidInit(T); grid(T);
       }
       TLXV.addLoad(loadOf);
       if (a.footx && !a.footx.includes(PROV)) a.footx.push(PROV);

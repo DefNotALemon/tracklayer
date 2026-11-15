@@ -408,9 +408,8 @@ const toWorld = (P, lx, lz, out) => { const fx = Math.sin(P.yaw), fz = Math.cos(
 const GR = 9.81;
 /* What else rides on a truck besides the rig on its ball: a semitrailer on a tractor unit's fifth wheel (3.5b2, tlx-rig.js).
    TLXV.addLoad(fn): fn(uid) -> null, or { kg (its whole mass: inertia), pin (kg of it resting on the truck's own tyres:
-   more grip, more rolling), drag (N, its own axles' rolling), brakeN (N its own brakes add), hold (true: it can't be driven,
-   e.g. landing legs still down) }. */
-const LOADS = [], XL0 = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false };
+   more grip, more rolling), drag (N, its own axles' rolling), brakeN (N its own brakes add), hold (true: it can't be driven, e.g. landing legs still down), held (true: it is holding the truck from backing up right now and has said why) }. */
+const LOADS = [], XL0 = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false };
 function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r; } return XL0; }
 // where a truck you own stands right now (the one you're in, or nearest on foot, is P): { x, z, yaw, def, cur }
 function truckPose(uid) { const r = rec(uid); if (!r || KINDS[r.id]) return null; const cur = S().cur === uid, p = cur ? api.P : r; return { x: p.x, z: p.z, yaw: p.yaw, def: byId(r.id), cur }; }
@@ -613,6 +612,7 @@ R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = v
 function stillWhy(R, rev, sinkS, sf) {
   const BOG = api.BOG, end = rev ? "behind" : "in front of";
   R.why = "";
+  if (rev && xLoad(R.rec.uid).held) { R.why = "load"; return; }                /* a jackknifed semitrailer holds it (tlx-rig.js says so itself) */
   if (api.now() - (R.touchT || -9) < 0.5 && (rev ? R.touchS < 0 : R.touchS > 0)) { R.why = "solid"; api.toast(`Something solid is ${end} the ${R.def.kind}. ${rev ? "Pull forward" : "Back up"} and steer round it.`, "warn"); return; }
   /* a light pedal that can't push the snow and the grade isn't digging at all (beta 0129 #1: pad RT 30% in 35 cm sat dead
      still and the old line said "ease off", the opposite of what helps): if the tyres have grip to spare, ask for more */
@@ -645,6 +645,7 @@ function collide(R, dt, fx, fz) {
     const cx = P.x + fx * off, cz = P.z + fz * off;
     for (const o of list) {
       if (o.down || o.top === -Infinity || P.y > o.top - 0.12) continue;
+      if (o.rig && window.TLXRIG && TLXRIG.pass(o, R.rec.uid, d)) continue;       /* a semitrailer (3.5b2b1): its own tractor, or one backing in under its front */
       const dx = cx - o.x, dz = cz - o.z, d2 = dx * dx + dz * dz, rr = r + (o.r || 0);
       if (d2 >= rr * rr || d2 < 1e-6) continue;
       const dist = Math.sqrt(d2), nx = dx / dist, nz = dz / dist, pen = rr - dist;

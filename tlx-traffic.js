@@ -145,6 +145,7 @@ function bodies() {
     if (s && Array.isArray(s.owned)) for (const r of s.owned) if (s.cur !== r.uid && Number.isFinite(r.x)) out.push({ x: r.x, z: r.z, vx: 0, vz: 0, who: "parked" });
     if (s && s.cur != null && s.sled && Number.isFinite(s.sled.x)) out.push({ x: s.sled.x, z: s.sled.z, vx: 0, vz: 0, who: "parked" });
   }
+  if (window.TLXRIG && TLXRIG.bodies) TLXRIG.bodies(out);                    // semitrailers, standing or behind your lorry (3.5b2b1)
   return out;
 }
 const youPos = () => { const F = api.FOOT, P = api.P; return F.on ? { x: F.x, z: F.z } : { x: P.x, z: P.z }; };
