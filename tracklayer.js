@@ -17717,8 +17717,11 @@ const QG = {
     if (this.cap && now > this.capT) this.cap = 0;            // re-test the cap now and then (Low Power Mode may be off now)
     if (this.prev) {                                           // judge the last step
       const p = this.prev; this.prev = null;
-      if (p.dir > 0 && med > p.med * 0.92 && med > goal) {    // went down a rung and it barely helped: capped, not overloaded
-        this.cap = Math.max(p.med, med); this.capT = now + 180; this.apply(p.rung); this.remember(); return;
+      // went down a rung and it barely helped: capped, not overloaded. Only believed when the frame time sits on a refresh-rate
+      // multiple (16.7 / 33.3 / 50 ms: the screen or Low Power Mode is pacing the page); a frame time between those is the
+      // machine's own load, and a noisy GPU can fake a "no help" result, which used to park the game at 15-20 fps for 3 minutes.
+      if (p.dir > 0 && med > p.med * 0.92 && med > goal && med > 12 && Math.abs(med - Math.round(med / 16.67) * 16.67) < 1.6) {
+        this.cap = Math.max(p.med, med); this.capT = now + 60; this.apply(p.rung); this.remember(); return;
       }
       if (p.dir < 0 && med > goal) {                            // went up a rung and lost the frame rate: back down, wait longer next time
         this.upWait = Math.min(240, this.upWait * 2); this.upT = now + this.upWait; this.apply(p.rung); this.remember(); return;
