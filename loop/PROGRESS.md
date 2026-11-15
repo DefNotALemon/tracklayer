@@ -3,6 +3,16 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-14 23:00 — Kjøllefjord roads, no fences (Owner request, session) — c230ca8
+Lemon (a Mainer) asked to drop the town's picket fences and show the streets as roads with a thin layer of snow and
+curbs. `townRoads()` (tracklayer.js v238, run from boot after initExpansion) lays an asphalt ribbon on `surf()`+4 cm over
+the 7 street lines and the depot yard lane (cut where streets cross; 12 junction squares), canvas texture with bare wheel
+tracks, plow ridge, faint centre dashes and gutter snow; curbs 0.22 m x 0.3 m with a snow cap, 1.25 m pieces following the
+surface, left out wherever a narrow lane (YARDS r <= 2.2) crosses at an angle; grates at junction corners. Four merged
+meshes, no colliders, YARDS untouched. Fences (`fence()`, `fw`/`fs`, their addOb) removed. Villages (`tlx-roads.js`) and
+the long roads were not given the ribbon. Test `x_townroads.mjs`. Not verified: melt season (ribbon is laid on the
+boot-time surf, so in a thaw it floats up to ~15 cm above the thinner snow).
+
 ## 2026-11-14 22:00 — 14.4b1 the boatyard beside the quay jetty and hull repairs (lane C) (G4) — f612edc
 Builder pass, lane C. Orient: worktree clean, rebased (lane A's 3.5b2a). Triage: 0201-0204 are other lanes' systems
 (0203's two POLISH on hidden tablet apps touch Boats only as "hidden until owned", which is as designed); no BLOCKER
