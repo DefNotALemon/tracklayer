@@ -9081,11 +9081,13 @@ TABLET.register({
     const cl = GS.claims.filter(j => j.big);
     if (cl.length) { h += sec("Claimed · waiting at the pickup", ""); cl.forEach((c, i) => { h += tabCard({ tf: "fcl:" + i, mini: `${conFrom(c).id}|${c.dest.id}`, title: c.cargo, chips: chip(bigTag(c).toUpperCase(), bigTag(c)), meta: `pick up at ${conFrom(c).name} (${fmtMi(Math.hypot(conFrom(c).x - P.x, conFrom(c).z - P.z))} from you), then to ${shortName(c.dest)} · $${c.bond} bond at pickup`, pay: fmtCash(c.pay * payMul()) }); }); }
     const { h: ph, n } = conList(isFreightCon);
+    for (const s of appX("freight")) try { h += s.html() || ""; } catch (e) { }   // expansion sections (3.5b3a: trailer runs by lorry)
     h += sec("Posted", lic ? "claim it, ride to the P, strap it down; at the P it loads straight on" : "your licence opens these");
     h += n ? ph : `<p class="tnote2">Nothing posted right now.</p>`;
     h += `<p class="tnote2">Trailer work pays by condition. A bond goes up front and comes back on a clean delivery. Ranks still open the bigger work: heavy at ${RANKS[2].at} deliveries, priority at ${RANKS[3].at}, expeditions at ${RANKS[4].at}, fell freight at ${RANKS[5].at} (${SLEDS[fellTier()].name} or bigger), tonne loads at ${RANKS[6].at} (${SLEDS[fellTier(TONNE_SLED)].name} only), clean-air runs at ${RANKS[7].at} (battery sleds only).</p>`;
     el.innerHTML = `<div class="tapp">${h}</div>`;
     conBind(el); schoolBind(el, sc);
+    for (const s of appX("freight")) try { s.bind && s.bind(el); } catch (e) { }
   }
 });
 
@@ -9155,6 +9157,7 @@ function jobsList() {
   }
   if (santaBought() && santaN() < 9) { const t = rareHint(); if (t) out.push({ obj: "santa", kind: "santa", tgt: t, col: "#ff5a4a", title: `Santa's team: ${santaN()}/9 found`, chips: chip("RARE", "due"), meta: `${santaN() >= 8 ? "Rudolph's out there: a red glow" : "one was last seen"} near ${nearestSiteName(t.x, t.z)} · listen for sleigh bells`, pay: "", hud: d => ({ title: `Santa's team · ${santaN()}/9`, sub: `Last seen near ${nearestSiteName(t.x, t.z)} · ${fmtMi(d)} · listen for bells` }) }); }
   if (GS.mail.length) out.push({ obj: "mail", kind: "mail", tgt: depot, col: "var(--ice)", title: "Mail → Kjøllefjord quay", chips: chip("MAIL"), meta: `${mailCount()} letters to hand in at the quay`, pay: "~" + fmtCash(mailValue()), hud: d => ({ title: "Mail → Kjøllefjord quay", sub: `${mailCount()} letters · ${fmtMi(d)} · stop at the quay to hand in` }) });
+  for (const f of jobX()) { let r = null; try { r = f(); } catch (e) { } if (r && r.tgt) out.push(r); }   // expansion systems' jobs (3.5b3a: a trailer run)
   if (window.TLXR && TLXR.tripWarn) for (const r of out) { if (r.obj && r.obj.sea) continue; const w = TLXR.tripWarn(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, r.tgt); if (w) { r.meta += " · " + w; r.road = w; } }   // 3.2b: a snowed-in road on the way
   return out;
 }
@@ -14044,14 +14047,17 @@ function updGameHud() {
   // a job picked in the Jobs app (or with J) overrides all of the above until it's done
   const jl = jobsList(), tr = jobTracked(jl);
   if (tr) tgt = tr.tgt;
+  // an expansion job (jobX, 3.5b3a) leads the compass by itself when nothing of the base game's is on
+  const ax = !tr && !sarT && !rjv && !GS.tour && !GS.load.length && !GS.groomJob && !pend && !GS.claims.length && !SCHOOL.on && !sGuide ? jl.find(r => r.auto) : null;
+  if (ax) tgt = ax.tgt;
   // in the boat (14.2a) the arrow aims at the target's jetty when it has one (tlx-boats.js)
   const inBoat = !FOOT.on && VEH.cur && VEH.cur.pin === "boat" && window.TLXB, aim = inBoat && TLXB.aimFor(tgt) || tgt;
   const dx = aim.x - P.x, dz = aim.z - P.z, dist = Math.hypot(dx, dz);
   let rel = Math.atan2(dx, dz) - camState.yaw;
   $("arrow").style.transform = `rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
-  $("arrow").style.color = tr ? tr.col : GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
+  $("arrow").style.color = tr ? tr.col : ax ? ax.col : GS.tour && tgt === GS.tour.view ? "#6ff0b8" : !SITES.includes(tgt) ? "#ff8a3a" : tgt !== depot ? "var(--signal)" : "var(--ice)";
   { const pin = $("jobPin"), on = !!tr || (jl.length > 1 && !SCHOOL.on); pin.hidden = !on; if (on) { const i = tr ? jl.indexOf(tr) : -1; pin.textContent = tr ? `TRACKED ${i + 1}/${jl.length}` : `AUTO · ${jl.length} JOBS`; pin.classList.toggle("on", !!tr); } }
-  if (tr) { const h = tr.hud(dist); $("jobTitle").textContent = h.title; $("jobSub").textContent = h.sub; }
+  if (tr || ax) { const h = (tr || ax).hud(dist); $("jobTitle").textContent = h.title; $("jobSub").textContent = h.sub; }
   else if (SCHOOL.on) schoolHud(tgt);
   else if (sGuide) { $("jobTitle").textContent = `To ${tgt.name}`; $("jobSub").textContent = `${tgt.short} · ${fmtMi(dist)} · stop in the yard to start`; }
   else if (sarT) { const hd = sarHud(SAR.cur, tgt); $("jobTitle").textContent = hd.title; $("jobSub").textContent = hd.sub; }
@@ -14083,7 +14089,7 @@ function updGameHud() {
   else { $("jobTitle").textContent = "No cargo"; $("jobSub").textContent = `${TC.on ? "TABLET" : "Tab"} for work · quay ${fmtMi(dist)}`; }
   if (inBoat && SITES.includes(tgt) && !tutTarget()) $("jobSub").textContent += aim !== tgt ? " · to its jetty" : " · no jetty there";
   if (!tr) JOBT.auto = $("jobTitle").textContent;
-  { const isJob = !!(tr || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)
+  { const isJob = !!(tr || ax || sarT || rjv || GS.tour || GS.load.length || GS.groomJob || pend || GS.claims.length || SCHOOL.on) && !tutTarget();   // a real job, not the idle quay arrow: a snowed-in road on its way also gets a toast (beta 0149 #1)
     const rw = !inBoat && window.TLXR && TLXR.tripNote ? TLXR.tripNote(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z, tgt, isJob) : ""; if (rw) $("jobSub").textContent += " · " + rw; }   // a snowed-in road on the way (tlx-roads.js, 3.2b)
   { const tt = tutTarget(); if (tt) {                                   // the first-ride tutorial steers the compass (from the walker when on foot)
     const ox = FOOT.on ? FOOT.x : P.x, oz = FOOT.on ? FOOT.z : P.z, td = Math.hypot(tt.x - ox, tt.z - oz), rl = Math.atan2(tt.x - ox, tt.z - oz) - camState.yaw;
@@ -15725,6 +15731,10 @@ const anchorPt = a => [a.x, surf(a.x, a.z) + 0.5, a.z];
    FOOT.dig on (crouched, not walking) while no sled is bogged. Asked only with the sled free (BOG.on wins).
    A function declaration so init code can reach it before this line runs (TDZ). */
 function footX() { return footX.a || (footX.a = []); }
+// expansion systems' own jobs (3.5b3a): jobX() holds functions returning a jobsList() row (or null); a row with `auto` is what
+// the compass follows when nothing of the base game's is on. appX(id) holds { html(), bind(el) } sections for a tablet app.
+function jobX() { return jobX.a || (jobX.a = []); }
+function appX(id) { const m = appX.m || (appX.m = {}); return m[id] || (m[id] = []); }
 function footXUse() { if (!FOOT.on || BOG.on || GS.dead || GS.garageOpen || tutHidden() || (FISH && FISH.ctxLabel && FISH.ctxLabel())) return null; for (const p of footX()) { const r = p.use(); if (r && r.label) return r; } return null; }   // the tackle shop / fish buyer take E first (gameKey), so they win here too
 function footXDig() { for (const p of footX()) if (p.digging && p.digging()) return true; return false; }
 // E on foot: hook, unhook, or start digging
@@ -17609,7 +17619,7 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
-    footx: footX(), getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
+    footx: footX(), jobx: jobX(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,

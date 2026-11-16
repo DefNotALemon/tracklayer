@@ -745,6 +745,12 @@ R.trip = (x0, z0, tgt) => {
   }
   TRIPC.set(k, res); return res;
 };
+// 3.5b3a: metres by road between two points (each anchored as above), or null when the roads don't join them
+R.tripDist = (x0, z0, x1, z1) => {
+  if (!R.ready) return null;
+  const A = anchor(x0, z0), B = anchor(x1, z1), path = A && B ? tripPath(A, B) : null; if (!path) return null;
+  let d = 0; for (const e of path) d += Math.abs(e.s1 - e.s0); return d;
+};
 R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`; };
 // beta 0149 #1: the minimalist HUD hides the old compass row, so a job whose way runs over a snowed-in stretch also gets a
 // toast, once per road per storm (the note clears when that road is open again; the fell road's once per session).

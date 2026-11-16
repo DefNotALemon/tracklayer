@@ -750,7 +750,7 @@ up takes small corrections, steering toward the side the trailer is drifting to.
 and it jackknifes: at about sixty degrees the trailer's corner is against the cab, the lorry will not
 go back any further and a message says so. Pull forward and it straightens out behind you.
 
-With a trailer on, the lorry pulls away in its low gears: the 14-tonne rig starts from rest on the
+With a trailer on, the lorry pulls away in its low gears: the 14-tonne rig (trailer empty) starts from rest on the
 steepest stretch of the fell road (about 12%) and works up to some 75 km/h on a level cleared road,
 against the bare tractor's 90. Leave a coupled rig standing (switch to the sled or another truck) and
 it stays coupled where it is: a message says so and a red warning triangle stands on the road twelve
@@ -761,8 +761,23 @@ its legs has no power and shows dark.
 
 To leave it, stop on level ground, get out and use the legs again: they wind down, the fifth wheel
 lets go and the trailer stands where it is. Drive out from under it. It can be picked up again from
-wherever you left it, and the save keeps where each trailer stands and which lorry it is on. The
-freight that pays for hauling them is not in the game yet.
+wherever you left it, and the save keeps where each trailer stands and which lorry it is on.
+
+**Trailer runs.** Once you own a tractor unit and hold the Freight licence, the Freight app has a
+Trailer runs section: one run posted per trailer, a cargo for its kind (fish boxes or groceries in the
+box trailer, timber in the curtainsider, heating oil or diesel in the tanker, 2.6 to 4 tonnes) to be
+hauled from where the trailer stands to another of the three lay-bys. The card shows the weight, where
+the trailer is, the distance by road and the pay, which goes by tonnes and by road distance (about
+$500 for the 4 km from Kjøllefjord to Lebesby, about $1,000 for the 9 km from Lebesby to Mehamn).
+TAKE puts the cargo's weight on the trailer; one run at a time. The Jobs app lists the run, and when
+you have nothing else on the compass follows it by itself: to the trailer's kingpin until it is on
+your lorry with its legs up, then to the far lay-by, which is also marked on the Map. It is delivered
+when the trailer stands there uncoupled on its legs, anywhere within about 40 m of the lay-by's
+middle. Stood clear of the road (in the plowed lay-by, ahead of the trailer that lives there) it pays
+10% more and needs no warning triangle. The trailer stays there, and its next run starts from there.
+GIVE UP on the card ends a run for nothing. Loaded, the 18-tonne rig still starts from rest on a 9%
+road, but not on the steepest stretch of the fell road (about 12%): carry 40 km/h into it and it goes
+over without dropping below 12 km/h; stop on it and you back down for another run.
 
 ## The pickup
 
