@@ -3,6 +3,44 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-16 12:25 — 3.5b3a trailer runs: loaded trailers posted in Freight, hauled lay-by to lay-by (lane A) (G4) — 84291e9
+Builder pass, lane A. Orient: worktree clean, rebased on main (v240). Triage: 0207 (3.4b1 pull-out x 3.5a semis) is all
+verified, two POLISH (#4 a lorry passes a person 1.5 m off: left open; #5 a debug field), no BUG; Last triaged 207.
+3.5b3 was too big for one pass: split into 3.5b3a (this) and 3.5b3b (used tractors on Bytteboden, optional CE course).
+Built (`tlx-rig.js` v4, `tlx-roads.js` v10, bridges in `tracklayer.js` v241):
+- RUNS. One posted per trailer (`offerFor`): from where it stands to a lay-by over 300 m away, the lay-by and the cargo
+  (by trailer kind, 2.6-4.0 t) picked by a hash of trailer, day and runs done. Pay = $150 + $26 x tonnes x km of road
+  (`TLXR.tripDist`, new), to $5: kj -> lb 4.2 km $495, lb -> mh 8.7 km $1,010, mh -> kj 4.5 km $625.
+- FREIGHT APP. A "Trailer runs" section above "Posted": nothing without the licence, a note with the licence and no
+  tractor unit, cards with TAKE once you own one; one run at a time; the run under way has GIVE UP (costs nothing).
+  One tablet notice the first time runs are posted for your lorry (saved).
+- WEIGHT. The cargo's kg is on the trailer from TAKE: inertia, the kingpin's share, axle drag, brake grip.
+- JOBS / COMPASS. A Jobs row; with nothing of the base game's on, the compass follows the run by itself: the kingpin
+  until the trailer is on your lorry with its legs up, then the far lay-by (also a Map pin).
+- DELIVERY. The trailer uncoupled on its legs within 40 m of the far lay-by's middle: paid, +10% with both ends 4.3 m
+  off the road's centre line. A trailer stood clear of the road in any lay-by no longer gets a warning triangle.
+- SAVE. `rig.run`, `rig.done`, `rig.told`; a run naming an unknown trailer or lay-by loads as no run.
+- BRIDGES (general, for later systems): `jobX()` rows in `jobsList()` with an `auto` flag the compass honours when idle,
+  `appX(id)` sections in a tablet app (Freight renders them), api.payMul / licensed / fmtTime.
+Numbers (`x3_rigrun.mjs`, 40 asserts, on a rail): 17.6 t loaded, standing start on 9%: 27 m and 3.8 m/s after 14 s. On
+the steepest 80 m of open road (fv888, 12.5%) a standing start does NOT get away and the lorry says "Too steep to climb
+in this snow. Back down and take a run at it"; taken at 12 m/s it is over, never under 3.3 m/s. Left as is (decision:
+cargo capped at 4 t so the run-up always works; raising `fmaxLow` again would make the empty rig a rocket).
+Stills: the Freight section reads cleanly with posted cards and with the run under way (title, kind chip, weight, where
+it stands, km by road, pay, button; nothing clipped). The haul still's chase camera sat inside the trailer after the
+scenario's teleports: a scenario artifact, not judged.
+Gate: smoke, x3_rigrun, x3_rig, x3_rigsolid, g2_jobs exit 0, page errors none in the gate run. In that same run x1_save
+exited 3 and x3_rigleft exited 1, both with no FAIL line (a boot that never reached the title while five scenarios'
+Chromes ran back to back; an earlier x3_rigrun run died the same way on a reload, "TLXV is not defined" = tlx-vehicles.js
+not served). Rerun alone: x1_save all passed, x3_rigleft 22/22, page errors none. Not a code failure as far as I can
+tell: the cause of the failed boots was not found, only that they did not repeat.
+Not done / unverified: runs never come due or expire; no bond or condition; a delivered trailer never goes home by
+itself (its next run starts where it stands; three trailers can gather in one lay-by); the tanker and curtainsider were
+not driven loaded; pad and touch were not exercised separately (the cards are tablet buttons, the legs are the footx
+provider x3_rig already tests on all three); nobody has driven a whole run by hand: the scenario teleports the rig to
+the far lay-by. For the beta tester: drive kj -> lb for real, stop on the 12.5% stretch loaded, try to stand the
+trailer in the bay ahead of the one that lives there. Next: 3.5b3b used tractors on Bytteboden, then 3.5c convoys.
+
 ## 2026-11-16 10:45 — 3.5b2b2 a rig left standing, the curtainsider, marker lamps, low gears with a trailer on (lane A) (G4) — 3ca4700
 Builder pass, lane A. Orient: the worktree held a dead pass's 3.5b2b2 (14 Nov 22:43, stopped when the governor shut the
 lanes at 82% of the session window): `tlx-rig.js`, `tlx-vehicles.js` and `x3_rigleft.mjs`, its last run all passed.
