@@ -45,7 +45,7 @@ const VEHICLES = [
     blurb: "A two-axle cab-over tractor unit: the front half of an articulated lorry, with a fifth wheel over the drive axle. Seven tonnes, slow to stop, at home on a plowed road and nowhere else.",
     spec: "tractor unit · fifth-wheel coupling · two seats, no load bed",
     how: "For the plowed roads between the villages. It is far too heavy for soft snow: off the road it sinks to the axles.",
-    mass: 7200, power: 250000, fmax: 20000, top: 25, revTop: 3.4,
+    mass: 7200, power: 250000, fmax: 20000, fmaxLow: 30000, top: 25, revTop: 3.4,   /* fmaxLow: N at the wheels pulling away with a semitrailer on (the low gears a bobtail never needs) */
     fuel: 300, burn: 2.4, slots: 2, cabCold: 0.1, hitchKg: 0, hitchZ: -2.9, fifthZ: -1.6,
     zf: 1.5, zr: -2.1, track: 2.0, tyreR: 0.52, tyreW: 0.3, clearance: 0.34, len: 5.85, wid: 2.5,
     mu: { hard: 0.42, loose: 0.22, ice: 0.12, wet: 0.06 },
@@ -477,7 +477,7 @@ function core(R, dt) {
   const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && !parked && vf < 0.8;
   api.GB.dir = rev ? -1 : 1;
   let Fe = 0;
-  if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = thrE * Math.min(d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }
+  if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = thrE * Math.min(xl.kg > 0 && d.fmaxLow ? d.fmaxLow : d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }   /* 3.5b2b2: a lorry with a trailer on starts in its low gears; at 20 kN the 14.4 t rig could not start on a 9% road */
   let Fx = 0, spin = 0;
   /* reverse is geared about as low as first: 0.8 of fmax (was 0.6, too weak to back a trailer out of soft snow, 0108) */
   /* a light pull on the pad trigger still backs up: an automatic creeps in reverse, so the pedal maps onto 0.35..1 of the
@@ -616,7 +616,7 @@ function stillWhy(R, rev, sinkS, sf) {
   if (api.now() - (R.touchT || -9) < 0.5 && (rev ? R.touchS < 0 : R.touchS > 0)) { R.why = "solid"; api.toast(`Something solid is ${end} the ${R.def.kind}. ${rev ? "Pull forward" : "Back up"} and steer round it.`, "warn"); return; }
   /* a light pedal that can't push the snow and the grade isn't digging at all (beta 0129 #1: pad RT 30% in 35 cm sat dead
      still and the old line said "ease off", the opposite of what helps): if the tyres have grip to spare, ask for more */
-  const avail = Math.min(R.t0 || 0, R.def.fmax * (0.65 + 0.35 * R.rec.cond / 100)), need = (R.fsnow || 0) + Math.max(0, sf) * R.mass * GR;
+  const avail = Math.min(R.t0 || 0, (xLoad(R.rec.uid).kg > 0 && R.def.fmaxLow ? R.def.fmaxLow : R.def.fmax) * (0.65 + 0.35 * R.rec.cond / 100)), need = (R.fsnow || 0) + Math.max(0, sf) * R.mass * GR;
   /* the push beats the snow and the grade, or the truck is making way at all (forward or in reverse): it is only slow
      getting going (35 cm from rest covers ~0.2 m in the first second), so say nothing yet and look again next frame. Before,
      a crawl that went on to make 6 m opened with "ease off", and reverse never had this check (beta 0140 #2/#3) */

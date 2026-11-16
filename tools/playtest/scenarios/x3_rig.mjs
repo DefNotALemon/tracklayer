@@ -15,8 +15,12 @@ async function waitGame(secs) { const t0 = await clock(); while ((await clock())
 async function waitUntil(expr, maxGame = 14) { const t0 = await clock(); while ((await clock()) - t0 < maxGame) { if (await ev(expr)) return true; await sleep(120); } return false; }
 const NOSTILLS = !!process.env.NOSTILLS;
 const still = async name => { if (!NOSTILLS) await shot(name); };
-const toasts = () => J(`(TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))`);
-const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; for (const T of TLXRIG.list()) void T; return 1; })()`);
+// every toast shown since the last clearToasts(), not only the ones on screen now: a toast lives 4.2 s of WALL time and
+// headless game time runs slower than that, so one said at the start of a 2.5 s hold could be gone when it was read
+const toasts = () => J(`[...new Set((window.__tsaw || []).concat((TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))))]`);
+const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw = [];
+  if (!window.__tsawI) window.__tsawI = setInterval(() => { const a = window.__tsaw || (window.__tsaw = []); for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
+  return 1; })()`);
 const tr = id => J(`TLXRIG.list().find(t => t.id === "${id}")`);
 const spd = () => J(`({ t: +gameClock.toFixed(2), v: +Math.hypot(P.vx, P.vz).toFixed(2), vf: +(P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)).toFixed(2), x: P.x, z: P.z, yaw: P.yaw })`);
 const holdFor = async (codes, secs, fn = spd) => {
@@ -41,7 +45,7 @@ await ev(`TLX.setOn("traffic", false); true`);
 // ---- A. the trailers in their lay-bys
 let L = await J(`TLXRIG.list()`);
 console.log("rig", JSON.stringify({ err: await ev("TLXRIG.err"), miss: await J("TLXRIG.miss"), list: L.map(t => ({ id: t.id, type: t.type, x: Math.round(t.x), z: Math.round(t.z), s: t.home && t.home.s })) }));
-ok(L.length === 2 && L[0].id === "kj" && L[0].type === "dist" && L[1].id === "lb" && L[1].type === "tank" && !(await ev("TLXRIG.err")), "two trailers: a box trailer (kj) and a tanker (lb)");
+ok(L.length >= 2 && L[0].id === "kj" && L[0].type === "dist" && L[1].id === "lb" && L[1].type === "tank" && !(await ev("TLXRIG.err")), "two trailers: a box trailer (kj) and a tanker (lb)");
 for (const t of L) {
   const q = await J(`(() => { const t = TLXRIG.list().find(t => t.id === "${t.id}"), fx = Math.sin(t.yaw), fz = Math.cos(t.yaw); const pts = [[t.x, t.z], [t.kx, t.kz], [t.kx + fx * 15, t.kz + fz * 15]];
     return { yard: pts.map(p => +yardAt(p[0], p[1]).toFixed(2)), road: pts.map(p => +TLXR.near(p[0], p[1]).d.toFixed(2)), ob: pts.some(p => obstaclesNear(p[0], p[1], 3).some(o => !o.rig && !(o.top < -1e8) && Math.hypot(o.x - p[0], o.z - p[1]) < (o.r || 0.5) + 1.4)), wet: pts.some(p => isWater(p[0], p[1]) || isSea(p[0], p[1])), dg: +(groundAt(t.kx, t.kz) - groundAt(t.x, t.z)).toFixed(2), dep: Math.round(Math.hypot(t.x - depot.x, t.z - depot.z)), snow: +depthAt(Math.round((t.kx + fx * 10 + HALF) / CELL), Math.round((t.kz + fz * 10 + HALF) / CELL)).toFixed(2) }; })()`);

@@ -18,8 +18,12 @@ const clock = () => ev("gameClock");
 async function waitGame(secs) { const t0 = await clock(); while ((await clock()) - t0 < secs) await sleep(120); }
 const NOSTILLS = !!process.env.NOSTILLS;
 const still = async name => { if (!NOSTILLS) await shot(name); };
-const toasts = () => J(`(TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))`);
-const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; return 1; })()`);
+// every toast shown since the last clearToasts(), not only the ones on screen now: a toast lives 4.2 s of WALL time and
+// headless game time runs slower than that, so one said at the start of a 2.5 s hold could be gone when it was read
+const toasts = () => J(`[...new Set((window.__tsaw || []).concat((TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))))]`);
+const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw = [];
+  if (!window.__tsawI) window.__tsawI = setInterval(() => { const a = window.__tsaw || (window.__tsaw = []); for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
+  return 1; })()`);
 const tr = id => J(`TLXRIG.list().find(t => t.id === "${id}")`);
 const spd = () => J(`({ t: +gameClock.toFixed(2), v: +Math.hypot(P.vx, P.vz).toFixed(2), vf: +(P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)).toFixed(2), x: P.x, z: P.z, yaw: P.yaw })`);
 // where a point is against trailer id: along its line from the kingpin (+ ahead), and sideways from its centre line

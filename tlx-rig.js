@@ -22,6 +22,12 @@
 // SAVED (state id "rig"): t: { <spot id>: { x, z, yaw (the axle point and heading), on (uid of the tractor it is coupled to,
 // or null), legs (1 down, 0 up) } }. A trailer the save lacks stands in its lay-by. Place comes from api.world and TLXR.
 //
+// LEFT STANDING (3.5b2b2). A trailer that stands anywhere but its own lay-by with nobody at its lorry's wheel (uncoupled on
+// its legs, or coupled to a lorry you swapped away from) has a warning triangle out RIG.triBack behind its tail, and a toast
+// says so when you leave a coupled rig. A lorry that is gone from the save (sold) leaves its trailer on its legs and says so.
+// The marker lamps are unlit geometry driven from dayFactor: reflector-dull by day, lit after dark while the trailer is
+// coupled (it has the lorry's power), near-black after dark on its legs.
+//
 // TLXRIG (window, for later slices and scenarios): RIG, TRAILERS, list() -> [{ id, type, x, z, yaw, kx, kz, on, legs, art,
 // kg, home }], kingpin(id), fifth(uid), legsPt(id), err.
 (() => {
@@ -30,7 +36,8 @@ const D2R = Math.PI / 180;
 const RIG = {
   spots: [                                                           // route: a TLXR route id; end 0 = from its first end, 1 = from its last
     { id: "kj", type: "dist", route: "fv888", end: 0 },
-    { id: "lb", type: "tank", route: "lebesby", end: 1 }
+    { id: "lb", type: "tank", route: "lebesby", end: 1 },
+    { id: "mh", type: "haul", route: "fv888", end: 1 }               // the curtainsider, outside Mehamn (3.5b2b2)
   ],
   off: 5.9,                 // the lay-by's centre line from the road's, m (a 6.4 m road: the trailer's side is 1.4 m off the plowed edge)
   approach: 22,             // straight plowed room in front of the kingpin, m
@@ -43,10 +50,12 @@ const RIG = {
   cr: 0.012, brakeAxle: 16000, mu: 0.4,                              // rolling coefficient on hard ground, N per axle of brake, grip its brakes can use
   reach: 2.9, legsZ: -1.6,  // m: you to the legs; the legs behind the kingpin
   grade: 0.08,              // the steepest ground a trailer may be stood on
+  bayGrade: 0.05,           // and the steepest a lay-by may be along the trailer (3.5b2b2)
   stop: 0.75,               // m: how far past the kingpin the fifth wheel can run before the trailer's front plate stops the cab
   far: 600,
   solidR: 1.3, solidStep: 1.9,                                       // the body as obstacle circles: radius (half its 2.55 m width), spacing along it, m
-  frontPass: 3.6            // m behind the kingpin: the part of the body a tractor backing in along its line runs under
+  frontPass: 3.6,           // m behind the kingpin: the part of the body a tractor backing in along its line runs under
+  triBack: 12, triHome: 4   // the warning triangle: m behind the tail; a trailer within triHome of its lay-by needs none
 };
 const TRAILERS = {                                                   // by TLXS type: empty mass kg, what it is called, its colour
   dist: { name: "box trailer", kg: 7200, col: 0xeef0f2 },
@@ -93,6 +102,7 @@ function findBay(sp) {
       }
       if (!ok) continue;
       const bx = a[0] + nx * RIG.off, bz = a[1] + nz * RIG.off, ua = 1.5 + q.over;
+      if (Math.abs(W.groundAt(bx + ux * (ua + q.L), bz + uz * (ua + q.L)) - W.groundAt(bx + ux * ua, bz + uz * ua)) / q.L > RIG.bayGrade) continue;   // level enough along its length to stand on its legs and be coupled
       return { x: bx + ux * ua, z: bz + uz * ua, yaw: Math.atan2(ux, uz), lane: [[bx - ux, bz - uz], [bx + ux * need, bz + uz * need]], s: Math.round(s0) };
     }
   }
@@ -101,7 +111,7 @@ function findBay(sp) {
 
 /* ---------------- the model: TLXS's trailer, its wheels, the inner legs that wind down ---------------- */
 function build(T) {
-  const lampMat = new TH.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 });   // lit by the scene: reflectors by day, dark at night
+  const lampMat = T.lampMat = new TH.MeshBasicMaterial({ vertexColors: true });   // unlit, driven from dayFactor in pose(): lit after dark only while coupled
   const o = TLXS.make(TH, api.mesh.std, lampMat, T.sp.type, !!(api.GFX && api.GFX.low)), grp = o.trailer, WR = TLXS.WR;
   o.paint[1].color.setHex(T.def.col);
   grp.rotation.order = "YXZ"; grp.name = "rig_" + T.sp.id;
@@ -118,13 +128,38 @@ function build(T) {
   }
   grp.add(legG); T.legG = legG; T.legK = T.s.legs ? 1 : 0;
   grp.visible = false; api.scene.add(grp); T.grp = grp;
+  // the warning triangle (3.5b2b2): a red reflective triangle on a wire foot, stood on the road behind a rig left standing
+  const tri = new TH.Group(), tm = T.triMat = new TH.MeshBasicMaterial({ color: 0xd8261c }), side = 0.5, w = 0.06, hh = side * 0.866;
+  for (const [x, y, rz] of [[0, 0.03, Math.PI / 2], [-side / 4, hh / 2 + 0.03, -Math.PI / 6], [side / 4, hh / 2 + 0.03, Math.PI / 6]]) {
+    const b = new TH.Mesh(new TH.BoxGeometry(w, side, 0.012), tm); b.position.set(x, y + 0.1, 0); b.rotation.z = rz; tri.add(b);
+  }
+  for (const sd of [-1, 1]) { const f = new TH.Mesh(new TH.BoxGeometry(0.012, 0.012, 0.34), lm); f.position.set(sd * 0.2, 0.1, 0); tri.add(f); const g = new TH.Mesh(new TH.BoxGeometry(0.012, 0.1, 0.012), lm); g.position.set(sd * 0.2, 0.05, 0); tri.add(g); }
+  tri.name = "rigtri_" + T.sp.id; tri.visible = false; api.scene.add(tri); T.tri = tri;
+}
+// is this trailer left standing where a triangle belongs: away from its lay-by, and nobody's current lorry
+function left(T) {
+  const s = T.s, hm = T.home;
+  if (hm && Math.hypot(s.x - hm.x, s.z - hm.z) < RIG.triHome) return false;
+  if (s.on == null) return true;
+  const h = hostOf(T); return !(h && h.cur);
+}
+// where its triangle stands: behind the tail on its own line, nearer if that is water or inside something
+function triPt(T) {
+  const s = T.s, W = api.world, fx = Math.sin(s.yaw), fz = Math.cos(s.yaw);
+  for (const b of [RIG.triBack, 8, 4, 2]) { const u = T.q.over + b, x = s.x - fx * u, z = s.z - fz * u; if (!W.isSea(x, z) && !W.isWater(x, z) && !W.obNear(x, z, 0.4)) return [x, z]; }
+  return [s.x - fx * (T.q.over + 2), s.z - fz * (T.q.over + 2)];
 }
 
 /* ---------------- following the fifth wheel ---------------- */
 function drop(T) { T.s.on = null; T.s.legs = 1; T.art = 0; }
 function follow(T) {
   const s = T.s; if (s.on == null) { T.hp = null; return; }
-  let h = hostOf(T); if (!h) { drop(T); return; }                    // the tractor is gone (sold): it stands where it stood
+  let h = hostOf(T);
+  if (!h) {                                                          // the tractor is gone (sold): it stands where it stood
+    drop(T); T.wasCur = false;
+    if (api.started()) { api.toast(`The lorry is gone: the ${T.def.name} it was pulling stands on its legs where it was. It is on the Map.`, "warn"); api.save(); }
+    return;
+  }
   let f = fifth(h), dx = s.x - f[0], dz = s.z - f[1], d = Math.hypot(dx, dz), back = h.yaw + Math.PI;
   let a = d > 40 || d < 0.01 ? back : Math.atan2(dx, dz);            // a jump (a rescue, a reset): straight behind
   let rel = wrapA(a - back);
@@ -253,7 +288,7 @@ function pose(T, dt) {
   T.sink = sk;
   if (T.px !== undefined) T.spin += ((s.x - T.px) * fx + (s.z - T.pz) * fz) / TLXS.WR;
   T.px = s.x; T.pz = s.z;
-  if (Math.hypot(kx - cam.position.x, kz - cam.position.z) > RIG.far) { if (T.grp) T.grp.visible = false; return; }
+  if (Math.hypot(kx - cam.position.x, kz - cam.position.z) > RIG.far) { if (T.grp) { T.grp.visible = false; T.tri.visible = false; } return; }
   if (!T.grp) build(T);
   const yl = W.rideSurf(s.x + lx * 0.93, s.z + lz * 0.93), yr = W.rideSurf(s.x - lx * 0.93, s.z - lz * 0.93), ya = (yl + yr) / 2 - sk * 0.6;
   const yk = W.rideSurf(kx, kz) + (s.on != null ? 0.05 : 0);
@@ -262,12 +297,29 @@ function pose(T, dt) {
   for (const m of T.wheels) m.rotation.x = T.spin;
   T.legK += ((s.legs ? 1 : 0) - T.legK) * (1 - Math.exp(-3 * dt));
   T.legG.position.y = (1 - T.legK) * 0.42;
+  const night = 1 - (api.dayFactor ? api.dayFactor() : 1);
+  T.lampMat.color.setScalar(s.on != null ? 0.55 + 1.6 * night : 0.55 - 0.43 * night);
+  const lf = left(T); T.tri.visible = lf;
+  if (lf) {
+    if (T.triS !== s.x + s.z + s.yaw) { T.triS = s.x + s.z + s.yaw; T.triP = triPt(T); }
+    const q = T.triP; T.tri.position.set(q[0], W.rideSurf(q[0], q[1]), q[1]); T.tri.rotation.y = s.yaw;
+    T.triMat.color.setHex(0xd8261c).multiplyScalar(0.4 + 0.6 * (1 - night));
+  }
+}
+// you have left a coupled rig standing (swapped to the sled or another truck): say so, once per leaving
+function leftTick() {
+  for (const T of LIST) {
+    if (T.s.on == null) { T.wasCur = false; continue; }
+    const h = hostOf(T), cur = !!(h && h.cur);
+    if (T.wasCur && !cur && left(T)) api.toast(`The lorry and its ${T.def.name} stay here, coupled${T.s.legs ? ", the legs down" : ""}. A warning triangle stands on the road behind the trailer; the rig is on the Map.`, "warn");
+    T.wasCur = cur;
+  }
 }
 function tick(dt) {
   if (!api || !LIST.length || !window.TLXV) return;
   try {
     for (const T of LIST) follow(T);
-    if (api.started()) { coupleTick(); holdTick(); }
+    if (api.started()) { coupleTick(); holdTick(); leftTick(); }
     for (const T of LIST) { grid(T); pose(T, dt); }
   } catch (e) { if (!G.err) console.error("TLX rig tick", e); G.err = String(e); }
 }
@@ -281,7 +333,7 @@ function loadOf(uid) {
   }
   return null;
 }
-const view = T => { const k = kingpin(T); return { id: T.sp.id, type: T.sp.type, name: T.def.name, x: T.s.x, z: T.s.z, yaw: T.s.yaw, kx: k[0], kz: k[1], on: T.s.on, legs: T.s.legs, art: T.art || 0, kg: T.def.kg, L: T.L, over: T.q.over, front: T.q.front, jk: api.now() - (T.jkT ?? -99) < 0.4, sink: T.sink, home: T.home, arm: T.arm, said: T.saidT, drag: T.load.drag, vis: !!(T.grp && T.grp.visible), legY: T.legG ? T.legG.position.y : null, nW: T.wheels ? T.wheels.length : 0 }; };
+const view = T => { const k = kingpin(T); return { id: T.sp.id, type: T.sp.type, name: T.def.name, x: T.s.x, z: T.s.z, yaw: T.s.yaw, kx: k[0], kz: k[1], on: T.s.on, legs: T.s.legs, art: T.art || 0, kg: T.def.kg, L: T.L, over: T.q.over, front: T.q.front, jk: api.now() - (T.jkT ?? -99) < 0.4, sink: T.sink, home: T.home, arm: T.arm, said: T.saidT, drag: T.load.drag, vis: !!(T.grp && T.grp.visible), legY: T.legG ? T.legG.position.y : null, nW: T.wheels ? T.wheels.length : 0, left: left(T), tri: !!(T.tri && T.tri.visible), triP: T.tri && T.tri.visible ? [T.tri.position.x, T.tri.position.y, T.tri.position.z] : null, lamp: T.lampMat ? T.lampMat.color.r : null }; };
 Object.assign(G, {
   list: () => LIST.map(view),
   kingpin: id => { const T = LIST.find(T => T.sp.id === id); return T ? kingpin(T) : null; },

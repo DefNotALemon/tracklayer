@@ -729,9 +729,9 @@ your sled rigs hitch to it.
 It is a road machine. On a plowed road or a plowed street it drives as described; in fresh powder it
 sinks at once, digs in and sits there until you dig it out or reset.
 
-**Semitrailers.** Two trailers stand on their landing legs in plowed lay-bys beside the road: a box
-trailer on the road out of Kjøllefjord, a couple of hundred metres past the last houses, and a tanker
-trailer outside Lebesby. Both are pinned on the Map with your vehicles. To couple one, back the
+**Semitrailers.** Three trailers stand on their landing legs in plowed lay-bys beside the road: a box
+trailer on the road out of Kjøllefjord, a couple of hundred metres past the last houses, a tanker
+trailer outside Lebesby and a curtainsider half a kilometre short of Mehamn. All are pinned on the Map with your vehicles. To couple one, back the
 tractor's fifth wheel under the trailer's front at a crawl and in line with it: the kingpin locks with
 a thud and the lorry stops. Come in faster than a walk, or more than about ten degrees off the
 trailer's line, and it does not lock; a message says which. The trailer's front stops the cab if you
@@ -749,6 +749,15 @@ stops against it, and drivers on the road stop behind its tail instead of behind
 up takes small corrections, steering toward the side the trailer is drifting to. Let it swing too far
 and it jackknifes: at about sixty degrees the trailer's corner is against the cab, the lorry will not
 go back any further and a message says so. Pull forward and it straightens out behind you.
+
+With a trailer on, the lorry pulls away in its low gears: the 14-tonne rig starts from rest on the
+steepest stretch of the fell road (about 12%) and works up to some 75 km/h on a level cleared road,
+against the bare tractor's 90. Leave a coupled rig standing (switch to the sled or another truck) and
+it stays coupled where it is: a message says so and a red warning triangle stands on the road twelve
+metres behind the trailer until you are back at the wheel. A trailer left on its legs anywhere but its
+own lay-by gets the triangle too. Sell the lorry from under a trailer and the trailer stays where it
+was, on its legs, with a message. After dark a coupled trailer's marker lamps are lit; one standing on
+its legs has no power and shows dark.
 
 To leave it, stop on level ground, get out and use the legs again: they wind down, the fifth wheel
 lets go and the trailer stands where it is. Drive out from under it. It can be picked up again from
