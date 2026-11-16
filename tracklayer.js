@@ -6768,7 +6768,7 @@ function toastOut(el) {
   setTimeout(() => { el.remove(); toastPump(); }, 400);
 }
 function toastPump() {
-  const box = $("toasts"), cap = document.body.classList.contains("touch") ? 3 : 4;
+  const box = $("toasts"), cap = innerHeight <= 520 ? 2 : document.body.classList.contains("touch") ? 3 : 4;   // fewer stacked toasts on a short screen
   while (TOASTQ.length) {
     const live = Array.from(box.children).filter(c => !c.classList.contains("out"));
     if (live.length >= cap) {
@@ -7321,7 +7321,7 @@ const TABLET = {
         const rc = id => { const e = $(id); return e && !e.hidden ? e.getBoundingClientRect() : null; };
         const tt = rc("tcSys"), st = rc("tcStick"), right = ["tcWh", "tcLean", "tcHop", "tcHorn", "tcBrk", "tcGas", "tcUse", "tcOn", "tcX"].map(rc).filter(r => r && r.width);
         top = (tt ? tt.bottom : 56) + 8;
-        if (W > H) { L = (st ? st.right : 170) + 10; R = W - Math.min(...right.map(r => r.left), W - 220) + 10; bot = 10; }
+        if (W > H) { L = (st ? st.right : 170) + 10; R = W - Math.min(...right.map(r => r.left), W - Math.min(220, W * 0.26)) + 10; /* idle reserve scales down on a short phone, or the card shrinks to a postage stamp */ bot = 10; }
         else { L = R = 10; bot = H - Math.min(...right.map(r => r.top), st ? st.top : H - 220) + 8; }
       }
       w = Math.min(W - L - R, 1000); h = Math.min(H - top - bot, W < H ? w * 1.55 : w / 1.5625, 680);

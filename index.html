@@ -1041,6 +1041,37 @@
   /* perf: a backdrop blur re-reads the WebGL canvas behind it every frame. Off on phones/tablets and on the governor's low rungs (html.lq), with a firmer fill on the HUD panels so they still read */
   html.mobile .panel,html.lq .panel{background:rgba(13,24,34,.84)}
   html.mobile *,html.lq *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+  /* ==== v240 responsive pass: the HUD follows the viewport (width AND height), never the screen or the DPR ====
+     Real acceptance size is the itch.io embed, 640x360 CSS px. Structure compresses (labels drop, panels shrink, the key
+     cheat-sheet trims) instead of everything scaling. tools/playtest/scenarios/ui_responsive.mjs asserts all of it. */
+  /* modals: border-box so max-height really is the viewport, and the panel scrolls inside it */
+  #settings,#garage,#god{box-sizing:border-box;max-height:calc(100% - 24px)}
+  @media (max-height:520px){#settings,#garage,#god{padding:12px;max-height:calc(100% - 12px)}}
+  /* title panels: their own top edge is taken off the height, so they can't run off the bottom */
+  .tpanel{--pt:calc(96px*var(--ts));top:var(--pt);max-height:calc(100% - var(--pt) - 14px)}
+  .tpanel.confirm{--pt:calc(250px*var(--ts))}.tpanel.credits{--pt:calc(200px*var(--ts))}.tpanel.howto{--pt:calc(56px*var(--ts))}.tpanel.fresh{--pt:calc(300px*var(--ts))}
+  /* compass: the target label hangs under the strip instead of reserving height, so panels can sit right below it */
+  #cpLbl{position:absolute;left:50%;top:100%;transform:translateX(-50%);width:max-content}
+  /* minimap scales with the short side of the view (it is off in third person and on touch) */
+  #map{width:clamp(76px,22vmin,176px);height:clamp(76px,22vmin,176px)}
+  body:not(.touch) #mapWrap{padding:clamp(5px,1vmin,8px)}
+  /* the on-foot hint line keeps off the middle of short screens */
+  #wnHud{bottom:calc(clamp(56px,20vh,150px) + env(safe-area-inset-bottom,0px))}
+  /* keyboard cheat-sheet (H hides it): a narrow top-right card; the long lines only when the screen is tall */
+  #help{width:max-content;max-width:clamp(200px,calc(50vw - 240px),420px);font-size:12px;line-height:1.4;padding:8px 11px}
+  #help .mx{display:none}
+  @media (min-height:1000px){#help .mx{display:block}}
+  @media (max-height:560px){
+    #mapWrap .cap,#mailBar{display:none}
+    #mapWrap{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+    #speedo{transform:scale(.8);transform-origin:100% 100%}
+    .toast{font-size:12px;padding:4px 9px}
+    #toasts{gap:4px}
+  }
+  @media (max-height:560px),(max-width:640px){body:not(.touch) #toasts{top:calc(92px + env(safe-area-inset-top,0px))}}
+  /* tablets held upright: TABLET / MORE drop under the compass strip instead of sitting on it */
+  @media (min-width:641px) and (orientation:portrait){body.touch #tcSys{top:calc(60px + var(--st))}body.touch #tcSheet{top:calc(112px + var(--st))}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -1160,21 +1191,21 @@
   <div><b>A / D</b>Steer</div>
   <div><b>Shift</b>Lean into turn</div>
   <div><b>Space</b>Hop</div>
-  <div><b>Ctrl</b>Wheelie</div>
-  <div><b>S / ↓</b>Brake · hold it once stopped to reverse</div>
-  <div><b>N</b>Reset sled</div>
-  <div><b>E</b>Horn · stopped by a frozen lake: get off and fish · at the tackle shop or fish buyer: open it</div>
-  <div><b>T</b>Garage</div>
-  <div><b>G</b>Tiller wings in / out</div>
-  <div><b>P</b>Call a rescue sled (fjord dunking or empty tank)</div>
-  <div><b>Z</b>Wipe frost off your visor</div>
-  <div><b>Q</b>Get off / on the sled (when bogged)</div>
-  <div><b>Shift</b>On foot: hold to jog (quickest on packed snow; it winds you)</div>
-  <div><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
-  <div><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
-  <div><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">J</b> Next job on the compass</div>
+  <div class="mx"><b>Ctrl</b>Wheelie</div>
+  <div class="mx"><b>S / ↓</b>Brake · hold it once stopped to reverse</div>
+  <div class="mx"><b>N</b>Reset sled</div>
+  <div class="mx"><b>E</b>Horn · stopped by a frozen lake: get off and fish · at the tackle shop or fish buyer: open it</div>
+  <div class="mx"><b>T</b>Garage</div>
+  <div class="mx"><b>G</b>Tiller wings in / out</div>
+  <div class="mx"><b>P</b>Call a rescue sled (fjord dunking or empty tank)</div>
+  <div class="mx"><b>Z</b>Wipe frost off your visor</div>
+  <div class="mx"><b>Q</b>Get off / on the sled (when bogged)</div>
+  <div class="mx"><b>Shift</b>On foot: hold to jog (quickest on packed snow; it winds you)</div>
+  <div class="mx"><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
+  <div class="mx"><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
+  <div class="mx"><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">J</b> Next job on the compass</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
-  <div><b>Y</b>God menu</div>
+  <div class="mx"><b>Y</b>God menu</div>
 </div>
 
 <div class="hud panel" id="flip" hidden>STUCK? PRESS N</div>
@@ -1263,5 +1294,5 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tracklayer.js?v=239"></script>
+<script src="tracklayer.js?v=240"></script>
 </body></html>

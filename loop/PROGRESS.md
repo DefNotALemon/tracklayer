@@ -3,6 +3,27 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-16 02:40 — Responsive UI: HUD, menus and modals follow the window (v240)
+Owner ask: UI far too big, doesn't scale or sense space; must fit the real itch.io embed (640x360 CSS px). The screenshot was an
+old itch build (`2026.10.15-c90cbe0`, zone panel still on); the current HUD was already minimal, so this pass fixed what still
+broke on small/odd windows. Measured with the new `tools/playtest/scenarios/ui_responsive.mjs` (14 viewports from 320x568 to
+2560x1080, title + ride + on-foot + touch + modals + tablet + runtime resize/orientation, ~1,100 asserts, one reused page).
+First run: 206 FAILs. Real bugs: Settings/Garage were `content-box`, so `max-height: 100% - 32px` plus padding ran off a 360 px
+screen; title panels (How to play) ran off the bottom at 720 px (their own top edge wasn't subtracted); the keyboard cheat-sheet
+was 529x405 and sat on the compass at 960x540; the toast stack sat mid-screen at <=640 px (old `top:186px` from the removed job
+panel) and on the compass on phones (the compass reserved 75 px for a label that is mostly invisible); the minimap was 120-180 px
+at 640x360 with caption rows; on-foot hint sat in the centre; TABLET/MORE sat on the compass on portrait tablets; the on-foot
+tablet shrank to 208x133 on a 568x320 phone. Fixes (all CSS in index.html except two lines in tracklayer.js): border-box modals
+capped to the window, `--pt`-aware title panel height, compass label absolutely positioned, `#map` = clamp(76px, 22vmin, 176px),
+captions/mail bar dropped and speedo x0.8 under 560 px height, help card narrow and trimmed (`.mx` lines only when >=1000 px tall),
+toasts at top 92 px on short windows and capped at 2 (was 3-4) when height <= 520, `#wnHud` bottom clamp(56px, 20vh, 150px),
+portrait-tablet TABLET/MORE under the strip, `TABLET.layout` idle right reserve min(220, 26% of width). `?v=240`.
+Checked, not changed: there is no HUD-scale setting, so no oversized default; zone stays off, no minimap in third-person riding,
+touch hides the minimap by design; adaptive prompts (kbm key names, PS L1, touch wording) asserted. No new CSS files (the itch
+workflow and mksite copy only index + JS). Gate: smoke, x1_save, ui_responsive all exit 0, page errors none.
+itch: the workflow (`.github/workflows/itch.yml`, manual "Push to itch.io" -> defnotalemon/tracklayer:html5) was NOT dispatched
+from this pass; the public itch build stays the Oct 15 one until someone runs it.
+
 ## 2026-11-14 23:58 — Performance pass: ~2.5-4x less GPU on the title, town and storm views (v239)
 Owner ask: Tracklayer ran under 30 fps on desktop and was heavy on iPhone/iPad, title screen included. Profiled first
 (`tools/playtest/scenarios/perf_profile.mjs` + `perfhook.mjs`: GPU ms per frame from EXT_disjoint_timer_query, CPU ms,

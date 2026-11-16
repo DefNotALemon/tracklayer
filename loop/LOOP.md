@@ -126,6 +126,7 @@ poacher/hostile-encounter hazard from the 11 Nov HUD slice, if it still exists b
 - Disk: if `df -g ~` shows under 20 GB free, skip all Chrome runs that pass and log it.
 
 ## Owner notes (Lemon edits here; overrides everything above)
+- **16 Nov, Lemon: the UI is far too big and ignores the space it has (done v240).** The itch.io embed is exactly 640x360 CSS px (the screenshot was a 2x retina capture of an old build, `2026.10.15-c90cbe0`, which still showed the zone panel; the live web build never does). Standing rules from this: lay out from `innerWidth`/`innerHeight` (never the screen or DPR); 640x360 is the priority acceptance size, then 960x540, 1280x720, 1366x768, 1920x1080, ultrawide, tablets and phones both ways; compress structure, don't scale everything; keep the middle of the screen clear; the zone panel stays off and third-person riding keeps no minimap. Any HUD/menu/modal change must pass `tools/playtest/scenarios/ui_responsive.mjs` (gate it: `gate.sh ui_responsive`). CSS stays inline in `index.html` (the itch workflow and `mksite.py` copy only index + JS + icons + vendor). itch is MANUAL: Actions > "Push to itch.io" (needs `BUTLER_API_KEY`); GitHub Pages is the live site.
 - **14 Nov, Lemon: Kjøllefjord roads, no fences.** His words: "remove the fences from the tracklayer towns, i like
   the idea but i'd rather have the roads visible as roads that still have a slight layer of snow on them and a curb on
   the sides? idk what else could be done that's just my thought as a mainer". Done in v238 (`townRoads()`): picket
