@@ -3,6 +3,39 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-16 10:45 — 3.5b2b2 a rig left standing, the curtainsider, marker lamps, low gears with a trailer on (lane A) (G4) — 3ca4700
+Builder pass, lane A. Orient: the worktree held a dead pass's 3.5b2b2 (14 Nov 22:43, stopped when the governor shut the
+lanes at 82% of the session window): `tlx-rig.js`, `tlx-vehicles.js` and `x3_rigleft.mjs`, its last run all passed.
+Stashed, rebased on main (v240), popped clean, finished it. Triage: 0206 is all OK plus one POLISH (#5, a car vs a
+trailer on its legs in a lay-by: left open, noted under the slice); Last triaged 206.
+Built (`tlx-rig.js` v3, `tlx-vehicles.js` v22; nothing in tracklayer.js, nothing new saved):
+- LEFT STANDING. `left(T)`: a trailer more than 4 m from its own lay-by with nobody at its lorry's wheel. It gets a red
+  warning triangle 12 m behind its tail (nearer if that spot is water or an obstacle), dimmed with dayFactor. Leaving a
+  coupled rig toasts once per leaving; the rig stays coupled (dropping it on its legs would strand it on a slope).
+  A lorry gone from the save drops the trailer on its legs with a toast (before: silently).
+- THIRD TRAILER `mh`, the curtainsider (6.8 t, 13.6 m), 489 m from Mehamn on fv888. `findBay` also wants the bay under
+  5% along the trailer. Checked against origin/main with a probe: kj and lb stand exactly where they did, so no old
+  save sees a trailer "away from its lay-by".
+- LAMPS: the trailer's lamp material is unlit and driven from dayFactor: 0.55 by day, 2.15 after dark coupled, 0.12
+  after dark on its legs (before: scene-lit only, black at night even behind a running lorry).
+- NUMBERS, by script on a rail down the road's centre line: 14.4 t coupled reaches 21.0 m/s (76 km/h) on the most level
+  900 m of cleared road, 13.3 m/s at 10 s. At the tractor's 20 kN the rig could not start on a 9% road, so the tractor
+  row has `fmaxLow` 30 kN, used only with a semitrailer on (the "more throttle" hint reads the same number): standing
+  start on 9% 64 m in 14 s; on the steepest 80 m of open road (fv888, 12.5%) 60 m in 19 s; taken at 12 m/s, never
+  under 7.3 m/s. Bobtail numbers are untouched.
+`x3_rig.mjs` asserted exactly two trailers: now "at least two, kj and lb first".
+Stills (dead pass's, same code): the triangle reads clearly behind the tail by day and dimmer at night, tail lamps lit.
+Gate: smoke, x1_save, x3_rigleft, x3_tractor exit 0, page errors none. x3_rig ("legs down... a toast says why") and
+x3_rigsolid ("it says so, once") failed, and x3_rig fails the same way on origin/main (v240) without this slice: the
+toast is said (`said` stamped) but a toast lives 4.2 s of wall time and the scenarios read `#toasts` after a 2.5 s
+game-time hold, which headless now takes longer than 4.2 s to play. Not a game bug. The three rig scenarios now log
+every toast shown since `clearToasts()` (an 80 ms in-page recorder) instead of reading only what is on screen; rerun
+alone: x3_rig, x3_rigsolid, x3_rigleft all passed, page errors none. Other scenarios that read toasts after a long
+hold may have the same flake.
+Not done / unverified: the triangle is not an obstacle; pad and touch were not exercised (the new text names no
+control); the tanker and curtainsider were not driven coupled (numbers are the box trailer's). Next: 3.5b3 trailer
+freight.
+
 ## 2026-11-16 02:40 — Responsive UI: HUD, menus and modals follow the window (v240)
 Owner ask: UI far too big, doesn't scale or sense space; must fit the real itch.io embed (640x360 CSS px). The screenshot was an
 old itch build (`2026.10.15-c90cbe0`, zone panel still on); the current HUD was already minimal, so this pass fixed what still
