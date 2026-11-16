@@ -21,8 +21,10 @@ portrait-tablet TABLET/MORE under the strip, `TABLET.layout` idle right reserve 
 Checked, not changed: there is no HUD-scale setting, so no oversized default; zone stays off, no minimap in third-person riding,
 touch hides the minimap by design; adaptive prompts (kbm key names, PS L1, touch wording) asserted. No new CSS files (the itch
 workflow and mksite copy only index + JS). Gate: smoke, x1_save, ui_responsive all exit 0, page errors none.
-itch: the workflow (`.github/workflows/itch.yml`, manual "Push to itch.io" -> defnotalemon/tracklayer:html5) was NOT dispatched
-from this pass; the public itch build stays the Oct 15 one until someone runs it.
+itch: parent dispatched manual "Push to itch.io" after the code landed. Run 43825670305 succeeded for code commit
+9cbc12b76664b6d7622b2377ed59a803cf4e0552, including the non-skipped Push to itch step. After archive extraction,
+verified public iframe https://html-classic.itch.zone/html/19441147-2403416/index.html?v=1794815138 serves
+`tracklayer.js?v=240`; GitHub Pages serves v240 too. This replaces the October 15 itch build.
 
 ## 2026-11-14 23:58 — Performance pass: ~2.5-4x less GPU on the title, town and storm views (v239)
 Owner ask: Tracklayer ran under 30 fps on desktop and was heavy on iPhone/iPad, title screen included. Profiled first
