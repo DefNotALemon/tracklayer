@@ -3,6 +3,62 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-16 23:40 — 3.5c1 storm closures: barriers on the two fell roads, the queue, convoys on the hour (lane A) (G4) — 824ca26
+Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 262 GB free. Triage: no report above 0207; Last
+triaged stays 207. Next unticked slice: 3.5c, too big for one pass: split into 3.5c1 (this) and 3.5c2 (the plow truck
+at the head, the player counted in the line, the Map flag for leaving it), design for both written into EXPANSION.md.
+Built (new `tlx-convoy.js` v1, hooks in `tlx-traffic.js` v7 and `tlx-roads.js` v11; tracklayer.js untouched, still v242):
+- ROADS. A route row with `convoy: [end, end]` in tlx-roads' table is a convoy road: `lebesby` (the slice's road) and
+  `fv888` (decision: it crosses the same fell). Each gets two gates found at boot: the first straight, clear spot 420 m
+  or more in from each end, off the streets, 45 m from another road, 70 m from a lay-by. Measured: lebesby 756 m and
+  840 m in, 2332 m apart; fv888 684 m and 540 m in, 3753 m apart, 84 m from the Mehamn lay-by.
+- STATES. open -> shut (a stretch between the gates snowed in) -> wait (plowed; the next full game hour at least 0.2 h
+  off) -> run (the longer queue's side; its boom up 30 s, the far one down until no member is left between the gates)
+  -> a return run if the far side has a queue -> open. Nobody waiting at the convoy time: straight to open. Nothing is
+  saved: a reload works the state out from the saved road snow.
+- TRAFFIC. A driver heading in stops 7 m short of a lowered boom (why "gate") and waits; one behind it queues; neither
+  pulls out, turns round nor gives up (`c.gq`). Nobody turns up between lowered gates. A driver inside leaves freely,
+  the boom lifting for it. In the line (`c.cv`): 10 m/s at most, 30 m behind the one ahead, up to 12 m/s to close up.
+- SEEN AND TOLD. Per gate a cabinet, a 7.9 m striped boom, two red lamps flashing in turn while it is down (unlit,
+  driven from dayFactor), a board (CLOSED / 12:00 next convoy / NOW convoy leaving / WAIT convoy coming / OPEN). A
+  toast within 80 m of a gate once per state. The Map's road legend gets a line per closed road and the chart a red
+  dot per lowered gate (`TLXR.paintX`, `TLXR.repaint`). A trip whose way goes IN past a lowered gate on a plowed road
+  warns "Lebesby road: convoy 12:00" (`R.trip` why "convoy"); snowed in keeps its own warning; from between the gates
+  the way out never warns.
+- Option `convoy` (Settings > Options, on): off = no gates, traffic turns round at a drift as before.
+Numbers (`x3_convoy.mjs`, 50 asserts): first car 6.7 m short of the boom (the drift 1148 m further on), second 7.5 m
+behind it, the lorry's cab 8.6 m behind that; 32 s on nobody has moved, no pull-out counted; convoy at 12:00 from 11:33;
+lead's top speed 10.00 m/s; through the bends below the fell the second car runs 44 m behind the first after 56 s
+and the lorry 90 m behind that (both slow for each bend in turn: the 30 m is a floor, not a held distance, on this
+road; an earlier build without the close-up speed had the second car 51.5 m back at 30 s); the return convoy leaves
+once the first is past the far gate; option off: a car stops 22.0 m short of the drift as before; lamps 2.25 bright
+after dark.
+Stills (looked at): the lowered boom reads as a red and white arm across both lanes at bonnet height with the CLOSED
+board beside the road and the queue behind it; raised, it stands up from the cabinet with the line driving under it;
+at night one lamp is lit red at a time and the boom and board take the scene's light, nothing glows. The cabinet sits
+low in the roadside snow bank (its base is at the road's level), and the stripes read pink-orange rather than red in
+low sun.
+Gate: smoke, x1_save, x3_convoy, x3_semis exit 0, page errors none (gate.sh, final code). x3_traffic failed once in
+that gate on a race in its own step D (it took the car's standstill before pulling away, 312.7 m from the drift, for
+the stop at the drift); the capture now wants the car within 60 m of the drift, and it passes run alone (stopped 22 m
+short, turned, drove back). x3_pass, x3_rigrun, x3_home, x3_roadsnow, x3_roadwarn exit 0, run before the last tuning
+of the in-line gap (that change touches convoy members only). Under load from the other lanes two more runs died
+outside the game (x3_traffic with no output, x3_roadsnow "title menu never appeared" after a reload); both passed
+when re-run alone. The stills are from the run before the lamp colour was made redder and the close-up speed added.
+Changed an older scenario: `x3_roadwarn.mjs` now runs with option convoy off. It checks the plain snowed-in warnings
+by setting road snow and reading the warning in the same breath; with barriers, a plowed fv888 stays shut until the
+hour, which that scenario was never about. `x1_save.mjs` knows the new `convoy` id.
+Not built (3.5c2): the plow truck leading, the player as a member, the Map flag for leaving the line. Not done /
+unverified: the boom is not solid and nothing checks that the player waits at it; a driver between the gates when
+they close carries on to the drift and turns round; a convoy meeting a fresh drift mid-run follows the old rules;
+nobody watched a whole crossing (the scenario moves the line up to the far gate); fv888's gates were measured but no
+convoy was run there; other `x3_*_break` scenarios that plow fv888 or lebesby and expect an instant "open" may now
+read "convoy HH:00" and were not re-run; no pad/touch work (no new control). For the beta tester: sit at a gate
+through a real storm (not setSnow) and watch a whole convoy cross; drive the pickup and the lorry up to a lowered
+boom and through it; a trailer run over a closed road; a save made mid-convoy; both roads shut at once; the low
+preset (4 road vehicles in all).
+Next: 3.5c2, then milestone 4.
+
 ## 2026-11-16 21:35 — 3.5b3b used tractor units on Bytteboden, standing in the lay-by nearest the seller (lane A) (G4) — 45386eb
 Builder pass, lane A. Orient: worktree clean, rebased on main (v241), 263 GB free. Triage: no report above 0207, nothing
 new on lane A's systems; Last triaged stays 207. Next unticked slice: 3.5b3b.
