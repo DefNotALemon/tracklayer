@@ -9,7 +9,9 @@ const clock = () => ev("gameClock");
 async function waitGame(s) { const t0 = await clock(); while ((await clock()) - t0 < s) await sleep(120); }
 async function waitUntil(expr, m = 12) { const t0 = await clock(); while ((await clock()) - t0 < m) { if (await ev(expr)) return true; await sleep(150); } return false; }
 await boot();
-await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; GS.cash = 9000; true`); await sleep(800);
+// 3.5c1 put barriers on the Mehamn and Lebesby roads, which keep a plowed road shut until the next convoy ("... road:
+// convoy 12:00"): this scenario checks the plain snowed-in warnings, so it runs with that option off (x3_convoy has it on).
+await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; GS.cash = 9000; TLX.setOn("convoy", false); true`); await sleep(800);
 ok(await J(`TLXR.ready && !!TLXR.trip`), "roads built, trip check present");
 const site = id => `(${JSON.stringify(id)} === "depot" ? depot : SITES.find(s => s.id === ${JSON.stringify(id)}))`;
 const trip = (from, to) => J(`(() => { const a = ${site(from)}, b = ${site(to)}; return TLXR.tripWarn(a.x, a.z, b); })()`);

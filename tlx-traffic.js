@@ -161,19 +161,22 @@ function stopAhead(c, B, sh0) {
     const dd = c.dir > 0 ? a - c.s - TRAF.shutGap : c.s - b - TRAF.shutGap;
     if (dd > -TRAF.shutGap && dd < d) { d = dd; why = "shut"; }
   }
+  // a convoy road's barrier, down for a driver heading in (3.5c1, tlx-convoy.js): it stands at the boom, not at the drift
+  const CVX = window.TLXCV;
+  if (CVX && CVX.stopFor) { const g = CVX.stopFor(r.id, c.s, c.dir); if (g != null) { const dd = g - (c.fro || 0); if (dd < d) { d = dd; why = "gate"; } } }
   // the line it checks is the lane it's heading for (sh m right of where it is now: moving over to pass, it looks down
   // the other lane, not at the thing it's pulling out round)
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sh = sh0 != null ? sh0 : (c.r.street[c.k] ? 0 : (c.laneT ?? TRAF.lane)) - (c.lane ?? TRAF.lane);
-  let a0 = 0, mv = false;
-  const each = (x, z, who, v) => {
+  let a0 = 0, mv = false, ob = null;
+  const each = (x, z, who, v, o) => {
     const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz;
     if (a <= 0 || a > TRAF.look) return;
     if (Math.abs(dz * fx - dx * fz - sh) > TRAF.laneW) return;
-    const dd = a - TRAF.gap - (c.fro || 0); if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; }
+    const dd = a - TRAF.gap - (c.fro || 0); if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; ob = o || null; }
   };
-  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.semi && o.pts) for (const p of o.pts) each(p[0], p[1], "car", v); else each(o.x, o.z, "car", v); }
+  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.semi && o.pts) for (const p of o.pts) each(p[0], p[1], "car", v, o); else each(o.x, o.z, "car", v, o); }
   if (B) for (const b of B) each(b.x, b.z, b.who, Math.hypot(b.vx, b.vz));
-  return { d, why, a: a0, mv };
+  return { d, why, a: a0, mv, o: ob };
 }
 T.stopAhead = c => stopAhead(c, bodies());
 // is the other lane empty from just behind to `look` m ahead (cars either way, you, a walker, anything parked)?
@@ -263,8 +266,9 @@ function spawn(c, first) {
     const s = r.s0 + 30 + Math.random() * Math.max(1, r.len - 60), p = at(r, s, 0), d = Math.hypot(p.x - you.x, p.z - you.z);
     if (d < lo || d > hi || r.street[p.k]) continue;
     if (r.rt.seg.some(g => g.shut && s > g.a - 60 && s < g.a + seg + 60)) continue;
+    if (window.TLXCV && TLXCV.barred && TLXCV.barred(r.id, s)) continue;      // between two lowered barriers: nobody turns up there (3.5c1)
     if (T.cars.some(o => o !== c && o.on && Math.hypot(o.x - p.x, o.z - p.z) < TRAF.gapCars)) continue;
-    Object.assign(c, { on: true, r, s, k: p.k, dir: Math.random() < 0.5 ? 1 : -1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false });
+    Object.assign(c, { on: true, r, s, k: p.k, dir: Math.random() < 0.5 ? 1 : -1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false, gq: false, cv: null });
     c.lane = TRAF.lane; setPose(c, 0); c.v = Math.min(c.semi ? SEMI.vmax : TRAF.vmax, vProf(r, s, c.k, c.dir)) * 0.8; ground(c);
     if (c.semi) semiSetup(c);
     return true;
@@ -275,7 +279,7 @@ T.lanePt = (id, s, dir) => { const r = T.routes.find(q => q.id === id); if (!r) 
 T.place = (id, s, dir, i, type) => {                                      // i (default 0): which car; car 0 hides the rest; type: a semi's size
   const r = T.routes.find(q => q.id === id), c = T.cars[i | 0]; if (!r || !c) return null;
   T.hold = true; release(c);
-  Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false });
+  Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false, gq: false, cv: null });
   c.lane = TRAF.lane; setPose(c, 0); ground(c);
   if (c.semi) semiSetup(c, type);
   if (!(i | 0)) for (const o of T.cars) if (o !== c) o.on = false;
@@ -303,11 +307,19 @@ function turnStep(c, dt) {
 function driveStep(c, dt, B, you) {
   const r = c.r; c.dtLast = dt;
   if (c.hold > 0) { c.hold -= dt; c.v = 0; return; }                         // just bumped: the driver sits a moment
-  const sa = stopAhead(c, B); c.why = sa.why; c.ahead = sa.d;
+  const sa = stopAhead(c, B), CVX = window.TLXCV; c.why = sa.why; c.ahead = sa.d;
   const prof = vProf(r, c.s, c.k, c.dir) * (c.semi ? SEMI.vk : 1), seg = window.TLXR.ROADS.seg;
   let vt = Math.min(prof, c.semi ? SEMI.vmax : 1e9, Math.sqrt(2 * TRAF.brake * Math.max(0, sa.d)));
   if (r.rt.seg.some(g => g.shut && c.s >= g.a && c.s < g.a + seg)) vt = Math.min(vt, 3);   // ploughing through a fresh drift
   if (c.pass) vt = Math.min(vt, Math.abs(c.lane - c.laneT) > 0.8 ? 1.5 : TRAF.passV);       // moving over at a crawl, past at a creep
+  // in a convoy (3.5c1): the line's speed and the line's gap behind the one ahead; one that has dropped back closes up a little faster
+  if (c.cv && CVX) {
+    let cap = CVX.CV.v;
+    if (sa.why === "car" && sa.o && sa.o.cv === c.cv) { const x = sa.d - (CVX.CV.gap - TRAF.gap), vl = sa.o.v || 0; vt = Math.min(vt, Math.sqrt(Math.max(0, 2 * TRAF.brake * x + vl * vl))); if (x > 4) cap *= CVX.CV.close; }
+    vt = Math.min(vt, cap);
+  }
+  // waiting at a lowered barrier, or in the queue behind someone who is: it neither pulls out nor turns round
+  if (sa.d < 0.6 && c.v < 0.3 && (sa.why === "gate" || (sa.why === "car" && sa.o && sa.o.gq))) c.gq = true; else if (c.v > 1 || (sa.why !== "gate" && sa.why !== "car")) c.gq = false;
   // braking: the profile's 3.2 m/s^2, or as hard as it takes to stand by the gap when something turns up close in
   // front of a car at speed (a walker stepping out 45 m ahead of a car at 12.5 m/s), up to 2.5x
   const need = c.v * c.v / (2 * Math.max(0.4, sa.d));
@@ -320,7 +332,8 @@ function driveStep(c, dt, B, you) {
   passStep(c, sa, B);
   if (!c.semi) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
   if (sa.d < 0.6 && c.v < 0.3) {
-    if (sa.why === "end") {
+    if (c.gq) { c.t = 0; c.blocked = 0; c.waiting = true; }                    // at the barrier: it waits for the convoy
+    else if (sa.why === "end") {
       // the end of the road: out of sight it drives on into the village (another car turns up elsewhere); in sight it turns
       if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > 300) { spawn(c, false); return; }
       c.t += dt; if (c.t > TRAF.waitEnd && !c.pass) turnOr(c, you);
@@ -332,7 +345,7 @@ function driveStep(c, dt, B, you) {
 function passStep(c, sa, B) {
   const r = c.r;
   if (!c.pass) {
-    const stuck = sa.d < 0.6 && c.v < 0.3 && !sa.mv && sa.why !== "end" && sa.why !== "shut" && !r.street[c.k];
+    const stuck = sa.d < 0.6 && c.v < 0.3 && !sa.mv && sa.why !== "end" && sa.why !== "shut" && sa.why !== "gate" && !c.gq && !r.street[c.k];
     c.pw = stuck ? (c.pw || 0) + (c.dtLast || 0) : 0;
     if (c.pw < TRAF.passWait) return;
     const tail = c.semi ? c.T.len - c.T.tr.front : 0;                          // a semi moves back in once its trailer is past

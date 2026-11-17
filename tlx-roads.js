@@ -47,11 +47,12 @@ const ROADS = {
   pair: 18,                 // two roads closer than this share one bed height (hairpin legs, a branch off the trunk), m
   ease: 36,                 // how far from a road's end (a village edge, a forecourt) the bed eases back to the ground, m
   routes: [
-    { id: "fv888", name: "Kjøllefjord–Mehamn road", via: ["depot", "@st_kjollefjord", "windfarm", "@st_mehamn", "mehamn"] },
+    // convoy (3.5c1, tlx-convoy.js): a road over the fell with a barrier at each end; the names of its two ends
+    { id: "fv888", name: "Kjøllefjord–Mehamn road", via: ["depot", "@st_kjollefjord", "windfarm", "@st_mehamn", "mehamn"], convoy: ["Kjøllefjord", "Mehamn"] },
     { id: "gamvik", name: "Gamvik road", via: ["mehamn", "gamvik", "relay"] },
     { id: "dyfjord", name: "Dyfjord road", via: ["depot", "dyfjord"] },
     { id: "skjanes", name: "Skjånes road", via: ["windfarm", "skjanes"] },
-    { id: "lebesby", name: "Lebesby road", via: ["depot", "@st_lebesby", "lebesby"] },
+    { id: "lebesby", name: "Lebesby road", via: ["depot", "@st_lebesby", "lebesby"], convoy: ["Kjøllefjord", "Lebesby"] },
     { id: "ifjordfjellet", name: "Ifjordfjellet road", via: ["lebesby", "ifjord"], closed: true }
   ],
   mapCol: "#c4692e", mapClosed: "rgba(196,105,46,.75)",
@@ -564,8 +565,13 @@ function paintRoads() {
     }
     if (!rt.closed) for (const s of rt.seg) { g.strokeStyle = s.shut ? ROADS.mapSnow : ROADS.mapCol; for (const r of s.runs) line(g, r, k, h); }
   }
-  g.restore(); R.paints = (R.paints || 0) + 1;
+  g.restore();
+  for (const f of R.paintX) { try { f(g, k, h); } catch (e) { /* a later system's marks never stop the roads being drawn */ } }
+  R.paints = (R.paints || 0) + 1;
 }
+// 3.5c1: later systems draw their own marks over the roads (f(ctx, px per m, half the world)) and ask for a repaint when
+// what a trip meets has changed (the trip cache is keyed by R.paints)
+R.paintX = []; R.repaint = () => paintRoads();
 
 /* ---- road snow (3.2): storms fill the roads, the council plow clears them, saved.
    State (save key x.sys.roads): { r: { routeId: { s: [snow per stretch 0..1], p: plow metres along the route or -1,
@@ -622,7 +628,7 @@ function snowApply(all) {
   if (paint) paintRoads();
   // a word when the roads drift shut, and when the plow has opened them again
   const st = RS(), shutR = R.routes.filter(rt => rt.seg.some(g => g.shut));
-  if (R.noted) for (const [id, why] of R.noted) if (why !== "closed" && !shutR.some(rt => rt.id === id)) R.noted.delete(id);   // open again: the next storm warns afresh
+  if (R.noted) for (const [id, why] of R.noted) if (why === "convoy" ? shutR.some(rt => rt.id === id) || !(window.TLXCV && TLXCV.barOn && TLXCV.barOn(id)) : why !== "closed" && !shutR.some(rt => rt.id === id)) R.noted.delete(id);   // open again: the next storm warns afresh
   if (!all && api.started()) {
     if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + " drifting shut. The council plow goes out once the storm eases."); }
     else if (!shutR.length && st.warned && R.routes.every(rt => !rt.st || rt.st.p < 0)) { st.warned = false; api.toast("The plow's been round: the roads are open again."); }
@@ -738,10 +744,14 @@ R.trip = (x0, z0, tgt) => {
   let res = null;
   const A = anchor(x0, z0), B = anchor(tgt.x, tgt.z, tgt.id === undefined ? null : tgt === api.world.depot ? "depot" : tgt.id);
   const path = A && B ? tripPath(A, B) : null;
+  let cur = A && (A.node || "@A");
   if (path) for (const e of path) {
+    const fwd = e.u === cur, sa = fwd ? e.s0 : e.s1, sb = fwd ? e.s1 : e.s0; cur = fwd ? e.v : e.u;   // the way this trip drives the stretch
     if (e.rt.closed) { res = { route: e.rt, why: "closed" }; break; }
     const lo = Math.min(e.s0, e.s1), hi = Math.max(e.s0, e.s1);
     if (e.rt.seg.some(g => g.shut && g.a < hi && g.a + ROADS.seg > lo)) { res = { route: e.rt, why: "snowed in" }; break; }
+    const cvn = window.TLXCV && TLXCV.barOn ? TLXCV.barOn(e.rt.id, sa, sb) : "";   // 3.5c1: plowed, but the way in is past a barrier still down for the convoy
+    if (cvn) { res = { route: e.rt, why: "convoy", note: cvn }; break; }
   }
   TRIPC.set(k, res); return res;
 };
@@ -751,18 +761,18 @@ R.tripDist = (x0, z0, x1, z1) => {
   const A = anchor(x0, z0), B = anchor(x1, z1), path = A && B ? tripPath(A, B) : null; if (!path) return null;
   let d = 0; for (const e of path) d += Math.abs(e.s1 - e.s0); return d;
 };
-R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`; };
+R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`; };
 // beta 0149 #1: the minimalist HUD hides the old compass row, so a job whose way runs over a snowed-in stretch also gets a
 // toast, once per road per storm (the note clears when that road is open again; the fell road's once per session).
 // updGameHud calls this with job = true only when the target is a real job (not the idle "quay" arrow).
 R.noted = new Map();
 R.tripNote = (x0, z0, tgt, job) => {
   const t = R.trip(x0, z0, tgt); if (!t) return "";
-  const w = t.why === "closed" ? `${t.route.name} shut for the winter` : `${t.route.name} snowed in`;
+  const w = t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`;
   if (job && api.started() && !R.noted.has(t.route.id)) {
     R.noted.set(t.route.id, t.why);
     const to = tgt.name && typeof tgt.name === "string" ? ` on the way to ${tgt.name}` : " on your way";
-    api.toast(t.why === "closed" ? `The ${t.route.name}${to} is shut for the winter. Take the sled.` : `Heads up: the ${t.route.name} is snowed in${to}. A pickup won't get through till the plow's been; a sled will.`);
+    api.toast(t.why === "convoy" ? `Heads up: the barrier is down on the ${t.route.name}${to}: ${t.note}. A sled goes round it.` : t.why === "closed" ? `The ${t.route.name}${to} is shut for the winter. Take the sled.` : `Heads up: the ${t.route.name} is snowed in${to}. A pickup won't get through till the plow's been; a sled will.`);
   }
   return w;
 };
@@ -777,7 +787,7 @@ R.legend = () => {
   if (!R.ready || !R.routes.length) return "";
   const n = R.routes.filter(rt => !rt.closed && rt.seg.some(g => g.shut)).length;
   const sw = (st, dash) => `<i class="trl" style="border-top:3px ${dash ? "dashed" : "solid"} ${st}"></i>`;
-  return `<span>Roads</span><em>${sw(ROADS.mapCol)}open</em><em>${sw(ROADS.mapSnow)}snowed in${n ? ` <b>${n}</b>` : ""}</em><em>${sw(ROADS.mapClosed, 1)}closed</em>`;
+  return `<span>Roads</span><em>${sw(ROADS.mapCol)}open</em><em>${sw(ROADS.mapSnow)}snowed in${n ? ` <b>${n}</b>` : ""}</em><em>${sw(ROADS.mapClosed, 1)}closed</em>` + (window.TLXCV && TLXCV.legend ? TLXCV.legend() : "");
 };
 
 TLX.register({

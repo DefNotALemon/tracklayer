@@ -703,6 +703,20 @@ street slowly to its own door, round the corners and past the houses, and parks 
 in its own colour. Stand in the street in front of it and it waits for you. Switch "Road traffic" off
 and every owner is home.
 
+**Storm closures and convoys** (Settings > Options: "Storm closures and convoys", on by default). The two
+roads over the fell, Kjøllefjord to Mehamn and Kjøllefjord to Lebesby, have a barrier a little way in
+from each end: a red and white boom, two red lamps and a board. While any stretch between the barriers
+is snowed in, both booms are down, the lamps flash and the board reads CLOSED. Drivers and lorries
+heading in stop at the boom and wait in a queue there instead of driving up to the drift and turning
+round. Once the council plow has opened the road the booms stay down until the next convoy, on the
+hour: the board, the Map's road legend and the compass's warning for a job over that road all give the
+time ("Lebesby road: convoy 14:00"), and the Map shows a red dot at each lowered barrier. On the hour
+the longer queue goes first: its boom lifts and the line leaves together at 36 km/h, at least thirty metres
+apart, while the far boom stays down; when the line is through, anyone waiting at the far end comes
+back as the return convoy, and then the road is open. Come up to a lowered boom and a message says why
+it is down and when the next convoy leaves. The boom doesn't stop you: a sled goes round it as it
+always could, and a pickup still meets the drift. Switch the option off and there are no barriers.
+
 Lorries share the roads too: a refrigerated box on a two-axle day cab, a long-haul curtainsider behind a
 high-roof sleeper, a fuel tanker. They run slower than the cars (about 40 km/h) and take the bends gently,
 and the trailer swings on its coupling: it cuts inside every bend and straightens out behind the tractor.

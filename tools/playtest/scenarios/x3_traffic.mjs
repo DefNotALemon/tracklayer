@@ -107,7 +107,7 @@ ok(D0.gi >= 0 && D0.shut, "D: stretch " + D0.gi + " ahead snowed in");
 let Dstop = null, Dturn = false, Dback = null;
 { const t0 = await clock(); while ((await clock()) - t0 < 75) {
   const q = await J(`({ s: TLXT.cars[0].s, v: TLXT.cars[0].v, st: TLXT.cars[0].st, dir: TLXT.cars[0].dir, why: TLXT.cars[0].why })`);
-  if (!Dstop && q.v < 0.2 && q.why === "shut" && q.st === "drive") Dstop = q;
+  if (!Dstop && q.v < 0.2 && q.why === "shut" && q.st === "drive" && Math.abs(D0.edge - q.s) < 60) Dstop = q;   // not the moment before it pulls away from F's stop (seen under load, 16 Nov)
   if (q.st === "turn") Dturn = true;
   if (Dturn && q.st === "drive" && q.dir !== D0.dir && q.v > 3) { Dback = q; break; }
   await sleep(150);
