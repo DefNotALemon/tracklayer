@@ -779,6 +779,14 @@ GIVE UP on the card ends a run for nothing. Loaded, the 18-tonne rig still start
 road, but not on the steepest stretch of the fell road (about 12%): carry 40 km/h into it and it goes
 over without dropping below 12 km/h; stop on it and you back down for another run.
 
+**A used one.** With the Freight licence and six deliveries behind you, a used Nordtrekk turns up on
+Bytteboden under Vehicles now and then, for roughly $6,000 to $10,000 against $11,500 new, worn and
+haggled over like anything else there (one in six is not what the ad says: look it over in person). A
+lorry is too big for a yard, so only people living near one of the three lay-bys sell one, and it
+stands in that lay-by. Settle up at the seller's door, by SEND and a visit or in person, and the keys
+are yours: the lorry is in the lay-by, facing out on plowed ground with a quarter tank, and on your
+Map. If the lay-by is full of your own machines the seller keeps it until you have moved one.
+
 ## The pickup
 
 The garage has a **Trucks** tab, and the first thing on it is the **Fjellvogn**, a four-wheel-drive

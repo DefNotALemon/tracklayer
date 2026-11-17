@@ -364,7 +364,7 @@ const SECT = {
   html() {
     if (!LIST.length || !api.licensed("freight")) return "";
     const U = api.ui, r = runOf(), P = api.FOOT.on ? api.FOOT : api.P, mi = (x, z) => U.fmtMi(Math.hypot(x - P.x, z - P.z));
-    if (!ownsTractor() && !r) return U.sec("Trailer runs", "by lorry") + `<p class="tnote2">Semitrailers stand in lay-bys outside Kjøllefjord, Lebesby and Mehamn. With a tractor unit of your own, loaded ones are posted here to be hauled from one lay-by to another.</p>`;
+    if (!ownsTractor() && !r) return U.sec("Trailer runs", "by lorry") + `<p class="tnote2">Semitrailers stand in lay-bys outside Kjøllefjord, Lebesby and Mehamn. With a tractor unit of your own, loaded ones are posted here to be hauled from one lay-by to another. The garage sells one new; a used one turns up on Bytteboden, under Vehicles, now and then.</p>`;
     let h = U.sec("Trailer runs", r ? "one run at a time" : "couple it, haul it, stand it in the far lay-by");
     if (r) {
       const T = LIST.find(T => T.sp.id === r.id), B = bayOf(r.to); if (!T || !B) return "";
@@ -475,7 +475,7 @@ TLX.register({
         st.t[sp.id] = s;
         const T = { sp, s, def, q, L: q.L, spin: 0, arm: true, sink: 0, art: 0, home: home ? { x: home.x, z: home.z, yaw: home.yaw, s: home.s } : null, load: { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false } };
         // the lay-by as a place to bring a trailer to (3.5b3a): the middle of the plowed room in front of its own trailer
-        if (home) { const u = q.L + RIG.approach / 2; T.bay = { id: sp.id, name: sp.bay, x: home.x + Math.sin(home.yaw) * u, z: home.z + Math.cos(home.yaw) * u }; }
+        if (home) { const u = q.L + RIG.approach / 2; T.bay = { id: sp.id, name: sp.bay, x: home.x + Math.sin(home.yaw) * u, z: home.z + Math.cos(home.yaw) * u, yaw: home.yaw }; }
         LIST.push(T); follow(T); solidInit(T); grid(T);
       }
       { const r = st.run, ok = r && typeof r === "object" && LIST.some(T => T.sp.id === r.id) && bayOf(r.to) && typeof r.cargo === "string" && r.cargo && r.kg > 0 && r.kg < 30000 && r.pay >= 0 && NUM(r.pay); if (!ok) st.run = null; st.done = NUM(st.done) ? st.done | 0 : 0; }

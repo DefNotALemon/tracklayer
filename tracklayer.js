@@ -10635,9 +10635,11 @@ function mktMake(now, age = 0) {
   const lemon = cat !== "rare" && Math.random() < 0.16, adv = 0.65 + Math.random() * 0.25, real = lemon ? clamp(adv - 0.2 - Math.random() * 0.16, 0.42, 0.6) : adv;
   const pers = lemon && Math.random() < 0.5 ? pick(["desperate", "haggler"]) : wpick(Object.entries(SELLER_P).map(([k, v]) => ({ k, w: v.w }))).k;
   const S = SELLER_P[pers], l = { id: ++GS.mkt.seq, cat, item: it.item, pers, lemon, adv: +adv.toFixed(3), real: +real.toFixed(3) };
+  /* a vehicle may need a seller in the right place (3.5b3b: a lorry's stands by a road lay-by): VEH.mkt.sitesFor narrows them */
+  const ms = mktSites(), vs = cat === "veh" && mktV().sitesFor ? mktV().sitesFor(it.item, ms) : ms; if (!vs.length) { GS.mkt.seq--; return null; }
   const newP = mktInfo(l).newP, ask = mktRound(newP * (0.38 + 0.42 * adv) * (0.92 + Math.random() * 0.16) * S.ask);
   return Object.assign(l, {
-    site: pick(mktSites()).id, seller: pick(MKT_NAMES), t0: now - age, life: 48 + Math.random() * 72,
+    site: pick(vs).id, seller: pick(MKT_NAMES), t0: now - age, life: 48 + Math.random() * 72,
     ask, ask0: ask, floor: Math.round(ask * S.floor), pat: S.pat, thread: [], deal: null, insp: false, mute: false,
     why: pick(cat === "veh" ? mktV().why(it.item) : MKT_WHY[cat]), tell: pick(cat === "veh" ? mktV().tell(it.item) : MKT_TELL[cat]), hrs: cat === "engine" || cat === "sled" ? Math.round(lerp(60, 1400, 1 - adv) / 10) * 10 : 0, seed: (Math.random() * 1e6) | 0
   });
@@ -10798,7 +10800,7 @@ function mktCollect(site) {
     } else if (h.cat === "veh") {
       // the seller's truck or trailer goes on the ground beside their place; you walk over and drive it away (tlx-vehicles.js)
       const msg = mktV() ? mktV().collect(h, site) : "";
-      if (!msg) { if (gameClock - MKT.nagT > 10) { MKT.nagT = gameClock; toast(`${h.seller}: "No room to get it out of the yard with you parked there. Pull forward a bit."`, "warn"); } continue; }
+      if (!msg) { if (gameClock - MKT.nagT > 10) { MKT.nagT = gameClock; toast(mktV() && mktV().noRoom && mktV().noRoom(h) || `${h.seller}: "No room to get it out of the yard with you parked there. Pull forward a bit."`, "warn"); } continue; }
       GS.mkt.held = GS.mkt.held.filter(q => q !== h);
       toast(msg, "good");
     } else if (h.cat === "fish") {
