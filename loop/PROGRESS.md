@@ -3,6 +3,42 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-16 21:35 — 3.5b3b used tractor units on Bytteboden, standing in the lay-by nearest the seller (lane A) (G4) — 45386eb
+Builder pass, lane A. Orient: worktree clean, rebased on main (v241), 263 GB free. Triage: no report above 0207, nothing
+new on lane A's systems; Last triaged stays 207. Next unticked slice: 3.5b3b.
+Built (`tlx-vehicles.js` v23, `tlx-rig.js` v5, two bridges in `tracklayer.js` v242):
+- POOL. Bytteboden's Vehicles category lists item `tractor` (the Nordtrekk 4x2) for a Freight licence holder with 6
+  deliveries, under 3 trucks counting paid-for ones of either kind, none already waiting. Weight 0.6, 0.12 once you
+  own one. Price by the marketplace's formula on $11,500: $6,085 to $10,265 seen. Own stories, own faults, a drawn
+  cab-over photo.
+- WHERE (decision). A cabin yard's spot (`spotNear`) is unplowed ground: a 7 t lorry set down there never moves again
+  (0.5 m of powder = bogged, 3.5b1). So a used one stands in the semitrailer lay-by nearest its seller, and only
+  sellers within 1500 m of a lay-by list one: 11 of the seller sites (9 round Kjøllefjord at 136-1105 m, Lebesby
+  172 m, Mehamn 504 m). `collect` stands it in the bay's line, facing out, at the first of four places (5, -3, 8, 1 m
+  ahead of the bay's middle) clear of obstacles and 7 m from your other machines: two fit. None free: the seller
+  says the lay-by is full and the marketplace retries, as it does for a blocked yard.
+- You still settle up at the seller's door (SEND then a visit, or in person). The detail page, the paid toast and
+  the keys toast name the lay-by and how far it is; the lorry is on the Map's vehicles layer.
+- BRIDGES: `mktMake` asks `VEH.mkt.sitesFor(item, sites)` (no site = no listing), `mktCollect`'s no-room nag asks
+  `VEH.mkt.noRoom(h)`. `TLXRIG.bays()` entries now carry `yaw`.
+- Also: the garage's Nordtrekk row and `buy` know about a paid-for used lorry; the refund toast names the right
+  machine; the Freight app's note for a licence holder with no lorry says where to get one.
+Numbers (`x3_usedlorry.mjs`, 42 asserts): first lorry 5.0 m ahead of the bay's middle, 16.0 m ahead of the trailer's
+kingpin, 5.9 m off the road's centre line, plow 0.90 nose to tail; second 8.0 m behind it, 8.0 m ahead of the kingpin;
+it pulls out of the lay-by 15.7 m in 5 s (2.6 m/s), not bogged; a lemon's ask $7,160 -> $6,085 once looked over.
+Stills: the Vehicles tab card and the detail page read cleanly and the photo reads as a red cab-over tractor unit; the
+lorry in the Kjøllefjord lay-by sits on plowed ground beside the road with the keys toast above it.
+Gate: smoke, x1_save, x3_usedlorry exit 0, page errors none (gate.sh); x2_vehmkt, x2_vehmktbreak, x3_rigrun exit 0,
+page errors none, run one at a time.
+Not built: the two optional parts of the slice, a class CE course on a school lorry (the Freight licence stays the
+gate) and runs with a due time. Not done / unverified: nobody drove a used lorry home by hand (the scenario drives 5 s
+out of the Kjøllefjord bay only; Lebesby and Mehamn bays were not collected in); the detail page's collect line sits
+below the fold of the tablet page (scroll), as for the other categories; no pad/touch run (no new control). A seller
+called "windfarm" (743 m from the Kjøllefjord lay-by) can list one: it is a seller site like any other, not checked
+for how it reads. For the beta tester: buy one in Mehamn (504 m to walk or ride), fill the lay-by with trailers from
+runs and try to collect, haggle one down and inspect it, reload between paying and collecting.
+3.5b is done. Next: 3.5c storm closures and convoys (option `convoy`), then milestone 4.
+
 ## 2026-11-16 12:25 — 3.5b3a trailer runs: loaded trailers posted in Freight, hauled lay-by to lay-by (lane A) (G4) — 84291e9
 Builder pass, lane A. Orient: worktree clean, rebased on main (v240). Triage: 0207 (3.4b1 pull-out x 3.5a semis) is all
 verified, two POLISH (#4 a lorry passes a person 1.5 m off: left open; #5 a debug field), no BUG; Last triaged 207.
