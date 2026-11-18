@@ -415,6 +415,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       through 4 stands 0/4 stuck, 24.2 s / 30 m (open-ground pace). Unjudged: a storm (refill fills a well back only to its
       own f, so it should stay).
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
+- [ ] G4 (beta 0220 #1, lane A, unverified, look at it FIRST next pass): the tester's `x4_bladeroad_break.mjs` puppet marks only 17/40 and 30/40 lengths of a road stretch going out and back (Skjånes stretch 2; Dyfjord 32/10) where the builder's section E marks 40/40. Rerun it (`USEK=1` for Skjånes), find whether lengths are skipped on bends (`n.d <= half` with the blade's middle 3.25 m ahead, or `B.last` resetting) or it is the puppet's own doing; its E2-E4 (short last stretch, re-opening, opened across a reload) wait on this.
 - [ ] G4 (test, lane A, seen 18 Nov): `x2_standstart.mjs` fails 2 on main ("bog clears once the truck sits on plowed ground", "then W drives off along the lane"): its "longest town lane" picker takes `Y.r <= 4`, from before the street grid (v227). Allow r up to 5 and check the spot is a street, then confirm the bog really clears on hard pack. Also 4.1a1: whole-frame cost while plowing was not settled in headless (PROGRESS 18 Nov 01:15): measure on a real GPU.
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
       calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Report 0087: tips read at ride distance as a zigzag edge
@@ -670,4 +671,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
       (the drive runs the clock to 16 h): start that scenario at 9 h.
 
-Last triaged report: 218
+Last triaged report: 220

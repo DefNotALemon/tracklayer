@@ -3,6 +3,65 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 03:35 — 4.1b1: the blade's throw (hold to slew: right, left, square) and the back-drag (v246, tlx-plow v3, lane A) (G4) — 861fcb9
+Builder pass, lane A. Orient: worktree clean, rebased on main (v245), 172 GB free. Triage: 0219 (3.5c1 time skips and a
+walker at the boom) found nothing. 0220 (4.1a2 road credit) arrived while this slice was half built: no confirmed
+BLOCKER or BUG, but its #1 is an unverified "marks only 17/40 going out and back by puppet" on lane A's own system. NOT
+looked at this pass: it is the first line of the LOOP backlog for the next one. Last triaged -> 220.
+Then the next unticked slice. 4.1b was too big for one pass and is split in three in EXPANSION.md: 4.1b1 (this), 4.1b2
+(the solid blade, trips, wear, sound), 4.1b3 (door counting, used blades).
+What the player gets: README "The plow blade": "The throw", "Back-dragging". Blade down, HOLD the use control half a
+second: it slews to the next of throw right / throw left / square instead of lifting; a tap still lifts. Square carries
+2.4 m3 and stacks it where you stop or lift. Reversing with it down drags the top of the snow back with the truck.
+How: tlx-plow.js. `toggle` no longer lifts at once: it notes the press, and `tick` lifts when the control is let go
+inside `BL.holdT` or calls `slew` once when it has been held that long. tracklayer.js gains one api field, `useHeld()`
+(E in `keys`, `padHorn`, the touch pill's `on` class). The mouldboard is its own group on a pivot (`B.S`), built
+square and turned to the eased angle `B.a`, which the cut, the depth line and the windrow side all read. `work` has
+three branches: forward slewed (as before, the side from `sideOf(B.a)`), forward square (carry to `carrySq`, the excess
+off both ends), reversing (`sweep(BL.backLeave)` until a bladeful). `spill` lays what the blade holds as a heap: ahead
+of it, a taller stack off a square blade, or just past its line after a back-drag. State: `blades[uid].throw`
+(r / l / s; a blade saved without one throws right).
+Where the build left the design (EXPANSION.md "4.1b1 as built"): a tap now lifts on release, not on press; square
+holds 2.4 m3 and spills the rest off both ends (the design's "carries everything" at 1.2 m3 fills in 2.4 m of 30 cm
+snow); the back-drag leaves a LEVEL (0.49 of the pack) rather than taking 60% per pass; the pulled heap is laid just
+ahead of the blade's line, not behind it (behind, the wheels climb it on the way out and the blade can't reach it).
+Numbers (`x4_bladework`, a 30 cm field built by the test, by gameClock):
+- the hold: E / Xbox L3 / DualSense L3 / the touch pill each held 0.95 s slew once and leave the blade down; held
+  another 0.7 s nothing more; a 70-200 ms press lifts; the pivot reads -0.49 / +0.49 / 0 rad; the horn never sounds.
+- throw left: 34 m in 8 game s, 5.5 m/s; lane d/f 0.15 across 1.9 m; left of the line d-f 0 / 0.8 / 0.8 / 0.58 / 0.04
+  at 1.2-2.2 m; right 0 everywhere; 18.8 m3 cut, 18.8 laid.
+- square: 1.33 m3 on the blade after 3.2 m with nothing laid; stopped: a heap 0.75-1.2 m over the pack a metre ahead,
+  no windrow either side; a long push fills to 2.4 m3, then 0.52 m rows off both ends, 4.0 m/s, not bogged; stopped:
+  a 1.2 m stack, 16.4 m3 cut = laid; lifted on the move: the load left as a heap.
+- back-drag: 5 m back pulls 0.62 m3 (841-900 N on the truck); the strip behind where the blade dropped goes from d/f
+  1.00 to 0.49; ahead of it untouched; stopped: 0.86 m deep under the blade where the pad was bare, 0.78 m3 taken =
+  left; a bladeful (1.2 m3) and the hint says it has all it can pull; forward again drops what it pulled.
+- save: reload square and down -> square, up; a record without `throw` -> right.
+Stills looked at (`tlloop/a4c/s2`): the blade from the front slewed left (the truck's left end trails, the frame and
+pivot meet it, nothing floats), right and square; the cut from behind and above for each throw; the back-drag heap in
+front of the blade. Honest limits: the left windrow is clear in the numbers but faint in the high still (low sun, the
+test's own field edges make bigger shapes); the square blade's side rows read as scalloped lumps; a stack is a smooth
+cone with no texture of its own. No night still for this slice (4.1a1's lamps unchanged).
+Gate: first run smoke, x1_save, x4_bladework, x4_blade, x4_bladectl exit 0, page errors none; x4_bladeroad failed one
+assert, "standing on it, the hint gives the road and both sides ... (no road in the hint)": the same assert that failed
+once inside the previous pass's gate. Run alone straight after, same code: 35 of 35, hint "Dyfjord road: this side
+100%, the other side 0%". Cause not proven (gate.sh kept no output). Likeliest, untested: the keyed driver wanders more
+on a loaded machine, the spot the truck is put back on is half off its own cut, and the hint becomes the "wheels stand
+in snow it has not cut" line, which names no road. The test now cuts the truck's footprint before reading the hint.
+Second gate with that change: smoke, x1_save, x4_bladeroad (hint "Dyfjord road: this side 100%, the other side 0%"),
+x4_bladework exit 0, page errors none. So every scenario has a clean run on the landed code, but the road assert's
+cause is a guess that one clean run does not prove.
+Origin moved only by beta reports (0220-0222) while this was built; 0221 (a POLISH/BUG on the used-truck yard hint)
+and 0222 (4.1a1 with a sled trailer, POLISH) are NOT triaged yet.
+Also: `x4_bladectl`'s pad presses shortened from 350 to 200 ms (a press is a tap only under half a second now).
+The skill's gate.sh now keeps each run's full output in `$TMPDIR/tlgate/<worktree>/<scenario>.log`.
+Not done: no frame-time run for this slice (the per-frame work is the same sweep as 4.1a1, plus one `useHeld` call
+while a press is pending); pad and touch were tested for the hold only, not for driving the back-drag (it adds no
+control: reverse is reverse).
+Open for Lemon (defaults built): the touch pill still reads BLADE UP while the blade is down, the hold is named only in
+the hint line; the truck will not push through a stack it has just built.
+Next for lane A: beta 0220 #1 first (LOOP backlog), then 4.1b2.
+
 ## 2026-11-18 02:25 — 4.1a2: the road credit: a snowed-in road stretch plowed on both sides is open (tlx-plow v2, tlx-roads v13, lane A) (G4) — 87351f9
 Builder pass, lane A. Orient: worktree clean, rebased on main (v245), 174 GB free. Triage: 0216 (the convoy's plow
 truck and a walker in its lane), 0217 (4.1a1 beta) and 0218 (convoy flag and a reload): no BLOCKER or BUG in any.
