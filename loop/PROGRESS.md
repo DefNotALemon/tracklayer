@@ -3,6 +3,45 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 04:25 — 4.1b2a: the blade's cutting edge wears and is mended; beta 0220 #1 closed as a test artefact (tlx-plow v5, lane A) (G4) — d63f37b
+Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 171 GB free. Triage 0224 (4.1b1 back-drag): two
+POLISH (#1 back-dragging a plowed yard still pulls 0.3 m3; #2 blade down in a 1 m drift won't back out), one LOOP
+backlog line, not built. Last triaged -> 224.
+FIRST, 0220 #1 (third pass it had waited): NOT a game bug. Reproduced (Dyfjord stretch 2: first pass 0 + 10 of 40
+lengths). Per-frame trace: the marks stop exactly where `P.gnd` is false. The tester's puppet (and mine in
+x4_bladeroad) sets the truck down at `P.y = surf()` every frame; on UNCUT snow the truck's own physics puts its wheels
+12 cm+ below the snow's top, so it reads as in the air, and a blade in the air neither cuts nor marks, so the snow
+under the next frame's truck is uncut too. It locks in from the first frames by luck (300 frames airborne, then on
+the ground for the last 100; without the `P.y` set, a 110-frame gap where the road drops faster than gravity follows).
+Fix is in the tests: the puppet starts on its own cut footprint (`__foot`), and both scenarios count frames in the
+air (`__air`). x4_bladeroad now asserts it for the DRIVEN truck: 0 of 2845 frames airborne out, 0 of 1840 back, so a
+real out-and-back leaves no gaps. With the puppet fixed the tester's x4_bladeroad_break passes whole, which settles
+0220 #3: first pass 40/40, a refilled stretch opens again and `opened` counts each opening (2), the last stretch of
+the Dyfjord road (408 m, 40 lengths) opens, the count and the cleared stretch survive a reload.
+THEN the next slice. 4.1b2 split in two in EXPANSION.md; built 4.1b2a, the cutting edge (README "The cutting edge").
+How (tlx-plow.js only): `wear(uid, m)` from the two cutting branches of `work` (only while snow comes off);
+`leaveOf` gives 0.3 under `BL.ragged`; `mend` / `mendCost` and a Mend row on the Plow tab; `shedC` beside `shed`.
+Numbers (`x4_bladewear`, new, 35 asserts): 38.9 m cut = 0.1555 points (250 m a point); blade up 33 m: 0; from 30.06
+the edge crosses 30 in 40 m with one "worn ragged" line; a good edge's lane d/f 0.157, a ragged one's 0.303; mend at
+29.4 = $420, locked and refused 300 m from the garage, $100 buys 16 points (45.4, $4 left), the rest $324; off and on
+again keeps 64.5; a reload keeps it; a save with no `cond` / `shedC` loads as a new edge.
+Harness: twice in the first dozen runs this pass a game booted WITHOUT tlx-plow.js (`TLX.state("plow")` null, "TLXPL is
+not defined", "page errors: none"): a script file that fails to load is not a page error. lib.mjs now notes failed
+script requests and loads the page again (twice at most, from an empty save or the planted one), and counts what still
+fails as a page error. It fired twice in this pass's own gate (tlx-semis.js in x4_bladectl, tlx-staff.js in
+x4_bladewear, both `net::ERR_CONNECTION_RESET` from the run's python http.server; both runs then passed), so any
+scenario could have been losing a system at random, all lanes. Root cause not fixed (the server resetting a
+connection when 24 scripts are asked for at once on a loaded Mac; a bigger listen backlog in run.sh is the guess). Also seen, not fixed: three runs ended "unsettled top-level await, exit 13" mid-scenario (the
+CDP socket closed; another lane's Chrome cleanup is the guess).
+Honest limits: wear numbers (250 m a point, $6) are picked, not canon: listed for Lemon in EXPANSION.md. Mending is
+driven through `TLXPL.mend` and the tab's row list, not a click in the garage panel. No stills (nothing visible
+changed: the blade does not look worn). Trips do not wear it yet (4.1b2b).
+Gate (two runs, one scenario at a time): smoke, x1_save, x4_bladewear, x4_blade, x4_bladework, x4_bladectl exit 0; smoke,
+x1_save, x4_bladeroad_break, x4_blademenu, x4_bladeroad (0 of 2689 + 2026 frames airborne, on tlx-plow v5) exit 0; page
+errors none in all. Before: x4_bladeroad_break exited 1 on main. Origin moved by two playtest reports only (0225,
+0226; 0226 #1 reaches the same answer on 0220 #1 by a keyboard drive), no code, so nothing rerun after the rebase.
+Next: 4.1b2b (solid blade, trips, sound), then 0224 #1/#2.
+
 ## 2026-11-18 03:45 — beta fix 0223 #1/#2: the blade's control rests under Settings, the garage and the tablet (tlx-plow v4, lane A) (G4) — b7e941b
 Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 172 GB free. Triage 0221-0223 (last triaged ->
 223). 0223 #1 is a BUG on lane A's 4.1b1, so it came before 4.1b2: holding E with the blade down slewed it behind the
