@@ -3,6 +3,43 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 06:38 — 4.1b3a: used plow blades on Bytteboden, collected in a pickup (tlx-plow v7, tlx-vehicles v27, lane A) (G4) — 107b110
+Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0232 (last triaged -> 232;
+0233 read before landing): no BLOCKER or BUG. 0232 #1 (a slow patrol car drops behind a mild speeder) is POLISH on the
+Politi, not lane A's; 0233 confirms the 0228 fix. So the next slice: 4.1b3, split in two when built. This pass is
+4.1b3a, the used blades; 4.1b3b (door counting) has nothing a player sees until 4.2 reads it and is left for 4.2's
+design to place.
+How. tlx-vehicles.js: `TLXV.addMkt(handler)`, a hook for foreign items in Bytteboden's Vehicles category. `MKTV` hands
+pool / info / why / tell / howTo / blocked / payWhy / noRoom / collect / pic / sitesFor to the handler that `owns` the
+item, and such an item is no truck: `usedTrucks`, the garage's "a paid-for truck is waiting" line and `heldRefund` all
+go through one `heldTruck` test now (a foreign `blocked` means "not right now", never "refund"). No tracklayer.js
+change. tlx-plow.js: `MKB`, item `blade:b23`. Listed while you own a pickup, have 6 deliveries and fewer blades (fitted
++ shed + paid for) than pickups. The listing's condition is the cutting edge, so the marketplace's lemon rule and its
+"It's 25%, not 80%" line are true of the edge with no new code, and the card prices the mend. Collected in a truck it
+fits: bolted on at the door, or into the shed when that truck has a blade. A canvas photo (the blade on a shed wall,
+the edge notched under 60%). README "A used blade".
+Numbers (`x4_bladeused.mjs`, new, 46 asserts, one still pair of the listing and the board, looked at):
+- listed: no pickup no; 3 deliveries no; a pickup and no blade yes; blade fitted / in the shed / one paid for: no; two
+  pickups, one blade: yes; a blade for all three: a listing left on the board is hidden;
+- a 72% listing asks $1,035-1,150 against $1,450 new, card "cutting edge 72% · a new edge is $168 at the garage";
+- paid by SEND from the sled: the cash goes once; with three trucks on the ground a waiting blade blocks no truck
+  purchase and is not refunded over 4.6 game s; stopped at the seller's on the sled: not handed over, "It weighs 280 kg
+  and bolts to a truck's frame: come in the Fjellvogn", no Jobs row; the order survives a reload;
+- in a bladeless pickup at the door: `blades[uid]` = b23 at 72, model on the truck, part of its hull, Plow tab "Cutting
+  edge 72%" with a $168 mend row;
+- a lemon (80% advertised, 25% real) bought in person in the bladed pickup: shed, `shedC` 25, "cuts ragged" said, the
+  lie told 1.6 s later; fitted free to a second pickup: 25%, leaves 0.3 of the pack.
+Gate: smoke, x1_save, x4_bladeused, x3_usedcap, x3_usedlorry, x2_vehmkt, x2_vehheld, x4_bladewear all exit 0, page
+errors none, in one run on the final code except the photo (one decorative rectangle dropped after the first look:
+it read as a black cross on the blade; x4_bladeused re-run in the gate after that).
+Honest limits. Pad and touch not run: no control or prompt is new (the bolt-on line reuses `useLine`, which 4.1a's
+x4_bladectl asserts on all three). The collect is driven by teleporting the pickup to the door, not by driving there.
+How often a blade actually shows on a real board was not sampled (weight 0.7 against the pickup's 0.4-1 and the
+trailer's 0.9 inside a category weighted 0.8).
+Open for Lemon (defaults built): from a bladed pickup the blade is in the shed at once (no leg hauling it to the
+garage); no spare blades beyond one per pickup.
+Next for lane A: 4.1c (the plow truck); 4.1b3b (door counting) when 4.2's design says who reads it.
+
 ## 2026-11-18 06:12 — beta fix 0228 #1: Bytteboden refuses a 4th truck before the cash moves (v248, tlx-vehicles v26, lane A) (G4) — eb811b0
 Builder pass, lane A. Orient: worktree clean, rebased on main (v247), 171 GB free. Triage 0228-0231 (last triaged ->
 231). 0228 #1 is a BUG on landed lane A work (3.5b3b / 2.7), so it came before 4.1b3. 0229, 0230: no BLOCKER or BUG.
