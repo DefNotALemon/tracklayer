@@ -1,5 +1,5 @@
 // Slice 3.5c1 (G4): storm closures and convoys, the barriers. Asserts, exit 1 on a failure.
-// Runs with the plow truck off (TLXCV.CV.plow = 0: the barrier stays CLOSED until the road is plowed, nobody leads);
+// Runs with the Politi cruisers off (they patrol and queue at the boom like any car) and the plow truck off (TLXCV.CV.plow = 0: the barrier stays CLOSED until the road is plowed, nobody leads);
 // the truck at the head of the convoy is x3_plowlead.mjs.
 //  A. tlx-convoy.js loaded: each convoy road has two gates, in from its ends, 800 m+ apart, clear of other roads and of
 //     the lay-bys; everything open, booms up, nothing on the Map legend.
@@ -31,7 +31,7 @@ const toasts = () => J(`[...new Set((window.__tsaw || []).concat((TOASTQ || []).
 const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw = [];
   if (!window.__tsawI) window.__tsawI = setInterval(() => { const a = window.__tsaw || (window.__tsaw = []); for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
   return true; })()`);
-const setup = `tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXR.ROADS.plowAt = 2; TLXCV.CV.plow = 0; true`;
+const setup = `tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXR.ROADS.plowAt = 2; TLXCV.CV.plow = 0; TLX.setOn("police", false); true`;   // no cruisers: they patrol Lebesby road too, join the queue and shift its spacing
 
 await boot();
 await ev(`GS.hour = 34; ${setup}`); await sleep(1000);
@@ -75,7 +75,7 @@ const passes0 = await J(`TLXT.passes || 0`);
 await ev(`(() => { TLXT.place("${RID}", ${GA} - 150, 1); TLXT.place("${RID}", ${GA} - 210, 1, 1); TLXT.place("${RID}", ${GA} - 250, 1, ${SI}, "dist"); TLXT.place("${RID}", ${GA} + 110, -1, 2); return true; })()`);
 let upMax = 0, c2out = false;
 await waitGame(75, async () => { const g = (await info()).gates[0], c2 = await car(2); if (c2.on && c2.s > GA - 25) upMax = Math.max(upMax, g.up); if (c2.on && c2.s < GA - 25) { c2out = true; await ev(`TLXT.cars[2].on = false; true`); }
-  const a = await car(0), b = await car(1), s = await car(SI); return c2out && a.gq && b.gq && s.gq; });
+  const a = await car(0), b = await car(1), s = await car(SI); return c2out && a.gq && b.gq && s.gq && a.v < 0.05 && b.v < 0.05 && s.v < 0.05; });   // all three at rest: gq is set at v < 0.3, the lorry is still rolling then
 let c0 = await car(0), c1 = await car(1), cs = await car(SI);
 console.log("B1:", JSON.stringify({ c0, c1, cs, upMax, c2out }));
 ok(c0.gq && c0.why === "gate" && c0.v < 0.05 && c0.s > GA - 9 && c0.s < GA - 6, "B: the first car stands " + (GA - c0.s).toFixed(1) + " m short of the boom (not at the drift " + Math.round(GI * 400 - GA) + " m on)");

@@ -34,7 +34,7 @@ const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textConten
   return true; })()`);
 
 await boot();
-await ev(`GS.hour = 34; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXT.hold = true; for (const c of TLXT.cars) c.on = false; true`); await sleep(1000);
+await ev(`GS.hour = 34; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXT.hold = true; TLX.setOn("police", false); for (const c of TLXT.cars) c.on = false; true`); await sleep(1000);
 
 const RID = "lebesby";
 const info = () => J(`TLXCV.info("${RID}")`);
