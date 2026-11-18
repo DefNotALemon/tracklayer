@@ -22,9 +22,10 @@
 //  warn     the nearest cruiser comes up behind you with its lights on and the HUD says to stop. Stop (under 1.6 m/s for 1.6 s,
 //           a cruiser within 60 m) and you are fined; slow to the limit for 6 s and a minor offence ends with a warning only;
 //           keep going over the limit 3 s, or 16 s pass, and it is a pursuit
-//  pursuit  heat climbs while they see you, more cruisers are called at 35 and 65 heat and the cruisers get quicker. Stop with a
+//  pursuit  heat climbs while they see you (faster the further over the limit you are; out of sight it holds), more cruisers are called at 35 and 65 heat and the cruisers get quicker. Stop with a
 //           cruiser close, or boxed in by two, and you are busted: the fine plus a fleeing surcharge. Break sight for 7 s and
-//  search   heat falls POL.decay a second while the cruisers drive to where they lost you; seen again (within 120 m) = pursuit; POL.searchT s
+//  search   heat falls POL.decay a second while the cruisers drive to where they lost you; seen again (within 120 m) = pursuit
+//           again (the same chase: the record counts it once); POL.searchT s
 //           unseen = you got away (no fine; they have the plate, a small unpaid-heat warning only)
 // Fines come off your cash, never below zero: what you can't pay is OWED, grows 10% on Mondays, makes the Politi quicker to
 // notice you (owed over $300 starts you at 20 heat) and is paid from the Politi app. Nothing is taken but money; you keep the machine.
@@ -130,7 +131,8 @@ function toWarn(c) {
   engage(c, "tail"); api.toast("Politi: blue lights behind you. Slow down and stop.", "warn");
 }
 function toPursuit(fled) {
-  const s = S(); if (s.mode !== "pursuit") { s.rec.chases++; api.toast("They're after you. Break line of sight, or stop and give yourself up.", "warn"); }
+  // seen again in a search is the same chase carrying on: the record counts a chase once, from the order to stop to its end
+  const s = S(); if (s.mode === "search") api.toast("They've seen you again.", "warn"); else if (s.mode !== "pursuit") { s.rec.chases++; api.toast("They're after you. Break line of sight, or stop and give yourself up.", "warn"); }
   setMode("pursuit"); s.heat = Math.max(s.heat, fled ? 40 : 25); RT.lostT = 0; RT.bustT = 0; RT.warnT = 0;
   if (fled && RT.inc) RT.inc.flee = 1;
   for (const c of engaged()) c.task = "chase";
@@ -226,7 +228,8 @@ function watch(dt) {
     return;
   }
   if (s.mode === "pursuit") {
-    s.heat = clamp(s.heat + (eyes.length ? POL.heatSeen * dt : 0) + Math.max(0, RT.over) * POL.heatOver * dt, 0, 100);
+    /* heat is what they SEE: out of sight it holds (speed alone used to add up to 9 a second unseen, with the HUD saying "out of sight") */
+    s.heat = clamp(s.heat + (eyes.length ? (POL.heatSeen + Math.max(0, RT.over) * POL.heatOver) * dt : 0), 0, 100);
     // more cruisers at each stage
     const want = s.heat >= POL.stage[1] ? 3 : s.heat >= POL.stage[0] ? 2 : 1, have = engaged().length;
     if (have < Math.min(want, cops.length)) { RT.cd -= dt; if (RT.cd <= 0) { RT.cd = 6; const c = dispatchCar(m.x, m.z, "chase"); if (c) api.toast("Politi: another car joins the chase.", "warn"); } }

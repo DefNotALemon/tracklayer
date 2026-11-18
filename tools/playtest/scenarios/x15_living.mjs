@@ -41,7 +41,7 @@ const drive = (s, v, dir = 1) => ev(`window.__drv = { on: true, id: ${JSON.strin
 const driveV = v => ev(`window.__drv.v = ${v}; true`);
 const stopDrive = () => ev(`window.__drv = null; P.vx = P.vz = 0; true`);
 const sAt = () => ev(`window.__drv ? window.__drv.s : 0`);
-const clearWorld = () => ev(`(() => { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; TLXP.reset(); TLXP.RT.grace = 0; TLXP.RT.sus = 0; TLXP.RT.inc = null; for (const c of TLXP.cops) { c.on = false; c.st = "drive"; c.dispatched = false; } const s = TLXP.S(); s.owed = 0; s.rec = { fines: 0, warnings: 0, chases: 0, escapes: 0, busts: 0, paid: 0 }; s.last = []; TLXP.POL.searchT = 24; TLXP.POL.lostT = 7; TLXP.POL.defyT = 99; TLXP.POL.warnT = 99; TLXP.POL.callDelay = [7, 13]; return true; })()`);
+const clearWorld = () => ev(`(() => { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; TLXP.reset(); TLXP.RT.grace = 0; TLXP.RT.sus = 0; TLXP.RT.inc = null; for (const c of TLXP.cops) { c.on = false; c.st = "drive"; c.dispatched = false; } const s = TLXP.S(); s.owed = 0; s.rec = { fines: 0, warnings: 0, chases: 0, escapes: 0, busts: 0, paid: 0 }; s.last = []; TLXP.POL.searchT = 24; TLXP.POL.lostT = 7; TLXP.POL.defyT = 99; TLXP.POL.warnT = 99; TLXP.POL.callDelay = [7, 13]; TLXP.RT.cd = 0; return true; })()`);
 
 // ---------------- A
 await section("A boot", async () => {
@@ -152,9 +152,14 @@ await section("F a warning only", async () => {
 
 // ---------------- G
 await section("G run: pursuit, outrun, escape", async () => {
-  await clearWorld(); await ev(`GS.cash = 800; TLXP.POL.lostT = 3; TLXP.POL.searchT = 7; TLXP.POL.defyT = 3; TLXP.POL.warnT = 16; true`);
+  // RT.cd = 1e9: no second cruiser is called in this one. It is dispatched at a random spot on a road 380-900 m off, and when
+  // that was ahead on this road the driver ran into it (beta 0211 #1). Being seen again is the next section's, on purpose.
+  await clearWorld(); await ev(`GS.cash = 800; TLXP.RT.cd = 1e9; TLXP.POL.lostT = 3; TLXP.POL.searchT = 7; TLXP.POL.defyT = 3; TLXP.POL.warnT = 16; true`);
   const s = route.s0 + route.len * 0.1; await drive(s, 28); await sleep(300);
   await ev(`TLXP.patrol(0, ${JSON.stringify(route.id)}, ${s} - 60, 1); true`);
+  // the chase as it went, one line a game second and one at each change of mode (printed below)
+  await ev(`(() => { clearInterval(window.__gtr); const L = window.__gl = []; let lm = "", lt = -9; window.__gtr = setInterval(() => { const m = TLXP.mode; if (m === lm && gameClock - lt < 1) return; lm = m; lt = gameClock;
+    L.push(gameClock.toFixed(1) + " " + m + " heat " + Math.round(TLXP.S().heat) + " ch " + TLXP.S().rec.chases + " seen " + TLXP.seen().length + " | " + TLXP.cops.map(c => c.on ? c.st + "/" + c.task + " " + Math.round(Math.hypot(c.x - P.x, c.z - P.z)) + "m v" + Math.round(c.v) : "off").join(" | ")); }, 50); return true; })()`);
   await until(`TLXP.mode === "warn"`, 8);
   const p = await until(`TLXP.mode === "pursuit"`, 12);
   const a = await J(`({ heat: TLXP.S().heat, chases: TLXP.S().rec.chases, task: TLXP.cops[0].task, inc: TLXP.RT.inc })`);
@@ -166,7 +171,46 @@ await section("G run: pursuit, outrun, escape", async () => {
   const esc = await until(`TLXP.mode === "clear"`, 20);
   const e = await J(`({ cash: GS.cash, rec: TLXP.S().rec, heat: TLXP.S().heat, owed: TLXP.S().owed })`);
   console.log("G", JSON.stringify(e));
+  console.log("G timeline\n  " + (await J(`(clearInterval(window.__gtr), window.__gl)`)).join("\n  "));
   ok(esc && e.rec.escapes === 1 && e.cash === 800 && e.owed === 0 && e.heat === 0, "G: unseen long enough: got away, no fine, heat 0");
+  ok(e.rec.chases === 1, "G: one chase in the record (" + e.rec.chases + ")");
+  await stopDrive();
+});
+// beta 0211 #1: a second cruiser ahead on your road sees you during the search. That is the same chase carrying on (the record
+// counts it once), heat rises only while a cruiser sees you, and outrunning that one too still ends in an escape.
+await section("G seen again in the search: the same chase", async () => {
+  await clearWorld(); await ev(`GS.cash = 800; TLXP.RT.cd = 1e9; TLXP.POL.lostT = 3; TLXP.POL.searchT = 7; TLXP.POL.defyT = 3; TLXP.POL.warnT = 16; true`);
+  const s = route.s0 + route.len * 0.55; await drive(s, 28); await sleep(300);
+  await ev(`TLXP.patrol(0, ${JSON.stringify(route.id)}, ${s} - 60, 1); true`);
+  // heat sampled between the Politi's own 0.1 s steps: the biggest rise over a step with nobody seeing you, in a pursuit
+  await ev(`(() => { clearInterval(window.__gtr); const R = window.__gh = { up: 0, n: 0, seenUp: 0, tl: [] }; let lh = null, lm = "", lt = -9, ls = true; window.__gtr = setInterval(() => { const m = TLXP.mode, h = TLXP.S().heat, sn = TLXP.RT.seenNow;
+    if (m === "pursuit" && lh !== null) { if (!sn && !ls) { R.n++; R.up = Math.max(R.up, h - lh); } else if (sn) R.seenUp = Math.max(R.seenUp, h - lh); } lh = m === "pursuit" ? h : null; ls = sn;
+    if (m !== lm || gameClock - lt >= 1) { lm = m; lt = gameClock; R.tl.push(gameClock.toFixed(1) + " " + m + " heat " + Math.round(h) + " ch " + TLXP.S().rec.chases + " seen " + (sn ? 1 : 0) + " | " + TLXP.cops.map(c => c.on ? c.st + "/" + c.task + " " + Math.round(Math.hypot(c.x - P.x, c.z - P.z)) + "m" : "off").join(" | ")); } }, 40); return true; })()`);
+  const p = await until(`TLXP.mode === "pursuit"`, 20);
+  await driveV(40);
+  const sr = await until(`TLXP.mode === "search"`, 40);
+  const h0 = await J(`({ heat: TLXP.S().heat, chases: TLXP.S().rec.chases, up: window.__gh.up, n: window.__gh.n })`);
+  console.log("G2 search", JSON.stringify(h0));
+  ok(p && sr && h0.chases === 1, "G2: warned, ran, outran the first cruiser: SEARCH, one chase");
+  ok(h0.n >= 10 && h0.up < 0.01, "G2: 144 km/h with no cruiser in sight: heat held (" + h0.n + " samples unseen in the pursuit, biggest rise " + h0.up.toFixed(3) + ")");
+  // the second cruiser, standing on the verge 70 m up the road with its lights on
+  await ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw2 = []; if (!window.__tsawI2) window.__tsawI2 = setInterval(() => { const a = window.__tsaw2; for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
+    const d = window.__drv, q = TLXT.lanePt(d.id, d.s + 70, 1); const c = TLXP.put(1, q.x + Math.cos(q.yaw) * 4, q.z - Math.sin(q.yaw) * 4, q.yaw + Math.PI, "go"); c.hold = 1e9; return true; })()`);
+  const again = await until(`TLXP.mode === "pursuit"`, 6, 60);
+  const b = await J(`({ mode: TLXP.mode, chases: TLXP.S().rec.chases, heat: TLXP.S().heat, task: TLXP.cops[1].task, said: window.__tsaw2.slice() })`);
+  console.log("G2 seen again", JSON.stringify(b));
+  ok(again && b.task === "chase", "G2: seen by the cruiser ahead inside 120 m: PURSUIT again");
+  ok(b.chases === 1, "G2: it is the same chase: the record still says 1 (" + b.chases + ")");
+  ok(b.said.some(t => /seen you again/i.test(t)) && !b.said.some(t => /after you/i.test(t)), "G2: told \"They've seen you again\", not a new \"They're after you\"");
+  const sr2 = await until(`TLXP.mode === "search"`, 40);
+  const esc = await until(`TLXP.mode === "clear"`, 20);
+  const e = await J(`({ cash: GS.cash, rec: TLXP.S().rec, heat: TLXP.S().heat, owed: TLXP.S().owed, seenUp: window.__gh.seenUp, up: window.__gh.up })`);
+  console.log("G2", JSON.stringify(e));
+  console.log("G2 timeline\n  " + (await J(`(clearInterval(window.__gtr), window.__gh.tl)`)).join("\n  "));
+  ok(e.seenUp > 0.05, "G2: seen at speed, heat climbs (" + e.seenUp.toFixed(2) + " in a step)");
+  ok(e.up < 0.01, "G2: and never while unseen, in either pursuit (" + e.up.toFixed(3) + ")");
+  ok(sr2 && esc && e.rec.escapes === 1 && e.rec.chases === 1 && e.rec.busts === 0 && e.cash === 800 && e.owed === 0 && e.heat === 0, "G2: outran that one too: 1 chase, 1 escape, no fine, heat 0");
+  await ev(`TLXP.cops[1].hold = 0; true`);
   await stopDrive();
 });
 

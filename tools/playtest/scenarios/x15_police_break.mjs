@@ -18,17 +18,20 @@ await ev(`window.__drv = null; P.vx = P.vz = 0; true`);
 await until(`TLXP.mode === "busted" || TLXP.S().rec.busts > 0 || TLXP.mode === "clear"`, 15);
 const b = await J(`({ m: TLXP.mode, cash: GS.cash, owed: TLXP.S().owed, busts: TLXP.S().rec.busts })`); console.log("stopped", JSON.stringify(b));
 ok(b.cash >= 0 && b.owed >= 0 && !Number.isNaN(b.owed), "cash 0 fine: cash never negative, owed " + b.owed);
-// reload mid-pursuit
-await ev(`window.__drv = { on: true, id: ${JSON.stringify(route.id)}, s: ${s + 300}, v: 28, t: gameClock }; TLXP.reset && 0; true`);
+// reload mid-warn / mid-pursuit (0211 #4). The 25 s of grace after the bust is zeroed, or the second cruiser warns nobody and
+// the reload lands in "clear" most runs (and in a warn on a slow one, which then failed the old "same mode" check).
+// By design a save that is not clear comes back as a SEARCH from where you are: they are still looking.
+await ev(`TLXP.RT.grace = 0; window.__drv = { on: true, id: ${JSON.stringify(route.id)}, s: ${s + 300}, v: 28, t: gameClock }; true`);
 await ev(`TLXP.patrol(1, ${JSON.stringify(route.id)}, ${s + 240}, 1); true`);
-await until(`TLXP.mode === "warn" || TLXP.mode === "pursuit"`, 15);
+const got = await until(`TLXP.mode === "warn" || TLXP.mode === "pursuit"`, 15);
 const pre = await J(`({ m: TLXP.mode, heat: TLXP.S().heat, owed: TLXP.S().owed })`);
+ok(got, "warned again before the reload (" + pre.m + ")");
 await reload();
 await sleep(2500);
-const post = await J(`({ m: TLXP.mode, heat: TLXP.S().heat, owed: TLXP.S().owed, err: TLXP.RT.err || null, cops: TLXP.cops.filter(c => c.on).length })`);
+const post = await J(`({ m: TLXP.mode, heat: TLXP.S().heat, owed: TLXP.S().owed, err: TLXP.RT.err || null, cops: TLXP.cops.filter(c => c.on).length, lk: !!TLXP.S().lk, chases: TLXP.S().rec.chases })`);
 console.log("reload", JSON.stringify(pre), JSON.stringify(post));
 ok(!post.err && post.owed === pre.owed, "reload mid-" + pre.m + ": no error, owed kept (" + post.owed + ")");
-ok(post.m === "clear" || post.m === pre.m, "post-reload mode sane: " + post.m + " heat " + Math.round(post.heat));
+ok((post.m === "search" || post.m === "pursuit") && post.lk, "reload mid-" + pre.m + ": they are still looking (" + post.m + ", heat " + Math.round(post.heat) + ")");
 await sleep(8000);
 const late = await J(`({ m: TLXP.mode, heat: TLXP.S().heat, cash: GS.cash })`); console.log("later", JSON.stringify(late));
 ok(late.cash >= 0 && !Number.isNaN(late.heat), "10 s after reload still sane");
