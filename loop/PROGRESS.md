@@ -3,6 +3,59 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-17 21:45 — 3.5c2a the plow truck at the head of the convoy, opening the road as it goes (lane A) (G4) — bbbe04a
+Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 174 GB free. Triage: no report above 0207; Last
+triaged stays 207. Next unticked slice: 3.5c2, too big for one pass: split into 3.5c2a (this: the truck) and 3.5c2b
+(the player counted in the line, the HUD line, the Map flag for leaving it), both written into EXPANSION.md.
+Built (`tlx-convoy.js` v2, `tlx-traffic.js` v8, `tlx-roads.js` v12; tracklayer.js untouched, still v242):
+- THE TRUCK is one more entry in `TLXT.cars` per convoy road (`plow: true`, after the semis: car and semi indices are
+  unchanged). The road driver in tlx-traffic drives it like a car; tlx-convoy says where it is and draws it: cab-over,
+  gritter body, an angled mouldboard that drops while it leads, steered front wheels, twin rears, work lamps, tail
+  lamps, two amber beacons flashing in turn on duty (all unlit materials driven from dayFactor). The bubble never
+  places, drops or parks it; it ignores drifts and barriers, stops where it is told (`stopD`), keeps under `vcap`,
+  U-turns wider and slower than a car; four 1.3 m circles make it solid; a convoy member never pulls out round it.
+- RULES. CLOSED now ends when TLXR's council plow has set out after the storm (not when the road is plowed), and
+  TLXR leaves the stretches between lowered gates alone (`TLXCV.keeps`): the truck is that road's plow. It is posted
+  16 m inside a gate while the convoy is awaited, at the far gate instead if you are within 320 m of the near one
+  (it does not appear or vanish in sight). Convoy time: a storm (weather 0.8+) with the road still shut puts it back
+  an hour; otherwise it leads from the longer queue's side, or from where it stands if it could not be moved unseen
+  (that side's queue then gets the return run). Leading: 10 m/s, 7 m/s in a stretch it found snowed; each stretch
+  is cut (`TLXR.plowSeg`) when the blade is 6 m short of it. 16 m short of the far boom it stops, turns round and is
+  posted there; the run ends when the cars are out and the truck is posted; a queue there gets the return run behind
+  it. Road open: it drives off and is gone 300 m from you. `CV.plow = 0` or traffic off: 3.5c1's rules, no truck.
+- UNSEEN PACE. A game hour is 50 s of play: a truck driven at 7 m/s would keep a road shut 7 to 11 game hours where
+  the council's plow took about one (found when x3_roaddrizzle failed its "open within 4 h"). So while it leads no
+  cars and is more than 900 m from you it is moved by the clock at TLXR's 5 km a game hour, cutting what it passes,
+  never to within 900 m of you, and posted at the far gate without the turn; a time skip moves it wherever you are.
+- Along the way: a convoy no longer stalls until its time limit if traffic is switched off mid-run.
+Numbers (`x3_plowlead.mjs`, 42 asserts): truck posted 16.0 m inside the gate; the council clears the stretch outside
+the gates and leaves the one between them at 1.0; drift cut with the truck 6.0 m short of its edge, the Map's road
+"open" from that moment with the convoy still running; 7.00 m/s in the drift, 9.64 m/s after; the first car never
+nearer than 28.7 m centre to centre (the 30 m is to the truck's tail point) nor under 5.0 m/s once rolling; stop 16.0 m
+short of the far boom, turn, return run with the car that waited there 54 m behind; a storm at 12:00 moves the board
+to 13:00; with you at the near gate the truck is posted at the far one and leads from there alone, cuts the drift
+from that side, turns at your gate and takes the queue back; unseen it came on 1158 m in 16 s of play and stopped
+being moved 900 m from you, driven from there; beacons 2.45 / 0.08 after dark. From the quay (a probe stepping the
+clock) both roads were open 1.5 to 1.75 game hours after they shut.
+Stills (looked at): the truck reads as a council plow from front and rear (orange cab, grey hopper with salt, yellow
+angled blade with its end markers, tail board), sits on the road with the blade on the snow while leading, a car
+visible behind it; mid-turn it lies across the road inside the boom with the cars held behind it; at night the work
+lamps, tail lamps and one beacon are lit and the body takes the scene's light. First build's cab read yellow, not
+orange: repainted 0xd9560f. Seen and left: the blade is three flat plates (a slab from some angles), the rear
+mudguard reads as a rail, front wheels are hidden by the blade and the bank from most angles.
+Gate: smoke, x1_save, x3_plowlead, x3_convoy (now run with `CV.plow = 0`: it is the test of the barriers), x3_traffic
+and x3_semis (their car counts now leave the plow entries out), x3_pass, x3_home, x3_rigsolid, x3_roadsnow (now run
+with the convoy option off, as x3_roadwarn already was: it tests the council's own plow), x3_roadsnowdepth,
+x3_roaddrizzle: all exit 0, page errors none. x3_beams fails its last assert ("traffic draw calls <= 7", 12 found) on
+origin/main too (the semis' groups, since 3.5a): not this slice's, left for a tester/next pass.
+KNOWN: with you in Kjøllefjord (gates 355 and 404 m from the quay) the truck's first few hundred metres are driven, so
+a road opens about a game hour later than before; the council's abstract plow keeps setting out again while the kept
+stretches wait for the convoy (harmless).
+NOT built: snow thrown by the blade (no plume, no windrow; a stretch is cut whole, 400 m, as TLXR's stretches are).
+Not done: nobody watched a full 2.3 km crossing (the scenario moves the line up); only lebesby's truck was driven,
+fv888's is the same code; the 7.4 m truck's U-turn on a 6.4 m road swings its nose over the bank; no pad/touch work
+(no new control). Next: 3.5c2b the player in the line, then milestone 4.
+
 ## 2026-11-16 23:40 — 3.5c1 storm closures: barriers on the two fell roads, the queue, convoys on the hour (lane A) (G4) — 824ca26
 Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 262 GB free. Triage: no report above 0207; Last
 triaged stays 207. Next unticked slice: 3.5c, too big for one pass: split into 3.5c1 (this) and 3.5c2 (the plow truck
