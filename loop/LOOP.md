@@ -415,6 +415,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       through 4 stands 0/4 stuck, 24.2 s / 30 m (open-ground pace). Unjudged: a storm (refill fills a well back only to its
       own f, so it should stay).
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
+- [x] G4 4.1b1 (beta 0223 #1 BUG + #2, lane A, fixed tlx-plow v4): holding the use control slewed the blade behind Settings (and behind the tablet). The blade's control now rests under any menu and the tablet; `x4_blademenu.mjs`.
+- [ ] G4 2.7 (beta 0221 #1, POLISH/BUG, lane A): at 2 of 18 used-truck seller sites (Risfjord, the relay) `spotNear` parks the truck about 5 m from a door ring, so 2.4 m off the truck the hint is the door's, not "get in the pickup" (and `x2_vehmkt.mjs` fails that assert). Keep `spotNear` 9 m+ from `INT.beacons`, or let the get-in hint win when the vehicle is nearer than the ring; check that Q itself works there.
+- [ ] G4 4.1a1 (beta 0222 #2, POLISH, lane A): blade down at 54 km/h on 7 cm, the drag is 150 N flat with single 0.25 s spikes of 2.6-4.3 kN and no depth change (reads like the depth line crossing a windrow or field-edge cell). Not felt as a stall; look if a stutter is reported. 0222 #5: `TLXV.buyHaul()` returned undefined though a haul record existed, so the hitch prompt with a blade fitted is untested.
 - [ ] G4 (beta 0220 #1, lane A, unverified, look at it FIRST next pass): the tester's `x4_bladeroad_break.mjs` puppet marks only 17/40 and 30/40 lengths of a road stretch going out and back (Skjånes stretch 2; Dyfjord 32/10) where the builder's section E marks 40/40. Rerun it (`USEK=1` for Skjånes), find whether lengths are skipped on bends (`n.d <= half` with the blade's middle 3.25 m ahead, or `B.last` resetting) or it is the puppet's own doing; its E2-E4 (short last stretch, re-opening, opened across a reload) wait on this.
 - [ ] G4 (test, lane A, seen 18 Nov): `x2_standstart.mjs` fails 2 on main ("bog clears once the truck sits on plowed ground", "then W drives off along the lane"): its "longest town lane" picker takes `Y.r <= 4`, from before the street grid (v227). Allow r up to 5 and check the spot is a street, then confirm the bog really clears on hard pack. Also 4.1a1: whole-frame cost while plowing was not settled in headless (PROGRESS 18 Nov 01:15): measure on a real GPU.
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
@@ -671,4 +674,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
       (the drive runs the clock to 16 h): start that scenario at 9 h.
 
-Last triaged report: 220
+Last triaged report: 223

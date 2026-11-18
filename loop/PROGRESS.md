@@ -3,6 +3,36 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 03:45 — beta fix 0223 #1/#2: the blade's control rests under Settings, the garage and the tablet (tlx-plow v4, lane A) (G4) — b7e941b
+Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 172 GB free. Triage 0221-0223 (last triaged ->
+223). 0223 #1 is a BUG on lane A's 4.1b1, so it came before 4.1b2: holding E with the blade down slewed it behind the
+Settings panel. 0223 #2 (the same behind the tablet) decided with it. 0221 #1 (used-truck yard hint loses to a door ring
+at 2 of 18 sites, POLISH/BUG) and 0222 #2/#5 (drag spikes at speed on thin snow; `buyHaul` returning undefined) are
+backlog lines, not looked at. 0220 #1 (road-credit marks by puppet) is STILL not looked at: second pass it has waited.
+Cause: the keyboard's E (`gameKey`) and a pad's L3 reach `VEH.cur.use()` whatever is on screen, and tlx-plow asked
+nothing about menus, so a tap dropped/lifted and a hold slewed behind any of them.
+Fix (tlx-plow.js only): `busy()` = garage open, death card, `#settings` or `#god` shown, or the tablet up (the rifle's
+`menuUp` plus the tablet). `toggle` returns true and does nothing while busy (so no horn either); `tick` drops a
+pending press while busy, so a menu coming up over a held press neither slews at half a second nor lifts on release.
+Decision (0223 #2, default built, listed in EXPANSION.md for Lemon): the tablet counts as a menu. On touch the pill
+already has no label with the tablet up, so this makes the three schemes agree; the cost is that a keyboard or pad
+driver must close the Map to lift the blade.
+Numbers (`x4_blademenu`, new, 86 asserts): under each of Settings / tablet / garage flag / god panel, with E, an Xbox L3
+and a DualSense L3: a 0.95 s hold leaves the throw at right and the blade down, a tap does not lift it, a tap with it up
+does not drop it, horn count +0. A menu opened 180 ms into a held press (Settings, tablet): no slew, no lift, nothing
+fires after it closes, then a hold slews and a tap lifts again. Touch pill under Settings and the tablet: same.
+Before: the tester's `x4_slew_break` check E failed on main (l -> s under Settings); after: it passes (exit 0).
+Honest limits: the menus are raised by setting `hidden` / `GS.garageOpen` / `TABLET.toggle` from the test, not by
+pressing Esc or walking into the garage; the death card is in `busy()` but not asserted (`gameKey` already returns when
+dead); the touch pill under Settings is pressed by a dispatched PointerEvent that a real finger could not land through
+the overlay. No "before" run of the new scenario on main: the tester's failing check is the before. No stills (nothing
+visible changed).
+Gate: smoke, x1_save, x4_blademenu, x4_slew_break exit 0; second run smoke, x1_save, x4_bladework, x4_bladectl exit 0;
+page errors none in all. x4_blade and x4_bladeroad not rerun (cutting and road credit untouched).
+First run of x4_blademenu failed 2 touch asserts: the truck stood on the garage forecourt, where the pill reads GARAGE;
+the test now parks away first (its fault, not the game's).
+Next: 0220 #1 first, then 4.1b2.
+
 ## 2026-11-18 03:35 — 4.1b1: the blade's throw (hold to slew: right, left, square) and the back-drag (v246, tlx-plow v3, lane A) (G4) — 861fcb9
 Builder pass, lane A. Orient: worktree clean, rebased on main (v245), 172 GB free. Triage: 0219 (3.5c1 time skips and a
 walker at the boom) found nothing. 0220 (4.1a2 road credit) arrived while this slice was half built: no confirmed
