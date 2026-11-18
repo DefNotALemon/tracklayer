@@ -318,6 +318,9 @@ function yardOf(cx, cz) {
    roads do. They are kept out of YARDS (nothing that lists the plowed lanes sees them) and nothing here is saved. */
 function addDrift(pts, r) { const legs = []; for (let k = 1; k < pts.length; k++) { const Y = { x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: 0.6, k: 0, dr: 1 }; DRIFTS.push(Y); legs.push(Y); } return legs; }
 function addYard(x, z, r) { addPlow({ x, z, x2: x, z2: z, r, f: YARD_FALL }); }
+/* LOTS (4.2c, tlx-plow.js, api.world.lots): the plowed public yards of this place that someone could be paid to keep
+   clear with a truck: { id, name, who, x, z, r }. Whoever builds such a yard lists it; nothing here is saved. */
+const LOTS = [];
 function addLane(pts, r, pk) { const legs = []; for (let k = 1; k < pts.length; k++) { const Y = { x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL, k: pk || 1 }; addPlow(Y); legs.push(Y); } return legs; }
 /* Road snow (3.2, tlx-roads.js): a road's legs change how hard they're plowed (Y.k) as storms fill them and the council
    plow clears them. plowRefresh(legs) re-reads the plow map round those legs: a loaded chunk that's just been plowed is
@@ -12356,6 +12359,7 @@ function sledCountry() {
   const orange = L(0xd9622b), dark = L(0x20262c), yel = L(0xe2b92f), glass = L(0x1c2a38), snowC = snowM;
   // ---- the plowed sled park and the groomed trail that leaves it
   addYard(cx - 6, cz, 11); addYard(cx - 6, cz - 7, 8); addYard(cx - 6, cz + 7, 8);
+  LOTS.push({ id: "sledpark", name: "the sled park", who: "the skuterklubb", x: cx - 6, z: cz, r: 11 });
   const trail = [[cx - 6, cz], [cx + 12, cz], [cx + 28, cz], [cx + 42, cz]];
   addLane(trail, 3.2, 0.85); TOWNL.push(trail.map(p => p.slice()));
   // the town end of the trail: out of the last street (x = 84) to the park along the sled park's own spur
@@ -17409,6 +17413,7 @@ function buildHospital() {
   HOSP.x = x; HOSP.z = z; HOSP.ry = ry;
   HOSP.door = { x: x + dx * (D / 2 + 4.4), z: z + dz * (D / 2 + 4.4), yaw: ry };                 // you walk out under the canopy, facing town
   addYard(HOSP.door.x, HOSP.door.z, 9);
+  LOTS.push({ id: "hosp", name: "the helsesenter's forecourt", who: "the helsesenter", x: HOSP.door.x, z: HOSP.door.z, r: 9 });
   HOSP.park = { x: x + dx * (D / 2 + 6.6) + ax * 2.2, z: z + dz * (D / 2 + 6.6) + az * 2.2, yaw: ry + Math.PI / 2 };   // and the sled's parked just out front
   HOSP.built = true;
 }
@@ -17686,6 +17691,8 @@ function initExpansion() {
       bladeSnow, heapSnow,
       // driveways (4.2b): a strip that snows in over plowed ground; set leg.k (0..1) and replow([leg])
       addDrift,
+      // lots (4.2c): the public yards a plow could be paid to keep clear
+      lots: LOTS,
       // doors (4.2b2): the depth a cell settles back to, so what stands over it is a heap
       restCell,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after

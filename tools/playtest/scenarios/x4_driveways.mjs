@@ -52,7 +52,7 @@ await section("A fresh game", async () => {
   L = await J(`TLXPL.drv.list().map(c => ({ key: c.key, name: c.name, L: +c.L.toFixed(2), a: c.a, b: c.b, base: TLXPL.drv.base(c), y: yardAt(c.mx, c.mz), dTown: Math.hypot(c.mx - depot.x, c.mz - depot.z),
     ob: obNear(c.mx, c.mz, 1.2), sea: isSea(c.mx, c.mz), car: (window.TLXC ? TLXC.cars : []).some(q => Math.hypot(q.x - c.mx, q.z - c.mz) < 3) }))`);
   for (const c of L) console.log("  ", JSON.stringify(c));
-  const a = await J(`({ drv: TLX.state("plow").drv, off: TLX.state("plow").drvOff, hidden: TABLET.byId.plow.hidden(), jobs: jobsList().filter(r => r.kind === "plowdrv").length, drifts: DRIFTS.length, live: DRIFTS.filter(Y => Y.k > 0).length })`);
+  const a = await J(`({ drv: TLX.state("plow").drv, off: TLX.state("plow").drvOff, hidden: TABLET.byId.plow.hidden(), jobs: jobsList().filter(r => r.kind === "plowdrv").length, drifts: DRIFTS.filter(Y => Y.x !== Y.x2 || Y.z !== Y.z2).length /* the lots (4.2c1) are discs */, live: DRIFTS.filter(Y => Y.k > 0).length })`);
   ok(L.length >= 3 && L.length <= 8, `a handful of drives in Kjøllefjord: ${L.length}`);
   ok(new Set(L.map(c => c.name)).size === L.length, "each customer has a name of their own (" + L.map(c => c.name).join(", ") + ")");
   ok(L.every(c => c.L >= 6 && c.L <= 10.01 && c.base >= 30 && c.base <= 42), "each drive is 6-10 m long and worth $30-42 a clearing");

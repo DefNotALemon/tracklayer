@@ -1051,6 +1051,20 @@ for 3 days, and after three complaints in a week nobody new takes you on before 
 costs cash. The mouth of your own snowed-in drive is your work site and is not counted until the
 drive is clear. Settings > Options > **Plow snow at doors** turns all of it off.
 
+**Lots.** Under the driveways the Plow app lists Kjøllefjord's two public yards: **the sled park** at
+the trailhead (274 m² a truck can reach, $148 a clearing) and **the helsesenter's forecourt**
+(135 m², $86). Until you **TAKE ONE ON** its owner has it cleared by hand, as always. Taken on, it
+is yours: it snows in with the weather like a drive, a line tells you, the Jobs app has a row and
+the Map a pin. A lot is plowed by the square metre: blade down, work across it in passes side by
+side, forward or back-dragging away from a wall (a pass counts for the blade's own width, so the
+plow truck's 3.5 m blade needs fewer). The riding hint and the lot's card count the share done, and
+when four fifths of the ground a truck can reach is cut the lot is clear and its owner **pays at
+once**: $25 for coming out plus 45 cents a square metre, in full inside 4 hours of the weather
+easing, down to half at 12 (the clock stands in a storm; half as much again in the polar night).
+What you had cut is kept through a reload; new snow fills it in. Leave a lot 12 hours, or sleep
+through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a
+week. A paid clearing wipes a miss. **DROP** hands a lot back at no cost.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

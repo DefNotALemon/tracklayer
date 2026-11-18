@@ -73,7 +73,9 @@
 // State: drv, drvOff, drvH, drvPaid, drvN.
 // DOORS (4.2b2). The block comment at WIN: snow the blade leaves lying across a front walk or the mouth of a drive has to
 // be pulled clear again, or the household digs it out and holds it against you. State: win, winC, winN, winH, drvSulk.
-// NOT YET: lots (4.2c).
+// LOTS (4.2c1). The block comment at LOT: the place's public yards (the sled park, the helsesenter's forecourt) taken on in
+// the Plow app, snowed in like a drive, plowed by the square metre and paid by area. State: lot, lotOff, lotH, lotPaid, lotN.
+// NOT YET: where a lot's heap may go, the hotel forecourt (4.2c2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -179,6 +181,7 @@ function tidy() {
   if (!Number.isFinite(s.gritKg)) s.gritKg = 0;
   conTidy(s);                                                                    // 4.2a: the road contracts
   drvTidy(s);                                                                    // 4.2b1: the driveways
+  lotTidy(s);                                                                    // 4.2c1: the lots
   for (const k of Object.keys(s.grit)) { const g = s.grit[k]; if (!g || !Array.isArray(g.h) || !Number.isFinite(g.s0) || !g.h.some(h => h > 0 && api.GS.hour - h < GRT.hours)) delete s.grit[k]; }   // worn off: forgotten
   { const ids = [], cs = []; s.shed.forEach((id, i) => { const d0 = byId(id); if (!d0 || d0.factory) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
@@ -550,12 +553,13 @@ function work(uid, d, B, dt) {
   const lv = leaveOf(uid, d);
   const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? Math.max(lv, BL.backLeave) : lv);
   B.depth = dl[0]; B.cut = dl[1];
-  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; return; }
-  if (B.trip > 0) { B.drag = BL.scrape; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; return; }   // tripped: folded over the thing, it cuts nothing until it springs back
+  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.lot = null; B.scr = 0; return; }
+  if (B.trip > 0) { B.drag = BL.scrape; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.lot = null; B.scr = 0; return; }   // tripped: folded over the thing, it cuts nothing until it springs back
   const q = ends(d, P, _n, 0, a), L = B.last;
   B.road = roadMark(d, (q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && vf > 0.3 && P.gnd !== false && dt > 0 && Math.max(Math.abs(q[0] - L[0]), Math.abs(q[1] - L[1])) < 5);
   const mv = L ? Math.max(Math.hypot(q[0] - L[0], q[1] - L[1]), Math.hypot(q[2] - L[2], q[3] - L[3])) : 99;   // further than 5 m in a frame is a teleport, not plowing
   B.drv = drvMark((q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && mv < 5 && Math.abs(vf) > 0.3 && P.gnd !== false && dt > 0);   // 4.2b1: a customer's drive under the blade, cutting forward or back-dragging
+  B.lot = lotMark(q, !!L && mv < 5 && Math.abs(vf) > 0.3 && P.gnd !== false && dt > 0);   // 4.2c1: a lot of yours under the blade's edge
   const sweep = leave => { const n = Math.max(1, Math.min(40, Math.ceil(mv / (W.cell * 0.5)))); let vol = 0; for (let i = 1; i <= n; i++) { const t = i / n; vol += W.bladeSnow(L[0] + (q[0] - L[0]) * t, L[1] + (q[1] - L[1]) * t, L[2] + (q[2] - L[2]) * t, L[3] + (q[3] - L[3]) * t, leave); } return vol; };
   if (L && mv < 5 && P.gnd !== false && vf > 0.3) {
     if (B.back) spill(B, uid);                                                   // it was pulling: what it pulled stays behind, under the blade
@@ -597,7 +601,7 @@ const cmax = d => d.carry || BL.carryMax;                                       
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
-  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); drvStep(); winStep(); }               // 4.2a: the road contracts' clocks
+  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); drvStep(); lotStep(); winStep(); }               // 4.2a: the road contracts' clocks
   if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
@@ -728,7 +732,8 @@ function bladeLine(uid, d) {
   const pc = x => Math.round(Math.min(1, x / BL.credit) * 100), rd = B.road ? ` · ${B.road.name}: this side ${pc(B.road.mine)}%, the other side ${pc(B.road.other)}%` : "";   // of what opens the stretch
   const worn = condOf(uid) < BL.ragged ? " · worn edge, a ragged cut: mend it at the garage" : "";
   const dv = B.drv ? ` · ${B.drv.name}'s drive: ${Math.round(Math.min(1, B.drv.k / DRV.credit) * 100)}% plowed out` : "";
-  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd}${dv} · ${lift}`;
+  const lt = B.lot ? ` · ${B.lot.name}: ${Math.round(Math.min(1, B.lot.k / LOT.credit) * 100)}% plowed out` : "";
+  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd}${dv}${lt} · ${lift}`;
 }
 /* ---------------- the Plow app and the kommune's road contracts (4.2a) ----------------
    The Plow app (on the tablet once you own a blade) lists the kommune's roads that no convoy runs on (conR). SIGN one
@@ -909,6 +914,7 @@ function appRender(el) {
       pay: c ? `${cash(400 * PLC.perM * mul)} a stretch` : "", act: (c ? "plq:" : "pls:") + r.id, actLabel: c ? "HAND BACK" : "SIGN", blocked: !c && (!has || ban) });
   }
   h += drvCards(U, s, has, mul, cash);                                           // 4.2b1: the driveways
+  h += lotCards(U, s, has, mul, cash);                                           // 4.2c1: the lots
   if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
@@ -916,6 +922,8 @@ function appRender(el) {
   for (const b of el.querySelectorAll("[data-act^='plq:']")) b.addEventListener("click", () => conQuit(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='pdt:']")) b.addEventListener("click", () => drvTake(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='pdq:']")) b.addEventListener("click", () => drvDrop(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='pat:']")) b.addEventListener("click", () => lotTake(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='paq:']")) b.addEventListener("click", () => lotDrop(b.dataset.act.slice(4)));
 }
 /* ---------------- driveways: private customers (4.2b1) ----------------
    A handful of Kjøllefjord households (DRV.max, the same ones every boot) have a drive beside the house: a strip
@@ -1118,6 +1126,186 @@ function drvCards(U, s, has, mul, cash) {
   }
   return h + `<p class="tnote2">A drive you take on stops being shovelled: it snows in until you plow it out. Blade down, drive the length of it (in from the street, or back-dragging out): once four fifths of it is cut it is clear and paid at once, in full inside ${DRV.fullH} hours of the weather easing and down to half after ${DRV.lowH}. Leave it ${DRV.lateH} hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they find someone else for a week. Mind where the snow goes: what your blade leaves lying across a front walk or the mouth of a drive has to be cut away again (nose in and push it off to one side), or the household digs it out, and that counts against you like a drive left snowed in.</p>`;
 }
+/* ---------------- lots: yards plowed by the square metre (4.2c1) ----------------
+   The place lists its public yards (api.world.lots: the sled park at the trailhead, the helsesenter's forecourt). Until
+   you TAKE ONE ON in the Plow app its owner has it cleared, as today, and nothing about it changes. A lot of yours snows
+   in at the roads' own rate (a disc of api.world.addDrift over the yard, so the snow really lies there and a reload
+   finds it), is DUE from LOT.due and its clock runs while the weather is under the council's limit, all as a drive's.
+   What is different is the work: a lot is an AREA. lotBuild cuts it into LOT.sq m squares and keeps the ones a blade
+   can reach (plowed today, LOT.ob m clear of walls, posts and parked machines, off the streets). With the blade down
+   and the truck moving, forward or back-dragging, every square under the blade's edge is marked (points LOT.step m
+   apart along it, LOT.in m in from each end, so a 2 m blade marks 2 m of width and a 3.5 m one 3 m); LOT.credit of the
+   squares marked clears the lot: it is cut to the yard's level and its owner pays LOT.call + LOT.perM2 a square metre
+   at once, in full inside LOT.fullH hours of the clock and falling to LOT.low of it at LOT.lowH. Left LOT.lateH hours,
+   or slept through, the owner has it dug out: no pay and a miss; LOT.miss misses and it goes to someone else for
+   LOT.offH hours. A paid clearing takes a miss off. DROP is free. One Jobs row for all the lots with snow in them, a
+   Map pin each, one Monday statement line. Where the heap may go is 4.2c2: here the blade's windrows may lie anywhere.
+   SAVED in x.sys.plow: lot { id: { s, h, due, miss, wk, n, mk, ms } }, lotOff { id: hour it is offered again }, lotH,
+   lotPaid, lotN. mk / ms are the marks of a lot part cleared (a "0110..." string, a character a square, and the snow
+   level they began at), as a drive's are: a reload in the middle of a lot keeps what was cut. */
+const LOT = { sq: 1, yard: 0.8, ob: 1.2, car: 2.6, street: 3.6, min: 40, call: 25, perM2: 0.45, due: 0.12, fullH: 4, lowH: 12, low: 0.5, lateH: 12, miss: 2, offH: 168, credit: 0.8, step: 0.5, in: 0.5 };
+const LT = { list: [], by: {}, built: false, marks: new Map(), job: {} };
+const lotBase = c => Math.round(LOT.call + LOT.perM2 * c.m2);
+const lotK = h => 1 - (1 - LOT.low) * Math.max(0, Math.min(1, (h - LOT.fullH) / (LOT.lowH - LOT.fullH)));
+const lotKey = (i, j) => (i + 512) * 1024 + (j + 512);
+function lotUnmark(id, st) { LT.marks.delete(id); if (st) { delete st.mk; delete st.ms; } }
+function lotBuild() {
+  LT.built = true; LT.list = []; LT.by = {}; LT.marks.clear();
+  const W = api.world; if (!W.addDrift || !W.replow || !Array.isArray(W.lots)) return;
+  const cars = window.TLXC && Array.isArray(TLXC.cars) ? TLXC.cars : [], Q = LOT.sq;
+  for (const o of W.lots) {
+    if (!o || typeof o.id !== "string" || !Number.isFinite(o.x + o.z + o.r) || !(o.r >= 4) || LT.by[o.id]) continue;
+    const c = { id: o.id, name: String(o.name || "the lot"), who: String(o.who || "the owner"), x: o.x, z: o.z, r: o.r, idx: new Map(), n: 0, q: 0 }, n = Math.ceil(o.r / Q);
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+      if (Math.hypot(i, j) * Q > o.r - 0.5) continue;
+      const x = o.x + i * Q, z = o.z + j * Q;
+      if (W.isSea(x, z) || (W.isWater && W.isWater(x, z)) || W.yardAt(x, z) < LOT.yard) continue;
+      if (W.townStreetNear && W.townStreetNear(x, z) < LOT.street) continue;
+      if (cars.some(q => Math.hypot(q.x - x, q.z - z) < LOT.car)) continue;
+      let hit = false;
+      for (const b of W.obstaclesNear(x, z, 8)) {
+        if (b.top < -1e8) continue;
+        if (b.box) { const B = b.box, px = x - B.x, pz = z - B.z; if (Math.max(Math.abs(px * B.c - pz * B.s) - B.hw, Math.abs(px * B.s + pz * B.c) - B.hd) < LOT.ob) { hit = true; break; } }
+        else if (Math.hypot(b.x - x, b.z - z) < (b.r || 0.5) + LOT.ob) { hit = true; break; }
+      }
+      if (!hit) c.idx.set(lotKey(i, j), c.n++);
+    }
+    if (c.n < LOT.min) continue;                                                   // too cluttered to be a truck's work
+    c.m2 = c.n * Q * Q; c.legs = W.addDrift([[o.x, o.z], [o.x, o.z]], o.r);
+    c.place = String((W.depot && W.depot.name) || "Kjøllefjord").replace(/ quay$/i, "");
+    LT.list.push(c); LT.by[c.id] = c;
+  }
+  const s = S(); if (s) for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]);
+}
+function lotApply(c, st) {                                                       // the snow level on the ground follows the saved one, in steps of 0.05
+  const q = st ? Math.round(Math.max(0, Math.min(1, st.s)) * 20) / 20 : 0;
+  if (q === c.q) return; c.q = q; for (const Y of c.legs) Y.k = q; api.world.replow(c.legs, true);   // true: the blade's heaps stay where they were pushed
+}
+function lotTidy(s) {
+  const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
+  if (!obj0(s.lot)) s.lot = {};
+  if (!obj0(s.lotOff)) s.lotOff = {};
+  s.lotPaid = num(s.lotPaid, 0, 1e9); s.lotN = Math.floor(num(s.lotN, 0, 1e9)); if (!Number.isFinite(s.lotH)) s.lotH = -1;
+  for (const k of Object.keys(s.lot)) {
+    const st = s.lot[k]; if (!obj0(st)) { delete s.lot[k]; continue; }
+    st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, LOT.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= LOT.due ? 1 : 0;
+    if (typeof st.mk !== "string" || !/^[01]{1,2000}$/.test(st.mk) || !Number.isFinite(st.ms) || !st.due) { delete st.mk; delete st.ms; }
+  }
+  for (const k of Object.keys(s.lotOff)) if (!Number.isFinite(s.lotOff[k])) delete s.lotOff[k];
+}
+function lotTake(id) {
+  const s = S(), c = LT.by[id], H = api.GS.hour; if (!s || !c || s.lot[id]) return false;
+  if (!Object.keys(s.blades).length) { api.toast("Nobody hires a plow man without a plow. Fit a blade to a truck first: the garage's Plow tab.", "warn"); return false; }
+  if (s.lotOff[id] > H) { const dys = Math.max(1, Math.ceil((s.lotOff[id] - H) / 24)); api.toast(`${capFirst(c.who)} has someone else plowing ${c.name}. Ask again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
+  if (winTalk(s)) { api.toast(WIN.talkLine, "warn"); return false; }
+  delete s.lotOff[id];
+  s.lot[id] = { s: 0, h: 0, due: 0, miss: 0, wk: 0, n: 0 };
+  api.toast(`${capFirst(c.name)} is yours to keep clear: ${api.fmtCash(Math.round(lotBase(c) * api.payMul()))} every time you plow it out inside ${LOT.fullH} h of the weather easing. Nobody else clears it now.`, "good");
+  api.save(); conRefresh(); return true;
+}
+function lotDrop(id) {
+  const s = S(), c = LT.by[id]; if (!s || !s.lot || !s.lot[id]) return false;
+  delete s.lot[id]; LT.marks.delete(id); if (c) lotApply(c, null);
+  api.toast(c ? `You've given up ${c.name}. ${capFirst(c.who)} has it cleared again.` : "You've given that lot up.");
+  api.save(); conRefresh(); return true;
+}
+function lotGone(list, slept) {                                                  // the owners who had their lots dug out: one line for all of them
+  const s = S(), H = api.GS.hour, lost = [];
+  for (const c of list) { const st = s.lot[c.id]; st.s = 0; st.h = 0; st.due = 0; st.miss++; lotUnmark(c.id, st); if (st.miss >= LOT.miss) { delete s.lot[c.id]; s.lotOff[c.id] = H + LOT.offH; lost.push(c.name); } lotApply(c, s.lot[c.id]); }
+  const what = drvList(list.map(c => c.name)), one = list.length === 1;
+  api.toast((slept ? `While you were away ${what} ${one ? "was" : "were"} dug out by hand.` : `Nobody came to plow ${what}: ${one ? "it was" : "they were"} dug out by hand.`) + " No pay."
+    + (lost.length ? ` ${capFirst(drvList(lost))} ${lost.length === 1 ? "has" : "have"} gone to someone else.` : ` Once more and you lose ${one ? "it" : "them"}.`), lost.length ? "bad" : "warn");
+  api.save(); conRefresh();
+}
+function lotStep() {
+  const s = S(); if (!s || !s.lot || !LT.list.length || !api.started()) return;
+  const H = api.GS.hour, dh = s.lotH < 0 || H < s.lotH ? 0 : H - s.lotH; s.lotH = H;
+  if (!Object.keys(s.lot).length) return;
+  const RD = (window.TLXR && TLXR.ROADS) || { fill: 0.16, fillA: 0.5, fillB: 0.95, plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, gone = [];
+  let fresh = 0;
+  for (const c of LT.list) {
+    const st = s.lot[c.id]; if (!st) continue;
+    if (slept) { if (st.s >= LOT.due) gone.push(c); else { st.s = 0; st.h = 0; st.due = 0; lotUnmark(c.id, st); } }
+    else {
+      const w = WX.at(c.x, c.z);
+      st.s = Math.min(1, st.s + dh * RD.fill * api.sstep(RD.fillA, RD.fillB, w));
+      if (st.s >= LOT.due) { if (!st.due) { st.due = 1; fresh++; } if (w < RD.plowWx) st.h += dh; if (st.h >= LOT.lateH) gone.push(c); }
+    }
+    lotApply(c, st);
+  }
+  if (gone.length) lotGone(gone, slept);
+  else if (fresh) { const due = lotDue(); api.toast(`Snow in ${due.length === 1 ? due[0].name : due.length + " of your lots"}. Full pay inside ${LOT.fullH} h of the weather easing.`); conRefresh(); }
+}
+function lotMark(q, mark) {                                                      // the blade's edge q = [x0, z0, x1, z1]: -> { name, k (share of the squares done) } on a due lot of yours, else null
+  const s = S(); if (!s || !s.lot || !LT.list.length) return null;
+  const mx = (q[0] + q[2]) / 2, mz = (q[1] + q[3]) / 2;
+  for (const c of LT.list) {
+    const st = s.lot[c.id]; if (!st || !(st.s >= LOT.due)) continue;
+    if (Math.hypot(mx - c.x, mz - c.z) > c.r + 1) continue;
+    let m = LT.marks.get(c.id);
+    if (!m && typeof st.mk === "string" && st.mk.length === c.n && Number.isFinite(st.ms)) {   // a reload in the middle of the lot: the squares cut before it still count
+      m = { n: c.n, m: new Uint8Array(c.n), c: 0, s0: st.ms }; for (let i = 0; i < c.n; i++) if (st.mk.charCodeAt(i) === 49) { m.m[i] = 1; m.c++; }
+      LT.marks.set(c.id, m);
+    }
+    if (m && st.s > m.s0 + BL.rise) { lotUnmark(c.id, st); m = null; }            // new snow since: what was cut is filled in
+    if (!m) { if (!mark) return { name: c.name, k: 0 }; LT.marks.set(c.id, m = { n: c.n, m: new Uint8Array(c.n), c: 0, s0: st.s }); }
+    if (mark) {
+      const len = Math.hypot(q[2] - q[0], q[3] - q[1]), span = Math.max(0, len - 2 * LOT.in), k = Math.max(1, Math.ceil(span / LOT.step)); let hit = false;
+      for (let e = 0; e <= k; e++) {
+        const t = len > 0 ? (LOT.in + span * e / k) / len : 0.5, b = c.idx.get(lotKey(Math.round((q[0] + (q[2] - q[0]) * t - c.x) / LOT.sq), Math.round((q[1] + (q[3] - q[1]) * t - c.z) / LOT.sq)));
+        if (b !== undefined && !m.m[b]) { m.m[b] = 1; m.c++; hit = true; }
+      }
+      if (hit) { st.mk = Array.from(m.m).join(""); st.ms = m.s0; }
+      if (m.c >= LOT.credit * m.n) { lotDone(c, st); return null; }
+    }
+    return { name: c.name, k: m.c / m.n };
+  }
+  return null;
+}
+function lotDone(c, st) {
+  const s = S(), k = lotK(st.h), h = st.h, cash = Math.round(lotBase(c) * k * api.payMul());
+  api.GS.cash += cash; st.wk += cash; st.n++; s.lotPaid += cash; s.lotN++;
+  st.s = 0; st.h = 0; st.due = 0; st.miss = Math.max(0, st.miss - 1); lotUnmark(c.id, st); lotApply(c, st);
+  api.toast(`${capFirst(c.name)} is clear. ${capFirst(c.who)} pays ${api.fmtCash(cash)}${k < 0.995 ? ` (${Math.round(k * 100)}%: ${Math.round(h)} h after the weather eased)` : ""}.`, "good");
+  api.save(); conRefresh();
+}
+function lotDue() { const s = S(); return s && s.lot ? LT.list.filter(c => { const st = s.lot[c.id]; return st && st.s >= LOT.due; }) : []; }
+function lotJob() {
+  const due = lotDue(); if (!due.length) return null;
+  const s = S(), P = api.FOOT.on ? api.FOOT : api.P, U = api.ui; let near = due[0], bd = Infinity, h = 0, sum = 0;
+  for (const c of due) { const st = s.lot[c.id], d = Math.hypot(c.x - P.x, c.z - P.z); if (d < bd) { bd = d; near = c; } if (st.h > h) h = st.h; sum += lotBase(c) * lotK(st.h); }
+  const hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
+  const pay = "~" + api.fmtCash(Math.round(sum * api.payMul())), n = due.length, title = n === 1 ? `Plow out ${near.name}` : `Plow out ${n} lots`;
+  const state = h < LOT.fullH ? `full pay for another ${hrs(LOT.fullH - h)}` : `the pay is falling · ${hrs(LOT.lateH - h)} before ${n === 1 ? "it is" : "the first is"} dug out by hand`;
+  return { obj: LT.job, kind: "plowlot", auto: !api.FOOT.on && !!bladeOf(curUid()), tgt: { x: near.x, z: near.z, name: near.name }, col: "var(--signal)", title,
+    chips: U.chip("LOTS"), meta: `${n === 1 ? Math.round(near.m2) + " m2 snowed in" : n + " lots snowed in · nearest: " + near.name} · ${near.place} · ${state}`, pay,
+    hud: d => ({ title, sub: `${U.fmtMi(d)} to ${near.name} · ${pay} · ${state}` }) };
+}
+function lotMonday(week) {
+  const s = S(); if (!s || !s.lot) return; let pay = 0, n = 0;
+  for (const k of Object.keys(s.lot)) { const st = s.lot[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
+  if (!n) return;
+  const d = week && week.label || "";
+  s.conLast.unshift({ d, road: "Lots", pay, m: 0, w: 0, n }); s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
+  setTimeout(() => { try { api.TABLET.notify({ app: "plow", kind: "good", title: `Lots · week to ${d}`, body: `${n} lot${n === 1 ? "" : "s"} plowed out: ${api.fmtCash(pay)}`, ttl: 8 }); } catch (e) { } }, 2900);
+}
+function lotCards(U, s, has, mul, cash) {
+  if (!LT.list.length) return "";
+  const H = api.GS.hour, hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
+  const talk = winTalk(s);
+  let h = U.sec("Lots", `${LT.list.filter(c => s.lot[c.id]).length} of ${LT.list.length} yours · paid so far ${cash(s.lotPaid)}`);
+  for (const c of LT.list) {
+    const st = s.lot[c.id], off = !st && s.lotOff[c.id] > H, base = lotBase(c) * mul, due = st && st.s >= LOT.due, m = due ? lotMark([c.x, c.z, c.x, c.z], false) : null;
+    h += U.tabCard({ tf: "pll:" + c.id, title: capFirst(c.name),
+      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("DUG OUT BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING"),
+      meta: `${c.place} · ${Math.round(c.m2)} m2 a truck can reach · ${cash(base)} a clearing inside ${LOT.fullH} h`,
+      note: st ? (due ? (m && m.k > 0 ? `${Math.round(Math.min(1, m.k / LOT.credit) * 100)}% plowed out. ` : "") + (st.h < LOT.fullH ? `Snowed in: full pay for another ${hrs(LOT.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, LOT.lateH - st.h))} it is dug out by hand.`) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
+        : off ? "" : `${capFirst(c.who)} has it cleared by hand today. Take it on and it is yours to plow out after every snowfall.`,
+      warn: st ? "" : off ? `It was dug out twice waiting for you. Offered again in ${Math.max(1, Math.ceil((s.lotOff[c.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
+      pay: st ? `${cash(base)} a clearing` : "", act: (st ? "paq:" : "pat:") + c.id, actLabel: st ? "DROP" : "TAKE ON", blocked: !st && (!has || off || talk) });
+  }
+  return h + `<p class="tnote2">A lot is plowed by the square metre: blade down, work across it in passes side by side (forward, or back-dragging away from a wall) until four fifths of the ground a truck can reach is cut. Then it is clear and paid at once, in full inside ${LOT.fullH} hours of the weather easing and down to half after ${LOT.lowH}. Leave it ${LOT.lateH} hours, or sleep through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a week.</p>`;
+}
 /* ---------------- doors: where the blade's snow ends up (4.2b2, the count 4.1b3b promised) ----------------
    The snow a blade moves has to go somewhere, and in a village the wrong place is somebody's way in. Every house's
    FRONT WALK (the door to its street, WIN.hw each side) and the MOUTH of every drive of DRV (its first WIN.mouth m) is a
@@ -1253,14 +1441,14 @@ let conT = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, win: {}, winC: 0, winN: 0, winH: -1 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, win: {}, winC: 0, winN: 0, winH: -1, lot: {}, lotOff: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
@@ -1281,13 +1469,16 @@ TLX.register({
     try { if (!DV.built) drvBuild(); else { DV.marks.clear(); const s = S(); for (const c of DV.list) drvApply(c, s.drv && s.drv[c.key]); } } catch (e) { DV.list = []; DV.by = {}; console.warn("tlx-plow: driveways", e); }
     try { winInit(); } catch (e) { WN.list = []; WN.by = {}; console.warn("tlx-plow: doors", e); }   // 4.2b2: the front walks and drive mouths your blade's snow may land on
     if (a.jobx && !CJ.win) { CJ.win = true; a.jobx.push(winJob); }
-    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" })))); }
+    // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
+    try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
+    if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
+    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase(), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" })))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
-      hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length); },
+      hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length && !Object.keys(s.lot || {}).length); },
       badge: () => { const s = S(); return s && ((s.con && Object.keys(s.con).some(id => Object.keys(s.con[id].due || {}).some(k => s.con[id].due[k][1]))) || winOpen().length) ? "!" : ""; },
       render: appRender });
   },
-  monday(week) { conMonday(week); drvMonday(week); winMonday(); },
+  monday(week) { conMonday(week); drvMonday(week); lotMonday(week); winMonday(); },
   tick,
   save() { tidy(); }
 });
