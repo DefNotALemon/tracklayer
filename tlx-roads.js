@@ -352,7 +352,7 @@ function build(W) {
     const pts = []; for (const sg of segs) { for (const q of sg.pts) { const l = pts[pts.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 0.5) pts.push(q); } }
     if (pts.length < 2 || !segs.some(sg => !sg.street)) continue;
     let len = 0; for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    R.routes.push({ id: r.id, name: r.name, closed: !!r.closed, pts, segs, len, ends: [r.via[0], r.via[r.via.length - 1]] });
+    R.routes.push({ id: r.id, name: r.name, closed: !!r.closed, convoy: !!r.convoy, pts, segs, len, ends: [r.via[0], r.via[r.via.length - 1]] });
   }
   index();
   bed(W);
@@ -603,7 +603,9 @@ function snowStep(dh) {
     let max = 0;
     rt.seg.forEach((g, i) => { if (!g.legs.length) return; const w = WX.at(g.mx, g.mz); o.s[i] = Math.min(1, o.s[i] + dh * ROADS.fill * api.sstep(ROADS.fillA, ROADS.fillB, w)); if (o.s[i] > max) max = o.s[i]; });
     if (o.p < 0) {
-      if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; rt.outH = RS().h; } }   // outH: the hour it last set out (3.5c2a, not saved)
+      /* 4.2a: a road the player holds the plow contract for (tlx-plow.js sets R.hold) is left to the player */
+      if (R.hold && R.hold(rt.id)) o.w = 0;
+      else if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; rt.outH = RS().h; } }   // outH: the hour it last set out (3.5c2a, not saved)
       else o.w = 0;
     }
     if (o.p >= 0) {
@@ -631,7 +633,7 @@ function snowApply(all) {
   const st = RS(), shutR = R.routes.filter(rt => rt.seg.some(g => g.shut));
   if (R.noted) for (const [id, why] of R.noted) if (why === "convoy" ? shutR.some(rt => rt.id === id) || !(window.TLXCV && TLXCV.barOn && TLXCV.barOn(id)) : why !== "closed" && !shutR.some(rt => rt.id === id)) R.noted.delete(id);   // open again: the next storm warns afresh
   if (!all && api.started() && !R.mute) {
-    if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + " drifting shut. The council plow goes out once the storm eases."); }
+    if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + (shutR.every(rt => R.hold && R.hold(rt.id)) ? " drifting shut. It is on your plow contract." : " drifting shut. The council plow goes out once the storm eases.")); }
     else if (!shutR.length && st.warned && R.routes.every(rt => !rt.st || rt.st.p < 0)) { st.warned = false; api.toast("The plow's been round: the roads are open again."); }
   } else if (all) st.warned = shutR.length > 0;
 }
@@ -771,12 +773,13 @@ R.tripDist = (x0, z0, x1, z1) => {
   const A = anchor(x0, z0), B = anchor(x1, z1), path = A && B ? tripPath(A, B) : null; if (!path) return null;
   let d = 0; for (const e of path) d += Math.abs(e.s1 - e.s0); return d;
 };
-R.tripWarn = (x0, z0, tgt) => { const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`; };
+R.tripWarn = (x0, z0, tgt) => { if (tgt && tgt.isSnow) return ""; /* 4.2a: the target IS the snowed-in stretch (a plow contract) */ const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`; };
 // beta 0149 #1: the minimalist HUD hides the old compass row, so a job whose way runs over a snowed-in stretch also gets a
 // toast, once per road per storm (the note clears when that road is open again; the fell road's once per session).
 // updGameHud calls this with job = true only when the target is a real job (not the idle "quay" arrow).
 R.noted = new Map();
 R.tripNote = (x0, z0, tgt, job) => {
+  if (tgt && tgt.isSnow) return "";
   const t = R.trip(x0, z0, tgt); if (!t) return "";
   const w = t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`;
   if (job && api.started() && !R.noted.has(t.route.id)) {

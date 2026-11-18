@@ -999,6 +999,23 @@ says "cutting edge 73%", and the garage's Plow tab mends it at the usual $6 a po
 edge is worse than the ad says, like the rest of it; looking it over in person shows the truth
 and drops the price.
 
+**The Plow app: the kommune's road contracts.** Once you own a blade the tablet has a **Plow** app.
+It lists the kommune's roads that no convoy runs on (the Dyfjord, Skjånes and Gamvik roads), each
+out to tender. **SIGN** for one, with a blade fitted to a truck, and that road is yours: the
+council's plow stays home on it. From then on every 400 m stretch with snow on it that your blade
+opens (both sides of the centre line with the pickup's blade, one pass down the middle with the
+plow truck) pays **$100, at once** (25 cents a metre; half as much again in the polar night, like
+every job): in full if you open it inside 3 hours of the weather easing, sliding down to half at 8
+hours. The clock does not run while the storm is still over the stretch. A dusting that would not
+have brought the council out pays nothing. The Jobs app lists each of your roads that has work on
+it, the compass points at the nearest stretch (by itself when you are at the wheel of a bladed
+truck and nothing else is on), and the app's cards show what is waiting and what the week has
+earned. A contract is at risk when the road is left: a stretch that lies **shut** for 8 hours, or
+that you sleep through, is opened by the kommune's own truck, unpaid, and is a **warning** (a line
+tells you at 4 hours). Three warnings and the road is taken back and not tendered to you for a
+week; a Monday after a week without one strikes a warning off and writes the week's statement.
+**HAND BACK** returns a road to the council whenever you like.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car
