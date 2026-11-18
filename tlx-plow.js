@@ -335,7 +335,7 @@ function tick(dt) {
     if (B.S) B.S.rotation.y = -B.a;
     // a press with the blade down is decided here: let go inside half a second it lifts, held it slews to the next throw
     if (B.hold) {
-      if (!seated || !B.down) B.hold = null;
+      if (!seated || !B.down || busy()) B.hold = null;                             // a menu or the tablet came up over a press: it neither lifts nor slews
       else if (!(api.useHeld && api.useHeld())) { if (!B.hold.done) lift(B, r.uid); B.hold = null; }
       else if (!B.hold.done && performance.now() - B.hold.t0 >= BL.holdT * 1000) { B.hold.done = true; slew(r.uid); }
     }
@@ -348,6 +348,12 @@ function tick(dt) {
 
 /* ---------------- the control and what it says ---------------- */
 function useLine() { return INPdev() === "touch" ? "In the truck, the BLADE DOWN / BLADE UP button drops and lifts it. Held with the blade down, it slews the blade: throw right, throw left, square." : `In the truck, ${api.btn("use")} drops and lifts it. Held with the blade down, it slews the blade: throw right, throw left, square.`; }
+/* beta 0223 #1/#2: the keyboard's use key (and a pad's L3) still reach the truck under Settings, the garage, the god
+   panel, the death card and the tablet, so the blade itself checks: while one is up a press does nothing at all (no
+   drop, no lift, no slew), and one coming up over a press that is still held cancels it. On touch the pill is already
+   gone while the tablet is up, so all three schemes now agree. */
+const elUp = id => { const e = document.getElementById(id); return !!e && !e.hidden; };
+function busy() { return !!(api.GS.garageOpen || api.GS.dead || elUp("settings") || elUp("god") || (api.tablet && api.tablet())); }
 function lift(B, uid) { B.down = false; B.last = null; B.hold = null; if (B.carry > 0) spill(B, uid); B.back = false; }
 function slew(uid) {                                                             // to the next throw: right -> left -> square -> right
   const s = S(), b = s.blades[uid]; if (!b) return null;
@@ -357,6 +363,7 @@ function slew(uid) {                                                            
 function toggle(R) {
   const uid = R.rec.uid, d = bladeOf(uid); if (!d || api.FOOT.on || curUid() !== uid) return false;
   const B = rt(uid);
+  if (busy()) return true;                                                       // behind a menu or the tablet the control rests (and stays the blade's: no horn)
   if (!B.down) { B.down = true; B.last = null; B.hold = null; return true; }
   if (!B.hold) B.hold = { t0: performance.now(), done: false };                 // tick decides: a tap lifts it, a hold slews it
   return true;
