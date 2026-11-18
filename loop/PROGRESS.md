@@ -3,6 +3,32 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 00:10 — 4.1 design: the blade, windrows, road credit, the plow truck; split into 4.1a-c (lane A) (G4) — docs only
+Builder pass, lane A. Orient: worktree clean, rebased on main (v244), 173 GB free. Triage: 0212 (3.5c2b break-it) is
+the one report above 211: no BLOCKER or BUG. Its #4 (POLISH: the "left the convoy" flag outlives the traffic option)
+is a LOOP backlog line; #5 and #6 were inconclusive in the tester's own setup and are noted with it. Last triaged ->
+212. Milestone 3 is done, so the next unticked slice is 4.1, which had one line and no design: writing it is the pass.
+No game code changed, nothing to gate.
+Read first: the snow cells (`getChunk`, `refill`, `pressSnow`, `plowRefresh`, `packOf`), the wheeled `core()` and
+`addLoad`, the driver's use hooks, TLXR's stretch snow and `plowSeg`, the council truck's `buildPlow`.
+What the design rests on (EXPANSION.md, milestone 4, "What the code gives us"):
+- Chunks are not saved and `refill()` pulls every cell back to its target, so cells alone cannot hold a plowed lane.
+  What lasts has to be a leg with a saved `k`. Roads already are: the blade earns a `TLXR.plowSeg` by covering a
+  stretch's lane-bins (a pickup out and back, the plow truck in one pass). Off the road a cut snows in again and a
+  reload forgets it: accepted for 4.1 and the reason 4.2's driveways and lots must be legs of their own.
+- A wheel reads 0.42 m ahead and the belly 1.5 m ahead, so a blade cutting ahead of the bumper takes the sink and
+  belly drag away with no change to `core()`; the blade's push goes in through `addLoad`'s `drag`.
+- Nothing raises snow above the snowpack today. A windrow is `d > f`; the readers clamp, to be checked when built.
+- The truck's use control is free on all three schemes (E / L3 / the touch pill with its own label), at the price
+  of the horn on that control in a bladed truck. No new BTN row.
+Split: 4.1a the blade on the pickup (buy, fit, drop, cut, windrow, push, road credit; `x4_blade.mjs` with its
+asserts listed); 4.1b throw side, back-dragging, a solid blade that trips (option `plowtrip`), wear, sound, used
+blades; 4.1c the plow truck with its gritter. Numbers in the design are worked from the pickup's 7.8 kN of grip and
+are targets (30 cm steady, 60 cm a crawl, 90 cm past it), not measurements: nothing was run.
+Open for Lemon (defaults being built): the blade takes the horn's control in a bladed truck; a pickup needs both
+lanes to open a road stretch; off-road plowing does not survive a reload until 4.2.
+Next for lane A: build 4.1a.
+
 ## 2026-11-17 23:58 — beta fix 0211 #1: one chase is one chase, heat only while seen (tlx-police v3, lane A) (G4) — 03afc26
 Builder pass, lane A. Orient: worktree clean, rebased on main (v244), 173 GB free. Triage: 0211 (living world: police,
 flats) is the one report above 210; its #1 is a BUG. The living world has no lane; the cruisers are tlx-traffic cars

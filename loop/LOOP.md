@@ -647,5 +647,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       on the road towards you). Stopping with it out of sight can take over 15 game s to be reached, or ends as an
       escape because in a search it drives to where it LAST SAW you, not to you. Look at `extStep`'s heading pick
       and `cap` on a road bend.
+- [ ] G4 3.5c2b (POLISH, beta 0212 #4, lane A): the "left the convoy" flag outlives the Road traffic option: with
+      `traffic` switched off no convoy can run, so the pin and the legend line stay until you drive out past a gate
+      or 6 game hours pass. Clear the flag when `traffic` goes off, as the `convoy` option already does. 0212 #5
+      (a crash while in the line) and #6 (a reload with a flag set) were inconclusive in the tester's own setup:
+      the "out of your seat 3 s" rule reads the seat, and the flag is documented as unsaved; cover both in
+      `x3_convoyline_break.mjs` when this is fixed.
 
-Last triaged report: 211
+Last triaged report: 212

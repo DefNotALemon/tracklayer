@@ -13,6 +13,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 1 | Plan and scaffolding | **landed** (v167): this file, `tlx.js`, save key `x`, Options page, itch fix, `x1_save.mjs` |
 | 2 | Vehicle core | 2.1, 2.1b landed (v169); 2.2, 2.3 landed (v171); 2.4 landed (v174); 2.5 landed (v176); 2.6a landed (v177); 2.6b landed (v178); 2.6c landed (v180); 2.7 landed (v185): milestone 2 done; beta fix 0142 #1 a boulder winch anchor no longer freezes the screen (v198) |
 | 3 | Roads and traffic | 3.1 landed (v188); beta fix 0117/0119 standing start (v189); beta fix 0116 #1/#4 a held truck says why it won't move (v190); beta fix 0123 #1/#2 graded road bed + no tight hairpins (v191); beta fix 0121 #2/0122 #2 the pickup crawls through 30-40 cm of powder (v192); beta fix 0127 #2-#4 switchback loops (no bend under 13 m) + bends plowed wider (v194); beta fix 0131 #1/#2 the fjord rescue never lands you on a cliff face (v195); beta fix 0133 #1 no school course with your sled strapped to the trailer (v196); beta fix 0129 #1/#2 pickup traction control + "more throttle" / "steep in this snow" hints (tlx-vehicles v15); 3.2a road snow: storms fill the roads, the council plow clears them, saved, Map shows snowed in (v197); beta fix 0140 #1-#3 no 40 cm cliff, "ease off" only when the wheels spin (tlx-vehicles v16); beta fix 0141 #1 a drizzle no longer shuts the roads, the plow works through light snow (tlx-roads v6); 3.2b1 road warnings: Map legend, compass/Jobs warn of a snowed-in road on the way, pickup says the road's drifted shut (v201); 3.2b2 scraped road surface: sleds grind and spark in the wheel tracks of a freshly plowed road in a cold snap (v202); beta fix 0149 #1 a job over a snowed-in road gets a visible heads-up toast (v203); 3.3a parked cars, buried by storms, dug out by their owners (v204); 3.3b dig a buried car out by hand for pay, option digcars (v205); 3.4a a few drivers on the open roads, option traffic (v206); 3.4b1 drivers pull out round a sled or walker standing in their lane, wheels turn, a hard stop for someone stepping out close (tlx-traffic v2); 3.4b2a headlight beams + a pool of light on the road at night, a passing car's engine hum (v207, tlx-traffic v3; the "sunk cars" finding was a probe artifact); 3.4b2b a car now and then drives a village street home and parks as one of the parked cars, owners out leave empty spots (v208, tlx-traffic v4); 3.5a semis on the roads in three sizes, trailer on a tractrix coupling (tlx-semis v1, tlx-traffic v5); 3.5b1 the tractor unit you buy and drive, Freight licence, no trailer yet (tlx-vehicles v19); 3.5b2a semitrailers in road lay-bys, fifth-wheel coupling, landing legs, the trailer's weight and off-tracking (tlx-rig v1, tlx-vehicles v20); 3.5b2b1 the trailer is solid (walker, sled, pickup, the tractor's nose; road drivers stop behind its tail), the jackknife holds the lorry and says so, straight reversing asserted over 20 m (tlx-rig v2, tlx-vehicles v21, tlx-traffic v6); 3.5b2b2 a rig left standing keeps its trailer and gets a warning triangle, a sold lorry leaves the trailer on its legs, the curtainsider outside Mehamn, marker lamps lit only while coupled, low gears with a trailer on (tlx-rig v3, tlx-vehicles v22); 3.5b3a trailer runs: loaded trailers posted in Freight for tractor owners, hauled lay-by to lay-by, paid by tonnes and road km, Jobs row and the compass by itself (v241, tlx-rig v4, tlx-roads v10); 3.5b3b used tractor units on Bytteboden, standing in the lay-by nearest the seller (v242, tlx-vehicles v23): 3.5b done; 3.5c1 storm closures: a barrier at each end of the Lebesby and Mehamn roads comes down while the road is snowed in, traffic queues at it and leaves as a convoy on the hour once the plow has been, the return convoy after, board / Map legend / compass give the time, option convoy (tlx-convoy v1, tlx-traffic v7, tlx-roads v11); 3.5c2a the council's plow truck stands inside the boom, leads the convoy with its blade down and opens the snowed-in road as it goes, turns at the far gate and leads the return convoy (tlx-convoy v2, tlx-traffic v8, tlx-roads v12); 3.5c2b you in the convoy: fall in behind the line, the riding hint gives speed and gap, the convoy waits for you, leaving it between the barriers flags the Map (v244, tlx-convoy v3): 3.5 done, milestone 3 done; next: milestone 4 (plowing solo) |
+| 4 | Plowing solo (lane A) | design for 4.1 written 18 Nov (blade on the pickup, cells + road-stretch credit, windrows, the plow truck), split into 4.1a / 4.1b / 4.1c; nothing built; next: 4.1a (`tlx-plow.js`, `x4_blade.mjs`) |
 | 5 | Staff | 5.1 landed (v221): Staff app, applicants for caretaker jobs at your depot cabins, hire, let go, Monday wages pro rata, wages owed; 5.2 landed (tlx-staff v2): interviews in a chat, oversellers slip and get caught, references check out, wage offers and patience; beta 0173 #1 null entries fixed; 5.3 landed (tlx-staff v3): happiness, praise/criticism in person, raises and raise requests, notice and quitting, option walkout; next: milestone 6 (lane B; 5.4 plow drivers is lane A's) |
 | 6 | Upkeep and lighthouses (lane B) | 6.1a landed (v229, tlx-property v1): dust and grit at your depots, sweeping and dusting by hand, cleaning kits, caretakers clean; beta fix 0186 #1 the broom is one 1.45 m length instead of stretching 1.5-1.9 m with each stroke (tlx-property v2); 6.1b landed (v235, tlx-property v3): Real Estate has a page per property type, Slettnes lighthouse station is for sale (keeper's house + tower room, each room its own dirt, let by the night, caretaker); 6.1 done; 6.2a landed (v236, tlx-lights v1): the lamp at Slettnes burns paraffin while the sun is down, 180 L tank, drums ordered in the Lights app and hauled from the quay, pumped in by hand, relit by hand, Monday stipend by lamp hours; 0196 #3 dropped (no save holds a position: every reload, from anywhere, starts on the sled at the quay; a base-game design question, not a 6.1b bug); 6.2b landed (tlx-lights v2, tlx-property v4): two smaller sea lights for sale, Finnkirka ($4,400) and Kinnarodden ($5,200), a lantern hut each with its own flash, 80 L tank, $6 / $7 a lamp hour, drums ordered and hauled per light: 6.2 done; next: 6.3 (keepers and oil drivers) |
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
@@ -676,6 +677,128 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 
 ### 4. Plowing solo (`tlx-plow.js`)
 - [ ] 4.1 The blade (Bytteboden / garage) and the plow truck: drop it, clear a lane, leave windrows.
+      Design written 18 Nov (lane A), split into three passes. Nothing below is built yet.
+
+      **What the code gives us (read 18 Nov, main at v244).**
+      - Snow is two numbers per 25 cm cell: `f` the snowpack and `d` what stands now; `pack = 1 - d/f`. A yard or a
+        road leg holds its cells at `f x (1 - YARD_K x y)` (0.15 f in a yard), and `refill()` eases every loaded
+        cell back to that target (1/360 a second in calm, 1/45 in a full storm; a third of that where `c.g` is set).
+        Chunks are not saved: a reload starts every cell at its target. So a cut that is to last must be a LEG
+        whose `Y.k` is saved by its owner (road stretches in `x.sys.roads`), not cells.
+      - `pressSnow` only presses down and only round a point; nothing raises `d` above `f` today. `packOf` and the
+        wheel code clamp `1 - d/f`, so `d > f` reads as loose snow that deep, which is what a windrow is. The builder
+        greps every reader of `c.d` / `depthAt` once (footStep, the sled's sink, `surf`, the snow shader's pack
+        channel) before relying on it.
+      - A wheel reads the cell 0.42 m ahead of it and the belly reads 1.5 m ahead of `P`. A blade that cuts ahead of
+        the bumper therefore removes the sink and the belly drag without touching `core()`: the truck's limit
+        becomes the push on the blade.
+      - `TLXV.addLoad(fn)` already feeds `core()` a `{ kg, pin, drag, brakeN, hold }` per truck uid (the semitrailer
+        uses it): `drag` is taken off the push and counted in the "stuck" test, `pin` adds weight on the tyres.
+        `xLoad` returns the FIRST load that answers, so two loads on one truck would need it to sum (not needed
+        while blades go on pickups and trailers on tractors).
+      - `VEH.cur.use()` / `useLabel()` / `useHint()` are already asked by E, pad L3 and the touch pill `#tcE` (the
+        boat's handline uses them); a wheeled truck's driver has none, so E in a pickup falls through to the horn.
+      - `TLXR.plowSeg(id, s)` cuts a 400 m road stretch at once, stamps the scraped hour and repaints the Map
+        (3.5c2a). `TLXR.near(x, z)` gives `{ route, d, s }`: the nearest route, the distance from its line (unsigned)
+        and the metres along it; `ROADS.half` is 3.2 m.
+      - `api.veh.tabs` is a list: a system adds a garage tab without editing tlx-vehicles.js.
+
+      **Decided.**
+      - New `tlx-plow.js`, state id `plow` (add it to x1_save's list): `{ v: 1, blades: { truckUid: { id, cond } },
+        shed: [bladeId...], m: metres cut in all }`. The blade's up/down is not saved: a reload finds it UP. A blade
+        whose truck is gone (sold, an old save) moves to `shed`.
+      - No `TLX.option`: the blade is milestone content, not a suggested addition. The one option in this milestone
+        is 4.1b's `plowtrip` (below).
+      - Control: the truck's use control (`btn("use")`: E / L3 / the touch pill, which reads BLADE DOWN or BLADE UP)
+        drops and lifts it. Cost: in a truck WITH a blade the horn is gone from that control (a bladeless truck
+        keeps it). No new `BTN` row. The throw side (4.1b) is a HOLD of the same control, so every scheme has it.
+      - Cells for the look and the grip now, road stretches for what lasts. Off a road a cut snows in again at the
+        game's own rate and a reload forgets it and the windrows: accepted for 4.1, and why 4.2's driveways and lots
+        are legs with their own saved `k`, like road stretches.
+      - No pay in 4.1 (that is 4.2). Canon numbers untouched; the pickup without a blade drives exactly as before
+        (`addLoad` answers null).
+
+    - [ ] 4.1a The blade on the Fjellvogn: buy and fit it, drop it, cut a lane, leave a windrow, feel the push,
+          open a snowed-in road stretch. Scenario `x4_blade.mjs`.
+          TABLE `BLADES`: `{ id: "b23", name: "Fjellskjær 2.3", fits: ["pickup"], cost: 1450, kg: 280, w: 2.3,
+          h: 0.65, ang: 0.49 (28 degrees, so it clears 2.03 m: the pickup is 1.96 wide), z: 1.15 (m ahead of the
+          front axle), leave: 0.15 (of f: the yard level) }`. `BL` tunables: `face` 2600 N per m2 of snow face
+          (depth x cut width), `v2` 0.035 (the face term grows by 1 + v2 x v^2), `carryN` 900 N per m3 on the
+          blade, `carryMax` 1.2 m3, `rowW` 0.75 m, `rowMax` 0.9 m over f, `backN` 300 N reversing with it down.
+          Reasoning for the numbers: the pickup's grip is about 7.8 kN on hard pack plus the blade's 280 kg on the
+          front tyres; 30 cm of powder is a 0.61 m2 face, 1.6 kN standing and 3.0 kN at 18 km/h (steady work);
+          60 cm is 3.2 kN standing and 5 kN at 14 km/h (a crawl); a 90 cm drift with a full blade is past the grip
+          (take bites, or it is the plow truck's job). Tune to those three outcomes, not to the constants.
+          GARAGE: a "Plow" tab (`api.veh.tabs.push`): per owned pickup "Fit the Fjellskjær 2.3" with the price, or
+          "Take it off" (to the shed, refit free); the truck must stand within 60 m of the garage, and the row says
+          so when it does not; no pickup: one line pointing at the Trucks tab. `api.garageRefresh()` after.
+          BRIDGES. tracklayer.js: two hoisted functions beside `pressSnow`, both in `api.world`:
+          `bladeSnow(ax, az, bx, bz, leave)` cuts every cell within 0.75 x CELL of the segment a-b down to
+          `f x leave`, sets `c.g` (slow refill), returns the m3 removed; `heapSnow(x, z, r, vol, cap)` raises the
+          cells in a disc by `vol` shared out, never past `f + cap`, sets `c.g`, returns the m3 placed. tlx-vehicles.js
+          (bump its `?v=`): `TLXV.addUse({ use(R), label(R), hint(R) })` asked by a wheeled driver's new
+          `use` / `useLabel` / `useHint`, `TLXV.onModel(fn(R))` called when a truck's model is built (and at once
+          for those already built), `TLXV.runtimeOf(uid)`.
+          EACH FRAME (tlx-plow `tick`), for the truck you are in with its blade down, on the ground, moving forward
+          over 0.3 m/s: sweep the blade's line from where it was last frame to where it is now in steps of half a
+          cell and `bladeSnow` each; the removed volume joins `carry`; all of `carry` that fits is laid with
+          `heapSnow` just outside the blade's trailing end (the right-hand side, as the council's truck throws),
+          `rowW` wide; what does not fit (cap reached) stays on the blade up to `carryMax` and the rest spills
+          straight ahead of it. Lifting the blade, or stopping, drops the carry as a pile in front. The load it
+          reports to `addLoad`: `kg` and `pin` 280 whenever fitted; `drag` = face term (mean depth over the cut
+          line, read BEFORE the cut) + carry term while cutting, `backN` reversing with it down, 0 with it up.
+          A plume off the trailing end with `api.emit`, more of it over 8 m/s.
+          ROAD CREDIT. While cutting within the road's half-width of a `TLXR` route line, mark a 10 m bin of the
+          stretch for the LANE you are in (`near` has no side, so the lane is the way you are heading along the
+          route: up it or down it; a blade clearing 3 m or more marks both).
+          A stretch with 80% of its lane-bins marked is `TLXR.plowSeg`'d (snow 0, scraped hour, Map repaint) with a
+          toast naming the road. So the pickup opens a stretch by going out and coming back, and 4.1c's truck in
+          one pass. Bins are not saved and are cleared when the stretch is credited or its snow rises again.
+          A convoy road counts too: the convoy rules already open a road they find clear.
+          SEEN: built in tlx-plow.js onto the truck's group: an A-frame from under the bumper, a lift arm and ram,
+          a curved mouldboard in three strips with a steel cutting edge, two marker rods with orange tips, two plow
+          lamps on a bar over the bonnet (unlit materials driven from `dayFactor`, never glowing by day or dark
+          when the truck is parked). Down is 0.3 m lower, eased over 0.5 s. Parked trucks show their blade too.
+          TOLD: a line on `api.ridex` in a bladed truck: blade up, standing or slow in 8 cm+ of snow:
+          `keyHint("use", "drop the blade")`; down: "BLADE DOWN · 14 km/h · cutting 32 cm" with
+          `keyHint("use", "lift it")`, and "the blade is full: lift it or ease off" at `carryMax`.
+          ASSERTS for `x4_blade.mjs` (exit 1 on any): fresh game has the state and no blade; fitting takes $1,450
+          once, refit is free, the model is on the truck; blade UP into a 40 cm field the truck stops or bogs
+          within the distance x2's tests show today (base line unchanged); blade DOWN beside it, 40 m or more in
+          the same game time at 3-7 m/s; behind it the centre line and both wheel tracks are at or under 0.2 f
+          with `packOf` 0.9+ across 1.9 m; right of the cut, 1.2-2.2 m off the line, `d - f` is 0.10 m or more;
+          left of it within 0.02 of before; volume laid within 25% of volume cut while nothing is capped; steady
+          speed falls from plowed lane to 30 cm to 60 cm; a 1.0 m drift from a standstill moves it under 3 m in
+          6 game s and no bog toast lies about why; one pass along a stretch set to 0.9 leaves it shut with about
+          half its lane-bins, the pass back opens it (`s[i]` 0, `t[i]` stamped, status open, the toast recorded as
+          it shows); blade up along another stretch changes nothing; the control under all three schemes (E, pad
+          button 10 on an Xbox and a DualSense id, the pill pressed with a PointerEvent and reading BLADE DOWN /
+          BLADE UP) and the hint naming `btn("use")` for each; a bladeless truck still sounds the horn; reload
+          with it fitted and down: fitted and up; a save with no `x.sys.plow` loads; frame time blade down vs up
+          printed, on the low preset too. Stills, looked at before landing: the truck side-on and three-quarter
+          front, blade up and down, noon and night; the cut and its windrow from a tilted high camera
+          (ground-relative height, 35 degrees or more off vertical) and from the cab.
+          NOT in 4.1a: the throw side, a solid blade, wear, sound, the plow truck, used blades, pay.
+    - [ ] 4.1b Working it properly. HOLD the use control 0.5 s with the blade down to change the throw: right ->
+          left -> straight (straight carries everything and stacks it where you lift: for yards). Back-dragging:
+          reversing with it down cuts at 60% and pulls the snow with it (away from a door). The blade is solid
+          (one more hull circle while fitted) and, option `plowtrip` (on): at over 4 m/s a rock, kerb or parked car
+          trips it: a thud, the truck checked, `cond` down. `cond` wears with metres cut and trips, shows on the
+          Plow tab, is mended at the garage per point; under 30 it leaves a ragged cut (`leave` 0.3). A scrape
+          sound by depth and speed, sparks on a scraped road stretch. A windrow laid across a door spur
+          (`KIT.doors` lanes) is counted per door for 4.2's complaints. Used blades on Bytteboden under Vehicles
+          (a hook in tlx-vehicles' `MKTV` for foreign items: pool, info, collect at the seller's door into the
+          truck you came in). Scenario `x4_bladework.mjs`.
+    - [ ] 4.1c The plow truck. A `VEHICLES` row (wheeled, the tractor's defaults): "Nordtrekk Brøyt 4x2", licence
+          `freight`, about 9.8 t, its 3.5 m blade and gritter body from the factory, $16,800 new on the Trucks tab
+          (above the tractor's $11,500 and the Aurora E: it is a company's capital), used on Bytteboden by the
+          lorry rules (a lay-by, the Freight licence). Model: the council truck's geometry from tlx-convoy.js's
+          `buildPlow`, exported and repainted, not copied. Its blade is a `BLADES` row (`w` 3.5, fits it only, not
+          sold apart) and marks both lanes; the same drag terms against four times the grip give 60 cm at
+          25 km/h. The gritter: a second use (the HOLD cycles throw -> grit on/off) lays grit that raises `mu` on
+          ice and scraped stretches for some hours (a per-stretch value in this system's state). Counts against
+          the three-truck limit. Scenario `x4_plowtruck.mjs`: one pass opens a stretch; a 90 cm drift taken at a
+          run; the U-turn room it needs; all three schemes.
 - [ ] 4.2 Plow app: municipal routes, driveways, lots, the hotel forecourt; pay by metres and promptness; a
       contract at risk when left unplowed. Jobs app rows.
 
