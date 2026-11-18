@@ -3,6 +3,42 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 06:12 — beta fix 0228 #1: Bytteboden refuses a 4th truck before the cash moves (v248, tlx-vehicles v26, lane A) (G4) — eb811b0
+Builder pass, lane A. Orient: worktree clean, rebased on main (v247), 171 GB free. Triage 0228-0231 (last triaged ->
+231). 0228 #1 is a BUG on landed lane A work (3.5b3b / 2.7), so it came before 4.1b3. 0229, 0230: no BLOCKER or BUG.
+0230 #4 (no word on reload when a coupled lorry is gone), #5 (triangle a second late), 0231 #1 (a tripped blade
+unfolds on a swap away and back) and 0228 #2 are POLISH, not built; 0228 #2 is mostly answered by this fix (nothing is
+refunded any more, and the refusal names the waiting truck).
+The bug. The marketplace's pool keeps a 4th truck off the board, and the garage counts a paid-for order (0110), but
+`mktPay` asked nobody: a truck listing ALREADY on the board when you reached three another way was sold, and
+`heldRefund` then gave back the truck you had paid for first.
+Fix. tlx-vehicles.js `MKTV.payWhy(l, held)`: a reason or "". Trucks: `usedTrucks(held) >= MAX_OWNED` (names the
+waiting truck when there is one); a sled trailer when one is owned or waiting; a tractor unit without the Freight
+licence. tracklayer.js `mktPayWhy(l)` asks it for the Vehicles category at the top of `mktPay`, before the cash check,
+and the listing's page adds "Not for you yet: ..." to its note (the PAY button stays live so pressing it says why on
+every scheme). Found beside it: `MKTV.blocked` counted every record in `owned`, boats too, so 2 trucks + the skiff
++ a paid-for pickup was refunded as "enough trucks"; it counts trucks now. And the garage's tractor row was locked with
+no reason while a used PICKUP waited (which is what `x2_vehheld` B has been failing on since the tractor got a row):
+it says so now.
+Numbers (`x3_usedcap.mjs`, new, 30 asserts, no stills: a state and money test):
+- 2 trucks + a pickup waiting, lorry listing paid in person: before 3 owned + 1 waiting then the pickup refunded
+  (0228); after cash 77,030 -> 77,030, 2 owned + 1 waiting, listing still on the board, no refund in the 2.6 game s
+  after; the pickup then collects: 3 trucks;
+- 3 trucks, a pickup listing from before: refused by SEND and in person; with 2 trucks the same listing sells;
+- trailer waiting or owned: a second is refused; no licence: a tractor listing is refused, sells with it back;
+- 2 trucks + a skiff + a pickup paid for: not refunded in 4.5 game s, `blocked` "".
+Gate: smoke, x1_save, x3_usedcap, x3_usedlorry, x3_usedlorry_break, x2_vehheld, x2_vehheld_break, x2_vehmkt all exit 0,
+page errors none (final code: smoke, x1_save, x3_usedcap, x3_usedlorry, x3_usedlorry_break after the rebase;
+x2_vehheld / _break on the run before; x2_vehmkt re-run alone on the final code, 34 ok).
+Two runs failed on the way and were the tests: one x1_save had the "tlx-roads never loaded" fetch reset (clean on the
+re-run), and the tester's x3_usedlorry_break assumed C's lorry was bought (its listing now stays, and the board lists
+nothing twice) and slept 2.8 s of wall time for a refund round that is 2 s of game time; both edited in that file.
+Honest limits. Pad and touch not run: no control changed, the refusal is a toast and a line on the page. The trailer
+"one waiting, a second listed" case cannot arise in play (the board never lists one thing twice); it is covered
+because the check is the same line. The refusal text for three trucks on the ground is the garage's own ("That is
+enough trucks on the forecourt (3)"): there is no way to sell a truck in the game, so it does not suggest one.
+Next for lane A: 4.1b3 (doors and used blades).
+
 ## 2026-11-18 05:40 — 4.1b2b: the plow blade is solid, trips on rocks, logs and parked cars, scrapes and sparks; beta 0227 #1/#2 (v247, tlx-plow v6, tlx-vehicles v25, lane A) (G4) — 8a873ef
 Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 172 GB free. Triage 0225-0227 (last triaged ->
 227): no BLOCKER or BUG. 0225 confirms the menu fix. 0226 #1 agrees with last pass on 0220 #1 (the puppet, not the
