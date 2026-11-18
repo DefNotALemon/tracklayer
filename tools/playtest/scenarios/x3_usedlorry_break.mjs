@@ -87,14 +87,14 @@ const fin = (await trucks()).length, finHeld = await ev(`GS.mkt.held.filter(h =>
 ok(fin <= 3, `C: after collecting everything: ${fin} trucks on the ground, ${finHeld} still held`);
 
 // ---- D. licence gone with an order waiting -> refund
-await ev(`TLX.state("vehicles").owned.length = 0; GS.mkt.held = []; GS.cash = 80000; true`);
+await ev(`TLX.state("vehicles").owned.length = 0; GS.mkt.held = []; GS.cash = 80000; GS.mkt.list = GS.mkt.list.filter(l => l.cat !== "veh"); true`);   // since the 0228 #1 fix C's lorry listing is still on the board (refused), and the board lists nothing twice
 const L4 = await makeL(site, "tractor", false);
 await away(site);
 const c0 = await ev("GS.cash");
 await ev(`mktPay(GS.mkt.list.find(l => l.id === ${L4.id})); true`); await sleep(400);
 const paid = c0 - await ev("GS.cash");
 await clearToasts();
-await ev(`GS.lic.freight = false; true`); await sleep(2800);
+await ev(`GS.lic.freight = false; true`); await waitUntil(`!GS.mkt.held.some(h => h.item === "tractor")`, 8); await sleep(300);   // the refund round is every 2 s of GAME time: a fixed 2.8 s wall sleep missed it on a loaded machine
 const c1 = await ev("GS.cash");
 ok(!(await ev(`GS.mkt.held.some(h => h.item === "tractor")`)) && c1 === c0, `D: licence gone: order refunded (paid ${paid}, cash back to ${c1} vs ${c0})`);
 ok((await toasts()).some(t => /refunds/.test(t)), "D: and a toast says so");

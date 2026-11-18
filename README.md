@@ -320,7 +320,10 @@ quarter tank) and you walk over and take it. The garage's Trucks tab repairs a t
 condition point) or the trailer ($4 a point) back to 100% when it's within 40 m of the garage;
 that also mends the dents a truck takes from trees. Three trucks is the limit, used or new, and one
 you've paid for but not collected yet counts: the garage won't sell you a second trailer or a fourth
-truck over it (its Trucks tab says where the paid-for one is waiting). If an older save already has an
+truck over it (its Trucks tab says where the paid-for one is waiting), and Bytteboden won't take your
+money for one either: a used truck or trailer still on the board when you reach the limit another way
+says why on its page and when you try to pay, and what you already paid for stays yours. A boat is not
+a truck and does not count. If an older save already has an
 order that can never be handed over, the seller refunds it.
 
 **Boats.** The garage's **Boats** tab sells the **Fjordsnekka 460** ($2,600): a 4.6 m aluminium

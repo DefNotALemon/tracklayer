@@ -1119,7 +1119,9 @@ function garageRows(body, row) {
     const how = d.how || `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
     const lic = hasLic(d) ? "" : `\n<span style="color:#f0c674">Needs your ${LIC_NAME[d.lic] || d.lic} licence.</span>`;
     const hd = d.id === "pickup" ? hp : heldVeh(d.id);
-    const wait = hd ? `\n<span style="color:#f0c674">You've paid for a used ${usedNoun(d.id)}: ${d.id === "pickup" ? `it's waiting in ${heldWhere(hd)}` : `collect the keys from ${hd.seller || "the seller"}`}.${full ? ` That makes ${MAX_OWNED} trucks, the most the forecourt takes.` : ""}</span>` : "";
+    const hAny = hd || (full ? heldList().find(h => h.cat === "veh" && h.item !== "haul") : null);   /* a row locked by ANOTHER kind's paid-for truck says so too (the tractor's row, a used pickup waiting) */
+    const wait = hd ? `\n<span style="color:#f0c674">You've paid for a used ${usedNoun(d.id)}: ${d.id === "pickup" ? `it's waiting in ${heldWhere(hd)}` : `collect the keys from ${hd.seller || "the seller"}`}.${full ? ` That makes ${MAX_OWNED} trucks, the most the forecourt takes.` : ""}</span>`
+      : hAny ? `\n<span style="color:#f0c674">You've paid for a used ${usedNoun(hAny.item)} that is still waiting. That makes ${MAX_OWNED} trucks, the most the forecourt takes.</span>` : "";
     row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${wait}${lic}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost || !hasLic(d) ? "locked" : "", () => buy(d.id), String(d.year));
   }
   for (const r of s.owned) {
@@ -1620,7 +1622,18 @@ const MKTV = {
   blocked(h) {
     if (h.item === "haul") return haulS() ? "You already own a sled trailer." : "";
     if (isLorry(h.item) && !hasLic(byId(h.item))) return "A tractor unit needs your Freight licence.";
-    return S().owned.length >= MAX_OWNED ? `That's enough trucks (${MAX_OWNED}).` : "";
+    return S().owned.filter(isTruck).length >= MAX_OWNED ? `That's enough trucks (${MAX_OWNED}).` : "";   /* trucks only: a boat in `owned` is not one */
+  },
+  /* Report 0228 #1: why this listing can't be paid for now ("" = it can). Asked by the marketplace BEFORE it takes the cash:
+     the pool keeps a 4th truck off the board, but a listing already there when you buy another truck (new, or used and still
+     waiting at its seller's) used to be sold all the same, and heldRefund then quietly gave back the one you'd paid for first. */
+  payWhy(l, held) {
+    held = Array.isArray(held) ? held : heldList();
+    if (l.item === "haul") { const hh = held.find(h => h.cat === "veh" && h.item === "haul"); return haulS() ? "You already own a sled trailer." : hh ? `You've already paid for a sled trailer: it's waiting in ${heldWhere(hh)}.` : ""; }
+    if (isLorry(l.item) && !hasLic(byId(l.item))) return "A tractor unit needs your Freight licence.";
+    if (usedTrucks(held) < MAX_OWNED) return "";
+    const hp = held.find(h => h.cat === "veh" && h.item !== "haul");
+    return hp ? `That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isLorry(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.` : `That is enough trucks on the forecourt (${MAX_OWNED}).`;
   },
   noRoom: h => { if (!isLorry(h.item)) return ""; const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity); return `${h.seller}: "There's no room to stand it in the ${n ? n.bay.name : "lay-by"}. Move what's parked there and come back."`; },
   collect(h, site) {                                                             // "" = no room right now (the marketplace nags and retries)

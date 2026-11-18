@@ -10772,6 +10772,7 @@ function mktInspect(l) {
 function mktPay(l) {
   if (SCHOOL.on) { toast("You're on a school course. Bytteboden can wait.", "warn"); return; }
   const p = mktPrice(l), inf = mktInfo(l, l.real);
+  { const vw = mktPayWhy(l); if (vw) { toast(vw, "warn"); return; } }           /* report 0228 #1: no 4th truck, no second trailer, asked before the cash moves */
   if (GS.cash < p) { toast(`That's ${fmtCash(p)}. You have ${fmtCash(GS.cash)}.`, "warn"); return; }
   GS.cash -= p; GS.mkt.list = GS.mkt.list.filter(q => q !== l);
   const h = { lid: l.id, cat: l.cat, item: l.item, site: l.site, seller: l.seller, name: inf.name, cond: l.real, adv: l.adv, lemon: l.lemon, insp: l.insp, tell: l.tell, paid: p, hrs: l.hrs, seed: l.seed, state: "wait" };
@@ -10790,6 +10791,8 @@ const mktHowTo = h => h.cat === "veh" ? (mktV() ? mktV().howTo(h, shortName(mktS
   : h.cat === "fish" ? `Pick it up in ${shortName(mktSite(h))}: it goes in your pack.`
   : h.cat === "ski" ? `Pick them up in ${shortName(mktSite(h))}: they strap along the side of your sled.`
   : `It's waiting in ${shortName(mktSite(h))}: hook it up and tow it away. Needs ${recvNeed(h.item)}.`;
+// why a listing can't be paid for right now ("" = it can): only the Vehicles category has a limit to run into
+function mktPayWhy(l) { const v = l.cat === "veh" ? mktV() : null; return v && v.payWhy ? v.payWhy(l, GS.mkt.held) || "" : ""; }
 // why you can't take it away right now ("" = you can)
 function heldWhy(h) {
   if (SCHOOL.on) return "You're on a school course.";
@@ -10992,7 +10995,8 @@ function mktDetail(el, l) {
   </div></div>`;
   h += `<div class="tmkth"><div class="tmkm them">${tabEsc(l.why)}</div>${l.thread.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${tabEsc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${tabEsc(l.seller)} is typing…</div>` : ""}</div>`;
   const offers = [0.7, 0.8, 0.9].map(f => `<button type="button" class="tbtn ghost" data-tf="mko:${f}" data-mko="${f}"${l.mute || l.deal || typing ? " disabled" : ""}>OFFER ${fmtCash(mktRound(l.ask * f))}</button>`).join("");
-  const why = l.cat === "engine" ? (isElectric(sledDef()) ? "No engine goes in the Aurora; it'll sit on the shelf." : "") : "";
+  const payWhy = mktPayWhy(l);
+  const why = l.cat === "engine" ? (isElectric(sledDef()) ? "No engine goes in the Aurora; it'll sit on the shelf." : "") : payWhy ? `Not for you yet: ${payWhy}` : "";
   h += `<div class="tmka">${offers}</div>`;
   h += `<div class="tmka"><button type="button" class="tbtn" data-tf="mkpay" data-mkpay="1">${here ? "PAY" : "SEND"} ${fmtCash(mktPrice(l))}${l.deal ? " (DEAL)" : ""}</button>
     <button type="button" class="tbtn ghost" data-tf="mkins" data-mkins="1"${l.insp || !here ? " disabled" : ""}>${l.insp ? "INSPECTED" : here ? "INSPECT IT" : "INSPECT (IN PERSON)"}</button>
