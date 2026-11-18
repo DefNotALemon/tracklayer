@@ -3,6 +3,43 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 17:20 — 5.4a2: a plow driver in YOUR truck (tlx-plow v22, tlx-staff v7, tlx-vehicles v31, lane A) (G4) — ba3c932
+Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0266 (last triaged -> 266):
+2.5 hitch with the plow truck in the fleet, no BLOCKER, no BUG; left open: 0266 #5 POLISH (the free trailer's hint
+says "back the sled or a truck up" beside a plow truck that has no ball). Next unticked slice in lane A's list: 5.4a2.
+What the player gets. Half the applicants for a road have no truck (`PDR.mine`): the card, the greeting and the "why"
+answer say so, same wage, and all the kommune pays for what they open is yours. Their Staff card has ASSIGN THE
+<TRUCK> for each truck of yours with a blade. The truck stays yours while they are in; when snow lies on the road they
+take it (you on foot beside it are left with the sled) and it is gone from its spot: not drawn, no wall, never the
+nearest vehicle, no hitch ball, no Map pin, the garage will not mend / fill / repair it and its Trucks tab says who has
+it. They burn your diesel (0.5 L a km x the truck's burn on a clean road, 1.2 cutting) and wear your edge by the metres
+cut; the pickup's 2.3 m blade takes two passes a stretch at half the speed. No truck, no blade, you in the cab, a
+trailer on the hitch, a ragged edge or an empty tank: one notification with the reason, and they wait. A tank down to
+the drive home + 3 L or an edge gone ragged sends them home, the reason in the notification, which also counts the
+stretches, the pay, the litres and the edge. Back with you standing on its spot they wait (one notification) until you
+are 6 m clear. RECALL turns them round and unassigns on arrival; TAKE THE TRUCK BACK while they are in. A sleep uses
+your truck for what they could reach (diesel and edge charged); no truck free at bedtime is the contract's own rule.
+How. tlx-vehicles.js: `TLXV.setOut(uid, text, by)` and the `out` / `outBy` fields on a parked record, honoured in
+blockWalker, nearestTick, hostPose (the ball), the frame loop (hidden), the Map layer, the Trucks tab and repair.
+tlx-staff.js: a role row's `acts(m, p)` / `act(m, k, p)` are its own buttons on a crew card (`TLX.staff.xact`, focusable
+like the others), `greet(p, a)`. tlx-plow.js, the PDR block: `pdrKitWhy`, `pdrTake`, `pdrFree`, `pdrSweep` (a truck
+marked out by "plow" that no driver has comes home, every contract step), `pdrSpotClear`, `pdrActs` / `pdrAct`,
+`pdrFleet`, `pdrPasses`; `pdrRun` / `pdrSleep` / `pdrHome` carry the truck's fuel and edge; unfit / mend / fill refuse
+a truck that is out. State `pdr[road]` + `who, truck, f0, told, why, rc, hold`. No tracklayer.js change.
+Numbers (`x5_plowdriver_mine.mjs`, new, 73 asserts, all ok, page errors none): 600 applicants, 304 without a truck,
+wages $145-332. Plow truck on the Gamvik road, two 400 m stretches 1.6 km up: +$200 (all of it, against $120 with an
+own-truck driver), edge 100 -> 96.8%, 6.06 L out to the 807 m mark of the way home (by the book 6.06), 8.3 L the round
+trip. 3.6 L in the tank: stays in. 5 L: turns round 720 m out, home with 2.98 L. Edge 31.5%: one stretch, home at
+29.9%. Pickup with the Fjellskjær 2.3: one stretch takes 0.2 h instead of 0.1, 3.2 points and 3.2 L. A 9 h sleep:
+both open, +$200, 8.3 L, 3.2 points, no warning; with no truck assigned: warning 1 of 3 as with no driver. Reload with
+the truck out: still out, hidden, the work goes on. Let go / road handed back while out: the truck is on its spot.
+Gate: smoke, x1_save, x5_plowdriver_mine, x5_plowdriver (now sets `PDR.mine = 0`), x5_staff, x5_interview, x5_mood,
+x2_pickup, x2_pickupswap, x2_hitch, x4_plowapp, ui_responsive exit 0, page errors none. Stills looked at: the card
+with TAKE THE TRUCK BACK and with RECALL (five buttons fit the card's row).
+Known and left: the truck's drive from its parking spot to the road's first end costs no time or diesel; the driver
+never refuels or mends; a truck handed back at once (let go, road gone) can land beside you; nothing is seen on the
+road (5.4b). Next for lane A: 5.4b (the truck seen on the road), then 5.4c (stuck, ping, tow).
+
 ## 2026-11-18 16:00 — beta fix 0263 #1/#2: a heap on the line between two street lengths is one complaint; the option switched back on counts a standing heap (tlx-plow v21, lane A) (G4) — eead050
 Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0263-0265 (last triaged ->
 265): 0263 #1 is a BUG on lane A's own 4.2c2b, so it came before 5.4a2; 0263 #2 POLISH sat in the same forty lines and
