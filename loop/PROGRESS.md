@@ -3,6 +3,48 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 15:10 — 4.2c2b: a heap left in the street is the kommune's complaint (tlx-plow v19, lane A; milestone 4 done) (G4) — 6d90117
+Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 169 GB free. Triage 0259-0261 (last triaged ->
+261): no BLOCKER, no BUG. POLISH left open: 0259 #6 (a lot at level 0.10, just under "due", is still dropped and
+retaken free), 0260 #5 (pad B takes two presses out of the Plow app after a TAKE ON), 0261 #7 (a held lot's heap is hard
+to find at night: nothing in the world marks it; `hx`, `hz` are saved, a bearing in the hint would do). Next unticked
+slice: 4.2c2b, three lines of design. Probed, designed, built.
+What the player gets. Kjøllefjord's seven streets have names and a travelled lane (1.8 m each side of the centre line).
+Half a cubic metre or more of the blade's snow standing in it is a heap in the street. Beside it only the riding hint
+speaks; driven on it is the kommune's complaint: a line, a Jobs row whose target is the heap, a Map pin, a Streets
+section in the Plow app, the app's badge, a 2 h clock that stands in a storm. Pushed onto the verge it is forgotten.
+Left or slept through, the kommune's own truck clears it: one warning (for all heaps cleared in that go) on the road
+contract held longest, the third taking the road back; with no contract no road is tendered for 3 days.
+How. tlx-plow.js: the block at `STR` (`strBuild`, `strLay` from `heapAt`, `strMeasure`, `strStep`, `strGone`,
+`strRelay`, `strLine`, `strJob`, `strCards`, `strTidy`, `strInit`), `conStrike` takes a lead line, `conSign` asks
+`strBan`. State in `plow`: `str`, `strC`, `strN`, `strH`, `strBan`. Bridge in tracklayer.js (two lines):
+`TOWNG.lines` rows carry a name, `api.world.streets` hands them to the expansion. Option `plowstreets`.
+Design change from the probe: a 2.0 m lane caught the inner edge of a windrow thrown from the right-hand lane (1.0 m3
+left after two honest passes, never clear), so the lane is 1.8 m.
+Numbers (`x4_streetheap.mjs`, new, 47 asserts, all ok, page errors none):
+- 7 streets, 770 m, 65 lengths of 11.5-12.2 m, every metre covered, 0.000 m3 standing in any on a fresh game;
+- a 2.4 m3 pile carried down Skolegata on a square blade and left where the truck stops (the real blade, a puppet
+  truck): 2.95 m3 standing, hint only at 3.1 m; driven on: complaint, line, Jobs row, pin, badge, app;
+- one pass in the right-hand lane throwing right: 0.60 m3 left; the pass back: 0.00 m3, "Skolegata is clear of your
+  snow again", nothing on the count, no other length holding a heap;
+- left: 2 h of storm adds 0.00 h, 1 h of calm 1.00 h, at 2.1 h cleared (0.00 m3), no contract: no SIGN for 72 h, then
+  signed; with two contracts: warning 1 on the Gamvik road (held longest), two heaps in two streets = one warning
+  (2 of 3), the third takes the Gamvik road back for a week, the next goes to the Dyfjord road; Monday zeroes the week;
+- reload: the complaint, its clock and its place are back, within sight 1.00 of 1.12 m3 stands 0.0 m from where it
+  was; junk tidied; a save with no street state builds one; a 9 h sleep clears it "while you were away";
+- option off: the complaint dropped, a new heap not counted, no Streets section, a left-over tender ban ignored.
+Stills (`~/.hermes/cache/scratch/tlloop/a_42c2b/run2/`, all three looked at): s1 the pickup stopped in Skolegata with
+the stack in front of the blade and the overflow lumps at both ends, the hint readable in three lines; s2 the Plow
+app's Streets row (3.0 m3, 2 h, IN THE WAY) and its note, nothing clipped; s3 the lane bare between the curbs, the
+snow banked on both verges.
+Gate: smoke, x1_save, x4_streetheap, x4_bladedoors, x4_driveways, x4_plowapp, x4_lotheap, x4_lots, x4_dropfile,
+x4_drivemarks exit 0, page errors none.
+Not done: village streets; the rows thrown onto a verge can land on a front walk (4.2b2 then complains: the hint does
+not say which side is free); nobody sees the kommune's truck; the warning does not pick the nearest road; the street
+names are on no sign and not on the Map; a real storm's snowfall over a standing complaint was not run (the clock was).
+Open for Lemon (defaults built): 0.5 m3, 2 h, the warning on the contract held longest, 3 days without one, the names.
+Milestone 4 (plowing solo) is done: 4.1 and 4.2 ticked. Next for lane A: 5.4 plow drivers (needs lane B's staff, landed).
+
 ## 2026-11-18 14:40 — 4.2c2a: a lot's heap: cut is not clear while your snow stands in its middle (tlx-plow v18, lane A) (G4) — d15b5df
 Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 170 GB free. Triage 0258 (last triaged -> 258):
 3.3b dig reload, no BLOCKER, no BUG. POLISH left open: 0258 #3 (a part-dug car still quotes and pays from where it
