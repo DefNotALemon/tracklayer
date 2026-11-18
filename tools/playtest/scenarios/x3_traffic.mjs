@@ -30,7 +30,7 @@ await boot();
 await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; true`); await sleep(1000);
 
 // ---- A
-const A = await J(`(() => { const T = TLXT; return { ready: T.ready, err: T.err, tickErr: T.tickErr || null, ms: T.ms, n: T.n, cars: T.cars.filter(c => !c.semi).length, routes: T.routes.map(r => r.id + ":" + Math.round(r.len)),
+const A = await J(`(() => { const T = TLXT; return { ready: T.ready, err: T.err, tickErr: T.tickErr || null, ms: T.ms, n: T.n, cars: T.cars.filter(c => !c.semi && !c.plow).length, routes: T.routes.map(r => r.id + ":" + Math.round(r.len)),
   on: T.cars.filter(c => c.on).length, offRoad: T.cars.filter(c => c.on && TLXR.near(c.x, c.z).d > 2.6).length,
   dist: T.cars.filter(c => c.on).map(c => Math.round(Math.hypot(c.x - P.x, c.z - P.z))), meshes: T.group ? T.group.children.filter(o => !/^(semi_|traffic_semi)/.test(o.name)).length : 0 }; })()`);
 console.log("traffic:", JSON.stringify(A));

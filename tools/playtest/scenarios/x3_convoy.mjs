@@ -1,4 +1,6 @@
 // Slice 3.5c1 (G4): storm closures and convoys, the barriers. Asserts, exit 1 on a failure.
+// Runs with the plow truck off (TLXCV.CV.plow = 0: the barrier stays CLOSED until the road is plowed, nobody leads);
+// the truck at the head of the convoy is x3_plowlead.mjs.
 //  A. tlx-convoy.js loaded: each convoy road has two gates, in from its ends, 800 m+ apart, clear of other roads and of
 //     the lay-bys; everything open, booms up, nothing on the Map legend.
 //  B. a stretch between the gates snows in: both booms come down; a car, a second car and a lorry heading in stop at the
@@ -29,7 +31,7 @@ const toasts = () => J(`[...new Set((window.__tsaw || []).concat((TOASTQ || []).
 const clearToasts = () => ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw = [];
   if (!window.__tsawI) window.__tsawI = setInterval(() => { const a = window.__tsaw || (window.__tsaw = []); for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
   return true; })()`);
-const setup = `tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXR.ROADS.plowAt = 2; true`;
+const setup = `tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXR.ROADS.plowAt = 2; TLXCV.CV.plow = 0; true`;
 
 await boot();
 await ev(`GS.hour = 34; ${setup}`); await sleep(1000);

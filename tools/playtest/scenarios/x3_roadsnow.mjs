@@ -19,7 +19,9 @@ const toasts = () => J(`(window.__TS || []).concat((TOASTQ || []).map(t => t.msg
 const NOSTILLS = !!process.env.NOSTILLS;
 
 await boot();
-await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; true`); await sleep(800);
+// 3.5c2a: on the two convoy roads the snow between the lowered barriers is left for the plow truck that leads the next
+// convoy (x3_plowlead.mjs). This scenario checks the council plow's own rule, so it runs with that option off.
+await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; TLX.setOn("convoy", false); true`); await sleep(800);
 await watchToasts();
 
 // ---- A

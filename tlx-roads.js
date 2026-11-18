@@ -603,13 +603,14 @@ function snowStep(dh) {
     let max = 0;
     rt.seg.forEach((g, i) => { if (!g.legs.length) return; const w = WX.at(g.mx, g.mz); o.s[i] = Math.min(1, o.s[i] + dh * ROADS.fill * api.sstep(ROADS.fillA, ROADS.fillB, w)); if (o.s[i] > max) max = o.s[i]; });
     if (o.p < 0) {
-      if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; } }
+      if (max >= ROADS.plowAt && WX.at(rt.pts[0][0], rt.pts[0][1]) < ROADS.plowWx) { o.w += dh; if (o.w >= ROADS.plowWait) { o.p = 0; o.w = 0; rt.outH = RS().h; } }   // outH: the hour it last set out (3.5c2a, not saved)
       else o.w = 0;
     }
     if (o.p >= 0) {
       const p0 = o.p; o.p += dh * ROADS.plowV;
-      const H = RS().h;
-      rt.seg.forEach((g, i) => { if (g.a >= p0 - 1e-6 && g.a < o.p) { o.s[i] = 0; o.t[i] = H; } });
+      const H = RS().h, CVX = window.TLXCV;
+      // 3.5c2a: between the lowered barriers of a convoy road the snow is left for the plow truck that leads the convoy
+      rt.seg.forEach((g, i) => { if (g.a >= p0 - 1e-6 && g.a < o.p && !(CVX && CVX.keeps && CVX.keeps(rt.id, g.a))) { o.s[i] = 0; o.t[i] = H; } });
       if (o.p >= rt.len) o.p = -1;
     }
   }
@@ -646,6 +647,14 @@ function snowTick() {
 }
 R.status = id => { const rt = R.routes.find(r => r.id === id); return !rt ? null : rt.closed ? "closed" : rt.seg.some(g => g.shut) ? "snowed in" : "open"; };
 R.setSnow = (id, v, i) => { for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) rt.st.s.forEach((_, j) => { if (i === undefined || i === j) rt.st.s[j] = Math.max(0, Math.min(1, v)); }); snowApply(false); };
+// 3.5c2a: a plow truck's blade reaches the stretch at s m along the route: cut down at once. Returns the snow it found.
+R.plowSeg = (id, s) => {
+  const rt = R.routes.find(r => r.id === id); if (!rt || !rt.st) return 0;
+  const i = Math.floor(s / ROADS.seg); if (!(i >= 0 && i < rt.st.s.length)) return 0;
+  const was = rt.st.s[i];
+  if (was > 0.02) { rt.st.s[i] = 0; rt.st.t[i] = api.GS.hour; snowApply(false); }
+  return was;
+};
 R.snowAt = (x, z) => { const n = R.near(x, z); if (!n.route || !n.route.st) return n.route && n.route.closed ? 1 : 0; let b = 0, bd = Infinity; n.route.seg.forEach((g, i) => { if (!g.legs.length) return; const d = Math.hypot(g.mx - x, g.mz - z); if (d < bd) { bd = d; b = i; } }); return n.route.st.s[b]; };
 
 /* ---- 3.2b2: a scraped road. The council plow's blade cuts a road down to the hard ice, and in a cold snap the traffic

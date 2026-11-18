@@ -29,7 +29,7 @@ await boot();
 await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; true`); await sleep(1000);
 
 // ---- A
-const A = await J(`(() => { const S = window.TLXS, T = TLXT; return { ready: T.ready, err: T.err, n: T.n, ns: T.nSemi, cars: T.cars.length,
+const A = await J(`(() => { const S = window.TLXS, T = TLXT; return { ready: T.ready, err: T.err, n: T.n, ns: T.nSemi, cars: T.cars.filter(c => !c.plow).length,
   semiIdx: T.cars.map((c, i) => c.semi ? i : -1).filter(i => i >= 0), types: S ? Object.keys(S.TYPES).map(k => ({ k, len: +S.TYPES[k].len.toFixed(2) })) : null }; })()`);
 console.log("A:", JSON.stringify(A));
 ok(A.ready && !A.err && A.types && A.types.length >= 3, "A: three semi sizes (" + (A.types || []).map(t => t.k + " " + t.len + " m").join(", ") + ")");

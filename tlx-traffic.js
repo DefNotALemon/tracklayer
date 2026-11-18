@@ -50,6 +50,12 @@
 // TRAF.semi.gone m off. It pulls out round something standing in the lane like a car, moving back in only once its
 // trailer is past. Semis never drive home to a parked spot.
 //
+// THE PLOW TRUCK (3.5c2a). One more entry per convoy road, after the semis: `plow: true`, drawn and steered by
+// tlx-convoy.js (which puts it on the road with T.put, holds it at a gate, lets it lead a convoy and turns it round),
+// driven by this file's road driver like any car. It is longer (c.pts, c.circ, c.fro as for a semi), is never placed,
+// dropped or sent home by the bubble, takes no notice of a drift or a lowered barrier, stops where c.stopD says, keeps
+// under c.vcap, and turns round wider and slower (c.turnT, c.bulge). Nobody in its convoy pulls out round it.
+//
 // Option "traffic" (Settings > Options, on): off hides every car and stops all of it (and every owner is home).
 //
 // TLXT (window, for later slices and scenarios): cars [{ rt, s, dir, v, st, x, z, y, yaw, why, lane, pass, roll }],
@@ -154,8 +160,9 @@ const youPos = () => { const F = api.FOOT, P = api.P; return F.on ? { x: F.x, z:
 function stopAhead(c, B, sh0) {
   const r = c.r, R = window.TLXR, seg = R.ROADS.seg;
   let d = c.dir > 0 ? r.s1 - TRAF.endGap - c.s : c.s - (r.s0 + TRAF.endGap), why = "end";
+  if (c.plow && c.stopD != null && c.stopD < d) { d = c.stopD; why = "post"; }   // the plow truck: where the convoy has it stand (3.5c2a)
   for (const g of r.rt.seg) {
-    if (!g.shut) continue;
+    if (!g.shut || c.plow) continue;
     const a = g.a, b = g.a + seg;
     if (c.s >= a && c.s < b) continue;                                       // drifted in round it while it drove: it crawls on
     const dd = c.dir > 0 ? a - c.s - TRAF.shutGap : c.s - b - TRAF.shutGap;
@@ -163,7 +170,7 @@ function stopAhead(c, B, sh0) {
   }
   // a convoy road's barrier, down for a driver heading in (3.5c1, tlx-convoy.js): it stands at the boom, not at the drift
   const CVX = window.TLXCV;
-  if (CVX && CVX.stopFor) { const g = CVX.stopFor(r.id, c.s, c.dir); if (g != null) { const dd = g - (c.fro || 0); if (dd < d) { d = dd; why = "gate"; } } }
+  if (CVX && CVX.stopFor && !c.plow) { const g = CVX.stopFor(r.id, c.s, c.dir); if (g != null) { const dd = g - (c.fro || 0); if (dd < d) { d = dd; why = "gate"; } } }
   // the line it checks is the lane it's heading for (sh m right of where it is now: moving over to pass, it looks down
   // the other lane, not at the thing it's pulling out round)
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sh = sh0 != null ? sh0 : (c.r.street[c.k] ? 0 : (c.laneT ?? TRAF.lane)) - (c.lane ?? TRAF.lane);
@@ -174,7 +181,7 @@ function stopAhead(c, B, sh0) {
     if (Math.abs(dz * fx - dx * fz - sh) > TRAF.laneW) return;
     const dd = a - TRAF.gap - (c.fro || 0); if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; ob = o || null; }
   };
-  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.semi && o.pts) for (const p of o.pts) each(p[0], p[1], "car", v, o); else each(o.x, o.z, "car", v, o); }
+  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.pts) for (const p of o.pts) each(p[0], p[1], "car", v, o); else each(o.x, o.z, "car", v, o); }
   if (B) for (const b of B) each(b.x, b.z, b.who, Math.hypot(b.vx, b.vz));
   return { d, why, a: a0, mv, o: ob };
 }
@@ -183,7 +190,7 @@ T.stopAhead = c => stopAhead(c, bodies());
 function laneClear(c, B, look) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sh = -TRAF.lane - (c.lane ?? TRAF.lane);
   const bad = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz; return a > -8 && a < look && Math.abs(dz * fx - dx * fz - sh) < TRAF.laneW; };
-  for (const o of T.cars) if (o !== c && o.on) { if (o.semi && o.pts) { if (o.pts.some(p => bad(p[0], p[1]))) return false; } else if (bad(o.x, o.z)) return false; }
+  for (const o of T.cars) if (o !== c && o.on) { if (o.pts) { if (o.pts.some(p => bad(p[0], p[1]))) return false; } else if (bad(o.x, o.z)) return false; }
   if (B) for (const b of B) if (bad(b.x, b.z)) return false;
   return true;
 }
@@ -201,7 +208,7 @@ function setPose(c, dt) {
   c.yaw = Math.atan2(q1.x - q0.x, q1.z - q0.z) - Math.atan2(c.lv, Math.max(3, c.v || 0));
 }
 function ground(c) {
-  const W = api.world, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), h = c.semi ? 2.2 : 1.4;
+  const W = api.world, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), h = c.semi ? 2.2 : c.plow ? 2.0 : 1.4;
   const yf = W.surf(c.x + fx * h, c.z + fz * h), yb = W.surf(c.x - fx * h, c.z - fz * h);
   c.y = (yf + yb) / 2; c.pitch = -Math.atan2(yf - yb, 2 * h);
 }
@@ -286,6 +293,22 @@ T.place = (id, s, dir, i, type) => {                                      // i (
   return c;
 };
 
+// the plow truck (3.5c2a): what others see of it (its nose, and a "car" just ahead of its tail) and its solid circles
+function plowBody(c) {
+  const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
+  c.pts = [[c.x + fx * 2.1, c.z + fz * 2.1], [c.x - fx * 1.45, c.z - fz * 1.45]];
+  c.circ = [-2.5, -0.3, 1.9, 3.5].map(u => [c.x + fx * u, c.z + fz * u, 1.3]);
+}
+// put this car on a road there, standing (no bubble hold: tlx-convoy.js's plow truck)
+T.put = (c, id, s, dir) => {
+  const r = T.routes.find(q => q.id === id); if (!r || !c) return null;
+  release(c);
+  Object.assign(c, { on: true, r, s: Math.max(r.s0, Math.min(r.s1, s)), k: 0, dir: dir < 0 ? -1 : 1, v: 0, st: "drive", t: 0, blocked: 0, hold: 0, why: "", laneT: TRAF.lane, pass: null, lv: 0, waiting: false, gq: false, cv: null, stopD: null, vcap: 0 });
+  c.lane = TRAF.lane; setPose(c, 0); ground(c);
+  if (c.plow) plowBody(c);
+  return c;
+};
+
 // ---- driving
 function startTurn(c) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), p = at(c.r, c.s, c.k);
@@ -295,11 +318,11 @@ function startTurn(c) {
 }
 function turnStep(c, dt) {
   c.t += dt;
-  const u0 = Math.min(1, c.t / TRAF.turnT), u = u0 * u0 * (3 - 2 * u0), U = c.tu, a = Math.PI * u;
+  const u0 = Math.min(1, c.t / (c.turnT || TRAF.turnT)), u = u0 * u0 * (3 - 2 * u0), U = c.tu, a = Math.PI * u, bulge = c.bulge || TRAF.bulge;
   // across the road on a half ellipse: from the right lane, swinging forward, into the other lane facing back
-  const lat = TRAF.lane * Math.cos(a), fwd = TRAF.bulge * Math.sin(a);       // lat: m to the right of the crown
+  const lat = TRAF.lane * Math.cos(a), fwd = bulge * Math.sin(a);       // lat: m to the right of the crown
   c.x = U.cx + U.fx * fwd - U.fz * lat; c.z = U.cz + U.fz * fwd + U.fx * lat;
-  const dl = -Math.sin(a), df = Math.cos(a) * TRAF.bulge / TRAF.lane;         // the path's direction in (right, forward)
+  const dl = -Math.sin(a), df = Math.cos(a) * bulge / TRAF.lane;         // the path's direction in (right, forward)
   const wx = U.fx * df - U.fz * dl, wz = U.fz * df + U.fx * dl;
   c.yaw = Math.atan2(wx, wz);
   if (u0 >= 1) { c.dir = -c.dir; c.st = "drive"; c.t = 0; c.blocked = 0; c.lane = c.laneT = TRAF.lane; c.pass = null; setPose(c, 0); }
@@ -312,6 +335,7 @@ function driveStep(c, dt, B, you) {
   let vt = Math.min(prof, c.semi ? SEMI.vmax : 1e9, Math.sqrt(2 * TRAF.brake * Math.max(0, sa.d)));
   if (r.rt.seg.some(g => g.shut && c.s >= g.a && c.s < g.a + seg)) vt = Math.min(vt, 3);   // ploughing through a fresh drift
   if (c.pass) vt = Math.min(vt, Math.abs(c.lane - c.laneT) > 0.8 ? 1.5 : TRAF.passV);       // moving over at a crawl, past at a creep
+  if (c.vcap > 0) vt = Math.min(vt, c.vcap);                                                // the plow truck with its blade in a drift (3.5c2a)
   // in a convoy (3.5c1): the line's speed and the line's gap behind the one ahead; one that has dropped back closes up a little faster
   if (c.cv && CVX) {
     let cap = CVX.CV.v;
@@ -330,22 +354,22 @@ function driveStep(c, dt, B, you) {
   c.s = Math.max(r.s0, Math.min(r.s1, c.s));
   setPose(c, dt);
   passStep(c, sa, B);
-  if (!c.semi) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
+  if (!c.semi && !c.plow) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
   if (sa.d < 0.6 && c.v < 0.3) {
     if (c.gq) { c.t = 0; c.blocked = 0; c.waiting = true; }                    // at the barrier: it waits for the convoy
     else if (sa.why === "end") {
       // the end of the road: out of sight it drives on into the village (another car turns up elsewhere); in sight it turns
-      if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > 300) { spawn(c, false); return; }
+      if (!T.hold && !c.plow && Math.hypot(c.x - you.x, c.z - you.z) > 300) { spawn(c, false); return; }
       c.t += dt; if (c.t > TRAF.waitEnd && !c.pass) turnOr(c, you);
     } else if (sa.why === "shut") { c.t += dt; if (c.t > TRAF.waitShut && !c.pass) turnOr(c, you); }
-    else { c.blocked += dt; if (c.blocked > TRAF.blockT && !c.pass) turnOr(c, you); }
+    else { c.blocked += dt; if (c.blocked > TRAF.blockT && !c.pass && !(c.plow && (c.cv || c.stopD != null))) turnOr(c, you); }   // the plow at the head of a convoy stays
   } else { c.t = 0; c.waiting = false; if (c.v > 1) c.blocked = 0; }
 }
 // pulling out round a thing standing in the lane, and back in once past it
 function passStep(c, sa, B) {
   const r = c.r;
   if (!c.pass) {
-    const stuck = sa.d < 0.6 && c.v < 0.3 && !sa.mv && sa.why !== "end" && sa.why !== "shut" && sa.why !== "gate" && !c.gq && !r.street[c.k];
+    const stuck = sa.d < 0.6 && c.v < 0.3 && !sa.mv && sa.why !== "end" && sa.why !== "shut" && sa.why !== "gate" && sa.why !== "post" && !c.gq && !r.street[c.k] && !(c.cv && sa.o && sa.o.plow && sa.o.cv === c.cv);   // nobody in the line passes its plow
     c.pw = stuck ? (c.pw || 0) + (c.dtLast || 0) : 0;
     if (c.pw < TRAF.passWait) return;
     const tail = c.semi ? c.T.len - c.T.tr.front : 0;                          // a semi moves back in once its trailer is past
@@ -555,7 +579,7 @@ function homeTick(dt, you) {
   const free = T.homes.filter(h => homeFree(h) && Math.hypot(h.x - you.x, h.z - you.z) < HOME.near);
   if (!free.length) return;
   const h = free[Math.floor(Math.random() * free.length)], seg = window.TLXR.ROADS.seg;
-  const cand = T.cars.filter(c => !c.semi && (!c.on || (c.st === "drive" && c.homeI == null && Math.hypot(c.x - you.x, c.z - you.z) > 500))).sort((a, b) => (a.on - b.on));
+  const cand = T.cars.filter(c => !c.semi && !c.plow && (!c.on || (c.st === "drive" && c.homeI == null && Math.hypot(c.x - you.x, c.z - you.z) > 500))).sort((a, b) => (a.on - b.on));
   const c = cand[0]; if (!c) return;
   for (let k = 0; k < 6; k++) {
     const D = HOME.from[0] + Math.random() * (HOME.from[1] - HOME.from[0]), r = h.r, dir = h.side !== 0 ? h.side : 1;
@@ -575,7 +599,7 @@ T.homePath = (hi, dir) => { const h = T.homes[hi]; return h ? pathOf(h, h.side |
 function collide(c, dt) {
   const P = api.P, F = api.FOOT, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   const cvx = c.st === "drive" ? fx * c.v : 0, cvz = c.st === "drive" ? fz * c.v : 0;
-  const circ = c.semi && c.circ ? c.circ : [-TRAF.off, 0, TRAF.off].map(u => [c.x + fx * u, c.z + fz * u, TRAF.r]);
+  const circ = (c.semi || c.plow) && c.circ ? c.circ : [-TRAF.off, 0, TRAF.off].map(u => [c.x + fx * u, c.z + fz * u, TRAF.r]);
   if (F.on) {
     for (const [x, z, cr] of circ) {
       const dx = F.x - x, dz = F.z - z, d = Math.hypot(dx, dz), rr = cr + 0.36;
@@ -583,7 +607,7 @@ function collide(c, dt) {
     }
     return;
   }
-  if (P.y > c.y + (c.semi ? 4.2 : 1.5)) return;                              // over the roof
+  if (P.y > c.y + (c.semi ? 4.2 : c.plow ? 3.4 : 1.5)) return;                              // over the roof
   const pf = [Math.sin(P.yaw), Math.cos(P.yaw)], veh = api.veh && api.veh.cur;
   const mine = veh ? [[1.6, 1.0], [0, 1.0], [-1.6, 1.0]] : [[1.15, 0.62], [-0.7, 0.7]];
   for (const [off, pr] of mine) for (const [x, z, cr] of circ) {
@@ -596,7 +620,7 @@ function collide(c, dt) {
       const hit = -vn;
       P.vx -= 1.45 * vn * nx; P.vz -= 1.45 * vn * nz;
       if (hit > 2) { if (api.thud) api.thud(Math.min(1, hit / 20)); P.shake = Math.max(P.shake || 0, Math.min(1, hit / 14)); }
-      if (hit > 4) { api.cargoHit(hit); if (!c.bumpT || api.now() - c.bumpT > 6) { c.bumpT = api.now(); T.hits++; api.toast(c.semi ? (hit > 9 ? "Crunch: straight into a lorry. The driver climbs down to look and shakes their head." : "Bump: into a lorry. The driver leans out and waves you off, not amused.") : (hit > 9 ? "Crunch: straight into a car. The driver gets out to look at the dent and shakes their head." : "Bump: into a car. The driver waves you on, not amused."), "warn"); } }
+      if (hit > 4) { api.cargoHit(hit); if (!c.bumpT || api.now() - c.bumpT > 6) { c.bumpT = api.now(); T.hits++; api.toast(c.plow ? (hit > 9 ? "Crunch: straight into the plow truck. The driver climbs down, looks at your machine, then at you." : "Bump: into the plow truck. The driver gives you a long look.") : c.semi ? (hit > 9 ? "Crunch: straight into a lorry. The driver climbs down to look and shakes their head." : "Bump: into a lorry. The driver leans out and waves you off, not amused.") : (hit > 9 ? "Crunch: straight into a car. The driver gets out to look at the dent and shakes their head." : "Bump: into a car. The driver waves you on, not amused."), "warn"); } }
       c.v = 0; c.hold = Math.max(c.hold, 3);
     }
   }
@@ -641,7 +665,7 @@ function draw() {
   const { m, q, e, p, s, col, w, wr } = T.q;
   let j = 0;
   for (const c of T.cars) {
-    if (!c.on || c.semi) continue;
+    if (!c.on || c.semi || c.plow) continue;
     e.set(c.pitch || 0, c.yaw, 0); q.setFromEuler(e); p.set(c.x, c.y - 0.04, c.z); s.set(1, c.sy, c.sx); m.compose(p, q, s);
     for (const k in M) M[k].setMatrixAt(j, m);
     col.setHex(c.col); M.paint.setColorAt(j, col);
@@ -668,7 +692,7 @@ function draw() {
     T.beamK.push(+k.toFixed(3));
     // the car's own frame (a semi's: its tractor, the cones moved out to its bumper)
     e.set(c.pitch || 0, c.yaw, 0); q.setFromEuler(e); p.set(c.x, c.y - 0.04, c.z); s.set(1, c.semi ? 1 : c.sy, c.semi ? 1 : c.sx); m.compose(p, q, s);
-    if (c.semi) m.multiply(w.makeTranslation(0, 0.02, c.fro));
+    if (c.semi || c.plow) m.multiply(w.makeTranslation(0, c.plow ? 0.75 : 0.02, c.fro - (c.plow ? 1.1 : 0)));   // a plow's lamps sit high on the cab, above the blade
     B.setMatrixAt(jb, m); col.setScalar(k * TRAF.beamI); B.setColorAt(jb, col);
     if (bk > 0) poolDraw(c, jb, k);
     jb++;
@@ -811,14 +835,14 @@ function tick(dt) {
   const you = youPos(), B = bodies();
   homeTick(dt, you);
   for (const c of T.cars) {
-    if (!c.on) { if (T.hold) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
-    if (!T.hold && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
+    if (!c.on) { if (T.hold || c.plow) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
+    if (!T.hold && !c.plow && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
     const x0 = c.x, z0 = c.z;
     if (c.st === "turn") turnStep(c, dt); else if (c.st === "home") homeStep(c, dt, B, you); else driveStep(c, dt, B, you);
     if (!c.on) continue;
     { const dx = c.x - x0, dz = c.z - z0, d = Math.hypot(dx, dz); if (d < 5) c.roll = ((c.roll || 0) + Math.sign(dx * Math.sin(c.yaw) + dz * Math.cos(c.yaw)) * d / TRAF.wheelR) % (Math.PI * 2); }
     ground(c);
-    if (c.semi) semiTrail(c, dt);
+    if (c.semi) semiTrail(c, dt); else if (c.plow) plowBody(c);
     if (!(api.INT && api.INT.on)) collide(c, dt);
   }
   draw();
@@ -841,12 +865,15 @@ TLX.register({
       // the semis (3.5a) come after the cars, so car indices (tests, homes) are unchanged
       T.nSemi = window.TLXS ? (a.GFX && a.GFX.low ? SEMI.n.low : SEMI.n.high) : 0;
       for (let i = 0; i < T.nSemi; i++) T.cars.push({ i: T.n + i, semi: true, on: false, retry: 0, col: 0xffffff, sx: 1, sy: 1, lane: TRAF.lane, k: 0, hold: 0, blocked: 0 });
+      // the plow trucks (3.5c2a), one per convoy road, after the semis; tlx-convoy.js puts them on the road
+      T.nPlow = window.TLXCV && window.TLXR.ROADS ? window.TLXR.ROADS.routes.filter(row => Array.isArray(row.convoy)).length : 0;
+      for (let i = 0; i < T.nPlow; i++) T.cars.push({ i: T.n + T.nSemi + i, plow: true, on: false, retry: 0, col: 0xe07a12, sx: 1, sy: 1, lane: TRAF.lane, k: 0, hold: 0, blocked: 0, fro: 2.15, turnT: 10, bulge: 6.5 });
       build(a);
       // going home (3.4b2b): which parked cars a car can drive to, and the owners who are out right now
       const th = performance.now();
       T.homes = homesPrep(); T.homeMs = Math.round(performance.now() - th);
       if (TLX.on("traffic")) for (const h of T.homes) { const pc = window.TLXC.cars[h.ci]; if (pc.b < 0.005 && !pc.paid && Math.random() < HOME.share) window.TLXC.setAway(h.ci, true); }   // a car under snow (saved) is not out driving
-      for (const c of T.cars) spawn(c, true);
+      for (const c of T.cars) if (!c.plow) spawn(c, true);
       T.ready = true; draw();
     } catch (e) { console.error("TLX traffic", e); T.err = String(e); }
     T.ms = Math.round(performance.now() - t0);
