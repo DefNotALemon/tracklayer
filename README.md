@@ -1023,10 +1023,11 @@ hours or more is a warning in itself (the card says so before you press); the th
 the road back for a week however it was earned.
 
 **Plow drivers.** A road you have signed for is also a job: the **Staff** app (on the tablet as soon
-as you hold a road, Real Estate or not) posts it, and plow drivers from the villages apply. Each
-has a truck and blade of their own, asks a weekly wage ($150 and up, more for experience) and
-keeps **40%** of what the kommune pays for the stretches they open; the other 60% is paid to you
-the moment each stretch is open. INTERVIEW them as you would a caretaker: the cold-snap question
+as you hold a road, Real Estate or not) posts it, and plow drivers from the villages apply, on a
+weekly wage ($150 and up, more for experience). About half have a truck and blade of their own
+and keep **40%** of what the kommune pays for the stretches they open; the other 60% is paid to you
+the moment each stretch is open. The other half have the licence and no truck: they drive one of
+**yours** (see below), and then all the kommune pays is yours. INTERVIEW them as you would a caretaker: the cold-snap question
 becomes a whiteout on the open road, and the answers are a driver's. Once hired they work the road
 without you. When snow lies on it and the weather has eased they take three quarters of an hour or
 so to get the truck out (a notification says they have set out), run up the road to the snow, open
@@ -1038,7 +1039,26 @@ application is slow, the pay has fallen by the time they get there, and a stretc
 and a driver has opened what they could reach in time: paid, and no warning for those. The road's
 card in the Plow app and the driver's card in Staff say where they are; a word in person (PRAISE,
 CRITICISE) is had at the garage while they are in. Hand the road back, or lose it, and the driver
-is let go, paid to the hour. You do not see their truck on the road yet, and nobody drives yours.
+is let go, paid to the hour. You do not see their truck on the road yet.
+
+**A driver in your truck.** A driver without a truck needs one of yours with a blade fitted: their
+Staff card has an **ASSIGN** button for each (the card then shows its litres and its cutting edge).
+The truck stays yours to drive while they are in. When snow lies on their road they take it from
+where it stands: it is gone from its spot (nothing there to get into or walk into, no Map pin, and
+the garage cannot mend, fill or repair it) until they bring it back to the same place. What they
+burn is your diesel (more with the blade cutting than on a clean road, and a plow truck drinks
+nearly three times what a pickup does) and the cutting edge wears by the metres they cut, exactly
+as under you; a pickup's 2.3 m blade has to cut each stretch twice, so it takes them twice as long
+as the plow truck's one pass. They will not set out (one notification says why, and they wait) with
+no truck assigned, no blade on it, a ragged edge, an empty tank, a trailer on its hitch, or you
+sitting in it; standing beside it on foot, they take it and leave you the sled. Out on the road,
+a tank down to what the drive home needs sends them back before it runs dry, and so does an edge
+worn ragged: the notification when they are in counts the stretches, the pay, the litres and the
+edge. If you (or the machine you are on) stand on the truck's parking spot when they get back, they
+wait for you to move clear. **RECALL** turns them round and takes the truck off their card once it
+is back on its spot; **TAKE THE TRUCK BACK** does the same while they are in. Sleep through a storm
+and they have used your truck for what they could reach, with the diesel and the edge to show for
+it; with no truck free at bedtime the road is the contract's own business, warning and all.
 
 **Driveways.** Under the roads the Plow app lists eight Kjøllefjord households with a drive beside
 the house, each **ASKING**. Until you **TAKE ONE ON** its owner shovels it by hand and nothing about

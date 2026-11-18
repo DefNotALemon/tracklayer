@@ -1,4 +1,5 @@
 // Expansion slice 5.4a1: a plow driver with their own truck on a contract road (tlx-plow.js v20, tlx-staff.js v6).
+// Since 5.4a2 half the applicants have no truck (x5_plowdriver_mine.mjs): SETUP turns that off (PDR.mine = 0) here.
 // Asserts, exit 1 on a failure.
 //   A no contract: no driver's job, the Staff app stays off the tablet. A road signed: the Staff app is there (no Real
 //     Estate needed), one applicant at once for the road, a plow driver with their own truck; the Plow app's card says
@@ -34,7 +35,7 @@ const clearNotes = () => ev(`TABLET.log.length = 0; true`);
 const tabText = () => ev(`$("tabS").textContent.replace(/\\s+/g, " ")`);
 const app = async id => { await ev(`TABLET.toggle(true, ${JSON.stringify(id)}); TABLET.render(); true`); await sleep(450); return tabText(); };
 
-const SETUP = `tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); if (window.TLXT) { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; } true`;
+const SETUP = `TLXPL.PDR.mine = 0; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); if (window.TLXT) { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; } true`;
 const KIT = `(() => {
   window.__rt = id => TLXR.routes.find(r => r.id === id);
   // the contract's clock (and the driver) moved on h hours in steps of st, the roads left out of it

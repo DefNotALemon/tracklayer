@@ -1025,7 +1025,7 @@ function makeDriver(R) {
 function blockWalker(nx, nz) {
   const s = S(), P = api.P, d0 = 0.36;
   for (const r of s.owned) {
-    const d = byId(r.id); if (!d) continue;
+    const d = byId(r.id); if (!d || r.out) continue;                             /* out with someone (5.4a2): not standing here */
     const cur = s.cur === r.uid, px = cur ? P.x : r.x, pz = cur ? P.z : r.z, yaw = cur ? P.yaw : r.yaw;
     const fx = Math.sin(yaw), fz = Math.cos(yaw), dx = nx - px, dz = nz - pz;
     let lx = dx * fz - dz * fx, lz = dx * fx + dz * fz;                        // into the vehicle's frame (x left, z forward)
@@ -1159,7 +1159,7 @@ function garageRows(body, row) {
   }
   for (const r of s.owned) {
     const d = byId(r.id); if (!d || KINDS[r.id]) continue;
-    const e = document.createElement("div"); e.className = "bfoot"; e.textContent = `${d.name}: ${Math.round(r.cond)}% condition, ${r.fuel.toFixed(0)} of ${d.fuel} L, parked ${Math.round(Math.hypot(r.x - api.world.garage().x, r.z - api.world.garage().z))} m from the garage.`;
+    const e = document.createElement("div"); e.className = "bfoot"; e.textContent = `${d.name}: ${Math.round(r.cond)}% condition, ${r.fuel.toFixed(0)} of ${d.fuel} L, ${r.out ? "out " + r.out : `parked ${Math.round(Math.hypot(r.x - api.world.garage().x, r.z - api.world.garage().z))} m from the garage`}.`;
     body.appendChild(e);
   }
   {                                                                              // the sled trailer (2.6a): one per player
@@ -1171,7 +1171,7 @@ function garageRows(body, row) {
   // the shop puts a worn truck or trailer right (2.7: dents from trees, or a used one off Bytteboden); it has to be here
   for (const r of s.owned) {
     const d = byId(r.id); if (!d || KINDS[r.id] || r.cond >= 99.5) continue;
-    const c = repairCost("truck", r), here = nearGarage(s.cur === r.uid ? api.P : r);
+    const c = repairCost("truck", r), here = !r.out && nearGarage(s.cur === r.uid ? api.P : r);
     row(`Repair the ${d.name}`, here ? `${Math.round(r.cond)}% now. Panel beating, an alignment and a service: back to 100%.` : `${Math.round(r.cond)}%. Bring it within ${REPAIR_R} m of the garage first.`, "$" + c, !here || GS.cash < c ? "locked" : "", () => repair("truck", r), "service");
   }
   { const h = haulS(); if (h && h.cond < 99.5) {
@@ -1201,7 +1201,7 @@ function rigLive() { const on = rigOn(), s = S(); return on === "sled" ? s.cur =
 function hostPose(on) {                                                         // { x, z, yaw, back } of the machine with that key
   const s = S(), P = api.P;
   if (on === "sled") { const p = s.cur == null ? P : s.sled; return p ? { x: p.x, z: p.z, yaw: p.yaw, back: api.hitchBack(), kg: 1e9 } : null; }
-  const r = rec(on); if (!r || KINDS[r.id] || !byId(r.id).hitchKg) return null; const d = byId(r.id), p = s.cur === on ? P : r;   // no ball on a tractor unit (3.5b1)
+  const r = rec(on); if (!r || r.out || KINDS[r.id] || !byId(r.id).hitchKg) return null; const d = byId(r.id), p = s.cur === on ? P : r;   // no ball on a tractor unit (3.5b1)
   return { x: p.x, z: p.z, yaw: p.yaw, back: -d.hitchZ, kg: d.hitchKg };
 }
 function ballOf(on) { const h = hostPose(on); return h ? [h.x - Math.sin(h.yaw) * h.back, h.z - Math.cos(h.yaw) * h.back] : null; }
@@ -1553,7 +1553,7 @@ function nearGarage(p) { const g = api.world.garage(); return !!p && Math.hypot(
 function repairCost(kind, o) { return Math.max(5, Math.round((100 - clamp(o.cond, 0, 100)) * REPAIR_PT[kind] / 5) * 5); }
 function repair(kind, o) {
   const GS = api.GS, c = repairCost(kind, o), name = kind === "truck" ? byId(o.id).name : HAUL.name.toLowerCase();
-  if (!nearGarage(kind === "truck" && S().cur === o.uid ? api.P : o)) { api.toast(`Bring the ${name} to the garage first.`, "warn"); return; }
+  if ((kind === "truck" && o.out) || !nearGarage(kind === "truck" && S().cur === o.uid ? api.P : o)) { api.toast(`Bring the ${name} to the garage first.`, "warn"); return; }
   if (GS.cash < c) { api.toast(`That repair is ${api.fmtCash(c)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   GS.cash -= c; o.cond = 100;
   api.toast(`The shop puts the ${name} right: 100% again, ${api.fmtCash(c)}.`, "good");
@@ -1865,6 +1865,7 @@ function nearestTick() {
   const sl = s.cur == null ? P : api.veh.sled;
   const cands = [{ key: null, d: Math.hypot(FOOT.x - sl.x, FOOT.z - sl.z) }];
   for (const r of s.owned) {                                                    // a truck's distance: to its door, or to its middle less its half-width
+    if (r.out && s.cur !== r.uid) continue;                                     /* out with someone (5.4a2): nothing here to get into */
     const cur = s.cur === r.uid, x = cur ? P.x : r.x, z = cur ? P.z : r.z, yaw = cur ? P.yaw : r.yaw, fx = Math.sin(yaw), fz = Math.cos(yaw);
     if (KINDS[r.id]) { cands.push({ key: r.uid, d: KINDS[r.id].dist(r, x, z, yaw) }); continue; }
     const dR = byId(r.id), sx = standX(dR), sz = standZ(dR), dx = x + fz * sx + fx * sz, dz = z - fx * sx + fz * sz;
@@ -1898,7 +1899,8 @@ function tick(dt) {
   for (const r of s.owned) {
     const R = runtime(r), isCur = cr && cr.uid === r.uid, far = !isCur && Math.hypot(r.x - cam.position.x, r.z - cam.position.z) > 500;
     R.rec = r;
-    if (far) { R.grp.visible = false; continue; }
+    if (r.out && isCur) { r.out = null; r.outBy = null; }                        /* you are in it: it is not out */
+    if (far || r.out) { R.grp.visible = false; continue; }                       /* 5.4a2: a truck out with someone is not at its spot (not drawn, not in the way, not to be got into) */
     R.grp.visible = true;
     if (R.impl) { R.impl.tick(R, r, isCur, dt); continue; }
     if (!isCur) { R.moved = R.moved || 0; parkedPose(R, r, dt); R.door = Math.max(0, R.door - dt / 0.5); R.steer *= 0.9; }
@@ -1919,6 +1921,16 @@ function tick(dt) {
   if (!cr) { setCur(null); }
 }
 const GSfuel = () => api.GS.fuel > 0;
+/* A truck OUT with someone (5.4a2: a plow driver of yours, tlx-plow.js). TLXV.setOut(uid, "with Ole on the Dyfjord road", by)
+   marks a parked record: it keeps its spot (x, z, yaw) but is not there: not drawn, no wall to the walker, never the nearest
+   vehicle, no ball to hitch to, no Map pin, no repair. setOut(uid, null) puts it back. Never the one you are in. Saved on
+   the record (out, outBy: which system took it, so that system alone gives it back). */
+function setOut(uid, text, by) {
+  const s = S(), r = rec(uid); if (!r || KINDS[r.id]) return false;
+  if (text) { if (s.cur === uid) return false; r.out = String(text); r.outBy = by || ""; const R = RT.get(uid); if (R) R.grp.visible = false; }
+  else { r.out = null; r.outBy = null; const R = RT.get(uid); if (R) { R.pt = undefined; } }
+  return true;
+}
 
 TLX.register({
   id: "vehicles", v: 1,
@@ -1948,7 +1960,7 @@ TLX.register({
     a.TABLET.addLayer("vehicles", () => {
       const s = S(), out = [], noun = r => { const d = byId(r.id); return d.kind[0].toUpperCase() + d.kind.slice(1); };
       if (s.cur != null && s.sled) out.push({ x: s.sled.x, z: s.sled.z, name: "Sled", kind: "sled" });
-      for (const r of s.owned) if (r.uid !== s.cur) out.push({ x: r.x, z: r.z, name: noun(r), kind: KINDS[r.id] ? "boat" : "truck" });
+      for (const r of s.owned) if (r.uid !== s.cur && !r.out) out.push({ x: r.x, z: r.z, name: noun(r), kind: KINDS[r.id] ? "boat" : "truck" });
       const h = haulS(); if (h && (h.on == null || h.on !== s.cur || api.FOOT.on)) out.push({ x: h.x, z: h.z, name: "Sled trailer", kind: "truck" });
       return out;
     });
@@ -1969,5 +1981,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

@@ -77,7 +77,9 @@ function places() {
      caught a slip and checked an honest reference), note(m, p) what the card says they do, tag(a) a few words on
      the applicant's card, gone the notification when their place is no longer yours (they are then let go, paid to
      the hour, instead of dropping off the books unpaid), kit(a) a field set on a new applicant, app (true: the
-     Staff app is on the tablet while such a place is yours, Real Estate or not).
+     Staff app is on the tablet while such a place is yours, Real Estate or not), acts(m, p) -> [{ k, label, off }]
+     the role's own buttons on a crew card and act(m, k, p) what one does (5.4a2: ASSIGN a truck to a plow driver).
+     greet is called (p, a): the place and the applicant.
    A place may carry talk (why PRAISE / CRITICISE cannot be had here) and spot (what "here" is called). */
 const XPLACES = [];
 const atOf = (R, p) => `${R && R.at || "at"} ${p ? p.name : "?"}`;
@@ -396,7 +398,7 @@ function ivRender(el, a) {
   h += U.tabHead(`INTERVIEW · ${U.esc(ROLES[a.role].name.toUpperCase())} · ${U.esc((p ? p.name : "?").toUpperCase())}`, U.esc(a.name), money(a.wage) + "/wk");
   h += `<div class="tsub">from ${U.esc(a.village)} · ${yrs(a.xp)} on the application${a.caught ? " · " + U.chip(`CAUGHT OUT: ${a.xpReal === 0 ? "NONE" : "ABOUT " + a.xpReal}`, "due") : a.chk ? " · " + U.chip("REFERENCE CHECKED", "ok") : ""}${a.deal ? " · " + U.chip("WAGE AGREED", "ok") : ""} · ${left(a.exp)}</div>`;
   const RV = ROLES[a.role];
-  h += `<div class="tmkth"><div class="tmkm them">${RV.greet ? U.esc(RV.greet(p)) : `Hello! I saw the caretaker job at ${U.esc(p ? p.name : "your cabin")}.`} I'm ${U.esc(a.name.split(" ")[0])}, from ${U.esc(a.village)}.</div>${a.chat.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${U.esc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${U.esc(a.name.split(" ")[0])} is typing…</div>` : ""}</div>`;
+  h += `<div class="tmkth"><div class="tmkm them">${RV.greet ? U.esc(RV.greet(p, a)) : `Hello! I saw the caretaker job at ${U.esc(p ? p.name : "your cabin")}.`} I'm ${U.esc(a.name.split(" ")[0])}, from ${U.esc(a.village)}.</div>${a.chat.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${U.esc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${U.esc(a.name.split(" ")[0])} is typing…</div>` : ""}</div>`;
   const dis = q => a.mute || typing || a.asked[q];
   h += `<div class="tmka">${qsOf(a).map(q => `<button type="button" class="tbtn ghost" data-tf="stq:${q.id}" data-stq="${q.id}"${dis(q.id) ? " disabled" : ""}>${q.label}</button>`).join("")}</div>`;
   h += `<div class="tmka">${OFFERS.map(f => `<button type="button" class="tbtn ghost" data-tf="sto:${f}" data-sto="${f}"${a.mute || a.deal || typing ? " disabled" : ""}>OFFER ${money(a.wage * f)}/WK</button>`).join("")}
@@ -432,7 +434,8 @@ function render(el) {
       const extra = `<button type="button" class="tbtn ghost" data-tf="stp:${m.id}" data-act="stp:${m.id}"${tb ? " disabled" : ""}>PRAISE</button>`
         + `<button type="button" class="tbtn ghost" data-tf="stk:${m.id}" data-act="stk:${m.id}"${tb ? " disabled" : ""}>CRITICISE</button>`
         + (m.ask ? `<button type="button" class="tbtn" data-tf="sty:${m.id}" data-act="sty:${m.id}">GIVE ${money(m.ask.amt)}</button><button type="button" class="tbtn ghost" data-tf="stn:${m.id}" data-act="stn:${m.id}">REFUSE</button>`
-          : `<button type="button" class="tbtn ghost" data-tf="str:${m.id}" data-act="str:${m.id}">RAISE +${money(add)}</button>`);
+          : `<button type="button" class="tbtn ghost" data-tf="str:${m.id}" data-act="str:${m.id}">RAISE +${money(add)}</button>`)
+        + xactsOf(m, p).map(b => `<button type="button" class="tbtn ghost" data-tf="stx:${m.id}:${U.esc(b.k)}" data-act="stx:${m.id}:${U.esc(b.k)}"${b.off ? " disabled" : ""}>${U.esc(b.label)}</button>`).join("");   // 5.4a2: the role's own buttons
       const nd = m.notice ? Math.max(0, m.notice - hour()) : 0;
       h += U.tabCard({ tf: "stc:" + m.id, title: m.name, chips: U.chip(R.name.toUpperCase(), "ok") + U.chip(mw.toUpperCase(), m.hap >= 50 ? "ok" : m.hap < 30 ? "due" : "") + (m.notice ? U.chip("ON NOTICE", "due") : "") + (m.ask ? U.chip("WANTS A RAISE", "due") : ""),
         meta: `${p ? U.esc(p.name) : "?"} · from ${U.esc(m.village)} · ${m.caught ? `says ${yrs(m.xp)}, really ${m.xpReal === 0 ? "none" : "about " + m.xpReal}` : yrs(m.xp) + (m.chk ? " (reference checked)" : "")}`,
@@ -468,6 +471,14 @@ function render(el) {
   for (const b of el.querySelectorAll("[data-act='sto']")) b.addEventListener("click", payOwed);
   const on = (pre, fn) => { for (const b of el.querySelectorAll(`[data-act^='${pre}:']`)) b.addEventListener("click", () => fn(+b.dataset.act.slice(4))); };
   on("stp", praise); on("stk", criticise); on("str", raise); on("sty", id => answerAsk(id, true)); on("stn", id => answerAsk(id, false));
+  for (const b of el.querySelectorAll("[data-act^='stx:']")) b.addEventListener("click", () => { const a = b.dataset.act.split(":"); xact(+a[1], a.slice(2).join(":")); });
+}
+// 5.4a2: a role's own buttons on a crew card: R.acts(m, place) -> [{ k, label, off }], R.act(m, k, place) does it
+function xactsOf(m, p) { const R = ROLES[m.role]; if (!R || !R.acts) return []; try { return (R.acts(m, p) || []).filter(b => b && b.k && b.label); } catch (e) { return []; } }
+function xact(id, k) {
+  const m = S().crew.find(q => q.id === id), R = m && ROLES[m.role]; if (!m || !R || !R.act) return false;
+  const p = placeOf(m.place); if (!xactsOf(m, p).some(b => b.k === k && !b.off)) return false;
+  const r = R.act(m, k, p); api.save(); refresh(); return r !== false;
 }
 
 TLX.option({ id: "walkout", name: "Unpaid staff walk out", hint: "Staff owed wages for three game days walk out without notice (the debt stays).", sys: "staff" });
@@ -511,7 +522,7 @@ TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = 
   workAt: pid => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === pid); return m ? m.tr.work * perfOf(m) : 0; },
   addRole: (id, row) => { ROLES[id] = row; }, addPlaces: f => { if (!XPLACES.includes(f)) XPLACES.push(f); },
   at: pid => { const s = S(); return s ? s.crew.find(q => q && q.place === pid) || null : null; },
-  places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant,
+  places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant, xact, xacts: xactsOf,
   praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };
 })();
