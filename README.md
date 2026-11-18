@@ -1082,6 +1082,21 @@ a miss like a lot left snowed in. A reload does not bank a heap (it is put back 
 snow fills the lot in and you start again. Settings > Options > **Plow heaps in a lot** turns it
 off: a lot is then paid as soon as it is cut.
 
+**A heap left in the street.** Kjøllefjord's streets (Nygata, Kaigata, Fjellveien, Skolegata,
+Depotgata, Kirkegata, Storgata) never hold snow of their own, so anything standing in one was put
+there by a blade: the heap where a back-drag out of a drive stops, the pile a square blade lets go
+when you stop or lift it. Half a cubic metre or more of your blade's snow inside the travelled lane
+(1.8 m each side of the centre line) is a heap in the street. While you are beside it the riding
+hint says so and nothing else happens. Drive on and it is the kommune's complaint: a line, a Jobs
+row that points at the heap, a Map pin, a row under Streets in the Plow app, and a 2 hour clock
+(stopped in a storm). Push it off the street and it is forgotten: one pass each way in the
+right-hand lane, throwing right, lays it on the verges. Left, or slept through, the kommune's own
+truck clears it and holds it against you: a warning on the road contract you have held longest (the
+third takes that road back for a week, like its own warnings), or with no contract no road is
+tendered to you for three days. Heaps cleared in one go are one warning. A reload does not clear a
+street (the heap is put back where it stood). Settings > Options > **Plow heaps in the street**
+turns it off.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

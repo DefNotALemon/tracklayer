@@ -75,7 +75,11 @@
 // be pulled clear again, or the household digs it out and holds it against you. State: win, winC, winN, winH, drvSulk.
 // LOTS (4.2c1). The block comment at LOT: the place's public yards (the sled park, the helsesenter's forecourt) taken on in
 // the Plow app, snowed in like a drive, plowed by the square metre and paid by area. State: lot, lotOff, lotRec, lotH, lotPaid, lotN.
-// NOT YET: where a lot's heap may go, the hotel forecourt (4.2c2).
+// A LOT'S HEAP (4.2c2a). The block comment at lotHeap: a lot cut with your snow standing in its middle is held, not paid.
+// STREETS (4.2c2b). The block comment at STR: a heap of the blade's snow left standing in a town street has to be pushed
+// off it again, or the kommune's own truck clears it and it is a warning on a road contract of yours (no contract: no
+// road is tendered to you for three days). State: str, strC, strN, strH, strBan.
+// NOT YET: the hotel forecourt (a LOTS row the day 7.2 builds a hotel).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -182,6 +186,7 @@ function tidy() {
   conTidy(s);                                                                    // 4.2a: the road contracts
   drvTidy(s);                                                                    // 4.2b1: the driveways
   lotTidy(s);                                                                    // 4.2c1: the lots
+  strTidy(s);                                                                    // 4.2c2b: heaps in a street
   for (const k of Object.keys(s.grit)) { const g = s.grit[k]; if (!g || !Array.isArray(g.h) || !Number.isFinite(g.s0) || !g.h.some(h => h > 0 && api.GS.hour - h < GRT.hours)) delete s.grit[k]; }   // worn off: forgotten
   { const ids = [], cs = []; s.shed.forEach((id, i) => { const d0 = byId(id); if (!d0 || d0.factory) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
@@ -440,7 +445,7 @@ function depthLine(q, leave) {                                                  
   }
   return [sd / N, sc / N];
 }
-function heapAt(d, P, lx, lz, r, vol, cap = BL.rowMax) { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.x + fz * lx + fx * lz, z = P.z - fx * lx + fz * lz, p = api.world.heapSnow(x, z, r, vol, cap); if (p > 1e-4) { winLay(x, z, r, p); lotLay(x, z); } return p; }
+function heapAt(d, P, lx, lz, r, vol, cap = BL.rowMax) { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.x + fz * lx + fx * lz, z = P.z - fx * lx + fz * lz, p = api.world.heapSnow(x, z, r, vol, cap); if (p > 1e-4) { winLay(x, z, r, p); lotLay(x, z); strLay(x, z, r, p); } return p; }
 function spill(B, uid) {                                                         // what the blade holds is left where it is: a pile in front of it; under it after a back-drag; a stack off a square blade
   const d = bladeOf(uid), P = truckPose(uid); if (!d || !P || !(B.carry > 0)) { B.carry = 0; B.back = false; return; }
   let v = B.carry; const sq = !B.back && sideOf(B.a) === 0;
@@ -601,7 +606,7 @@ const cmax = d => d.carry || BL.carryMax;                                       
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
-  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); drvStep(); lotStep(); winStep(); }               // 4.2a: the road contracts' clocks
+  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); drvStep(); lotStep(); winStep(); strStep(); }               // 4.2a: the road contracts' clocks
   if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
@@ -717,8 +722,8 @@ function label(R) { const d = bladeOf(R.rec.uid); if (!d || api.FOOT.on) return 
 function rideLine() {
   const uid = curUid(); if (uid == null || api.FOOT.on) return "";
   const d = bladeOf(uid); if (!d) return "";
-  const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid)), w = winLine(), l = lotLine();
-  return [w, l, a, g].filter(Boolean).join(" · ");
+  const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid)), w = winLine(), l = lotLine(), sl = strLine();
+  return [w, sl, l, a, g].filter(Boolean).join(" · ");
 }
 function bladeLine(uid, d) {
   const B = rt(uid), P = api.P, v = Math.hypot(P.vx, P.vz), touch = INPdev() === "touch", th = THROWS[throwOf(uid)];
@@ -786,6 +791,7 @@ const conQuitCost = c => !!c && !c.cover && Object.keys(c.due || {}).some(k => c
 function conSign(id) {
   const s = S(), r = conR().find(q => q.id === id), H = api.GS.hour; if (!r || !s || s.con[id]) return false;
   if (!Object.keys(s.blades).length) { api.toast("The kommune tenders a road to someone with a plow. Fit a blade to a truck first: the garage's Plow tab.", "warn"); return false; }
+  if (strOn() && s.strBan > H) { const dys = Math.max(1, Math.ceil((s.strBan - H) / 24)); api.toast(`The kommune had to send its own truck to clear your plow's heap out of a street. It tenders no road to you for another ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
   if (s.conBan[id] > H) { const dys = Math.max(1, Math.ceil((s.conBan[id] - H) / 24)); api.toast(`The kommune took the ${r.name} back from you. It tenders it again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
   delete s.conBan[id];
   const q = s.conRec && s.conRec[id], st = q ? q.strikes : 0, due = {};          // the kommune's file on this road: its warnings and the clocks still running
@@ -807,15 +813,15 @@ function conQuit(id) {
   api.save(); conRefresh(); return true;
 }
 const obj0 = v => !!v && typeof v === "object" && !Array.isArray(v);
-function conStrike(c, r, slept) {
+function conStrike(c, r, slept, lead) {                                          /* lead (4.2c2b): what the warning is for when it is not the road's own snow */
   const s = S(); c.strikes++; c.clean = false;
   if (c.strikes >= PLC.strikes) {
     delete s.con[r.id]; s.conBan[r.id] = api.GS.hour + PLC.banH;
     if (s.conRec) delete s.conRec[r.id];
-    api.toast(`Third warning: the kommune has taken the ${r.name} back. It will not tender it to you again for a week.`, "bad");
+    api.toast(`${lead ? lead + " " : ""}Third warning: the kommune has taken the ${r.name} back. It will not tender it to you again for a week.`, "bad");
     api.save(); conRefresh(); return true;
   }
-  api.toast(slept === "quit" ? `You've handed the ${r.name} back with a stretch lying shut, and the kommune's own truck has to go out. Warning ${c.strikes} of ${PLC.strikes}, kept on that road's file.`
+  api.toast(lead ? `${lead} Warning ${c.strikes} of ${PLC.strikes} on your contract for the ${r.name}.` : slept === "quit" ? `You've handed the ${r.name} back with a stretch lying shut, and the kommune's own truck has to go out. Warning ${c.strikes} of ${PLC.strikes}, kept on that road's file.`
     : slept ? `The ${r.name} lay shut while you were away and the kommune's own truck opened it. Warning ${c.strikes} of ${PLC.strikes} on that contract.`
     : `The ${r.name} has lain shut ${PLC.lateH} h: the kommune's own truck is going out. Warning ${c.strikes} of ${PLC.strikes} on that contract.`, "warn");
   api.save(); conRefresh(); return false;
@@ -901,6 +907,7 @@ function appRender(el) {
   let h = U.tabHead("PLOW · KOMMUNEN", "Road contracts", api.fmtCash(api.GS.cash));
   h += `<div class="tsub">${mine} of ${rs.length} roads yours · ${cash(400 * PLC.perM * mul)} a 400 m stretch opened · paid so far ${cash(s.conPaid)}</div>`;
   h += winCards(U, s);                                                           // 4.2b2: doors your blade's snow lies across, first: they are on a clock
+  h += strCards(U, s);                                                           // 4.2c2b: heaps of yours standing in a street
   if (!rs.length) h += `<p class="tnote2">The kommune has no road out to tender.</p>`;
   for (const r of rs) {
     const c = s.con[r.id], ban = s.conBan[r.id] > H, file = !c && !ban && s.conRec && s.conRec[r.id] ? s.conRec[r.id].strikes : 0, n = r.seg.filter(g => g.legs.length).length, snow = r.seg.filter((g, i) => g.legs.length && r.st.s[i] >= PLC.due).length;
@@ -1534,20 +1541,156 @@ function winInit() {
   for (const k of Object.keys(s.win)) if (!WN.by[k]) delete s.win[k];
   for (const q of WN.list) { q.pend = 0; q.over = 0; q.relay = !!s.win[q.key]; }
 }
+/* ---------------- streets: a heap left standing in a street (4.2c2b, closing 4.2b2's NOT DONE) ----------------
+   A town's streets never hold snow of their own, so anything standing in one was put there by a blade: the heap where a
+   back-drag out of a drive stops, the pile a lifted blade lets go, a square blade's overflow. The place lists its street
+   centre lines (api.world.streets: [ax, az, bx, bz, name]); strBuild cuts each into lengths of about STR.len m, STR.hw
+   each side of the line (the travelled lane, inside where a blade throwing right from the right-hand lane, or even from
+   the centre line, lays its windrow: the verge beyond it, between the walks, is where snow may go). heapAt()
+   tells strLay() every m3 the blade lays, the one length it lands in is then MEASURED from the snow cells the doors' way
+   (what stands over api.world.restCell), with the heap's middle of mass. STR.block m3 or more is a heap in the street.
+   Within STR.away m of it only the riding hint speaks. Drive on and it is the kommune's complaint: a line, a Jobs row, a
+   Map pin, a row in the Plow app, a clock (stopped in a storm). Push it off the street (under STR.clear m3 measured) and
+   it is forgotten. Left STR.lateH hours, or slept through, the kommune's own truck clears it: a WARNING on the road
+   contract you have held longest (the third takes that road back, as its own warnings do), or with no contract no road
+   is tendered to you for STR.banH hours. Several heaps cleared in one go are one warning. No cash anywhere.
+   Cells are not saved, so a complaint saves its m3 and where it stood, and the heap is laid again when you are next
+   within STR.seen m. Villages' streets (tlx-roads) are not listed yet.
+   SAVED in x.sys.plow: str { lengthKey: { v (m3), h (clock), x, z } }, strC (times the truck came this week), strN (heaps
+   cleared for you in all), strH, strBan (the game hour a road is tendered to you again). Option plowstreets (on). */
+const STR = { len: 12, hw: 1.8, block: 0.5, clear: 0.2, eps: 0.05, away: 9, seen: 45, lateH: 2, banH: 72, cap: 0.8 };
+const SN = { list: [], by: {}, built: false, job: {} };
+const strOn = () => TLX.on("plowstreets");
+function strBuild() {
+  SN.built = true; SN.list = []; SN.by = {};
+  const W = api.world; if (!W.restCell || !Array.isArray(W.streets)) return;
+  W.streets.forEach((l, i) => {
+    if (!Array.isArray(l) || !Number.isFinite(l[0] + l[1] + l[2] + l[3])) return;
+    const len = Math.hypot(l[2] - l[0], l[3] - l[1]); if (!(len >= 4)) return;
+    const n = Math.max(1, Math.round(len / STR.len)), L = len / n, ux = (l[2] - l[0]) / len, uz = (l[3] - l[1]) / len, name = typeof l[4] === "string" && l[4] ? l[4] : "the street";
+    for (let k = 0; k < n; k++) {
+      const q = { key: "s" + i + ":" + k, name, ax: l[0] + ux * L * k, az: l[1] + uz * L * k, ux, uz, L, hw: STR.hw, pend: 0, over: 0, relay: false };
+      q.cx = q.hx = q.ax + ux * L / 2; q.cz = q.hz = q.az + uz * L / 2; SN.list.push(q); SN.by[q.key] = q;
+    }
+  });
+}
+function strLay(x, z, r, p) {                                                    // heapAt: the blade has laid p m3 round (x, z): the one street length it stands in
+  if (!SN.list.length || !strOn()) return;
+  let best = null, bd = 1e9; const m = r * 0.5;
+  for (const q of SN.list) {
+    if (Math.abs(x - q.cx) > q.L + 2 || Math.abs(z - q.cz) > q.L + 2) continue;
+    const px = x - q.ax, pz = z - q.az, t = px * q.ux + pz * q.uz;
+    if (t < -m || t > q.L + m || Math.abs(px * q.uz - pz * q.ux) > q.hw + m) continue;
+    const d = Math.hypot(x - q.cx, z - q.cz); if (d < bd) { bd = d; best = q; }
+  }
+  if (best) best.pend += p;
+}
+function strMeasure(q) {                                                         // the m3 standing in a street length over what its ground settles back to, and its middle of mass
+  const W = api.world, C = W.cell, H = W.half, A = C * C, nx = -q.uz, nz = q.ux; let vol = 0, sx = 0, sz = 0;
+  for (let t = 0; t <= q.L + 1e-6; t += C) for (let l = -q.hw; l <= q.hw + 1e-6; l += C) {
+    const x = q.ax + q.ux * t + nx * l, z = q.az + q.uz * t + nz * l, ix = Math.round((x + H) / C), iz = Math.round((z + H) / C), o = W.depthAt(ix, iz) - W.restCell(ix, iz) - STR.eps;
+    if (o > 0) { vol += o * A; sx += o * x; sz += o * z; }
+  }
+  if (vol > 1e-6) { q.hx = sx * A / vol; q.hz = sz * A / vol; } else { q.hx = q.cx; q.hz = q.cz; }
+  return (q.over = vol);
+}
+function strShovel(q) { const W = api.world, nx = -q.uz, nz = q.ux; for (let l = -q.hw - 0.15; l <= q.hw + 0.16; l += 0.3) W.bladeSnow(q.ax + nx * l, q.az + nz * l, q.ax + q.ux * q.L + nx * l, q.az + q.uz * q.L + nz * l, 0.15); q.over = 0; q.pend = 0; q.hx = q.cx; q.hz = q.cz; }
+function strRelay(q, e) {                                                        // after a reload: the heap is put back where it stood
+  const x = Number.isFinite(e.x + e.z) ? e.x : q.cx, z = Number.isFinite(e.x + e.z) ? e.z : q.cz;
+  api.world.heapSnow(x, z, Math.max(0.9, Math.min(1.9, Math.sqrt(e.v / 1.6))), e.v, STR.cap);
+}
+function strGone(list, slept) {                                                  // the kommune's own truck has cleared them: one warning for the lot
+  const s = S(), H = api.GS.hour, names = [];
+  for (const q of list) { strShovel(q); delete s.str[q.key]; s.strN++; if (!names.includes(q.name)) names.push(q.name); }
+  s.strC++;
+  const lead = `${slept ? "While you were away the" : "The"} kommune's own truck had to clear your plow's ${list.length === 1 ? "heap" : "heaps"} out of ${drvList(names)}.`;
+  const rs = conR(), ids = Object.keys(s.con || {}).filter(id => obj0(s.con[id]) && rs.some(r => r.id === id)).sort((a, b) => (s.con[a].since || 0) - (s.con[b].since || 0));
+  if (ids.length) { conStrike(s.con[ids[0]], rs.find(r => r.id === ids[0]), "street", lead); return; }
+  s.strBan = Math.max(s.strBan || 0, H + STR.banH);
+  api.toast(`${lead} It tenders no road to you for ${Math.round(STR.banH / 24)} days.`, "warn");
+  api.save(); conRefresh();
+}
+function strStep() {
+  const s = S(); if (!s || !s.str || !SN.list.length || !api.started()) return;
+  const H = api.GS.hour, dh = s.strH < 0 || H < s.strH ? 0 : H - s.strH; s.strH = H;
+  if (!strOn()) { if (Object.keys(s.str).length) { s.str = {}; conRefresh(); } for (const q of SN.list) { q.pend = 0; q.over = 0; q.relay = false; } return; }
+  const RD = (window.TLXR && TLXR.ROADS) || { plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, P = api.FOOT.on ? api.FOOT : api.P, gone = [], fresh = [], clear = [];
+  for (const q of SN.list) {
+    const e = s.str[q.key]; if (!e && !(q.pend > 0)) continue;
+    if (!e) {                                                                      // laid just now: it is a complaint once you have driven on
+      strMeasure(q);
+      if (Math.hypot(P.x - q.hx, P.z - q.hz) > STR.away) { if (q.over >= STR.block) { s.str[q.key] = { v: Math.round(q.over * 100) / 100, h: 0, x: Math.round(q.hx * 10) / 10, z: Math.round(q.hz * 10) / 10 }; fresh.push(q); } else q.over = 0; q.pend = 0; }
+      continue;
+    }
+    if (slept) { gone.push(q); continue; }
+    if (Math.hypot(P.x - e.x, P.z - e.z) < STR.seen) {
+      if (q.relay) { q.relay = false; strRelay(q, e); }
+      if (strMeasure(q) < STR.clear) { delete s.str[q.key]; q.pend = 0; q.over = 0; clear.push(q); continue; }
+      e.v = Math.round(q.over * 100) / 100; e.x = Math.round(q.hx * 10) / 10; e.z = Math.round(q.hz * 10) / 10;
+    } else { q.hx = e.x; q.hz = e.z; }
+    if (WX.at(q.cx, q.cz) < RD.plowWx) e.h += dh;
+    if (e.h >= STR.lateH) gone.push(q);
+  }
+  if (fresh.length) { const nm = drvList([...new Set(fresh.map(q => q.name))]), one = fresh.length === 1; api.toast(`Your plow's ${one ? "heap stands" : "heaps stand"} in ${nm}. Push ${one ? "it" : "them"} off the street with the blade (onto the verge between the walks, or the end of the street) inside ${STR.lateH} h, or the kommune sends its own truck and holds it against you.`, "warn"); api.save(); conRefresh(); }
+  if (clear.length) { api.toast(`${capFirst(drvList([...new Set(clear.map(q => q.name))]))} ${new Set(clear.map(q => q.name)).size === 1 ? "is" : "are"} clear of your snow again.`, "good"); api.save(); conRefresh(); }
+  if (gone.length) strGone(gone, slept);
+}
+function strOpen() { const s = S(); return s && s.str && strOn() ? SN.list.filter(q => s.str[q.key]) : []; }
+function strLine() {                                                             // the riding hint: a heap of yours in the street close by
+  if (!SN.list.length || !strOn()) return ""; const s = S(), P = api.P; let near = null, mine = null;
+  for (const q of SN.list) {
+    if (!s.str[q.key] && !(q.pend > 0 && q.over >= STR.block)) continue;
+    if (Math.abs(P.x - q.hx) > 14 || Math.abs(P.z - q.hz) > 14) continue;
+    if (s.str[q.key]) mine = mine || q; else near = near || q;
+  }
+  return near ? `your heap stands in ${near.name}: push it off the street before you drive on` : mine ? `${mine.name}: your heap still stands in the street` : "";
+}
+function strJob() {
+  const open = strOpen(); if (!open.length) return null;
+  const s = S(), P = api.FOOT.on ? api.FOOT : api.P, U = api.ui; let near = open[0], bd = Infinity, h = 0;
+  for (const q of open) { const d = Math.hypot(q.hx - P.x, q.hz - P.z); if (d < bd) { bd = d; near = q; } if (s.str[q.key].h > h) h = s.str[q.key].h; }
+  const hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min"), n = open.length;
+  const title = n === 1 ? `Push your heap off ${near.name}` : `Push your ${n} heaps off the streets`, state = `${hrs(Math.max(0, STR.lateH - h))} before the kommune's truck comes for ${n === 1 ? "it" : "the first"}`;
+  return { obj: SN.job, kind: "plowstr", auto: !api.FOOT.on && !!bladeOf(curUid()), tgt: { x: near.hx, z: near.hz, name: "your heap in " + near.name }, col: "var(--signal)", title,
+    chips: U.chip("YOUR HEAP", "due"), meta: `${n === 1 ? "your plow's snow stands in the street" : "nearest: " + near.name} · ${state}`, pay: "no pay",
+    hud: d => ({ title, sub: `${U.fmtMi(d)} · ${state}` }) };
+}
+function strCards(U, s) {
+  const open = strOpen(), n = strOn() ? s.strC || 0 : 0, H = api.GS.hour, ban = strOn() && s.strBan > H; if (!open.length && !n && !ban) return "";
+  const hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
+  let h = U.sec("Streets", `${open.length} heap${open.length === 1 ? "" : "s"} of yours standing in a street · the kommune's truck out ${n === 1 ? "once" : n + " times"} this week`);
+  if (open.length) h += `<div class="tsml2">${open.map(q => `<div class="tsm2 tprow" data-tf="pls:${q.key}"><b>${U.esc(q.name)}</b><span>${s.str[q.key].v.toFixed(1)} m3 of your plow's snow in the street · ${hrs(Math.max(0, STR.lateH - s.str[q.key].h))} before the kommune's own truck clears it</span>${U.chip("IN THE WAY", "due")}</div>`).join("")}</div>`;
+  return h + `<p class="tnote2">${ban ? `The kommune had to clear a heap of yours out of a street: it tenders no road to you for another ${Math.max(1, Math.ceil((s.strBan - H) / 24))} day${Math.ceil((s.strBan - H) / 24) > 1 ? "s" : ""}. ` : ""}${open.length ? "Push a heap off the street with the blade and it is forgotten. Left, the kommune's own truck clears it: a warning on a road contract of yours, or no road tendered to you for three days." : "A street is no place to leave a heap: the verge between the walks, or the end of the street, is."}</p>`;
+}
+function strMonday() { const s = S(); if (s && s.strC) { s.strC = 0; api.save(); conRefresh(); } }
+function strTidy(s) {
+  const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
+  if (!obj0(s.str)) s.str = {};
+  for (const k of Object.keys(s.str)) { const e = s.str[k]; if (!obj0(e) || !(e.v > 0) || (SN.list.length && !SN.by[k])) { delete s.str[k]; continue; } e.v = num(e.v, 0, 20); e.h = num(e.h, 0, 1e6); if (!Number.isFinite(e.x + e.z)) { const q = SN.by[k]; if (q) { e.x = q.cx; e.z = q.cz; } } }
+  s.strC = Math.floor(num(s.strC, 0, 1e6)); s.strN = Math.floor(num(s.strN, 0, 1e9)); s.strBan = num(s.strBan, 0, 1e9); if (!Number.isFinite(s.strH)) s.strH = -1;
+}
+function strInit() {
+  if (!SN.built) strBuild();
+  const s = S(); if (!s || !s.str) return;
+  for (const k of Object.keys(s.str)) if (!SN.by[k]) delete s.str[k];
+  for (const q of SN.list) { const e = s.str[q.key]; if (e && !Number.isFinite(e.x + e.z)) { e.x = q.cx; e.z = q.cz; } q.pend = 0; q.over = 0; q.relay = !!e; q.hx = e ? e.x : q.cx; q.hz = e ? e.z : q.cz; }
+}
 let conT = 0;
 
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
 TLX.option({ id: "plowheaps", name: "Plow heaps in a lot", hint: "A lot you plow is not clear, and not paid, while a heap of your blade's snow stands in its middle or at a door: bank the snow along the edge. Off = a lot is clear and paid as soon as four fifths of it is cut, wherever the snow lies.", sys: "plow" });
 
+TLX.option({ id: "plowstreets", name: "Plow heaps in the street", hint: "A heap of your plow blade's snow left standing in a town street has to be pushed off it again: left there, the kommune's own truck clears it and it is a warning on a road contract of yours (with no contract, no road is tendered to you for three days). Off = the blade's snow may stand in a street and nobody minds.", sys: "plow" });
+
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
@@ -1568,16 +1711,18 @@ TLX.register({
     try { if (!DV.built) drvBuild(); else { DV.marks.clear(); const s = S(); for (const c of DV.list) drvApply(c, s.drv && s.drv[c.key]); } } catch (e) { DV.list = []; DV.by = {}; console.warn("tlx-plow: driveways", e); }
     try { winInit(); } catch (e) { WN.list = []; WN.by = {}; console.warn("tlx-plow: doors", e); }   // 4.2b2: the front walks and drive mouths your blade's snow may land on
     if (a.jobx && !CJ.win) { CJ.win = true; a.jobx.push(winJob); }
+    try { strInit(); } catch (e) { SN.list = []; SN.by = {}; console.warn("tlx-plow: streets", e); }   // 4.2c2b: the street lengths a heap of yours may be left standing in
+    if (a.jobx && !CJ.str) { CJ.str = true; a.jobx.push(strJob); }
     // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
     try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); lotWake(); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
     if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
-    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" })))); }
+    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" }))).concat(strOpen().map(q => ({ x: q.hx, z: q.hz, name: "HEAP IN THE STREET: " + q.name.toUpperCase(), glyph: "!" })))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
       hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length && !Object.keys(s.lot || {}).length); },
-      badge: () => { const s = S(); return s && ((s.con && Object.keys(s.con).some(id => Object.keys(s.con[id].due || {}).some(k => s.con[id].due[k][1]))) || winOpen().length) ? "!" : ""; },
+      badge: () => { const s = S(); return s && ((s.con && Object.keys(s.con).some(id => Object.keys(s.con[id].due || {}).some(k => s.con[id].due[k][1]))) || winOpen().length || strOpen().length) ? "!" : ""; },
       render: appRender });
   },
-  monday(week) { conMonday(week); drvMonday(week); lotMonday(week); winMonday(); },
+  monday(week) { conMonday(week); drvMonday(week); lotMonday(week); winMonday(); strMonday(); },
   tick,
   save() { tidy(); }
 });

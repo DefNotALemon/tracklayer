@@ -12144,8 +12144,9 @@ function townBlocks() {
   const legs = [];
   for (const z of G.Z) legs.push(mk(z === 12 ? -50 : G.X[0], z, G.X[3], z));
   for (const x of G.X) legs.push(mk(x, G.Z[0], x, G.Z[2]));
+  const gate = ["Nygata", "Kaigata", "Fjellveien", "Skolegata", "Depotgata", "Kirkegata", "Storgata"];   /* the streets' names, E-W then N-S (4.2c2b: api.world.streets) */
   for (const { a, b } of legs) {
-    G.lines.push([a[0], a[1], b[0], b[1]]); TOWNL.push([a, b]); addLane([a, b], HW, 0.9);
+    G.lines.push([a[0], a[1], b[0], b[1], gate[G.lines.length] || "the street"]); TOWNL.push([a, b]); addLane([a, b], HW, 0.9);
     const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3);
     for (let i = 0; i <= n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; G.pts.push([x, z]); townClearTrees(x, z, HW + 0.6); }
   }
@@ -17693,6 +17694,8 @@ function initExpansion() {
       addDrift,
       // lots (4.2c): the public yards a plow could be paid to keep clear
       lots: LOTS,
+      // streets (4.2c2b): the place's street centre lines [ax, az, bx, bz, name], never under snow, where a plow's heap is in the way
+      streets: TOWNG.lines,
       // doors (4.2b2): the depth a cell settles back to, so what stands over it is a heap
       restCell,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
