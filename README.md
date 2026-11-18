@@ -948,6 +948,23 @@ leaves twice the snow in the lane; a line tells you when it gets there and the h
 you cut. With the truck within 60 m of the garage the same tab mends it at $6 a point, as many
 points as your cash covers. A blade in the shed keeps the edge it had.
 
+**A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
+posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
+pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car
+trips it, as a real plow's springs let it: the blade folds forward over the thing with a thud and
+sparks, the truck keeps about three fifths of its speed instead of stopping dead, and the cutting
+edge loses 2 to 8 points depending on how fast you were going. What tripped it then meets the
+bumper at the speed that is left, so a fast hit still dents the truck, only less. The blade stays
+folded while the thing is under it (the hint says to back off) and springs back with a clunk once
+it is clear. Slower than that, or against a wall or a tree, the truck simply stops at the blade.
+Settings > Options > "Plow blade trips" turns the trip off: the blade is then plain steel and the
+truck takes the whole blow.
+
+**What you hear.** The blade lands with a clunk and comes up against its stop with a smaller one.
+Down and moving it scrapes: louder with speed, a high ringing scrape on a plowed lane or bare
+ground, duller and quieter the deeper the snow it is into. On a scraped road stretch (freshly
+plowed by the council in a cold snap) the edge rings higher still and strikes sparks.
+
 **Start from cleared ground.** The blade only clears what is in front of it. Drop it while the
 truck is standing in deep snow and the wheels are still in snow it never reached: the hint says
 so. Back up to a yard, a road or your own cut and plow in from there. Rolling slowly through

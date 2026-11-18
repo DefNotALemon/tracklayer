@@ -44,7 +44,12 @@
 // it leaves BL.raggedLeave (0.3) of the snowpack, twice a good edge's, with one line when it gets there and a note in the
 // hint from then on. The garage's Plow tab mends it at BL.mend dollars a point (as many points as your cash covers), the
 // truck within 60 m as for fitting. A blade in the shed keeps its edge (shedC, beside shed).
-// NOT YET: a solid blade that trips, sound (4.1b2b), door counting, used blades (4.1b3), the plow truck (4.1c), pay (4.2).
+//
+// THE BLADE IS SOLID, TRIPS AND IS HEARD (4.1b2b). Fitted, the blade is one more circle of the truck's hull (TLXV.addHull).
+// Option plowtrip (on): blade down at over BL.tripV, a rock, a log or a parked car trips it (the block comment at HX).
+// A scrape on the game's audio by speed and by how much snow is under the edge, a clunk when it lands and when it comes
+// up, sparks off the cutting edge on a scraped road stretch (TLXR.scrapeF). Nothing of this is saved but the edge.
+// NOT YET: door counting, used blades (4.1b3), the plow truck (4.1c), pay (4.2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -87,8 +92,19 @@ const BL = {
   wearM: 250,      // m of cutting that take one point off the edge (a 400 m road stretch, both sides: about 3 points)
   ragged: 30,      // under this the cut is ragged
   raggedLeave: 0.3,// what a ragged edge leaves, as a share of the snowpack (a good edge: the blade's own leave, 0.15)
-  mend: 6          // $ a point at the garage (a wholly worn edge: $600, against $1,450 for the blade)
+  mend: 6,         // $ a point at the garage (a wholly worn edge: $600, against $1,450 for the blade)
+  // the solid blade, its trip and its sound (4.1b2b)
+  tripV: 4,        // m/s: faster than this with the blade down, a rock, a log or a parked car trips it (option plowtrip)
+  tripKeep: 0.6,   // the share of its speed the truck keeps through a trip (the springs take the rest)
+  tripPts: [2, 0.75, 8],   // points off the cutting edge: 2, + 0.75 per m/s over tripV, 8 at most
+  tripT: 0.45,     // s clear of the thing before the mouldboard springs back
+  tripA: 0.6,      // rad the mouldboard folds forward while tripped
+  sndG: 0.16,      // the scrape's gain at its loudest
+  sparkN: 5        // sparks per metre the blade travels on a fully scraped road stretch
 };
+const SND = { g: 0, f: 0, v: null, dog: 0 };                                  // the scrape this frame (gain, Hz) and its voice
+const tripKind = o => (o.rock ? "a rock" : o.log ? "a log" : o.car !== undefined ? "a parked car" : "");   // what the cutting edge catches on; walls, trees and posts meet the whole blade
+const pct = c => (c < BL.ragged ? Math.floor(c) : Math.round(c));              // beta 0227 #1: 29.6 never reads "30%" beside "worn ragged"
 const THROWS = { r: { next: "l", sign: 1, now: "", to: "throw right", said: "The blade is slewed to throw right." },
   l: { next: "s", sign: -1, now: "throwing left", to: "throw left", said: "The blade is slewed to throw left." },
   s: { next: "r", sign: 0, now: "square: it carries", to: "square it", said: "The blade is square. It carries the snow and stacks it where you lift it or stop." } };
@@ -99,7 +115,7 @@ const RTB = new Map();                                                        //
 const rt = uid => { uid = String(uid); let r = RTB.get(uid); if (!r) RTB.set(uid, r = { down: false, k: 0, carry: 0, last: null, drag: 0, cut: 0, depth: 0, full: false, stopT: 0, volCut: 0, volLaid: 0 }); return r; };
 const bladeOf = uid => { const s = S(), b = s && s.blades[uid]; return b ? byId(b.id) : null; };
 const throwOf = uid => { const s = S(), b = s && s.blades[uid]; return b && THROWS[b.throw] ? b.throw : "r"; };
-const condOf = uid => { const s = S(), b = s && s.blades[uid]; return b && Number.isFinite(b.cond) ? b.cond : 100; };
+const condOf = uid => { const s = S(), b = s && s.blades[uid]; return b && Number.isFinite(b.cond) ? Math.max(0, Math.min(100, b.cond)) : 100; };
 const leaveOf = (uid, d) => (condOf(uid) < BL.ragged ? Math.max(d.leave, BL.raggedLeave) : d.leave);   // a ragged edge leaves twice the snow
 const angOf = (d, th) => d.ang * THROWS[th].sign;                              // the slew, rad: + throws right (the left end leads), - throws left, 0 square
 const sideOf = a => (a > 0.12 ? -1 : a < -0.12 ? 1 : 0);                       // where the windrow goes, as a sign of local x (+ = the truck's left); 0 = nowhere, it rides
@@ -155,11 +171,12 @@ function unfit(uid) {
   api.save(); api.garageRefresh(); return true;
 }
 /* the cutting edge: worn by the metres it cuts, mended at the garage by the point */
-function wear(uid, m) {
-  const s = S(), b = s && s.blades[uid]; if (!b || !(m > 0)) return;
-  const c0 = Number.isFinite(b.cond) ? b.cond : 100; b.cond = Math.max(0, c0 - m / BL.wearM);
+function dull(uid, pts) {                                                        // points off the edge, with the one line when it goes ragged
+  const s = S(), b = s && s.blades[uid]; if (!b || !(pts > 0)) return;
+  const c0 = Number.isFinite(b.cond) ? b.cond : 100; b.cond = Math.max(0, c0 - pts);
   if (c0 >= BL.ragged && b.cond < BL.ragged) { api.toast("The blade's cutting edge is worn ragged: it leaves twice the snow behind it. The garage's Plow tab mends it.", "warn"); api.save(); }
 }
+function wear(uid, m) { if (m > 0) dull(uid, m / BL.wearM); }
 function mendCost(uid) { return Math.floor(100 - condOf(uid)) * BL.mend; }      // whole points only
 function mend(uid) {
   const s = S(), b = s.blades[uid], r = trucks().find(q => q.uid === uid), GS = api.GS; if (!b || !r) return false;
@@ -184,7 +201,7 @@ function garageRows(body, row) {
       const tn = (V.find(v => v.id === r.id) || {}).name + (can.length > 1 ? " no. " + (i + 1) : ""), here = near(r), has = s.blades[r.uid];
       const away = here ? "" : `\n<span style="color:#f0c674">The ${tn} stands ${Math.round(Math.hypot(truckPos(r).x - api.world.garage().x, truckPos(r).z - api.world.garage().z))} m from the garage. Bring it within ${BL.garage} m.</span>`;
       if (has) {
-        const cond = condOf(r.uid), cost = mendCost(r.uid), edge = `Cutting edge ${Math.round(cond)}%${cond < BL.ragged ? ": worn ragged, it leaves twice the snow" : ""}.`;
+        const cond = condOf(r.uid), cost = mendCost(r.uid), edge = `Cutting edge ${pct(cond)}%${cond < BL.ragged ? ": worn ragged, it leaves twice the snow" : ""}.`;
         row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose. ${edge}${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
         if (cost > 0) row(`Mend the cutting edge of the ${tn}'s blade`, `${edge} It wears with every metre it cuts (a point about every ${BL.wearM} m); under ${BL.ragged}% the cut is ragged. A new edge is $${BL.mend} a point${GS.cash < cost && GS.cash >= BL.mend ? `: your ${api.fmtCash(GS.cash)} buys ${Math.floor(GS.cash / BL.mend)} of the ${cost / BL.mend} points` : ""}.${away}`, "$" + cost, !here || GS.cash < BL.mend ? "locked" : "", () => mend(r.uid), "plow");
       }
@@ -247,7 +264,7 @@ function model(R) {
   const bm = new T.Mesh(merge(mov), M.paint); bm.castShadow = true; B.B = new T.Group(); B.B.add(bm);
   const sm = new T.Mesh(merge(slw), M.paint); sm.castShadow = true; B.S = new T.Group(); B.S.position.set(0, 0, zb); B.S.add(sm); B.B.add(B.S); grp.add(B.B);
   if (!Number.isFinite(B.a)) B.a = angOf(d, throwOf(uid));
-  B.S.rotation.y = -B.a;
+  B.S.rotation.order = "YXZ"; B.S.rotation.y = -B.a; B.S.rotation.x = BL.tripA * (B.tk || 0);
   B.B.position.y = BL.lift * (1 - B.k);
   R.grp.add(grp);
 }
@@ -326,7 +343,8 @@ function work(uid, d, B, dt) {
   const lv = leaveOf(uid, d);
   const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? Math.max(lv, BL.backLeave) : lv);
   B.depth = dl[0]; B.cut = dl[1];
-  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; return; }
+  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; B.scr = 0; return; }
+  if (B.trip > 0) { B.drag = BL.scrape; B.full = false; B.last = null; B.why = ""; B.road = null; B.scr = 0; return; }   // tripped: folded over the thing, it cuts nothing until it springs back
   const q = ends(d, P, _n, 0, a), L = B.last;
   B.road = roadMark(d, (q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && vf > 0.3 && P.gnd !== false && dt > 0 && Math.max(Math.abs(q[0] - L[0]), Math.abs(q[1] - L[1])) < 5);
   const mv = L ? Math.max(Math.hypot(q[0] - L[0], q[1] - L[1]), Math.hypot(q[2] - L[2], q[3] - L[3])) : 99;   // further than 5 m in a frame is a teleport, not plowing
@@ -352,6 +370,13 @@ function work(uid, d, B, dt) {
     B.full = B.carry >= BL.carryMax;
   }
   B.last = B.last || [0, 0, 0, 0]; B.last[0] = q[0]; B.last[1] = q[1]; B.last[2] = q[2]; B.last[3] = q[3];
+  // a scraped road stretch (3.2b2, the council's cut in a cold snap): the cutting edge strikes sparks off the bare road
+  B.scr = P.gnd !== false && Math.abs(vf) > 1 && window.TLXR && TLXR.scrapeF ? TLXR.scrapeF((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) : 0;
+  if (B.scr > 0.05 && api.spark && dt > 0) {
+    B.spAcc = (B.spAcc || 0) + B.scr * BL.sparkN * Math.abs(vf) * dt; let n = 0;
+    while (B.spAcc > 1 && n++ < 6) { B.spAcc -= 1; const t = Math.random(), k = (Math.random() - 0.5) * 3; api.spark(q[0] + (q[2] - q[0]) * t, P.y + 0.06, q[1] + (q[3] - q[1]) * t, P.vx * 0.5 + fz * k, 0.8 + Math.random() * 2.2, P.vz * 0.5 - fx * k); B.sparks = (B.sparks || 0) + 1; }
+    if (B.spAcc > 6) B.spAcc = 0;
+  }
   if (Math.abs(vf) < 0.15) { B.stopT += dt; if (B.stopT > 1.2 && B.carry > 0) spill(B, uid); } else B.stopT = 0;
   // the push it puts on the truck (read by core() through TLXV.addLoad next frame)
   if (vf < -0.2) { B.drag = BL.backN + (B.full ? 0 : BL.backFace * BL.face * B.cut * wEff) + BL.carryN * B.carry; B.why = ""; return; }
@@ -363,7 +388,7 @@ const INPdev = () => api.INP.dev;
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
-  const cur = curUid(), night = 1 - api.dayFactor();
+  const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
     const r = trucks().find(q => String(q.uid) === uid); if (!r) { tidy(); return; }
     const d = byId(s.blades[uid].id), B = rt(r.uid), R = TLXV.runtimeOf(r.uid);
@@ -378,11 +403,74 @@ function tick(dt) {
       else if (!(api.useHeld && api.useHeld())) { if (!B.hold.done) lift(B, r.uid); B.hold = null; }
       else if (!B.hold.done && performance.now() - B.hold.t0 >= BL.holdT * 1000) { B.hold.done = true; slew(r.uid); }
     }
-    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; }
-    B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
+    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; B.scr = 0; }
+    const k0 = B.k; B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
+    if (seated && k0 < 1 && B.k >= 1) clunk(B, 0.3); else if (seated && k0 > 0 && B.k <= 0) clunk(B, 0.14);   // it lands on the ground; it comes up against its stop
     if (B.B) B.B.position.y = BL.lift * (1 - B.k);
+    // the trip: folded forward while the thing is under it (the hull's pass keeps the timer up), then it springs back
+    if (B.trip > 0) { B.trip -= dt; if (B.trip <= 0) { B.trip = 0; B.tripWhat = ""; if (seated) clunk(B, 0.22); } }
+    B.tk = B.trip > 0 ? Math.min(1, (B.tk || 0) + dt / 0.08) : Math.max(0, (B.tk || 0) - dt / 0.3);
+    if (B.S) B.S.rotation.x = BL.tripA * B.tk;
+    if (seated) scrape(B, api.P), heard = true;
     if (B.lens) B.lens.material.emissiveIntensity = seated && night > 0.35 && api.GS.fuel > 0 ? 1.7 : 0;
   }
+  if (!heard) { SND.g = 0; SND.f = 0; }
+  sound();
+}
+function clunk(B, v) { B.clunks = (B.clunks || 0) + 1; api.thud(v); }
+
+/* ---------------- the blade is solid, and trips (4.1b2b) ---------------- */
+// One more hull circle on the truck (TLXV.addHull), blade up or down: it reaches as far as the slewed blade's leading end
+// and is as wide as what the blade clears, so a bladed pickup needs that much more room at walls, trees and cars.
+// The trip (option plowtrip): real blades hang on springs so that the cutting edge catching on something solid folds the
+// mouldboard forward instead of stopping the truck dead. With the blade down and the truck over BL.tripV, a rock, a log
+// or a parked car does that: a thud, sparks, the truck keeps BL.tripKeep of its speed, the edge loses a few points, and
+// the thing passes under the folded blade to meet the bumper at what speed is left. The blade stays folded while the
+// thing is under it and springs back BL.tripT after it is clear. Slower than that, with the blade up, with the option
+// off, or against a wall, a tree or a post, the blade is plain hull: the truck stops against it.
+const HX = { off: 0, r: 0,
+  pass(R, o) { const B = rt(R.rec.uid); if (!(B.trip > 0) || !tripKind(o)) return false; B.trip = BL.tripT; return true; },
+  hit(R, hit, o, nx, nz) {
+    const uid = R.rec.uid, B = rt(uid), P = api.P, what = tripKind(o);
+    if (!what || !TLX.on("plowtrip") || !B.down || B.k < 0.9 || api.FOOT.on) return false;
+    const vf = P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw); if (!(vf > BL.tripV) || hit < 1.5) return false;
+    B.trip = BL.tripT; B.trips = (B.trips || 0) + 1; B.tripWhat = what; B.tripAt = vf;
+    P.vx *= BL.tripKeep; P.vz *= BL.tripKeep;
+    if (B.carry > 0) spill(B, uid); B.last = null;
+    dull(uid, Math.min(BL.tripPts[2], BL.tripPts[0] + BL.tripPts[1] * (vf - BL.tripV)));
+    P.shake = Math.max(P.shake || 0, Math.min(0.8, vf / 12)); api.thud(Math.min(1, 0.35 + vf / 16));
+    if (api.spark) for (let i = 0; i < 10; i++) api.spark(o.x + nx * (o.r || 0), P.y + 0.1, o.z + nz * (o.r || 0), P.vx * 0.6 + (Math.random() - 0.5) * 5, 1 + Math.random() * 3, P.vz * 0.6 + (Math.random() - 0.5) * 5);
+    if (api.now() - (B.tripSaid === undefined ? -9 : B.tripSaid) > 2.5) { B.tripSaid = api.now(); api.toast(`The blade tripped on ${what} at ${Math.round(vf * 3.6)} km/h and folded over it. Its cutting edge is at ${pct(condOf(uid))}%.`, "warn"); }
+    api.save(); return true;
+  } };
+function hull(R) { const d = bladeOf(R.rec.uid); if (!d) return null; HX.r = d.w * Math.cos(d.ang) / 2 + 0.05; HX.off = d.z + 0.5 - HX.r; return HX; }
+
+/* ---------------- the scrape: one voice on the game's own audio (4.1b2b) ---------------- */
+// Steel on the ground with the blade down and the truck moving: louder with speed, a high ringing scrape on a plowed
+// lane or thin snow, duller and quieter the deeper the snow it is into (the snow takes the edge off the ground), and
+// harsher still on a scraped road stretch. SND.g / SND.f are worked out every frame whether or not there is an audio
+// context (it only exists after a key or a tap); a watchdog fades the voice if the game stops ticking.
+function scrape(B, P) {
+  const v = Math.hypot(P.vx, P.vz);
+  if (!B.down || B.k < 0.9 || B.trip > 0 || P.gnd === false || v < 0.5 || (api.INT && api.INT.on)) { SND.g = 0; SND.f = 0; return; }
+  const hard = 1 - Math.min(1, (B.cut || 0) / 0.25), scr = B.scr || 0;
+  SND.g = BL.sndG * Math.min(1, v / 9) * (0.4 + 0.6 * hard) * (1 + 0.6 * scr);
+  SND.f = 700 + 1700 * hard + 70 * Math.min(v, 15) + 1400 * scr;
+}
+function sound() {
+  try {
+    const au = api.audio && api.audio(); if (!au) return;
+    let h = SND.v;
+    if (!h || h.au !== au) {
+      if (!(SND.g > 0)) return;
+      const AC = au.AC, s = AC.createBufferSource(), b = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = au.buf; s.loop = true;
+      b.type = "bandpass"; b.frequency.value = 1500; b.Q.value = 1.6; g.gain.value = 0; s.connect(b); b.connect(g); g.connect(au.master); s.start(0, Math.random());
+      h = SND.v = { au, b, g, last: 0, gain: 0 };
+      if (!SND.dog) SND.dog = setInterval(() => { const q = SND.v; if (q && q.gain > 0 && performance.now() - q.last > 300) { q.g.gain.setTargetAtTime(0, q.au.AC.currentTime, 0.08); q.gain = 0; } }, 250);
+    }
+    const t = au.AC.currentTime; h.last = performance.now(); h.gain = SND.g;
+    h.g.gain.setTargetAtTime(SND.g, t, 0.07); if (SND.f > 0) h.b.frequency.setTargetAtTime(SND.f, t, 0.1);
+  } catch (e) { }
 }
 
 /* ---------------- the control and what it says ---------------- */
@@ -414,6 +502,7 @@ function rideLine() {
   const B = rt(uid), P = api.P, v = Math.hypot(P.vx, P.vz), touch = INPdev() === "touch", th = THROWS[throwOf(uid)];
   if (!B.down) return v < 3 && B.cut >= BL.hintMin ? (touch ? "tap BLADE DOWN" : api.btn("use") + ": drop the blade") + ` · ${Math.round(B.depth * 100)} cm of snow ahead` : "";
   const lift = (touch ? "tap BLADE UP" : api.btn("use") + ": lift it") + ` · hold it: ${THROWS[th.next].to}`;
+  if (B.trip > 0) return `BLADE DOWN · tripped on ${B.tripWhat || "something solid"}: back off it and the blade springs back · ${touch ? "tap BLADE UP" : api.btn("use") + ": lift it"}`;
   // dropped where the truck stands in deep snow: the wheels are in snow the blade never reached, and that is what holds it
   if (v < 0.5 && B.cut > 0.02 && !B.back) { const R = TLXV.runtimeOf(uid), sk = R && R.sink ? (R.sink[0] + R.sink[1] + R.sink[2] + R.sink[3]) / 4 : 0; if (sk > BL.sunk) return `BLADE DOWN · your wheels stand in snow it has not cut: back up to cleared ground and plow in from there · ${lift}`; }
   if (B.back) return B.full ? `BLADE DOWN · back-dragging · it has all it can pull: stop or lift it to leave the heap · ${lift}` : `BLADE DOWN · back-dragging · ${Math.round(v * 3.6)} km/h · ${B.carry > 0.02 ? "pulling " + B.carry.toFixed(1) + " m3" : "nothing to pull"} · ${lift}`;
@@ -425,7 +514,9 @@ function rideLine() {
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = d.kg; XL.pin = d.kg; XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { BLADES, BL, THROWS, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide };
+window.TLXPL = { BLADES, BL, THROWS, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+
+TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
@@ -438,6 +529,7 @@ TLX.register({
     a.veh.tabs.push({ id: "plow", name: "Plow", render: garageRows });
     TLXV.addLoad(load);
     TLXV.addUse({ use: toggle, label });
+    if (TLXV.addHull) TLXV.addHull(hull);
     TLXV.onModel(model);
     if (a.ridex) a.ridex.push(rideLine);
   },

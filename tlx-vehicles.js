@@ -417,8 +417,12 @@ function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r
    TLXV.addUse({ use(R) -> true if it took the press, label(R) -> the touch pill's word or null, hint(R) -> a hint line or "" }).
    TLXV.onModel(fn(R)): called once for every wheeled truck's runtime, as it is built (and at once for those built already).
    A load may also answer `why`: a sentence for when it is the thing holding a truck that can't pull away. */
-const USES = [], MODELS = [];
+const USES = [], MODELS = [], HULLS = [];
 function addUse(u) { USES.push(u); }
+/* 4.1b2b (the blade is solid): TLXV.addHull(fn(R) -> null, or { off, r (one more hull circle, like a row of `circles`),
+   pass(R, o) -> true: this thing goes through it for now, hit(R, hit, o, nx, nz) -> true: it has taken the blow itself
+   (the truck is neither pushed back nor bounced, and gets no dent) }). Asked each frame for the truck you drive. */
+function xHull(R) { for (const f of HULLS) { const h = f(R); if (h) return h; } return null; }
 function onModel(f) { MODELS.push(f); for (const R of RT.values()) if (!R.impl) f(R); }
 // where a truck you own stands right now (the one you're in, or nearest on foot, is P): { x, z, yaw, def, cur }
 function truckPose(uid) { const r = rec(uid); if (!r || KINDS[r.id]) return null; const cur = S().cur === uid, p = cur ? api.P : r; return { x: p.x, z: p.z, yaw: p.yaw, def: byId(r.id), cur }; }
@@ -651,7 +655,9 @@ function collide(R, dt, fx, fz) {
   const P = api.P, d = R.def, w = api.world, list = w.obstaclesNear(P.x, P.z, 6);
   const circles = d.circles || CIRCLES;
   const s = VEH_SLED(); if (s) list.push({ x: s.x, z: s.z, r: 0.8, top: 99, sled: 1 });
-  for (const [off, r] of circles) {
+  const xh = xHull(R);                                                           /* 4.1b2b: a fitted blade is one more circle, asked last */
+  for (let ci = 0, cn = circles.length + (xh ? 1 : 0); ci < cn; ci++) {
+    const X = ci < circles.length ? null : xh, off = X ? X.off : circles[ci][0], r = X ? X.r : circles[ci][1];
     const cx = P.x + fx * off, cz = P.z + fz * off;
     for (const o of list) {
       if (o.down || o.top === -Infinity || P.y > o.top - 0.12) continue;
@@ -659,6 +665,7 @@ function collide(R, dt, fx, fz) {
       const dx = cx - o.x, dz = cz - o.z, d2 = dx * dx + dz * dz, rr = r + (o.r || 0);
       if (d2 >= rr * rr || d2 < 1e-6) continue;
       const dist = Math.sqrt(d2), nx = dx / dist, nz = dz / dist, pen = rr - dist;
+      if (X && ((X.pass && X.pass(R, o)) || (X.hit && P.vx * nx + P.vz * nz < 0 && X.hit(R, -(P.vx * nx + P.vz * nz), o, nx, nz)))) continue;
       P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02);
       R.touchT = api.now(); R.touchS = -(nx * fx + nz * fz);                       // < 0: the thing is behind it (stillWhy)
       const vn = P.vx * nx + P.vz * nz;
@@ -1869,5 +1876,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();
