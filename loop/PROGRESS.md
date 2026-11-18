@@ -3,6 +3,17 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-17 23:00 — LIVING WORLD release 1: the Politi, flats to rent or buy, slumlords (Owner request, ad hoc builder) — 64ecdfc
+Ad hoc builder (not a lane pass), worktree `tracklayer-living-world`, branch `living-world`, rebased on origin/main (94dd4d3, only playtest files came in). 174 GB free.
+Built (new `tlx-police.js` v2, `tlx-housing.js` v2; `tlx-traffic.js` v8 -> v9 with `TLXT.extra` + `TLXT.k` + an `ext` hook; tracklayer.js untouched, `?v=243`):
+- POLITI: two cruisers are real traffic cars (TLXT.extra, same road driver), drawn here (white, blue band, POLITI, light bar, glow, two-tone siren). Limits by place (town 30, road 70, open fell none); speeding, close passes, sliding round, collisions; seen by a cruiser (sight/night/storm/hills) or phoned in by a civilian within 50 m (dispatch from 380+ m away). warn -> pursuit -> search -> escape / ticket / warning / busted / surrender; cruisers cross snow to you, avoid water/rocks/houses, give up when stuck, rejoin patrol. Fines never take cash below zero: the rest is owed (+10% on Mondays), paid in the Politi app. HUD `#polHud` (top-left).
+- HOMES: six flats behind town doors (ring + plaque + furnished room), rent $28-95/wk taken once per Monday, deposit + first week atomically, arrears + late fee, notice to quit, eviction (deposit to the arrears), debt blocks the next lease; buying $41k-96k (870-1460 weeks of rent), 75% back on sale, $6/wk charge. Homes app.
+- SLUMLORDS: Kåre (fair), Eiendom Nord (firm), Rolf Haugen (slum). Real fault state (radiator/damp/leak/mice) with fixtures in the room, report/fix-yourself through the use control (footx provider, touch/pad too), landlord response by terms (slow/never), rent-rise retaliation, municipal complaint after a week (fine, ordered repair, rebate, 30-day protection, full deposit), deposit kept (50% for Haugen), dead radiator drains warmth. Lease terms are on every listing.
+- Options `police`, `rentals`, `slumlords` (off = no cruisers/fines; no flats/rent/charges; every landlord fair). Saves: x.sys.police, x.sys.housing; old saves load clean. Owner note added to LOOP.md with the broader scope.
+Tests: `x15_living.mjs` (new, 90+ asserts, sections A-O; scripted driver moves the player along a road lane at an exact speed, detection/cruisers/housing run for real; Math.random pinned only in the landlord worst-case checks; time skips by GS.hour) ALL PASSED. Gate (run on the pre-rebase tree; the rebase brought tests only): smoke 0, x1_save 0 (list gained police, housing), x15_living 0, x3_traffic 0, ui_responsive 0, all with page errors: none.
+Stills: ~/.hermes/cache/scratch/tlloop/x15shots/ (x15_cruiser_lights, x15_chase_snow, x15_flat_interior, x15_homes_app, x15_politi_app).
+Not built / honest limits: boats and aircraft aren't policed, nothing on foot; no station or cell; flats have no sleep/time-skip; one tenancy at a time; the cruiser's chase sight on a long straight outranges a sled only because the cruiser caps at 79 km/h on a road.
+
 ## 2026-11-17 21:45 — 3.5c2a the plow truck at the head of the convoy, opening the road as it goes (lane A) (G4) — bbbe04a
 Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 174 GB free. Triage: no report above 0207; Last
 triaged stays 207. Next unticked slice: 3.5c2, too big for one pass: split into 3.5c2a (this: the truck) and 3.5c2b
