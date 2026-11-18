@@ -3,6 +3,37 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 10:15 — beta fix 0246 #1/#2: HAND BACK no longer launders a plow contract's warnings or its clock (tlx-plow v12, lane A) (G4) — 43a597a
+Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0244-0246 (last triaged ->
+246): 0244 (gritter at speed, pad/touch) three POLISH notes, nothing to fix (#2, the ~190 character blade + gritter
+hint on a phone, is not measured: left for a tester); 0245 (blade trip kinds) POLISH #1 a lifted blade stays folded
+until its trip timer runs out, #2 "keeps 60%" never shows against a solid rock: both left open; 0246 (4.2a break test)
+BUG #1 and #2, same cause, fixed here; #3 (no cap on roads held) is as designed.
+What the player gets. The kommune remembers. A road handed back with warnings keeps them on file (card chip WARNING n
+OF 3 ON FILE and a line saying they come back with it), SIGN brings them back and says so, and a re-signed road must
+be held a whole clean week before a Monday strikes one off. The clock of a stretch still under snow keeps running
+while the road is handed back. Handing a road back with a stretch shut 4 h or more (the hour the "wants it open" line
+is said) is a warning itself, and the card says so before the press; the third one bans for the week like any other.
+How. tlx-plow.js only: `conRec { routeId: { strikes, due } }` in the `plow` state (state0, `conTidy`, block comment at
+`PLC`), written by `conQuit`, read and deleted by `conSign`, stepped in `conStep` (weather-gated like a held clock;
+dropped when the stretch is cleared, slept through, or the road is gone), deleted on a ban. `conQuitCost(c)` is the
+one test for "walking away costs a warning" (card and quit both ask it; `TLXPL.con.quitCost(id)`). No second warning
+for the same snow: a hand-back warning drops the clocks, and a hand-back under `cover` (the kommune's truck already
+out) costs nothing. Decided: the 4 h line (= `lateH / 2`) rather than any shut stretch, so "I can't get to this one"
+inside the first hours is free, as the design's "HAND BACK any time" meant; listed for Lemon in EXPANSION.md.
+Numbers (`x4_plowfile.mjs`, new, 35 asserts, all ok; stills of both cards looked at):
+- 2 warnings, HAND BACK, SIGN: 2 before -> 0 after on main (0246 N), now 2; Mondays after: 2, then 1;
+- shut 7 h, HAND BACK, SIGN, 3 h more: no warning on main (0246 M), now warning 1 at the hand-back; shut 2 h + 1 h
+  handed back + 5.5 h re-signed: file clock 2.00 -> 3.00, warning 1 at 8 h;
+- shut 5 h, HAND BACK pressed on the touch layout: one line, warning 1 on file, clock dropped; signed again at once and
+  3.5 h on: still 1 warning (clock 3.51 h); at 2 warnings: third, banned 168 h, SIGN refused, clean slate after;
+- council clears the stretch or a skip passes: the file's clock is gone; reload keeps the file; junk tidied.
+The tester's `x4_plowapp_break.mjs` now passes (was 2 FAIL). Gate: smoke, x1_save, x4_plowfile, x4_plowapp,
+x4_plowapp_break all exit 0, page errors none.
+Not done / follow-ups: the week's cash (`wk`, `wkM`) of a road handed back mid-week still leaves the Monday statement;
+0245 #1 (unfold a lifted blade) POLISH; pad focus on the Plow app's buttons is still not driven by a scenario.
+Next for lane A: 4.2b driveways.
+
 ## 2026-11-18 09:55 — 4.2a: the Plow app and the kommune's road contracts (tlx-plow v11, tlx-roads v14, lane A) (G4) — fc9e0c2
 Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0243 (last triaged -> 243):
 4.1c3 used plow truck, no finding. 4.1c is done, so the next slice is 4.2, which had no design: written into
