@@ -679,4 +679,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
       (the drive runs the clock to 16 h): start that scenario at 9 h.
 
-Last triaged report: 266
+- [ ] G4 4.2 (POLISH, beta 0268 #3 / 0269 #3, lane A): a Doors or Streets row in the Plow app takes pad/touch
+      focus but A / a tap does nothing. Tap = track that heap like its Jobs row, or drop the row's `data-tf`.
+      Also seen in the 0269 fix's stills: the section label "STREETS" breaks as "STRE / ETS" in a 370 px pane
+      (the `sec` head's first column is too narrow for seven letters).
+
+Last triaged report: 269

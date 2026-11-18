@@ -3,6 +3,30 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 17:55 — beta fix 0269 #1/#2: tablet list rows readable in a narrow tablet (index.html, lane A) (G4) — d56fedb
+Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0267-0269 (last triaged ->
+269): 0267 no BLOCKER/BUG (#6 POLISH: a boundary heap's volume counts on both sides, shown nowhere: dropped until a UI
+quotes it); 0268 no BLOCKER/BUG; 0269 #1/#2 BUG, fixed here; 0268 #3 + 0269 #3 POLISH (a Doors / Streets row takes
+focus but A / tap does nothing) is a LOOP.md backlog line.
+Cause. `.tprow` is a grid of `104px minmax(0,1fr) auto`: label, text, chip. In a tablet pane 265-292 px wide the label
+and the chip ("IN THE WAY", 95 px) take all of it and the text gets what is left. Fix, CSS only: `.tsml2` (the list) is
+a size container, and under 400 px of list width `.tprow` / `.treup` become `minmax(0,1fr) auto` with the text
+(`> span:not(.bchip)`) on a second line across both columns. By the list's own width, so it holds on the dash tablet
+and the overlay alike. A browser without container queries keeps the old layout. No JS change.
+Numbers (`x4_plowrows_narrow.mjs`, new, 1 Streets + 2 Doors + 2 Statements rows, 6 viewports; before = the same file
+against origin/main, 12 FAILs; after all ok, page errors none), text width / tallest row:
+- 640x360 embed (pane 265): 11-47 px / 980 px -> 205 px / 88 px
+- 667x375 (pane 292): 38-74 px / 278 px -> 232 px / 71 px
+- 568x320 (pane 209): 0 px / 1225 px -> 149 px / 105 px
+- 390x844 portrait (pane 370): 116-152 px / 102 px -> 310 px / 71 px
+- 844x390 (pane 469) and desktop (1000): unchanged, one line, label in its 104 px column.
+Gate: smoke, x1_save, x4_plowrows_narrow, ui_responsive, x4_streetheap_app_inputs_beta (the report's own), x4_plowapp
+exit 0, page errors none. Stills looked at (640x360, 390x844): name left, chip right, text under, nothing overlaps
+(a first cut moved the chip to line two as well, over the text: the chip is a span too, hence `:not(.bchip)`).
+Known and left: at 568x320 the tablet's page is about 62 px tall, so an 88 px row scrolls (readable, not asserted);
+plain `.tsm2` rows with a date in the 26 px column (staff wages, cabin rent statements) were not measured; the section
+label "STREETS" breaks as "STRE / ETS" at 370 px (in the LOOP.md line). Next in lane A's list: 5.4b.
+
 ## 2026-11-18 17:20 — 5.4a2: a plow driver in YOUR truck (tlx-plow v22, tlx-staff v7, tlx-vehicles v31, lane A) (G4) — ba3c932
 Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0266 (last triaged -> 266):
 2.5 hitch with the plow truck in the fleet, no BLOCKER, no BUG; left open: 0266 #5 POLISH (the free trailer's hint
