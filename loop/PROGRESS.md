@@ -3,6 +3,61 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-17 23:15 — 3.5c2b you in the convoy's line: fall in, the hint, the convoy waits for you, the Map flag for leaving (lane A) (G4) — ff7e88a
+Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 174 GB free. Triage: nothing above 0207 at the
+start; 0208 (3.5c2a), 0209 (3.5c1) and 0210 (3.5b3a) landed while building: no BLOCKER or BUG in any, Last triaged
+-> 210. Left from them as POLISH: 0210 #3/#4 a tampered save's `run.kg` string / unbounded `run.pay` (tlx-rig);
+0208 #4 the parked plow trucks' x/z/s are undefined until first posted; 0208 #2 the header's "a
+reload mid-convoy finds the road open" only holds once the drift is cut; 0209 #3 a reload skips a `wait` (the convoy
+clock is not saved: a design choice so far, the boom stops nobody); 0208 #5 nobody put a sled or walker in the leading
+truck's own lane. Next unticked slice: 3.5c2b, built whole.
+Built (`tlx-convoy.js` v3; tracklayer.js v244 for two bridges):
+- WHO IS IN. Each tick a convoy road is not open you are projected on it (`youOn`: metres along, metres off the centre
+  line, speed and facing along it). In a vehicle, within 6 m of the centre line, facing the convoy's way, within 60 m
+  behind someone in the line (90 m while the entry boom is up; the truck counts while it leads): "You fall in behind
+  the car / lorry / plow truck". Any time during a run, so dropping out and closing up again works.
+- COUNTED. The run's end test is now `n === 0 && !Y.in`: the far boom stays down for the return queue until you are
+  15 m out past it ("You are through with the convoy"), and it lifts for you driving out. With nobody left ahead you
+  have 45 s to drive out. `tMax` still ends a run whatever you do.
+- LEFT. More than 80 m behind the one ahead, off the road or out of your seat for 3 s; or past the head of the line.
+  Changing places inside the line is not leaving. Between the gates: a flag pin "left the convoy" on the Map app and
+  a legend line, until you are out past a gate, in the line again, 6 game hours on, or the option is off. Before the
+  entry gate it is only a toast. Not saved.
+- QUEUE OF ONE. Standing on the road within 60 m outside a lowered boom, facing in, you add one to that side's queue
+  at the convoy time and when a return run is decided.
+- HINT. "CONVOY to Lebesby · 24 km/h (the line: 36) · 30 m behind the car · hold it there" (drop back / close up /
+  close up or lose the line; "the line is through: drive on out past the barrier"). No control named.
+- BRIDGES in tracklayer.js: `rideX()` / `api.ridex` (functions for the riding / driving hint line, after the base
+  game's own) and a generic `marks` layer on the Map app (`TABLET.addLayer("marks", fn)` -> { x, z, name, col, glyph }).
+- DECIDED: a lowered boom stops nobody (the slice's default). Nothing happens to a flagged player beyond the flag.
+Numbers (`x3_convoyline.mjs`, 45 asserts, you moved by a puppet placed on the lane every 16 ms): standing 14 m behind
+the queued car, 1.6 m off the centre line: not in a line, no hint; in on the boom lifting; hint at 30 / 12 / 50 / 66 m
+reads hold / drop back / close up / close up or lose the line; 95 m back outside the gate for 3 s: out, no flag;
+30 m: in again; held 26 m inside the far boom with the car out and the truck turned: 49 s into the run it had not
+ended, the far boom did not admit the car waiting there, hint "drive on out"; driving out: boom up 1.00, "through" at
+16 m past it, and only then the return convoy; in it: 10 m off the road for 3 s -> left + flag + legend + Map pin;
+back -> flag gone; 25 m ahead of the truck -> "You have passed the plow truck", flagged; road open with the flag still
+up; out past the Kjøllefjord gate -> flag off, told; alone at the Lebesby boom of a snowed-in road: the truck sets
+off from the far side alone, turns at your gate, a return convoy with no car in it, you fall in behind the truck and
+14 s later it is still running 111 m inside the gate; option off: no flag, no hint, no legend line.
+Stills (looked at): the hint line sits in the usual hint pill, bottom centre, whole and readable, the car and the
+truck ahead past the lifted boom; the Map pin is a small orange flag pin with "left the convoy" under it, sharp at
+600 m zoom, the legend line below "closed". First build painted the flag into the chart: zoomed in it was a brown
+smudge, so it became a pin. First build's legend swatch was an orange line like the "open" road's: now a flag glyph.
+Fixed on the way: after driving out you were told you had fallen into the return convoy (31 m from its truck): joining
+and queuing now need you to face the convoy's way.
+Gate: smoke, x1_save, x3_convoyline, x3_plowlead, x3_convoy, x3_roadwarn all exit 0, page errors none, before the
+rebase; after rebasing onto the living-world release (v243: police cruisers in `TLXT.extra`, tlx-traffic v9) smoke,
+x1_save, x3_convoyline and x3_plowlead again exit 0, page errors none; script taken to v244. One earlier gate run
+of x3_convoyline exited 3 with no FAIL line and "page errors: none" (not explained, not seen in four later runs);
+one run failed C's hint check read in the frame you left the line (the scenario now waits half a second).
+KNOWN: a car that comes up behind you at a lowered boom pulls out round you (3.4b1) and queues ahead of you; the
+truck's U-turn at the far gate sweeps both lanes for 10 s with you 30-60 m behind it.
+Not done: nobody steered a sled or a pickup through a convoy by hand (the puppet sets position and speed); only
+lebesby was driven, fv888 is the same code; no pad or touch run (the hint names no control); on foot only by the rule.
+Milestone 3 is done with this. Next for lane A: milestone 4 (plowing solo): 4.1 has no design notes yet, so writing
+them into EXPANSION.md is the next pass.
+
 ## 2026-11-17 23:00 — LIVING WORLD release 1: the Politi, flats to rent or buy, slumlords (Owner request, ad hoc builder) — 64ecdfc
 Ad hoc builder (not a lane pass), worktree `tracklayer-living-world`, branch `living-world`, rebased on origin/main (94dd4d3, only playtest files came in). 174 GB free.
 Built (new `tlx-police.js` v2, `tlx-housing.js` v2; `tlx-traffic.js` v8 -> v9 with `TLXT.extra` + `TLXT.k` + an `ext` hook; tracklayer.js untouched, `?v=243`):
