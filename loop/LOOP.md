@@ -415,6 +415,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       through 4 stands 0/4 stuck, 24.2 s / 30 m (open-ground pace). Unjudged: a storm (refill fills a well back only to its
       own f, so it should stay).
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
+- [ ] G4 (test, lane A, seen 18 Nov): `x2_standstart.mjs` fails 2 on main ("bog clears once the truck sits on plowed ground", "then W drives off along the lane"): its "longest town lane" picker takes `Y.r <= 4`, from before the street grid (v227). Allow r up to 5 and check the spot is a street, then confirm the bog really clears on hard pack. Also 4.1a1: whole-frame cost while plowing was not settled in headless (PROGRESS 18 Nov 01:15): measure on a real GPU.
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
       calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Report 0087: tips read at ride distance as a zigzag edge
       (no pop/seams); GFX low in a dense stand 30 fps vs default 9.5 (SwiftShader, relative only; treeR 750 vs 1700).
