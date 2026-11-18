@@ -932,9 +932,20 @@ shallower snow you can drop it on the move and it cuts its own way out.
 control to drop it. With it down it gives your speed and the depth being cut, or says there is
 nothing to cut.
 
+**Opening a road.** A snowed-in road is yours to open. The roads keep their snow in 400 m
+stretches. Plow along a stretch on one side of the road, turn round past its end and plow back on
+the other side: when four fifths of both sides are done the whole stretch is plowed for good, edge
+to edge, the Map shows it clear and a line names the road and the kilometres ("The Dyfjord road is
+open again: your blade cleared km 0.8 to 1.2"). With the blade down on a road that has snow on it,
+the hint counts both sides for you ("Dyfjord road: this side 60%, the other side 0%"; 100% is
+enough to open it). Twice along the same side does not open it. New snow on the stretch, or the
+council's plow getting there first, wipes your count. The pickup's blade handles a road that has
+just drifted shut (about 55 cm, at 15 km/h); a road drifted level with the snowpack stops it, and
+is work for bites or a bigger truck. The Plow tab counts the stretches you have opened.
+
 A lane cut across open country snows in again with the weather and is not kept in the save (the
-blade comes back up after a reload, too). Being paid for plowing, and roads staying open because
-you cleared them, come next.
+blade comes back up after a reload, too); a road stretch you opened is kept. Being paid for
+plowing comes next.
 
 ## The hitch and bigger work
 

@@ -1,4 +1,5 @@
-// Tracklayer expansion — plowing (milestone 4, loop/EXPANSION.md). Slice 4.1a1: the blade on the Fjellvogn.
+// Tracklayer expansion — plowing (milestone 4, loop/EXPANSION.md). Slices 4.1a1 (the blade on the Fjellvogn) and
+// 4.1a2 (the road credit: a snowed-in road stretch you plow both sides of is open).
 //
 // WHAT THE PLAYER GETS. The garage has a Plow tab: the Fjellskjær 2.3, a 2.3 m angled blade, fits a pickup you own
 // that stands within 60 m of the garage ($1,450 once; taking it off puts it in the shed and refitting is free). In a
@@ -17,9 +18,18 @@
 // (4.2). The push goes into the truck's physics through TLXV.addLoad (kg, pin, drag, why), the control through
 // TLXV.addUse, the model onto each truck's group through TLXV.onModel. tlx-vehicles.js knows nothing else about it.
 //
-// SAVED: x.sys.plow = { blades: { truckUid: { id, cond } }, shed: [bladeId...], m: metres cut in all }. Up/down is
-// not saved: a reload finds the blade up. A blade whose truck is gone (sold, an old save) moves to the shed.
-// NOT YET: the road-stretch credit (4.1a2), the throw side, back-dragging, a solid blade that trips, wear, sound,
+// THE ROAD CREDIT (4.1a2). The roads keep their snow per 400 m stretch (tlx-roads.js). While the blade is down and the
+// truck rolls forward within the road's half-width of a road's line, the 10 m length of the stretch under the blade's
+// middle is marked for the SIDE of the centre line the blade's middle is on. A stretch with 80% of its lengths marked
+// on BOTH sides is plowed for good (TLXR.plowSeg: its snow to 0 across the whole width, the scraped hour stamped, the
+// Map repainted) with a line that names the road. So the 2 m blade opens a stretch by going out on one side and coming
+// back on the other; twice along the same side does not, and the hint says how much of each side is done. The marks
+// are not saved, and are dropped when the stretch is opened (by you or the council's plow) or new snow falls on it.
+//
+// SAVED: x.sys.plow = { blades: { truckUid: { id, cond } }, shed: [bladeId...], m: metres cut in all, opened: road
+// stretches opened }. Up/down is not saved: a reload finds the blade up. A blade whose truck is gone (sold, an old
+// save) moves to the shed.
+// NOT YET: the throw side, back-dragging, a solid blade that trips, wear, sound,
 // used blades (4.1b), the plow truck (4.1c), pay (4.2).
 (() => {
 "use strict";
@@ -45,7 +55,12 @@ const BL = {
   liftT: 0.5,      // s to drop or lift
   sunk: 0.1,       // m the wheels sink, on average, from which a standing truck is told to start from cleared ground
   hintMin: 0.08,   // m of snow ahead, over what the blade would leave, before the hint suggests dropping it (not on a plowed street)
-  whyN: 6000       // N on the blade from which "stuck" is the blade's doing
+  whyN: 6000,      // N on the blade from which "stuck" is the blade's doing
+  // the road credit (4.1a2)
+  bin: 10,         // m: a road stretch is counted in lengths this long, per side of its centre line
+  credit: 0.8,     // the share of a stretch's lengths, on each side, that opens it
+  both: 3,         // m: a blade clearing this much or more marks both sides in one pass (the plow truck's, 4.1c)
+  rise: 0.1        // new snow on a stretch (its level up by this much since the marks began) wipes the marks
 };
 const byId = id => BLADES.find(b => b.id === id) || null;
 let api = null, T = null;
@@ -62,6 +77,7 @@ function tidy() {
   if (!s.blades || typeof s.blades !== "object" || Array.isArray(s.blades)) s.blades = {};
   if (!Array.isArray(s.shed)) s.shed = [];
   if (!Number.isFinite(s.m)) s.m = 0;
+  if (!Number.isFinite(s.opened)) s.opened = 0;
   s.shed = s.shed.filter(id => byId(id));
   const own = trucks();
   for (const uid of Object.keys(s.blades)) {
@@ -113,7 +129,7 @@ function garageRows(body, row) {
       else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed." : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
     });
   }
-  foot(s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. A cut off the road snows in again; the roads keep theirs.` : "A blade clears snow where you drive it. A cut off the road snows in again.");
+  foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : ""));
 }
 
 /* ---------------- the model: built onto the truck's own group ---------------- */
@@ -194,13 +210,52 @@ function spill(B, uid) {                                                        
 }
 function truckPose(uid) { if (curUid() === uid) return api.P; return trucks().find(r => r.uid === uid) || null; }
 
+/* ---------------- the road credit (4.1a2) ---------------- */
+const RC = new Map();                                                         // "routeId:stretch" -> { n lengths, m: [Uint8Array, Uint8Array] marked per side, c: [count, count], s0: the lowest snow level seen }
+function roadSide(rt, s, x, z) {                                              // which side of the route's line (x, z) is on: 0 = left of it facing up the route, 1 = right
+  const c = rt.cum, p = rt.pts; let lo = 1, hi = c.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (c[m] < s) lo = m + 1; else hi = m; }
+  const a = p[lo - 1], b = p[lo];
+  return (b[1] - a[1]) * (x - a[0]) - (b[0] - a[0]) * (z - a[1]) >= 0 ? 0 : 1;
+}
+function roadMark(d, x, z, mark) {                                            // -> { name, mine, other } (shares done, this side and the other) on a stretch with snow on it, else null
+  const TR = window.TLXR; if (!TR || !TR.ready || !TR.plowSeg) return null;
+  const n = TR.near(x, z), r = n.route; if (!r || r.closed || !r.st || !r.cum || !(n.d <= TR.ROADS.half)) return null;
+  const SEG = TR.ROADS.seg, i = Math.floor(n.s / SEG), g = r.seg[i]; if (!g || !g.legs.length || !(i < r.st.s.length)) return null;
+  const sn = r.st.s[i], key = r.id + ":" + i; let c = RC.get(key);
+  if (!(sn > 0.02)) { if (c) RC.delete(key); return null; }                   // nothing on it (the council's plow has been, or it never drifted)
+  if (c && sn > c.s0 + BL.rise) { RC.delete(key); c = null; }                 // new snow since: what was cut is filled in
+  const side = roadSide(r, n.s, x, z);
+  if (!c) {
+    if (!mark) return { name: r.name, mine: 0, other: 0 };
+    const nb = Math.max(1, Math.ceil(Math.min(SEG, r.len - i * SEG) / BL.bin));
+    RC.set(key, c = { n: nb, m: [new Uint8Array(nb), new Uint8Array(nb)], c: [0, 0], s0: sn });
+  }
+  if (sn < c.s0) c.s0 = sn;
+  if (mark) {
+    const b = Math.max(0, Math.min(c.n - 1, Math.floor((n.s - i * SEG) / BL.bin))), wide = d.w * Math.cos(d.ang) >= BL.both;
+    for (let sd = 0; sd < 2; sd++) if ((wide || sd === side) && !c.m[sd][b]) { c.m[sd][b] = 1; c.c[sd]++; }
+    if (c.c[0] >= BL.credit * c.n && c.c[1] >= BL.credit * c.n) { RC.delete(key); opened(r, i, sn); return null; }
+  }
+  return { name: r.name, mine: c.c[side] / c.n, other: c.c[1 - side] / c.n };
+}
+function opened(r, i, sn) {
+  const TR = window.TLXR, SEG = TR.ROADS.seg, wasShut = sn >= TR.ROADS.shut;
+  TR.plowSeg(r.id, i * SEG + 1, true);                                         // quiet: the roads' own "the plow's been round" is not said for your work
+  const s = S(); s.opened = (s.opened || 0) + 1;
+  const km = v => (v / 1000).toFixed(1), from = `km ${km(i * SEG)} to ${km(Math.min(r.len, (i + 1) * SEG))}`;
+  api.toast(!wasShut ? `You've plowed the ${r.name}, ${from}.` : TR.status(r.id) === "open" ? `The ${r.name} is open again: your blade cleared ${from}.` : `You've opened the ${r.name}, ${from}. More of it is still snowed in.`, "good");
+  api.save();
+}
+
 /* ---------------- each frame ---------------- */
 function work(uid, d, B, dt) {
   const P = api.P, W = api.world, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), vf = P.vx * fx + P.vz * fz, wEff = d.w * Math.cos(d.ang);
   const dl = depthLine(ends(d, P, _m, 0.35), d.leave);
   B.depth = dl[0]; B.cut = dl[1];
-  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; return; }
+  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; return; }
   const q = ends(d, P, _n), L = B.last;
+  B.road = roadMark(d, (q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && vf > 0.3 && P.gnd !== false && dt > 0 && Math.max(Math.abs(q[0] - L[0]), Math.abs(q[1] - L[1])) < 5);
   if (L && vf > 0.3 && P.gnd !== false) {
     const mv = Math.max(Math.hypot(q[0] - L[0], q[1] - L[1]), Math.hypot(q[2] - L[2], q[3] - L[3]));
     if (mv < 5) {                                                                // further than that in a frame is a teleport, not plowing
@@ -233,7 +288,7 @@ function tick(dt) {
     const d = byId(s.blades[uid].id), B = rt(r.uid), R = TLXV.runtimeOf(r.uid);
     if (R && (!B.grp || B.grp.parent !== R.grp)) { B.grp = null; model(R); }
     const mine = cur === r.uid, seated = mine && !api.FOOT.on;
-    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; }
+    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; }
     B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
     if (B.B) B.B.position.y = BL.lift * (1 - B.k);
     if (B.lens) B.lens.material.emissiveIntensity = seated && night > 0.35 && api.GS.fuel > 0 ? 1.7 : 0;
@@ -258,19 +313,20 @@ function rideLine() {
   // dropped where the truck stands in deep snow: the wheels are in snow the blade never reached, and that is what holds it
   if (v < 0.5 && B.cut > 0.02) { const R = TLXV.runtimeOf(uid), sk = R && R.sink ? (R.sink[0] + R.sink[1] + R.sink[2] + R.sink[3]) / 4 : 0; if (sk > BL.sunk) return `BLADE DOWN · your wheels stand in snow it has not cut: back up to cleared ground and plow in from there · ${lift}`; }
   if (B.full) return `BLADE DOWN · the blade is full: lift it or ease off · ${lift}`;
-  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"} · ${lift}`;
+  const pc = x => Math.round(Math.min(1, x / BL.credit) * 100), rd = B.road ? ` · ${B.road.name}: this side ${pc(B.road.mine)}%, the other side ${pc(B.road.other)}%` : "";   // of what opens the stretch
+  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${rd} · ${lift}`;
 }
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = d.kg; XL.pin = d.kg; XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { BLADES, BL, state: S, rt, fit, unfit, bladeOf, ends, hint: rideLine, tidy };
+window.TLXPL = { BLADES, BL, state: S, rt, fit, unfit, bladeOf, ends, hint: rideLine, tidy, road: RC, roadSide };
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], m: 0 }),
+  state0: () => ({ blades: {}, shed: [], m: 0, opened: 0 }),
   migrate: st => st,
   init(a) {
-    api = a; T = a.THREE; RTB.clear();
+    api = a; T = a.THREE; RTB.clear(); RC.clear();
     if (!window.TLXV) return;
     tidy();
     a.veh.tabs.push({ id: "plow", name: "Plow", render: garageRows });

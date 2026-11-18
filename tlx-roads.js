@@ -630,7 +630,7 @@ function snowApply(all) {
   // a word when the roads drift shut, and when the plow has opened them again
   const st = RS(), shutR = R.routes.filter(rt => rt.seg.some(g => g.shut));
   if (R.noted) for (const [id, why] of R.noted) if (why === "convoy" ? shutR.some(rt => rt.id === id) || !(window.TLXCV && TLXCV.barOn && TLXCV.barOn(id)) : why !== "closed" && !shutR.some(rt => rt.id === id)) R.noted.delete(id);   // open again: the next storm warns afresh
-  if (!all && api.started()) {
+  if (!all && api.started() && !R.mute) {
     if (shutR.length && !st.warned) { st.warned = true; api.toast("The " + shutR[0].name + (shutR.length > 1 ? " and others are" : " is") + " drifting shut. The council plow goes out once the storm eases."); }
     else if (!shutR.length && st.warned && R.routes.every(rt => !rt.st || rt.st.p < 0)) { st.warned = false; api.toast("The plow's been round: the roads are open again."); }
   } else if (all) st.warned = shutR.length > 0;
@@ -648,11 +648,12 @@ function snowTick() {
 R.status = id => { const rt = R.routes.find(r => r.id === id); return !rt ? null : rt.closed ? "closed" : rt.seg.some(g => g.shut) ? "snowed in" : "open"; };
 R.setSnow = (id, v, i) => { for (const rt of R.routes) if (rt.st && (id === null || rt.id === id)) rt.st.s.forEach((_, j) => { if (i === undefined || i === j) rt.st.s[j] = Math.max(0, Math.min(1, v)); }); snowApply(false); };
 // 3.5c2a: a plow truck's blade reaches the stretch at s m along the route: cut down at once. Returns the snow it found.
-R.plowSeg = (id, s) => {
+// quiet (4.1a2, the player's own blade): the "plow's been round" line is not said, the caller says its own.
+R.plowSeg = (id, s, quiet) => {
   const rt = R.routes.find(r => r.id === id); if (!rt || !rt.st) return 0;
   const i = Math.floor(s / ROADS.seg); if (!(i >= 0 && i < rt.st.s.length)) return 0;
   const was = rt.st.s[i];
-  if (was > 0.02) { rt.st.s[i] = 0; rt.st.t[i] = api.GS.hour; snowApply(false); }
+  if (was > 0.02) { rt.st.s[i] = 0; rt.st.t[i] = api.GS.hour; R.mute = !!quiet; try { snowApply(false); } finally { R.mute = false; } if (quiet) RS().warned = R.routes.some(r => r.seg.some(g => g.shut)); }
   return was;
 };
 R.snowAt = (x, z) => { const n = R.near(x, z); if (!n.route || !n.route.st) return n.route && n.route.closed ? 1 : 0; let b = 0, bd = Infinity; n.route.seg.forEach((g, i) => { if (!g.legs.length) return; const d = Math.hypot(g.mx - x, g.mz - z); if (d < bd) { bd = d; b = i; } }); return n.route.st.s[b]; };
