@@ -653,6 +653,21 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       or 6 game hours pass. Clear the flag when `traffic` goes off, as the `convoy` option already does. 0212 #5
       (a crash while in the line) and #6 (a reload with a flag set) were inconclusive in the tester's own setup:
       the "out of your seat 3 s" rule reads the seat, and the flag is documented as unsaved; cover both in
-      `x3_convoyline_break.mjs` when this is fixed.
+      `x3_convoyline_break.mjs` when this is fixed. (#6 since covered by beta 0218: a reload drops the flag, the pin
+      and the legend line, as documented; only the crash case is left.)
 
-Last triaged report: 215
+- [ ] G4 3.5c2a (POLISH, beta 0216 #2, lane A): the convoy's plow truck waits without end for a walker standing in
+      its lane (it stops 9.7 m short, which is right) and the queue with it, and nothing says why. A horn and one line
+      ("The plow truck is waiting for you to clear the road") when it first stops for you. 0216 #3 (a walker placed
+      close in front of a moving truck) was not tested: the tester's placement used a stale position.
+- [ ] G4 4.1a1 (POLISH, beta 0217 #4, lane A): a blade left down stays down when you get out or swap trucks, but a
+      reload lifts it. Lift it on getting out / swapping (and spill what it carries), as the reload does. 0217 #5
+      (selling a bladed truck) is covered by `x4_blade` B through `tidy()` (a blade whose truck is not owned goes to
+      the shed); there is no way to sell a truck in the game yet.
+- [ ] G4 4.1a (POLISH, builder 4.1a2 pass, lane A): on a plowed road the blade still reads "cutting 18 cm": a road
+      is kept at 0.235 of the snowpack and the blade leaves 0.15, so there is always a skim to take and its push.
+      Either the blade leaves what the leg under it is plowed to (never below a road's own level), or "nothing to
+      cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
+      (the drive runs the clock to 16 h): start that scenario at 9 h.
+
+Last triaged report: 218
