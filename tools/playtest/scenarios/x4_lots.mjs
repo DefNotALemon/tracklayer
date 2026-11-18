@@ -246,7 +246,7 @@ await section("J DROP on the touch layout", async () => {
   const m0 = await J(`__mid(${A})`); await clearToasts();
   await ev(`$("tabS").querySelector("[data-act='paq:hosp']").click(); true`); await sleep(400);
   const a = await J(`({ st: __st(${A}), mid: __mid(${A}), jobs: jobsList().filter(r => r.kind === "plowlot").length })`), t = await toasts();
-  ok(m0.y < 0.62 && a.st === null && a.mid.y > 0.8 && a.jobs === 0 && t.some(m => m.includes("You've given up the helsesenter's forecourt. The helsesenter has it cleared again.")), "DROP pressed on a snowed-in lot: its owner clears it again, no row, no penalty (" + JSON.stringify(t) + ")");
+  ok(m0.y < 0.62 && a.st === null && a.mid.y > 0.8 && a.jobs === 0 && t.some(m => m.includes("You've given up the helsesenter's forecourt. The helsesenter has it cleared again.")), "DROP pressed on a snowed-in lot: its owner clears it again, no row (a miss by 0257: x4_dropfile) (" + JSON.stringify(t) + ")");
   await ev(`TABLET.toggle(false); SET.touch = "off"; setTouchUI(); true`);
 });
 

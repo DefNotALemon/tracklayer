@@ -211,7 +211,7 @@ await section("J DROP on the touch layout", async () => {
   const m0 = await J(`__mid(${k0})`); await clearToasts();
   await ev(`$("tabS").querySelector("[data-act='pdq:" + ${k0} + "']").click(); true`); await sleep(400);
   const a = await J(`({ st: __st(${k0}), mid: __mid(${k0}), txt: $("tabS").textContent, jobs: jobsList().filter(r => r.kind === "plowdrv").length })`), t = await toasts();
-  ok(m0.y < 0.62 && a.st === null && a.mid.y > 0.8 && a.jobs === 0 && t.some(m => m.includes(`You've given up ${nm(0)}'s drive. ${nm(0)} is back to shovelling it.`)), "DROP pressed on a snowed-in drive: it is shovelled again, no row, no penalty (" + JSON.stringify(t) + ")");
+  ok(m0.y < 0.62 && a.st === null && a.mid.y > 0.8 && a.jobs === 0 && t.some(m => m.includes(`You've given up ${nm(0)}'s drive. ${nm(0)} is back to shovelling it.`)), "DROP pressed on a snowed-in drive: it is shovelled again, no row (a miss by 0257: x4_dropfile) (" + JSON.stringify(t) + ")");
   await ev(`TABLET.toggle(false); SET.touch = "off"; setTouchUI(); true`);
 });
 

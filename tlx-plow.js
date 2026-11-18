@@ -70,11 +70,11 @@
 // The spinner running is not saved: a reload finds it off.
 // DRIVEWAYS (4.2b1). The block comment at DRV: eight Kjøllefjord households with a drive beside the house. One you take on
 // in the Plow app snows in (api.world.addDrift) until your blade has cut four fifths of its length, which pays at once.
-// State: drv, drvOff, drvH, drvPaid, drvN.
+// State: drv, drvOff, drvRec, drvH, drvPaid, drvN.
 // DOORS (4.2b2). The block comment at WIN: snow the blade leaves lying across a front walk or the mouth of a drive has to
 // be pulled clear again, or the household digs it out and holds it against you. State: win, winC, winN, winH, drvSulk.
 // LOTS (4.2c1). The block comment at LOT: the place's public yards (the sled park, the helsesenter's forecourt) taken on in
-// the Plow app, snowed in like a drive, plowed by the square metre and paid by area. State: lot, lotOff, lotH, lotPaid, lotN.
+// the Plow app, snowed in like a drive, plowed by the square metre and paid by area. State: lot, lotOff, lotRec, lotH, lotPaid, lotN.
 // NOT YET: where a lot's heap may go, the hotel forecourt (4.2c2).
 (() => {
 "use strict";
@@ -937,7 +937,7 @@ function appRender(el) {
    yard's level and the customer pays DRV.call + DRV.perM a metre at once, in full inside DRV.fullH hours of the clock
    and falling to DRV.low of it at DRV.lowH. Left DRV.lateH hours, or slept through, the customer shovels it himself:
    no pay and a miss; DRV.miss misses and he finds someone else for DRV.offH hours. A paid clearing takes a miss off.
-   DROP is free. The Jobs app has one row for all the drives with snow in them; Monday writes one statement line.
+   DROP is free while the drive is clear; snowed in it is a miss, and misses stay on file a week (fileDrop). The Jobs app has one row for all the drives with snow in them; Monday writes one statement line.
    SAVED in x.sys.plow: drv { key: { s, h, due, miss, wk, n, mk, ms } }, drvOff { key: hour he asks again }, drvH, drvPaid, drvN.
    The marks of a drive part cleared are saved with it (mk: a "0110..." string, one character a length; ms: the snow
    level they began at), so a reload in the middle of a drive finds the lengths already cut still counted (beta 0250 #1);
@@ -1014,9 +1014,30 @@ function drvTidy(s) {
   for (const k of Object.keys(s.drvOff)) if (!Number.isFinite(s.drvOff[k])) delete s.drvOff[k];
   if (!obj0(s.drvSulk)) s.drvSulk = {};
   for (const k of Object.keys(s.drvSulk)) if (!(s.drvOff[k] > 0)) delete s.drvSulk[k];
+  fileTidy(s, "drv", DRV);
   if (!obj0(s.win)) s.win = {};
   for (const k of Object.keys(s.win)) { const e = s.win[k]; if (!obj0(e) || !(e.v > 0)) { delete s.win[k]; continue; } e.v = num(e.v, 0, 20); e.h = num(e.h, 0, 1e6); }
   s.winC = Math.floor(num(s.winC, 0, 1e6)); s.winN = Math.floor(num(s.winN, 0, 1e9)); if (!Number.isFinite(s.winH)) s.winH = -1;
+}
+/* the file a customer keeps on you after a DROP (beta 0257 #1/#2). Before, DROP and TAKE ON again wrote a fresh record:
+   a miss was wiped, and a drive or lot about to be dug out was reset for nothing. Now handing one back SNOWED IN is the
+   owner digging it out by hand (a miss, as at 12 h), and the misses go on file (drvRec / lotRec { key: { miss, until } })
+   for T.offH hours: TAKE ON inside that picks them up. The miss that would be the second loses it for the week like any
+   other. A clear drive or lot with no miss is still handed back for nothing. kind is "drv" or "lot". */
+function fileOf(s, kind, key) { const e = s[kind + "Rec"] && s[kind + "Rec"][key]; return e && e.until > api.GS.hour ? e.miss : 0; }
+function fileTake(s, kind, key) { const n = fileOf(s, kind, key); if (s[kind + "Rec"]) delete s[kind + "Rec"][key]; return n; }
+function fileDrop(s, kind, key, st, T) {                                          // -> 0 nothing against you, 1 a miss on file, 2 lost for T.offH hours
+  const H = api.GS.hour, due = st.s >= T.due, miss = Math.max(0, Math.floor(st.miss) || 0) + (due ? 1 : 0);
+  if (!obj0(s[kind + "Rec"])) s[kind + "Rec"] = {};
+  delete s[kind + "Rec"][key];
+  if (miss >= T.miss) { s[kind + "Off"][key] = H + T.offH; return 2; }
+  if (miss > 0) s[kind + "Rec"][key] = { miss, until: H + T.offH };
+  return due ? 1 : 0;
+}
+function fileTidy(s, kind, T) {
+  if (!obj0(s[kind + "Rec"])) s[kind + "Rec"] = {};
+  const R = s[kind + "Rec"];
+  for (const k of Object.keys(R)) { const e = R[k]; if (!obj0(e) || !Number.isFinite(e.until) || !(e.miss >= 1)) { delete R[k]; continue; } e.miss = Math.min(T.miss - 1, Math.floor(e.miss)); }
 }
 function drvTake(key) {
   const s = S(), c = DV.by[key], H = api.GS.hour; if (!s || !c || s.drv[key]) return false;
@@ -1024,14 +1045,20 @@ function drvTake(key) {
   if (s.drvOff[key] > H) { const dys = Math.max(1, Math.ceil((s.drvOff[key] - H) / 24)); api.toast(s.drvSulk[key] ? `${c.name} had to dig your plow's snow out of the way and is not asking you. Try again in ${dys} day${dys === 1 ? "" : "s"}.` : `${c.name} has someone else for the drive. Ask again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
   if (winTalk(s)) { api.toast(WIN.talkLine, "warn"); return false; }
   delete s.drvOff[key]; delete s.drvSulk[key];
-  s.drv[key] = { s: 0, h: 0, due: 0, miss: 0, wk: 0, n: 0 };
-  api.toast(`${c.name}'s drive is yours to keep clear: ${api.fmtCash(Math.round(drvBase(c) * api.payMul()))} every time you plow it out inside ${DRV.fullH} h of the weather easing. ${c.name} has put the shovel away.`, "good");
+  const miss = fileTake(s, "drv", key);
+  s.drv[key] = { s: 0, h: 0, due: 0, miss, wk: 0, n: 0 };
+  api.toast(`${c.name}'s drive is yours to keep clear: ${api.fmtCash(Math.round(drvBase(c) * api.payMul()))} every time you plow it out inside ${DRV.fullH} h of the weather easing. ${c.name} has put the shovel away.` + (miss ? ` The time it was shovelled by hand has not been forgotten: once more and you lose the customer.` : ""), "good");
   api.save(); conRefresh(); return true;
 }
 function drvDrop(key) {
   const s = S(), c = DV.by[key]; if (!s || !s.drv || !s.drv[key]) return false;
+  const st = s.drv[key], due = obj0(st) && st.s >= DRV.due, r = c && obj0(st) ? fileDrop(s, "drv", key, st, DRV) : 0;
+  if (r === 2) delete s.drvSulk[key];
   delete s.drv[key]; DV.marks.delete(key); if (c) drvApply(c, null);
-  api.toast(c ? `You've given up ${c.name}'s drive. ${c.name} is back to shovelling it.` : "You've given that drive up.");
+  api.toast(c ? `You've given up ${c.name}'s drive. ${c.name} is back to shovelling it.`
+    + (r === 2 ? ` It was snowed in when you gave it up, the second time ${c.name} has had to dig it out: not asking you again for a week.`
+      : r === 1 ? ` It was snowed in when you gave it up, and ${c.name} will remember digging it out if you ask for it back this week.`
+        : fileOf(s, "drv", key) ? ` The time it was shovelled by hand is remembered for a week.` : "") : "You've given that drive up.", r === 2 ? "bad" : due ? "warn" : undefined);
   api.save(); conRefresh(); return true;
 }
 function drvGone(list, slept) {                                                  // the customers who cleared their own drives: one line for all of them
@@ -1115,13 +1142,13 @@ function drvCards(U, s, has, mul, cash) {
   const talk = winTalk(s);
   let h = U.sec("Driveways", `${DV.list.filter(c => s.drv[c.key]).length} of ${DV.list.length} yours · paid so far ${cash(s.drvPaid)}`);
   for (const c of DV.list) {
-    const st = s.drv[c.key], off = !st && s.drvOff[c.key] > H, sulk = off && s.drvSulk && s.drvSulk[c.key], base = drvBase(c) * mul, due = st && st.s >= DRV.due;
+    const st = s.drv[c.key], off = !st && s.drvOff[c.key] > H, sulk = off && s.drvSulk && s.drvSulk[c.key], base = drvBase(c) * mul, due = st && st.s >= DRV.due, rec = !st && !off && fileOf(s, "drv", c.key);
     h += U.tabCard({ tf: "pld:" + c.key, title: `${c.name}'s drive`,
-      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("SHOVELLED BY HAND ONCE", "heavy") : "") : off ? U.chip(sulk ? "NOT ASKING YOU" : "HAS SOMEONE ELSE", "due") : U.chip("ASKING"),
+      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("SHOVELLED BY HAND ONCE", "heavy") : "") : off ? U.chip(sulk ? "NOT ASKING YOU" : "HAS SOMEONE ELSE", "due") : U.chip("ASKING") + (rec ? U.chip("SHOVELLED BY HAND ONCE", "heavy") : ""),
       meta: `${c.place} · ${Math.round(c.L)} m beside the house · ${cash(base)} a clearing inside ${DRV.fullH} h`,
       note: st ? (due ? (st.h < DRV.fullH ? `Snowed in: full pay for another ${hrs(DRV.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, DRV.lateH - st.h))} ${c.name} shovels it by hand.`) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
-        : off ? "" : `${c.name} shovels it by hand today. Take it on and it is yours to plow out after every snowfall.`,
-      warn: st ? "" : off ? (sulk ? `${c.name} had to dig your plow's snow out of the way by hand.` : `${c.name} dug the drive out twice waiting for you.`) + ` Asking again in ${Math.max(1, Math.ceil((s.drvOff[c.key] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
+        : off ? "" : `${c.name} shovels it by hand today. Take it on and it is yours to plow out after every snowfall.` + (rec ? ` ${c.name} dug it out once when it was yours and has not forgotten: once more and you lose the customer.` : ""),
+      warn: st ? (due ? `DROP it snowed in and ${c.name} digs it out by hand: that counts against you like a drive left ${DRV.lateH} hours${st.miss ? ", and it would be the second time" : ""}.` : "") : off ? (sulk ? `${c.name} had to dig your plow's snow out of the way by hand.` : `${c.name} dug the drive out twice waiting for you.`) + ` Asking again in ${Math.max(1, Math.ceil((s.drvOff[c.key] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
       pay: st ? `${cash(base)} a clearing` : "", act: (st ? "pdq:" : "pdt:") + c.key, actLabel: st ? "DROP" : "TAKE ON", blocked: !st && (!has || off || talk) });
   }
   return h + `<p class="tnote2">A drive you take on stops being shovelled: it snows in until you plow it out. Blade down, drive the length of it (in from the street, or back-dragging out): once four fifths of it is cut it is clear and paid at once, in full inside ${DRV.fullH} hours of the weather easing and down to half after ${DRV.lowH}. Leave it ${DRV.lateH} hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they find someone else for a week. Mind where the snow goes: what your blade leaves lying across a front walk or the mouth of a drive has to be cut away again (nose in and push it off to one side), or the household digs it out, and that counts against you like a drive left snowed in.</p>`;
@@ -1138,7 +1165,7 @@ function drvCards(U, s, has, mul, cash) {
    squares marked clears the lot: it is cut to the yard's level and its owner pays LOT.call + LOT.perM2 a square metre
    at once, in full inside LOT.fullH hours of the clock and falling to LOT.low of it at LOT.lowH. Left LOT.lateH hours,
    or slept through, the owner has it dug out: no pay and a miss; LOT.miss misses and it goes to someone else for
-   LOT.offH hours. A paid clearing takes a miss off. DROP is free. One Jobs row for all the lots with snow in them, a
+   LOT.offH hours. A paid clearing takes a miss off. DROP is free while the lot is clear; snowed in it is a miss, and misses stay on file a week (fileDrop). One Jobs row for all the lots with snow in them, a
    Map pin each, one Monday statement line. Where the heap may go is 4.2c2: here the blade's windrows may lie anywhere.
    SAVED in x.sys.plow: lot { id: { s, h, due, miss, wk, n, mk, ms } }, lotOff { id: hour it is offered again }, lotH,
    lotPaid, lotN. mk / ms are the marks of a lot part cleared (a "0110..." string, a character a square, and the snow
@@ -1192,6 +1219,7 @@ function lotTidy(s) {
     if (typeof st.mk !== "string" || !/^[01]{1,2000}$/.test(st.mk) || !Number.isFinite(st.ms) || !st.due) { delete st.mk; delete st.ms; }
   }
   for (const k of Object.keys(s.lotOff)) if (!Number.isFinite(s.lotOff[k])) delete s.lotOff[k];
+  fileTidy(s, "lot", LOT);
 }
 function lotTake(id) {
   const s = S(), c = LT.by[id], H = api.GS.hour; if (!s || !c || s.lot[id]) return false;
@@ -1199,14 +1227,19 @@ function lotTake(id) {
   if (s.lotOff[id] > H) { const dys = Math.max(1, Math.ceil((s.lotOff[id] - H) / 24)); api.toast(`${capFirst(c.who)} has someone else plowing ${c.name}. Ask again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
   if (winTalk(s)) { api.toast(WIN.talkLine, "warn"); return false; }
   delete s.lotOff[id];
-  s.lot[id] = { s: 0, h: 0, due: 0, miss: 0, wk: 0, n: 0 };
-  api.toast(`${capFirst(c.name)} is yours to keep clear: ${api.fmtCash(Math.round(lotBase(c) * api.payMul()))} every time you plow it out inside ${LOT.fullH} h of the weather easing. Nobody else clears it now.`, "good");
+  const miss = fileTake(s, "lot", id);
+  s.lot[id] = { s: 0, h: 0, due: 0, miss, wk: 0, n: 0 };
+  api.toast(`${capFirst(c.name)} is yours to keep clear: ${api.fmtCash(Math.round(lotBase(c) * api.payMul()))} every time you plow it out inside ${LOT.fullH} h of the weather easing. Nobody else clears it now.` + (miss ? ` The time it was dug out by hand has not been forgotten: once more and you lose it.` : ""), "good");
   api.save(); conRefresh(); return true;
 }
 function lotDrop(id) {
   const s = S(), c = LT.by[id]; if (!s || !s.lot || !s.lot[id]) return false;
+  const st = s.lot[id], due = obj0(st) && st.s >= LOT.due, r = c && obj0(st) ? fileDrop(s, "lot", id, st, LOT) : 0;   // beta 0257 #1/#2: see fileDrop
   delete s.lot[id]; LT.marks.delete(id); if (c) lotApply(c, null);
-  api.toast(c ? `You've given up ${c.name}. ${capFirst(c.who)} has it cleared again.` : "You've given that lot up.");
+  api.toast(c ? `You've given up ${c.name}. ${capFirst(c.who)} has it cleared again.`
+    + (r === 2 ? ` It was snowed in when you gave it up, the second time it has had to be dug out by hand: it is not offered to you for a week.`
+      : r === 1 ? ` It was snowed in when you gave it up: dug out by hand, and that is remembered if you ask for it back this week.`
+        : fileOf(s, "lot", id) ? ` The time it was dug out by hand is remembered for a week.` : "") : "You've given that lot up.", r === 2 ? "bad" : due ? "warn" : undefined);
   api.save(); conRefresh(); return true;
 }
 function lotGone(list, slept) {                                                  // the owners who had their lots dug out: one line for all of them
@@ -1295,13 +1328,13 @@ function lotCards(U, s, has, mul, cash) {
   const talk = winTalk(s);
   let h = U.sec("Lots", `${LT.list.filter(c => s.lot[c.id]).length} of ${LT.list.length} yours · paid so far ${cash(s.lotPaid)}`);
   for (const c of LT.list) {
-    const st = s.lot[c.id], off = !st && s.lotOff[c.id] > H, base = lotBase(c) * mul, due = st && st.s >= LOT.due, m = due ? lotMark([c.x, c.z, c.x, c.z], false) : null;
+    const st = s.lot[c.id], off = !st && s.lotOff[c.id] > H, base = lotBase(c) * mul, due = st && st.s >= LOT.due, m = due ? lotMark([c.x, c.z, c.x, c.z], false) : null, rec = !st && !off && fileOf(s, "lot", c.id);
     h += U.tabCard({ tf: "pll:" + c.id, title: capFirst(c.name),
-      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("DUG OUT BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING"),
+      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("DUG OUT BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING") + (rec ? U.chip("DUG OUT BY HAND ONCE", "heavy") : ""),
       meta: `${c.place} · ${Math.round(c.m2)} m2 a truck can reach · ${cash(base)} a clearing inside ${LOT.fullH} h`,
       note: st ? (due ? (m && m.k > 0 ? `${Math.round(Math.min(1, m.k / LOT.credit) * 100)}% plowed out. ` : "") + (st.h < LOT.fullH ? `Snowed in: full pay for another ${hrs(LOT.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, LOT.lateH - st.h))} it is dug out by hand.`) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
-        : off ? "" : `${capFirst(c.who)} has it cleared by hand today. Take it on and it is yours to plow out after every snowfall.`,
-      warn: st ? "" : off ? `It was dug out twice waiting for you. Offered again in ${Math.max(1, Math.ceil((s.lotOff[c.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
+        : off ? "" : `${capFirst(c.who)} has it cleared by hand today. Take it on and it is yours to plow out after every snowfall.` + (rec ? ` It was dug out by hand once when it was yours, and that has not been forgotten: once more and it goes to someone else.` : ""),
+      warn: st ? (due ? `DROP it snowed in and it is dug out by hand: that counts against you like a lot left ${LOT.lateH} hours${st.miss ? ", and it would be the second time" : ""}.` : "") : off ? `It was dug out twice waiting for you. Offered again in ${Math.max(1, Math.ceil((s.lotOff[c.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
       pay: st ? `${cash(base)} a clearing` : "", act: (st ? "paq:" : "pat:") + c.id, actLabel: st ? "DROP" : "TAKE ON", blocked: !st && (!has || off || talk) });
   }
   return h + `<p class="tnote2">A lot is plowed by the square metre: blade down, work across it in passes side by side (forward, or back-dragging away from a wall) until four fifths of the ground a truck can reach is cut. Then it is clear and paid at once, in full inside ${LOT.fullH} hours of the weather easing and down to half after ${LOT.lowH}. Leave it ${LOT.lateH} hours, or sleep through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a week.</p>`;
@@ -1441,14 +1474,14 @@ let conT = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, win: {}, winC: 0, winN: 0, winH: -1, lot: {}, lotOff: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();

@@ -1033,8 +1033,11 @@ drive is clear and the customer pays **at once**, $12 a call plus $3 a metre ($4
 drive), in full inside 4 hours of the weather easing and sliding to half at 12. A drive left half
 done keeps what you cut, through a save and a reload too, until new snow fills it in. Leave a drive 12
 hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they
-find someone else for a week (a paid clearing wipes the first miss). **DROP** gives a drive back for
-nothing. Monday's statement has one line for all the drives you cleared that week.
+find someone else for a week (a paid clearing wipes the first miss). **DROP** gives a clear drive
+back for nothing. Give one back snowed in and the customer digs it out: that is a miss like any
+other (the card says so before you press), and a miss is remembered for a week, so taking the same
+drive on again does not start you clean. Monday's statement has one line for all the drives you
+cleared that week.
 
 **Mind the doors.** The snow a blade moves has to end up somewhere, and the wrong place is somebody's
 way in: the front walk of a house (the few metres from its door to the street) or the mouth of a
@@ -1063,7 +1066,8 @@ once**: $25 for coming out plus 45 cents a square metre, in full inside 4 hours 
 easing, down to half at 12 (the clock stands in a storm; half as much again in the polar night).
 What you had cut is kept through a reload; new snow fills it in. Leave a lot 12 hours, or sleep
 through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a
-week. A paid clearing wipes a miss. **DROP** hands a lot back at no cost.
+week. A paid clearing wipes a miss. **DROP** hands a clear lot back at no cost; handed back snowed
+in it is dug out by hand, which is a miss, and as with the drives a miss stays on file for a week.
 
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
