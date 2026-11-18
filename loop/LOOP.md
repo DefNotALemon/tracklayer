@@ -679,4 +679,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
       (the drive runs the clock to 16 h): start that scenario at 9 h.
 
-Last triaged report: 238
+Last triaged report: 242

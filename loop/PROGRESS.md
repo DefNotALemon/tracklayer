@@ -3,6 +3,51 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 09:15 — 4.1c3: a used plow truck on Bytteboden (tlx-vehicles v30, tlx-plow v10, lane A) (G4) — f5f8de9
+Builder pass, lane A. Orient: worktree clean, rebased on main (v249), 171 GB free. Triage 0239-0242 (last triaged ->
+242): no BLOCKER or BUG. 0239 #1 (a centred 0.7 m rock stops a blade-down truck dead instead of "keeps 60%") is POLISH
+and the same for the pickup: the rock meets the hull as well as the edge; a backlog look, not this pass. 0239 #2, 0241
+#1-#3 and 0242 #1-#3 are POLISH or scenario notes (the spinner going off on a truck swap says nothing: worth a line
+some day). 0240 is lane A's 3.5b3a and found nothing but a give-up / re-offer reroll question (POLISH). So the next
+slice: 4.1c3, the last of 4.1c.
+How. Deviation from the design: NOT through `TLXV.addMkt`. A foreign item is by definition left out of the three-truck
+count and of the refund rule, and the lay-by code is tlx-vehicles' own; a plow truck is a truck. So tlx-vehicles.js's
+`MKTV` lorry branches now ask `isBig(item)` (the row's model is the tractor's: too big for a yard) where they asked
+`isLorry` (a fifth wheel; kept for the words), and `plowtruck` joins the pool under the tractor unit's conditions at
+weight 0.3 (0.06 once you own one). Its own reasons for selling and lemon faults, its own photo (the cab with the
+hopper, spinner, beacon bar and blade; drawn at 0.86 after the first still showed the blade off the picture's left
+edge). `payWhy` refuses a second lay-by truck of the same kind while one waits (tractor units too). The blade:
+`collect` marks the record `used: 1`; tlx-plow's `tidy()` gives such a truck its factory blade at the truck's
+condition instead of 100 and deletes the mark. Hopper empty. No tracklayer.js change. README "A used plow truck".
+Numbers (`x4_plowused.mjs`, new, 51 asserts; four stills looked at: the Vehicles tab, the detail page, the photo by
+itself, the truck in the lay-by from behind):
+- pool: nothing without the licence or at 3 deliveries; with both, beside the tractor unit at half its weight; 106
+  listings in 12,000 draws against 184 tractor units, every one at the 11 of 18 seller sites within 1.5 km of a lay-by;
+- the listing: "Nordtrekk Brøyt 4x2 plow truck", new $16,800, ask $11,140 at 73%, stat "3.5 m blade, cutting edge 73%
+  · gritter, hopper empty"; the detail page names the lay-by;
+- SEND: it waits, leaves the pool, a second can't be paid ("You've already paid for a plow truck: settle up with Isak
+  first"), a tractor unit still can, the garage's Brøyt row says one is paid for;
+- collected: 5 m ahead of the lay-by's middle, in line, plowed ground, 16 m from the trailer's kingpin, 73% and 75 L,
+  blade b35 at 73% with 0 kg in the hopper, model on the truck, nothing in the shed, the toast says all of it;
+- at the wheel: a tap drops and lifts the blade, 17.8 m out of the lay-by in 5 s, mend $162;
+- the lemon (ad 86%, real 50%): $11,570 -> $9,835 looked over, truck and edge both 50%, 8 m from the first;
+- a new truck's blade is still whole; a reload keeps both trucks and both edges (and wear since);
+- the licence gone with one paid for: the seller refunds it ("A plow truck needs your Freight licence"); three trucks:
+  none in the pool.
+Gate: smoke, x1_save (gate.sh), x4_plowused, x3_usedlorry, x3_usedcap, x4_bladeused: exit 0, page errors none.
+Honest limits. x2_vehmkt failed three runs in a row in one four-minute window (its step 5: "inspecting from afar is
+refused" and the lemon's price drop, i.e. the first inspect went through as if the sled already stood at the pickup
+seller's), then passed seven runs in a row on the same code (and once with my change stashed); the pickup's inspect
+path is not touched by this slice and main's own run of it failed a different assert ("walking up to it"). I could
+not explain the three and call it a flake of that scenario, not proven. x4_plowtruck_break exits 1 on its step 2 as
+its own report 0239 says (the rock, POLISH). The first run of x4_plowused's step G died once on a listing pruned
+between two calls: the scenario now makes and pays it in one call. The used truck's hopper is always empty and its
+edge always equals the truck's condition (no separate roll): simple, and a little too tidy. The lay-by truck is shot
+from behind only (sideCam on this cab, as 0241 #3 says), so the blade is judged from the photo and the model assert.
+Open for Lemon (defaults built): edge = the truck's condition; empty hopper; the weights 0.3 / 0.06.
+Next for lane A: 4.2 (the Plow app) has no design yet: writing it into EXPANSION.md, with 4.1b3b (door counting) as
+its first part, is the next pass.
+
 ## 2026-11-18 08:35 — 4.1c2: the gritter on the plow truck (tlx-plow v9, tlx-vehicles v29, lane A) (G4) — f2a2477
 Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0235-0238 (last triaged ->
 238): no BLOCKER or BUG. 0235 #1 is a test assert that now picks up tlx-rig's lay-by trailers (POLISH, not a player
