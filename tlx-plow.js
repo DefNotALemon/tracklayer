@@ -930,14 +930,17 @@ function appRender(el) {
    and falling to DRV.low of it at DRV.lowH. Left DRV.lateH hours, or slept through, the customer shovels it himself:
    no pay and a miss; DRV.miss misses and he finds someone else for DRV.offH hours. A paid clearing takes a miss off.
    DROP is free. The Jobs app has one row for all the drives with snow in them; Monday writes one statement line.
-   SAVED in x.sys.plow: drv { key: { s, h, due, miss, wk, n } }, drvOff { key: hour he asks again }, drvH, drvPaid, drvN.
-   The marks are not saved. The snow your blade leaves across a door or a drive's mouth: the block comment at WIN (4.2b2). */
+   SAVED in x.sys.plow: drv { key: { s, h, due, miss, wk, n, mk, ms } }, drvOff { key: hour he asks again }, drvH, drvPaid, drvN.
+   The marks of a drive part cleared are saved with it (mk: a "0110..." string, one character a length; ms: the snow
+   level they began at), so a reload in the middle of a drive finds the lengths already cut still counted (beta 0250 #1);
+   DV.marks is only their copy in memory, read back from mk the first time the blade or the hint asks. The snow your blade leaves across a door or a drive's mouth: the block comment at WIN (4.2b2). */
 const DRV = { max: 8, hw: 1.6, side: 2.1, street: 2.4, len: [6, 10], call: 12, perM: 3, due: 0.12, fullH: 4, lowH: 12, low: 0.5, lateH: 12, miss: 2, offH: 168,
   bin: 1, credit: 0.8, lat: 1.3,
   names: ["Kåre", "Ragnhild", "Ole", "Siri", "Jonas", "Elin", "Nils", "Anja", "Tor", "Marit", "Hallvard", "Ingrid", "Sander", "Liv", "Aslak", "Berit"] };
 const DV = { list: [], by: {}, built: false, marks: new Map(), job: {} };
 const drvBase = c => Math.round(DRV.call + DRV.perM * c.L);
 const drvK = h => 1 - (1 - DRV.low) * Math.max(0, Math.min(1, (h - DRV.fullH) / (DRV.lowH - DRV.fullH)));
+function drvUnmark(key, st) { DV.marks.delete(key); if (st) { delete st.mk; delete st.ms; } }   // the lengths cut are forgotten, in memory and in the save
 const drvList = names => (names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + " and " + names[names.length - 1]);
 function drvFree(W, at, v0, v1, D, cars) {
   for (let v = v0; v >= v1 - 0.01; v -= 1) {
@@ -998,6 +1001,7 @@ function drvTidy(s) {
   for (const k of Object.keys(s.drv)) {
     const st = s.drv[k]; if (!obj0(st)) { delete s.drv[k]; continue; }
     st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, DRV.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= DRV.due ? 1 : 0;
+    if (typeof st.mk !== "string" || !/^[01]{1,64}$/.test(st.mk) || !Number.isFinite(st.ms) || !st.due) { delete st.mk; delete st.ms; }   // the saved marks of a drive part cleared
   }
   for (const k of Object.keys(s.drvOff)) if (!Number.isFinite(s.drvOff[k])) delete s.drvOff[k];
   if (!obj0(s.drvSulk)) s.drvSulk = {};
@@ -1024,7 +1028,7 @@ function drvDrop(key) {
 }
 function drvGone(list, slept) {                                                  // the customers who cleared their own drives: one line for all of them
   const s = S(), H = api.GS.hour, lost = [];
-  for (const c of list) { const st = s.drv[c.key]; st.s = 0; st.h = 0; st.due = 0; st.miss++; DV.marks.delete(c.key); if (st.miss >= DRV.miss) { delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; delete s.drvSulk[c.key]; lost.push(c.name); } drvApply(c, s.drv[c.key]); }
+  for (const c of list) { const st = s.drv[c.key]; st.s = 0; st.h = 0; st.due = 0; st.miss++; drvUnmark(c.key, st); if (st.miss >= DRV.miss) { delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; delete s.drvSulk[c.key]; lost.push(c.name); } drvApply(c, s.drv[c.key]); }
   const who = drvList(list.map(c => c.name)), one = list.length === 1;
   api.toast((slept ? `While you were away ${who} dug ${one ? "the drive" : "their drives"} out by hand.` : `${who} gave up waiting and shovelled the drive${one ? "" : "s"} by hand.`) + " No pay."
     + (lost.length ? ` ${drvList(lost)} ${lost.length === 1 ? "has" : "have"} found someone else to plow.` : ` Once more and ${one ? "you lose the customer" : "you lose them"}.`), lost.length ? "bad" : "warn");
@@ -1038,7 +1042,7 @@ function drvStep() {
   let fresh = 0;
   for (const c of DV.list) {
     const st = s.drv[c.key]; if (!st) continue;
-    if (slept) { if (st.s >= DRV.due) gone.push(c); else { st.s = 0; st.h = 0; st.due = 0; } }
+    if (slept) { if (st.s >= DRV.due) gone.push(c); else { st.s = 0; st.h = 0; st.due = 0; drvUnmark(c.key, st); } }
     else {
       const w = WX.at(c.mx, c.mz);
       st.s = Math.min(1, st.s + dh * RD.fill * api.sstep(RD.fillA, RD.fillB, w));
@@ -1054,11 +1058,16 @@ function drvMark(x, z, mark) {                                                  
   for (const c of DV.list) {
     const st = s.drv[c.key]; if (!st || !(st.s >= DRV.due)) continue;
     const px = x - c.a[0], pz = z - c.a[1], t = px * c.ux + pz * c.uz; if (t < -0.6 || t > c.L + 0.6 || Math.abs(px * c.uz - pz * c.ux) > DRV.lat) continue;
+    const n = Math.max(1, Math.round(c.L / DRV.bin));
     let m = DV.marks.get(c.key);
-    if (m && st.s > m.s0 + BL.rise) { DV.marks.delete(c.key); m = null; }          // new snow since: what was cut is filled in
-    if (!m) { if (!mark) return { name: c.name, k: 0 }; const n = Math.max(1, Math.round(c.L / DRV.bin)); DV.marks.set(c.key, m = { n, m: new Uint8Array(n), c: 0, s0: st.s }); }
+    if (!m && typeof st.mk === "string" && st.mk.length === n && Number.isFinite(st.ms)) {   // a reload in the middle of the drive: the lengths cut before it still count
+      m = { n, m: new Uint8Array(n), c: 0, s0: st.ms }; for (let i = 0; i < n; i++) if (st.mk.charCodeAt(i) === 49) { m.m[i] = 1; m.c++; }
+      DV.marks.set(c.key, m);
+    }
+    if (m && st.s > m.s0 + BL.rise) { drvUnmark(c.key, st); m = null; }            // new snow since: what was cut is filled in
+    if (!m) { if (!mark) return { name: c.name, k: 0 }; DV.marks.set(c.key, m = { n, m: new Uint8Array(n), c: 0, s0: st.s }); }
     if (mark) {
-      const b = Math.max(0, Math.min(m.n - 1, Math.floor(t / DRV.bin))); if (!m.m[b]) { m.m[b] = 1; m.c++; }
+      const b = Math.max(0, Math.min(m.n - 1, Math.floor(t / DRV.bin))); if (!m.m[b]) { m.m[b] = 1; m.c++; st.mk = Array.from(m.m).join(""); st.ms = m.s0; }
       if (m.c >= DRV.credit * m.n) { drvDone(c, st); return null; }
     }
     return { name: c.name, k: m.c / m.n };
@@ -1068,7 +1077,7 @@ function drvMark(x, z, mark) {                                                  
 function drvDone(c, st) {
   const s = S(), k = drvK(st.h), h = st.h, cash = Math.round(drvBase(c) * k * api.payMul());
   api.GS.cash += cash; st.wk += cash; st.n++; s.drvPaid += cash; s.drvN++;
-  st.s = 0; st.h = 0; st.due = 0; st.miss = Math.max(0, st.miss - 1); DV.marks.delete(c.key); drvApply(c, st);
+  st.s = 0; st.h = 0; st.due = 0; st.miss = Math.max(0, st.miss - 1); drvUnmark(c.key, st); drvApply(c, st);
   api.toast(`${c.name}'s drive is clear. ${c.name} pays ${api.fmtCash(cash)}${k < 0.995 ? ` (${Math.round(k * 100)}%: ${Math.round(h)} h after the weather eased)` : ""}.`, "good");
   api.save(); conRefresh();
 }

@@ -1030,7 +1030,8 @@ clear), the Jobs app gets a row for your snowed-in drives, the compass points at
 Map pins each one. Plow it out with the blade down, driving up it from the street or back-dragging
 out of it: the riding hint counts how much is done, and once four fifths of its length is cut the
 drive is clear and the customer pays **at once**, $12 a call plus $3 a metre ($42 for a 10 m
-drive), in full inside 4 hours of the weather easing and sliding to half at 12. Leave a drive 12
+drive), in full inside 4 hours of the weather easing and sliding to half at 12. A drive left half
+done keeps what you cut, through a save and a reload too, until new snow fills it in. Leave a drive 12
 hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they
 find someone else for a week (a paid clearing wipes the first miss). **DROP** gives a drive back for
 nothing. Monday's statement has one line for all the drives you cleared that week.
