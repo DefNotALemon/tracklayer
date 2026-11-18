@@ -49,7 +49,9 @@
 // Option plowtrip (on): blade down at over BL.tripV, a rock, a log or a parked car trips it (the block comment at HX).
 // A scrape on the game's audio by speed and by how much snow is under the edge, a clunk when it lands and when it comes
 // up, sparks off the cutting edge on a scraped road stretch (TLXR.scrapeF). Nothing of this is saved but the edge.
-// NOT YET: door counting, used blades (4.1b3), the plow truck (4.1c), pay (4.2).
+// USED BLADES (4.1b3a). Bytteboden lists a used blade under Vehicles (the block comment at MKB): collected at the
+// seller's door in a truck it fits, bolted on there or sent to the shed, its condition the cutting edge.
+// NOT YET: door counting (4.1b3b), the plow truck (4.1c), pay (4.2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -208,8 +210,69 @@ function garageRows(body, row) {
       else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed" + (s.shedC && s.shedC[s.shed.indexOf(d.id)] < 99.5 ? ", its cutting edge at " + Math.round(s.shedC[s.shed.indexOf(d.id)]) + "%." : ".") : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
     });
   }
-  foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : ""));
+  foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : "") + (own.some(r => BLADES.some(d => d.fits.includes(r.id))) ? " Used blades turn up on Bytteboden, under Vehicles." : ""));
 }
+
+/* ---------------- used blades on Bytteboden (4.1b3a) ---------------- */
+// A used blade is a listing in Bytteboden's Vehicles category (TLXV.addMkt: tlx-vehicles.js hands every question about
+// an item called "blade:<id>" to MKB). One is listed while you own a truck it fits and fewer blades (fitted, in the shed
+// or paid for) than such trucks, and have made USED.need deliveries. The listing's condition IS the cutting edge (0.72 =
+// 72%), so a lemon is a blade sold with a better edge than it has; what a point of edge costs to mend is on the listing's
+// card, which makes the sum against a new one easy. You collect it at the seller's door IN a truck it fits (280 kg does
+// not ride on a sled): bolted on there if that truck has no blade, else it goes in the bed and into the garage's shed.
+const USED = { need: 6, w: 0.7, pre: "blade:" };
+const usedId = item => (typeof item === "string" && item.startsWith(USED.pre) ? byId(item.slice(USED.pre.length)) : null);
+const edgeOf = c => Math.max(1, Math.min(100, Math.round((Number.isFinite(c) ? c : 1) * 100)));
+const fitsCur = d => { const u = curUid(), r = u == null ? null : trucks().find(q => q.uid === u); return r && d.fits.includes(r.id) ? r : null; };
+const truckName = id => ((window.TLXV ? TLXV.VEHICLES : []).find(v => v.id === id) || {}).name || id;
+const MKB = {
+  owns: item => !!usedId(item),
+  pool(held) {
+    const s = S(), out = []; if (!s || api.GS.delivered < USED.need) return out;
+    for (const d of BLADES) {
+      if (d.factory) continue;                                                     // a blade that comes with its truck is not sold apart (4.1c)
+      const can = trucks().filter(r => d.fits.includes(r.id)).length; if (!can) continue;
+      const have = Object.keys(s.blades || {}).filter(u => s.blades[u] && s.blades[u].id === d.id).length + (s.shed || []).filter(id => id === d.id).length + (held || []).filter(h => h.cat === "veh" && h.item === USED.pre + d.id).length;
+      if (have < can) out.push({ item: USED.pre + d.id, w: USED.w });
+    }
+    return out;
+  },
+  info(item, c) {
+    const d = usedId(item), e = edgeOf(c);
+    return { name: d.name + " plow blade", newP: d.cost, kind: "blade",
+      stat: `${d.w.toFixed(1)} m · fits the ${d.fits.map(truckName).join(", ")} · cutting edge ${e}%${e < BL.ragged ? ": a ragged cut" : ""} · a new edge is $${Math.floor(100 - e) * BL.mend} at the garage` };
+  },
+  why: () => ["Sold the pickup and kept the blade. It's no use leaning on the shed.", "The council plows our road now, right to the gate.", "Bought a tractor with a snow blower. This just rusts.",
+    "We moved down into the village. The lane is somebody else's job now.", "Dad plowed half of Lebesby with it. He's stopped driving."],
+  tell: () => ["The cutting edge is worn right down to the bolt heads.", "The edge has been ground back so often there's hardly any steel left under the mouldboard.", "Somebody caught a rock at speed: the cutting edge is chewed up along half its length."],
+  howTo: (h, place) => `It leans on ${h.seller}'s shed in ${place}. It weighs ${(usedId(h.item) || {}).kg || 280} kg, so come in a pickup: ${h.seller} helps you bolt it on if the truck has no blade, and if it has one this goes in the bed and into the garage's shed.`,
+  blocked(h) { const d = usedId(h.item); if (!d) return ""; return fitsCur(d) ? "" : `It weighs ${d.kg} kg and bolts to a truck's frame: come in the ${d.fits.map(truckName).join(" or the ")}.`; },
+  payWhy: () => "",
+  collect(h) {
+    const s = S(), d = usedId(h.item), r = d && fitsCur(d); if (!s || !r) return "";
+    const e = edgeOf(h.cond), rag = e < BL.ragged ? ` Under ${BL.ragged}% it cuts ragged: the garage mends it at $${BL.mend} a point.` : "";
+    if (!Array.isArray(s.shedC)) s.shedC = []; while (s.shedC.length < s.shed.length) s.shedC.push(100);
+    if (!s.blades[r.uid]) {
+      s.blades[r.uid] = { id: d.id, cond: e, throw: "r" };
+      const R = TLXV.runtimeOf(r.uid); if (R) model(R);
+      return `${h.seller} helps you bolt the ${d.name} onto the ${truckName(r.id)}. Cutting edge ${e}%.${rag} ${useLine()}`;
+    }
+    s.shed.push(d.id); s.shedC.push(e);
+    return `The ${truckName(r.id)} already carries a blade, so ${h.seller}'s ${d.name} goes in the bed and into the garage's shed. Cutting edge ${e}%.${rag} The garage's Plow tab fits it to another pickup for nothing.`;
+  },
+  pic(g, l, cx, cy, R) {                                                         // the blade leaning on a shed wall, seen from the front
+    const e = edgeOf(l.insp ? l.real : l.adv), W = 168, x0 = cx - W / 2, y0 = cy - 46;
+    R(x0 - 14, y0 - 22, W + 28, 96, "#6b4a37"); for (let i = 0; i < 8; i++) R(x0 - 14 + i * 25, y0 - 22, 2, 96, "#553a2b");   // the shed's boards
+    g.fillStyle = "#c9960f"; g.beginPath(); g.moveTo(x0, y0 + 6); g.quadraticCurveTo(cx, y0 - 8, x0 + W, y0 + 6); g.lineTo(x0 + W, y0 + 56); g.lineTo(x0, y0 + 56); g.closePath(); g.fill();   // mouldboard
+    R(x0, y0 + 20, W, 3, "#a87c08"); R(x0, y0 + 38, W, 3, "#a87c08");             // its strips
+    for (const fx of [0.12, 0.38, 0.62, 0.88]) R(x0 + W * fx - 2, y0 + 4, 4, 50, "rgba(0,0,0,.18)");   // ribs showing through
+    for (let i = 0; i < 5; i++) { g.fillStyle = "rgba(90,60,20,.35)"; g.fillRect(x0 + 12 + ((i * 53) % (W - 30)), y0 + 12 + ((i * 17) % 30), 14 + (i % 3) * 6, 2); }   // scrapes
+    R(x0, y0 + 56, W, 8, "#6d7379");                                              // the cutting edge...
+    if (e < 60) for (let i = 0; i < 9; i++) R(x0 + 6 + i * (W / 9), y0 + 60 + (i % 2), W / 18, 4, "#2a2d31");   // ...notched when it is worn
+    for (const sx of [x0 + 4, x0 + W - 6]) { R(sx, y0 - 34, 2, 40, "#23262a"); R(sx - 1, y0 - 40, 4, 8, "#ff6a1a"); }   // marker rods
+    R(x0 + 2, y0 + 64, W - 4, 3, "rgba(0,0,0,.3)");                                // its shadow on the snow
+  }
+};
 
 /* ---------------- the model: built onto the truck's own group ---------------- */
 // one geometry from many boxes and rods, vertex-coloured, so the whole blade is three draw calls
@@ -514,7 +577,7 @@ function rideLine() {
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = d.kg; XL.pin = d.kg; XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { BLADES, BL, THROWS, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { BLADES, BL, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 
@@ -530,6 +593,7 @@ TLX.register({
     TLXV.addLoad(load);
     TLXV.addUse({ use: toggle, label });
     if (TLXV.addHull) TLXV.addHull(hull);
+    if (TLXV.addMkt && !MKB.on) { MKB.on = true; TLXV.addMkt(MKB); }               // used blades on Bytteboden (4.1b3a)
     TLXV.onModel(model);
     if (a.ridex) a.ridex.push(rideLine);
   },

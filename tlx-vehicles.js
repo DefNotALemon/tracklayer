@@ -1119,7 +1119,7 @@ function garageRows(body, row) {
     const how = d.how || `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
     const lic = hasLic(d) ? "" : `\n<span style="color:#f0c674">Needs your ${LIC_NAME[d.lic] || d.lic} licence.</span>`;
     const hd = d.id === "pickup" ? hp : heldVeh(d.id);
-    const hAny = hd || (full ? heldList().find(h => h.cat === "veh" && h.item !== "haul") : null);   /* a row locked by ANOTHER kind's paid-for truck says so too (the tractor's row, a used pickup waiting) */
+    const hAny = hd || (full ? heldList().find(heldTruck) : null);   /* a row locked by ANOTHER kind's paid-for truck says so too (the tractor's row, a used pickup waiting) */
     const wait = hd ? `\n<span style="color:#f0c674">You've paid for a used ${usedNoun(d.id)}: ${d.id === "pickup" ? `it's waiting in ${heldWhere(hd)}` : `collect the keys from ${hd.seller || "the seller"}`}.${full ? ` That makes ${MAX_OWNED} trucks, the most the forecourt takes.` : ""}</span>`
       : hAny ? `\n<span style="color:#f0c674">You've paid for a used ${usedNoun(hAny.item)} that is still waiting. That makes ${MAX_OWNED} trucks, the most the forecourt takes.</span>` : "";
     row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n${d.blurb}${wait}${lic}`, n ? `Owned ×${n} · $${d.cost}` : "$" + d.cost, full || GS.cash < d.cost || !hasLic(d) ? "locked" : "", () => buy(d.id), String(d.year));
@@ -1572,7 +1572,15 @@ function baySpot(b, d) {                                                        
 }
 const isLorry = item => { const d = byId(item); return !!(d && d.fifthZ != null); };
 const usedNoun = item => item === "haul" ? "sled trailer" : isLorry(item) ? "tractor unit" : "pickup";
-const usedTrucks = held => S().owned.filter(isTruck).length + held.filter(h => h.cat === "veh" && h.item !== "haul").length;
+/* Foreign items in the Vehicles category (4.1b3a: tlx-plow.js's used blades). Another system lists things under Vehicles
+   with TLXV.addMkt({ owns(item), pool(held), info(item, c), why(item), tell(item), howTo(h, place), blocked(h),
+   payWhy(l, held), noRoom(h), collect(h, site), pic(g, l, cx, cy, R), sitesFor(item, sites) }): MKTV hands every question
+   about an item that handler owns straight to it. Such an item is not a truck: it is left out of the three-truck count
+   and of heldRefund (its `blocked` means "not right now", as a sled's full trailer does, never "give the money back"). */
+const MKTX = [];
+const mktX = item => { for (const x of MKTX) { try { if (x.owns(item)) return x; } catch (e) { } } return null; };
+const heldTruck = h => h.cat === "veh" && h.item !== "haul" && !mktX(h.item);   // a paid-for used truck still at its seller's
+const usedTrucks = held => S().owned.filter(isTruck).length + held.filter(heldTruck).length;
 /* Report 0110: an order paid for and not yet collected counts as owned, so the garage won't sell a second trailer or a 4th
    truck over it (buy / buyHaul refuse, the rows say why). A save already stuck that way (held order that can never be
    collected) gets the seller's refund: heldRefund, every couple of seconds from tick. */
@@ -1584,7 +1592,7 @@ function heldRefund(dt) {
   if ((refundT -= dt) > 0) return; refundT = 2;
   const m = api.GS.mkt; if (!m || !Array.isArray(m.held)) return;
   for (const h of m.held.slice()) {
-    if (h.cat !== "veh") continue;
+    if (h.cat !== "veh" || mktX(h.item)) continue;
     const why = MKTV.blocked(h); if (!why) continue;
     m.held = m.held.filter(q => q !== h); api.GS.cash += h.paid || 0;
     api.toast(`${h.seller || "The seller"} refunds the ${api.fmtCash(h.paid || 0)} you paid for the ${usedNoun(h.item)}: ${why.replace(/\.$/, "")}.`, "good");
@@ -1602,24 +1610,27 @@ const MKTV = {
       if (d && api.GS.delivered >= MKT_LORRY.need && hasLic(d) && usedTrucks(held) < MAX_OWNED && lorryBays().length && !held.some(h => h.cat === "veh" && h.item === "tractor"))
         out.push({ item: "tractor", w: S().owned.some(r => r.id === "tractor") ? MKT_LORRY.wOwned : MKT_LORRY.w });
     }
+    for (const x of MKTX) { try { for (const p of x.pool(held) || []) if (p && p.item && p.w > 0) out.push(p); } catch (e) { } }   // foreign items (used blades)
     return out;
   },
   // where a seller of this can live (the marketplace picks one of these; none = no listing)
-  sitesFor: (item, sites) => isLorry(item) ? sites.filter(s => bayNear(s.x, s.z, MKT_LORRY.r)) : sites,
+  sitesFor: (item, sites) => { const x = mktX(item); return x ? (x.sitesFor ? x.sitesFor(item, sites) : sites) : isLorry(item) ? sites.filter(s => bayNear(s.x, s.z, MKT_LORRY.r)) : sites; },
   info(item, c) {
+    { const x = mktX(item); if (x) return x.info(item, c); }
     const pct = Math.round(c * 100);
     if (item === "haul") return { name: HAUL.name, newP: HAUL.cost, stat: `Single axle · 3.9 m deck · ramp gate · ${c < 0.8 ? "rolls a bit heavy" : "rolls like new"}`, kind: "haul" };
     if (isLorry(item)) { const d = byId(item); return { name: d.name + " tractor unit", newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · fifth wheel · ${pct < 80 ? "worked hard" : "tidy"}`, kind: "tractor" }; }
     const d = byId("pickup");
     return { name: d.name + " pickup", newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · heated cab · ${pct < 80 ? "dented" : "tidy"}`, kind: "pickup" };
   },
-  why: item => MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].why,
-  tell: item => MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].tell,
-  howTo: (h, place) => h.item === "haul" ? `It stands in ${h.seller}'s yard in ${place}. Collect it there, then back a truck up to the coupler and hitch it.`
+  why: item => { const x = mktX(item); return x ? x.why(item) : MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].why; },
+  tell: item => { const x = mktX(item); return x ? x.tell(item) : MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].tell; },
+  howTo: (h, place) => mktX(h.item) ? mktX(h.item).howTo(h, place) : h.item === "haul" ? `It stands in ${h.seller}'s yard in ${place}. Collect it there, then back a truck up to the coupler and hitch it.`
     : isLorry(h.item) ? (() => { const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity);
         return `Too big for a yard: it stands in the ${n ? n.bay.name : "lay-by"}${n ? `, ${Math.round(n.d / 10) * 10} m from ${h.seller}'s door in ${place}` : ""}. Settle up at the door for the keys, then go out to the lay-by and drive it away; it is on your Map once it's yours.`; })()
     : `It's parked in ${h.seller}'s yard in ${place}. Collect it there, walk over and drive it away; your sled waits where you left it.`,
   blocked(h) {
+    { const x = mktX(h.item); if (x) return x.blocked ? x.blocked(h) || "" : ""; }
     if (h.item === "haul") return haulS() ? "You already own a sled trailer." : "";
     if (isLorry(h.item) && !hasLic(byId(h.item))) return "A tractor unit needs your Freight licence.";
     return S().owned.filter(isTruck).length >= MAX_OWNED ? `That's enough trucks (${MAX_OWNED}).` : "";   /* trucks only: a boat in `owned` is not one */
@@ -1629,14 +1640,16 @@ const MKTV = {
      waiting at its seller's) used to be sold all the same, and heldRefund then quietly gave back the one you'd paid for first. */
   payWhy(l, held) {
     held = Array.isArray(held) ? held : heldList();
+    { const x = mktX(l.item); if (x) return x.payWhy ? x.payWhy(l, held) || "" : ""; }
     if (l.item === "haul") { const hh = held.find(h => h.cat === "veh" && h.item === "haul"); return haulS() ? "You already own a sled trailer." : hh ? `You've already paid for a sled trailer: it's waiting in ${heldWhere(hh)}.` : ""; }
     if (isLorry(l.item) && !hasLic(byId(l.item))) return "A tractor unit needs your Freight licence.";
     if (usedTrucks(held) < MAX_OWNED) return "";
-    const hp = held.find(h => h.cat === "veh" && h.item !== "haul");
+    const hp = held.find(heldTruck);
     return hp ? `That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isLorry(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.` : `That is enough trucks on the forecourt (${MAX_OWNED}).`;
   },
-  noRoom: h => { if (!isLorry(h.item)) return ""; const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity); return `${h.seller}: "There's no room to stand it in the ${n ? n.bay.name : "lay-by"}. Move what's parked there and come back."`; },
+  noRoom: h => { { const x = mktX(h.item); if (x) return x.noRoom ? x.noRoom(h) || "" : ""; } if (!isLorry(h.item)) return ""; const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity); return `${h.seller}: "There's no room to stand it in the ${n ? n.bay.name : "lay-by"}. Move what's parked there and come back."`; },
   collect(h, site) {                                                             // "" = no room right now (the marketplace nags and retries)
+    { const x = mktX(h.item); if (x) return x.collect(h, site) || ""; }
     const s = S(), cx = site.x, cz = site.z, away = (x, z) => Math.atan2(x - cx, z - cz);
     if (h.item === "haul") {
       const spot = spotNear(cx, cz, { len: HAUL.L - HAUL.deckZ0 + 0.6 }, false, away); if (!spot) return "";
@@ -1657,6 +1670,7 @@ const MKTV = {
     return `${h.seller} hands you the keys. The ${d.name} is parked in the yard: ${r.cond}% condition, a quarter tank. Walk over and get in.`;
   },
   pic(g, l, cx, cy, R) {                                                         // the listing's photo: side view, nose to the left
+    { const x = mktX(l.item); if (x) { if (x.pic) x.pic(g, l, cx, cy, R); return; } }
     const gy = cy + 8, wheel = (x, rr) => { g.fillStyle = "#14171a"; g.beginPath(); g.arc(x, gy, rr, 0, 6.283); g.fill(); g.fillStyle = "#8d99a6"; g.beginPath(); g.arc(x, gy, rr * 0.45, 0, 6.283); g.fill(); };
     if (l.item === "haul") {
       R(cx - 70, gy - 22, 140, 8, "#7a5a3a");                                     // deck
@@ -1889,5 +1903,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

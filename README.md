@@ -951,6 +951,15 @@ leaves twice the snow in the lane; a line tells you when it gets there and the h
 you cut. With the truck within 60 m of the garage the same tab mends it at $6 a point, as many
 points as your cash covers. A blade in the shed keeps the edge it had.
 
+**A used blade.** Once you own a pickup with no blade for it, Bytteboden lists a used Fjellskjær 2.3
+now and then, under Vehicles, for roughly two thirds of the new price. Its condition is its cutting
+edge: the card gives the percentage and what a new edge would cost at the garage, so the sum against
+a new blade is in front of you, and a seller can lie about it like any other (inspect it in person).
+It weighs 280 kg, so it is collected in a pickup, not on the sled: stop at the seller's door in a
+pickup with no blade and they help you bolt it on there and then; in one that already carries a
+blade it goes in the bed and into the garage's shed, where the Plow tab fits it to another pickup
+for nothing. Arrive on the sled and the seller says to come back in the truck; the order waits.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car
