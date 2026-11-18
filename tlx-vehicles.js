@@ -54,11 +54,11 @@ const VEHICLES = [
     circles: [[2.0, 1.25], [0.0, 1.25], [-2.0, 1.25]], belly: [1.2, 0, -1.6], lamp: [0, 0.85, 3.2],
     cab: { dx: 0.22, dy: 0.9, dz: 1.72, sx: 0.36 } },
   /* 4.1c1: the plow truck. The tractor unit's chassis and cab (model "tractor") with a gritter body where the fifth wheel
-     was (body "gritter"; no fifthZ, so nothing couples to it or sells it as a tractor unit), ballast in the hopper, a
+     was (body "gritter"; no fifthZ, so nothing couples to it or sells it as a tractor unit), the gritter is tlx-plow.js's too (4.1c2), a
      bigger engine and lower gearing. Its 3.5 m blade is tlx-plow.js's (BLADES row b35, factory: it comes with the truck). */
   { id: "plowtruck", name: "Nordtrekk Brøyt 4x2", kind: "plow truck", year: 2011, cost: 16800, lic: "freight",
-    blurb: "The council's kind of truck: a cab-over with a 3.5 m blade on its nose and a gritter body full of ballast on its back. Nearly ten tonnes on winter tyres, so it pushes snow a pickup stalls in, and it opens a snowed-in road in one pass.",
-    spec: "plow truck · 3.5 m blade from the factory, clears 3.1 m · gritter body · two seats, no load bed",
+    blurb: "The council's kind of truck: a cab-over with a 3.5 m blade on its nose and a gritter body on its back. Nearly ten tonnes on winter tyres, so it pushes snow a pickup stalls in, and it opens a snowed-in road in one pass. Its hopper takes three tonnes of grit, spread behind it for grip on a hard road.",
+    spec: "plow truck · 3.5 m blade from the factory, clears 3.1 m · gritter, 3 t hopper · two seats, no load bed",
     how: "For opening roads. With the blade down it cuts its own way through deep snow at speed; with it up, or off the road in soft snow, it is ten tonnes that sink to the axles.",
     mass: 9800, power: 330000, fmax: 40000, top: 22, revTop: 3.4,
     fuel: 300, burn: 2.8, slots: 2, cabCold: 0.1, hitchKg: 0, hitchZ: -2.9,
@@ -220,10 +220,9 @@ function buildTractor(d) {
   if (d.body === "gritter") {                                                    // 4.1c1: the plow truck's hopper, in the council truck's proportions
     const HZ = -1.35, HL = 3.1, GREY = 0x5d646b;
     B(2.2, 0.72, HL, 0, 1.5, HZ, GREY); B(2.44, 0.62, HL + 0.1, 0, 2.15, HZ, P0); B(2.5, 0.08, HL + 0.16, 0, 2.5, HZ, TRIM);
-    B(1.9, 0.2, HL - 0.5, 0, 2.58, HZ, 0xd9dde0);                                // the grit heaped in it
+    /* the grit heaped in it and the spinner's disc are tlx-plow.js's (4.1c2): one shows the hopper's level, the other turns */
     for (let z = HZ - 1.2; z <= HZ + 1.21; z += 0.8) for (const sg of [1, -1]) B(0.05, 0.6, 0.08, sg * 1.235, 2.15, z, TRIM);   // the hopper's ribs
-    B(0.5, 0.46, 0.4, 0, 0.84, -3.12, TRIM);                                     // the spinner's drive and its disc
-    { const g = new T.CylinderGeometry(0.42, 0.42, 0.06, 16); body.push({ g, c: STEEL, m: tf(0, 0.56, -3.14) }); }
+    B(0.5, 0.46, 0.4, 0, 0.84, -3.12, TRIM);                                     // the spinner's drive
     B(2.2, 0.5, 0.05, 0, 1.5, HZ - HL / 2 - 0.03, 0xf1f1ee);                      // tail board, red squares at its ends
     for (const sg of [1, -1]) B(0.5, 0.5, 0.06, sg * 0.82, 1.5, HZ - HL / 2 - 0.04, 0xc9261d);
     for (let y = 1.3; y < 2.5; y += 0.3) B(0.4, 0.04, 0.05, -0.3, y, HZ + HL / 2 + 0.05, STEEL);   // a ladder up its front
@@ -447,6 +446,10 @@ function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r
    TLXV.onModel(fn(R)): called once for every wheeled truck's runtime, as it is built (and at once for those built already).
    A load may also answer `why`: a sentence for when it is the thing holding a truck that can't pull away. */
 const USES = [], MODELS = [], HULLS = [];
+/* 4.1c2 (the gritter): TLXV.addGrip(fn(x, z) -> a factor on the tyres' grip where the truck stands, 1 = nothing). Asked
+   once a frame for the truck you drive; R.grip is what it came to. Not asked while a wheel is in water. */
+const GRIPS = [];
+function xGrip(x, z) { let k = 1; for (const f of GRIPS) { const q = f(x, z); if (q > 0) k *= q; } return k; }
 function addUse(u) { USES.push(u); }
 /* 4.1b2b (the blade is solid): TLXV.addHull(fn(R) -> null, or { off, r (one more hull circle, like a row of `circles`),
    pass(R, o) -> true: this thing goes through it for now, hit(R, hit, o, nx, nz) -> true: it has taken the blow itself
@@ -494,6 +497,7 @@ function core(R, dt) {
     R.sink[i] = sk; sinkS += sk; packS += packA; muS += mu; crS += cr; crB += bow;
   }
   sinkS /= 4; packS /= 4; muS /= 4; crS /= 4; crB /= 4;
+  R.grip = wetN || !GRIPS.length ? 1 : xGrip(P.x, P.z); muS *= R.grip;       // grit on the road under it (4.1c2)
   const Hf = (R.H[0] + R.H[1]) / 2, Hr = (R.H[2] + R.H[3]) / 2, Hl = (R.H[0] + R.H[2]) / 2, Hrt = (R.H[1] + R.H[3]) / 2, Hc = (Hf + Hr) / 2;
   const sf = (Hf - Hr) / (d.zf - d.zr), sl = (Hl - Hrt) / d.track, gx = sf * fx + sl * lx, gz = sf * fz + sl * lz, g2 = gx * gx + gz * gz;
   P.pack = packS; P.ice = !sea && w.bioAt(P.x, P.z) === 1 && w.freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL)) < 0.12;
@@ -1932,5 +1936,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

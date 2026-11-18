@@ -55,7 +55,17 @@
 // `factory`: tidy() gives every such truck its blade, it never comes off or goes to the shed, and the Plow tab only mends
 // it. Everything else is the same code with the row's numbers: 3.5 m, clearing 3.1 m (so one pass marks both sides of a
 // road stretch: BL.both), a taller mouldboard, a higher windrow, a bigger bladeful, drawn larger on the truck's own front.
-// NOT YET: door counting (4.1b3b), the gritter (4.1c2), a used plow truck (4.1c3), pay (4.2).
+// THE GRITTER (4.1c2). The plow truck's body is a gritter: a 3 t hopper (BLADES row b35, `hop`), filled at the garage's
+// Plow tab by the kilo, empty on a new truck. HOLDING the use control with the blade UP starts and stops the spinner (a
+// tap still drops the blade, now when the control is let go; with the blade down the hold slews it as before). While it
+// runs and the truck rolls it lays GRT.rate kg a metre behind the truck; on a road stretch the 10 m length under the
+// spinner is stamped with the game hour. A gritted length grips GRT.mu times better under the tyres of any truck you
+// drive (TLXV.addGrip) for GRT.hours game hours, fading over the last of them, and new snow on the stretch buries it.
+// Grit on a stretch under deep snow does not bite unless the blade is cutting ahead of it. What is in the hopper rides
+// on the truck (its mass and its tyres' load). Saved: blades[uid].hop (kg), grit: { "routeId:stretch": { h: [the game
+// hour each 10 m length was last gritted, 0 = never], s0: the stretch's snow level then } }, gritKg (spread in all).
+// The spinner running is not saved: a reload finds it off.
+// NOT YET: door counting (4.1b3b), a used plow truck (4.1c3), pay (4.2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -67,8 +77,22 @@ const BLADES = [
   // its windrow (it throws three times the snow, so the rows stand higher and there is one more), the m3 it holds slewed
   // (twice that square), the push from which "stuck" is its doing. mz: the truck's front, where the push frame is bolted.
   { id: "b35", name: "Brøytskjær 3.5", fits: ["plowtruck"], factory: true, cost: 0, kg: 900, w: 3.5, h: 1.15, ang: 0.49, z: 4.5, leave: 0.15,
-    rows: [1.15, 0.95, 0.65, 0.4], carry: 3, whyN: 32000, mz: 3.24 }
+    rows: [1.15, 0.95, 0.65, 0.4], carry: 3, whyN: 32000, mz: 3.24, hop: 3000 }   // hop: kg of grit its truck's hopper holds (4.1c2)
 ];
+// the gritter (4.1c2)
+const GRT = {
+  rate: 0.4,       // kg laid per metre rolled (a full 3 t hopper: 7.5 km of road)
+  minV: 1,         // m/s: the spinner is driven off the road wheels, slower than this nothing comes out
+  back: 3.4,       // m behind the truck's centre the grit lands
+  bin: 10,         // m: a road stretch is gritted in lengths this long
+  mu: 1.35,        // the tyres' grip on a freshly gritted length (hard pack 0.42 -> 0.57)
+  hours: 10,       // game hours a gritted length lasts
+  fade: 0.6,       // it is at full strength for this share of them, then fades out
+  bury: [0.03, 0.1],   // new snow on the stretch (its level up by this much since) fades the grit out: buried
+  deep: 0.3,       // a stretch's snow level over which grit does not bite, unless the blade is cutting in front of it
+  price: 0.05,     // $ a kg at the garage ($50 a tonne, $150 the hopper)
+  spin: 16         // rad/s the disc turns
+};
 const BL = {
   face: 2600,      // N per m2 of snow face (depth cut x width cleared), standing
   v2: 0.15,        // the face term grows by 1 + v2 x v^2: the snow has to be thrown, not just pushed
@@ -132,6 +156,8 @@ const angOf = (d, th) => d.ang * THROWS[th].sign;                              /
 const sideOf = a => (a > 0.12 ? -1 : a < -0.12 ? 1 : 0);                       // where the windrow goes, as a sign of local x (+ = the truck's left); 0 = nowhere, it rides
 const trucks = () => (window.TLXV ? TLXV.state().owned : []).filter(r => !TLXV.kinds[r.id]);
 const curUid = () => (window.TLXV ? TLXV.state().cur : null);
+const hopOf = uid => { const s = S(), b = s && s.blades[uid]; return b && Number.isFinite(b.hop) ? Math.max(0, b.hop) : 0; };
+const tons = kg => (kg >= 995 ? (kg / 1000).toFixed(1) + " t" : Math.round(kg) + " kg");
 
 /* ---------------- the save's housekeeping ---------------- */
 function tidy() {
@@ -141,6 +167,9 @@ function tidy() {
   if (!Number.isFinite(s.m)) s.m = 0;
   if (!Number.isFinite(s.opened)) s.opened = 0;
   if (!Array.isArray(s.shedC)) s.shedC = [];
+  if (!s.grit || typeof s.grit !== "object" || Array.isArray(s.grit)) s.grit = {};
+  if (!Number.isFinite(s.gritKg)) s.gritKg = 0;
+  for (const k of Object.keys(s.grit)) { const g = s.grit[k]; if (!g || !Array.isArray(g.h) || !Number.isFinite(g.s0) || !g.h.some(h => h > 0 && api.GS.hour - h < GRT.hours)) delete s.grit[k]; }   // worn off: forgotten
   { const ids = [], cs = []; s.shed.forEach((id, i) => { const d0 = byId(id); if (!d0 || d0.factory) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
   for (const uid of Object.keys(s.blades)) {
@@ -150,10 +179,11 @@ function tidy() {
     if (!Number.isFinite(b.cond)) b.cond = 100;
     b.cond = Math.max(0, Math.min(100, b.cond));
     if (!THROWS[b.throw]) b.throw = "r";
+    if (d.hop) b.hop = Number.isFinite(b.hop) ? Math.max(0, Math.min(d.hop, b.hop)) : 0; else delete b.hop;
   }
   for (const r of own) {                                                         // 4.1c1: a truck that comes with a blade has it
     const fd = BLADES.find(d => d.factory && d.fits.includes(r.id)); if (!fd) continue;
-    const b = s.blades[r.uid]; if (!b || b.id !== fd.id) s.blades[r.uid] = { id: fd.id, cond: 100, throw: "r" };
+    const b = s.blades[r.uid]; if (!b || b.id !== fd.id) { s.blades[r.uid] = { id: fd.id, cond: 100, throw: "r" }; if (fd.hop) s.blades[r.uid].hop = 0; }
   }
   NT = own.length;
 }
@@ -206,6 +236,18 @@ function mend(uid) {
   api.toast(pts === want ? `The ${byId(b.id).name} has a new cutting edge (${api.fmtCash(pts * BL.mend)}).` : `${api.fmtCash(pts * BL.mend)} of work on the cutting edge: it is at ${Math.round(b.cond)}%. The rest is ${api.fmtCash((want - pts) * BL.mend)}.`, "good");
   api.save(); api.garageRefresh(); return true;
 }
+/* the hopper: grit by the kilo at the garage, as much as the hopper takes and your cash covers */
+function fill(uid) {
+  const s = S(), b = s.blades[uid], d = b && byId(b.id), r = trucks().find(q => q.uid === uid), GS = api.GS; if (!b || !d || !d.hop || !r) return false;
+  const want = Math.floor(d.hop - hopOf(uid)); if (want < 1) return false;
+  if (!near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to fill its hopper.`, "warn"); return false; }
+  const kg = Math.min(want, Math.floor(GS.cash / GRT.price + 1e-6));
+  if (kg < 20) { api.toast(`Grit is ${api.fmtCash(GRT.price * 1000)} a tonne. You have ${api.fmtCash(GS.cash)}.`, "warn"); return false; }
+  const cost = Math.ceil(kg * GRT.price - 1e-6); GS.cash -= cost; b.hop = hopOf(uid) + kg; if (d.hop - b.hop < 1) b.hop = d.hop;
+  api.toast(kg === want ? `The hopper is full: ${tons(b.hop)} of grit (${api.fmtCash(cost)}). ${gritLine()}` : `${api.fmtCash(cost)} of grit: the hopper holds ${tons(b.hop)} of its ${tons(d.hop)}.`, "good");
+  api.save(); api.garageRefresh(); return true;
+}
+function gritLine() { return INPdev() === "touch" ? "In the truck with the blade up, hold the BLADE DOWN button to start and stop the gritter." : `In the truck with the blade up, hold ${api.btn("use")} to start and stop the gritter.`; }
 function garageRows(body, row) {
   tidy();
   const s = S(), GS = api.GS, own = trucks(), V = TLXV.VEHICLES;
@@ -223,12 +265,16 @@ function garageRows(body, row) {
         const cond = condOf(r.uid), cost = mendCost(r.uid), edge = `Cutting edge ${pct(cond)}%${cond < BL.ragged ? ": worn ragged, it leaves twice the snow" : ""}.`;
         if (d.factory) row(`The ${d.name} on the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>\nIt came with the truck and stays on it. One pass with it opens a snowed-in road stretch: it is wide enough to count for both sides. ${edge}`, "Fitted", "locked", () => { }, "plow");
         else row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose. ${edge}${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
+        if (d.hop) {
+          const hop = hopOf(r.uid), want = Math.floor(d.hop - hop), fc = Math.ceil(want * GRT.price - 1e-6);
+          row(`Fill the ${tn}'s hopper with grit`, `The hopper holds ${tons(hop)} of its ${tons(d.hop)}. ${gritLine()} It spreads while the truck rolls, about ${Math.round(GRT.rate * 100)} kg every 100 m, so a full hopper does ${(d.hop / GRT.rate / 1000).toFixed(1)} km of road.\n<span style="color:#9fd8a8">A gritted road grips about a third better under a truck's tyres, yours or the lorry's: shorter stops, steeper starts. It lasts about ${GRT.hours} hours, or until new snow buries it.</span>\nWhat is in the hopper rides on the truck: a full one is ${tons(d.hop)} more to pull and to stop. Grit is $${Math.round(GRT.price * 1000)} a tonne${want >= 1 && GS.cash < fc && GS.cash >= 1 ? `: your ${api.fmtCash(GS.cash)} buys ${tons(Math.floor(GS.cash / GRT.price))}` : ""}.${away}`, want < 1 ? "Full" : "$" + fc, !here || want < 1 || GS.cash < 1 ? "locked" : "", () => fill(r.uid), "plow");
+        }
         if (cost > 0) row(`Mend the cutting edge of the ${tn}'s blade`, `${edge} It wears with every metre it cuts (a point about every ${BL.wearM} m); under ${BL.ragged}% the cut is ragged. A new edge is $${BL.mend} a point${GS.cash < cost && GS.cash >= BL.mend ? `: your ${api.fmtCash(GS.cash)} buys ${Math.floor(GS.cash / BL.mend)} of the ${cost / BL.mend} points` : ""}.${away}`, "$" + cost, !here || GS.cash < BL.mend ? "locked" : "", () => mend(r.uid), "plow");
       }
       else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed" + (s.shedC && s.shedC[s.shed.indexOf(d.id)] < 99.5 ? ", its cutting edge at " + Math.round(s.shedC[s.shed.indexOf(d.id)]) + "%." : ".") : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
     });
   }
-  foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : "") + (own.some(r => BLADES.some(d => d.fits.includes(r.id))) ? " Used blades turn up on Bytteboden, under Vehicles." : ""));
+  foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : "") + (s.gritKg >= 50 ? ` Grit you have spread: ${tons(s.gritKg)}.` : "") + (own.some(r => BLADES.some(d => d.fits.includes(r.id))) ? " Used blades turn up on Bytteboden, under Vehicles." : ""));
 }
 
 /* ---------------- used blades on Bytteboden (4.1b3a) ---------------- */
@@ -315,9 +361,10 @@ const _e = { v: null };
 function mx(x, y, z, rx = 0, ry = 0, rz = 0) { if (!_e.v) _e.v = new T.Euler(0, 0, 0, "YXZ"); _e.v.set(rx, ry, rz); return new T.Matrix4().makeRotationFromEuler(_e.v).setPosition(x, y, z); }
 const bx = (w, h, d, c, x, y, z, rx, ry, rz) => ({ g: new T.BoxGeometry(w, h, d), c, m: mx(x, y, z, rx, ry, rz) });
 const rod = (r, h, c, x, y, z, rx, ry, rz) => ({ g: new T.CylinderGeometry(r, r, h, 8), c, m: mx(x, y, z, rx, ry, rz) });
-const C_FRAME = 0x1d2024, C_BLADE = 0xd9a514, C_EDGE = 0x6d7379, C_ROD = 0x23262a, C_TIP = 0xff6a1a, C_RAM = 0xb4bac0;
+const C_FRAME = 0x1d2024, C_BLADE = 0xd9a514, C_EDGE = 0x6d7379, C_ROD = 0x23262a, C_TIP = 0xff6a1a, C_RAM = 0xb4bac0, C_GRIT = 0x6a5b4b;
 let MAT = null;
-function mats() { return MAT || (MAT = { paint: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.25 }), lens: new T.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.3, metalness: 0.1, emissive: 0xfff1cf, emissiveIntensity: 0 }) }); }
+function mats() { return MAT || (MAT = { paint: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.25 }), grit: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }), lens: new T.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.3, metalness: 0.1, emissive: 0xfff1cf, emissiveIntensity: 0 }) }); }
+function heapSync(B, d, uid) { if (!B.heap) return; const k = Math.min(1, hopOf(uid) / d.hop); B.heap.visible = k > 0.005; B.heap.scale.y = 0.25 + 0.75 * k; B.heap.position.set(0, 2.5 + 0.1 * k, -1.35); }
 function model(R) {
   const uid = R.rec.uid, d = bladeOf(uid); if (!d) return;
   const B = rt(uid); if (B.grp && B.grp.parent === R.grp) return;
@@ -350,6 +397,13 @@ function model(R) {
   for (const sg of [1, -1]) { slw.push(rod(0.012, 0.6, C_ROD, sg * (hw - 0.04), d.h + 0.33, 0)); slw.push(rod(0.022, 0.12, C_TIP, sg * (hw - 0.04), d.h + 0.65, 0)); }
   const bm = new T.Mesh(merge(mov), M.paint); bm.castShadow = true; B.B = new T.Group(); B.B.add(bm);
   const sm = new T.Mesh(merge(slw), M.paint); sm.castShadow = true; B.S = new T.Group(); B.S.position.set(0, 0, zb); B.S.add(sm); B.B.add(B.S); grp.add(B.B);
+  B.heap = B.disc = null;
+  if (d.hop) {                                                                   // 4.1c2: the grit in the hopper, by its level, and the spinner's disc with its vanes
+    B.heap = new T.Mesh(merge([bx(1.9, 0.2, 2.6, C_GRIT, 0, 0, 0), bx(1.5, 0.12, 2.0, C_GRIT, 0, 0.14, 0), bx(0.9, 0.1, 1.2, C_GRIT, 0, 0.24, 0)]), M.grit); B.heap.castShadow = true; grp.add(B.heap);
+    const dp = [{ g: new T.CylinderGeometry(0.42, 0.42, 0.05, 16), c: C_EDGE, m: mx(0, 0, 0) }]; for (let i = 0; i < 4; i++) dp.push(bx(0.36, 0.07, 0.03, C_FRAME, Math.cos(i * Math.PI / 2) * 0.2, 0.05, -Math.sin(i * Math.PI / 2) * 0.2, 0, i * Math.PI / 2, 0));
+    B.disc = new T.Mesh(merge(dp), M.paint); B.disc.position.set(0, 0.56, -3.14); grp.add(B.disc);
+    heapSync(B, d, uid);
+  }
   if (!Number.isFinite(B.a)) B.a = angOf(d, throwOf(uid));
   B.S.rotation.order = "YXZ"; B.S.rotation.y = -B.a; B.S.rotation.x = BL.tripA * (B.tk || 0);
   B.B.position.y = BL.lift * (1 - B.k);
@@ -423,6 +477,59 @@ function opened(r, i, sn) {
   api.save();
 }
 
+/* ---------------- the gritter (4.1c2) ---------------- */
+const GQ = { key: "", name: "", b: 0, n: 0, sn: 0 };
+function gritSpot(x, z) {                                                        // the road stretch and its 10 m length at (x, z), in GQ; null off the road
+  const TR = window.TLXR; if (!TR || !TR.ready) return null;
+  const n = TR.near(x, z), r = n.route; if (!r || r.closed || !r.st || !(n.d <= TR.ROADS.half)) return null;
+  const SEG = TR.ROADS.seg, i = Math.floor(n.s / SEG), g = r.seg[i]; if (!g || !g.legs.length || !(i < r.st.s.length)) return null;
+  GQ.key = r.id + ":" + i; GQ.name = r.name; GQ.n = Math.max(1, Math.ceil(Math.min(SEG, r.len - i * SEG) / GRT.bin));
+  GQ.b = Math.max(0, Math.min(GQ.n - 1, Math.floor((n.s - i * SEG) / GRT.bin))); GQ.sn = r.st.s[i]; return GQ;
+}
+function gritLive(h, sn, s0) {                                                   // 0..1: how much of its bite a length gritted at game hour h still has
+  if (!(h > 0)) return 0; const age = api.GS.hour - h; if (!(age > -0.01) || age >= GRT.hours) return 0;
+  return (1 - api.sstep(GRT.hours * GRT.fade, GRT.hours, age)) * (1 - api.sstep(GRT.bury[0], GRT.bury[1], sn - s0));
+}
+function gritAt(x, z) { const s = S(), q = s && s.grit ? gritSpot(x, z) : null, g = q && s.grit[q.key]; return g ? gritLive(g.h[q.b], q.sn, g.s0) : 0; }
+function grip(x, z) { return 1 + (GRT.mu - 1) * gritAt(x, z); }                  // TLXV.addGrip: every wheeled truck you drive
+function gritCover(q) { const g = S().grit[q.key]; if (!g) return 0; let c = 0; for (let i = 0; i < q.n; i++) if (gritLive(g.h[i], q.sn, g.s0) > 0.5) c++; return c / q.n; }
+function gritToggle(uid) {
+  const B = rt(uid), d = bladeOf(uid); if (!d || !d.hop) return false;
+  if (B.grit) { B.grit = false; api.toast("The gritter is off."); return false; }
+  if (!(hopOf(uid) >= 1)) { api.toast(`The hopper is empty. The garage's Plow tab fills it: $${Math.round(GRT.price * 1000)} a tonne of grit.`, "warn"); return false; }
+  B.grit = true; B.gNote = ""; B.gRoad = null;
+  api.toast(`The gritter is on: it spreads behind the truck while it rolls. ${tons(hopOf(uid))} in the hopper.`); return true;
+}
+function spread(uid, d, B, dt) {                                                 // the spinner is running: lay what the metres rolled this frame call for
+  const s = S(), b = s.blades[uid], P = api.P, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), vf = P.vx * fx + P.vz * fz, v = Math.abs(vf);
+  if (!(b.hop > 0)) { b.hop = 0; B.grit = false; heapSync(B, d, uid); api.toast("The hopper is empty: the spinner has stopped. The garage's Plow tab fills it.", "warn"); api.save(); return; }
+  if (P.gnd === false || v < GRT.minV || !(dt > 0)) { B.gNote = "still"; B.gRoad = null; return; }
+  const m = v * dt, kg = Math.min(b.hop, GRT.rate * m); b.hop -= kg; s.gritKg += kg; B.gKg = (B.gKg || 0) + kg;
+  const x = P.x - fx * GRT.back, z = P.z - fz * GRT.back, q = gritSpot(x, z);
+  if (!q) { B.gNote = "off"; B.gRoad = null; }
+  else if (q.sn > GRT.deep && !(B.down && B.k >= 0.9 && vf > 0.3 && !(B.trip > 0))) { B.gNote = "deep"; B.gRoad = null; }
+  else {
+    let g = s.grit[q.key];
+    if (!g || g.h.length !== q.n || q.sn - g.s0 >= GRT.bury[1]) g = s.grit[q.key] = { h: new Array(q.n).fill(0), s0: q.sn };   // new, or what was there is buried
+    if (q.sn < g.s0) g.s0 = q.sn;
+    g.h[q.b] = Math.round(api.GS.hour * 100) / 100; B.gNote = ""; B.gRoad = B.gRoad || {}; B.gRoad.name = q.name; B.gRoad.k = gritCover(q);
+  }
+  if (B.disc) B.disc.rotation.y += GRT.spin * dt;
+  if (api.muck) { B.gAcc = (B.gAcc || 0) + m * 5; let n = 0; while (B.gAcc > 1 && n++ < 8) { B.gAcc -= 1; const k = (Math.random() - 0.5) * 2; api.muck(x + fx * 0.3 + fz * k * 0.3, P.y + 0.55, z + fz * 0.3 - fx * k * 0.3, P.vx * 0.35 + fz * k * 4.5 - fx * 1.5, 0.6 + Math.random(), P.vz * 0.35 - fx * k * 4.5 - fz * 1.5, 0.9, true); } if (B.gAcc > 8) B.gAcc = 0; }
+}
+function gritHint(uid, d, B) {                                                   // the gritter's part of the riding hint
+  if (!d.hop) return "";
+  const hop = hopOf(uid), touch = INPdev() === "touch", P = api.P, hold = on => (B.down ? "" : ` · ${touch ? "hold BLADE DOWN" : "hold " + api.btn("use")}: gritter ${on ? "on" : "off"}`);
+  if (B.grit) {
+    const where = B.gNote === "still" ? "it spreads once the truck rolls" : B.gNote === "off" ? "off the road: it is going on the snow" : B.gNote === "deep" ? "the snow here is too deep for grit to bite: plow it first" : B.gRoad ? `${B.gRoad.name}: ${Math.round(B.gRoad.k * 100)}% of this stretch gritted` : "";
+    return `GRITTING · ${tons(hop)} in the hopper${where ? " · " + where : ""}${hold(false)}`;
+  }
+  if (B.down || !(hop >= 1) || Math.hypot(P.vx, P.vz) >= 3) return "";
+  const q = gritSpot(P.x, P.z); if (!q || q.sn > GRT.deep) return "";
+  const k = gritCover(q);
+  return `${hold(true).slice(3)} · ${tons(hop)} of grit${k > 0.02 ? ` · ${q.name}: ${Math.round(k * 100)}% of this stretch gritted` : ""}`;
+}
+
 /* ---------------- each frame ---------------- */
 function work(uid, d, B, dt) {
   const P = api.P, W = api.world, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), vf = P.vx * fx + P.vz * fz, a = B.a, wEff = d.w * Math.cos(a);
@@ -487,11 +594,14 @@ function tick(dt) {
     if (B.a !== ta) { const st = d.ang / BL.slewT * dt; B.a = Math.abs(ta - B.a) <= st ? ta : B.a + Math.sign(ta - B.a) * st; }
     if (B.S) B.S.rotation.y = -B.a;
     // a press with the blade down is decided here: let go inside half a second it lifts, held it slews to the next throw
+    // (4.1c2) on a truck with a gritter a press with the blade UP is decided the same way: let go, the blade drops; held, the gritter starts or stops
     if (B.hold) {
-      if (!seated || !B.down || busy()) B.hold = null;                             // a menu or the tablet came up over a press: it neither lifts nor slews
-      else if (!(api.useHeld && api.useHeld())) { if (!B.hold.done) lift(B, r.uid); B.hold = null; }
-      else if (!B.hold.done && performance.now() - B.hold.t0 >= BL.holdT * 1000) { B.hold.done = true; slew(r.uid); }
+      if (!seated || (!B.hold.up && !B.down) || (B.hold.up && B.down) || busy()) B.hold = null;   // a menu or the tablet came up over a press: it neither lifts nor slews
+      else if (!(api.useHeld && api.useHeld())) { if (!B.hold.done) { if (B.hold.up) { B.down = true; B.last = null; } else lift(B, r.uid); } B.hold = null; }
+      else if (!B.hold.done && performance.now() - B.hold.t0 >= BL.holdT * 1000) { B.hold.done = true; if (B.hold.up) gritToggle(r.uid); else slew(r.uid); }
     }
+    if (B.grit) { if (!seated) B.grit = false; else spread(r.uid, d, B, dt); }
+    if (B.heap) heapSync(B, d, r.uid);
     if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; B.scr = 0; }
     const k0 = B.k; B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
     if (seated && k0 < 1 && B.k >= 1) clunk(B, 0.3); else if (seated && k0 > 0 && B.k <= 0) clunk(B, 0.14);   // it lands on the ground; it comes up against its stop
@@ -580,14 +690,18 @@ function toggle(R) {
   const uid = R.rec.uid, d = bladeOf(uid); if (!d || api.FOOT.on || curUid() !== uid) return false;
   const B = rt(uid);
   if (busy()) return true;                                                       // behind a menu or the tablet the control rests (and stays the blade's: no horn)
-  if (!B.down) { B.down = true; B.last = null; B.hold = null; return true; }
-  if (!B.hold) B.hold = { t0: performance.now(), done: false };                 // tick decides: a tap lifts it, a hold slews it
+  if (!B.down && !d.hop) { B.down = true; B.last = null; B.hold = null; return true; }
+  if (!B.hold) B.hold = { t0: performance.now(), done: false, up: !B.down };                 // tick decides: a tap lifts it, a hold slews it
   return true;
 }
 function label(R) { const d = bladeOf(R.rec.uid); if (!d || api.FOOT.on) return null; return rt(R.rec.uid).down ? "BLADE UP" : "BLADE DOWN"; }
 function rideLine() {
   const uid = curUid(); if (uid == null || api.FOOT.on) return "";
   const d = bladeOf(uid); if (!d) return "";
+  const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid));
+  return a && g ? a + " · " + g : a || g;
+}
+function bladeLine(uid, d) {
   const B = rt(uid), P = api.P, v = Math.hypot(P.vx, P.vz), touch = INPdev() === "touch", th = THROWS[throwOf(uid)];
   if (!B.down) return v < 3 && B.cut >= BL.hintMin ? (touch ? "tap BLADE DOWN" : api.btn("use") + ": drop the blade") + ` · ${Math.round(B.depth * 100)} cm of snow ahead` : "";
   const lift = (touch ? "tap BLADE UP" : api.btn("use") + ": lift it") + ` · hold it: ${THROWS[th.next].to}`;
@@ -601,15 +715,15 @@ function rideLine() {
   return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd} · ${lift}`;
 }
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" };
-function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = d.kg; XL.pin = d.kg; XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
+function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { BLADES, BL, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
@@ -619,6 +733,7 @@ TLX.register({
     TLXV.addLoad(load);
     TLXV.addUse({ use: toggle, label });
     if (TLXV.addHull) TLXV.addHull(hull);
+    if (TLXV.addGrip && !GQ.on) { GQ.on = true; TLXV.addGrip(grip); }
     if (TLXV.addMkt && !MKB.on) { MKB.on = true; TLXV.addMkt(MKB); }               // used blades on Bytteboden (4.1b3a)
     TLXV.onModel(model);
     if (a.ridex) a.ridex.push(rideLine);

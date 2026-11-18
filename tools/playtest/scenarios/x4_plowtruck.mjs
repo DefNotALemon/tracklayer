@@ -67,7 +67,7 @@ await section("A buying", async () => {
   console.log("  bought", JSON.stringify(s));
   ok(s.n === 1 && s.id === "plowtruck" && s.cash === 30000 - 16800, "bought: $16,800 gone once, one truck on the forecourt");
   ok(s.blade && s.blade.id === "b35" && s.blade.cond === 100 && s.shed === 0, "its blade came with it: the Brøytskjær 3.5, a whole edge, nothing in the shed");
-  ok(s.model && s.kids === 2 && s.hull && s.hr > 1.5, "the blade's model is on the truck and is part of its hull (" + s.hr + " m half-width)");
+  ok(s.model && s.kids === 4 /* frame, blade, + the hopper's heap and the spinner's disc (4.1c2) */ && s.hull && s.hr > 1.5, "the blade's model is on the truck and is part of its hull (" + s.hr + " m half-width)");
   uid = s.uid;
   // one of the three trucks
   await ev(`GS.cash = 60000; TLXV.buy("pickup"); TLXV.buy("pickup"); true`); await sleep(400);

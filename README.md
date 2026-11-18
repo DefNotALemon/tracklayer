@@ -962,7 +962,7 @@ for nothing. Arrive on the sled and the seller says to come back in the truck; t
 
 **The plow truck.** Under the lorry on the garage's Trucks tab is the **Nordtrekk Brøyt 4x2**
 ($16,800, Freight licence, one of your three trucks): the council's kind of truck, an orange
-cab-over with a gritter body full of ballast and its own blade, the **Brøytskjær 3.5**, on the nose
+cab-over with a gritter body and its own blade, the **Brøytskjær 3.5**, on the nose
 from the factory. The blade is part of the truck: it does not come off, is never sold apart, and the
 Plow tab only mends its cutting edge. It works by the same control as the pickup's (tap to drop and
 lift, hold to slew), clears 3.1 m and throws a windrow over a metre high. Nearly ten tonnes on
@@ -971,6 +971,22 @@ pickup: 12), and a 90 cm drift taken at a run. Its blade is wide enough to count
 road, so **one pass down the middle opens a snowed-in road stretch**. With the blade up, or off the
 road in soft snow, it is ten tonnes that sink; and it needs a yard or a three-point turn to come
 about (its turning circle is 11 m at the truck's middle, a road is 6.4 m wide).
+
+**The gritter.** The plow truck's body is a gritter with a 3 t hopper, empty on a new truck. The
+garage's Plow tab fills it by the kilo at $50 a tonne ($150 full, or as much as your cash covers),
+with the truck within 60 m. In the cab with the blade **up**, **hold** the use control (E / L3 /
+the BLADE DOWN button) half a second to start the spinner, and hold it again to stop it; a tap
+still drops and lifts the blade, and with the blade down the hold still slews it, so the gritter
+keeps running while you plow. It spreads only while the truck rolls, about 40 kg every 100 m (a
+full hopper does 7.5 km of road), and you can see it: grit flies off the spinner's disc and the
+heap in the hopper sinks. On a road every 10 m you grit grips about a third better under the
+tyres of any truck you drive (the plow truck stops from 50 km/h in 18 m instead of 21, a pickup
+from 43 km/h in 12.5 m instead of 15) for six hours, fading out by ten, or until new snow buries
+it. Grit on a stretch under deep snow does nothing unless the blade is down and cutting in front
+of it, and off the road it just goes on the snow: the riding hint says which, and what share of
+the stretch is done. What is in the hopper rides on the truck (three tonnes more to pull and to
+stop when full). When it runs out the spinner stops and says so. Sleds feel nothing of it. The
+hopper's load and the gritted lengths are saved; the spinner is off after a reload.
 
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
