@@ -3,6 +3,39 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 12:30 — beta fix 0250 #1: a drive part cleared keeps its progress through a reload (tlx-plow v15, lane A) (G4) — bc07e3f
+Builder pass, lane A. Orient: worktree clean, rebased on main (v252), 171 GB free. Triage 0250-0253 (last triaged ->
+253): one BUG, 0250 #1 (low), taken this pass. No BLOCKER. POLISH left open, all in tlx-plow: 0250 #6 (62-71 ms a frame
+headless with eight drives snowed in, no baseline: wants one A/B run), 0251 #1 (a refit resets the slew to throw
+right: keep `throw` on the shed entry as `cond` is kept), 0252 #1 (the spinner is off after a reload and nothing says
+so), 0252 #2 (`hopOf` only floors at 0: clamp at the read to the hopper's size), 0253 #4 (on foot beside your own heap
+on a walk there is no line), 0253 #5 (option off / on again: a standing heap is not re-counted; fine as it is).
+What the player gets. Quit or reload in the middle of plowing a customer's drive and the lengths already cut still
+count: the riding hint reads the same share done on the way back in, and finishing the rest pays. Before, the marks
+lived in memory only, so the last 40% after a reload paid nothing and the whole drive had to be done again.
+How. `drv[key].mk` (a "0110..." string, one character a 1 m length) and `ms` (the snow level the marks began at) are
+written as each new length is cut; `DV.marks` stays the working copy and is read back from `mk` the first time
+`drvMark` is asked about that drive (blade or hint). `drvUnmark` forgets both on new snow over `BL.rise`, a paid
+clearing, the owner's shovel and a sleep; DROP deletes the record whole. `tidy` drops marks that are not a 0/1 string,
+have no level, or sit on a drive with no snow; marks of the wrong length are not believed. No tracklayer.js change, no
+new state id.
+Numbers (`x4_drivemarks.mjs`, new, 21 asserts, all ok, page errors none):
+- 70% of a 10 m drive cut: `mk` "1111111000", `ms` 0.48; after save + reload the same string, nothing in memory, the
+  hint says 70% before a metre is cut; the last 40% pays $42 and the record has no marks left;
+- a second drive 70% cut, then 1.5 h of storm (0.48 -> 0.72), reload: asked, 0% done and the marks gone from the
+  save; the last 40% alone pays nothing ("0000011111");
+- junk (25 characters, letters, a number, NaN level): nothing thrown, 0% done, tidied away, the app renders;
+- DROP and a drive left 13 h (shovelled, a miss): no marks kept.
+The tester's own `x4_driveways_break.mjs` step C ("finishing the remaining 40% after a reload pays") FAILed on main
+(checked on a `git archive` of origin/main) and passes now. That scenario also threw a page error on main, from its
+own puppet reading `bladeOf(null).z` while the walker is on foot (0250's test note #7): guarded in the scenario, it
+exits 0 with page errors none.
+Gate: smoke, x1_save, x4_drivemarks, x4_driveways, x4_bladedoors, x4_plowapp exit 0, page errors none;
+x4_driveways_break exit 0 after the puppet guard (run alone).
+Not done: only `tlx-plow.js?v=` was bumped (14 -> 15), `tracklayer.js?v=` stays 252 as no bridge changed.
+Next for lane A: 4.2c lots and the hotel forecourt (design first: areas as cells inside an outline, where the heap
+may go), with the tlx-plow POLISH above as a small pass when a tester raises one to BUG.
+
 ## 2026-11-18 11:50 — 4.2b2: the blade's snow at doors (v252, tlx-plow v14, lane A) (G4) — 57c5d84
 Builder pass, lane A. Orient: worktree clean, rebased on main (v251), 171 GB free. Triage 0249 (last triaged -> 249):
 4.2a reload / polar night / bladeless pickup, no BLOCKER, no BUG; POLISH #4 (the card quotes the old price for a frame
