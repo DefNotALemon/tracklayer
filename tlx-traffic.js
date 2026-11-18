@@ -102,7 +102,7 @@ const TRAF = {
   cols: [0xe9ebee, 0xb9bec4, 0x4a4f55, 0x1d2024, 0x1f2f4f, 0x8d1f1c, 0x2d4635, 0x6d7a86, 0x9a8a6c, 0xe9ebee]
 };
 let api = null, M = null;
-const T = window.TLXT = { cars: [], ready: false, err: null, ms: 0, routes: [], n: 0, hold: false, hits: 0, homes: [], homesDone: 0, TRAF };
+const T = window.TLXT = { cars: [], extra: [], ready: false, err: null, ms: 0, routes: [], n: 0, hold: false, hits: 0, homes: [], homesDone: 0, TRAF };
 
 // ---- the drivable routes: the open roads with their speed profile both ways and which points are street
 function prep() {
@@ -154,6 +154,7 @@ function bodies() {
   if (window.TLXRIG && TLXRIG.bodies) TLXRIG.bodies(out);                    // semitrailers, standing or behind your lorry (3.5b2b1)
   return out;
 }
+const everyCar = () => (T.extra.length ? T.cars.concat(T.extra) : T.cars);   // + the police cruisers (tlx-police.js), which drive here but are drawn there
 const youPos = () => { const F = api.FOOT, P = api.P; return F.on ? { x: F.x, z: F.z } : { x: P.x, z: P.z }; };
 
 // how far this car can drive before it must stand, and why
@@ -181,16 +182,18 @@ function stopAhead(c, B, sh0) {
     if (Math.abs(dz * fx - dx * fz - sh) > TRAF.laneW) return;
     const dd = a - TRAF.gap - (c.fro || 0); if (dd < d) { d = dd; why = who; a0 = a; mv = v > 0.5; ob = o || null; }
   };
-  for (const o of T.cars) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.pts) for (const p of o.pts) each(p[0], p[1], "car", v, o); else each(o.x, o.z, "car", v, o); }
+  for (const o of everyCar()) if (o !== c && o.on) { const v = o.st === "turn" ? 1 : o.v; if (o.pts) for (const p of o.pts) each(p[0], p[1], "car", v, o); else each(o.x, o.z, "car", v, o); }
   if (B) for (const b of B) each(b.x, b.z, b.who, Math.hypot(b.vx, b.vz));
   return { d, why, a: a0, mv, o: ob };
 }
 T.stopAhead = c => stopAhead(c, bodies());
+// for tlx-police.js: its cruisers are cars of this file's kind (T.extra), put on a road by spawn/place/ground and driven by driveStep until a call
+T.k = { spawn, setPose, ground, at, near: (x, z) => window.TLXR.near(x, z), release, youPos, bodies };
 // is the other lane empty from just behind to `look` m ahead (cars either way, you, a walker, anything parked)?
 function laneClear(c, B, look) {
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), sh = -TRAF.lane - (c.lane ?? TRAF.lane);
   const bad = (x, z) => { const dx = x - c.x, dz = z - c.z, a = dx * fx + dz * fz; return a > -8 && a < look && Math.abs(dz * fx - dx * fz - sh) < TRAF.laneW; };
-  for (const o of T.cars) if (o !== c && o.on) { if (o.pts) { if (o.pts.some(p => bad(p[0], p[1]))) return false; } else if (bad(o.x, o.z)) return false; }
+  for (const o of everyCar()) if (o !== c && o.on) { if (o.pts) { if (o.pts.some(p => bad(p[0], p[1]))) return false; } else if (bad(o.x, o.z)) return false; }
   if (B) for (const b of B) if (bad(b.x, b.z)) return false;
   return true;
 }
@@ -354,7 +357,7 @@ function driveStep(c, dt, B, you) {
   c.s = Math.max(r.s0, Math.min(r.s1, c.s));
   setPose(c, dt);
   passStep(c, sa, B);
-  if (!c.semi && !c.plow) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
+  if (!c.semi && !c.plow && !c.police) { homeCheck(c, r); if (c.st === "home") return; }               // off the road to a door (3.4b2b)
   if (sa.d < 0.6 && c.v < 0.3) {
     if (c.gq) { c.t = 0; c.blocked = 0; c.waiting = true; }                    // at the barrier: it waits for the convoy
     else if (sa.why === "end") {
@@ -598,7 +601,7 @@ T.homePath = (hi, dir) => { const h = T.homes[hi]; return h ? pathOf(h, h.side |
 // ---- solid: the body you drive and the walker against every car
 function collide(c, dt) {
   const P = api.P, F = api.FOOT, fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
-  const cvx = c.st === "drive" ? fx * c.v : 0, cvz = c.st === "drive" ? fz * c.v : 0;
+  const cvx = c.st === "drive" || c.st === "ext" ? fx * c.v : 0, cvz = c.st === "drive" || c.st === "ext" ? fz * c.v : 0;
   const circ = (c.semi || c.plow) && c.circ ? c.circ : [-TRAF.off, 0, TRAF.off].map(u => [c.x + fx * u, c.z + fz * u, TRAF.r]);
   if (F.on) {
     for (const [x, z, cr] of circ) {
@@ -834,11 +837,12 @@ function tick(dt) {
   dt = Math.min(0.1, dt || 0);
   const you = youPos(), B = bodies();
   homeTick(dt, you);
-  for (const c of T.cars) {
-    if (!c.on) { if (T.hold || c.plow) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
-    if (!T.hold && !c.plow && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
+  for (const c of everyCar()) {
+    if (!c.on) { if (T.hold || c.plow || c.police) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
+    if (!T.hold && !c.plow && !c.police && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
     const x0 = c.x, z0 = c.z;
-    if (c.st === "turn") turnStep(c, dt); else if (c.st === "home") homeStep(c, dt, B, you); else driveStep(c, dt, B, you);
+    if (c.st === "ext") { if (T.ext) T.ext(c, dt, B, you); else c.st = "drive"; }          // a cruiser on a call (tlx-police.js drives it)
+    else if (c.st === "turn") turnStep(c, dt); else if (c.st === "home") homeStep(c, dt, B, you); else driveStep(c, dt, B, you);
     if (!c.on) continue;
     { const dx = c.x - x0, dz = c.z - z0, d = Math.hypot(dx, dz); if (d < 5) c.roll = ((c.roll || 0) + Math.sign(dx * Math.sin(c.yaw) + dz * Math.cos(c.yaw)) * d / TRAF.wheelR) % (Math.PI * 2); }
     ground(c);

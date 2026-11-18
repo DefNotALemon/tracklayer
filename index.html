@@ -166,6 +166,16 @@
   #jobPin{margin-top:3px;font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--slate)}
   #jobPin.on{color:var(--signal)}
   #tabS .tcard.jtrk{border-color:rgba(255,90,31,.55);background-color:rgba(255,90,31,.08)}
+  /* the Politi: five pips (blue strobing) and one line, top-left; tlx-police.js */
+  #polHud{top:calc(16px + env(safe-area-inset-top,0px));left:16px;display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:var(--ink-a);border:1px solid var(--line);border-left:3px solid #2d6bff;font-size:13px;font-weight:700;letter-spacing:.04em;max-width:min(260px,calc(50% - 150px))}
+  #polHud[hidden]{display:none}
+  #polHud .pp{display:flex;gap:3px;flex:none}
+  #polHud .pp i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
+  #polHud .pp i.on{background:#2d6bff;box-shadow:0 0 6px #2d6bff;animation:polflash .5s steps(2) infinite}
+  #polHud .pp i.on:nth-child(even){animation-delay:.25s}
+  #polHud[data-mode=search] .pp i.on{animation:none;opacity:.6}
+  @keyframes polflash{50%{background:#e9f0ff;box-shadow:0 0 8px #fff}}
+  @media (max-width:640px),(max-height:500px){#polHud{font-size:11px;padding:4px 8px;left:8px;max-width:min(200px,calc(50% - 130px))}}
   #toasts{position:fixed;z-index:3;top:calc(88px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
   .toast{background:var(--ink-a);border:1px solid var(--line);border-left:3px solid var(--ice);border-radius:4px;padding:7px 12px;font-size:15px;backdrop-filter:blur(6px);transition:opacity .4s,transform .4s}
   .toast.good{border-left-color:#6fd08c}.toast.warn{border-left-color:#ffc26b}.toast.bad{border-left-color:#ff3b3b}
@@ -1128,6 +1138,7 @@
     <div id="tabV"></div>
   </div>
 </div>
+<div class="hud" id="polHud" hidden aria-hidden="true"><div class="pp"><i></i><i></i><i></i><i></i><i></i></div><div id="polTxt"></div></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="tabBan" class="tban" hidden></div>
 <div id="breathFp" aria-hidden="true"></div>
@@ -1286,14 +1297,16 @@
 <script src="tlx-roads.js?v=12"></script>
 <script src="tlx-cars.js?v=6"></script>
 <script src="tlx-semis.js?v=1"></script>
-<script src="tlx-traffic.js?v=8"></script>
+<script src="tlx-traffic.js?v=9"></script>
 <script src="tlx-rig.js?v=5"></script>
 <script src="tlx-convoy.js?v=2"></script>
+<script src="tlx-police.js?v=2"></script>
+<script src="tlx-housing.js?v=2"></script>
 <script src="tlx-staff.js?v=5"></script>
 <script src="tlx-property.js?v=4"></script>
 <script src="tlx-lights.js?v=2"></script>
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tracklayer.js?v=242"></script>
+<script src="tracklayer.js?v=243"></script>
 </body></html>
