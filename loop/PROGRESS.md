@@ -3,6 +3,47 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 05:40 — 4.1b2b: the plow blade is solid, trips on rocks, logs and parked cars, scrapes and sparks; beta 0227 #1/#2 (v247, tlx-plow v6, tlx-vehicles v25, lane A) (G4) — 8a873ef
+Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 172 GB free. Triage 0225-0227 (last triaged ->
+227): no BLOCKER or BUG. 0225 confirms the menu fix. 0226 #1 agrees with last pass on 0220 #1 (the puppet, not the
+game); 0226 #2 (the pickup can't pull away blade-down in a 35 cm stretch: wants a "take a run at it" line) is POLISH,
+not built. 0227 #1/#2 (POLISH, two lines in the file this slice was in anyway) fixed with it: the Plow tab floors the
+percentage under 30, so 29.6 reads "29%: worn ragged" and never "30%"; `condOf` clamps a hand-edited edge to 0-100.
+Built the next slice, 4.1b2b (README "A solid blade that trips", "What you hear"), which finishes 4.1b2.
+How. tlx-vehicles.js: `TLXV.addHull(fn(R))`, one more hull circle for the truck you drive with `pass` / `hit` hooks,
+asked last in `collide` (a bladeless truck's loop is unchanged). tlx-plow.js: `hull` (2.13 m across, reaching 3.75 m
+ahead of the truck's middle; the bumper is at 2.98), `HX.hit` (the trip) and `HX.pass` (a tripped blade lets rocks,
+logs and cars through, and keeps its timer up while one is under it), the fold drawn on the mouldboard's own pivot,
+`scrape` / `sound` (one looped noise voice on the game's audio, with a watchdog, as the traffic hum), clunks through
+`api.thud`, sparks through a new api field `spark` (the only tracklayer.js change, hence v247). Option `plowtrip`.
+Numbers (`x4_bladetrip`, new, 43 asserts; obstacles are added by the test on a strip it clears):
+- a post 3.3 m ahead: a bladeless truck is not touched, a bladed one is pushed back to the blade's reach;
+- a rock at 9.1 m/s, blade down: one trip, 9.10 -> 5.54 m/s, edge 100 -> 94.1 (2 + 0.75 a m/s over 4), the mouldboard
+  folds 0.6 rad, the rock passes under it and the truck rests with its bumper on it (truck 100 -> 97.6%), the blade
+  stays folded there, springs back with a clunk once the rock is gone;
+- the same with the option off: no trip, stopped at the blade, edge untouched, truck 97.6 -> 91.8%;
+- at 3.6 m/s: no trip, stopped at the blade; blade up at speed: no trip; a post at speed: no trip; a log and a parked
+  car (obstacle `car: 0`, which a truthiness test would have missed) trip it and are named;
+- scrape: silent with the blade up or standing; bare ground 1.3 m/s gain 0.020 at 2.1 kHz, 6.6 m/s 0.103 at 2.5 kHz;
+  into 26 cm of snow 0.032 at 1.0 kHz; a clunk on the drop and on the lift; the voice exists on the game's audio;
+- a road plowed an hour ago in January: scrape factor 1.0, sparks along the edge (105 over 21 m at 5 a metre; the
+  first run, at 2.5 a metre, gave 52 and they were hard to find in the night still), 4.2 kHz; plowed 30 h ago: none,
+  2.9 kHz; blade up: none.
+Stills (`tlloop/a_trip/`): the tripped blade side-on is clearly tipped forward and clear of the bumper and the ground,
+the sprung one upright. The night sparks still (shot at 2.5 a metre) shows one or two dots at the edge; not re-shot at 5.
+Honest limits. Nobody has HEARD the scrape: headless Chrome is muted, so the sound is checked as numbers and as an
+existing audio node only; its level (`BL.sndG` 0.16) and band want a listen. The test's rock is an obstacle with no
+mesh; real rocks, logs and parked cars are covered by their flags (`rock`, `log`, `car`), not driven into. The
+design's "kerb" is not built: Kjøllefjord's curbs carry no obstacle. Pad and touch not run (no control changed; the
+tripped hint goes through `btn("use")` / the BLADE UP wording like the rest). The trip numbers are picked, not canon
+(listed for Lemon in EXPANSION.md). A bladed pickup now needs 80 cm more room nose-in: nothing in the gate got stuck
+on it, but a truck parked nose to a wall is pushed back when it is next driven.
+Gate (one or three scenarios at a time; a seven-scenario gate overran the 10 minute limit and was killed clean, no
+Chrome left): smoke, x1_save, x4_bladetrip, x4_blade, x4_bladework, x4_bladectl, x4_bladewear, x4_bladeroad,
+x4_blademenu, x3_pass exit 0, page errors none in all. Origin moved by playtest reports only (0228, 0229; 0229 finds
+nothing on 4.1b2a with two trucks), so nothing rerun after the rebase.
+Next: 4.1b3 (door counting, used blades), then 4.1c (the plow truck). Open POLISH on the blade: 0224 #1/#2, 0226 #2.
+
 ## 2026-11-18 04:25 — 4.1b2a: the blade's cutting edge wears and is mended; beta 0220 #1 closed as a test artefact (tlx-plow v5, lane A) (G4) — d63f37b
 Builder pass, lane A. Orient: worktree clean, rebased on main (v246), 171 GB free. Triage 0224 (4.1b1 back-drag): two
 POLISH (#1 back-dragging a plowed yard still pulls 0.3 m3; #2 blade down in a 1 m drift won't back out), one LOOP
