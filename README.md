@@ -1069,6 +1069,19 @@ through it, and it is dug out by hand: no pay, and the second time it goes to so
 week. A paid clearing wipes a miss. **DROP** hands a clear lot back at no cost; handed back snowed
 in it is dug out by hand, which is a miss, and as with the drives a miss stays on file for a week.
 
+**Where a lot's snow goes.** Cutting a lot is half the job: the snow has to end up out of the way.
+The outer 2.5 m of a lot, away from any door, is the bank, and what you leave there (or beyond the
+edge) is nobody's business. If more than 1.5 m³ of your blade's snow still stands in the middle when
+four fifths is cut, the lot is **cut but not clear**: a line says how much stands there, the riding
+hint, the lot's card (HEAP IN THE MIDDLE), the Jobs row and the Map pin keep saying it, the clock
+runs on, and the owner pays the moment you have pushed it to the edge, by the clock at that moment.
+The way to never see any of this: throw towards the rim and work towards it, so each pass rolls the
+windrow one step further out; throw onto ground you have already cut and you will be going back for
+it. Left 12 hours, slept through or DROPPED with the heap standing, it is shifted by hand, which is
+a miss like a lot left snowed in. A reload does not bank a heap (it is put back where it lay); new
+snow fills the lot in and you start again. Settings > Options > **Plow heaps in a lot** turns it
+off: a lot is then paid as soon as it is cut.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

@@ -440,7 +440,7 @@ function depthLine(q, leave) {                                                  
   }
   return [sd / N, sc / N];
 }
-function heapAt(d, P, lx, lz, r, vol, cap = BL.rowMax) { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.x + fz * lx + fx * lz, z = P.z - fx * lx + fz * lz, p = api.world.heapSnow(x, z, r, vol, cap); if (p > 1e-4) winLay(x, z, r, p); return p; }
+function heapAt(d, P, lx, lz, r, vol, cap = BL.rowMax) { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), x = P.x + fz * lx + fx * lz, z = P.z - fx * lx + fz * lz, p = api.world.heapSnow(x, z, r, vol, cap); if (p > 1e-4) { winLay(x, z, r, p); lotLay(x, z); } return p; }
 function spill(B, uid) {                                                         // what the blade holds is left where it is: a pile in front of it; under it after a back-drag; a stack off a square blade
   const d = bladeOf(uid), P = truckPose(uid); if (!d || !P || !(B.carry > 0)) { B.carry = 0; B.back = false; return; }
   let v = B.carry; const sq = !B.back && sideOf(B.a) === 0;
@@ -717,8 +717,8 @@ function label(R) { const d = bladeOf(R.rec.uid); if (!d || api.FOOT.on) return 
 function rideLine() {
   const uid = curUid(); if (uid == null || api.FOOT.on) return "";
   const d = bladeOf(uid); if (!d) return "";
-  const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid)), w = winLine();
-  return [w, a, g].filter(Boolean).join(" · ");
+  const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid)), w = winLine(), l = lotLine();
+  return [w, l, a, g].filter(Boolean).join(" · ");
 }
 function bladeLine(uid, d) {
   const B = rt(uid), P = api.P, v = Math.hypot(P.vx, P.vz), touch = INPdev() === "touch", th = THROWS[throwOf(uid)];
@@ -732,7 +732,7 @@ function bladeLine(uid, d) {
   const pc = x => Math.round(Math.min(1, x / BL.credit) * 100), rd = B.road ? ` · ${B.road.name}: this side ${pc(B.road.mine)}%, the other side ${pc(B.road.other)}%` : "";   // of what opens the stretch
   const worn = condOf(uid) < BL.ragged ? " · worn edge, a ragged cut: mend it at the garage" : "";
   const dv = B.drv ? ` · ${B.drv.name}'s drive: ${Math.round(Math.min(1, B.drv.k / DRV.credit) * 100)}% plowed out` : "";
-  const lt = B.lot ? ` · ${B.lot.name}: ${Math.round(Math.min(1, B.lot.k / LOT.credit) * 100)}% plowed out` : "";
+  const lt = B.lot && B.lot.heap === undefined ? ` · ${B.lot.name}: ${Math.round(Math.min(1, B.lot.k / LOT.credit) * 100)}% plowed out` : "";
   return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd}${dv}${lt} · ${lift}`;
 }
 /* ---------------- the Plow app and the kommune's road contracts (4.2a) ----------------
@@ -1166,23 +1166,71 @@ function drvCards(U, s, has, mul, cash) {
    at once, in full inside LOT.fullH hours of the clock and falling to LOT.low of it at LOT.lowH. Left LOT.lateH hours,
    or slept through, the owner has it dug out: no pay and a miss; LOT.miss misses and it goes to someone else for
    LOT.offH hours. A paid clearing takes a miss off. DROP is free while the lot is clear; snowed in it is a miss, and misses stay on file a week (fileDrop). One Jobs row for all the lots with snow in them, a
-   Map pin each, one Monday statement line. Where the heap may go is 4.2c2: here the blade's windrows may lie anywhere.
-   SAVED in x.sys.plow: lot { id: { s, h, due, miss, wk, n, mk, ms } }, lotOff { id: hour it is offered again }, lotH,
+   Map pin each, one Monday statement line. Where the heap may go is 4.2c2a, below ("where a lot's heap may go").
+   SAVED in x.sys.plow: lot { id: { s, h, due, miss, wk, n, mk, ms, hp, hv, hx, hz } }, lotOff { id: hour it is offered again }, lotH,
    lotPaid, lotN. mk / ms are the marks of a lot part cleared (a "0110..." string, a character a square, and the snow
    level they began at), as a drive's are: a reload in the middle of a lot keeps what was cut. */
-const LOT = { sq: 1, yard: 0.8, ob: 1.2, car: 2.6, street: 3.6, min: 40, call: 25, perM2: 0.45, due: 0.12, fullH: 4, lowH: 12, low: 0.5, lateH: 12, miss: 2, offH: 168, credit: 0.8, step: 0.5, in: 0.5 };
+const LOT = { sq: 1, yard: 0.8, ob: 1.2, car: 2.6, street: 3.6, min: 40, call: 25, perM2: 0.45, due: 0.12, fullH: 4, lowH: 12, low: 0.5, lateH: 12, miss: 2, offH: 168, credit: 0.8, step: 0.5, in: 0.5,
+  bank: 2.5, door: 4, hEps: 0.12, heapOk: 1.5, hSeen: 45, hCap: 0.8 };            // 4.2c2a: the rim band where a heap may stand, the m3 the middle may hold
 const LT = { list: [], by: {}, built: false, marks: new Map(), job: {} };
+/* ---- where a lot's heap may go (4.2c2a) ----
+   Four fifths of the squares cut is the CUT; a lot is CLEAR when, as well, the blade's own snow is out of its middle.
+   The MIDDLE is every square a truck can reach that lies more than LOT.bank m in from the rim, or within LOT.door m of
+   a door whatever the rim: the band along the rim, away from the doors, is the bank, and what stands there (or outside
+   the lot, or against a wall no truck reaches) is nobody's business. At the cut the ground goes back to the yard's
+   level (the blade's heaps are left standing: replow's keep) and lotHeap() measures the m3 standing in the middle more
+   than LOT.hEps over what the ground settles to. Under LOT.heapOk: clear and paid, as before. Over it the lot is HELD
+   (st.hp): the clock runs on, the riding hint, the card and the Jobs row say how much stands there, and every time the
+   blade has worked or laid snow in the lot it is measured again; under the limit it pays, by the clock at that
+   moment. Left LOT.lateH hours, slept through or DROPPED it is shifted by hand: a miss, as a lot left snowed in. New
+   snow over BL.rise fills it in again (the marks' own rule). Cells are not saved, so a held lot saves the m3 and where
+   its middle of mass lay (hv, hx, hz) and the heap is laid again when you are next within LOT.hSeen m (the doors'
+   way): a reload does not bank a heap. Option plowheaps (on): off pays at the cut. */
+const heapOn = () => TLX.on("plowheaps");
+function lotHeap(c) {                                                            // -> m3; c.hx / c.hz: where its middle of mass lies
+  const W = api.world, C = W.cell, H = W.half, A = C * C, n = Math.max(1, Math.round(LOT.sq / C)), o0 = -LOT.sq / 2 + C / 2; let vol = 0, sx = 0, sz = 0;
+  for (let p = 0; p < c.mid.length; p += 2) {
+    const ix0 = Math.round((c.x + c.mid[p] * LOT.sq + o0 + H) / C), iz0 = Math.round((c.z + c.mid[p + 1] * LOT.sq + o0 + H) / C);
+    for (let b = 0; b < n; b++) for (let a = 0; a < n; a++) {
+      const o = W.depthAt(ix0 + a, iz0 + b) - W.restCell(ix0 + a, iz0 + b);
+      if (o > LOT.hEps) { vol += o * A; sx += o * A * (ix0 + a); sz += o * A * (iz0 + b); }
+    }
+  }
+  if (vol > 0) { c.hx = sx / vol * C - H; c.hz = sz / vol * C - H; }
+  return vol;
+}
+function lotShovel(c) {                                                          // its owner shifts what stands in the middle by hand
+  const W = api.world, h = LOT.sq / 2;
+  for (let p = 0; p < c.mid.length; p += 2) { const x = c.x + c.mid[p] * LOT.sq, z = c.z + c.mid[p + 1] * LOT.sq; for (let l = -h + 0.15; l < h; l += 0.3) W.bladeSnow(x - h, z + l, x + h, z + l, 0.15); }
+  c.dirty = false; c.relay = false;
+}
+function lotCut(c, st) {                                                         // four fifths cut: clear (true: paid) or held for the heap in its middle
+  if (!heapOn() || !c.mid || !c.mid.length) { lotDone(c, st); return true; }
+  st.hp = 1; lotApply(c, st);
+  const v = lotHeap(c);
+  if (v < LOT.heapOk) { lotDone(c, st); return true; }
+  st.hv = Math.round(v * 100) / 100; st.hx = Math.round(c.hx * 10) / 10; st.hz = Math.round(c.hz * 10) / 10; c.dirty = false; c.relay = false;
+  api.toast(`${capFirst(c.name)} is cut, but ${st.hv.toFixed(1)} m3 of your plow's snow stands in the middle of it. Bank it along the edge, away from the doors (a square blade carries a pile there), and ${c.who} pays.`, "warn");
+  api.save(); conRefresh(); return false;
+}
+function lotLay(x, z) { const s = S(); if (!s || !s.lot) return; for (const c of LT.list) if (s.lot[c.id] && s.lot[c.id].hp && Math.hypot(x - c.x, z - c.z) < c.r + 3) c.dirty = true; }
+function lotWake() { const s = S(); for (const c of LT.list) { const st = s && s.lot && s.lot[c.id]; c.dirty = !!(st && st.hp); c.relay = !!(st && st.hp && st.hv > 0 && Number.isFinite(st.hx + st.hz)); } }
+function lotLine() {                                                             // the riding hint: a lot of yours held for its heap, close by
+  const s = S(); if (!s || !s.lot || !LT.list.length) return ""; const P = api.P;
+  for (const c of LT.list) { const st = s.lot[c.id]; if (st && st.hp && Math.hypot(P.x - c.x, P.z - c.z) < c.r + 6) return `${c.name}: cut, but ${(st.hv || 0).toFixed(1)} m3 of your snow stands in the middle: bank it along the edge`; }
+  return "";
+}
 const lotBase = c => Math.round(LOT.call + LOT.perM2 * c.m2);
 const lotK = h => 1 - (1 - LOT.low) * Math.max(0, Math.min(1, (h - LOT.fullH) / (LOT.lowH - LOT.fullH)));
 const lotKey = (i, j) => (i + 512) * 1024 + (j + 512);
-function lotUnmark(id, st) { LT.marks.delete(id); if (st) { delete st.mk; delete st.ms; } }
+function lotUnmark(id, st) { LT.marks.delete(id); if (st) { delete st.mk; delete st.ms; delete st.hp; delete st.hv; delete st.hx; delete st.hz; } }
 function lotBuild() {
   LT.built = true; LT.list = []; LT.by = {}; LT.marks.clear();
   const W = api.world; if (!W.addDrift || !W.replow || !Array.isArray(W.lots)) return;
   const cars = window.TLXC && Array.isArray(TLXC.cars) ? TLXC.cars : [], Q = LOT.sq;
   for (const o of W.lots) {
     if (!o || typeof o.id !== "string" || !Number.isFinite(o.x + o.z + o.r) || !(o.r >= 4) || LT.by[o.id]) continue;
-    const c = { id: o.id, name: String(o.name || "the lot"), who: String(o.who || "the owner"), x: o.x, z: o.z, r: o.r, idx: new Map(), n: 0, q: 0 }, n = Math.ceil(o.r / Q);
+    const c = { id: o.id, name: String(o.name || "the lot"), who: String(o.who || "the owner"), x: o.x, z: o.z, r: o.r, idx: new Map(), n: 0, q: 0, mid: [], dirty: false, relay: false, hx: o.x, hz: o.z }, n = Math.ceil(o.r / Q);
     for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
       if (Math.hypot(i, j) * Q > o.r - 0.5) continue;
       const x = o.x + i * Q, z = o.z + j * Q;
@@ -1195,7 +1243,7 @@ function lotBuild() {
         if (b.box) { const B = b.box, px = x - B.x, pz = z - B.z; if (Math.max(Math.abs(px * B.c - pz * B.s) - B.hw, Math.abs(px * B.s + pz * B.c) - B.hd) < LOT.ob) { hit = true; break; } }
         else if (Math.hypot(b.x - x, b.z - z) < (b.r || 0.5) + LOT.ob) { hit = true; break; }
       }
-      if (!hit) c.idx.set(lotKey(i, j), c.n++);
+      if (!hit) { c.idx.set(lotKey(i, j), c.n++); if (Math.hypot(i, j) * Q <= o.r - LOT.bank || (Array.isArray(W.doors) && W.doors.some(D => D && Math.hypot(D.x - x, D.z - z) < LOT.door))) c.mid.push(i, j); }   // 4.2c2a: the middle, where a heap may not stand
     }
     if (c.n < LOT.min) continue;                                                   // too cluttered to be a truck's work
     c.m2 = c.n * Q * Q; c.legs = W.addDrift([[o.x, o.z], [o.x, o.z]], o.r);
@@ -1203,9 +1251,10 @@ function lotBuild() {
     LT.list.push(c); LT.by[c.id] = c;
   }
   const s = S(); if (s) for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]);
+  lotWake();
 }
-function lotApply(c, st) {                                                       // the snow level on the ground follows the saved one, in steps of 0.05
-  const q = st ? Math.round(Math.max(0, Math.min(1, st.s)) * 20) / 20 : 0;
+function lotApply(c, st) {                                                       // the snow level on the ground follows the saved one, in steps of 0.05 (cut and held for its heap: the yard's own level)
+  const q = st && !st.hp ? Math.round(Math.max(0, Math.min(1, st.s)) * 20) / 20 : 0;
   if (q === c.q) return; c.q = q; for (const Y of c.legs) Y.k = q; api.world.replow(c.legs, true);   // true: the blade's heaps stay where they were pushed
 }
 function lotTidy(s) {
@@ -1217,6 +1266,8 @@ function lotTidy(s) {
     const st = s.lot[k]; if (!obj0(st)) { delete s.lot[k]; continue; }
     st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, LOT.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= LOT.due ? 1 : 0;
     if (typeof st.mk !== "string" || !/^[01]{1,2000}$/.test(st.mk) || !Number.isFinite(st.ms) || !st.due) { delete st.mk; delete st.ms; }
+    if (!st.hp || !st.mk) { delete st.hp; delete st.hv; delete st.hx; delete st.hz; }
+    else { st.hp = 1; st.hv = num(st.hv, 0, 500); if (!Number.isFinite(st.hx) || !Number.isFinite(st.hz)) { delete st.hx; delete st.hz; } }
   }
   for (const k of Object.keys(s.lotOff)) if (!Number.isFinite(s.lotOff[k])) delete s.lotOff[k];
   fileTidy(s, "lot", LOT);
@@ -1235,16 +1286,17 @@ function lotTake(id) {
 function lotDrop(id) {
   const s = S(), c = LT.by[id]; if (!s || !s.lot || !s.lot[id]) return false;
   const st = s.lot[id], due = obj0(st) && st.s >= LOT.due, r = c && obj0(st) ? fileDrop(s, "lot", id, st, LOT) : 0;   // beta 0257 #1/#2: see fileDrop
+  const hp = !!(c && obj0(st) && st.hp), was = hp ? "Your heap still stood in its middle" : "It was snowed in"; if (hp) lotShovel(c);
   delete s.lot[id]; LT.marks.delete(id); if (c) lotApply(c, null);
   api.toast(c ? `You've given up ${c.name}. ${capFirst(c.who)} has it cleared again.`
-    + (r === 2 ? ` It was snowed in when you gave it up, the second time it has had to be dug out by hand: it is not offered to you for a week.`
-      : r === 1 ? ` It was snowed in when you gave it up: dug out by hand, and that is remembered if you ask for it back this week.`
+    + (r === 2 ? ` ${was} when you gave it up, the second time it has had to be dug out by hand: it is not offered to you for a week.`
+      : r === 1 ? ` ${was} when you gave it up: dug out by hand, and that is remembered if you ask for it back this week.`
         : fileOf(s, "lot", id) ? ` The time it was dug out by hand is remembered for a week.` : "") : "You've given that lot up.", r === 2 ? "bad" : due ? "warn" : undefined);
   api.save(); conRefresh(); return true;
 }
 function lotGone(list, slept) {                                                  // the owners who had their lots dug out: one line for all of them
   const s = S(), H = api.GS.hour, lost = [];
-  for (const c of list) { const st = s.lot[c.id]; st.s = 0; st.h = 0; st.due = 0; st.miss++; lotUnmark(c.id, st); if (st.miss >= LOT.miss) { delete s.lot[c.id]; s.lotOff[c.id] = H + LOT.offH; lost.push(c.name); } lotApply(c, s.lot[c.id]); }
+  for (const c of list) { const st = s.lot[c.id]; if (st.hp) lotShovel(c); st.s = 0; st.h = 0; st.due = 0; st.miss++; lotUnmark(c.id, st); if (st.miss >= LOT.miss) { delete s.lot[c.id]; s.lotOff[c.id] = H + LOT.offH; lost.push(c.name); } lotApply(c, s.lot[c.id]); }
   const what = drvList(list.map(c => c.name)), one = list.length === 1;
   api.toast((slept ? `While you were away ${what} ${one ? "was" : "were"} dug out by hand.` : `Nobody came to plow ${what}: ${one ? "it was" : "they were"} dug out by hand.`) + " No pay."
     + (lost.length ? ` ${capFirst(drvList(lost))} ${lost.length === 1 ? "has" : "have"} gone to someone else.` : ` Once more and you lose ${one ? "it" : "them"}.`), lost.length ? "bad" : "warn");
@@ -1254,7 +1306,7 @@ function lotStep() {
   const s = S(); if (!s || !s.lot || !LT.list.length || !api.started()) return;
   const H = api.GS.hour, dh = s.lotH < 0 || H < s.lotH ? 0 : H - s.lotH; s.lotH = H;
   if (!Object.keys(s.lot).length) return;
-  const RD = (window.TLXR && TLXR.ROADS) || { fill: 0.16, fillA: 0.5, fillB: 0.95, plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, gone = [];
+  const RD = (window.TLXR && TLXR.ROADS) || { fill: 0.16, fillA: 0.5, fillB: 0.95, plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, gone = [], PL = api.FOOT.on ? api.FOOT : api.P;
   let fresh = 0;
   for (const c of LT.list) {
     const st = s.lot[c.id]; if (!st) continue;
@@ -1262,7 +1314,18 @@ function lotStep() {
     else {
       const w = WX.at(c.x, c.z);
       st.s = Math.min(1, st.s + dh * RD.fill * api.sstep(RD.fillA, RD.fillB, w));
+      if (st.hp && (!heapOn() || !(st.s <= (Number.isFinite(st.ms) ? st.ms : 0) + BL.rise))) {   // 4.2c2a: held for its heap, and the option went off (paid) or new snow has filled it in again
+        if (!heapOn()) { lotDone(c, st); continue; }
+        lotUnmark(c.id, st); api.toast(`New snow has filled ${c.name} in again: the heap in its middle is the least of it now.`);
+      }
       if (st.s >= LOT.due) { if (!st.due) { st.due = 1; fresh++; } if (w < RD.plowWx) st.h += dh; if (st.h >= LOT.lateH) gone.push(c); }
+      if (st.hp && st.h < LOT.lateH && (c.dirty || c.relay || (c.tk = (c.tk || 0) + 1) % 20 === 0) && Math.hypot(PL.x - c.x, PL.z - c.z) < c.r + LOT.hSeen) {   // the blade has been at it (or 10 s have gone by): measure the middle again
+        lotApply(c, st);
+        if (c.relay) { c.relay = false; if (st.hv > 0) api.world.heapSnow(st.hx, st.hz, Math.max(1.2, Math.sqrt(st.hv / 1.9)), st.hv, LOT.hCap); }   // after a reload: the heap is put back where it lay
+        c.dirty = false; const v = lotHeap(c);
+        if (v < LOT.heapOk) { lotDone(c, st); continue; }
+        const hv = Math.round(v * 100) / 100; if (hv !== st.hv) { st.hv = hv; st.hx = Math.round(c.hx * 10) / 10; st.hz = Math.round(c.hz * 10) / 10; }
+      }
     }
     lotApply(c, st);
   }
@@ -1275,6 +1338,7 @@ function lotMark(q, mark) {                                                     
   for (const c of LT.list) {
     const st = s.lot[c.id]; if (!st || !(st.s >= LOT.due)) continue;
     if (Math.hypot(mx - c.x, mz - c.z) > c.r + 1) continue;
+    if (st.hp) { if (mark) c.dirty = true; return { name: c.name, k: 1, heap: st.hv || 0 }; }   // 4.2c2a: cut, held for the heap in its middle (lotStep measures)
     let m = LT.marks.get(c.id);
     if (!m && typeof st.mk === "string" && st.mk.length === c.n && Number.isFinite(st.ms)) {   // a reload in the middle of the lot: the squares cut before it still count
       m = { n: c.n, m: new Uint8Array(c.n), c: 0, s0: st.ms }; for (let i = 0; i < c.n; i++) if (st.mk.charCodeAt(i) === 49) { m.m[i] = 1; m.c++; }
@@ -1289,7 +1353,7 @@ function lotMark(q, mark) {                                                     
         if (b !== undefined && !m.m[b]) { m.m[b] = 1; m.c++; hit = true; }
       }
       if (hit) { st.mk = Array.from(m.m).join(""); st.ms = m.s0; }
-      if (m.c >= LOT.credit * m.n) { lotDone(c, st); return null; }
+      if (m.c >= LOT.credit * m.n) return lotCut(c, st) ? null : { name: c.name, k: 1, heap: st.hv || 0 };
     }
     return { name: c.name, k: m.c / m.n };
   }
@@ -1308,10 +1372,10 @@ function lotJob() {
   const s = S(), P = api.FOOT.on ? api.FOOT : api.P, U = api.ui; let near = due[0], bd = Infinity, h = 0, sum = 0;
   for (const c of due) { const st = s.lot[c.id], d = Math.hypot(c.x - P.x, c.z - P.z); if (d < bd) { bd = d; near = c; } if (st.h > h) h = st.h; sum += lotBase(c) * lotK(st.h); }
   const hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
-  const pay = "~" + api.fmtCash(Math.round(sum * api.payMul())), n = due.length, title = n === 1 ? `Plow out ${near.name}` : `Plow out ${n} lots`;
-  const state = h < LOT.fullH ? `full pay for another ${hrs(LOT.fullH - h)}` : `the pay is falling · ${hrs(LOT.lateH - h)} before ${n === 1 ? "it is" : "the first is"} dug out by hand`;
+  const pay = "~" + api.fmtCash(Math.round(sum * api.payMul())), n = due.length, held = due.filter(c => s.lot[c.id].hp).length, hp = n === 1 && held === 1, title = hp ? `Bank your heap in ${near.name}` : n === 1 ? `Plow out ${near.name}` : `Plow out ${n} lots`;
+  const state = h < LOT.fullH ? `full pay for another ${hrs(LOT.fullH - h)}` : `the pay is falling · ${hrs(LOT.lateH - h)} before ${n === 1 ? "it is" : "the first is"} ${hp ? "shifted" : "dug out"} by hand`;
   return { obj: LT.job, kind: "plowlot", auto: !api.FOOT.on && !!bladeOf(curUid()), tgt: { x: near.x, z: near.z, name: near.name }, col: "var(--signal)", title,
-    chips: U.chip("LOTS"), meta: `${n === 1 ? Math.round(near.m2) + " m2 snowed in" : n + " lots snowed in · nearest: " + near.name} · ${near.place} · ${state}`, pay,
+    chips: U.chip("LOTS") + (held ? U.chip("HEAP IN THE MIDDLE", "due") : ""), meta: `${hp ? "cut, but " + (s.lot[near.id].hv || 0).toFixed(1) + " m3 of your snow stands in its middle" : n === 1 ? Math.round(near.m2) + " m2 snowed in" : n + " lots snowed in · nearest: " + near.name} · ${near.place} · ${state}`, pay,
     hud: d => ({ title, sub: `${U.fmtMi(d)} to ${near.name} · ${pay} · ${state}` }) };
 }
 function lotMonday(week) {
@@ -1330,14 +1394,15 @@ function lotCards(U, s, has, mul, cash) {
   for (const c of LT.list) {
     const st = s.lot[c.id], off = !st && s.lotOff[c.id] > H, base = lotBase(c) * mul, due = st && st.s >= LOT.due, m = due ? lotMark([c.x, c.z, c.x, c.z], false) : null, rec = !st && !off && fileOf(s, "lot", c.id);
     h += U.tabCard({ tf: "pll:" + c.id, title: capFirst(c.name),
-      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("DUG OUT BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING") + (rec ? U.chip("DUG OUT BY HAND ONCE", "heavy") : ""),
+      chips: st ? U.chip("YOURS", "ok") + (due ? (st.hp ? U.chip("HEAP IN THE MIDDLE", "due") : U.chip("SNOWED IN", "due")) : U.chip("CLEAR")) + (st.miss ? U.chip("DUG OUT BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING") + (rec ? U.chip("DUG OUT BY HAND ONCE", "heavy") : ""),
       meta: `${c.place} · ${Math.round(c.m2)} m2 a truck can reach · ${cash(base)} a clearing inside ${LOT.fullH} h`,
-      note: st ? (due ? (m && m.k > 0 ? `${Math.round(Math.min(1, m.k / LOT.credit) * 100)}% plowed out. ` : "") + (st.h < LOT.fullH ? `Snowed in: full pay for another ${hrs(LOT.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, LOT.lateH - st.h))} it is dug out by hand.`) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
+      note: st ? (due ? (st.hp ? `Cut, but ${(st.hv || 0).toFixed(1)} m3 of your plow's snow stands in the middle of it: bank it along the edge to be paid. ` + (st.h < LOT.fullH ? `Full pay for another ${hrs(LOT.fullH - st.h)}.` : `The pay is falling, and in ${hrs(Math.max(0, LOT.lateH - st.h))} it is shifted by hand.`)
+        : (m && m.k > 0 ? `${Math.round(Math.min(1, m.k / LOT.credit) * 100)}% plowed out. ` : "") + (st.h < LOT.fullH ? `Snowed in: full pay for another ${hrs(LOT.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, LOT.lateH - st.h))} it is dug out by hand.`)) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
         : off ? "" : `${capFirst(c.who)} has it cleared by hand today. Take it on and it is yours to plow out after every snowfall.` + (rec ? ` It was dug out by hand once when it was yours, and that has not been forgotten: once more and it goes to someone else.` : ""),
-      warn: st ? (due ? `DROP it snowed in and it is dug out by hand: that counts against you like a lot left ${LOT.lateH} hours${st.miss ? ", and it would be the second time" : ""}.` : "") : off ? `It was dug out twice waiting for you. Offered again in ${Math.max(1, Math.ceil((s.lotOff[c.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
+      warn: st ? (due ? `DROP it ${st.hp ? "with your heap in its middle and it is shifted" : "snowed in and it is dug out"} by hand: that counts against you like a lot left ${LOT.lateH} hours${st.miss ? ", and it would be the second time" : ""}.` : "") : off ? `It was dug out twice waiting for you. Offered again in ${Math.max(1, Math.ceil((s.lotOff[c.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : talk ? WIN.talkLine : "",
       pay: st ? `${cash(base)} a clearing` : "", act: (st ? "paq:" : "pat:") + c.id, actLabel: st ? "DROP" : "TAKE ON", blocked: !st && (!has || off || talk) });
   }
-  return h + `<p class="tnote2">A lot is plowed by the square metre: blade down, work across it in passes side by side (forward, or back-dragging away from a wall) until four fifths of the ground a truck can reach is cut. Then it is clear and paid at once, in full inside ${LOT.fullH} hours of the weather easing and down to half after ${LOT.lowH}. Leave it ${LOT.lateH} hours, or sleep through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a week.</p>`;
+  return h + `<p class="tnote2">A lot is plowed by the square metre: blade down, work across it in passes side by side (forward, or back-dragging away from a wall) until four fifths of the ground a truck can reach is cut. Then it is clear and paid at once, in full inside ${LOT.fullH} hours of the weather easing and down to half after ${LOT.lowH}. Leave it ${LOT.lateH} hours, or sleep through it, and it is dug out by hand: no pay, and the second time it goes to someone else for a week.${heapOn() ? ` And mind the heap: a lot is not clear while more than ${LOT.heapOk} m3 of your plow's snow stands in its middle or at a door. Throw towards the edge and bank it there (the outer ${LOT.bank} m); a square blade carries a pile to the edge, and a heap left in the middle holds the pay until it is moved.` : ""}</p>`;
 }
 /* ---------------- doors: where the blade's snow ends up (4.2b2, the count 4.1b3b promised) ----------------
    The snow a blade moves has to go somewhere, and in a village the wrong place is somebody's way in. Every house's
@@ -1474,10 +1539,11 @@ let conT = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
+TLX.option({ id: "plowheaps", name: "Plow heaps in a lot", hint: "A lot you plow is not clear, and not paid, while a heap of your blade's snow stands in its middle or at a door: bank the snow along the edge. Off = a lot is clear and paid as soon as four fifths of it is cut, wherever the snow lies.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
@@ -1503,9 +1569,9 @@ TLX.register({
     try { winInit(); } catch (e) { WN.list = []; WN.by = {}; console.warn("tlx-plow: doors", e); }   // 4.2b2: the front walks and drive mouths your blade's snow may land on
     if (a.jobx && !CJ.win) { CJ.win = true; a.jobx.push(winJob); }
     // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
-    try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
+    try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); lotWake(); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
     if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
-    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase(), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" })))); }
+    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" })))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
       hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length && !Object.keys(s.lot || {}).length); },
       badge: () => { const s = S(); return s && ((s.con && Object.keys(s.con).some(id => Object.keys(s.con[id].due || {}).some(k => s.con[id].due[k][1]))) || winOpen().length) ? "!" : ""; },
