@@ -1104,7 +1104,8 @@ off: a lot is then paid as soon as it is cut.
 Depotgata, Kirkegata, Storgata) never hold snow of their own, so anything standing in one was put
 there by a blade: the heap where a back-drag out of a drive stops, the pile a square blade lets go
 when you stop or lift it. Half a cubic metre or more of your blade's snow inside the travelled lane
-(1.8 m each side of the centre line) is a heap in the street. While you are beside it the riding
+(1.8 m each side of the centre line) is a heap in the street, wherever along the street it stands.
+While you are beside it the riding
 hint says so and nothing else happens. Drive on and it is the kommune's complaint: a line, a Jobs
 row that points at the heap, a Map pin, a row under Streets in the Plow app, and a 2 hour clock
 (stopped in a storm). Push it off the street and it is forgotten: one pass each way in the
@@ -1113,7 +1114,7 @@ truck clears it and holds it against you: a warning on the road contract you hav
 third takes that road back for a week, like its own warnings), or with no contract no road is
 tendered to you for three days. Heaps cleared in one go are one warning. A reload does not clear a
 street (the heap is put back where it stood). Settings > Options > **Plow heaps in the street**
-turns it off.
+turns it off; switched back on, a heap still standing near you counts again once you drive on.
 
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed

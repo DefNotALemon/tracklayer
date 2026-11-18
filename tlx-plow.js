@@ -1711,8 +1711,13 @@ function winInit() {
    within STR.seen m. Villages' streets (tlx-roads) are not listed yet.
    SAVED in x.sys.plow: str { lengthKey: { v (m3), h (clock), x, z } }, strC (times the truck came this week), strN (heaps
    cleared for you in all), strH, strBan (the game hour a road is tendered to you again). Option plowstreets (on). */
-const STR = { len: 12, hw: 1.8, block: 0.5, clear: 0.2, eps: 0.05, away: 9, seen: 45, lateH: 2, banH: 72, cap: 0.8 };
-const SN = { list: [], by: {}, built: false, job: {} };
+const STR = { len: 12, hw: 1.8, block: 0.5, clear: 0.2, eps: 0.05, away: 9, seen: 45, lateH: 2, banH: 72, cap: 0.8, join: 2, back: 150 };
+/* Beta 0263 #1: a heap on the line between two lengths of a street used to be half in each and a heap in neither. A
+   length is now MEASURED (and cleared by the kommune) STR.join m into each neighbour on its own street (q.t0 .. q.t1;
+   nothing past a street's end, where snow may go), so a heap on the line is whole in both, and strDup() makes it one
+   complaint, the first length's. Beta 0263 #2: the option switched off and on again (SN.off) re-measures the lengths
+   within STR.back m, so a heap that was standing is somebody's again once you drive on. */
+const SN = { list: [], by: {}, built: false, job: {}, off: false };
 const strOn = () => TLX.on("plowstreets");
 function strBuild() {
   SN.built = true; SN.list = []; SN.by = {};
@@ -1720,10 +1725,12 @@ function strBuild() {
   W.streets.forEach((l, i) => {
     if (!Array.isArray(l) || !Number.isFinite(l[0] + l[1] + l[2] + l[3])) return;
     const len = Math.hypot(l[2] - l[0], l[3] - l[1]); if (!(len >= 4)) return;
-    const n = Math.max(1, Math.round(len / STR.len)), L = len / n, ux = (l[2] - l[0]) / len, uz = (l[3] - l[1]) / len, name = typeof l[4] === "string" && l[4] ? l[4] : "the street";
+    const n = Math.max(1, Math.round(len / STR.len)), L = len / n, ux = (l[2] - l[0]) / len, uz = (l[3] - l[1]) / len, name = typeof l[4] === "string" && l[4] ? l[4] : "the street", J = Math.min(STR.join, L / 3);
+    let prev = null;
     for (let k = 0; k < n; k++) {
-      const q = { key: "s" + i + ":" + k, name, ax: l[0] + ux * L * k, az: l[1] + uz * L * k, ux, uz, L, hw: STR.hw, pend: 0, over: 0, relay: false };
+      const q = { key: "s" + i + ":" + k, name, ax: l[0] + ux * L * k, az: l[1] + uz * L * k, ux, uz, L, hw: STR.hw, pend: 0, over: 0, relay: false, t0: k > 0 ? -J : 0, t1: L + (k < n - 1 ? J : 0), nb: [] };
       q.cx = q.hx = q.ax + ux * L / 2; q.cz = q.hz = q.az + uz * L / 2; SN.list.push(q); SN.by[q.key] = q;
+      if (prev) { prev.nb.push(q); q.nb.push(prev); } prev = q;
     }
   });
 }
@@ -1740,14 +1747,15 @@ function strLay(x, z, r, p) {                                                   
 }
 function strMeasure(q) {                                                         // the m3 standing in a street length over what its ground settles back to, and its middle of mass
   const W = api.world, C = W.cell, H = W.half, A = C * C, nx = -q.uz, nz = q.ux; let vol = 0, sx = 0, sz = 0;
-  for (let t = 0; t <= q.L + 1e-6; t += C) for (let l = -q.hw; l <= q.hw + 1e-6; l += C) {
+  for (let t = q.t0; t <= q.t1 + 1e-6; t += C) for (let l = -q.hw; l <= q.hw + 1e-6; l += C) {
     const x = q.ax + q.ux * t + nx * l, z = q.az + q.uz * t + nz * l, ix = Math.round((x + H) / C), iz = Math.round((z + H) / C), o = W.depthAt(ix, iz) - W.restCell(ix, iz) - STR.eps;
     if (o > 0) { vol += o * A; sx += o * x; sz += o * z; }
   }
   if (vol > 1e-6) { q.hx = sx * A / vol; q.hz = sz * A / vol; } else { q.hx = q.cx; q.hz = q.cz; }
   return (q.over = vol);
 }
-function strShovel(q) { const W = api.world, nx = -q.uz, nz = q.ux; for (let l = -q.hw - 0.15; l <= q.hw + 0.16; l += 0.3) W.bladeSnow(q.ax + nx * l, q.az + nz * l, q.ax + q.ux * q.L + nx * l, q.az + q.uz * q.L + nz * l, 0.15); q.over = 0; q.pend = 0; q.hx = q.cx; q.hz = q.cz; }
+function strShovel(q) { const W = api.world, nx = -q.uz, nz = q.ux; for (let l = -q.hw - 0.15; l <= q.hw + 0.16; l += 0.3) W.bladeSnow(q.ax + q.ux * q.t0 + nx * l, q.az + q.uz * q.t0 + nz * l, q.ax + q.ux * q.t1 + nx * l, q.az + q.uz * q.t1 + nz * l, 0.15); q.over = 0; q.pend = 0; q.hx = q.cx; q.hz = q.cz; }
+function strDup(q, s) { return q.nb.some(n => { const e = s.str[n.key]; return !!e && Math.hypot(e.x - q.hx, e.z - q.hz) < STR.join + 1.5; }); }   // the heap on the line is already the neighbour's complaint
 function strRelay(q, e) {                                                        // after a reload: the heap is put back where it stood
   const x = Number.isFinite(e.x + e.z) ? e.x : q.cx, z = Number.isFinite(e.x + e.z) ? e.z : q.cz;
   api.world.heapSnow(x, z, Math.max(0.9, Math.min(1.9, Math.sqrt(e.v / 1.6))), e.v, STR.cap);
@@ -1766,13 +1774,14 @@ function strGone(list, slept) {                                                 
 function strStep() {
   const s = S(); if (!s || !s.str || !SN.list.length || !api.started()) return;
   const H = api.GS.hour, dh = s.strH < 0 || H < s.strH ? 0 : H - s.strH; s.strH = H;
-  if (!strOn()) { if (Object.keys(s.str).length) { s.str = {}; conRefresh(); } for (const q of SN.list) { q.pend = 0; q.over = 0; q.relay = false; } return; }
+  if (!strOn()) { if (Object.keys(s.str).length) { s.str = {}; conRefresh(); } for (const q of SN.list) { q.pend = 0; q.over = 0; q.relay = false; } SN.off = true; return; }
   const RD = (window.TLXR && TLXR.ROADS) || { plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, P = api.FOOT.on ? api.FOOT : api.P, gone = [], fresh = [], clear = [];
+  if (SN.off) { SN.off = false; for (const q of SN.list) if (!s.str[q.key] && !(q.pend > 0) && Math.hypot(P.x - q.cx, P.z - q.cz) < STR.back) { if (strMeasure(q) >= STR.block) q.pend = q.over; else q.over = 0; } }   // switched on again: what stands in a street near you counts again
   for (const q of SN.list) {
     const e = s.str[q.key]; if (!e && !(q.pend > 0)) continue;
     if (!e) {                                                                      // laid just now: it is a complaint once you have driven on
       strMeasure(q);
-      if (Math.hypot(P.x - q.hx, P.z - q.hz) > STR.away) { if (q.over >= STR.block) { s.str[q.key] = { v: Math.round(q.over * 100) / 100, h: 0, x: Math.round(q.hx * 10) / 10, z: Math.round(q.hz * 10) / 10 }; fresh.push(q); } else q.over = 0; q.pend = 0; }
+      if (Math.hypot(P.x - q.hx, P.z - q.hz) > STR.away) { if (q.over >= STR.block && !strDup(q, s)) { s.str[q.key] = { v: Math.round(q.over * 100) / 100, h: 0, x: Math.round(q.hx * 10) / 10, z: Math.round(q.hz * 10) / 10 }; fresh.push(q); } else q.over = 0; q.pend = 0; }
       continue;
     }
     if (slept) { gone.push(q); continue; }
