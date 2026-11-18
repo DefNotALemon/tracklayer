@@ -227,7 +227,7 @@ Estate app (eight cleans), walk into the cabin and use it. **Sweep** puts a broo
 sweeping pace: walk the floor and the grit comes up where the broom goes. **Dust** works facing a piece of furniture
 up close: you stand and wipe it down, one piece at a time. A swept floor or a dusted cabin uses one clean from the kit.
 
-**Staff** (on the tablet once you have Real Estate) is where you hire people. Every depot cabin you own needs a
+**Staff** (on the tablet once you have Real Estate, or a plow contract for a road: see Plow drivers) is where you hire people. Every depot cabin you own needs a
 caretaker, and people from the villages apply for the job: each card shows their name, where they're from, the weekly
 wage they want and how many years they say they've done it. That's their word: some oversell, and how hard someone
 works only shows once they're on the job. Applicants wait a few days for an answer, then withdraw; new ones come in
@@ -1021,6 +1021,24 @@ before a Monday strikes one off. The clock on a stretch that still has snow on i
 while the road is out of your hands, and handing a road back with a stretch that has lain shut 4
 hours or more is a warning in itself (the card says so before you press); the third warning takes
 the road back for a week however it was earned.
+
+**Plow drivers.** A road you have signed for is also a job: the **Staff** app (on the tablet as soon
+as you hold a road, Real Estate or not) posts it, and plow drivers from the villages apply. Each
+has a truck and blade of their own, asks a weekly wage ($150 and up, more for experience) and
+keeps **40%** of what the kommune pays for the stretches they open; the other 60% is paid to you
+the moment each stretch is open. INTERVIEW them as you would a caretaker: the cold-snap question
+becomes a whiteout on the open road, and the answers are a driver's. Once hired they work the road
+without you. When snow lies on it and the weather has eased they take three quarters of an hour or
+so to get the truck out (a notification says they have set out), run up the road to the snow, open
+it stretch by stretch, and come back in (a notification counts the stretches and your share). A
+storm over them and they sit it out where they are. How fast they are is how good they really are:
+real years behind a blade, how hard they work and how happy they are, so someone who padded their
+application is slow, the pay has fallen by the time they get there, and a stretch they leave shut
+8 hours is still **your** warning. Owed wages, they do not go out at all. Sleep through a storm
+and a driver has opened what they could reach in time: paid, and no warning for those. The road's
+card in the Plow app and the driver's card in Staff say where they are; a word in person (PRAISE,
+CRITICISE) is had at the garage while they are in. Hand the road back, or lose it, and the driver
+is let go, paid to the hour. You do not see their truck on the road yet, and nobody drives yours.
 
 **Driveways.** Under the roads the Plow app lists eight Kjøllefjord households with a drive beside
 the house, each **ASKING**. Until you **TAKE ONE ON** its owner shovels it by hand and nothing about

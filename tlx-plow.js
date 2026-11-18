@@ -79,6 +79,8 @@
 // STREETS (4.2c2b). The block comment at STR: a heap of the blade's snow left standing in a town street has to be pushed
 // off it again, or the kommune's own truck clears it and it is a warning on a road contract of yours (no contract: no
 // road is tendered to you for three days). State: str, strC, strN, strH, strBan.
+// PLOW DRIVERS (5.4a1). The block comment at PDR: a plow driver hired in the Staff app works a contract road of yours in
+// their own truck and keeps a share of what they open. State: pdr.
 // NOT YET: the hotel forecourt (a LOTS row the day 7.2 builds a hotel).
 (() => {
 "use strict";
@@ -184,6 +186,7 @@ function tidy() {
   if (!s.grit || typeof s.grit !== "object" || Array.isArray(s.grit)) s.grit = {};
   if (!Number.isFinite(s.gritKg)) s.gritKg = 0;
   conTidy(s);                                                                    // 4.2a: the road contracts
+  pdrTidy(s);                                                                    // 5.4a1: where each road's driver is
   drvTidy(s);                                                                    // 4.2b1: the driveways
   lotTidy(s);                                                                    // 4.2c1: the lots
   strTidy(s);                                                                    // 4.2c2b: heaps in a street
@@ -839,6 +842,7 @@ function conStep() {
   for (const id of ids) {
     const c = s.con[id], r = rs.find(q => q.id === id); if (!r) { delete s.con[id]; continue; }
     c.name = r.name;
+    pdrRun(c, r, dh, slept);                                                     /* 5.4a1: a driver of yours on this road works first: what they open this step is not late */
     let nd = 0, late = false, half = false, stale = false, gone = false, fresh = false;
     r.seg.forEach((g, i) => {
       if (!g.legs.length) return; const sn = r.st.s[i]; let d = c.due[i];
@@ -860,11 +864,11 @@ function conStep() {
     }
   }
 }
-function conPay(r, i, sn) {                                                      // opened() asks: what the kommune pays for this stretch, or null
+function conPay(r, i, sn, share = 1) {                                           // opened() asks: what the kommune pays for this stretch, or null (share: your part when a driver of yours opened it, 5.4a1)
   const s = S(), c = s.con && s.con[r.id]; if (!c) return null;
   const d = c.due && c.due[i]; if (c.due) delete c.due[i];
   if (!(sn >= PLC.due)) return null;
-  const h = d ? d[0] : 0, k = conK(h), len = conLen(r, i), cash = Math.round(len * PLC.perM * k * api.payMul());
+  const h = d ? d[0] : 0, k = conK(h), len = conLen(r, i), cash = Math.round(len * PLC.perM * k * api.payMul() * share);
   api.GS.cash += cash; c.wk += cash; c.wkM += len; s.conPaid = (s.conPaid || 0) + cash; conRefresh();
   return { cash, k, h };
 }
@@ -873,7 +877,8 @@ function conMonday(week) {
   const d = week && week.label || ""; let pay = 0, m = 0, off = 0;
   for (const id of ids) {
     const c = s.con[id], lapsed = c.clean && c.strikes > 0; if (lapsed) { c.strikes--; off++; }
-    s.conLast.unshift({ d, road: c.name, pay: c.wk, m: Math.round(c.wkM), w: c.strikes, lapsed });
+    const q = s.pdr && s.pdr[id], dn = q ? q.wkN : 0; if (q) { q.wkN = 0; q.wkCash = 0; }
+    s.conLast.unshift({ d, road: c.name, pay: c.wk, m: Math.round(c.wkM), w: c.strikes, lapsed, dn });
     pay += c.wk; m += c.wkM; c.wk = 0; c.wkM = 0; c.clean = true;
   }
   s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
@@ -899,6 +904,154 @@ function conJob(k) {
     chips: U.chip("PLOW CONTRACT") + (w.shut ? U.chip("SHUT", "due") : ""), meta: `${str}, ${(w.m / 1000).toFixed(1)} km under snow · ${state}`, pay,
     hud: d => ({ title, sub: `${U.fmtMi(d)} · ${str} to open · ${pay} · ${state}` }) };
 }
+/* ---------------- plow drivers (5.4a1): someone on the books plows a contract road in their own truck ----------------
+   A road contract you hold is a place a plow driver can work (tlx-staff.js: the role and the place come from here,
+   TLX.staff.addRole / addPlaces; applicants, interviews, wages, happiness and notice are all staff's). Every applicant
+   has a truck and blade of their own and keeps PDR.cut of what the kommune pays for the stretches THEY open; the rest is
+   paid to you at once (conPay's share), on top of their weekly wage.
+   The work is stepped with the contract's clock (pdrRun, called by conStep for each road): HOME until a stretch is due
+   and the weather at the road's first end is under the council's limit, then PDR.wait hours (over their skill) to get
+   going; OUT along the road from its first end, PDR.vRoad m a game hour over clean stretches and PDR.v x skill over the
+   ones with snow, each due stretch opened as they reach its far end (TLXR.plowSeg, quietly) and paid by its own clock; a
+   storm over them and they sit it out where they are; BACK in at PDR.vRoad once nothing is due, or the kommune's own truck
+   has the road (cover). Skill = (PDR.xp[0] + PDR.xp[1] x REAL years, to PDR.xp[2]) x TLX.staff.workAt (the hidden work
+   trait x happiness; 0 while wages are owed: they do not go out). A slow driver still earns you warnings: nothing in the
+   contract's rules changes. SLEPT THROUGH (pdrSleep): every due stretch the driver would have reached before the
+   kommune's PLC.lateH (its clock + the wait + the drive there) is theirs, paid by that clock, and no warning; a shut
+   stretch they would have been late for is left to the contract's own rule (the kommune's truck, a warning).
+   SAVED in x.sys.plow: pdr { routeId: { st: "home" | "out" | "back", p (m along the route), w (hours waiting to set
+   out), n, cash (stretches and your share this trip), wkN, wkCash (this week) } }. Nothing is drawn in the world yet
+   (5.4b), they cannot get stuck yet (5.4c), and nobody drives YOUR truck yet (5.4a2). */
+const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [0.7, 0.03, 10] };
+const pdrPid = id => "plow:" + id;
+const pdrOf = id => (TLX.staff && TLX.staff.at ? TLX.staff.at(pdrPid(id)) : null);
+const pdrSkill = (m, id) => (m ? (PDR.xp[0] + PDR.xp[1] * Math.min(PDR.xp[2], Math.max(0, m.xpReal | 0))) * TLX.staff.workAt(pdrPid(id)) : 0);
+const pdrFirst = m => String(m.name || "Your driver").split(" ")[0];
+const pdrNote = (title, body, kind) => { try { api.TABLET.notify({ app: "plow", kind: kind || "info", title, body, ttl: 7 }); } catch (e) { } };
+const pdrDue = (c, r) => Object.keys(c.due || {}).map(Number).filter(i => r.seg[i] && r.seg[i].legs.length && r.st.s[i] >= PLC.due).sort((a, b) => a - b);
+function pdrTidy(s) {
+  if (!obj0(s.pdr)) s.pdr = {};
+  for (const id of Object.keys(s.pdr)) {
+    const q = s.pdr[id]; if (!obj0(q) || !s.con || !s.con[id]) { delete s.pdr[id]; continue; }
+    if (q.st !== "out" && q.st !== "back") q.st = "home";
+    for (const k of ["p", "w", "n", "cash", "wkN", "wkCash"]) q[k] = Number.isFinite(q[k]) ? Math.max(0, q[k]) : 0;
+  }
+}
+function pdrOpen(c, r, i, q) {                                                   // the driver's blade has reached the far end of due stretch i
+  const SEG = window.TLXR.ROADS.seg, sn = Math.max(r.st.s[i], PLC.due);
+  window.TLXR.plowSeg(r.id, i * SEG + 1, true); RC.delete(r.id + ":" + i);
+  const s = S(); s.opened = (s.opened || 0) + 1;
+  const pd = conPay(r, i, sn, 1 - PDR.cut); if (!pd) return 0;
+  q.n++; q.cash += pd.cash; q.wkN++; q.wkCash += pd.cash;
+  return pd.cash;
+}
+function pdrHome(c, r, q, m, why) {
+  q.st = "home"; q.p = 0; q.w = 0;
+  if (q.n > 0) pdrNote(`${m.name} is back in`, `${q.n} stretch${q.n === 1 ? "" : "es"} of the ${r.name} opened · ${api.fmtCash(q.cash)} to you after their ${Math.round(PDR.cut * 100)}%${why ? " · " + why : ""}`, "good");
+  q.n = 0; q.cash = 0; api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+}
+function pdrSleep(c, r, q, m, k) {                                               // a jump of hours: what the driver opened while you were away
+  const SEG = window.TLXR.ROADS.seg, due = Object.keys(c.due || {}).map(Number).filter(i => r.seg[i] && r.seg[i].legs.length).sort((a, b) => a - b);
+  if (!(k > 0) || c.cover || !due.length) return;
+  let t = PDR.wait / k, at = 0, n = 0, cash = 0;
+  for (const i of due) {
+    t += Math.max(0, i * SEG - at) / PDR.vRoad + conLen(r, i) / (PDR.v * k); at = i * SEG + conLen(r, i);
+    const d = c.due[i], h = d[0] + t; if (d[1] && h >= PLC.lateH) continue;       /* too late for this one: the kommune's truck, and the contract's own rule */
+    d[0] = h; const got = pdrOpen(c, r, i, q); if (got) { n++; cash += got; }
+  }
+  q.st = "home"; q.p = 0; q.w = 0; q.n = 0; q.cash = 0;
+  if (n) pdrNote(`${m.name} plowed while you were away`, `${n} stretch${n === 1 ? "" : "es"} of the ${r.name} opened · ${api.fmtCash(cash)} to you after their ${Math.round(PDR.cut * 100)}%`, "good");
+}
+function pdrRun(c, r, dh, slept) {
+  const s = S(), TR = window.TLXR; if (!obj0(s.pdr)) s.pdr = {};
+  const m = pdrOf(r.id); let q = s.pdr[r.id];
+  if (!m) { if (q) delete s.pdr[r.id]; return; }
+  if (!q) q = s.pdr[r.id] = { st: "home", p: 0, w: 0, n: 0, cash: 0, wkN: 0, wkCash: 0 };
+  const k = pdrSkill(m, r.id), RD = TR.ROADS, SEG = RD.seg, WX = api.WX;
+  if (slept) { pdrSleep(c, r, q, m, k); return; }
+  if (!(dh > 0)) return;
+  if (!(k > 0)) { if (q.st !== "home") pdrHome(c, r, q, m, "home again: wages are owed"); q.w = 0; return; }
+  const due = pdrDue(c, r);
+  if (q.st === "home") {
+    if (!due.length || c.cover || WX.at(r.pts[0][0], r.pts[0][1]) >= RD.plowWx) { q.w = 0; return; }
+    q.w += dh; if (q.w < PDR.wait / k) return;
+    q.st = "out"; q.p = 0; q.w = 0; q.n = 0; q.cash = 0;
+    pdrNote(`${m.name} has set out`, `On the ${r.name}: ${due.length} stretch${due.length === 1 ? "" : "es"} under snow.`);
+    conRefresh(); return;
+  }
+  if (q.st === "out") {
+    if (!due.length || c.cover) q.st = "back";
+    else {
+      const g = r.seg[Math.min(r.seg.length - 1, Math.floor(q.p / SEG))];
+      if (g && WX.at(g.mx, g.mz) >= RD.plowWx) return;                           /* a storm over them: they sit it out where they are */
+      const far = Math.min(r.len, due[due.length - 1] * SEG + conLen(r, due[due.length - 1])); let t = dh, guard = 0;
+      while (t > 1e-9 && q.p < far - 1e-6 && guard++ < 400) {
+        const i = Math.floor(q.p / SEG + 1e-9), e = Math.min(far, i * SEG + conLen(r, i)), isDue = !!c.due[i] && r.st.s[i] >= PLC.due, v = isDue ? PDR.v * k : PDR.vRoad, need = (e - q.p) / v;
+        if (!(e > q.p)) break;
+        if (need <= t) { q.p = e; t -= need; if (isDue) pdrOpen(c, r, i, q); } else { q.p += v * t; t = 0; }
+      }
+      if (q.p >= far - 1e-6) q.st = "back";
+      dh = t;
+    }
+  }
+  if (q.st === "back") { q.p -= dh * PDR.vRoad; if (q.p <= 0) pdrHome(c, r, q, m, c.cover ? "the kommune's own truck has the rest" : ""); }
+}
+function pdrWhere(id) {                                                          // where the road's driver is, in a few words ("" with no driver)
+  const s = S(), m = pdrOf(id), c = s && s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!m || !c || !r) return "";
+  const q = (s.pdr && s.pdr[id]) || { st: "home", p: 0 }, km = (q.p / 1000).toFixed(1), due = pdrDue(c, r), RD = window.TLXR.ROADS;
+  if (!(pdrSkill(m, id) > 0)) return "not going out while wages are owed";
+  if (q.st === "out") { const g = r.seg[Math.min(r.seg.length - 1, Math.floor(q.p / RD.seg))]; return g && api.WX.at(g.mx, g.mz) >= RD.plowWx ? `sitting out the weather ${km} km along` : `out on it, ${km} km along, ${due.length} stretch${due.length === 1 ? "" : "es"} to go`; }
+  if (q.st === "back") return `on the way back in, ${km} km out`;
+  if (c.cover) return "in: the kommune's own truck has it this once";
+  if (!due.length) return "in: nothing on it to plow";
+  return api.WX.at(r.pts[0][0], r.pts[0][1]) >= RD.plowWx ? "in, waiting for the weather to ease" : "getting the truck out";
+}
+function pdrAnswer(a, q, x) {                                                    // a driver's answers in the interview (tlx-staff.js decides the slip and the checked reference)
+  const v = a.village, n = a.xp, r = a.xpReal, w = n === 1 ? "winter" : "winters", me = String(a.name).split(" ")[0], R = a.ref || { name: "the foreman", village: v };
+  if (q === "xp") {
+    if (x.liar && x.slip) return `${n} ${w}. Well... most of them on the quay with a wheel loader. Behind a blade on an open road, ${r === 0 ? "none" : r === 1 ? "one" : r}.`;
+    if (x.liar) return `${n} ${w}, all over Finnmark. Roads, yards, the lot.${x.tail}`;
+    return (n === 0 ? `None on a road, to be honest. I've kept my father's yard in ${v} clear with the tractor since I was fourteen.`
+      : n <= 3 ? `${n} ${w} on a kommune truck out of ${v}, mostly nights.`
+      : n <= 10 ? `${n} ${w} plowing out of ${v}: the fell road when it was open, the streets when it was not.`
+      : `${n} ${w}. I held the ${v} road on contract myself until I got tired of the paperwork.`) + x.tail;
+  }
+  if (q === "stove") {
+    if (x.liar && x.slip) return `Keep the speed up and trust the truck? I've not really been out in one, if I'm honest.`;
+    if (x.liar) return `Happens all the time. I'd manage. Never been stuck yet.${x.tail}`;
+    return (r >= 3 ? `Blade up a hand so it rides, down to walking pace, and I take the poles one at a time on my right. No pole, I stop with the lights on and wait: snow can be plowed in an hour, a truck off the bank cannot.`
+      : `Stop, lights on, and ring you. I'd sooner be late than in the ditch.`) + x.tail;
+  }
+  if (q === "ref") {
+    if (x.liar && x.slip) return `He's on the boats now, no signal out there. And the firm went under. You'd have to take my word for it.`;
+    if (x.liar) return `Ring ${R.name} in ${R.village}. (You ring: "${me}? Drove for us a bit. The truck came back in one piece, mostly.")`;
+    return n === 0 ? `Nobody has paid me to drive yet. Ring ${R.name} in ${R.village}: I kept his loader running all last winter. (You ring: "Careful with a machine. Turns up.")`
+      : `Ring ${R.name} in ${R.village}. (You ring: "${me}? ${n} ${w} on our roads and never a mailbox down. We'd have them back tomorrow.")`;
+  }
+  if (q === "why") {
+    const k = a.tr && a.tr.work || 1;
+    return (k >= 1.1 ? `I like a road that is black to its edges by breakfast. And the truck is standing idle.`
+      : k <= 0.8 ? `The truck's paid for, and it is only when it snows, isn't it? Suits me.`
+      : `Steady winter money, and I know that road.`) + (x.hot ? " Is that it?" : "");
+  }
+  return "";
+}
+const PDROLE = { name: "Plow driver", wage: PDR.wage, blurb: "plows a road you hold the contract for", at: "on the", the: true, app: true,
+  kit: () => "own", tag: () => `own truck and blade · keeps ${Math.round(PDR.cut * 100)}% of what they open`,
+  gone: "The road they plowed for you is no longer yours.",
+  greet: p => `Hello! I hear you want a driver for the ${p ? p.name : "road"}. I have my own truck and blade.`,
+  qs: { stove: { label: "A WHITEOUT?", ask: "A whiteout on the open stretch: the blade is packing up and you cannot see the next pole. What do you do?" } },
+  answer: pdrAnswer,
+  note: (m, p) => `Plows the ${p ? p.name : "road"} in their own truck and keeps ${Math.round(PDR.cut * 100)}% of what the kommune pays for the stretches they open: ${(p && pdrWhere(p.road)) || "in"}` };
+function pdrPlaces() {
+  const s = S(); if (!s || !obj0(s.con)) return [];
+  const g = api.world.garage();
+  return Object.keys(s.con).map(id => {
+    const c = s.con[id], q = s.pdr && s.pdr[id], home = !q || q.st === "home", m = pdrOf(id), who = m ? pdrFirst(m) : "Your driver";
+    return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: home ? g.x : NaN, z: home ? g.z : NaN, spot: "the garage",
+      talk: home ? `${who} is at the garage between runs: go there to have a word in person.` : `${who} is out on the ${c.name}. Have a word at the garage once they are back in.` };
+  });
+}
 const PICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h9V9h4l3 3v3h2"/><circle cx="7" cy="17" r="1.8"/><circle cx="16" cy="17" r="1.8"/><path d="M21 11c1 2 1 5 0 8"/><path d="M4 9l2-3M9 9l1-3"/></svg>';
 function appRender(el) {
   tidy();
@@ -911,19 +1064,19 @@ function appRender(el) {
   if (!rs.length) h += `<p class="tnote2">The kommune has no road out to tender.</p>`;
   for (const r of rs) {
     const c = s.con[r.id], ban = s.conBan[r.id] > H, file = !c && !ban && s.conRec && s.conRec[r.id] ? s.conRec[r.id].strikes : 0, n = r.seg.filter(g => g.legs.length).length, snow = r.seg.filter((g, i) => g.legs.length && r.st.s[i] >= PLC.due).length;
-    const w = c ? conWork(c, r) : null;
+    const w = c ? conWork(c, r) : null, dm = c ? pdrOf(r.id) : null;
     h += U.tabCard({ tf: "plc:" + r.id, title: r.name,
-      chips: c ? U.chip("YOURS", "ok") + (c.strikes ? U.chip(`WARNING ${c.strikes} OF ${PLC.strikes}`, "due") : "") + (w.shut ? U.chip("SHUT", "due") : w.n ? U.chip("SNOW ON IT", "heavy") : U.chip("CLEAR")) : ban ? U.chip("TAKEN BACK", "due") : U.chip("OUT TO TENDER") + (file ? U.chip(`WARNING ${file} OF ${PLC.strikes} ON FILE`, "due") : ""),
+      chips: c ? U.chip("YOURS", "ok") + (dm ? U.chip("DRIVER", "ok") : "") + (c.strikes ? U.chip(`WARNING ${c.strikes} OF ${PLC.strikes}`, "due") : "") + (w.shut ? U.chip("SHUT", "due") : w.n ? U.chip("SNOW ON IT", "heavy") : U.chip("CLEAR")) : ban ? U.chip("TAKEN BACK", "due") : U.chip("OUT TO TENDER") + (file ? U.chip(`WARNING ${file} OF ${PLC.strikes} ON FILE`, "due") : ""),
       meta: `${(r.len / 1000).toFixed(1)} km · ${n} stretches · ${cash(r.len * PLC.perM * mul)} for the whole road opened inside ${PLC.fullH} h`,
-      note: c ? (w.n ? `${w.n} stretch${w.n === 1 ? "" : "es"} to open, ${(w.m / 1000).toFixed(1)} km: ${conState(c, w)}.` : "Nothing on it to plow.") + ` This week: ${cash(c.wk)} for ${(c.wkM / 1000).toFixed(1)} km.`
+      note: c ? (w.n ? `${w.n} stretch${w.n === 1 ? "" : "es"} to open, ${(w.m / 1000).toFixed(1)} km: ${conState(c, w)}.` : "Nothing on it to plow.") + ` This week: ${cash(c.wk)} for ${(c.wkM / 1000).toFixed(1)} km.` + (dm ? ` ${U.esc(dm.name)} drives it for you: ${U.esc(pdrWhere(r.id))}.` : TLX.staff && TLX.staff.addRole ? " Nobody drives it for you: the Staff app has the job posted." : "")
         : snow ? `${snow} of its stretches have snow on them now. Until it is signed the council's plow goes out once the weather eases.` : "Plowed and open. The council's plow keeps it until someone signs for it.",
       warn: c ? (c.cover ? "The kommune's own truck is opening it this once. What it opens is not paid." : conQuitCost(c) ? "A stretch has lain shut too long to walk away from: handing the road back now is a warning." : "") : ban ? `Taken back after ${PLC.strikes} warnings. Out to tender again in ${Math.max(1, Math.ceil((s.conBan[r.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : file ? `The kommune's file on this road holds ${file === 1 ? "a warning" : file + " warnings"} against you. Sign again and ${file === 1 ? "it comes" : "they come"} with it.` : "",
       pay: c ? `${cash(400 * PLC.perM * mul)} a stretch` : "", act: (c ? "plq:" : "pls:") + r.id, actLabel: c ? "HAND BACK" : "SIGN", blocked: !c && (!has || ban) });
   }
   h += drvCards(U, s, has, mul, cash);                                           // 4.2b1: the driveways
   h += lotCards(U, s, has, mul, cash);                                           // 4.2c1: the lots
-  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
-  h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself.</p>`;
+  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.dn > 0 ? ` · ${Math.round(q.dn)} by your driver` : ""}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
+  h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself. A plow driver hired in the Staff app works a road of yours in their own truck whenever snow lies on it: ${Math.round(PDR.cut * 100)}% of what the kommune pays for the stretches they open is theirs, the rest yours, and a slow driver's late stretches are still your warnings.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='pls:']")) b.addEventListener("click", () => conSign(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='plq:']")) b.addEventListener("click", () => conQuit(b.dataset.act.slice(4)));
@@ -1680,7 +1833,7 @@ let conT = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, PDR, pdr: { run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
@@ -1690,7 +1843,7 @@ TLX.option({ id: "plowstreets", name: "Plow heaps in the street", hint: "A heap 
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, pdr: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
@@ -1706,6 +1859,7 @@ TLX.register({
     if (a.ridex) a.ridex.push(rideLine);
     // 4.2a: the kommune's road contracts: the council's plow asks before it sets out, the Jobs app's rows, the Plow app
     if (window.TLXR) TLXR.hold = conHold;
+    if (TLX.staff && TLX.staff.addRole) { TLX.staff.addRole("plowdriver", PDROLE); TLX.staff.addPlaces(pdrPlaces); }   // 5.4a1: a road you hold is a job for a plow driver
     if (a.jobx && !CJ.on) { CJ.on = true; for (let k = 0; k < 4; k++) a.jobx.push(() => conJob(k)); a.jobx.push(drvJob); }
     // 4.2b1: the driveways: where they are (after the parked cars are placed), their snow from the save, a pin on the Map for each one snowed in
     try { if (!DV.built) drvBuild(); else { DV.marks.clear(); const s = S(); for (const c of DV.list) drvApply(c, s.drv && s.drv[c.key]); } } catch (e) { DV.list = []; DV.by = {}; console.warn("tlx-plow: driveways", e); }

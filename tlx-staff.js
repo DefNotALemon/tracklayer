@@ -36,6 +36,9 @@
 // fed-up, short-tempered one hand in notice. RAISE any time; the unhappy ask for one. Under 25 for a day = a week's
 // notice (back to 50 withdraws it). Option walkout: three days owed wages and everyone walks out. Saved on the crew
 // record: hap, mood, lowT, notice, ask, talk, praised, asked, push; s.hT (last hour ticked), s.owedT.
+//
+// Slice 5.4a1, roles from other systems: TLX.staff.addRole / addPlaces (the block comment at XPLACES). tlx-plow.js
+// adds the plow driver, whose place is a road contract you hold; the work itself is tlx-plow's (pdrRun).
 (() => {
 "use strict";
 // ---- tunables ----
@@ -62,8 +65,24 @@ function places() {
   const out = [];
   if (api && api.re) for (const c of api.re.owned()) out.push({ id: "re:" + c.id, role: "caretaker", name: c.name, cab: c.id, x: c.x, z: c.z });
   if (TLX.prop && TLX.prop.places) for (const p of TLX.prop.places()) out.push({ id: "pr:" + p.id, role: "caretaker", name: p.name, cab: p.id, x: p.x, z: p.z });   // listings with rooms (tlx-property.js, 6.1b)
+  for (const f of XPLACES) { try { for (const p of f() || []) if (p && ROLES[p.role]) out.push(p); } catch (e) { } }   // another system's workplaces (5.4: a road contract, tlx-plow.js)
   return out;
 }
+/* ---- roles from other systems (5.4) ----
+   TLX.staff.addRole(id, row) adds a ROLES row, TLX.staff.addPlaces(fn) a source of places ({ id, role, name, x, z }).
+   A row may carry its own words, all optional (the caretaker has none and reads as before):
+     at ("on the": "starts as plow driver on the Dyfjord road"), the (true: the place's name takes "the"),
+     greet(p) the applicant's first line, qs { questionId: { label, ask } } a question reworded,
+     answer(a, q, ctx) the applicant's answer to a question (ctx: liar, slip, tail, hot, calm; staff has already
+     caught a slip and checked an honest reference), note(m, p) what the card says they do, tag(a) a few words on
+     the applicant's card, gone the notification when their place is no longer yours (they are then let go, paid to
+     the hour, instead of dropping off the books unpaid), kit(a) a field set on a new applicant, app (true: the
+     Staff app is on the tablet while such a place is yours, Real Estate or not).
+   A place may carry talk (why PRAISE / CRITICISE cannot be had here) and spot (what "here" is called). */
+const XPLACES = [];
+const atOf = (R, p) => `${R && R.at || "at"} ${p ? p.name : "?"}`;
+const theOf = (R, p) => (p ? (R && R.the ? "The " : "") + p.name : "The place");
+const qsOf = a => { const R = ROLES[a.role]; return QS.map(q => (R && R.qs && R.qs[q.id] ? Object.assign({}, q, R.qs[q.id]) : q)); };
 const placeOf = id => places().find(p => p.id === id) || null;
 function vacancies() { const s = S(); return places().filter(p => !s.crew.some(m => m.place === p.id)); }
 function villages() {
@@ -78,6 +97,7 @@ function newApplicant(vac) {
   const wage = Math.round(R.wage[0] + R.wage[1] * xp + rnd(-5, 7));
   const a = { id: ++s.seq, name: pick(FIRST) + " " + pick(LAST), village: pick(villages()), role: vac.role, place: vac.id,
     wage, xp, xpReal, tr: { work: +rnd(0.6, 1.3).toFixed(2), temper: +Math.random().toFixed(2), honest }, at: hour(), exp: hour() + 24 * rnd(POST_DAYS[0], POST_DAYS[1]) };
+  if (R.kit) a.kit = R.kit(a);
   s.apps.push(a);
   return a;
 }
@@ -94,9 +114,10 @@ function hire(id) {
   s.apps = s.apps.filter(q => q.place !== a.place);
   s.crew.push(crewPrep({ id: a.id, name: a.name, village: a.village, role: a.role, place: a.place, wage: a.wage, xp: a.xp, xpReal: a.xpReal, tr: a.tr, hired: hour(), paidTo: hour(), caught: !!a.caught, chk: !!a.chk,
     hap: Math.round(66 + 8 * (1 - (a.tr && a.tr.temper || 0))) }));
+  if (a.kit) s.crew[s.crew.length - 1].kit = a.kit;
   if (view === a.id) view = null;
   api.ui.ping("good");
-  api.toast(`${a.name} starts as ${ROLES[a.role].name.toLowerCase()} at ${p.name}. ${money(a.wage)} a week, paid Mondays.`, "good");
+  api.toast(`${a.name} starts as ${ROLES[a.role].name.toLowerCase()} ${atOf(ROLES[a.role], p)}. ${money(a.wage)} a week, paid Mondays.`, "good");
   api.save(); refresh(); return true;
 }
 function letGo(id) {
@@ -150,15 +171,15 @@ function noteStaff(title, body, kind) { if (api.TABLET) api.TABLET.notify({ app:
 function giveNotice(m, why) {
   if (m.notice) return;
   m.notice = hour() + NOTICE_H; m.ask = null;
-  noteStaff(`${m.name} handed in their notice`, `${why} They'll work out the week at ${(placeOf(m.place) || { name: "?" }).name}, then go.`, "warn");
+  noteStaff(`${m.name} handed in their notice`, `${why} They'll work out the week ${atOf(ROLES[m.role], placeOf(m.place))}, then go.`, "warn");
 }
 // they go: this week's wages are paid now (what you can't cover is owed) and the job is posted again
-function leave(m, msg, kind) {
+function leave(m, msg, kind, body) {
   const s = S(), due = Math.round(wageDue(m, hour()) * 100) / 100, paid = Math.min(due, Math.max(0, api.GS.cash));
   api.GS.cash -= paid; s.owed = Math.round((s.owed + due - paid) * 100) / 100;
   s.crew = s.crew.filter(q => q !== m);
   s.next = Math.min(s.next, hour() + 2);
-  noteStaff(msg, `${(placeOf(m.place) || { name: "The place" }).name} needs a new ${ROLES[m.role].name.toLowerCase()}.`, kind || "warn");
+  noteStaff(msg, body ? `${body} ${due ? `Paid ${money(paid)} for the days worked${due > paid ? `, ${money(due - paid)} still owed` : ""}.` : ""}`.trim() : `${theOf(ROLES[m.role], placeOf(m.place))} needs a new ${ROLES[m.role].name.toLowerCase()}.`, kind || "warn");
   api.save(); refresh();
 }
 function crewTick() {
@@ -200,7 +221,7 @@ function herePos() { const F = api.FOOT, P = api.P; return F && F.on ? { x: F.x,
 function atPlace(m) { const p = placeOf(m.place); if (!p || !(p.x === +p.x)) return false; const q = herePos(); return Math.hypot(q.x - p.x, q.z - p.z) <= TALK_R; }
 function talkBlock(m) {
   const p = placeOf(m.place);
-  if (!atPlace(m)) return `Go to ${p ? p.name : "their place"} to talk to ${first(m)} in person.`;
+  if (!atPlace(m)) return p && p.talk ? p.talk : `Go to ${p ? p.name : "their place"} to talk to ${first(m)} in person.`;
   if (hour() - m.talk < TALK_GAP) return `You've talked to ${first(m)} today. Give it a while.`;
   return "";
 }
@@ -248,7 +269,9 @@ function boardTick() {
   const n0 = s.apps.length;
   s.apps = s.apps.filter(a => a && typeof a === "object" && a.exp > h && ids.has(a.place));
   // a staffer whose place you no longer own goes (can't happen in 5.1; later property can be sold)
-  const own = new Set(places().map(p => p.id)); s.crew = s.crew.filter(m => m && typeof m === "object" && own.has(m.place));
+  const own = new Set(places().map(p => p.id));
+  for (const m of s.crew.slice()) { const R = m && typeof m === "object" && ROLES[m.role]; if (R && R.gone && !own.has(m.place)) leave(m, `${m.name} has been let go`, "info", R.gone); }   // 5.4: their road is no longer yours: paid to the hour
+  s.crew = s.crew.filter(m => m && typeof m === "object" && own.has(m.place));
   crewTick();
   if (!vac.length) { if (s.apps.length !== n0) refresh(); return; }
   let posted = null;
@@ -260,7 +283,7 @@ function boardTick() {
   }
   if (posted && api.TABLET && performance.now() - noted > 60000) {
     noted = performance.now();
-    api.TABLET.notify({ app: "staff", title: "New applicant", body: `${posted.name} from ${posted.village} applied to be ${ROLES[posted.role].name.toLowerCase()} at ${placeOf(posted.place).name}.`, ttl: 6 });
+    api.TABLET.notify({ app: "staff", title: "New applicant", body: `${posted.name} from ${posted.village} applied to be ${ROLES[posted.role].name.toLowerCase()} ${atOf(ROLES[posted.role], placeOf(posted.place))}.`, ttl: 6 });
   }
   if (posted || s.apps.length !== n0) refresh();
 }
@@ -298,6 +321,11 @@ function ivCatch(a) {
 function ivAnswer(a, q) {
   const v = a.village, x = a.xp, r = a.xpReal, liar = !a.tr.honest, slip = liar && Math.random() < (SLIP[q] || 0);
   const tail = hot(a) ? " Anything else?" : calm(a) ? " Happy to answer whatever you like." : "";
+  const RX = ROLES[a.role];
+  if (RX && RX.answer) {                                                         // 5.4: a role with its own answers; the catch and the checked reference are still decided here
+    if (liar && slip) ivCatch(a); else if (q === "ref" && !liar) a.chk = true;
+    const t = RX.answer(a, q, { liar, slip, tail, hot: hot(a), calm: calm(a) }); if (t) return t;
+  }
   if (q === "xp") {
     if (liar && slip) { ivCatch(a); return `${x} years. Well... counting summers, and the years I helped my uncle out for nothing. Paid, more like ${r === 0 ? "none" : r === 1 ? "one" : r}.`; }
     if (liar) return `${x} years, give or take. All sorts: cabins, guesthouses, you name it.${tail}`;
@@ -340,7 +368,7 @@ function ivTurn(a, mine, fn) {
   }, 700 + Math.random() * 900);
 }
 function ask(id, q) {
-  const a = S().apps.find(o => o.id === id), Q = QS.find(o => o.id === q); if (!a || !Q) return false;
+  const a = S().apps.find(o => o.id === id), Q = a && qsOf(a).find(o => o.id === q); if (!a || !Q) return false;
   ivPrep(a); if (a.mute || TYPING[id] || a.asked[q]) return false;
   a.asked[q] = true; a.pat -= 1;
   ivTurn(a, Q.ask, () => ivSay(a, false, ivAnswer(a, q)));
@@ -367,9 +395,10 @@ function ivRender(el, a) {
   let h = `<button type="button" class="tml" data-tf="stback" data-stback="1">‹ All staff</button>`;
   h += U.tabHead(`INTERVIEW · ${U.esc(ROLES[a.role].name.toUpperCase())} · ${U.esc((p ? p.name : "?").toUpperCase())}`, U.esc(a.name), money(a.wage) + "/wk");
   h += `<div class="tsub">from ${U.esc(a.village)} · ${yrs(a.xp)} on the application${a.caught ? " · " + U.chip(`CAUGHT OUT: ${a.xpReal === 0 ? "NONE" : "ABOUT " + a.xpReal}`, "due") : a.chk ? " · " + U.chip("REFERENCE CHECKED", "ok") : ""}${a.deal ? " · " + U.chip("WAGE AGREED", "ok") : ""} · ${left(a.exp)}</div>`;
-  h += `<div class="tmkth"><div class="tmkm them">Hello! I saw the caretaker job at ${U.esc(p ? p.name : "your cabin")}. I'm ${U.esc(a.name.split(" ")[0])}, from ${U.esc(a.village)}.</div>${a.chat.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${U.esc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${U.esc(a.name.split(" ")[0])} is typing…</div>` : ""}</div>`;
+  const RV = ROLES[a.role];
+  h += `<div class="tmkth"><div class="tmkm them">${RV.greet ? U.esc(RV.greet(p)) : `Hello! I saw the caretaker job at ${U.esc(p ? p.name : "your cabin")}.`} I'm ${U.esc(a.name.split(" ")[0])}, from ${U.esc(a.village)}.</div>${a.chat.map(m => `<div class="tmkm ${m.me ? "me" : "them"}">${U.esc(m.t)}</div>`).join("")}${typing ? `<div class="tmkm them typing">${U.esc(a.name.split(" ")[0])} is typing…</div>` : ""}</div>`;
   const dis = q => a.mute || typing || a.asked[q];
-  h += `<div class="tmka">${QS.map(q => `<button type="button" class="tbtn ghost" data-tf="stq:${q.id}" data-stq="${q.id}"${dis(q.id) ? " disabled" : ""}>${q.label}</button>`).join("")}</div>`;
+  h += `<div class="tmka">${qsOf(a).map(q => `<button type="button" class="tbtn ghost" data-tf="stq:${q.id}" data-stq="${q.id}"${dis(q.id) ? " disabled" : ""}>${q.label}</button>`).join("")}</div>`;
   h += `<div class="tmka">${OFFERS.map(f => `<button type="button" class="tbtn ghost" data-tf="sto:${f}" data-sto="${f}"${a.mute || a.deal || typing ? " disabled" : ""}>OFFER ${money(a.wage * f)}/WK</button>`).join("")}
     <button type="button" class="tbtn" data-tf="sthire" data-sthire="1">HIRE AT ${money(a.wage)}/WK</button></div>`;
   h += `<p class="tnote2">${a.mute ? `${U.esc(a.name.split(" ")[0])} has said all they're going to say. ` : ""}Each question once. Someone who's padded their application tends to slip when you ask for detail; a reference you can ring is worth the most. Push the wage too hard and they lose patience.</p>`;
@@ -407,10 +436,10 @@ function render(el) {
       const nd = m.notice ? Math.max(0, m.notice - hour()) : 0;
       h += U.tabCard({ tf: "stc:" + m.id, title: m.name, chips: U.chip(R.name.toUpperCase(), "ok") + U.chip(mw.toUpperCase(), m.hap >= 50 ? "ok" : m.hap < 30 ? "due" : "") + (m.notice ? U.chip("ON NOTICE", "due") : "") + (m.ask ? U.chip("WANTS A RAISE", "due") : ""),
         meta: `${p ? U.esc(p.name) : "?"} · from ${U.esc(m.village)} · ${m.caught ? `says ${yrs(m.xp)}, really ${m.xpReal === 0 ? "none" : "about " + m.xpReal}` : yrs(m.xp) + (m.chk ? " (reference checked)" : "")}`,
-        note: `${R.blurb}: ${lift > 0 ? `about +${Math.round(lift * 100)}% nights let` : "not working while wages are owed"}${m.push > hour() ? " (working hard after your word)" : ""}. Owed so far this week: ${money(wageDue(m, hour()))}.`
+        note: `${R.note ? U.esc(R.note(m, p)) : `${R.blurb}: ${lift > 0 ? `about +${Math.round(lift * 100)}% nights let` : "not working while wages are owed"}`}${m.push > hour() ? " (working hard after your word)" : ""}. Owed so far this week: ${money(wageDue(m, hour()))}.`
           + (m.notice ? ` <b>Leaves in ${nd >= 36 ? Math.round(nd / 24) + " days" : Math.max(1, Math.round(nd)) + " hours"}</b> unless things get better.` : "")
           + (m.ask ? ` Asking for ${money(m.ask.amt)} a week.` : "")
-          + ` ${here ? (tb ? U.esc(tb) : `You're at ${U.esc(p.name)}: you can have a word.`) : U.esc(tb)}`,
+          + ` ${here ? (tb ? U.esc(tb) : `You're at ${U.esc(p.spot || p.name)}: you can have a word.`) : U.esc(tb)}`,
         pay: money(m.wage) + "/wk", act: "stl:" + m.id, actLabel: "LET GO" })
         .replace(`data-act="stl:${m.id}">LET GO</button>`, `data-act="stl:${m.id}">LET GO</button>${extra}`);
     }
@@ -422,7 +451,7 @@ function render(el) {
   for (const a of s.apps.slice().sort((p, q) => p.place < q.place ? -1 : p.place > q.place ? 1 : p.exp - q.exp)) {
     const p = placeOf(a.place);
     h += U.tabCard({ tf: "sta:" + a.id, title: a.name, chips: U.chip(ROLES[a.role].name.toUpperCase()) + U.chip(left(a.exp).toUpperCase(), a.exp - hour() < 24 ? "due" : "") + (a.caught ? U.chip("CAUGHT OUT", "due") : a.chk ? U.chip("CHECKED", "ok") : "") + (a.deal ? U.chip("WAGE AGREED", "ok") : ""),
-      meta: `for ${p ? U.esc(p.name) : "?"} · from ${U.esc(a.village)} · ${a.caught ? `says ${yrs(a.xp)}, really ${a.xpReal === 0 ? "none" : "about " + a.xpReal}` : yrs(a.xp)}`,
+      meta: `for ${p ? U.esc(p.name) : "?"} · from ${U.esc(a.village)} · ${a.caught ? `says ${yrs(a.xp)}, really ${a.xpReal === 0 ? "none" : "about " + a.xpReal}` : yrs(a.xp)}${ROLES[a.role].tag ? " · " + U.esc(ROLES[a.role].tag(a)) : ""}`,
       note: a.chat && a.chat.length ? `Interviewed: ${a.mute ? "said all they'll say" : "you can ask more"}.` : "",
       pay: money(a.wage) + "/wk", act: "sth:" + a.id, actLabel: "HIRE" })
       .replace(`data-act="sth:${a.id}">HIRE</button>`, `data-act="sth:${a.id}">HIRE</button><button type="button" class="tbtn ghost" data-tf="sti:${a.id}" data-act="sti:${a.id}">INTERVIEW</button>`);
@@ -452,7 +481,7 @@ TLX.register({
     for (const k of ["apps", "crew", "last"]) s[k] = Array.isArray(s[k]) ? s[k].filter(o => o && typeof o === "object") : [];
     s.owed = +s.owed || 0; s.seq = s.seq | 0; s.next = +s.next || 0;
     a.TABLET.register({ id: "staff", name: "Staff", icon: ICON, order: 8.5, live: 10,
-      hidden: () => !(a.GS.apps && a.GS.apps.realestate) && !S().crew.length,
+      hidden: () => !(a.GS.apps && a.GS.apps.realestate) && !S().crew.length && !places().some(p => ROLES[p.role] && ROLES[p.role].app),   // 5.4: a road contract needs no Real Estate
       badge: () => S().owed > 0 ? "!" : S().apps.length || "",
       render });
     for (const m of S().crew) crewPrep(m);
@@ -480,6 +509,8 @@ TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = 
   // the same two by place id ("re:cabin", "pr:listing"): a listing's caretaker (tlx-property.js, 6.1b)
   occAt: pid => { const s = S(); if (!s) return 0; const m = s.crew.find(q => q.place === pid); return m ? occOf(m) : 0; },
   workAt: pid => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === pid); return m ? m.tr.work * perfOf(m) : 0; },
+  addRole: (id, row) => { ROLES[id] = row; }, addPlaces: f => { if (!XPLACES.includes(f)) XPLACES.push(f); },
+  at: pid => { const s = S(); return s ? s.crew.find(q => q && q.place === pid) || null : null; },
   places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant,
   praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };
