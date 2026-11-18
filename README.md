@@ -960,6 +960,18 @@ pickup with no blade and they help you bolt it on there and then; in one that al
 blade it goes in the bed and into the garage's shed, where the Plow tab fits it to another pickup
 for nothing. Arrive on the sled and the seller says to come back in the truck; the order waits.
 
+**The plow truck.** Under the lorry on the garage's Trucks tab is the **Nordtrekk Brøyt 4x2**
+($16,800, Freight licence, one of your three trucks): the council's kind of truck, an orange
+cab-over with a gritter body full of ballast and its own blade, the **Brøytskjær 3.5**, on the nose
+from the factory. The blade is part of the truck: it does not come off, is never sold apart, and the
+Plow tab only mends its cutting edge. It works by the same control as the pickup's (tap to drop and
+lift, hold to slew), clears 3.1 m and throws a windrow over a metre high. Nearly ten tonnes on
+winter tyres pushes what a pickup stalls in: 30 cm at about 35 km/h, 60 cm at about 25 km/h (the
+pickup: 12), and a 90 cm drift taken at a run. Its blade is wide enough to count for both sides of a
+road, so **one pass down the middle opens a snowed-in road stretch**. With the blade up, or off the
+road in soft snow, it is ten tonnes that sink; and it needs a yard or a three-point turn to come
+about (its turning circle is 11 m at the truck's middle, a road is 6.4 m wide).
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

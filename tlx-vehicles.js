@@ -52,6 +52,21 @@ const VEHICLES = [
     paint: 0x8d1f1c, eye: [0.62, 2.53, 1.62], door: { x: 1.24, z: 2.75 },
     model: "tractor", dualX: [0.76, 1.1], rimK: 1.3, bed: false, brakeN: 40000, aero: 3.2, lock: 0.6,
     circles: [[2.0, 1.25], [0.0, 1.25], [-2.0, 1.25]], belly: [1.2, 0, -1.6], lamp: [0, 0.85, 3.2],
+    cab: { dx: 0.22, dy: 0.9, dz: 1.72, sx: 0.36 } },
+  /* 4.1c1: the plow truck. The tractor unit's chassis and cab (model "tractor") with a gritter body where the fifth wheel
+     was (body "gritter"; no fifthZ, so nothing couples to it or sells it as a tractor unit), ballast in the hopper, a
+     bigger engine and lower gearing. Its 3.5 m blade is tlx-plow.js's (BLADES row b35, factory: it comes with the truck). */
+  { id: "plowtruck", name: "Nordtrekk Brøyt 4x2", kind: "plow truck", year: 2011, cost: 16800, lic: "freight",
+    blurb: "The council's kind of truck: a cab-over with a 3.5 m blade on its nose and a gritter body full of ballast on its back. Nearly ten tonnes on winter tyres, so it pushes snow a pickup stalls in, and it opens a snowed-in road in one pass.",
+    spec: "plow truck · 3.5 m blade from the factory, clears 3.1 m · gritter body · two seats, no load bed",
+    how: "For opening roads. With the blade down it cuts its own way through deep snow at speed; with it up, or off the road in soft snow, it is ten tonnes that sink to the axles.",
+    mass: 9800, power: 330000, fmax: 40000, top: 22, revTop: 3.4,
+    fuel: 300, burn: 2.8, slots: 2, cabCold: 0.1, hitchKg: 0, hitchZ: -2.9,
+    zf: 1.5, zr: -2.1, track: 2.0, tyreR: 0.52, tyreW: 0.3, clearance: 0.34, len: 5.85, wid: 2.5,
+    mu: { hard: 0.42, loose: 0.22, ice: 0.12, wet: 0.06 },
+    paint: 0xd9560f, eye: [0.62, 2.53, 1.62], door: { x: 1.24, z: 2.75 },
+    model: "tractor", body: "gritter", dualX: [0.76, 1.1], rimK: 1.3, bed: false, brakeN: 52000, aero: 3.6, lock: 0.6,
+    circles: [[2.0, 1.25], [0.0, 1.25], [-2.0, 1.25]], belly: [1.2, 0, -1.6], lamp: [0, 0.85, 3.2],
     cab: { dx: 0.22, dy: 0.9, dz: 1.72, sx: 0.36 } }
 ];
 const byId = id => VEHICLES.find(v => v.id === id) || null;
@@ -197,9 +212,23 @@ function buildTractor(d) {
   for (const sg of [1, -1]) B(0.1, 0.28, 5.4, sg * 0.43, 0.98, -0.25, TRIM);
   for (let z = -2.65; z < 0.8; z += 1.15) B(0.86, 0.08, 0.1, 0, 0.94, z, STEEL);
   B(1.9, 0.14, 0.14, 0, d.tyreR, d.zf, TRIM); B(1.7, 0.2, 0.2, 0, d.tyreR, d.zr, TRIM); CZ(0.2, 0.4, 0, d.tyreR, d.zr, STEEL);
-  B(1.24, 0.14, 0.9, 0, 1.08, d.fifthZ, STEEL);
-  { const g = new T.CylinderGeometry(0.52, 0.52, 0.07, 22); body.push({ g, c: TRIM, m: tf(0, 1.19, d.fifthZ) }); }
-  B(0.2, 0.075, 0.5, 0, 1.19, d.fifthZ - 0.5, 0x0c0d0e);                         // the slot the kingpin runs up
+  if (d.fifthZ != null) {
+    B(1.24, 0.14, 0.9, 0, 1.08, d.fifthZ, STEEL);
+    { const g = new T.CylinderGeometry(0.52, 0.52, 0.07, 22); body.push({ g, c: TRIM, m: tf(0, 1.19, d.fifthZ) }); }
+    B(0.2, 0.075, 0.5, 0, 1.19, d.fifthZ - 0.5, 0x0c0d0e);                       // the slot the kingpin runs up
+  }
+  if (d.body === "gritter") {                                                    // 4.1c1: the plow truck's hopper, in the council truck's proportions
+    const HZ = -1.35, HL = 3.1, GREY = 0x5d646b;
+    B(2.2, 0.72, HL, 0, 1.5, HZ, GREY); B(2.44, 0.62, HL + 0.1, 0, 2.15, HZ, P0); B(2.5, 0.08, HL + 0.16, 0, 2.5, HZ, TRIM);
+    B(1.9, 0.2, HL - 0.5, 0, 2.58, HZ, 0xd9dde0);                                // the grit heaped in it
+    for (let z = HZ - 1.2; z <= HZ + 1.21; z += 0.8) for (const sg of [1, -1]) B(0.05, 0.6, 0.08, sg * 1.235, 2.15, z, TRIM);   // the hopper's ribs
+    B(0.5, 0.46, 0.4, 0, 0.84, -3.12, TRIM);                                     // the spinner's drive and its disc
+    { const g = new T.CylinderGeometry(0.42, 0.42, 0.06, 16); body.push({ g, c: STEEL, m: tf(0, 0.56, -3.14) }); }
+    B(2.2, 0.5, 0.05, 0, 1.5, HZ - HL / 2 - 0.03, 0xf1f1ee);                      // tail board, red squares at its ends
+    for (const sg of [1, -1]) B(0.5, 0.5, 0.06, sg * 0.82, 1.5, HZ - HL / 2 - 0.04, 0xc9261d);
+    for (let y = 1.3; y < 2.5; y += 0.3) B(0.4, 0.04, 0.05, -0.3, y, HZ + HL / 2 + 0.05, STEEL);   // a ladder up its front
+    B(1.3, 0.06, 0.16, 0, 3.4, 1.5, TRIM); for (const sg of [1, -1]) B(0.16, 0.13, 0.16, sg * 0.5, 3.49, 1.5, 0xe8921c);   // the beacon bar
+  }
   // between the axles: fuel tank, battery box, air tanks; behind the cab: catwalk, exhaust stack with its shield
   CZ(0.32, 1.3, -0.88, 0.78, -0.3, ALU); B(0.06, 0.66, 1.2, -1.2, 0.78, -0.3, STEEL);
   B(0.62, 0.55, 0.9, 0.9, 0.8, -0.3, TRIM); B(0.64, 0.03, 0.92, 0.9, 1.08, -0.3, ALU);

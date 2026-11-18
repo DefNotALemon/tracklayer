@@ -51,14 +51,23 @@
 // up, sparks off the cutting edge on a scraped road stretch (TLXR.scrapeF). Nothing of this is saved but the edge.
 // USED BLADES (4.1b3a). Bytteboden lists a used blade under Vehicles (the block comment at MKB): collected at the
 // seller's door in a truck it fits, bolted on there or sent to the shed, its condition the cutting edge.
-// NOT YET: door counting (4.1b3b), the plow truck (4.1c), pay (4.2).
+// THE PLOW TRUCK'S BLADE (4.1c1). The Nordtrekk Brøyt 4x2 (a VEHICLES row in tlx-vehicles.js) comes with BLADES row b35,
+// `factory`: tidy() gives every such truck its blade, it never comes off or goes to the shed, and the Plow tab only mends
+// it. Everything else is the same code with the row's numbers: 3.5 m, clearing 3.1 m (so one pass marks both sides of a
+// road stretch: BL.both), a taller mouldboard, a higher windrow, a bigger bladeful, drawn larger on the truck's own front.
+// NOT YET: door counting (4.1b3b), the gritter (4.1c2), a used plow truck (4.1c3), pay (4.2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
 const BLADES = [
   // w, h: the mouldboard, m. ang: how far it is slewed (rad; 28 degrees: it clears w x cos = 2.03 m, the pickup is 1.96).
   // z: its middle, m ahead of the truck's centre. leave: what it leaves standing, as a share of the snowpack (the yard level).
-  { id: "b23", name: "Fjellskjær 2.3", fits: ["pickup"], cost: 1450, kg: 280, w: 2.3, h: 0.65, ang: 0.49, z: 3.25, leave: 0.15 }
+  { id: "b23", name: "Fjellskjær 2.3", fits: ["pickup"], cost: 1450, kg: 280, w: 2.3, h: 0.65, ang: 0.49, z: 3.25, leave: 0.15 },
+  // 4.1c1, the plow truck's own. factory: it comes with the truck, never comes off, is never sold apart. rows / carry / whyN:
+  // its windrow (it throws three times the snow, so the rows stand higher and there is one more), the m3 it holds slewed
+  // (twice that square), the push from which "stuck" is its doing. mz: the truck's front, where the push frame is bolted.
+  { id: "b35", name: "Brøytskjær 3.5", fits: ["plowtruck"], factory: true, cost: 0, kg: 900, w: 3.5, h: 1.15, ang: 0.49, z: 4.5, leave: 0.15,
+    rows: [1.15, 0.95, 0.65, 0.4], carry: 3, whyN: 32000, mz: 3.24 }
 ];
 const BL = {
   face: 2600,      // N per m2 of snow face (depth cut x width cleared), standing
@@ -132,17 +141,23 @@ function tidy() {
   if (!Number.isFinite(s.m)) s.m = 0;
   if (!Number.isFinite(s.opened)) s.opened = 0;
   if (!Array.isArray(s.shedC)) s.shedC = [];
-  { const ids = [], cs = []; s.shed.forEach((id, i) => { if (!byId(id)) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
+  { const ids = [], cs = []; s.shed.forEach((id, i) => { const d0 = byId(id); if (!d0 || d0.factory) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
   for (const uid of Object.keys(s.blades)) {
     const b = s.blades[uid], d = b && byId(b.id), r = own.find(q => String(q.uid) === uid);
     if (!d) { delete s.blades[uid]; continue; }
-    if (!r || !d.fits.includes(r.id)) { delete s.blades[uid]; s.shed.push(d.id); s.shedC.push(Number.isFinite(b.cond) ? b.cond : 100); drop(uid); continue; }   // the truck is gone: the blade is in the shed
+    if (!r || !d.fits.includes(r.id)) { delete s.blades[uid]; if (!d.factory) { s.shed.push(d.id); s.shedC.push(Number.isFinite(b.cond) ? b.cond : 100); } drop(uid); continue; }   // the truck is gone: the blade is in the shed (a factory blade went with its truck)
     if (!Number.isFinite(b.cond)) b.cond = 100;
     b.cond = Math.max(0, Math.min(100, b.cond));
     if (!THROWS[b.throw]) b.throw = "r";
   }
+  for (const r of own) {                                                         // 4.1c1: a truck that comes with a blade has it
+    const fd = BLADES.find(d => d.factory && d.fits.includes(r.id)); if (!fd) continue;
+    const b = s.blades[r.uid]; if (!b || b.id !== fd.id) s.blades[r.uid] = { id: fd.id, cond: 100, throw: "r" };
+  }
+  NT = own.length;
 }
+let NT = -1;                                                                     // trucks owned when tidy last ran: a truck bought since gets its factory blade next frame
 function drop(uid) { uid = String(uid); const r = RTB.get(uid); if (r && r.grp && r.grp.parent) r.grp.parent.remove(r.grp); RTB.delete(uid); }
 
 /* ---------------- fitting it: the garage's Plow tab ---------------- */
@@ -150,7 +165,7 @@ function truckPos(r) { return curUid() === r.uid ? api.P : r; }
 function near(r) { const g = api.world.garage(), p = truckPos(r); return Math.hypot(p.x - g.x, p.z - g.z) <= BL.garage; }
 function fit(uid, id) {
   const s = S(), d = byId(id), r = trucks().find(q => q.uid === uid), GS = api.GS;
-  if (!d || !r || !d.fits.includes(r.id) || s.blades[uid]) return false;
+  if (!d || d.factory || !r || !d.fits.includes(r.id) || s.blades[uid]) return false;
   if (!near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to fit a blade.`, "warn"); return false; }
   if (!Array.isArray(s.shedC)) s.shedC = [];
   const i = s.shed.indexOf(id); let cond = 100;
@@ -164,6 +179,7 @@ function fit(uid, id) {
 function unfit(uid) {
   const s = S(), b = s.blades[uid], r = trucks().find(q => q.uid === uid);
   if (!b) return false;
+  if ((byId(b.id) || {}).factory) { api.toast(`The ${byId(b.id).name} is part of the truck: it does not come off.`, "warn"); return false; }
   if (r && !near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to take the blade off.`, "warn"); return false; }
   const B = RTB.get(String(uid)); if (B && B.carry > 0) spill(B, uid);
   if (!Array.isArray(s.shedC)) s.shedC = [];
@@ -198,13 +214,15 @@ function garageRows(body, row) {
     const can = own.filter(r => d.fits.includes(r.id)), inShed = s.shed.filter(id => id === d.id).length;
     const spec = `${d.w.toFixed(1)} m steel mouldboard that slews to throw right or left, or square to carry · clears ${(d.w * Math.cos(d.ang)).toFixed(1)} m · ${d.kg} kg on the nose · fits the ${d.fits.map(id => (V.find(v => v.id === id) || {}).name || id).join(", ")}`;
     const how = `${useLine()} Down and rolling forward it cuts the snow to a plowed yard's level and throws it into a windrow on the side it is slewed to; square, it carries the snow and stacks it where you lift. Reversing with it down drags snow back with you, away from a door. The deeper the snow and the faster you go, the harder it pushes back: a drift over the blade's top stops the truck, so take it in bites.`;
+    if (d.factory && !can.length) continue;                                       // a blade that comes with a truck: nothing to offer without the truck
     if (!can.length) { row(d.name, `${spec}\n<span style="color:#9fd8a8">${how}</span>\n<span style="color:#f0c674">It goes on a pickup. Buy one on the Trucks tab first.</span>`, "$" + d.cost, "locked", () => { }, "plow"); continue; }
     can.forEach((r, i) => {
       const tn = (V.find(v => v.id === r.id) || {}).name + (can.length > 1 ? " no. " + (i + 1) : ""), here = near(r), has = s.blades[r.uid];
       const away = here ? "" : `\n<span style="color:#f0c674">The ${tn} stands ${Math.round(Math.hypot(truckPos(r).x - api.world.garage().x, truckPos(r).z - api.world.garage().z))} m from the garage. Bring it within ${BL.garage} m.</span>`;
       if (has) {
         const cond = condOf(r.uid), cost = mendCost(r.uid), edge = `Cutting edge ${pct(cond)}%${cond < BL.ragged ? ": worn ragged, it leaves twice the snow" : ""}.`;
-        row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose. ${edge}${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
+        if (d.factory) row(`The ${d.name} on the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>\nIt came with the truck and stays on it. One pass with it opens a snowed-in road stretch: it is wide enough to count for both sides. ${edge}`, "Fitted", "locked", () => { }, "plow");
+        else row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose. ${edge}${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
         if (cost > 0) row(`Mend the cutting edge of the ${tn}'s blade`, `${edge} It wears with every metre it cuts (a point about every ${BL.wearM} m); under ${BL.ragged}% the cut is ragged. A new edge is $${BL.mend} a point${GS.cash < cost && GS.cash >= BL.mend ? `: your ${api.fmtCash(GS.cash)} buys ${Math.floor(GS.cash / BL.mend)} of the ${cost / BL.mend} points` : ""}.${away}`, "$" + cost, !here || GS.cash < BL.mend ? "locked" : "", () => mend(r.uid), "plow");
       }
       else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed" + (s.shedC && s.shedC[s.shed.indexOf(d.id)] < 99.5 ? ", its cutting edge at " + Math.round(s.shedC[s.shed.indexOf(d.id)]) + "%." : ".") : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
@@ -304,26 +322,32 @@ function model(R) {
   const uid = R.rec.uid, d = bladeOf(uid); if (!d) return;
   const B = rt(uid); if (B.grp && B.grp.parent === R.grp) return;
   const M = mats(), grp = B.grp = new T.Group(), zb = d.z, hw = d.w / 2;
+  // the pickup's blade is the measure; the plow truck's (factory) is the same blade drawn K times taller on a wider frame,
+  // bolted to a push plate on the truck's own front, and it has no lamp bar: the truck's lamps sit above it already
+  const big = !!d.factory, K = d.h / 0.65, mz = d.mz || 2.66, sx = big ? 1.5 : 1, fy = big ? 0.34 : 0.2;
   // on the truck: the push frame's mount under the bumper, the lift tower, the lamp bar over the bonnet
-  const fixed = [
+  const fixed = big ? [
+    bx(1.7, 0.46, 0.12, C_FRAME, 0, 0.74, mz), bx(0.14, 0.9, 0.14, C_FRAME, 0.62, 1.0, mz + 0.05), bx(0.14, 0.9, 0.14, C_FRAME, -0.62, 1.0, mz + 0.05), bx(1.38, 0.12, 0.14, C_FRAME, 0, 1.42, mz + 0.05)
+  ] : [
     bx(1.1, 0.1, 0.12, C_FRAME, 0, 0.36, 2.62), bx(0.1, 0.72, 0.1, C_FRAME, 0.34, 0.74, 2.74), bx(0.1, 0.72, 0.1, C_FRAME, -0.34, 0.74, 2.74),
     bx(0.82, 0.08, 0.1, C_FRAME, 0, 1.08, 2.74), bx(0.07, 0.3, 0.07, C_FRAME, 0.5, 1.26, 2.74), bx(0.07, 0.3, 0.07, C_FRAME, -0.5, 1.26, 2.74),
     bx(1.24, 0.06, 0.08, C_FRAME, 0, 1.4, 2.74), bx(0.2, 0.15, 0.13, C_FRAME, 0.5, 1.5, 2.72), bx(0.2, 0.15, 0.13, C_FRAME, -0.5, 1.5, 2.72)
   ];
   const fm = new T.Mesh(merge(fixed), M.paint); fm.castShadow = true; grp.add(fm);
-  const lens = B.lens = new T.Mesh(merge([bx(0.16, 0.11, 0.02, 0xffffff, 0.5, 1.5, 2.795), bx(0.16, 0.11, 0.02, 0xffffff, -0.5, 1.5, 2.795)]), M.lens.clone()); grp.add(lens);
+  if (big) B.lens = null;
+  else { const lens = B.lens = new T.Mesh(merge([bx(0.16, 0.11, 0.02, 0xffffff, 0.5, 1.5, 2.795), bx(0.16, 0.11, 0.02, 0xffffff, -0.5, 1.5, 2.795)]), M.lens.clone()); grp.add(lens); }
   // the part that lifts: the A-frame and the ram, and on its pivot the part that slews: the mouldboard in three strips, its
   // cutting edge, ribs and the two marker rods (built square; B.S turns it to the throw)
   const mov = [], slw = [];
-  for (const sg of [1, -1]) { const x0 = sg * 0.42, z0 = 2.66, x1 = sg * 0.12, z1 = zb - 0.2, L = Math.hypot(x1 - x0, z1 - z0); mov.push(bx(0.08, 0.09, L, C_FRAME, (x0 + x1) / 2, 0.2, (z0 + z1) / 2, 0, Math.atan2(x1 - x0, z1 - z0), 0)); }
-  mov.push(bx(0.5, 0.1, 0.1, C_FRAME, 0, 0.2, zb - 0.22));
-  { const y0 = 0.3, z0 = zb - 0.24, y1 = 0.74, z1 = 2.8, L = Math.hypot(y1 - y0, z1 - z0); mov.push(rod(0.035, L, C_RAM, 0, (y0 + y1) / 2, (z0 + z1) / 2, Math.atan2(z1 - z0, y1 - y0), 0, 0)); }
-  mov.push(rod(0.05, 0.3, C_FRAME, 0, 0.3, zb - 0.14));                                   // the pivot pin the mouldboard swings on
-  const strip = (h, y, lz, rx, c) => { slw.push(bx(d.w, h, 0.035, c, 0, y, lz, rx, 0, 0)); };
+  for (const sg of [1, -1]) { const x0 = sg * 0.42 * sx, z0 = mz, x1 = sg * 0.12 * sx, z1 = zb - 0.2, L = Math.hypot(x1 - x0, z1 - z0); mov.push(bx(0.08 * sx, 0.09 * sx, L, C_FRAME, (x0 + x1) / 2, fy, (z0 + z1) / 2, 0, Math.atan2(x1 - x0, z1 - z0), 0)); }
+  mov.push(bx(0.5 * sx, 0.1 * sx, 0.1 * sx, C_FRAME, 0, fy, zb - 0.22));
+  { const y0 = fy + 0.1, z0 = zb - 0.24, y1 = big ? 1.36 : 0.74, z1 = big ? mz + 0.12 : 2.8, L = Math.hypot(y1 - y0, z1 - z0); mov.push(rod(0.035 * sx, L, C_RAM, 0, (y0 + y1) / 2, (z0 + z1) / 2, Math.atan2(z1 - z0, y1 - y0), 0, 0)); }
+  mov.push(rod(0.05 * sx, 0.3 * K, C_FRAME, 0, 0.3 * K, zb - 0.14));                       // the pivot pin the mouldboard swings on
+  const strip = (h, y, lz, rx, c) => { slw.push(bx(d.w, h * K, 0.035 * sx, c, 0, y * K, lz * K, rx, 0, 0)); };
   strip(0.25, 0.185, 0.0, -0.42, C_BLADE); strip(0.22, 0.4, -0.045, 0, C_BLADE); strip(0.22, 0.595, 0.0, 0.46, C_BLADE);
-  strip(0.09, 0.045, 0.07, -0.42, C_EDGE);
-  for (const lx of [-0.95, -0.32, 0.32, 0.95]) slw.push(bx(0.04, 0.56, 0.12, C_FRAME, lx, 0.36, -0.1));
-  for (const sg of [1, -1]) { slw.push(rod(0.012, 0.6, C_ROD, sg * (hw - 0.04), 0.98, 0)); slw.push(rod(0.022, 0.12, C_TIP, sg * (hw - 0.04), 1.3, 0)); }
+  slw.push(bx(d.w, 0.09, 0.035 * sx, C_EDGE, 0, 0.045, 0.07 * K, -0.42, 0, 0));
+  for (const lx of [-0.95, -0.32, 0.32, 0.95]) slw.push(bx(0.04 * sx, 0.56 * K, 0.12 * K, C_FRAME, lx * d.w / 2.3, 0.36 * K, -0.1 * K));
+  for (const sg of [1, -1]) { slw.push(rod(0.012, 0.6, C_ROD, sg * (hw - 0.04), d.h + 0.33, 0)); slw.push(rod(0.022, 0.12, C_TIP, sg * (hw - 0.04), d.h + 0.65, 0)); }
   const bm = new T.Mesh(merge(mov), M.paint); bm.castShadow = true; B.B = new T.Group(); B.B.add(bm);
   const sm = new T.Mesh(merge(slw), M.paint); sm.castShadow = true; B.S = new T.Group(); B.S.position.set(0, 0, zb); B.S.add(sm); B.B.add(B.S); grp.add(B.B);
   if (!Number.isFinite(B.a)) B.a = angOf(d, throwOf(uid));
@@ -416,11 +440,11 @@ function work(uid, d, B, dt) {
     if (B.back) spill(B, uid);                                                   // it was pulling: what it pulled stays behind, under the blade
     const vol = sweep(lv), side = sideOf(a);
     B.carry += vol; B.volCut += vol; if (vol > 0) { S().m += vf * dt; wear(uid, vf * dt); }
-    const hx = wEff / 2, hz = Math.abs(d.w / 2 * Math.sin(a)), r = BL.rowW / 2, cap = side ? BL.carryMax : BL.carrySq;
+    const hx = wEff / 2, hz = Math.abs(d.w / 2 * Math.sin(a)), r = BL.rowW / 2, cap = side ? cmax(d) : (d.carry ? d.carry * 2 : BL.carrySq), rows = d.rows || BL.rows;
     // slewed: the windrow, off the trailing end; what the first row can't take rolls one row further out
-    if (side) for (let i = 0; i < BL.rows.length && B.carry > 1e-4; i++) { const p = heapAt(d, P, side * (hx + 0.25 + r * (2 * i + 1)), d.z - hz - 0.35 - 0.25 * i, r, B.carry, BL.rows[i]); B.carry -= p; B.volLaid += p; }
+    if (side) for (let i = 0; i < rows.length && B.carry > 1e-4; i++) { const p = heapAt(d, P, side * (hx + 0.25 + r * (2 * i + 1)), d.z - hz - 0.35 - 0.25 * i, r, B.carry, rows[i]); B.carry -= p; B.volLaid += p; }
     // square: it rides on the blade, and what is over a bladeful spills off both ends
-    else if (B.carry > cap) { const ex = (B.carry - cap) / 2; for (const sg of [1, -1]) { const p = heapAt(d, P, sg * (hx + 0.25 + r), d.z - 0.35, r, ex, BL.rows[0]); B.carry -= p; B.volLaid += p; } }
+    else if (B.carry > cap) { const ex = (B.carry - cap) / 2; for (const sg of [1, -1]) { const p = heapAt(d, P, sg * (hx + 0.25 + r), d.z - 0.35, r, ex, rows[0]); B.carry -= p; B.volLaid += p; } }
     if (B.carry > cap + 1e-4) { const p = heapAt(d, P, 0, d.z + 1.1, 0.9, B.carry - cap); B.volLaid += p; B.carry = cap; B.full = true; }
     else if (!side && B.carry >= cap * 0.97) B.full = true;
     else if (B.carry < cap * 0.6) B.full = false;
@@ -429,8 +453,8 @@ function work(uid, d, B, dt) {
   } else if (L && mv < 5 && P.gnd !== false && vf < -0.3) {
     // back-dragging: the blade's back takes the top of the snow and pulls a bladeful with the truck
     if (!B.back) { if (B.carry > 0) spill(B, uid); B.back = true; }             // what it was pushing stays in front
-    if (B.carry < BL.carryMax) { const vol = sweep(Math.max(lv, BL.backLeave)); B.carry += vol; B.volCut += vol; if (vol > 0) { S().m -= vf * dt; wear(uid, -vf * dt); } }
-    B.full = B.carry >= BL.carryMax;
+    if (B.carry < cmax(d)) { const vol = sweep(Math.max(lv, BL.backLeave)); B.carry += vol; B.volCut += vol; if (vol > 0) { S().m -= vf * dt; wear(uid, -vf * dt); } }
+    B.full = B.carry >= cmax(d);
   }
   B.last = B.last || [0, 0, 0, 0]; B.last[0] = q[0]; B.last[1] = q[1]; B.last[2] = q[2]; B.last[3] = q[3];
   // a scraped road stretch (3.2b2, the council's cut in a cold snap): the cutting edge strikes sparks off the bare road
@@ -445,12 +469,14 @@ function work(uid, d, B, dt) {
   if (vf < -0.2) { B.drag = BL.backN + (B.full ? 0 : BL.backFace * BL.face * B.cut * wEff) + BL.carryN * B.carry; B.why = ""; return; }
   const v = Math.max(0, vf);
   B.drag = BL.scrape + BL.face * B.cut * wEff * (1 + BL.v2 * v * v) + BL.over * Math.max(0, B.depth - d.h) * wEff + BL.carryN * (B.back ? 0 : B.carry);
-  B.why = B.drag >= BL.whyN ? `The blade is into more snow than the truck can push. Lift it${INPdev() === "touch" ? "" : " (" + api.btn("use") + ")"}, back up and take it in bites.` : "";
+  B.why = B.drag >= (d.whyN || BL.whyN) ? `The blade is into more snow than the truck can push. Lift it${INPdev() === "touch" ? "" : " (" + api.btn("use") + ")"}, back up and take it in bites.` : "";
 }
 const INPdev = () => api.INP.dev;
+const cmax = d => d.carry || BL.carryMax;                                        // the m3 a slewed blade holds
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
+  if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
     const r = trucks().find(q => String(q.uid) === uid); if (!r) { tidy(); return; }
