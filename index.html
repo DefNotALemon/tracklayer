@@ -689,6 +689,14 @@
   .tmka{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
   .treup{grid-template-columns:64px minmax(0,1fr) auto}.treup b{color:var(--pay);font-style:normal}.treup .tcn{display:block;margin-top:2px}
   .tprow{grid-template-columns:104px minmax(0,1fr) auto}.tprow .tcn{display:block;margin-top:2px}
+  /* A named row (label, text, chip or button) in a narrow tablet pane (a phone, the 640x360 itch embed): the label and
+     the chip share the first line and the text takes the full width under them, instead of a 15 px column of letters
+     (beta 0269 #1/#2). Sized by the list's own width, so it holds for any viewport, dash or overlay. */
+  .tsml2{container-type:inline-size}
+  @container (max-width:400px){
+    .tprow,.treup{grid-template-columns:minmax(0,1fr) auto;row-gap:3px}
+    .tprow>span:not(.bchip),.treup>span:not(.bchip){grid-column:1/-1;grid-row:2}
+  }
   /* logbook (S4): a field notebook. Two ruled pages round a spine, an orange margin, italic serif figures, a pencilled remark per stat.
      The serif and the hand are the Logbook's own; everything else on the tablet stays Barlow. */
   .tlb{--lbserif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif",serif;--lbhand:"Caveat","Bradley Hand","Segoe Print","Comic Sans MS",cursive}
@@ -1309,5 +1317,5 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tracklayer.js?v=254"></script>
+<script src="tracklayer.js?v=255"></script>
 </body></html>
