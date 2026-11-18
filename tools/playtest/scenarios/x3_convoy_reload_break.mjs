@@ -1,0 +1,30 @@
+// Beta break-it 3.5c1: road snowed in at night, reload; boom state/lamps, queue, then plow it and reload while waiting.
+import { boot, ev, sleep, done, reload } from "../lib.mjs";
+let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
+const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
+const clock = () => ev("gameClock");
+async function waitGame(s) { const t0 = await clock(); while ((await clock()) - t0 < s) await sleep(120); }
+const info = id => J(`TLXCV.info("${id}")`);
+const prep = `GS.hour = 49; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXCV.CV.plow = 0; true`;
+await boot(); await ev(prep); await sleep(1000);
+const L = await info("lebesby");
+await ev(`TLXR.setSnow("lebesby", 1, Math.floor((${L.gates[0].s} + 500) / TLXR.ROADS.seg)); true`); await waitGame(1);
+let a = await info("lebesby");
+ok(a.st === "shut", "shut at night: " + a.st);
+console.log("lamp", JSON.stringify(a.gates.map(g => [g.up, g.lamp, g.vis, g.text])));
+await ev(`save(); true`).catch(() => {});
+await reload();
+await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLXCV.CV.plow = 0; true`); await sleep(1500);
+let b = await info("lebesby");
+console.log("after reload", JSON.stringify({ st: b.st, up: b.gates.map(g => g.up), text: b.gates.map(g => g.text), snow: await J(`TLXR.status("lebesby")`), hour: await J(`GS.hour`) }));
+ok(b.st === "shut" || b.st === "wait", "state after reload " + b.st);
+ok(!(await J(`TLXCV.err || TLXCV.tickErr || null`)), "no err");
+await ev(`TLXR.setSnow("lebesby", 0); true`); await waitGame(1);
+b = await info("lebesby");
+ok(b.st === "wait" && b.at > (await J(`GS.hour`)), "plowed -> wait at " + b.at);
+await reload();
+await ev(`tutSkip(); WX.at = () => 0; GS.storm = 0; TLXCV.CV.plow = 0; true`); await sleep(1500);
+const c = await info("lebesby");
+console.log("reload while waiting", JSON.stringify({ st: c.st, at: c.at, up: c.gates.map(g => g.up), text: c.gates.map(g => g.text), snow: await J(`TLXR.status("lebesby")`) }));
+console.log("fails", fails);
+await done(fails ? 1 : 0);
