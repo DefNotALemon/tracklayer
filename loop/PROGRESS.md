@@ -3,6 +3,17 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 00:35 — beta 0213 #1: the "seen again" toast check was a race in the test, not the game (lane A) (G4) — 802a907
+Builder pass, lane A. Triage: 0213 (the one-chase fix beta) is the one report above 212; its #1 ("BUG or test bug,
+unresolved": G2 caught no toast at all, `said: []`) is the only finding. Last triaged -> 213.
+Cause, read from the code: `toPursuit` in a search calls `api.toast("They've seen you again.")` before `setMode`, and
+`toast()` puts the line in `TOASTQ` / `#toasts` in the same call, so the player is told. The scenario polls the mode
+every 60 ms and read its recorder (an 80 ms interval) straight after: when the mode poll landed between two recorder
+ticks the list was still empty. It passed in my gate run and failed in the tester's by that luck.
+Fix: G2 reads `TOASTQ` and `#toasts` at that moment too and merges them with the recorder. No game code changed.
+Checked: `ONLY=G x15_living` exit 0, page errors none, G2 "told seen again" ok (1 chase, 1 escape, heat 0). Run once;
+the race needed a slow tick to show, so one pass does not prove it gone, the reading of the code does.
+
 ## 2026-11-18 00:10 — 4.1 design: the blade, windrows, road credit, the plow truck; split into 4.1a-c (lane A) (G4) — docs only
 Builder pass, lane A. Orient: worktree clean, rebased on main (v244), 173 GB free. Triage: 0212 (3.5c2b break-it) is
 the one report above 211: no BLOCKER or BUG. Its #4 (POLISH: the "left the convoy" flag outlives the traffic option)
