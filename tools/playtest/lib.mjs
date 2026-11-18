@@ -17,6 +17,11 @@ fs.mkdirSync(OUT, { recursive: true });
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 let ws, id = 0; const pend = new Map();
 export const errors = [];
+// A <script> that fails to LOAD is not a page error: the game boots without that system (seen 18 Nov with several
+// headless Chromes at once: twice in a dozen runs tlx-plow.js never ran, TLX.state("plow") was null, "page errors:
+// none"). Script requests that fail are noted here, and launch() loads the page again (twice at most) before a
+// scenario sees a game with a system missing; what still fails after that is printed and counted as a page error.
+const netReq = new Map(), netFail = [];
 export const send = (method, params = {}) => new Promise(res => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 export async function ev(expr) {
   const r = await send("Runtime.evaluate", { expression: "window.__tl(" + JSON.stringify(expr) + ")", returnByValue: true, awaitPromise: true });
@@ -87,6 +92,9 @@ export async function boot({ width = 1280, height = 720, dsf = 1, launch: doLaun
   ws = new WebSocket(p.webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
   ws.onmessage = m => { const d = JSON.parse(m.data);
     if (d.id && pend.has(d.id)) { pend.get(d.id)(d.result || {}); pend.delete(d.id); }
+    else if (d.method === "Network.requestWillBeSent") { if (d.params.type === "Script") netReq.set(d.params.requestId, d.params.request.url); }
+    else if (d.method === "Network.loadingFailed") { if (netReq.has(d.params.requestId) && !d.params.canceled) netFail.push(netReq.get(d.params.requestId) + " (" + d.params.errorText + ")"); }
+    else if (d.method === "Network.responseReceived") { if (netReq.has(d.params.requestId) && d.params.response.status >= 400) netFail.push(netReq.get(d.params.requestId) + " (HTTP " + d.params.response.status + ")"); }
     else if (d.method === "Runtime.exceptionThrown") errors.push("EXC " + (d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text).slice(0, 400));
     else if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") errors.push("ERR " + d.params.args.map(a => a.value || a.description).join(" ").slice(0, 300)); };
   await send("Runtime.enable"); await send("Page.enable"); await send("Network.enable"); await send("Network.setCacheDisabled", { cacheDisabled: true });
@@ -95,12 +103,27 @@ export async function boot({ width = 1280, height = 720, dsf = 1, launch: doLaun
   // them. A scenario can drive a scripted pad instead: window.__fakePad = { id, mapping: "standard", connected: true,
   // buttons: [{ pressed, value } x17], axes: [0, 0, 0, 0], timestamp } (see padSet()).
   await send("Page.addScriptToEvaluateOnNewDocument", { source: "navigator.getGamepads = () => window.__fakePad ? [window.__fakePad] : [];" });
+  netFail.length = 0;
   await send("Page.navigate", { url: URL });
-  await launch(doLaunch);
+  await launch(doLaunch, { fresh: true });
 }
-async function launch(go = true) {
+// how: { fresh: true } after boot's navigate (a retry starts from an empty save again), { plant } after reload(plant)
+// (a retry plants it again), nothing after a plain reload (a retry keeps the save the game wrote).
+async function launch(go = true, how = {}) {
   let ok = false;
-  for (let i = 0; i < 120; i++) { await sleep(500); try { if (await raw("typeof window.__tl === 'function' && window.__tl(\"typeof titleLaunch === 'function' && TT.mode === 'menu'\")")) { ok = true; break; } } catch (e) { } }
+  for (let tries = 0; ; tries++) {
+    ok = false;
+    for (let i = 0; i < 120; i++) { await sleep(500); try { if (await raw("typeof window.__tl === 'function' && window.__tl(\"typeof titleLaunch === 'function' && TT.mode === 'menu'\")")) { ok = true; break; } } catch (e) { } }
+    if (!netFail.length) break;
+    console.log("playtest: script(s) failed to load: " + netFail.join(", ") + (tries < 2 ? " -> loading the page again" : " -> giving up"));
+    if (tries >= 2) { errors.push("EXC script failed to load: " + netFail.join(", ")); break; }
+    netFail.length = 0;
+    try {
+      if (how.fresh) await raw(`(() => { try { window.__tl && window.__tl("save = function () { }; true"); } catch (e) { } localStorage.clear(); return true; })()`);
+      else if (how.plant !== undefined) await raw(`(() => { try { window.__tl && window.__tl("save = function () { }; true"); } catch (e) { } localStorage.setItem("tracklayer.save.v2", ${JSON.stringify(JSON.stringify(how.plant))}); return true; })()`);
+    } catch (e) { }
+    await send("Page.reload"); await sleep(800);
+  }
   if (!ok) { console.log("BOOT FAILED: title menu never appeared.", errors.join("\n")); await done(3); }
   await sleep(1200);
   if (!go) return;
@@ -116,8 +139,9 @@ async function launch(go = true) {
 // is switched off first).
 export async function reload(plant) {
   if (plant !== undefined) { await ev("save = function () { }; true"); await raw(`localStorage.setItem("tracklayer.save.v2", ${JSON.stringify(JSON.stringify(plant))}); true`); }
+  netFail.length = 0;
   await send("Page.reload"); await sleep(800);
-  await launch();
+  await launch(true, plant !== undefined ? { plant } : {});
 }
 
 // a scripted standard-mapping gamepad (the real ones are hidden in boot): padSet({ 7: 1 }, [0, 0]) holds RT with the

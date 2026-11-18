@@ -26,8 +26,8 @@
 // back on the other; twice along the same side does not, and the hint says how much of each side is done. The marks
 // are not saved, and are dropped when the stretch is opened (by you or the council's plow) or new snow falls on it.
 //
-// SAVED: x.sys.plow = { blades: { truckUid: { id, cond } }, shed: [bladeId...], m: metres cut in all, opened: road
-// stretches opened }. Up/down is not saved: a reload finds the blade up. A blade whose truck is gone (sold, an old
+// SAVED: x.sys.plow = { blades: { truckUid: { id, cond, throw } }, shed: [bladeId...], shedC: [the edge of each blade in
+// the shed], m: metres cut in all, opened: road stretches opened }. Up/down is not saved: a reload finds the blade up. A blade whose truck is gone (sold, an old
 // save) moves to the shed.
 //
 // THE THROW AND THE BACK-DRAG (4.1b1). With the blade down, HOLDING the use control half a second slews it: throw
@@ -38,8 +38,13 @@
 // the blade's back takes the top of the snow (down to BL.backLeave of the pack) and pulls up to a bladeful with the
 // truck, leaving it as a heap under the blade when you stop, lift or drive forward again: the way to get snow away
 // from a door or a wall you cannot push toward. The throw side is saved with the blade (blades[uid].throw: r, l, s).
-// NOT YET: a solid blade that trips, wear, sound, door counting (4.1b2), used blades (4.1b3), the plow truck (4.1c),
-// pay (4.2).
+//
+// THE CUTTING EDGE WEARS (4.1b2a). blades[uid].cond is the cutting edge, 100 new. Every BL.wearM metres it cuts (forward
+// or back-dragging; rolling with nothing to cut costs nothing) takes a point off. Under BL.ragged (30) the cut is ragged:
+// it leaves BL.raggedLeave (0.3) of the snowpack, twice a good edge's, with one line when it gets there and a note in the
+// hint from then on. The garage's Plow tab mends it at BL.mend dollars a point (as many points as your cash covers), the
+// truck within 60 m as for fitting. A blade in the shed keeps its edge (shedC, beside shed).
+// NOT YET: a solid blade that trips, sound (4.1b2b), door counting, used blades (4.1b3), the plow truck (4.1c), pay (4.2).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -77,7 +82,12 @@ const BL = {
   stackR: 0.9,     // m, the radius of the heap a square blade leaves where it is lifted
   stackMax: 1.2,   // m that heap may stand over the snowpack
   backLeave: 0.49, // what back-dragging leaves, as a share of the snowpack: it takes 60% of what a forward cut takes
-  backFace: 0.5    // the share of the face term a back-drag costs: it rides over as much as it pulls
+  backFace: 0.5,   // the share of the face term a back-drag costs: it rides over as much as it pulls
+  // the cutting edge (4.1b2a)
+  wearM: 250,      // m of cutting that take one point off the edge (a 400 m road stretch, both sides: about 3 points)
+  ragged: 30,      // under this the cut is ragged
+  raggedLeave: 0.3,// what a ragged edge leaves, as a share of the snowpack (a good edge: the blade's own leave, 0.15)
+  mend: 6          // $ a point at the garage (a wholly worn edge: $600, against $1,450 for the blade)
 };
 const THROWS = { r: { next: "l", sign: 1, now: "", to: "throw right", said: "The blade is slewed to throw right." },
   l: { next: "s", sign: -1, now: "throwing left", to: "throw left", said: "The blade is slewed to throw left." },
@@ -89,6 +99,8 @@ const RTB = new Map();                                                        //
 const rt = uid => { uid = String(uid); let r = RTB.get(uid); if (!r) RTB.set(uid, r = { down: false, k: 0, carry: 0, last: null, drag: 0, cut: 0, depth: 0, full: false, stopT: 0, volCut: 0, volLaid: 0 }); return r; };
 const bladeOf = uid => { const s = S(), b = s && s.blades[uid]; return b ? byId(b.id) : null; };
 const throwOf = uid => { const s = S(), b = s && s.blades[uid]; return b && THROWS[b.throw] ? b.throw : "r"; };
+const condOf = uid => { const s = S(), b = s && s.blades[uid]; return b && Number.isFinite(b.cond) ? b.cond : 100; };
+const leaveOf = (uid, d) => (condOf(uid) < BL.ragged ? Math.max(d.leave, BL.raggedLeave) : d.leave);   // a ragged edge leaves twice the snow
 const angOf = (d, th) => d.ang * THROWS[th].sign;                              // the slew, rad: + throws right (the left end leads), - throws left, 0 square
 const sideOf = a => (a > 0.12 ? -1 : a < -0.12 ? 1 : 0);                       // where the windrow goes, as a sign of local x (+ = the truck's left); 0 = nowhere, it rides
 const trucks = () => (window.TLXV ? TLXV.state().owned : []).filter(r => !TLXV.kinds[r.id]);
@@ -101,13 +113,15 @@ function tidy() {
   if (!Array.isArray(s.shed)) s.shed = [];
   if (!Number.isFinite(s.m)) s.m = 0;
   if (!Number.isFinite(s.opened)) s.opened = 0;
-  s.shed = s.shed.filter(id => byId(id));
+  if (!Array.isArray(s.shedC)) s.shedC = [];
+  { const ids = [], cs = []; s.shed.forEach((id, i) => { if (!byId(id)) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
   for (const uid of Object.keys(s.blades)) {
     const b = s.blades[uid], d = b && byId(b.id), r = own.find(q => String(q.uid) === uid);
     if (!d) { delete s.blades[uid]; continue; }
-    if (!r || !d.fits.includes(r.id)) { delete s.blades[uid]; s.shed.push(d.id); drop(uid); continue; }   // the truck is gone: the blade is in the shed
+    if (!r || !d.fits.includes(r.id)) { delete s.blades[uid]; s.shed.push(d.id); s.shedC.push(Number.isFinite(b.cond) ? b.cond : 100); drop(uid); continue; }   // the truck is gone: the blade is in the shed
     if (!Number.isFinite(b.cond)) b.cond = 100;
+    b.cond = Math.max(0, Math.min(100, b.cond));
     if (!THROWS[b.throw]) b.throw = "r";
   }
 }
@@ -120,10 +134,11 @@ function fit(uid, id) {
   const s = S(), d = byId(id), r = trucks().find(q => q.uid === uid), GS = api.GS;
   if (!d || !r || !d.fits.includes(r.id) || s.blades[uid]) return false;
   if (!near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to fit a blade.`, "warn"); return false; }
-  const i = s.shed.indexOf(id);
-  if (i >= 0) s.shed.splice(i, 1);
+  if (!Array.isArray(s.shedC)) s.shedC = [];
+  const i = s.shed.indexOf(id); let cond = 100;
+  if (i >= 0) { s.shed.splice(i, 1); const c = s.shedC.splice(i, 1)[0]; if (Number.isFinite(c)) cond = c; }
   else { if (GS.cash < d.cost) { api.toast(`The ${d.name} is ${api.fmtCash(d.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= d.cost; }
-  s.blades[uid] = { id, cond: 100, throw: "r" };
+  s.blades[uid] = { id, cond, throw: "r" };
   const R = TLXV.runtimeOf(uid); if (R) model(R);
   api.toast(i >= 0 ? `The ${d.name} is back on the truck.` : `The ${d.name} is fitted. ${useLine()}`, "good");
   api.save(); api.garageRefresh(); return true;
@@ -133,8 +148,27 @@ function unfit(uid) {
   if (!b) return false;
   if (r && !near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to take the blade off.`, "warn"); return false; }
   const B = RTB.get(String(uid)); if (B && B.carry > 0) spill(B, uid);
-  delete s.blades[uid]; s.shed.push(b.id); drop(uid);
+  if (!Array.isArray(s.shedC)) s.shedC = [];
+  while (s.shedC.length < s.shed.length) s.shedC.push(100);
+  delete s.blades[uid]; s.shed.push(b.id); s.shedC.push(Number.isFinite(b.cond) ? b.cond : 100); drop(uid);
   api.toast(`The ${byId(b.id).name} is off the truck and in the garage's shed. Fitting it again costs nothing.`);
+  api.save(); api.garageRefresh(); return true;
+}
+/* the cutting edge: worn by the metres it cuts, mended at the garage by the point */
+function wear(uid, m) {
+  const s = S(), b = s && s.blades[uid]; if (!b || !(m > 0)) return;
+  const c0 = Number.isFinite(b.cond) ? b.cond : 100; b.cond = Math.max(0, c0 - m / BL.wearM);
+  if (c0 >= BL.ragged && b.cond < BL.ragged) { api.toast("The blade's cutting edge is worn ragged: it leaves twice the snow behind it. The garage's Plow tab mends it.", "warn"); api.save(); }
+}
+function mendCost(uid) { return Math.floor(100 - condOf(uid)) * BL.mend; }      // whole points only
+function mend(uid) {
+  const s = S(), b = s.blades[uid], r = trucks().find(q => q.uid === uid), GS = api.GS; if (!b || !r) return false;
+  const want = Math.floor(100 - b.cond); if (want < 1) return false;
+  if (!near(r)) { api.toast(`Bring the truck within ${BL.garage} m of the garage to have the cutting edge mended.`, "warn"); return false; }
+  const pts = Math.min(want, Math.floor(GS.cash / BL.mend));
+  if (pts < 1) { api.toast(`Mending the cutting edge is ${api.fmtCash(BL.mend)} a point. You have ${api.fmtCash(GS.cash)}.`, "warn"); return false; }
+  GS.cash -= pts * BL.mend; b.cond = pts === want ? 100 : b.cond + pts;
+  api.toast(pts === want ? `The ${byId(b.id).name} has a new cutting edge (${api.fmtCash(pts * BL.mend)}).` : `${api.fmtCash(pts * BL.mend)} of work on the cutting edge: it is at ${Math.round(b.cond)}%. The rest is ${api.fmtCash((want - pts) * BL.mend)}.`, "good");
   api.save(); api.garageRefresh(); return true;
 }
 function garageRows(body, row) {
@@ -149,8 +183,12 @@ function garageRows(body, row) {
     can.forEach((r, i) => {
       const tn = (V.find(v => v.id === r.id) || {}).name + (can.length > 1 ? " no. " + (i + 1) : ""), here = near(r), has = s.blades[r.uid];
       const away = here ? "" : `\n<span style="color:#f0c674">The ${tn} stands ${Math.round(Math.hypot(truckPos(r).x - api.world.garage().x, truckPos(r).z - api.world.garage().z))} m from the garage. Bring it within ${BL.garage} m.</span>`;
-      if (has) row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose.${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
-      else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed." : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
+      if (has) {
+        const cond = condOf(r.uid), cost = mendCost(r.uid), edge = `Cutting edge ${Math.round(cond)}%${cond < BL.ragged ? ": worn ragged, it leaves twice the snow" : ""}.`;
+        row(`Take the ${d.name} off the ${tn}`, `It goes into the garage's shed and fitting it again costs nothing. The truck gets its horn back on the use control and ${d.kg} kg off its nose. ${edge}${away}`, "To the shed", here ? "" : "locked", () => unfit(r.uid), "plow");
+        if (cost > 0) row(`Mend the cutting edge of the ${tn}'s blade`, `${edge} It wears with every metre it cuts (a point about every ${BL.wearM} m); under ${BL.ragged}% the cut is ragged. A new edge is $${BL.mend} a point${GS.cash < cost && GS.cash >= BL.mend ? `: your ${api.fmtCash(GS.cash)} buys ${Math.floor(GS.cash / BL.mend)} of the ${cost / BL.mend} points` : ""}.${away}`, "$" + cost, !here || GS.cash < BL.mend ? "locked" : "", () => mend(r.uid), "plow");
+      }
+      else row(`Fit the ${d.name} to the ${tn}`, `${spec}\n<span style="color:#9fd8a8">${how}</span>${inShed ? "\nYours already: it is in the shed" + (s.shedC && s.shedC[s.shed.indexOf(d.id)] < 99.5 ? ", its cutting edge at " + Math.round(s.shedC[s.shed.indexOf(d.id)]) + "%." : ".") : ""}${away}`, inShed ? "Yours · free" : "$" + d.cost, !here || (!inShed && GS.cash < d.cost) ? "locked" : "", () => fit(r.uid, d.id), "plow");
     });
   }
   foot((s.m >= 50 ? `Snow cut with a blade so far: ${s.m >= 1000 ? (s.m / 1000).toFixed(1) + " km" : Math.round(s.m) + " m"}. ` : "A blade clears snow where you drive it. ") + "A cut off the road snows in again. A snowed-in road is open once you have plowed both sides of it: out on one side, back on the other." + (s.opened > 0 ? ` Road stretches you have opened: ${s.opened}.` : ""));
@@ -285,7 +323,8 @@ function opened(r, i, sn) {
 function work(uid, d, B, dt) {
   const P = api.P, W = api.world, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), vf = P.vx * fx + P.vz * fz, a = B.a, wEff = d.w * Math.cos(a);
   const back = B.down && (vf < -0.3 || (B.back && vf < 0.3));
-  const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? BL.backLeave : d.leave);
+  const lv = leaveOf(uid, d);
+  const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? Math.max(lv, BL.backLeave) : lv);
   B.depth = dl[0]; B.cut = dl[1];
   if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; return; }
   const q = ends(d, P, _n, 0, a), L = B.last;
@@ -294,8 +333,8 @@ function work(uid, d, B, dt) {
   const sweep = leave => { const n = Math.max(1, Math.min(40, Math.ceil(mv / (W.cell * 0.5)))); let vol = 0; for (let i = 1; i <= n; i++) { const t = i / n; vol += W.bladeSnow(L[0] + (q[0] - L[0]) * t, L[1] + (q[1] - L[1]) * t, L[2] + (q[2] - L[2]) * t, L[3] + (q[3] - L[3]) * t, leave); } return vol; };
   if (L && mv < 5 && P.gnd !== false && vf > 0.3) {
     if (B.back) spill(B, uid);                                                   // it was pulling: what it pulled stays behind, under the blade
-    const vol = sweep(d.leave), side = sideOf(a);
-    B.carry += vol; B.volCut += vol; if (vol > 0) S().m += vf * dt;
+    const vol = sweep(lv), side = sideOf(a);
+    B.carry += vol; B.volCut += vol; if (vol > 0) { S().m += vf * dt; wear(uid, vf * dt); }
     const hx = wEff / 2, hz = Math.abs(d.w / 2 * Math.sin(a)), r = BL.rowW / 2, cap = side ? BL.carryMax : BL.carrySq;
     // slewed: the windrow, off the trailing end; what the first row can't take rolls one row further out
     if (side) for (let i = 0; i < BL.rows.length && B.carry > 1e-4; i++) { const p = heapAt(d, P, side * (hx + 0.25 + r * (2 * i + 1)), d.z - hz - 0.35 - 0.25 * i, r, B.carry, BL.rows[i]); B.carry -= p; B.volLaid += p; }
@@ -309,7 +348,7 @@ function work(uid, d, B, dt) {
   } else if (L && mv < 5 && P.gnd !== false && vf < -0.3) {
     // back-dragging: the blade's back takes the top of the snow and pulls a bladeful with the truck
     if (!B.back) { if (B.carry > 0) spill(B, uid); B.back = true; }             // what it was pushing stays in front
-    if (B.carry < BL.carryMax) { const vol = sweep(BL.backLeave); B.carry += vol; B.volCut += vol; if (vol > 0) S().m -= vf * dt; }
+    if (B.carry < BL.carryMax) { const vol = sweep(Math.max(lv, BL.backLeave)); B.carry += vol; B.volCut += vol; if (vol > 0) { S().m -= vf * dt; wear(uid, -vf * dt); } }
     B.full = B.carry >= BL.carryMax;
   }
   B.last = B.last || [0, 0, 0, 0]; B.last[0] = q[0]; B.last[1] = q[1]; B.last[2] = q[2]; B.last[3] = q[3];
@@ -380,16 +419,17 @@ function rideLine() {
   if (B.back) return B.full ? `BLADE DOWN · back-dragging · it has all it can pull: stop or lift it to leave the heap · ${lift}` : `BLADE DOWN · back-dragging · ${Math.round(v * 3.6)} km/h · ${B.carry > 0.02 ? "pulling " + B.carry.toFixed(1) + " m3" : "nothing to pull"} · ${lift}`;
   if (B.full) return th.sign ? `BLADE DOWN · the blade is full: lift it or ease off · ${lift}` : `BLADE DOWN · square and full: it spills off both ends. Lift it or stop to stack what it carries · ${lift}`;
   const pc = x => Math.round(Math.min(1, x / BL.credit) * 100), rd = B.road ? ` · ${B.road.name}: this side ${pc(B.road.mine)}%, the other side ${pc(B.road.other)}%` : "";   // of what opens the stretch
-  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd} · ${lift}`;
+  const worn = condOf(uid) < BL.ragged ? " · worn edge, a ragged cut: mend it at the garage" : "";
+  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd} · ${lift}`;
 }
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = d.kg; XL.pin = d.kg; XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { BLADES, BL, THROWS, state: S, rt, fit, unfit, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide };
+window.TLXPL = { BLADES, BL, THROWS, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide };
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], m: 0, opened: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();

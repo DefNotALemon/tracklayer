@@ -39,9 +39,16 @@ const KIT = `(() => {
   window.__steer = (id, dir, off, ahead) => { const n = TLXR.near(P.x, P.z), t = __lane(id, n.s + dir * ahead, dir, off); let e = Math.atan2(t.x - P.x, t.z - P.z) - P.yaw; while (e > Math.PI) e -= 2 * Math.PI; while (e < -Math.PI) e += 2 * Math.PI;
     return { e, s: n.s, d: n.d, rid: n.route && n.route.id, v: Math.hypot(P.vx, P.vz), bog: BOG.on, why: TLXV.rt().why || "" }; };
   // the puppet: carried from sA to sB along the lane, 2 m a frame, rolling forward at 6 m/s as far as the plow can tell
-  window.__pup = (id, sA, sB, off) => { const dir = sB >= sA ? 1 : -1; let s = sA; window.__pupOn = true; __put(id, sA, dir, off);
+  window.__pup = (id, sA, sB, off) => { const dir = sB >= sA ? 1 : -1; let s = sA; window.__pupOn = true; __put(id, sA, dir, off); __foot();
     const step = () => { s += dir * 2; if ((s - sB) * dir >= 0) { P.vx = P.vz = 0; window.__pupOn = false; return; } const q = __lane(id, s, dir, off); P.x = q.x; P.z = q.z; P.yaw = q.yaw; P.y = surf(q.x, q.z); P.vx = Math.sin(q.yaw) * 6; P.vz = Math.cos(q.yaw) * 6; P.vy = 0; BOG.on = false; BOG.acc = 0; requestAnimationFrame(step); };
     requestAnimationFrame(step); return true; };
+  // beta 0220 #1: a truck SET DOWN on uncut snow each frame (P.y = surf) is "in the air" as far as the truck's own physics
+  // can tell (its wheels would sink 12 cm+ below the snow's top: P.gnd false), and a blade in the air neither cuts nor marks,
+  // so the snow under the next frame's truck is uncut too and the puppet stays airborne for hundreds of metres, by luck of
+  // the first frames. The puppet now starts on its own cut footprint, as a driven truck does; __air counts what is left.
+  window.__foot = () => { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw); for (let k = -4; k <= 5; k += 0.15) bladeSnow(P.x + fx * k + fz * 2.2, P.z + fz * k - fx * 2.2, P.x + fx * k - fz * 2.2, P.z + fz * k + fx * 2.2, 0.15); P.y = surf(P.x, P.z); return true; };
+  window.__air = { n: 0, a: 0 };
+  if (!window.__airOn) { window.__airOn = true; const f = () => { const u = TLXV.state().cur, B = u != null && TLXPL.rt(u); if (B && B.down && !FOOT.on && Math.hypot(P.vx, P.vz) > 0.3) { __air.n++; if (P.gnd === false) __air.a++; } requestAnimationFrame(f); }; requestAnimationFrame(f); }
   window.__rc = (id, i) => { const c = TLXPL.road.get(id + ":" + i); return c ? { n: c.n, c: [c.c[0], c.c[1]], s0: c.s0 } : null; };
   window.__across = (id, s) => { const o = []; for (let off = -2.8; off <= 2.81; off += 0.7) { const q = __lane(id, s, 1, off), ix = Math.round((q.x + HALF) / CELL), iz = Math.round((q.z + HALF) / CELL), d = depthAt(ix, iz), f = freshAt(ix, iz); o.push([+d.toFixed(2), +f.toFixed(2)]); } return o; };
   return true; })()`;
@@ -111,12 +118,14 @@ await section("C driven out along the right-hand side", async () => {
   ok(pre.st === "snowed in", `the ${A.name} reads snowed in with stretch ${A.i} at ${LEVEL}`);
   const dmid = pre.acr[Math.floor(pre.acr.length / 2)];
   ok(dmid[0] > 0.12 && dmid[0] / dmid[1] > 0.3, `and there is snow on it to cut: ${Math.round(dmid[0] * 100)} cm on the crown (pack ${Math.round(dmid[1] * 100)} cm)`);
-  await blade(true); await clearToasts();
+  await blade(true); await clearToasts(); await ev(`__air.n = __air.a = 0; true`);
   const r = await drive(A.id, 1, 1.5, 200, async s => s.s > (A.i + 1) * SEG + 14);
   const hint = await ev(`TLXPL.hint()`);
   // the blade is still on the next (clear) stretch: read the marks straight from the table
   const a = await J(`({ rc: __rc(${aid}, ${A.i}), sn: __rt(${aid}).st.s[${A.i}], st: TLXR.status(${aid}), opened: TLX.state("plow").opened, m: Math.round(TLX.state("plow").m) })`), t = await toasts();
   console.log("  out", JSON.stringify(r), JSON.stringify(a)); console.log("  hint after:", hint);
+  { const air = await J(`__air`); console.log("  frames with the blade down and rolling: " + air.n + ", of them off the ground (no cut, no mark): " + air.a);
+    ok(air.n > 200 && air.a <= 0.05 * air.n, "a DRIVEN truck is on its wheels while it plows (beta 0220 #1: the gaps were the puppet's): " + air.a + " of " + air.n + " frames in the air"); }
   ok(!r.stopped && !r.bog && r.s > (A.i + 1) * SEG, `the pickup plows the whole 400 m: to ${r.s} m along in ${r.t} game s at a mean ${r.v} m/s (${Math.round(r.v * 3.6)} km/h), not bogged`);
   ok(r.maxD < 3.2, `and keeps to the road (${r.maxD} m from the line at most)`);
   ok(a.rc && Math.max(...a.rc.c) >= 0.8 * a.rc.n, "one side has 80% or more of its lengths marked: " + JSON.stringify(a.rc));
@@ -138,12 +147,13 @@ await section("C driven out along the right-hand side", async () => {
 
 await section("D driven back down the other side", async () => {
   if (!outOK) { ok(false, "section C left no marks to finish"); return; }
-  await ev(`__put(${aid}, ${(A.i + 1) * SEG + 30}, -1, 1.5); true`); await blade(true); await waitGame(1.0); await clearToasts();
+  await ev(`__put(${aid}, ${(A.i + 1) * SEG + 30}, -1, 1.5); true`); await blade(true); await waitGame(1.0); await clearToasts(); await ev(`__air.n = __air.a = 0; true`);
   let openedAt = null;
   const r = await drive(A.id, -1, 1.5, 200, async s => { if (openedAt === null && (await ev(`__rt(${aid}).st.s[${A.i}]`)) === 0) openedAt = s.s; return openedAt !== null || s.s < A.i * SEG - 14; });
   await sleep(300);
   const a = await J(`({ rc: __rc(${aid}, ${A.i}), sn: __rt(${aid}).st.s[${A.i}], t: __rt(${aid}).st.t[${A.i}], H: GS.hour, st: TLXR.status(${aid}), opened: TLX.state("plow").opened, warned: TLX.state("roads").warned, anyShut: TLXR.routes.some(r => !r.closed && TLXR.status(r.id) === "snowed in"), acr: [__across(${aid}, ${A.i * SEG + 60}), __across(${aid}, ${A.i * SEG + 200}), __across(${aid}, ${A.i * SEG + 340})], hint: TLXPL.hint() })`), t = await toasts();
   console.log("  back", JSON.stringify(r), "opened at", openedAt, JSON.stringify({ sn: a.sn, t: a.t, H: a.H, st: a.st, opened: a.opened })); console.log("  toasts", JSON.stringify(t));
+  { const air = await J(`__air`); ok(air.n > 200 && air.a <= 0.05 * air.n, "and on the way back: " + air.a + " of " + air.n + " frames in the air"); }
   ok(openedAt !== null && a.sn === 0, `coming back down the other side opens it: snow 0, at ${openedAt === null ? "-" : Math.round(openedAt - A.i * SEG)} m from the stretch's start`);
   ok(openedAt !== null && openedAt - A.i * SEG < 0.3 * SEG, "not before four fifths of the way back");
   ok(a.t >= hour0 && Math.abs(a.t - a.H) < 0.2, "the hour it was scraped is stamped (" + a.t.toFixed(2) + ", now " + a.H.toFixed(2) + ")");

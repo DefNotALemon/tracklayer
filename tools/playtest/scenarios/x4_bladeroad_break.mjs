@@ -22,9 +22,16 @@ const KIT = `(() => {
   window.__steer = (id, dir, off, ahead) => { const n = TLXR.near(P.x, P.z), t = __lane(id, n.s + dir * ahead, dir, off); let e = Math.atan2(t.x - P.x, t.z - P.z) - P.yaw; while (e > Math.PI) e -= 2 * Math.PI; while (e < -Math.PI) e += 2 * Math.PI;
     return { e, s: n.s, d: n.d, rid: n.route && n.route.id, v: Math.hypot(P.vx, P.vz), bog: BOG.on, why: TLXV.rt().why || "" }; };
   // the puppet: carried from sA to sB along the lane, 2 m a frame, rolling forward at 6 m/s as far as the plow can tell
-  window.__pup = (id, sA, sB, off) => { const dir = sB >= sA ? 1 : -1; let s = sA; window.__pupOn = true; __put(id, sA, dir, off);
+  window.__pup = (id, sA, sB, off) => { const dir = sB >= sA ? 1 : -1; let s = sA; window.__pupOn = true; __put(id, sA, dir, off); __foot();
     const step = () => { s += dir * 1; if ((s - sB) * dir >= 0) { P.vx = P.vz = 0; window.__pupOn = false; return; } const q = __lane(id, s, dir, off); P.x = q.x; P.z = q.z; P.yaw = q.yaw; P.y = surf(q.x, q.z); P.vx = Math.sin(q.yaw) * 6; P.vz = Math.cos(q.yaw) * 6; P.vy = 0; BOG.on = false; BOG.acc = 0; requestAnimationFrame(step); };
     requestAnimationFrame(step); return true; };
+  // beta 0220 #1: a truck SET DOWN on uncut snow each frame (P.y = surf) is "in the air" as far as the truck's own physics
+  // can tell (its wheels would sink 12 cm+ below the snow's top: P.gnd false), and a blade in the air neither cuts nor marks,
+  // so the snow under the next frame's truck is uncut too and the puppet stays airborne for hundreds of metres, by luck of
+  // the first frames. The puppet now starts on its own cut footprint, as a driven truck does; __air counts what is left.
+  window.__foot = () => { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw); for (let k = -4; k <= 5; k += 0.15) bladeSnow(P.x + fx * k + fz * 2.2, P.z + fz * k - fx * 2.2, P.x + fx * k - fz * 2.2, P.z + fz * k + fx * 2.2, 0.15); P.y = surf(P.x, P.z); return true; };
+  window.__air = { n: 0, a: 0 };
+  if (!window.__airOn) { window.__airOn = true; const f = () => { const u = TLXV.state().cur, B = u != null && TLXPL.rt(u); if (B && B.down && !FOOT.on && Math.hypot(P.vx, P.vz) > 0.3) { __air.n++; if (P.gnd === false) __air.a++; } requestAnimationFrame(f); }; requestAnimationFrame(f); }
   window.__rc = (id, i) => { const c = TLXPL.road.get(id + ":" + i); return c ? { n: c.n, c: [c.c[0], c.c[1]], s0: c.s0 } : null; };
   window.__across = (id, s) => { const o = []; for (let off = -2.8; off <= 2.81; off += 0.7) { const q = __lane(id, s, 1, off), ix = Math.round((q.x + HALF) / CELL), iz = Math.round((q.z + HALF) / CELL), d = depthAt(ix, iz), f = freshAt(ix, iz); o.push([+d.toFixed(2), +f.toFixed(2)]); } return o; };
   return true; })()`;

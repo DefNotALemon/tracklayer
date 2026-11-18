@@ -941,6 +941,13 @@ lifted, drop it against the door, back away. The back of the blade takes the top
 along; the hint reads "back-dragging" and how much it is pulling. When you stop, lift it or drive
 forward again, what it pulled is left as a heap under the blade, ready to be plowed away forward.
 
+**The cutting edge.** The steel edge along the bottom of the blade wears with every metre of snow
+it cuts, forward or back-dragging: about a point every 250 m, so a road stretch plowed out and back
+costs three. The garage's Plow tab shows it ("Cutting edge 84%"). Under 30% the edge is ragged and
+leaves twice the snow in the lane; a line tells you when it gets there and the hint says so while
+you cut. With the truck within 60 m of the garage the same tab mends it at $6 a point, as many
+points as your cash covers. A blade in the shed keeps the edge it had.
+
 **Start from cleared ground.** The blade only clears what is in front of it. Drop it while the
 truck is standing in deep snow and the wheels are still in snow it never reached: the hint says
 so. Back up to a yard, a road or your own cut and plow in from there. Rolling slowly through
