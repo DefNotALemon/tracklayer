@@ -274,7 +274,7 @@ function freshCell(ix, iz) { const d = freshBase(ix, iz); return MELT.kq > 0 && 
    Lanes: addLane([[x, z], ...], r) plows a walked/driven path (a capsule per leg, r each side, easing out over
    LANE_FALL m). buildLanes() runs one from the depot yard to every Kjøllefjord door, routed round obstacles (houses,
    sheds, lamps), so the walk from the quay to a house or the garage stays on hard pack the whole way. */
-const YARDS = [], YARD_K = 0.85, YARD_FALL = 6, LANE_FALL = 2.5, yardCache = new Map();
+const YARDS = [], DRIFTS = [], YARD_K = 0.85, YARD_FALL = 6, LANE_FALL = 2.5, yardCache = new Map();
 // YARDS bucketed on a 64 m grid, so a chunk only tests the plows near it (the roads, tlx-roads.js, add thousands of legs)
 const YBK = new Map(), YBK_S = 64, ybk = (i, j) => j * 1000 + i;
 function yardOf(cx, cz) {
@@ -298,9 +298,25 @@ function yardOf(cx, cz) {
       if (y > a[j * CH + i]) a[j * CH + i] = y;
     }
   }
+  // drifts (4.2b, tlx-plow.js): a strip of plowed ground nobody is keeping clear. Y.k (0..1) is how far it has snowed in;
+  // it takes that share off whatever plowing the yards and lanes above gave the cell. k = 0 leaves the cell as it was.
+  if (a) for (const Y of DRIFTS) {
+    if (!(Y.k > 0)) continue;
+    const R = Y.r + Y.f;
+    if (Math.max(Y.x, Y.x2) + R < x0 || Math.min(Y.x, Y.x2) - R > x1 || Math.max(Y.z, Y.z2) + R < z0 || Math.min(Y.z, Y.z2) - R > z1) continue;
+    const ux = Y.x2 - Y.x, uz = Y.z2 - Y.z, uu = ux * ux + uz * uz;
+    for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) {
+      const px = x0 + i * CELL - Y.x, pz = z0 + j * CELL - Y.z, t = uu > 0 ? clamp((px * ux + pz * uz) / uu, 0, 1) : 0;
+      const dd = Math.hypot(px - ux * t, pz - uz * t); if (dd >= R) continue;
+      a[j * CH + i] *= 1 - (1 - sstep(Y.r, R, dd)) * Math.min(1, Y.k);
+    }
+  }
   yardCache.set(key, a);
   return a;
 }
+/* addDrift(pts, r) -> legs, each { ..., dr: 1, k: 0 }: set a leg's k and call plowRefresh([leg]) (api.world.replow), as the
+   roads do. They are kept out of YARDS (nothing that lists the plowed lanes sees them) and nothing here is saved. */
+function addDrift(pts, r) { const legs = []; for (let k = 1; k < pts.length; k++) { const Y = { x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: 0.6, k: 0, dr: 1 }; DRIFTS.push(Y); legs.push(Y); } return legs; }
 function addYard(x, z, r) { addPlow({ x, z, x2: x, z2: z, r, f: YARD_FALL }); }
 function addLane(pts, r, pk) { const legs = []; for (let k = 1; k < pts.length; k++) { const Y = { x: pts[k - 1][0], z: pts[k - 1][1], x2: pts[k][0], z2: pts[k][1], r, f: LANE_FALL, k: pk || 1 }; addPlow(Y); legs.push(Y); } return legs; }
 /* Road snow (3.2, tlx-roads.js): a road's legs change how hard they're plowed (Y.k) as storms fill them and the council
@@ -17666,6 +17682,8 @@ function initExpansion() {
       replow: plowRefresh,
       // the plow blade (4.1a): cut a line of cells down, heap what came off beside it
       bladeSnow, heapSnow,
+      // driveways (4.2b): a strip that snows in over plowed ground; set leg.k (0..1) and replow([leg])
+      addDrift,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
       terrain: { ground, bio, res: GRES, n: GN, refresh: farRefresh } },
     mesh: { box, cyl, ball, std },

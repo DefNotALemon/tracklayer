@@ -78,7 +78,7 @@ await section("B the app, SIGN", async () => {
   await ev(`TLXV.swapTo(${JSON.stringify(uid)}); FOOT.on = false; true`); await sleep(600);
   ok(await ev(`!!TLXPL.bladeOf(${JSON.stringify(uid)}) && !TABLET.byId.plow.hidden()`), "with a plow truck the Plow app is on the tablet");
   await ev(`TABLET.toggle(true, "plow"); true`); await sleep(500);
-  const a = await J(`({ app: $("tabS").dataset.app, cards: [...$("tabS").querySelectorAll(".tcard")].map(c => c.querySelector(".tct span").textContent), sign: [...$("tabS").querySelectorAll("[data-act^='pls:']")].map(b => b.dataset.act + (b.classList.contains("blocked") ? ":blocked" : "")), text: $("tabS").textContent.replace(/\\s+/g, " ").slice(0, 600) })`);
+  const a = await J(`({ app: $("tabS").dataset.app, cards: [...$("tabS").querySelectorAll(".tcard[data-tf^='plc:']")].map(c => c.querySelector(".tct span").textContent), sign: [...$("tabS").querySelectorAll("[data-act^='pls:']")].map(b => b.dataset.act + (b.classList.contains("blocked") ? ":blocked" : "")), text: $("tabS").textContent.replace(/\\s+/g, " ").slice(0, 600) })`);
   console.log("  ", a.text);
   const names = await J(`TLXPL.con.routes().map(r => r.name)`);
   ok(a.app === "plow" && names.every(n => a.cards.includes(n)) && a.cards.length === names.length, "the app lists exactly those roads: " + a.cards.join(", "));

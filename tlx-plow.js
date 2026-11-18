@@ -68,7 +68,10 @@
 // on the truck (its mass and its tyres' load). Saved: blades[uid].hop (kg), grit: { "routeId:stretch": { h: [the game
 // hour each 10 m length was last gritted, 0 = never], s0: the stretch's snow level then } }, gritKg (spread in all).
 // The spinner running is not saved: a reload finds it off.
-// NOT YET: door counting (4.1b3b), a used plow truck (4.1c3), pay (4.2).
+// DRIVEWAYS (4.2b1). The block comment at DRV: eight Kjøllefjord households with a drive beside the house. One you take on
+// in the Plow app snows in (api.world.addDrift) until your blade has cut four fifths of its length, which pays at once.
+// State: drv, drvOff, drvH, drvPaid, drvN.
+// NOT YET: door counting (4.1b3b / 4.2b2), lots (4.2c).
 (() => {
 "use strict";
 /* ---------------- tunables ---------------- */
@@ -173,6 +176,7 @@ function tidy() {
   if (!s.grit || typeof s.grit !== "object" || Array.isArray(s.grit)) s.grit = {};
   if (!Number.isFinite(s.gritKg)) s.gritKg = 0;
   conTidy(s);                                                                    // 4.2a: the road contracts
+  drvTidy(s);                                                                    // 4.2b1: the driveways
   for (const k of Object.keys(s.grit)) { const g = s.grit[k]; if (!g || !Array.isArray(g.h) || !Number.isFinite(g.s0) || !g.h.some(h => h > 0 && api.GS.hour - h < GRT.hours)) delete s.grit[k]; }   // worn off: forgotten
   { const ids = [], cs = []; s.shed.forEach((id, i) => { const d0 = byId(id); if (!d0 || d0.factory) return; const c = s.shedC[i]; ids.push(id); cs.push(Number.isFinite(c) ? Math.max(0, Math.min(100, c)) : 100); }); s.shed = ids; s.shedC = cs; }
   const own = trucks();
@@ -544,11 +548,12 @@ function work(uid, d, B, dt) {
   const lv = leaveOf(uid, d);
   const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? Math.max(lv, BL.backLeave) : lv);
   B.depth = dl[0]; B.cut = dl[1];
-  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; B.scr = 0; return; }
-  if (B.trip > 0) { B.drag = BL.scrape; B.full = false; B.last = null; B.why = ""; B.road = null; B.scr = 0; return; }   // tripped: folded over the thing, it cuts nothing until it springs back
+  if (!B.down) { B.drag = 0; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; return; }
+  if (B.trip > 0) { B.drag = BL.scrape; B.full = false; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; return; }   // tripped: folded over the thing, it cuts nothing until it springs back
   const q = ends(d, P, _n, 0, a), L = B.last;
   B.road = roadMark(d, (q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && vf > 0.3 && P.gnd !== false && dt > 0 && Math.max(Math.abs(q[0] - L[0]), Math.abs(q[1] - L[1])) < 5);
   const mv = L ? Math.max(Math.hypot(q[0] - L[0], q[1] - L[1]), Math.hypot(q[2] - L[2], q[3] - L[3])) : 99;   // further than 5 m in a frame is a teleport, not plowing
+  B.drv = drvMark((q[0] + q[2]) / 2, (q[1] + q[3]) / 2, !!L && mv < 5 && Math.abs(vf) > 0.3 && P.gnd !== false && dt > 0);   // 4.2b1: a customer's drive under the blade, cutting forward or back-dragging
   const sweep = leave => { const n = Math.max(1, Math.min(40, Math.ceil(mv / (W.cell * 0.5)))); let vol = 0; for (let i = 1; i <= n; i++) { const t = i / n; vol += W.bladeSnow(L[0] + (q[0] - L[0]) * t, L[1] + (q[1] - L[1]) * t, L[2] + (q[2] - L[2]) * t, L[3] + (q[3] - L[3]) * t, leave); } return vol; };
   if (L && mv < 5 && P.gnd !== false && vf > 0.3) {
     if (B.back) spill(B, uid);                                                   // it was pulling: what it pulled stays behind, under the blade
@@ -590,7 +595,7 @@ const cmax = d => d.carry || BL.carryMax;                                       
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
-  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); }                          // 4.2a: the road contracts' clocks
+  conT += dt; if (conT >= 0.5) { conT = 0; conStep(); drvStep(); }                          // 4.2a: the road contracts' clocks
   if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
@@ -610,7 +615,7 @@ function tick(dt) {
     }
     if (B.grit) { if (!seated) B.grit = false; else spread(r.uid, d, B, dt); }
     if (B.heap) heapSync(B, d, r.uid);
-    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; B.scr = 0; }
+    if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; }
     const k0 = B.k; B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
     if (seated && k0 < 1 && B.k >= 1) clunk(B, 0.3); else if (seated && k0 > 0 && B.k <= 0) clunk(B, 0.14);   // it lands on the ground; it comes up against its stop
     if (B.B) B.B.position.y = BL.lift * (1 - B.k);
@@ -720,7 +725,8 @@ function bladeLine(uid, d) {
   if (B.full) return th.sign ? `BLADE DOWN · the blade is full: lift it or ease off · ${lift}` : `BLADE DOWN · square and full: it spills off both ends. Lift it or stop to stack what it carries · ${lift}`;
   const pc = x => Math.round(Math.min(1, x / BL.credit) * 100), rd = B.road ? ` · ${B.road.name}: this side ${pc(B.road.mine)}%, the other side ${pc(B.road.other)}%` : "";   // of what opens the stretch
   const worn = condOf(uid) < BL.ragged ? " · worn edge, a ragged cut: mend it at the garage" : "";
-  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd} · ${lift}`;
+  const dv = B.drv ? ` · ${B.drv.name}'s drive: ${Math.round(Math.min(1, B.drv.k / DRV.credit) * 100)}% plowed out` : "";
+  return `BLADE DOWN · ${Math.round(v * 3.6)} km/h · ${B.cut > 0.04 ? "cutting " + Math.round(B.depth * 100) + " cm" : "nothing to cut"}${worn}${th.now ? " · " + th.now + (th.sign ? "" : " " + B.carry.toFixed(1) + " m3") : ""}${rd}${dv} · ${lift}`;
 }
 /* ---------------- the Plow app and the kommune's road contracts (4.2a) ----------------
    The Plow app (on the tablet once you own a blade) lists the kommune's roads that no convoy runs on (conR). SIGN one
@@ -899,24 +905,212 @@ function appRender(el) {
       warn: c ? (c.cover ? "The kommune's own truck is opening it this once. What it opens is not paid." : conQuitCost(c) ? "A stretch has lain shut too long to walk away from: handing the road back now is a warning." : "") : ban ? `Taken back after ${PLC.strikes} warnings. Out to tender again in ${Math.max(1, Math.ceil((s.conBan[r.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : file ? `The kommune's file on this road holds ${file === 1 ? "a warning" : file + " warnings"} against you. Sign again and ${file === 1 ? "it comes" : "they come"} with it.` : "",
       pay: c ? `${cash(400 * PLC.perM * mul)} a stretch` : "", act: (c ? "plq:" : "pls:") + r.id, actLabel: c ? "HAND BACK" : "SIGN", blocked: !c && (!has || ban) });
   }
-  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${((+q.m || 0) / 1000).toFixed(1)} km · +${cash(+q.pay || 0)}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
+  h += drvCards(U, s, has, mul, cash);                                           // 4.2b1: the driveways
+  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='pls:']")) b.addEventListener("click", () => conSign(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='plq:']")) b.addEventListener("click", () => conQuit(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='pdt:']")) b.addEventListener("click", () => drvTake(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='pdq:']")) b.addEventListener("click", () => drvDrop(b.dataset.act.slice(4)));
+}
+/* ---------------- driveways: private customers (4.2b1) ----------------
+   A handful of Kjøllefjord households (DRV.max, the same ones every boot) have a drive beside the house: a strip
+   DRV.hw each side of a line from the street's edge back along the house wall (drvBuild: clear of the neighbour, sheds,
+   wood piles, lamps and where a car stands). Until you TAKE ONE ON in the Plow app its owner shovels it, as today, and
+   nothing about it changes. A drive you have taken on is yours: it snows in at the roads' own rate (its level st.s
+   takes that share off the yard's plowing through api.world.addDrift, so the snow really lies there and a reload finds
+   it), it is DUE from DRV.due, and its clock runs while the weather is under the council's limit. Clearing it is the
+   road credit's rule in small: with the blade down and the truck moving (cutting forward or back-dragging) the 1 m
+   length under the blade's middle is marked, and DRV.credit of the lengths marked clears the drive: it is cut to the
+   yard's level and the customer pays DRV.call + DRV.perM a metre at once, in full inside DRV.fullH hours of the clock
+   and falling to DRV.low of it at DRV.lowH. Left DRV.lateH hours, or slept through, the customer shovels it himself:
+   no pay and a miss; DRV.miss misses and he finds someone else for DRV.offH hours. A paid clearing takes a miss off.
+   DROP is free. The Jobs app has one row for all the drives with snow in them; Monday writes one statement line.
+   SAVED in x.sys.plow: drv { key: { s, h, due, miss, wk, n } }, drvOff { key: hour he asks again }, drvH, drvPaid, drvN.
+   The marks are not saved. NOT YET (4.2b2): the windrow your blade leaves across a door, and the complaint. */
+const DRV = { max: 8, hw: 1.6, side: 2.1, street: 2.4, len: [6, 10], call: 12, perM: 3, due: 0.12, fullH: 4, lowH: 12, low: 0.5, lateH: 12, miss: 2, offH: 168,
+  bin: 1, credit: 0.8, lat: 1.3,
+  names: ["Kåre", "Ragnhild", "Ole", "Siri", "Jonas", "Elin", "Nils", "Anja", "Tor", "Marit", "Hallvard", "Ingrid", "Sander", "Liv", "Aslak", "Berit"] };
+const DV = { list: [], by: {}, built: false, marks: new Map(), job: {} };
+const drvBase = c => Math.round(DRV.call + DRV.perM * c.L);
+const drvK = h => 1 - (1 - DRV.low) * Math.max(0, Math.min(1, (h - DRV.fullH) / (DRV.lowH - DRV.fullH)));
+const drvList = names => (names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + " and " + names[names.length - 1]);
+function drvFree(W, at, v0, v1, D, cars) {
+  for (let v = v0; v >= v1 - 0.01; v -= 1) {
+    const p = at(v), x = p[0], z = p[1];
+    if (W.isSea(x, z) || (W.isWater && W.isWater(x, z))) return false;
+    for (const c of cars) if (Math.hypot(c.x - x, c.z - z) < 3.2) return false;
+    for (const o of W.obstaclesNear(x, z, 6)) {
+      if (o.top < -1e8) continue;
+      if (o.box) { const B = o.box; if (Math.hypot(B.x - D.x, B.z - D.z) < 1) continue;   // its own house: the geometry keeps the strip off the wall
+        const px = x - B.x, pz = z - B.z, lu = Math.abs(px * B.c - pz * B.s) - B.hw, lv = Math.abs(px * B.s + pz * B.c) - B.hd;
+        if (Math.max(lu, lv) < DRV.hw + 0.2) return false; continue; }
+      if (Math.hypot(o.x - x, o.z - z) < (o.r || 0.5) + DRV.hw + 0.1) return false;
+    }
+  }
+  return true;
+}
+function drvBuild() {
+  DV.built = true; DV.list = []; DV.by = {}; DV.marks.clear();
+  const W = api.world; if (!W.addDrift || !Array.isArray(W.doors) || !W.replow) return;
+  const cars = window.TLXC && Array.isArray(TLXC.cars) ? TLXC.cars : [], cand = [], seen = new Set();
+  for (const D of W.doors) {
+    if (!D || !Array.isArray(D.grid) || !Number.isFinite(D.nx) || !Number.isFinite(D.rr) || !Number.isFinite(D.d)) continue;
+    const hw = D.rr - 3.5; if (!(hw <= 4.6)) continue;                             // the store, the church: no private drive
+    const g = (D.grid[0] - D.x) * D.nx + (D.grid[1] - D.z) * D.nz; if (!(g > D.d / 2 + 4)) continue;   // metres from the house's middle out to its street's centre line
+    const v0 = g - DRV.street, v1 = Math.max(v0 - DRV.len[1], -D.d / 2), L = v0 - v1; if (L < DRV.len[0]) continue;
+    const key = Math.round(D.x) + "_" + Math.round(D.z); if (seen.has(key)) continue; seen.add(key);
+    const h = Math.abs(Math.round(D.x * 7 + D.z * 13)), tx = D.nz, tz = -D.nx, first = h % 2 ? 1 : -1;
+    for (const sd of [first, -first]) {
+      const u = sd * (hw + DRV.side), at = v => [D.x + D.nx * v + tx * u, D.z + D.nz * v + tz * u];
+      if (!drvFree(W, at, v0, v1, D, cars)) continue;
+      const car = cars.find(c => Math.hypot(c.x - D.x, c.z - D.z) < 11 && c.owner);
+      cand.push({ key, h, L, a: at(v0), b: at(v1), in: at(v0 - DRV.hw - 0.1), name: car ? car.owner : DRV.names[h % DRV.names.length], door: D });
+      break;
+    }
+  }
+  cand.sort((p, q) => (p.h * 2654435761 % 1009) - (q.h * 2654435761 % 1009) || (p.key < q.key ? -1 : 1));
+  const used = new Set();
+  for (const c of cand) {
+    if (DV.list.length >= DRV.max) break;
+    c.mx = (c.a[0] + c.b[0]) / 2; c.mz = (c.a[1] + c.b[1]) / 2; c.ux = (c.b[0] - c.a[0]) / c.L; c.uz = (c.b[1] - c.a[1]) / c.L;
+    if (DV.list.some(o => Math.hypot(o.mx - c.mx, o.mz - c.mz) < 2 * DRV.hw + 1.2)) continue;   // two neighbours' drives side by side in one gap would run into each other: the first has it
+    if (used.has(c.name)) { const alt = DRV.names.find(n => !used.has(n)); if (alt) c.name = alt; }   // two neighbours of one name read as one customer
+    used.add(c.name);
+    c.legs = W.addDrift([c.in, c.b], DRV.hw); c.q = 0; c.place = String((W.depot && W.depot.name) || "Kjøllefjord").replace(/ quay$/i, "");
+    DV.list.push(c); DV.by[c.key] = c;
+  }
+  const s = S(); if (s) for (const c of DV.list) drvApply(c, s.drv && s.drv[c.key]);
+}
+function drvApply(c, st) {                                                       // the snow level on the ground follows the saved one, in steps of 0.05
+  const q = st ? Math.round(Math.max(0, Math.min(1, st.s)) * 20) / 20 : 0;
+  if (q === c.q) return; c.q = q; for (const Y of c.legs) Y.k = q; api.world.replow(c.legs);
+}
+function drvTidy(s) {
+  const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
+  if (!obj0(s.drv)) s.drv = {};
+  if (!obj0(s.drvOff)) s.drvOff = {};
+  s.drvPaid = num(s.drvPaid, 0, 1e9); s.drvN = Math.floor(num(s.drvN, 0, 1e9)); if (!Number.isFinite(s.drvH)) s.drvH = -1;
+  for (const k of Object.keys(s.drv)) {
+    const st = s.drv[k]; if (!obj0(st)) { delete s.drv[k]; continue; }
+    st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, DRV.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= DRV.due ? 1 : 0;
+  }
+  for (const k of Object.keys(s.drvOff)) if (!Number.isFinite(s.drvOff[k])) delete s.drvOff[k];
+}
+function drvTake(key) {
+  const s = S(), c = DV.by[key], H = api.GS.hour; if (!s || !c || s.drv[key]) return false;
+  if (!Object.keys(s.blades).length) { api.toast("Nobody hires a plow man without a plow. Fit a blade to a truck first: the garage's Plow tab.", "warn"); return false; }
+  if (s.drvOff[key] > H) { const dys = Math.max(1, Math.ceil((s.drvOff[key] - H) / 24)); api.toast(`${c.name} has someone else for the drive. Ask again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
+  delete s.drvOff[key];
+  s.drv[key] = { s: 0, h: 0, due: 0, miss: 0, wk: 0, n: 0 };
+  api.toast(`${c.name}'s drive is yours to keep clear: ${api.fmtCash(Math.round(drvBase(c) * api.payMul()))} every time you plow it out inside ${DRV.fullH} h of the weather easing. ${c.name} has put the shovel away.`, "good");
+  api.save(); conRefresh(); return true;
+}
+function drvDrop(key) {
+  const s = S(), c = DV.by[key]; if (!s || !s.drv || !s.drv[key]) return false;
+  delete s.drv[key]; DV.marks.delete(key); if (c) drvApply(c, null);
+  api.toast(c ? `You've given up ${c.name}'s drive. ${c.name} is back to shovelling it.` : "You've given that drive up.");
+  api.save(); conRefresh(); return true;
+}
+function drvGone(list, slept) {                                                  // the customers who cleared their own drives: one line for all of them
+  const s = S(), H = api.GS.hour, lost = [];
+  for (const c of list) { const st = s.drv[c.key]; st.s = 0; st.h = 0; st.due = 0; st.miss++; DV.marks.delete(c.key); if (st.miss >= DRV.miss) { delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; lost.push(c.name); } drvApply(c, s.drv[c.key]); }
+  const who = drvList(list.map(c => c.name)), one = list.length === 1;
+  api.toast((slept ? `While you were away ${who} dug ${one ? "the drive" : "their drives"} out by hand.` : `${who} gave up waiting and shovelled the drive${one ? "" : "s"} by hand.`) + " No pay."
+    + (lost.length ? ` ${drvList(lost)} ${lost.length === 1 ? "has" : "have"} found someone else to plow.` : ` Once more and ${one ? "you lose the customer" : "you lose them"}.`), lost.length ? "bad" : "warn");
+  api.save(); conRefresh();
+}
+function drvStep() {
+  const s = S(); if (!s || !s.drv || !DV.list.length || !api.started()) return;
+  const H = api.GS.hour, dh = s.drvH < 0 || H < s.drvH ? 0 : H - s.drvH; s.drvH = H;
+  if (!Object.keys(s.drv).length) return;
+  const RD = (window.TLXR && TLXR.ROADS) || { fill: 0.16, fillA: 0.5, fillB: 0.95, plowWx: 0.6, skip: 2 }, slept = dh > RD.skip, WX = api.WX, gone = [];
+  let fresh = 0;
+  for (const c of DV.list) {
+    const st = s.drv[c.key]; if (!st) continue;
+    if (slept) { if (st.s >= DRV.due) gone.push(c); else { st.s = 0; st.h = 0; st.due = 0; } }
+    else {
+      const w = WX.at(c.mx, c.mz);
+      st.s = Math.min(1, st.s + dh * RD.fill * api.sstep(RD.fillA, RD.fillB, w));
+      if (st.s >= DRV.due) { if (!st.due) { st.due = 1; fresh++; } if (w < RD.plowWx) st.h += dh; if (st.h >= DRV.lateH) gone.push(c); }
+    }
+    drvApply(c, st);
+  }
+  if (gone.length) drvGone(gone, slept);
+  else if (fresh) { const n = DV.list.filter(c => { const st = s.drv[c.key]; return st && st.due; }).length; api.toast(`Snow in ${n === 1 ? "one of your drives" : n + " of your drives"}. Full pay inside ${DRV.fullH} h of the weather easing.`); conRefresh(); }
+}
+function drvMark(x, z, mark) {                                                   // the blade's middle at (x, z): -> { name, k (share of the lengths done) } on a due drive of yours, else null
+  const s = S(); if (!s || !s.drv) return null;
+  for (const c of DV.list) {
+    const st = s.drv[c.key]; if (!st || !(st.s >= DRV.due)) continue;
+    const px = x - c.a[0], pz = z - c.a[1], t = px * c.ux + pz * c.uz; if (t < -0.6 || t > c.L + 0.6 || Math.abs(px * c.uz - pz * c.ux) > DRV.lat) continue;
+    let m = DV.marks.get(c.key);
+    if (m && st.s > m.s0 + BL.rise) { DV.marks.delete(c.key); m = null; }          // new snow since: what was cut is filled in
+    if (!m) { if (!mark) return { name: c.name, k: 0 }; const n = Math.max(1, Math.round(c.L / DRV.bin)); DV.marks.set(c.key, m = { n, m: new Uint8Array(n), c: 0, s0: st.s }); }
+    if (mark) {
+      const b = Math.max(0, Math.min(m.n - 1, Math.floor(t / DRV.bin))); if (!m.m[b]) { m.m[b] = 1; m.c++; }
+      if (m.c >= DRV.credit * m.n) { drvDone(c, st); return null; }
+    }
+    return { name: c.name, k: m.c / m.n };
+  }
+  return null;
+}
+function drvDone(c, st) {
+  const s = S(), k = drvK(st.h), h = st.h, cash = Math.round(drvBase(c) * k * api.payMul());
+  api.GS.cash += cash; st.wk += cash; st.n++; s.drvPaid += cash; s.drvN++;
+  st.s = 0; st.h = 0; st.due = 0; st.miss = Math.max(0, st.miss - 1); DV.marks.delete(c.key); drvApply(c, st);
+  api.toast(`${c.name}'s drive is clear. ${c.name} pays ${api.fmtCash(cash)}${k < 0.995 ? ` (${Math.round(k * 100)}%: ${Math.round(h)} h after the weather eased)` : ""}.`, "good");
+  api.save(); conRefresh();
+}
+function drvDue() { const s = S(); return s && s.drv ? DV.list.filter(c => { const st = s.drv[c.key]; return st && st.s >= DRV.due; }) : []; }
+function drvJob() {
+  const due = drvDue(); if (!due.length) return null;
+  const s = S(), P = api.FOOT.on ? api.FOOT : api.P, U = api.ui; let near = due[0], bd = Infinity, h = 0, sum = 0;
+  for (const c of due) { const st = s.drv[c.key], d = Math.hypot(c.a[0] - P.x, c.a[1] - P.z); if (d < bd) { bd = d; near = c; } if (st.h > h) h = st.h; sum += drvBase(c) * drvK(st.h); }
+  const hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
+  const pay = "~" + api.fmtCash(Math.round(sum * api.payMul())), n = due.length, title = n === 1 ? `Plow out ${near.name}'s drive` : `Plow out ${n} driveways`;
+  const state = h < DRV.fullH ? `full pay for another ${hrs(DRV.fullH - h)}` : `the pay is falling · ${hrs(DRV.lateH - h)} before ${n === 1 ? "it is" : "the first is"} shovelled by hand`;
+  return { obj: DV.job, kind: "plowdrv", auto: !api.FOOT.on && !!bladeOf(curUid()), tgt: { x: near.a[0], z: near.a[1], name: near.name + "'s drive" }, col: "var(--signal)", title,
+    chips: U.chip("DRIVEWAYS"), meta: `${n === 1 ? "one drive" : n + " drives"} snowed in · nearest: ${near.name}'s, ${near.place} · ${state}`, pay,
+    hud: d => ({ title, sub: `${U.fmtMi(d)} to ${near.name}'s · ${pay} · ${state}` }) };
+}
+function drvMonday(week) {
+  const s = S(); if (!s || !s.drv) return; let pay = 0, n = 0;
+  for (const k of Object.keys(s.drv)) { const st = s.drv[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
+  if (!n) return;
+  const d = week && week.label || "";
+  s.conLast.unshift({ d, road: "Driveways", pay, m: 0, w: 0, n }); s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
+  setTimeout(() => { try { api.TABLET.notify({ app: "plow", kind: "good", title: `Driveways · week to ${d}`, body: `${n} drive${n === 1 ? "" : "s"} plowed out: ${api.fmtCash(pay)}`, ttl: 8 }); } catch (e) { } }, 2600);
+}
+function drvCards(U, s, has, mul, cash) {
+  if (!DV.list.length) return "";
+  const H = api.GS.hour, hrs = v => (v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
+  let h = U.sec("Driveways", `${DV.list.filter(c => s.drv[c.key]).length} of ${DV.list.length} yours · paid so far ${cash(s.drvPaid)}`);
+  for (const c of DV.list) {
+    const st = s.drv[c.key], off = !st && s.drvOff[c.key] > H, base = drvBase(c) * mul, due = st && st.s >= DRV.due;
+    h += U.tabCard({ tf: "pld:" + c.key, title: `${c.name}'s drive`,
+      chips: st ? U.chip("YOURS", "ok") + (due ? U.chip("SNOWED IN", "due") : U.chip("CLEAR")) + (st.miss ? U.chip("SHOVELLED BY HAND ONCE", "heavy") : "") : off ? U.chip("HAS SOMEONE ELSE", "due") : U.chip("ASKING"),
+      meta: `${c.place} · ${Math.round(c.L)} m beside the house · ${cash(base)} a clearing inside ${DRV.fullH} h`,
+      note: st ? (due ? (st.h < DRV.fullH ? `Snowed in: full pay for another ${hrs(DRV.fullH - st.h)}.` : `Snowed in: the pay is falling, and in ${hrs(Math.max(0, DRV.lateH - st.h))} ${c.name} shovels it by hand.`) : "Nothing in it to plow.") + ` This week: ${cash(st.wk)} for ${st.n} clearing${st.n === 1 ? "" : "s"}.`
+        : off ? "" : `${c.name} shovels it by hand today. Take it on and it is yours to plow out after every snowfall.`,
+      warn: st ? "" : off ? `${c.name} dug the drive out twice waiting for you. Asking again in ${Math.max(1, Math.ceil((s.drvOff[c.key] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : "",
+      pay: st ? `${cash(base)} a clearing` : "", act: (st ? "pdq:" : "pdt:") + c.key, actLabel: st ? "DROP" : "TAKE ON", blocked: !st && (!has || off) });
+  }
+  return h + `<p class="tnote2">A drive you take on stops being shovelled: it snows in until you plow it out. Blade down, drive the length of it (in from the street, or back-dragging out): once four fifths of it is cut it is clear and paid at once, in full inside ${DRV.fullH} hours of the weather easing and down to half after ${DRV.lowH}. Leave it ${DRV.lateH} hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they find someone else for a week.</p>`;
 }
 let conT = 0;
 
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {} }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
@@ -932,13 +1126,16 @@ TLX.register({
     if (a.ridex) a.ridex.push(rideLine);
     // 4.2a: the kommune's road contracts: the council's plow asks before it sets out, the Jobs app's rows, the Plow app
     if (window.TLXR) TLXR.hold = conHold;
-    if (a.jobx && !CJ.on) { CJ.on = true; for (let k = 0; k < 4; k++) a.jobx.push(() => conJob(k)); }
+    if (a.jobx && !CJ.on) { CJ.on = true; for (let k = 0; k < 4; k++) a.jobx.push(() => conJob(k)); a.jobx.push(drvJob); }
+    // 4.2b1: the driveways: where they are (after the parked cars are placed), their snow from the save, a pin on the Map for each one snowed in
+    try { if (!DV.built) drvBuild(); else { DV.marks.clear(); const s = S(); for (const c of DV.list) drvApply(c, s.drv && s.drv[c.key]); } } catch (e) { DV.list = []; DV.by = {}; console.warn("tlx-plow: driveways", e); }
+    if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" }))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
-      hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length); },
+      hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length); },
       badge: () => { const s = S(); return s && s.con && Object.keys(s.con).some(id => Object.keys(s.con[id].due || {}).some(k => s.con[id].due[k][1])) ? "!" : ""; },
       render: appRender });
   },
-  monday(week) { conMonday(week); },
+  monday(week) { conMonday(week); drvMonday(week); },
   tick,
   save() { tidy(); }
 });

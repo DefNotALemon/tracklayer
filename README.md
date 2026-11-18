@@ -1022,6 +1022,19 @@ while the road is out of your hands, and handing a road back with a stretch that
 hours or more is a warning in itself (the card says so before you press); the third warning takes
 the road back for a week however it was earned.
 
+**Driveways.** Under the roads the Plow app lists eight Kjøllefjord households with a drive beside
+the house, each **ASKING**. Until you **TAKE ONE ON** its owner shovels it by hand and nothing about
+it changes. Once it is yours the shovel is put away: the drive snows in with every storm (the snow
+really lies there, 30 cm and more where the yard was hard pack; the walk to the front door stays
+clear), the Jobs app gets a row for your snowed-in drives, the compass points at the nearest and the
+Map pins each one. Plow it out with the blade down, driving up it from the street or back-dragging
+out of it: the riding hint counts how much is done, and once four fifths of its length is cut the
+drive is clear and the customer pays **at once**, $12 a call plus $3 a metre ($42 for a 10 m
+drive), in full inside 4 hours of the weather easing and sliding to half at 12. Leave a drive 12
+hours, or sleep through it, and the customer digs it out by hand: no pay, and the second time they
+find someone else for a week (a paid clearing wipes the first miss). **DROP** gives a drive back for
+nothing. Monday's statement has one line for all the drives you cleared that week.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car
