@@ -669,10 +669,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       reload lifts it. Lift it on getting out / swapping (and spill what it carries), as the reload does. 0217 #5
       (selling a bladed truck) is covered by `x4_blade` B through `tidy()` (a blade whose truck is not owned goes to
       the shed); there is no way to sell a truck in the game yet.
+- [ ] G4 4.1b3a (POLISH, beta 0234 #1/#2, lane A): a second used-blade listing whose page is already open can still be paid
+      after the first one is bought (it is hidden from the board, but `mktPay` goes through: two blades paid for, one
+      pickup; nothing is lost, the second order waits for a second pickup). Re-check the blade rule in `MKB.payWhy`,
+      as the 4th-truck fix did for trucks.
 - [ ] G4 4.1a (POLISH, builder 4.1a2 pass, lane A): on a plowed road the blade still reads "cutting 18 cm": a road
       is kept at 0.235 of the snowpack and the blade leaves 0.15, so there is always a skim to take and its push.
       Either the blade leaves what the leg under it is plowed to (never below a road's own level), or "nothing to
       cut" under about 10 cm over what it leaves. Seen in `x4_bladeroad`'s stills r3/r4, which are also shot at dusk
       (the drive runs the clock to 16 h): start that scenario at 9 h.
 
-Last triaged report: 232
+Last triaged report: 234

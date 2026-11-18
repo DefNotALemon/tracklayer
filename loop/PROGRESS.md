@@ -3,6 +3,44 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 07:40 — 4.1c1: the plow truck, Nordtrekk Brøyt 4x2, with its own 3.5 m blade (tlx-plow v8, tlx-vehicles v28, lane A) (G4) — c4de5e1
+Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0233, 0234 (last triaged ->
+234): no BLOCKER or BUG on lane A's systems. 0233 confirms the 0228 fix. 0234 #1/#2 are POLISH (a second used-blade
+listing can still be paid from an open page; nothing is lost): a backlog line, not this pass. So the next slice:
+4.1c, the plow truck, split in three before building (design in EXPANSION.md): 4.1c1 the truck and its blade (this
+pass), 4.1c2 the gritter, 4.1c3 a used one on Bytteboden.
+How. tlx-vehicles.js: a `VEHICLES` row `plowtruck` on the tractor's chassis and cab (`buildTractor` now draws the
+fifth wheel only for a row with `fifthZ`, and `body: "gritter"` adds the hopper, tail board, spinner and beacon bar).
+No `fifthZ`, so the rig and the used-lorry code leave it alone. tlx-plow.js: `BLADES` row `b35`, `factory: true`:
+`tidy()` gives every owned plow truck its blade and never sheds it, `fit` / `unfit` refuse it, the Plow tab shows it
+fitted and offers the mend. Per-blade `rows`, `carry`, `whyN`, `mz` replace three constants that were the pickup's;
+the model is the same blade drawn taller on a wider frame. No tracklayer.js change. README "The plow truck".
+Deviation from the design: the model is not the convoy's `buildPlow` exported (loose meshes, no cab interior or door,
+which `runtime()` needs); the hopper copies its proportions instead.
+Numbers (`x4_plowtruck.mjs`, new, 50 asserts, ten stills looked at: side, three-quarter front and rear, blade up and
+down, night, cutting from behind and in front, the cab):
+- buying: locked without the Freight licence, refused at $16,000, $16,800 once; a fourth truck refused;
+- the blade is on it the frame it is bought, cannot be taken off, fits no pickup, is never in Bytteboden's pool, and
+  a plow truck that is gone leaves nothing in the shed;
+- 60 cm: 7.2 m/s (26 km/h) against the pickup's 3.3 m/s in the same field; 30 cm: 9.7 m/s (35 km/h);
+- the 60 cm lane at 0.15 of the pack across 2.5 m+, windrow 1.14 m over the pack and 2 m wide on the right, the left
+  untouched, 103.5 m3 cut = laid;
+- a 12 m drift of 90 cm met at 13.3 m/s: through it, slowest 6.9 m/s, nothing called stuck;
+- Dyfjord road stretch at 0.9 (85 cm on the crown, where the pickup's blade stops 21 m in): DRIVEN with the keys down
+  the middle at a mean 5.6 m/s, opened 306 m along it in the one pass, road "open", the line names it;
+- blade up in 40 cm: 5.5 m in 8 s; turning circle 11.2 m at the truck's middle;
+- the control on keyboard, Xbox, DualSense and touch (pill BLADE DOWN / BLADE UP), the hold slews; reload keeps the
+  truck, the blade and its edge, blade up.
+Gate: smoke, x1_save, x4_plowtruck, x4_blade (gate.sh), then x4_bladectl, x4_bladeused, x3_tractor, x4_bladework,
+x4_bladetrip, x4_bladewear, x3_usedcap, x4_bladeroad (ONLY=CD and ONLY=BE: the whole run is over the 10 min tool
+limit) all exit 0, page errors none.
+Honest limits. Frame time with the bigger blade not measured (same code path as the pickup's, 3.5 m instead of 2.3:
+about half as many cells again a frame). The windrow beside a 60 cm cut stands 1.7 m over the ground right at the
+lane's edge: it reads as a wall in the stills, which is what such a cut leaves, but nobody has driven a sled over
+it. Back-dragging and the square blade with the truck were not run (the pickup's scenarios cover the code).
+Open for Lemon (defaults built): this truck has no horn on the use control, ever; the numbers are the design's.
+Next for lane A: 4.1c2 (the gritter).
+
 ## 2026-11-18 06:38 — 4.1b3a: used plow blades on Bytteboden, collected in a pickup (tlx-plow v7, tlx-vehicles v27, lane A) (G4) — 107b110
 Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0232 (last triaged -> 232;
 0233 read before landing): no BLOCKER or BUG. 0232 #1 (a slow patrol car drops behind a mild speeder) is POLISH on the
