@@ -2867,6 +2867,44 @@ function pressSnow(x, z, r, k) {
     }
   }
 }
+/* A plow blade (4.1a, tlx-plow.js). bladeSnow cuts every cell within 0.75 of a cell of the line a-b (the blade's edge at one
+   moment) down to `leave` of the snowpack and returns the m3 it took off. heapSnow lays `vol` m3 over the cells within r of
+   (x, z), shared out, never past `cap` m above the snowpack, and returns the m3 it placed: a windrow is snow standing
+   deeper than the pack (d > f), which every reader of pack clamps to "loose snow that deep". Both mark the cells c.g, so
+   snowfall eases them back at a third of the rate. Cells are not saved: a reload starts every cell at its target. */
+function bladeSnow(ax, az, bx, bz, leave) {
+  const R = CELL * 0.75, ux = bx - ax, uz = bz - az, uu = ux * ux + uz * uz, A = CELL * CELL; let vol = 0;
+  for (let iz = Math.max(0, Math.floor((Math.min(az, bz) - R + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((Math.max(az, bz) + R + HALF) / CELL)); iz++) {
+    const wz = iz * CELL - HALF - az;
+    for (let ix = Math.max(0, Math.floor((Math.min(ax, bx) - R + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((Math.max(ax, bx) + R + HALF) / CELL)); ix++) {
+      const wx = ix * CELL - HALF - ax, t = uu > 0 ? clamp((wx * ux + wz * uz) / uu, 0, 1) : 0;
+      if (Math.hypot(wx - ux * t, wz - uz * t) > R) continue;
+      const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k], tg = f * leave;
+      if (d0 <= tg + 0.002) continue;
+      c.d[k] = tg; writeCell(ix, iz, d0, tg, f); vol += (d0 - tg) * A;
+      if (!c.g) c.g = new Uint8Array(CH * CH); c.g[k] = 1;
+    }
+  }
+  return vol;
+}
+function heapSnow(x, z, r, vol, cap) {
+  const A = CELL * CELL, cells = []; let left = vol;
+  for (let iz = Math.max(0, Math.floor((z - r + HALF) / CELL)); iz <= Math.min(FN - 1, Math.ceil((z + r + HALF) / CELL)); iz++)
+    for (let ix = Math.max(0, Math.floor((x - r + HALF) / CELL)); ix <= Math.min(FN - 1, Math.ceil((x + r + HALF) / CELL)); ix++) {
+      const wx = ix * CELL - HALF, wz = iz * CELL - HALF;
+      if (Math.hypot(wx - x, wz - z) <= r && !isSea(wx, wz)) cells.push(ix, iz);
+    }
+  for (let pass = 0; pass < 2 && left > 1e-5 && cells.length; pass++) {            // a second pass shares what the capped cells could not take
+    const each = left / (cells.length / 2 * A);
+    for (let i = 0; i < cells.length; i += 2) {
+      const ix = cells[i], iz = cells[i + 1], c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k], add = Math.min(each, f + cap - d0);
+      if (add < 0.001) continue;
+      c.d[k] = d0 + add; writeCell(ix, iz, d0, d0 + add, f); left -= add * A;
+      if (!c.g) c.g = new Uint8Array(CH * CH); c.g[k] = 1;
+    }
+  }
+  return vol - left;
+}
 // every obstacle (tree, building, rock) whose cell is within R of the point; the caller does the exact test
 function obstaclesNear(x, z, R) {
   const out = [];
@@ -17622,6 +17660,8 @@ function initExpansion() {
       laneRoute, townStreetNear, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
       // road snow (3.2): re-read the plow map round legs whose Y.k changed (addLane returns its legs)
       replow: plowRefresh,
+      // the plow blade (4.1a): cut a line of cells down, heap what came off beside it
+      bladeSnow, heapSnow,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
       terrain: { ground, bio, res: GRES, n: GN, refresh: farRefresh } },
     mesh: { box, cyl, ball, std },

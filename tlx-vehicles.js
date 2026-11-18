@@ -367,7 +367,9 @@ function runtime(r) {
   sw.add(mesh(bake([{ g: ring, c: 0x15171a }, { g: spoke, c: 0x15171a }, { g: hubG, c: 0x15171a }]), M.solid, false)); grp.add(sw);
   R.bed = null;
   api.scene.add(grp);
-  RT.set(r.uid, R); return R;
+  RT.set(r.uid, R);
+  for (const f of MODELS) f(R);                                                 // 4.1a: a blade on its nose
+  return R;
 }
 function dropRuntime(uid) { const R = RT.get(uid); if (!R) return; api.scene.remove(R.grp); RT.delete(uid); }
 
@@ -411,6 +413,13 @@ const GR = 9.81;
    more grip, more rolling), drag (N, its own axles' rolling), brakeN (N its own brakes add), hold (true: it can't be driven, e.g. landing legs still down), held (true: it is holding the truck from backing up right now and has said why) }. */
 const LOADS = [], XL0 = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false };
 function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r; } return XL0; }
+/* 4.1a (tlx-plow.js, the blade): what a wheeled truck's use control does besides the horn, and things built onto its model.
+   TLXV.addUse({ use(R) -> true if it took the press, label(R) -> the touch pill's word or null, hint(R) -> a hint line or "" }).
+   TLXV.onModel(fn(R)): called once for every wheeled truck's runtime, as it is built (and at once for those built already).
+   A load may also answer `why`: a sentence for when it is the thing holding a truck that can't pull away. */
+const USES = [], MODELS = [];
+function addUse(u) { USES.push(u); }
+function onModel(f) { MODELS.push(f); for (const R of RT.values()) if (!R.impl) f(R); }
 // where a truck you own stands right now (the one you're in, or nearest on foot, is P): { x, z, yaw, def, cur }
 function truckPose(uid) { const r = rec(uid); if (!r || KINDS[r.id]) return null; const cur = S().cur === uid, p = cur ? api.P : r; return { x: p.x, z: p.z, yaw: p.yaw, def: byId(r.id), cur }; }
 function core(R, dt) {
@@ -622,6 +631,7 @@ function stillWhy(R, rev, sinkS, sf) {
      a crawl that went on to make 6 m opened with "ease off", and reverse never had this check (beta 0140 #2/#3) */
   const mov = rev ? -(R.vfA || 0) : (R.vfA || 0);
   if (R.stillT < 3 && (mov > 0.05 || (!rev && Math.min(R.fe || 0, R.t0 || 0) > need * 1.005))) { R.stillTold = false; return; }   // held 3 s and still no 0.4 m: something unseen holds it, say so below
+  if (!rev) { const xw = xLoad(R.rec.uid).why; if (xw) { R.why = "load"; api.toast(xw, "warn"); return; } }   /* 4.1a: the blade is what holds it, and says so */
   /* stuck in the snow on a road that has drifted shut (3.2b), or on the fell road nobody plows: say that, not how to drive */
   if (sinkS > 0.07 && window.TLXR && TLXR.drift) { const dr = TLXR.drift(api.P.x, api.P.z); if (dr) { R.why = "drift"; api.toast(dr, "warn"); return; } }
   /* "ease off" is only right when the wheels spin and dig; a truck that pushes without spin is short of push, not digging */
@@ -964,7 +974,10 @@ function makeDriver(R) {
     eye(v) { R.grp.updateMatrixWorld(true); return R.grp.localToWorld(v.set(d.eye[0], d.eye[1], d.eye[2])); },
     mount: () => doMount(R), dismount: () => doDismount(R),
     mountTick: dt => mountTick(R, dt), dismountTick: dt => dismountTick(R, dt),
-    nearMount: () => nearMount(R)
+    nearMount: () => nearMount(R),
+    use: () => { for (const u of USES) if (u.use && u.use(R)) return true; return false; },          // 4.1a: false = the horn, as before
+    useLabel: () => { for (const u of USES) { const l = u.label && u.label(R); if (l) return l; } return null; },
+    useHint: () => { for (const u of USES) { const h = u.hint && u.hint(R); if (h) return h; } return ""; }
   };
 }
 
@@ -1856,5 +1869,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

@@ -187,6 +187,10 @@ await section("G seen again in the search: the same chase", async () => {
     if (m === "pursuit" && lh !== null) { if (!sn && !ls) { R.n++; R.up = Math.max(R.up, h - lh); } else if (sn) R.seenUp = Math.max(R.seenUp, h - lh); } lh = m === "pursuit" ? h : null; ls = sn;
     if (m !== lm || gameClock - lt >= 1) { lm = m; lt = gameClock; R.tl.push(gameClock.toFixed(1) + " " + m + " heat " + Math.round(h) + " ch " + TLXP.S().rec.chases + " seen " + (sn ? 1 : 0) + " | " + TLXP.cops.map(c => c.on ? c.st + "/" + c.task + " " + Math.round(Math.hypot(c.x - P.x, c.z - P.z)) + "m" : "off").join(" | ")); } }, 40); return true; })()`);
   const p = await until(`TLXP.mode === "pursuit"`, 20);
+  /* 0214 #1: the toast recorder is armed here, as the first pursuit starts (its "They're after you" cleared away), not after
+     the search is seen: in a full run a cruiser could find you again between the two and the test then wiped the line it was about to look for */
+  await ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw2 = []; if (!window.__tsawI2) window.__tsawI2 = setInterval(() => { const a = window.__tsaw2; for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
+    return true; })()`);
   await driveV(40);
   const sr = await until(`TLXP.mode === "search"`, 40);
   const h0 = await J(`({ heat: TLXP.S().heat, chases: TLXP.S().rec.chases, up: window.__gh.up, n: window.__gh.n })`);
@@ -194,8 +198,7 @@ await section("G seen again in the search: the same chase", async () => {
   ok(p && sr && h0.chases === 1, "G2: warned, ran, outran the first cruiser: SEARCH, one chase");
   ok(h0.n >= 10 && h0.up < 0.01, "G2: 144 km/h with no cruiser in sight: heat held (" + h0.n + " samples unseen in the pursuit, biggest rise " + h0.up.toFixed(3) + ")");
   // the second cruiser, standing on the verge 70 m up the road with its lights on
-  await ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw2 = []; if (!window.__tsawI2) window.__tsawI2 = setInterval(() => { const a = window.__tsaw2; for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
-    const d = window.__drv, q = TLXT.lanePt(d.id, d.s + 70, 1); const c = TLXP.put(1, q.x + Math.cos(q.yaw) * 4, q.z - Math.sin(q.yaw) * 4, q.yaw + Math.PI, "go"); c.hold = 1e9; return true; })()`);
+  await ev(`(() => { const d = window.__drv, q = TLXT.lanePt(d.id, d.s + 70, 1); const c = TLXP.put(1, q.x + Math.cos(q.yaw) * 4, q.z - Math.sin(q.yaw) * 4, q.yaw + Math.PI, "go"); c.hold = 1e9; return true; })()`);
   const again = await until(`TLXP.mode === "pursuit"`, 6, 60);
   const b = await J(`({ mode: TLXP.mode, chases: TLXP.S().rec.chases, heat: TLXP.S().heat, task: TLXP.cops[1].task, said: [...new Set(window.__tsaw2.concat((TOASTQ || []).map(t => t.msg), [...$("toasts").children].map(c => c.textContent)))] })`);   /* 0213 #1: the mode poll can win the race with the 80 ms recorder, so read what is up right now too */
   console.log("G2 seen again", JSON.stringify(b));

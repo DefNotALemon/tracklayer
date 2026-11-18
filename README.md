@@ -904,6 +904,38 @@ hitched and strapped through a reload. Unhitch the sled's own drag or trailer be
 a sled towing a rig can't be strapped on, and the garage won't fit a rig to a sled that's strapped
 down (unstrap it first; a rig put on any other way takes the straps off and says so).
 
+## The plow blade
+
+The garage has a **Plow** tab. The **Fjellskjær 2.3** ($1,450) is a 2.3 m steel blade for the
+Fjellvogn, slewed so it throws to the right and clears a lane just over two metres wide. The pickup
+has to stand within 60 m of the garage to have it fitted. Taking it off puts it in the garage's
+shed, and fitting it again costs nothing. It adds 280 kg on the truck's nose.
+
+**Dropping it.** In a truck with a blade, the use control (**E**, **L3** on a pad, the **BLADE
+DOWN** / **BLADE UP** button on touch) drops and lifts it. That control is the horn in any other
+truck; a truck wearing a blade has no horn on it.
+
+**Plowing.** With the blade down and the truck rolling forward, the snow in front of the bumper is
+cut down to the level of a plowed yard, and what came off is thrown into a windrow along the
+right-hand side. Your wheels follow in the cut, so the pickup doesn't sink the way it does in
+powder: what holds it back now is the push on the blade. That grows with the depth of the snow and
+steeply with speed. About 30 cm is steady work at 20 km/h, 60 cm is a crawl at 12 km/h, and a
+drift that stands over the top of the blade stops the truck with a line telling you to lift it,
+back up and take it in bites. Reversing with it down drags a little.
+
+**Start from cleared ground.** The blade only clears what is in front of it. Drop it while the
+truck is standing in deep snow and the wheels are still in snow it never reached: the hint says
+so. Back up to a yard, a road or your own cut and plow in from there. Rolling slowly through
+shallower snow you can drop it on the move and it cuts its own way out.
+
+**The hint.** In a bladed truck, slow or stopped with snow worth cutting ahead, the hint offers the
+control to drop it. With it down it gives your speed and the depth being cut, or says there is
+nothing to cut.
+
+A lane cut across open country snows in again with the weather and is not kept in the save (the
+blade comes back up after a reload, too). Being paid for plowing, and roads staying open because
+you cleared them, come next.
+
 ## The hitch and bigger work
 
 The garage sells the tow-behind rigs, one on the hitch at a time. You need a **hitch receiver**
