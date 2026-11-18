@@ -735,7 +735,13 @@ function bladeLine(uid, d) {
    plowed by the council without a warning. The Jobs app has a row per contract road with work on it (api.jobx).
    SAVED in x.sys.plow: con { routeId: { name, since, strikes, due: { stretch: [clock hours, was shut 0/1] }, cover, told,
    warned, clean, wk (cash this week), wkM (metres this week) } }, conBan { routeId: game hour it is tendered again },
-   conLast [statements], conPaid, conH (the game hour last stepped). */
+   conLast [statements], conPaid, conH (the game hour last stepped).
+   THE KOMMUNE'S FILE (beta 0246 #1/#2): HAND BACK does not wipe the slate. conRec { routeId: { strikes, due } } is what
+   the kommune remembers of a road you no longer hold: its warnings, and the clocks of the stretches that still had
+   snow on them (conStep keeps those running until the council's plow, a skip or a thaw clears the stretch). SIGN picks
+   both up again, and a re-signed road with warnings on file must be held a whole clean week before a Monday strikes
+   one off. Handing a road back with a stretch shut PLC.lateH / 2 hours or more (the hour the "wants it open" line is
+   said) is itself a warning, the third one a ban like any other; the clocks are then dropped (one warning a stretch). */
 const PLC = { perM: 0.25, due: 0.12, fullH: 3, lowH: 8, low: 0.5, lateH: 8, staleH: 24, strikes: 3, banH: 168 };
 const conR = () => { const TR = window.TLXR; return TR && TR.ready ? TR.routes.filter(r => !r.closed && !r.convoy && r.st && r.seg) : []; };
 const conK = h => 1 - (1 - PLC.low) * Math.max(0, Math.min(1, (h - PLC.fullH) / (PLC.lowH - PLC.fullH)));   // the share of the pay left after h hours on the clock
@@ -755,37 +761,62 @@ function conTidy(s) {
     for (const k of Object.keys(c.due)) { const d = c.due[k]; if (!Array.isArray(d) || !Number.isFinite(d[0])) delete c.due[k]; else { d[0] = Math.max(0, d[0]); d[1] = d[1] ? 1 : 0; } }
   }
   for (const id of Object.keys(s.conBan)) if (!Number.isFinite(s.conBan[id])) delete s.conBan[id];
+  if (!obj(s.conRec)) s.conRec = {};
+  for (const id of Object.keys(s.conRec)) {
+    const q = s.conRec[id]; if (!obj(q)) { delete s.conRec[id]; continue; }
+    q.strikes = Math.floor(num(q.strikes, 0, PLC.strikes - 1)); if (!obj(q.due)) q.due = {};
+    for (const k of Object.keys(q.due)) { const d = q.due[k]; if (!Array.isArray(d) || !Number.isFinite(d[0])) delete q.due[k]; else { d[0] = Math.max(0, d[0]); d[1] = d[1] ? 1 : 0; } }
+    if (!q.strikes && !Object.keys(q.due).length) delete s.conRec[id];
+  }
 }
+const conQuitCost = c => !!c && !c.cover && Object.keys(c.due || {}).some(k => c.due[k][1] && c.due[k][0] >= PLC.lateH / 2);   // would HAND BACK be a warning now?
 function conSign(id) {
   const s = S(), r = conR().find(q => q.id === id), H = api.GS.hour; if (!r || !s || s.con[id]) return false;
   if (!Object.keys(s.blades).length) { api.toast("The kommune tenders a road to someone with a plow. Fit a blade to a truck first: the garage's Plow tab.", "warn"); return false; }
   if (s.conBan[id] > H) { const dys = Math.max(1, Math.ceil((s.conBan[id] - H) / 24)); api.toast(`The kommune took the ${r.name} back from you. It tenders it again in ${dys} day${dys === 1 ? "" : "s"}.`, "warn"); return false; }
   delete s.conBan[id];
-  s.con[id] = { name: r.name, since: H, strikes: 0, due: {}, cover: false, told: false, warned: false, clean: true, wk: 0, wkM: 0 };
-  api.toast(`The ${r.name} is yours to plow: ${api.fmtCash(Math.round(400 * PLC.perM * api.payMul()))} for every 400 m stretch you open inside ${PLC.fullH} h of the weather easing. The council's plow stays home on it.`, "good");
+  const q = s.conRec && s.conRec[id], st = q ? q.strikes : 0, due = {};          // the kommune's file on this road: its warnings and the clocks still running
+  if (q) { for (const k of Object.keys(q.due)) if (r.seg[k] && r.seg[k].legs.length && r.st.s[k] >= PLC.due) due[k] = [q.due[k][0], q.due[k][1]]; delete s.conRec[id]; }
+  const on = Object.keys(due).length > 0;
+  s.con[id] = { name: r.name, since: H, strikes: st, due, cover: false, told: on, warned: on && Object.keys(due).some(k => due[k][1] && due[k][0] >= PLC.lateH / 2), clean: !st, wk: 0, wkM: 0 };
+  api.toast(`The ${r.name} is yours to plow: ${api.fmtCash(Math.round(400 * PLC.perM * api.payMul()))} for every 400 m stretch you open inside ${PLC.fullH} h of the weather easing. The council's plow stays home on it.` + (st ? ` The kommune's file on it still holds ${st === 1 ? "a warning" : st + " warnings"} against you.` : "") + (on ? " The clock on its snow never stopped." : ""), "good");
   api.save(); conRefresh(); return true;
 }
 function conQuit(id) {
   const s = S(), c = s && s.con && s.con[id]; if (!c) return false;
-  delete s.con[id]; api.toast(`You've handed the ${c.name} back. The council's plow has it again.`);
+  const r = conR().find(q => q.id === id), cost = !!r && conQuitCost(c);
+  if (cost && conStrike(c, r, "quit")) return true;                               /* the third warning: taken back, banned */
+  const due = {}; if (!cost && !c.cover) for (const k of Object.keys(c.due || {})) due[k] = [c.due[k][0], c.due[k][1]];
+  if (!obj0(s.conRec)) s.conRec = {};
+  if (c.strikes > 0 || Object.keys(due).length) s.conRec[id] = { strikes: c.strikes, due }; else delete s.conRec[id];
+  delete s.con[id];
+  if (!cost) api.toast(`You've handed the ${c.name} back. The council's plow has it again.` + (c.strikes ? ` The kommune keeps ${c.strikes === 1 ? "the warning" : "the " + c.strikes + " warnings"} on that road's file.` : ""));
   api.save(); conRefresh(); return true;
 }
+const obj0 = v => !!v && typeof v === "object" && !Array.isArray(v);
 function conStrike(c, r, slept) {
   const s = S(); c.strikes++; c.clean = false;
   if (c.strikes >= PLC.strikes) {
     delete s.con[r.id]; s.conBan[r.id] = api.GS.hour + PLC.banH;
+    if (s.conRec) delete s.conRec[r.id];
     api.toast(`Third warning: the kommune has taken the ${r.name} back. It will not tender it to you again for a week.`, "bad");
     api.save(); conRefresh(); return true;
   }
-  api.toast(slept ? `The ${r.name} lay shut while you were away and the kommune's own truck opened it. Warning ${c.strikes} of ${PLC.strikes} on that contract.`
+  api.toast(slept === "quit" ? `You've handed the ${r.name} back with a stretch lying shut, and the kommune's own truck has to go out. Warning ${c.strikes} of ${PLC.strikes}, kept on that road's file.`
+    : slept ? `The ${r.name} lay shut while you were away and the kommune's own truck opened it. Warning ${c.strikes} of ${PLC.strikes} on that contract.`
     : `The ${r.name} has lain shut ${PLC.lateH} h: the kommune's own truck is going out. Warning ${c.strikes} of ${PLC.strikes} on that contract.`, "warn");
   api.save(); conRefresh(); return false;
 }
 function conStep() {
   const s = S(), TR = window.TLXR; if (!s || !s.con || !TR || !TR.ready || !api.started()) return;
   const H = api.GS.hour, dh = s.conH < 0 || H < s.conH ? 0 : H - s.conH; s.conH = H;
-  const ids = Object.keys(s.con); if (!ids.length) return;
+  const ids = Object.keys(s.con), recs = obj0(s.conRec) ? Object.keys(s.conRec) : []; if (!ids.length && !recs.length) return;
   const rs = conR(), WX = api.WX, RD = TR.ROADS, slept = dh > RD.skip;
+  for (const id of recs) {                                                       /* the file on a road handed back: its clocks run until the stretch is cleared */
+    const q = s.conRec[id], r = rs.find(v => v.id === id); if (!q || !obj0(q.due)) continue; if (!r) { delete s.conRec[id]; continue; }
+    for (const k of Object.keys(q.due)) { const g = r && r.seg[k]; if (slept || !g || !(r.st.s[k] >= PLC.due)) delete q.due[k]; else { if (WX.at(g.mx, g.mz) < RD.plowWx) q.due[k][0] += dh; if (r.st.s[k] >= RD.shut) q.due[k][1] = 1; } }
+    if (!q.strikes && !Object.keys(q.due).length) delete s.conRec[id];
+  }
   for (const id of ids) {
     const c = s.con[id], r = rs.find(q => q.id === id); if (!r) { delete s.con[id]; continue; }
     c.name = r.name;
@@ -858,18 +889,18 @@ function appRender(el) {
   h += `<div class="tsub">${mine} of ${rs.length} roads yours · ${cash(400 * PLC.perM * mul)} a 400 m stretch opened · paid so far ${cash(s.conPaid)}</div>`;
   if (!rs.length) h += `<p class="tnote2">The kommune has no road out to tender.</p>`;
   for (const r of rs) {
-    const c = s.con[r.id], ban = s.conBan[r.id] > H, n = r.seg.filter(g => g.legs.length).length, snow = r.seg.filter((g, i) => g.legs.length && r.st.s[i] >= PLC.due).length;
+    const c = s.con[r.id], ban = s.conBan[r.id] > H, file = !c && !ban && s.conRec && s.conRec[r.id] ? s.conRec[r.id].strikes : 0, n = r.seg.filter(g => g.legs.length).length, snow = r.seg.filter((g, i) => g.legs.length && r.st.s[i] >= PLC.due).length;
     const w = c ? conWork(c, r) : null;
     h += U.tabCard({ tf: "plc:" + r.id, title: r.name,
-      chips: c ? U.chip("YOURS", "ok") + (c.strikes ? U.chip(`WARNING ${c.strikes} OF ${PLC.strikes}`, "due") : "") + (w.shut ? U.chip("SHUT", "due") : w.n ? U.chip("SNOW ON IT", "heavy") : U.chip("CLEAR")) : ban ? U.chip("TAKEN BACK", "due") : U.chip("OUT TO TENDER"),
+      chips: c ? U.chip("YOURS", "ok") + (c.strikes ? U.chip(`WARNING ${c.strikes} OF ${PLC.strikes}`, "due") : "") + (w.shut ? U.chip("SHUT", "due") : w.n ? U.chip("SNOW ON IT", "heavy") : U.chip("CLEAR")) : ban ? U.chip("TAKEN BACK", "due") : U.chip("OUT TO TENDER") + (file ? U.chip(`WARNING ${file} OF ${PLC.strikes} ON FILE`, "due") : ""),
       meta: `${(r.len / 1000).toFixed(1)} km · ${n} stretches · ${cash(r.len * PLC.perM * mul)} for the whole road opened inside ${PLC.fullH} h`,
       note: c ? (w.n ? `${w.n} stretch${w.n === 1 ? "" : "es"} to open, ${(w.m / 1000).toFixed(1)} km: ${conState(c, w)}.` : "Nothing on it to plow.") + ` This week: ${cash(c.wk)} for ${(c.wkM / 1000).toFixed(1)} km.`
         : snow ? `${snow} of its stretches have snow on them now. Until it is signed the council's plow goes out once the weather eases.` : "Plowed and open. The council's plow keeps it until someone signs for it.",
-      warn: c ? (c.cover ? "The kommune's own truck is opening it this once. What it opens is not paid." : "") : ban ? `Taken back after ${PLC.strikes} warnings. Out to tender again in ${Math.max(1, Math.ceil((s.conBan[r.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : "",
+      warn: c ? (c.cover ? "The kommune's own truck is opening it this once. What it opens is not paid." : conQuitCost(c) ? "A stretch has lain shut too long to walk away from: handing the road back now is a warning." : "") : ban ? `Taken back after ${PLC.strikes} warnings. Out to tender again in ${Math.max(1, Math.ceil((s.conBan[r.id] - H) / 24))} days.` : !has ? "Fit a blade to a truck first: the garage's Plow tab." : file ? `The kommune's file on this road holds ${file === 1 ? "a warning" : file + " warnings"} against you. Sign again and ${file === 1 ? "it comes" : "they come"} with it.` : "",
       pay: c ? `${cash(400 * PLC.perM * mul)} a stretch` : "", act: (c ? "plq:" : "pls:") + r.id, actLabel: c ? "HAND BACK" : "SIGN", blocked: !c && (!has || ban) });
   }
   if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${((+q.m || 0) / 1000).toFixed(1)} km · +${cash(+q.pay || 0)}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
-  h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off.</p>`;
+  h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='pls:']")) b.addEventListener("click", () => conSign(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='plq:']")) b.addEventListener("click", () => conQuit(b.dataset.act.slice(4)));
@@ -879,13 +910,13 @@ let conT = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { PLC, con: { routes: conR, sign: conSign, quit: conQuit, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {} }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();

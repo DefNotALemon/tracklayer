@@ -1014,7 +1014,13 @@ earned. A contract is at risk when the road is left: a stretch that lies **shut*
 that you sleep through, is opened by the kommune's own truck, unpaid, and is a **warning** (a line
 tells you at 4 hours). Three warnings and the road is taken back and not tendered to you for a
 week; a Monday after a week without one strikes a warning off and writes the week's statement.
-**HAND BACK** returns a road to the council whenever you like.
+**HAND BACK** returns a road to the council whenever you like, but it does not wipe the slate: the
+kommune keeps a road's warnings on file (the card of a road you gave up reads **WARNING 2 OF 3 ON
+FILE**) and they come back with it when you sign again, where it then takes a whole clean week held
+before a Monday strikes one off. The clock on a stretch that still has snow on it keeps running
+while the road is out of your hands, and handing a road back with a stretch that has lain shut 4
+hours or more is a warning in itself (the card says so before you press); the third warning takes
+the road back for a week however it was earned.
 
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
