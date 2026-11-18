@@ -3,6 +3,49 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 14:40 — 4.2c2a: a lot's heap: cut is not clear while your snow stands in its middle (tlx-plow v18, lane A) (G4) — d15b5df
+Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 170 GB free. Triage 0258 (last triaged -> 258):
+3.3b dig reload, no BLOCKER, no BUG. POLISH left open: 0258 #3 (a part-dug car still quotes and pays from where it
+began, `b0`, not from what is left). Next unticked slice: 4.2c2, which had four lines of design. Probed, designed,
+split in two; 4.2c2a built this pass.
+What the player gets. A lot is not clear, and not paid, while more than 1.5 m3 of the blade's own snow stands in its
+middle. The outer 2.5 m of a lot, away from doors, is the bank. Cut the lot with a heap in the middle and a line says
+how much stands there; the riding hint (blade up or down), the card (HEAP IN THE MIDDLE), the Jobs row ("Bank your
+heap in ...") and the Map pin keep saying it, the clock runs on, and the owner pays the moment the heap is at the edge.
+Left 12 h, slept through or dropped: shifted by hand, a miss. A lot nobody took on, and a lot worked towards its rim,
+are as before.
+How. All in tlx-plow.js, no tracklayer.js change, no new state key outside `lot[id]` (`hp`, `hv`, `hx`, `hz`).
+`lotBuild` marks each reachable square middle or bank; `lotCut` replaces the direct `lotDone` at four fifths: the ground
+goes back to the yard's level (heaped cells stay: `replow`'s keep), `lotHeap` measures what stands over 12 cm above the
+settled level in the middle; under the limit it pays as 4.2c1 did, over it the lot is held. `lotStep` measures again
+when the blade has cut or laid snow there (`lotLay` from `heapAt`, `lotMark`) and every 10 s near it, pays under the
+limit, forgets the hold on new snow, and lays the heap again after a reload (`lotWake`). `lotShovel` for the owner's
+hand. Option `plowheaps`.
+Numbers (`x4_lotheap.mjs`, new, 44 asserts, all ok, page errors none):
+- middle: 86 of 135 squares at the helsesenter's forecourt, 183 of 274 at the sled park;
+- the forecourt cut in 7 passes that throw onto cut ground: held with 9.9 m3, $0; after a reload near it 9.8 m3 back;
+  2 h later still held; three passes through it towards the west rim: 0.7 m3 left in the middle, 8.2 m3 standing in the
+  bank and beyond, +$86 in full at 3.1 h;
+- the sled park worked east to west (always throwing onto uncut snow): held at pass 7 with 32 m3, clear and +$148 at
+  pass 8 of 11, never going back;
+- held and left 12 h / slept through / DROP pressed on the touch layout: a miss each (on file after the DROP), no pay,
+  0.00 m3 left in the middle; 1.5 h of new storm: not held, marks gone, snowed in at 0.72;
+- option off: a held lot is paid, a heap at the cut is ignored; a 2.5 m3 heap on the bank and 0.2 m3 in the middle
+  both pay at the cut; junk in `hp` / `hv` / `hx` tidied; `lotHeap` 1.1 ms on the sled park.
+Stills (`~/.hermes/cache/scratch/tlloop/a_42c2a/run3/`, all three looked at): h2 the forecourt held, the windrows
+standing as ridges across the cut ground and the hint readable in two lines; h1 the card with YOURS / HEAP IN THE
+MIDDLE, the note and the DROP warning, nothing clipped; h3 the middle bare and one bank at the lot's edge.
+Gate: smoke, x1_save, x4_lotheap, x4_lots, x4_dropfile, x4_bladedoors, x4_driveways, x4_plowapp exit 0, page errors
+none. `x4_lots.mjs` now runs with `plowheaps` off (its 4.2c1 passes throw onto cut ground by design; the heap is
+x4_lotheap's). The beta's `x4_lots_break.mjs` fails 2 asserts, the same 2 on origin/main (checked with `TL_SRC`): it
+expects the free DROP that the 0257 fix removed. Not touched: the tester's file.
+Not done: the bank does not know the lot's way in from the street; snow thrown onto parked sleds or against a wall
+counts as banked; the heap laid again after a reload is one round pile, not the old windrows; no warning before the cut
+that a heap is building; pad focus on the card's buttons not driven; the puppet's truck is carried through the
+helsesenter's porch (a test artefact, visible in the stills).
+Open for Lemon (defaults built): 1.5 m3, a 2.5 m bank, 4 m round a door; a miss when left rather than a smaller pay.
+Next for lane A: 4.2c2b (a heap left in a street is the kommune's complaint; closes 4.2), then 5.4 plow drivers.
+
 ## 2026-11-18 13:45 — beta fix 0257 #1/#2: DROP and TAKE ON again no longer wipes a lot's or a drive's misses (tlx-plow v17, lane A) (G4) — 93b0666
 Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 171 GB free. Triage 0256, 0257 (last triaged ->
 257): one BUG, 0257 #1 (an exploit), taken this pass with its POLISH twin #2. No BLOCKER. POLISH left open: 0256 #3
