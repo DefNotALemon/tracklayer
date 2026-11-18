@@ -3,6 +3,48 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 13:05 — 4.2c1: lots plowed by the square metre (v253, tlx-plow v16, lane A) (G4) — c7ce1b3
+Builder pass, lane A. Orient: worktree clean, rebased on main (v252), 171 GB free. Triage 0254, 0255 (last triaged ->
+255): no BLOCKER, no BUG. POLISH left open: 0254 #4 (pad B takes two presses to put the tablet away when it was opened
+straight onto an app: base tablet), 0254 #5 (the Plow app opens on Road contracts and what is due sits below the fold:
+put due drives / lots / doors first), 0254 #7 (README says "touch MAP button", a cab's sys bar shows only TABLET: check
+the wording), 0255 #4 (a stale `mk` stays in the save until asked: harmless). Next unticked slice: 4.2c, which had one
+line of design. Probed, designed, split in two; 4.2c1 built this pass.
+What the player gets. A third kind of plowing work in the Plow app: Lots. The sled park at the trailhead and the
+helsesenter's forecourt can be taken on like a drive. Taken on, a lot snows in with the weather; a line, a Jobs row and
+a Map pin say so. It is plowed by the square metre: passes side by side with the blade down, forward or back-dragging,
+the riding hint and the lot's card counting the share done. At four fifths it is clear and paid at once, $25 + $0.45
+a m2 ($148 / $86), in full inside 4 h of the weather easing, half at 12 h. Left 12 h or slept through: dug out by
+hand, no pay, a miss; two and it is gone a week. A lot nobody took on is exactly as before.
+How. The probe (2 m squares a truck can reach, per plowed yard) left two candidates: the garage forecourt is three
+pockets between pumps and sheds, the depot yard and the store and church fronts are mostly street, and there is no
+hotel yet (7.2, lane B). The place now lists its lots: `LOTS` in tracklayer.js (`api.world.lots`), a row pushed by
+`sledCountry` and by the helsesenter, so the hotel is one more row later. Everything else is tlx-plow.js, state in
+`plow` (`lot`, `lotOff`, `lotH`, `lotPaid`, `lotN`; no new system id): `lotBuild` (1 m squares kept where plowed,
+1.2 m off walls and posts, off car spots and streets; a zero-length `addDrift` leg is the disc that snows in),
+`lotMark` (the squares under the blade's edge, called from `work()` beside `drvMark`), `lotStep` / `lotDone` /
+`lotGone` after the drives' own rules, `lotJob`, `lotCards`, `lotMonday`. The squares cut are saved (`mk`, `ms`).
+Numbers (`x4_lots.mjs`, new, 48 asserts, all ok, page errors none):
+- sled park 274 m2 ($148), helsesenter 135 m2 ($86), both 16-18 m from a street;
+- 3 h of storm: level 0.48, a square near the middle goes from plowing 1.00 to 0.50 and settles at 34 cm, not 9; the
+  other lot and the ground 6 m outside are unchanged;
+- the forecourt by puppet, passes 2 m apart: the first (its edge) marks 11 squares, 4 passes cut 68 of 135 (not paid,
+  the card reads 63%), a save and reload keeps the same `mk`, the 7th of 9 passes clears it: +$86, the line names it;
+- at 8 h it pays 75%; left 12 h: dug out, a miss; the second time gone 7 days, TAKE ON refused with the days; a 9 h
+  sleep over both: one line, a miss each; Monday: one "Lots" statement line; junk in the save tidied, nothing thrown;
+  TAKE ON and DROP pressed on the touch layout.
+Stills (`~/.hermes/cache/scratch/tlloop/b_a_42c1.jpg`, l3 looked at full size): the forecourt from above with four
+lanes cut through the snow, the pickup under the canopy, the hint reading "the helsesenter's forecourt: 63% plowed
+out"; the app's Lots cards read cleanly. The "cleared" still (l4) is only the chase camera (the overhead camera does
+not come back after the scenario's reload): it shows the truck on cut ground with a windrow beside it, no more.
+Gate: smoke, x1_save, x4_lots, x4_driveways, x4_bladedoors, x4_drivemarks, x4_plowapp, x4_blade exit 0, page errors
+none. x4_driveways' "fresh game" assert counted every `DRIFTS` leg as a drive: it now leaves the lots' discs out.
+Not done: where the heap may go (the windrows stand in a cleared lot and nobody minds), a heap left in a street, the
+hotel forecourt: all 4.2c2, design note written. Pad focus on the Lots buttons was not driven (DOM click with the touch
+layout on, as for the drives). Keyed driving was not tested: the puppet carried the truck (8 frames off the ground).
+Open for Lemon (defaults built): the numbers; that the helsesenter's forecourt may be taken on at all.
+Next for lane A: 4.2c2 (which closes 4.2 and milestone 4's list), then 5.4 plow drivers.
+
 ## 2026-11-18 12:30 — beta fix 0250 #1: a drive part cleared keeps its progress through a reload (tlx-plow v15, lane A) (G4) — bc07e3f
 Builder pass, lane A. Orient: worktree clean, rebased on main (v252), 171 GB free. Triage 0250-0253 (last triaged ->
 253): one BUG, 0250 #1 (low), taken this pass. No BLOCKER. POLISH left open, all in tlx-plow: 0250 #6 (62-71 ms a frame
