@@ -1035,6 +1035,21 @@ hours, or sleep through it, and the customer digs it out by hand: no pay, and th
 find someone else for a week (a paid clearing wipes the first miss). **DROP** gives a drive back for
 nothing. Monday's statement has one line for all the drives you cleared that week.
 
+**Mind the doors.** The snow a blade moves has to end up somewhere, and the wrong place is somebody's
+way in: the front walk of a house (the few metres from its door to the street) or the mouth of a
+drive. Push a pile down a street throwing right and the windrow lies across every walk you pass;
+lift a square blade or stop a back-drag in a drive's mouth and the heap stays there. While you are
+still beside it the riding hint says **your snow lies across Sander's front walk**, and nothing else
+happens: nose in from the street and cut it away to one side (or slew the blade to throw the other
+way before you get there) and nobody ever knows. Drive on and it is on a clock: a line, a row in the
+Jobs app, a pin on the Map and a **Doors** list at the top of the Plow app. Clear it and it is
+forgotten. Leave it 3 hours (the clock stands in a storm), or sleep through it, and the household
+digs it out by hand and holds it against you: a customer counts it exactly like a drive left snowed
+in (the second time you lose them for a week), a household that was only asking stops asking you
+for 3 days, and after three complaints in a week nobody new takes you on before Monday. It never
+costs cash. The mouth of your own snowed-in drive is your work site and is not counted until the
+drive is clear. Settings > Options > **Plow snow at doors** turns all of it off.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

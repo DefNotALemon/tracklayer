@@ -322,7 +322,9 @@ function addLane(pts, r, pk) { const legs = []; for (let k = 1; k < pts.length; 
 /* Road snow (3.2, tlx-roads.js): a road's legs change how hard they're plowed (Y.k) as storms fill them and the council
    plow clears them. plowRefresh(legs) re-reads the plow map round those legs: a loaded chunk that's just been plowed is
    cut down at once (as addPlow does); one that's snowing in is left to refill(), which raises it at the storm's rate. */
-function plowRefresh(legs) {
+/* keep (4.2b2, tlx-plow.js): leave what a plow blade heaped (heapSnow marks those cells c.g = 2) standing: a customer's
+   drive going back to plowed ground must not wipe the windrow lying across the door next to it. */
+function plowRefresh(legs, keep) {
   const keys = new Set(), S = CH * CELL;
   for (const Y of legs) {
     const R = Y.r + Y.f, xa = Math.min(Y.x, Y.x2) - R, xb = Math.max(Y.x, Y.x2) + R, za = Math.min(Y.z, Y.z2) - R, zb = Math.max(Y.z, Y.z2) + R;
@@ -334,7 +336,7 @@ function plowRefresh(legs) {
     const c = chunks[key]; if (!c) continue;
     const cx = key % CPR, cz = (key - cx) / CPR, y = yardOf(cx, cz);
     if (y) c.y = y; else delete c.y;
-    if (y) for (let k = 0; k < CH * CH; k++) { const tg = c.f[k] * (1 - YARD_K * y[k]), d0 = c.d[k]; if (d0 > tg + 0.003) { c.d[k] = tg; writeCell(cx * CH + (k & 31), cz * CH + (k >> 5), d0, tg, c.f[k]); } }
+    if (y) for (let k = 0; k < CH * CH; k++) { const tg = c.f[k] * (1 - YARD_K * y[k]), d0 = c.d[k]; if (d0 > tg + 0.003 && !(keep && c.g && c.g[k] === 2)) { c.d[k] = tg; writeCell(cx * CH + (k & 31), cz * CH + (k >> 5), d0, tg, c.f[k]); } }
   }
   return keys.size;
 }
@@ -2916,7 +2918,7 @@ function heapSnow(x, z, r, vol, cap) {
       const ix = cells[i], iz = cells[i + 1], c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), f = c.f[k], d0 = c.d[k], add = Math.min(each, f + cap - d0);
       if (add < 0.001) continue;
       c.d[k] = d0 + add; writeCell(ix, iz, d0, d0 + add, f); left -= add * A;
-      if (!c.g) c.g = new Uint8Array(CH * CH); c.g[k] = 1;
+      if (!c.g) c.g = new Uint8Array(CH * CH); c.g[k] = 2;                           /* 2: heaped (plowRefresh's keep); a cut puts it back to 1 */
     }
   }
   return vol - left;
@@ -17684,6 +17686,8 @@ function initExpansion() {
       bladeSnow, heapSnow,
       // driveways (4.2b): a strip that snows in over plowed ground; set leg.k (0..1) and replow([leg])
       addDrift,
+      // doors (4.2b2): the depth a cell settles back to, so what stands over it is a heap
+      restCell,
       // the road bed (3.1 fix): the 4 m ground grid a road cuts and fills, and the far terrain re-read from it after
       terrain: { ground, bio, res: GRES, n: GN, refresh: farRefresh } },
     mesh: { box, cyl, ball, std },
