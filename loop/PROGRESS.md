@@ -3,6 +3,41 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 15:40 — 5.4a1: a plow driver with their own truck on a contract road (tlx-plow v20, tlx-staff v6, lane A) (G4) — b5bfec6
+Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0262 (last triaged -> 262):
+no BLOCKER, no BUG; POLISH left open: 0262 #2 (x3_convoyline's "E: the hint" reads the riding hint once, a frame
+before it is written: poll it up to a second). Milestone 4 is done, so the next unticked slice in lane A's list is 5.4,
+which had one line of design. Wrote it into EXPANSION.md, split in four (a1 own truck, a2 your truck, b seen in the
+world, c stuck / ping / tow), built a1.
+What the player gets. A road contract is a job in the Staff app (which now shows for a road without Real Estate). Plow
+drivers apply: own truck and blade, $150 + $8 a year a week, 40% of the kommune's pay for the stretches they open
+(`PDR.cut`), the other 60% to you at once. The interview is a driver's (WHITEOUT? in place of the stove; a padded
+application caught on the reference drops to $160). Hired, the driver waits out the weather, takes 0.75 h / skill to
+get going, runs up the road at 12 km a game hour, plows at 4 km a game hour x skill, opens each due stretch at its
+far end by the stretch's own clock, sits out a storm where they are, and comes back in. Notifications when they set
+out and when they are back (stretches, your share); the Plow app's card (a DRIVER chip) and the Staff card say where
+they are; Monday's statement counts their stretches. Skill = (0.7 + 0.03 x REAL years to 10) x work trait x
+happiness; 0 while wages are owed. The contract's rules are untouched, so a slow driver's late stretch is your
+warning. A sleep: stretches they could reach before the 8 h are theirs (paid, no warning), the rest a warning as
+before. PRAISE / CRITICISE at the garage while they are in. Road handed back or taken: let go, paid to the hour.
+How. tlx-staff.js: `TLX.staff.addRole` / `addPlaces` / `at`; a ROLES row may carry its own words (`at`, `the`,
+`greet`, `qs`, `answer`, `note`, `tag`, `gone`, `kit`, `app`), a place `talk` / `spot`; the caretaker has none of
+them and reads exactly as before (x5_staff, x5_interview, x5_mood unchanged and passing). A crew member whose place
+is gone is now paid off through `leave()` when the role has `gone` (caretakers keep the old silent drop).
+tlx-plow.js: the block at `PDR` (`pdrRun` called per road at the top of `conStep`'s loop, `pdrSleep`, `pdrWhere`,
+`pdrAnswer`, `PDROLE`, `pdrPlaces`), `conPay(r, i, sn, share)`, state `pdr`. No tracklayer.js change.
+Numbers (x5_plowdriver.mjs, 53 asserts): skill 1.00 driver, two 400 m stretches at 50-60% snow: sets out 0.9 h after
+the snow, both open 0.3 h later, +$120 to you (2 x $60, the kommune pays $100 a stretch), back in, 0 warnings. Skill
+0.21 driver: needs 3.6 h to get going, a stretch 6 h shut is warning 1 of 3 before they leave. 9 h sleep: +$120, no
+warning; a stretch 7.6 h shut at bedtime: warning, unpaid. Half a week's wage on HAND BACK: $116 paid.
+Gate: smoke, x1_save, x5_plowdriver, x5_staff, x5_interview, x5_mood, x4_plowapp, x4_plowfile all exit 0, page errors
+none (x1_save's first run had the http.server script-fetch reset on a reload: all asserts passed, page errors from the
+half-loaded page; clean alone). Stills looked at: the applicant card, the interview, the driver's Staff card while out.
+Open / for the next passes: 5.4a2, 5.4b, 5.4c as written. Balance to watch: the contract roads are short (Dyfjord
+2.0 km = $500 a storm, Gamvik 2.5 km, Skjånes 5.8 km), so a $150-330 driver on 60% pays for themself only with a
+storm or two a week; `PDR.wage` / `PDR.cut` are the knobs. Not tested: pad and touch on a driver's card (the same
+tablet cards x5_staff presses with all three), two drivers on two roads at once.
+
 ## 2026-11-18 15:10 — 4.2c2b: a heap left in the street is the kommune's complaint (tlx-plow v19, lane A; milestone 4 done) (G4) — 6d90117
 Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 169 GB free. Triage 0259-0261 (last triaged ->
 261): no BLOCKER, no BUG. POLISH left open: 0259 #6 (a lot at level 0.10, just under "due", is still dropped and
