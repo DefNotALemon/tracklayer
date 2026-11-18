@@ -3,6 +3,34 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 16:00 — beta fix 0263 #1/#2: a heap on the line between two street lengths is one complaint; the option switched back on counts a standing heap (tlx-plow v21, lane A) (G4) — eead050
+Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0263-0265 (last triaged ->
+265): 0263 #1 is a BUG on lane A's own 4.2c2b, so it came before 5.4a2; 0263 #2 POLISH sat in the same forty lines and
+went with it. 0264 (3.3a cars) and 0265 (5.4a1 plow driver): no BLOCKER, no BUG. Left open: 0263 #6 NOTE (a 7 m3 heap
+measures 3.75 m3 in its length, the rest lies outside the lane: fine for the rule), 0264 #5 POLISH (a snowed car's
+owner wait restarts on a reload mid-storm; harmless), 0265 #7 (a test note).
+What the player notices. A blade that stops on the line between two 12 m lengths of a street no longer leaves a heap
+that is nobody's: beside it the riding hint says so, driven on it is ONE complaint with one Jobs row on the heap, and
+the kommune's truck takes both sides of it. The option off and on again: a heap standing within 150 m counts again
+once you drive on (clock from 0) instead of sitting there unowned until a blade lays more.
+How. tlx-plow.js, the `STR` block: each length carries `t0`/`t1` (its span plus `STR.join` 2 m into each neighbour on
+its own street; a street's ends are not extended, snow may go there) and `nb`; `strMeasure` and `strShovel` use the
+span; `strDup()` drops a length's pending note when a neighbour already holds a complaint within 3.5 m of the same
+middle of mass; `SN.off` (set while the option is off) makes the next step re-measure nearby lengths and note any at
+or over `STR.block` as laid just now. No save change, no tracklayer.js change.
+Numbers (`x4_streetjoin.mjs`, new, 29 asserts, all ok, page errors none): 1.0 m3 on the Nygata s0:8 / s0:9 line
+measured 0.44 / 0.52 m3 before (no complaint); now 0.84 m3 in both, one complaint of 0.84 m3 on the line, one Jobs
+row; 2.2 h on the truck came once for one heap and left 0 / 0 m3. Noted in both lengths by hand: still one. A 1.5 m3
+heap mid-length: its length 1.24 m3, the neighbours 0. Two heaps in two lengths: two complaints. Option off / on
+with both standing: the one beside you pending with the hint, the other a complaint at once, both after driving on.
+A complaint re-laid as after a reload: 0.71 m3, one complaint. 65 lengths, 0 m3 in any on a fresh game.
+Gate: smoke, x1_save, x4_streetheap, x4_streetheap_beta exit 0, page errors none (the beta scenario's boundary case
+now prints "complaint a=true b=false; jobs 1"); x4_streetjoin failed once in the gate on my own assert (the clock
+"=== 0" read 0.001 h of real ticking), loosened to < 0.05 h and clean alone. Still looked at: the heap on the line
+at night, truck beside it, the hint on screen.
+Known and left: pushing a heap ALONG the street out of one length into the next clears the first complaint and
+starts a new one with a fresh 2 h (so before this fix too). Next for lane A: 5.4a2 (a driver in your truck).
+
 ## 2026-11-18 15:40 — 5.4a1: a plow driver with their own truck on a contract road (tlx-plow v20, tlx-staff v6, lane A) (G4) — b5bfec6
 Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0262 (last triaged -> 262):
 no BLOCKER, no BUG; POLISH left open: 0262 #2 (x3_convoyline's "E: the hint" reads the riding hint once, a frame
