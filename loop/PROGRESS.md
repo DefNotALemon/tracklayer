@@ -3,6 +3,40 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-17 23:58 — beta fix 0211 #1: one chase is one chase, heat only while seen (tlx-police v3, lane A) (G4) — 03afc26
+Builder pass, lane A. Orient: worktree clean, rebased on main (v244), 173 GB free. Triage: 0211 (living world: police,
+flats) is the one report above 210; its #1 is a BUG. The living world has no lane; the cruisers are tlx-traffic cars
+(milestone 3) and nobody else would pick it up, so lane A took it. Last triaged -> 211. 0212 landed while building:
+left for the next pass.
+Cause, found by reproducing it first try (`ONLY=CDEFG`, a timeline recorder added to section G): fleeing a warning
+starts the pursuit at 40 heat, which is over the 35 that calls a second cruiser, so one is dispatched at once at a
+random spot on a road 380-900 m off. This time it was 368 m AHEAD on the driver's own road: seen in the search at 120 m,
+pursuit again, and 20 game s was not enough to lose that one too. Being headed off is the design. Two things under it
+were wrong:
+- `toPursuit` counted `rec.chases++` whenever the mode was not already pursuit, so search -> pursuit was a second chase:
+  "Chases 2 · 0 got away" from one run. Now a chase is counted once, from the order to stop to its end, and being seen
+  again says "They've seen you again." instead of a second "They're after you".
+- Heat rose `over * 0.5` a second whether or not anyone saw you: 40 -> 66 in three seconds with seen 0 and the HUD
+  reading "Pursuit: out of sight" (the header, the README and the Politi app all say heat builds while they see you).
+  Now both terms need eyes; out of sight it holds.
+Scenarios: x15 section G pins `RT.cd` so no second cruiser is called (it tests outrun -> search -> escape and asserts
+one chase); a new section stands a second cruiser 70 m up the road during the search. `clearWorld` zeroes `RT.cd`.
+`x15_police_break.mjs` (0211's): its "reload mid-pursuit" landed in clear because of the grace after the bust, and
+failed "mode sane" in the gate run when a slow run got a warn in (the designed result of that reload is a search, which
+its check refused). It now zeroes the grace, asserts it was warned, and asserts the search: 0211 #4 is covered.
+Numbers (x15 G, before): chases 2, escapes 0, heat 94 at the check. After: G chases 1, escapes 1, heat 40 flat through
+3 s unseen, clear after 7 s of search. New section: 76 samples unseen in the pursuit, biggest rise 0.000; search at
+heat 46; seen at 64 m, pursuit again, chases still 1, the one toast "They've seen you again."; seen at 144 km/h heat
+climbs 1.44 a step (46 -> 100 in 5 s); out of sight at 241 m, search 3 s later, clear 7 s after: 1 chase, 1 escape,
+cash 800, owed 0. police_break twice: reload mid-pursuit -> search heat 26, mid-warn -> search heat 13, owed 361 kept.
+Gate: smoke, x1_save, x15_living (all 15 sections, with stills) exit 0, page errors none; x15_police_break exit 1 in
+that run on the check described above, exit 0 twice after its fix. No still looked at: nothing drawn changed.
+Not done / seen on the way (LOOP backlog): a chasing cruiser crawls at 4-8 m/s on stretches of road; stopping with it
+out of sight took over 15 game s in one run with no bust (police_break's "cash 0 fine" check then passes on owed 0);
+escaping resets heat from any level (100 -> 0 after the search time: as designed, noted). No pad or touch run (no
+control involved). The second cruiser at 40 heat the instant you flee a warning is left as designed.
+Next for lane A: 0212 (3.5c2b break-it) triage, then milestone 4: 4.1 has no design notes yet, writing them is the pass.
+
 ## 2026-11-17 23:15 — 3.5c2b you in the convoy's line: fall in, the hint, the convoy waits for you, the Map flag for leaving (lane A) (G4) — ff7e88a
 Builder pass, lane A. Orient: worktree clean, rebased on main (v242), 174 GB free. Triage: nothing above 0207 at the
 start; 0208 (3.5c2a), 0209 (3.5c1) and 0210 (3.5b3a) landed while building: no BLOCKER or BUG in any, Last triaged

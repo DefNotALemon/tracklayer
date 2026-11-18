@@ -635,5 +635,17 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       nothing (packed tint, tyre grooves, berms) shows where the street is. 0183 #1: after tutSkip the "sled's right
       beside you" toast is wrong by 70 m. 0183 #3: retire or update `g1_townlots.mjs` (pre-grid lot offsets).
       0187 #3: the Map chart is a bright cream sheet at night.
+- [x] G4 living world (beta 0211 #1, BUG, fixed tlx-police v3, lane A): a second cruiser called to a chase is put on a
+      road 380-900 m off at random; ahead on your road it sees you in the search, which is meant, but that counted a
+      second chase in the record and heat rose up to 9 a second while nobody saw you. One chase now, heat only while
+      seen, "They've seen you again"; x15 section G no longer rolls that dice and a new section stages it.
+- [x] G4 living world (beta 0211 #4, not tested): a reload during an active warn or pursuit (0211's attempt landed in
+      "clear": the grace after a bust). The code turns any non-clear save into a search from where you are.
+      Covered since: `x15_police_break.mjs` zeroes the grace, reloads mid-warn / mid-pursuit and finds a search.
+- [ ] G4 living world (POLISH, builder 0211 pass): a chasing cruiser drops to 4-8 m/s on stretches of the road it is
+      following (x15 G timeline: v19 -> v5 within 3 s, 140 -> 210 m behind a 100 km/h sled; a second one did 7-8 m/s
+      on the road towards you). Stopping with it out of sight can take over 15 game s to be reached, or ends as an
+      escape because in a search it drives to where it LAST SAW you, not to you. Look at `extStep`'s heading pick
+      and `cap` on a road bend.
 
-Last triaged report: 210
+Last triaged report: 211
