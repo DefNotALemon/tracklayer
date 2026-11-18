@@ -197,7 +197,7 @@ await section("G seen again in the search: the same chase", async () => {
   await ev(`(() => { TOASTQ.length = 0; $("toasts").textContent = ""; window.__tsaw2 = []; if (!window.__tsawI2) window.__tsawI2 = setInterval(() => { const a = window.__tsaw2; for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80);
     const d = window.__drv, q = TLXT.lanePt(d.id, d.s + 70, 1); const c = TLXP.put(1, q.x + Math.cos(q.yaw) * 4, q.z - Math.sin(q.yaw) * 4, q.yaw + Math.PI, "go"); c.hold = 1e9; return true; })()`);
   const again = await until(`TLXP.mode === "pursuit"`, 6, 60);
-  const b = await J(`({ mode: TLXP.mode, chases: TLXP.S().rec.chases, heat: TLXP.S().heat, task: TLXP.cops[1].task, said: window.__tsaw2.slice() })`);
+  const b = await J(`({ mode: TLXP.mode, chases: TLXP.S().rec.chases, heat: TLXP.S().heat, task: TLXP.cops[1].task, said: [...new Set(window.__tsaw2.concat((TOASTQ || []).map(t => t.msg), [...$("toasts").children].map(c => c.textContent)))] })`);   /* 0213 #1: the mode poll can win the race with the 80 ms recorder, so read what is up right now too */
   console.log("G2 seen again", JSON.stringify(b));
   ok(again && b.task === "chase", "G2: seen by the cruiser ahead inside 120 m: PURSUIT again");
   ok(b.chases === 1, "G2: it is the same chase: the record still says 1 (" + b.chases + ")");
