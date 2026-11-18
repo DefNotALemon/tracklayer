@@ -3,6 +3,48 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 09:55 — 4.2a: the Plow app and the kommune's road contracts (tlx-plow v11, tlx-roads v14, lane A) (G4) — fc9e0c2
+Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0243 (last triaged -> 243):
+4.1c3 used plow truck, no finding. 4.1c is done, so the next slice is 4.2, which had no design: written into
+EXPANSION.md (what the code gives, what is decided, split 4.2a road contracts / 4.2b driveways with 4.1b3b's door
+count / 4.2c lots and the hotel forecourt) and 4.2a built in the same pass.
+What the player gets. A Plow app on the tablet once a blade is owned: the Dyfjord, Skjånes and Gamvik roads out to
+tender. SIGN (needs a blade on a truck) and the council's plow stays home on that road; each 400 m stretch with snow on
+it that your blade opens pays $100 at once, in full inside 3 h of the weather easing, half at 8 h. A stretch shut 8 h,
+or slept through, is opened by the kommune's own truck, unpaid, and is a warning; three take the road back for a week;
+a clean week strikes one off on Monday, with a statement. Jobs app row per road with work, compass to the nearest
+stretch. HAND BACK any time. README "The Plow app".
+How. All in tlx-plow.js (block comment at `PLC`), state in `plow` (`con`, `conBan`, `conLast`, `conPaid`, `conH`): no
+new system id, no tracklayer.js change. The pay hangs on the existing road credit (`opened()` -> `conPay`). tlx-roads.js
+bridges: `TLXR.hold(id)` asked in `snowStep` before the council's plow sets out, a route's `convoy` flag, and a Jobs
+target marked `isSnow` gets no "the road to it is snowed in" warning (the first still showed "Heads up: the Dyfjord
+road is snowed in on the way to Dyfjord road. A pickup won't get through till the plow's been" for the player's own
+plow job). After a warning the hold is let go (`cover`) until the road is clean, so the "kommune's own truck" is the
+roads' own plow and no second warning comes for the same snow.
+Numbers (`x4_plowapp.mjs`, new, 44 asserts; two stills looked at: the app with a contract and a shut stretch, the Jobs
+row):
+- three roads listed: Gamvik 2.5 km / 7 stretches ($620 the road), Dyfjord 2.0 km / 5 ($502), Skjånes 5.8 km / 15
+  ($1,444); SIGN without a blade refused with the reason;
+- signed, 3 h on: the Dyfjord stretch still at 0.5 and the council's plow not out on it, the Skjånes road (not
+  signed) plowed by the council; the stretch due and shut with 3.0 h on its clock, 3 h of storm adds nothing to it;
+- opened by the plow truck at 1 h: $100, cash, week and total all +100, "The kommune pays $100."; at 6 h: $69
+  ("69%: 6 h after the weather eased"), the "shut 4 h" line said on the way; an 8% dusting and a road not under
+  contract: opened, not paid;
+- 9 h shut: warning 1 of 3, hold let go, the council opens it, no pay, no second warning; a 9 h sleep through two
+  shut stretches: one warning; the third: contract gone, SIGN refused "in 7 days", the app shows TAKEN BACK;
+- Monday: statement $250 / 1.0 km and a warning struck off after a clean week, not after a week with one;
+- reload keeps contract, warning, the stretch's clock (1.51 h) and snow; junk in the saved contracts is tidied and a
+  road that does not exist is dropped, nothing thrown; HAND BACK pressed with the touch layout on.
+Gate: smoke, x1_save (gate.sh), x4_plowapp, x4_bladeroad, x4_gritter, x3_roadsnow: exit 0, page errors none.
+Honest limits. The app's buttons were pressed by DOM click (touch layout on); pad focus through the tablet's `data-tf`
+kit was not driven. The truck in the scenario is carried by x4_bladeroad's puppet (the contract is what is tested; the
+driving is x4_plowtruck's). HAND BACK is free even with a shut stretch on the clock, which dodges a warning (POLISH).
+No retainer, no cash penalty. The numbers ($0.25 a metre, 3 h / 8 h, three warnings, a week) are picked: open for
+Lemon in EXPANSION.md. At $100 a stretch one storm that shuts all three roads is worth $2,566 ($502 + $620 + $1,444),
+so the $16,800 truck is about seven such storms of road work, before 4.2b/c; how long a pass takes at the wheel was
+not measured here.
+Next for lane A: 4.2b (driveways, with 4.1b3b's door count).
+
 ## 2026-11-18 09:15 — 4.1c3: a used plow truck on Bytteboden (tlx-vehicles v30, tlx-plow v10, lane A) (G4) — f5f8de9
 Builder pass, lane A. Orient: worktree clean, rebased on main (v249), 171 GB free. Triage 0239-0242 (last triaged ->
 242): no BLOCKER or BUG. 0239 #1 (a centred 0.7 m rock stops a blade-down truck dead instead of "keeps 60%") is POLISH
