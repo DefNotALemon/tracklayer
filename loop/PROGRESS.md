@@ -3,6 +3,47 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 08:35 — 4.1c2: the gritter on the plow truck (tlx-plow v9, tlx-vehicles v29, lane A) (G4) — f2a2477
+Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0235-0238 (last triaged ->
+238): no BLOCKER or BUG. 0235 #1 is a test assert that now picks up tlx-rig's lay-by trailers (POLISH, not a player
+bug; not fixed here), #2 a flaky pull-away from an off-road start pose; 0236 and 0237 found nothing; 0238 #1-#3 are
+POLISH or the tester's own teleport. So the next slice: 4.1c2, the gritter.
+How. tlx-plow.js: `BLADES` b35 gets `hop: 3000`, a `GRT` table, `blades[uid].hop`, `grit` (per road stretch, the game
+hour each 10 m length was last gritted) and `gritKg` in the save (`tidy()` fills an older save and drops grit long worn
+off). A press with the blade UP on a truck with a hopper is decided on release like a press with it down: a tap drops
+the blade, a 0.5 s hold starts / stops the spinner; blade down the hold slews as before. `spread()` lays 0.4 kg a metre
+and stamps the length under the spinner; `grip()` goes to tlx-vehicles through the new `TLXV.addGrip` (one factor on
+the tyres' mu a frame, `R.grip`). The Plow tab fills the hopper by the kilo. The heap in the hopper and the spinner's
+disc moved out of the baked truck model into tlx-plow's, so one follows the level and the other turns. tracklayer.js:
+one bridge, `api.muck` (the existing `emitMuck`), for the grit in the air. README "The gritter".
+Deviations from the design: (1) the control is "hold with the blade up", not "the hold cycles throw -> grit": the
+gritter would sit behind three slews and could not be used with the blade up, which is how a hard road is gritted;
+(2) grit raises grip on any gritted road length, not "on ice and scraped stretches": a scraped stretch costs a truck
+no grip today (3.2b2 touches only sleds) and lake ice is not a road stretch; (3) the hopper starts empty, so 4.1c1's
+measured speeds stand.
+Numbers (`x4_gritter.mjs`, new, 55 asserts, six stills looked at: gritting from behind twice, the hopper full / a
+third / empty, the spinner close):
+- the hopper: $150 for 3 t, $60 buys 1.2 t, refused 300 m from the garage, "Full" takes no money, 10,700 -> 13,700 kg;
+- the control on keyboard, Xbox, DualSense and touch: tap drops / lifts, hold starts / stops, the hint names E / L3 /
+  BLADE DOWN; under Settings nothing; an empty hopper refuses and says where grit comes from;
+- DRIVEN with the keys 172 m along the Dyfjord road: 69 kg laid (0.4 kg/m), 19 lengths stamped behind, none ahead,
+  none 9 m beside the road, the hint "GRITTING · 269 kg in the hopper · Dyfjord road: 23% of this stretch gritted";
+- grip factor 1.35 on grit: the plow truck (300 kg aboard) from 14 m/s stops in 17.9 m against 20.7 m (13% shorter),
+  a pickup from 12 m/s in 12.5 m against 15.1 m (18%);
+- 1 / 1 / 0.5 / 0 of its bite at 0 / 5 / 8 / 10.5 h; 0.61 with 6 points of new snow on the stretch, 0 with 12;
+- a stretch at 0.6, blade up: spent, nothing stamped, "plow it first"; blade down and cutting: 4 lengths stamped in
+  25 m; 14 m off the road: "it is going on the snow";
+- 6 kg ran out in 15 m: the spinner stops and says so; reload keeps 1,234.5 kg and the gritted lengths, spinner off.
+Gate: smoke, x1_save, x4_gritter (gate.sh), then x4_plowtruck (ONLY=BCD and ONLY=EFGH; its "two children" assert is
+now four: the heap and the disc), x4_bladectl, x4_blade, x3_tractor: all exit 0, page errors none.
+Honest limits. The plow truck's own brakes (52 kN) cap what grit gives it: with a FULL hopper its stop barely
+shortens (not measured, by the arithmetic), the gain is for a light truck or a pickup. No climb or pull-away was
+measured on grit, only stops. Sleds and the AI traffic feel nothing. No sound for the spinner, no mark on the road or
+the Map: the hint is the only read-out. The heap is three stacked slabs and reads a little like planks from close.
+One grip factor for the whole truck, read at its centre. The council's plow does not scrape grit off.
+Open for Lemon (defaults built): the control, and the numbers (3 t, $50 a tonne, 0.4 kg/m, +35% for 6-10 h).
+Next for lane A: 4.1c3 (a used plow truck on Bytteboden).
+
 ## 2026-11-18 07:40 — 4.1c1: the plow truck, Nordtrekk Brøyt 4x2, with its own 3.5 m blade (tlx-plow v8, tlx-vehicles v28, lane A) (G4) — c4de5e1
 Builder pass, lane A. Orient: worktree clean, rebased on main (v248), 171 GB free. Triage 0233, 0234 (last triaged ->
 234): no BLOCKER or BUG on lane A's systems. 0233 confirms the 0228 fix. 0234 #1/#2 are POLISH (a second used-blade
