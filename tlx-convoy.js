@@ -1,4 +1,4 @@
-// Tracklayer — storm closures and convoys (slices 3.5c1 and 3.5c2a of the Four Seasons & Enterprise expansion, loop/EXPANSION.md).
+// Tracklayer — storm closures and convoys (slices 3.5c1, 3.5c2a and 3.5c2b of the Four Seasons & Enterprise expansion, loop/EXPANSION.md).
 //
 // The exposed roads over the fell get what the real ones up here have: a barrier (bom) at each end of the open stretch
 // and kolonnekjøring. A road marked `convoy` in tlx-roads.js's route table has two gates, found at boot: the first
@@ -17,8 +17,18 @@
 // leaving together, a toast when you come up to a lowered boom (why, and when the next convoy leaves), the barrier
 // dots and the convoy time in the Map's road legend, and the compass / Jobs warning for a trip through it
 // ("Lebesby road: convoy 14:00"). The boom is NOT solid and nobody checks whether you wait: on a sled you ride round
-// it as you always could, a pickup still meets the drift. Joining the line as a counted member and the Map flag for
-// leaving the line are slice 3.5c2b.
+// it as you always could, a pickup still meets the drift.
+//
+// YOU IN THE LINE (3.5c2b). In any vehicle, on the road (CV.youOff m of its centre line), facing the convoy's way and
+// within CV.youJoin m behind someone in it (the truck counts while it leads), you are in the line: a toast, and the
+// riding hint (api.ridex) gives your speed, the gap to the one ahead and what to do about it. Counted like any member:
+// the run does not end, and the far boom does not open to the return queue, until you are CV.youPast m out past the
+// far boom (the boom lifts for you); with the others through you have CV.youOut s for that. More than CV.youLeave m
+// behind the one ahead, off the road or out of your seat for CV.youT s, or past the head of the line: you have left
+// it. Between the gates that puts a flag on the Map where you left (and a legend line) until you are out past a gate
+// or in the line again (or CV.flagH game hours on). Standing on the road within CV.youQ m outside a lowered boom,
+// facing in, you count as a queue of one when the convoy is called and when a return convoy is decided. A lowered
+// boom still stops nobody (decided: the drift is what stops a truck).
 //
 // THE PLOW TRUCK (3.5c2a, CV.plow; needs the traffic option). The council's plow truck is the convoy's head and the
 // road's own plow between the gates: an orange cab-over with a gritter body, an angled blade and amber beacons, one
@@ -47,7 +57,8 @@
 // TLXCV (window, for later slices and scenarios): roads [{ id, name, ends, gates: [{ s, x, z, up }], st: "open" | "shut"
 // | "wait" | "run", at, dir, t, runs }], ready, err, stopFor(routeId, s, dir) -> metres to the stop line of a boom that
 // is down for a driver there (null = none), barred(routeId, s), barOn(routeId[, lo, hi]) -> the short note or "",
-// legend(), info(id) (+ plow: { on, pst, side, s, v, x, z, vis, cut, beacon }), members(id), queue(id, side),
+// legend(), info(id) (+ plow: { on, pst, side, s, v, x, z, vis, cut, beacon }, you: { in, ok, s, d, v, gap, who, flag,
+// fell, left, thru, hint }), members(id), queue(id, side),
 // keeps(routeId, a) -> is the stretch starting a m along left for the plow truck.
 (() => {
 "use strict";
@@ -66,7 +77,13 @@ const CV = {
   // stretch plowAhead m in front of its middle; it is only put somewhere (or taken away) more than plowSee m from you
   // and is gone plowGone m from you once the road is open; no convoy leaves in weather of storm or worse
   // (plowFar: further than this from you, leading nobody, it moves at TLXR's plowV by the clock instead of being driven)
-  plow: 1, plowIn: 16, vPlow: 7, plowAhead: 6, plowSee: 320, plowGone: 300, storm: 0.8, plowFar: 900, skip: 0.02
+  plow: 1, plowIn: 16, vPlow: 7, plowAhead: 6, plowSee: 320, plowGone: 300, storm: 0.8, plowFar: 900, skip: 0.02,
+  // you in the line (3.5c2b): you fall in within youJoin m behind a member (youJoin0 while the entry boom is up: the
+  // truck stands plowIn m inside it); more than youLeave m behind the one ahead, or more than youOff m from the road's
+  // centre line (or out of your seat), for youT s and you have left it; with the line through you have youOut s to
+  // drive out; you are out once youPast m beyond the far boom; standing within youQ m outside a lowered boom you are
+  // a queue of one; the Map's flag goes after flagH game hours if you never pass a gate
+  youJoin: 60, youJoin0: 90, youLeave: 80, youOff: 6, youT: 3, youOut: 45, youPast: 15, youQ: 60, flagH: 6
 };
 let api = null;
 const C = window.TLXCV = { roads: [], ready: false, err: null, on: true, CV };
@@ -113,6 +130,7 @@ function note(G) {
 }
 function set(G, st) {
   G.st = st; G.t = 0;
+  if (G.you) { G.you.in = false; G.you.t = G.you.out = 0; G.you.gap = null; G.you.ac = null; }   // a new state: nobody is in a line yet
   if (st !== "run") { G.dir = 0; clearMembers(G); }
   signs(G); for (const g of G.gates) g.yT = -1;
   if (window.TLXR.repaint) window.TLXR.repaint();                             // the Map's dots, and the trip cache
@@ -177,6 +195,94 @@ function plowStep(G, pl, dt) {
   // free: the road is open, it drives off; gone once you are far enough not to see it go
   const y = youAt(); if (Math.hypot(pl.x - y.x, pl.z - y.z) > CV.plowGone) { pl.on = false; pl.pst = "off"; }
 }
+
+// ---- you in the line (3.5c2b)
+// In any vehicle, on the road, close enough behind someone in the convoy, you are in it: the run does not end (and the
+// far boom does not open to the return queue) until you are out past the far barrier. Pass the one ahead, fall more
+// than CV.youLeave m behind it, leave the road or your seat, and you have left the line: between the gates that puts a
+// flag on the Map where you left, until you are out past a gate (or fall in again). Nothing is saved.
+const youOf = G => G.you || (G.you = { in: false, t: 0, out: 0, flag: null, s: 0, d: Infinity, v: 0, gap: null, who: "", ok: false, live: false, ac: null });
+const whoIs = c => (c.plow ? "the plow truck" : c.semi ? "the lorry" : "the car");
+const mapAgain = () => { if (window.TLXR.repaint) window.TLXR.repaint(); };
+// where you are on this road: metres along it, metres off its centre line, your speed along it (+ toward gate 1)
+function youOn(G) {
+  const Y = youOf(G), y = youAt(), r = G.r, Q = r.pts, n = Q.length;
+  let bd = Infinity, bs = 0, btx = 0, btz = 1;
+  for (let i = 1; i < n; i++) {
+    const a = Q[i - 1], b = Q[i], ux = b[0] - a[0], uz = b[1] - a[1], uu = ux * ux + uz * uz;
+    const t = uu ? Math.max(0, Math.min(1, ((y.x - a[0]) * ux + (y.z - a[1]) * uz) / uu)) : 0, d = Math.hypot(y.x - a[0] - ux * t, y.z - a[1] - uz * t);
+    if (d < bd) { const L = Math.sqrt(uu) || 1; bd = d; bs = r.cum[i - 1] + t * L; btx = ux / L; btz = uz / L; }
+  }
+  const F = api.FOOT, P = api.P;
+  Y.f = F.on ? 0 : Math.sin(P.yaw || 0) * btx + Math.cos(P.yaw || 0) * btz;   // which way you face along it (+ toward gate 1)
+  Y.s = bs; Y.d = bd; Y.x = y.x; Y.z = y.z; Y.v = F.on ? 0 : (P.vx || 0) * btx + (P.vz || 0) * btz; Y.ok = !F.on && bd <= CV.youOff; Y.live = true;
+  return Y;
+}
+// the nearest one of the line ahead of s (the truck while it leads is one of them)
+function aheadOf(G, s) {
+  const T = window.TLXT; let c0 = null, bd = Infinity;
+  if (T) for (const c of T.cars) { if (!c.on || c.cv !== G || c.r !== G.r) continue; const d = (c.s - s) * G.dir; if (d > 0 && d < bd) { bd = d; c0 = c; } }
+  return { c: c0, d: bd };
+}
+// standing on the road just outside a lowered boom, you count as someone waiting there
+function youQ(G, side) {
+  const Y = youOf(G); if (!Y.live || !Y.ok || Math.abs(Y.v) > 3 || Y.f * (side ? -1 : 1) < 0.3) return 0;   // facing in
+  const d = side ? Y.s - G.gates[1].s : G.gates[0].s - Y.s;
+  return d > 0 && d < CV.youQ ? 1 : 0;
+}
+function youLeave(G, Y, msg) {
+  const inside = Y.s > G.gates[0].s && Y.s < G.gates[1].s;
+  Y.in = false; Y.t = Y.out = 0; Y.gap = null; Y.ac = null; G.left = (G.left || 0) + 1;
+  if (inside) { Y.flag = { x: Y.x, z: Y.z, h: api.GS.hour }; mapAgain(); }
+  api.toast(inside ? `${msg} You have left the convoy between the barriers: the spot is flagged on your Map until you are out past one of them.` : `${msg} You are out of the convoy's line.`, "warn");
+}
+// the flag comes off once you are out past a gate (or it is hours old)
+function flagStep(G, Y) {
+  if (!Y.flag) return;
+  const past = Y.s <= G.gates[0].s || Y.s >= G.gates[1].s, H = api.GS.hour;
+  if (!past && H - Y.flag.h < CV.flagH && H >= Y.flag.h) return;
+  Y.flag = null; mapAgain();
+  if (past) api.toast(`Out past the barrier: the ${G.name}'s convoy flag is off your Map.`);
+}
+// while a convoy runs: falling in, keeping your place, leaving
+function youStep(G, dt) {
+  const Y = youOf(G), A = G.gates[0].s, B = G.gates[1].s, a = aheadOf(G, Y.s), to = G.ends[G.dir > 0 ? 1 : 0];
+  if (!Y.in) {
+    if (!(Y.ok && Y.f * G.dir > 0.3 && a.c && a.d <= (G.t < CV.joinT ? CV.youJoin0 : CV.youJoin) && (G.dir > 0 ? Y.s < B : Y.s > A))) return;
+    Y.in = true; Y.t = Y.out = 0; Y.ac = null; G.fell = (G.fell || 0) + 1;
+    if (Y.flag) { Y.flag = null; mapAgain(); }
+    api.toast(`You fall in behind ${whoIs(a.c)}: the convoy for ${to}. Hold about ${CV.gap} metres behind, ${kmh()} km/h, and stay in the line until you are out past the far barrier.`, "good");
+  }
+  Y.gap = a.c ? a.d : null; Y.who = a.c ? whoIs(a.c) : "";
+  if (G.dir > 0 ? Y.s > B + CV.youPast : Y.s < A - CV.youPast) {
+    Y.in = false; Y.gap = null; Y.ac = null; G.thru = (G.thru || 0) + 1;
+    api.toast(`You are through with the convoy: the barrier is behind you, ${to} ahead.`, "good");
+    return;
+  }
+  // nobody in the line passes: the one you followed is still in it and is now behind you
+  const p = Y.ac;
+  if (p && !a.c && p.on && p.cv === G && (p.s - Y.s) * G.dir < -2) {
+    let hd = p; for (const c of window.TLXT.cars) if (c.on && c.cv === G && c.r === G.r && (c.s - hd.s) * G.dir > 0) hd = c;   // the head of the line
+    youLeave(G, Y, `You have passed ${whoIs(hd)}.`); return;
+  }
+  Y.ac = a.c || (p && p.on && p.cv === G ? p : null);
+  const far = !!(a.c && a.d > CV.youLeave);
+  Y.t = !Y.ok || far ? Y.t + dt : 0;
+  Y.out = a.c ? 0 : Y.out + dt;
+  if (Y.t > CV.youT) youLeave(G, Y, api.FOOT.on ? "You are out of your seat." : !Y.ok ? "You are off the road." : `You have dropped more than ${CV.youLeave} metres behind ${whoIs(a.c)}.`);
+  else if (Y.out > CV.youOut) youLeave(G, Y, "The line is through and the barrier will not wait.");
+}
+// the riding / driving hint while you are in a line
+function rideLine() {
+  if (!C.on || !C.ready) return "";
+  for (const G of C.roads) {
+    const Y = G.you; if (!Y || !Y.in || G.st !== "run") continue;
+    if (Y.gap == null) return "CONVOY · the line is through: drive on out past the barrier";
+    const tip = Y.gap < CV.gap * 0.6 ? "drop back" : Y.gap > CV.youLeave * 0.75 ? "close up or lose the line" : Y.gap > CV.gap * 1.5 ? "close up" : "hold it there";
+    return `CONVOY to ${G.ends[G.dir > 0 ? 1 : 0]} · ${Math.round(Math.abs(Y.v) * 3.6)} km/h (the line: ${kmh()}) · ${Math.round(Y.gap)} m behind ${Y.who} · ${tip}`;
+  }
+  return "";
+}
 function start(G, dir, back) {
   const pl = plowOf(G);
   if (pl && !back) {
@@ -196,6 +302,8 @@ function step(G, dt) {
   const H = api.GS.hour, shut = shutIn(G), pl = plowOf(G);
   if (G.pl && !pl && G.pl.on) { G.pl.on = false; G.pl.pst = "off"; }           // no plow truck (CV.plow 0, traffic off)
   if (pl) plowStep(G, pl, dt);
+  const Y = youOf(G); Y.live = false;
+  if (G.st !== "open" || Y.flag) { youOn(G); flagStep(G, Y); }
   if (G.st === "open") { if (shut) { G.shutH = H; set(G, "shut"); } return; }
   if (G.st === "shut") { if (!shut || (pl && plowIsOut(G) && wxOn(G) < CV.storm)) { G.at = nextTime(H); set(G, "wait"); } return; }
   const cars = carsOn(G);
@@ -205,7 +313,7 @@ function step(G, dt) {
     if (pl && pl.pst !== "post" && pl.pst !== "turn") { const y = youAt(), q = pt(G.r, postS(G, 0)); post(G, pl, Math.hypot(q.x - y.x, q.z - y.z) < CV.plowSee ? 1 : 0, false); }
     if (H < G.at) return;
     if (shut && wxOn(G) >= CV.storm) { G.at = nextTime(H); G.put = (G.put || 0) + 1; signs(G); if (window.TLXR.repaint) window.TLXR.repaint(); return; }   // no convoy in a storm: the next hour
-    const q0 = queued(G, 0, cars).length, q1 = queued(G, 1, cars).length;
+    const q0 = queued(G, 0, cars).length + youQ(G, 0), q1 = queued(G, 1, cars).length + youQ(G, 1);   // you, standing at a boom, count (3.5c2b)
     if (!q0 && !q1 && !shut) { G.runs++; set(G, "open"); } else start(G, q1 > q0 ? -1 : 1, false);
     return;
   }
@@ -224,11 +332,12 @@ function step(G, dt) {
     }
   }
   G.n = n;
+  youStep(G, dt);                                                              // you, in the line or not (3.5c2b): counted like any member
   const busy = !!(pl && G.led && (pl.pst === "lead" || pl.pst === "turn"));    // the truck is still on its way, or turning at the far gate
-  if ((n === 0 && !busy && G.t > CV.minRun) || G.t > G.tMax) {
+  if ((n === 0 && !Y.in && !busy && G.t > CV.minRun) || G.t > G.tMax) {
     clearMembers(G); G.runs++;
     if (pl && pl.pst === "lead") plowFree(pl);                                 // held up past the time allowed: the convoy is called off
-    const other = queued(G, e ? 0 : 1, cars).length;
+    const other = queued(G, e ? 0 : 1, cars).length + youQ(G, e ? 0 : 1);
     if (shutIn(G)) { if (pl) { G.at = nextTime(H); set(G, "wait"); } else { G.shutH = H; set(G, "shut"); } }
     else if (other && !G.back) start(G, -G.dir, true); else set(G, "open");
   }
@@ -267,10 +376,12 @@ C.barOn = (id, sa, sb) => {
 C.legend = () => {
   if (!C.on || !C.ready) return "";
   let h = ""; for (const G of C.roads) if (G.st !== "open") h += `<em><i class="trl" style="border-top:3px dotted #d8261c"></i>${G.name}: ${note(G)}</em>`;
+  for (const G of C.roads) if (G.you && G.you.flag) h += `<em><i style="font-style:normal;color:#c9641a;margin-right:5px">&#9873;</i>${G.name}: you left the convoy</em>`;
   return h;
 };
 const find = id => C.roads.find(G => G.id === id);
 C.info = id => { const G = find(id); return !G ? null : { id: G.id, name: G.name, st: G.st, at: G.at, dir: G.dir, t: G.t, runs: G.runs, n: G.n || 0, n0: G.n0 || 0, back: !!G.back, note: note(G), shut: shutIn(G), ends: G.ends, led: !!G.led, cut: G.cut || 0, put: G.put || 0, ff: Math.round(G.ff || 0),
+  you: G.you ? { in: !!G.you.in, live: !!G.you.live, ok: !!G.you.ok, s: G.you.s, d: G.you.d, v: G.you.v, gap: G.you.gap, who: G.you.who, t: G.you.t, out: G.you.out, flag: G.you.flag ? { x: G.you.flag.x, z: G.you.flag.z } : null, fell: G.fell || 0, left: G.left || 0, thru: G.thru || 0, hint: rideLine() } : null,
   plow: G.pl ? { i: G.pl.i, on: !!G.pl.on, pst: G.pl.pst || "off", side: G.pl.side, s: G.pl.s, v: G.pl.v, dir: G.pl.dir, st: G.pl.st, x: G.pl.x, z: G.pl.z, y: G.pl.y, yaw: G.pl.yaw, vcap: G.pl.vcap || 0, why: G.pl.why, vis: !!(G.pm && G.pm.grp.visible), beacon: G.pm ? G.pm.bk : 0, blade: G.pm ? G.pm.blade.position.y : null } : null,
   gates: G.gates.map(g => ({ s: g.s, x: g.x, z: g.z, up: g.up, admits: admits(G, g.side), vMin: g.vMin, text: g.text, lamp: g.lampOn, vis: !!(g.grp && g.grp.visible), y: g.grp ? g.grp.position.y : null })) }; };
 C.members = id => { const G = find(id), T = window.TLXT; return !G || !T ? [] : T.cars.filter(c => c.cv === G && !c.plow).map(c => c.i); };   // the cars and lorries in the line (its plow truck: info(id).plow)
@@ -331,7 +442,8 @@ function drawGates(G, dt, cars) {
   const cam = api.camera.position, W = api.world, now = api.now ? api.now() : 0, night = 1 - (api.dayFactor ? api.dayFactor() : 1);
   for (const g of G.gates) {
     // the boom: up when drivers may come in, and lifted for one leaving from the inside
-    const leaving = cars.some(c => c.st === "drive" && (g.side ? c.dir > 0 && c.s > g.s - 40 && c.s < g.s + 14 : c.dir < 0 && c.s < g.s + 40 && c.s > g.s - 14));
+    const out = g.side ? 1 : -1, Y = G.you, u = Y && Y.live ? (Y.s - g.s) * out : -1e9;       // you, driving out from the inside (3.5c2b)
+    const leaving = (u > -40 && u < 14 && Y.d < 8 && (Y.v * out > 1 || (Y.in && G.dir === out))) || cars.some(c => c.st === "drive" && (g.side ? c.dir > 0 && c.s > g.s - 40 && c.s < g.s + 14 : c.dir < 0 && c.s < g.s + 40 && c.s > g.s - 14));
     const want = admits(G, g.side) || leaving ? 1 : 0;
     g.up += Math.max(-CV.boomRate * dt / CV.boomUp, Math.min(CV.boomRate * dt / CV.boomUp, want - g.up));
     g.lampOn = want ? -1 : Math.floor(now * 1.6) % 2;
@@ -425,6 +537,8 @@ function paint(g, k, h) {
     g.fillStyle = "#d8261c"; g.beginPath(); g.arc(px, pz, 2.4, 0, 6.283); g.fill();
   }
 }
+// where you left a convoy between the gates (3.5c2b): a pin on the Map app (its "marks" layer), drawn sharp at any zoom
+const flagPts = () => (C.on ? C.roads.filter(G => G.you && G.you.flag).map(G => ({ x: G.you.flag.x, z: G.you.flag.z, name: "left the convoy", col: "#c9641a", glyph: "\u2691" })) : []);
 // a word when you come up to a lowered boom, once per state of the road
 function tell(G) {
   const F = api.FOOT, P = api.P, x = F.on ? F.x : P.x, z = F.on ? F.z : P.z;
@@ -446,7 +560,7 @@ function tick(dt) {
   const on = TLX.on("convoy");
   if (on !== C.on) {
     C.on = on;
-    if (!on) for (const G of C.roads) { if (G.st !== "open") set(G, "open"); G.told = ""; for (const g of G.gates) { g.up = 1; if (g.grp) g.grp.visible = false; } if (G.pl) { G.pl.on = false; G.pl.pst = "off"; } if (G.pm) G.pm.grp.visible = false; }
+    if (!on) for (const G of C.roads) { if (G.st !== "open") set(G, "open"); G.told = ""; for (const g of G.gates) { g.up = 1; if (g.grp) g.grp.visible = false; } if (G.pl) { G.pl.on = false; G.pl.pst = "off"; } if (G.pm) G.pm.grp.visible = false; if (G.you) { const f = G.you.flag; G.you.flag = null; G.you.in = false; G.you.live = false; if (f) mapAgain(); } }
   }
   if (!on || !api.started()) return;
   dt = Math.min(0.1, dt || 0);
@@ -460,7 +574,7 @@ function tick(dt) {
 
 TLX.option({ id: "convoy", name: "Storm closures and convoys", hint: "A barrier at each end of the Lebesby and Mehamn roads comes down while the road is snowed in. Once the storm eases, traffic queued there leaves as a convoy on the hour behind the council's plow truck, which opens the road as it goes. Off = no barriers.", sys: "traffic" });
 TLX.register({
-  id: "convoy", v: 1,                                                          // nothing saved, so no bump for 3.5c2a
+  id: "convoy", v: 1,                                                          // nothing saved, so no bump for 3.5c2a / 3.5c2b
   state0: () => ({}),
   migrate: st => (st && typeof st === "object" ? st : {}),
   init(a) {
@@ -479,6 +593,8 @@ TLX.register({
         C.roads.push(G);
       }
       if (R.paintX) R.paintX.push(paint);
+      if (a.ridex) a.ridex.push(rideLine);                                     // your place in the line, in the riding hint (3.5c2b)
+      if (a.TABLET && a.TABLET.addLayer) a.TABLET.addLayer("marks", flagPts);  // the flag where you left a convoy
       C.on = TLX.on("convoy"); C.ready = true;
     } catch (e) { console.error("TLX convoy", e); C.err = String(e); }
   },

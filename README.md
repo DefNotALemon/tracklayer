@@ -726,6 +726,18 @@ is solid, and it stops for you if you stand in its lane. Come up to a lowered bo
 it is down and when the next convoy leaves. The boom doesn't stop you: a sled goes round it as it
 always could, and a pickup still meets the drift. Switch the option off and there are no barriers.
 
+You can ride or drive in the convoy yourself, in anything. Wait on the road at a lowered boom, facing
+in, and you count as someone waiting there: alone at the far end of a snowed-in road, the truck comes
+through, turns and leads a return convoy just for you. When the boom lifts, fall in within sixty metres
+behind the last in the line (a message says you are in). While you are in it the riding hint gives your
+speed against the line's 36 km/h, the gap to the one ahead and whether to drop back, hold or close up.
+The convoy does not end, and the far boom does not open to the traffic waiting there, until you are out
+past it; once the others are through you have about three quarters of a minute to follow them out.
+Fall more than eighty metres behind the one ahead, leave the road or your seat for three seconds, or go
+past the head of the line, and you have left the convoy. Between the barriers that puts an orange flag
+on the Map where you left it, with a line in the road legend, until you are out past either barrier or
+back in the line.
+
 Lorries share the roads too: a refrigerated box on a two-axle day cab, a long-haul curtainsider behind a
 high-roof sleeper, a fuel tanker. They run slower than the cars (about 40 km/h) and take the bends gently,
 and the trailer swings on its coupling: it cuts inside every bend and straightens out behind the tractor.

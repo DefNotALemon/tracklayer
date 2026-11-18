@@ -8260,6 +8260,7 @@ TABLET.register({
     }
     if (L.depots) for (const p of TABLET.layerPts("depots")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#5b3fa0", "H", 9); if (p.name) tabLabel(g, p.name, x, y + 14, 12, "#5b3fa0"); }
     for (const p of TABLET.layerPts("docks")) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b6a8e", "\u2693", 7); if (sc > 2.5) tabLabel(g, p.name, x, y + 12, 11, "#2b6a8e"); }   // jetties (tlx-boats.js, 14.2a)
+    for (const p of TABLET.layerPts("marks")) { const [x, y] = w2c(p.x, p.z), c = p.col || CT_ACC; tabPin(g, x, y, c, p.glyph || "!", 8); if (p.name) tabLabel(g, p.name, x, y + 13, 11, c); }   // expansion systems' own marks: { x, z, name, col, glyph } (3.5c2b: where you left a convoy)
     for (const p of tabVehPts()) { const [x, y] = w2c(p.x, p.z); tabPin(g, x, y, "#2b4a5e", p.kind === "sled" ? "S" : p.kind === "boat" ? "B" : "T", 9); tabLabel(g, p.name, x, y + 14, 12, "#2b4a5e"); }   // where you left the sled / the truck
     const [px, py] = w2c(me.x, me.z);
     g.save(); g.translate(px, py); g.rotate(Math.PI - me.yaw);
@@ -15737,6 +15738,10 @@ function footX() { return footX.a || (footX.a = []); }
 // the compass follows when nothing of the base game's is on. appX(id) holds { html(), bind(el) } sections for a tablet app.
 function jobX() { return jobX.a || (jobX.a = []); }
 function appX(id) { const m = appX.m || (appX.m = {}); return m[id] || (m[id] = []); }
+// expansion systems' line in the riding / driving hint (3.5c2b: your place in a convoy): rideX() holds functions returning
+// the text or "" (the first that answers wins; the base game's own riding hints come before it)
+function rideX() { return rideX.a || (rideX.a = []); }
+function rideXHint() { for (const f of rideX()) { let h = ""; try { h = f(); } catch (e) { h = ""; } if (h) return h; } return ""; }
 function footXUse() { if (!FOOT.on || BOG.on || GS.dead || GS.garageOpen || tutHidden() || (FISH && FISH.ctxLabel && FISH.ctxLabel())) return null; for (const p of footX()) { const r = p.use(); if (r && r.label) return r; } return null; }   // the tackle shop / fish buyer take E first (gameKey), so they win here too
 function footXDig() { for (const p of footX()) if (p.digging && p.digging()) return true; return false; }
 // E on foot: hook, unhook, or start digging
@@ -16518,6 +16523,7 @@ function wnPrompt() {
   else if (sarRideHint()) { show = true; h = sarRideHint(); }
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
   else if (intRideHint()) { show = true; h = intRideHint(); }
+  else if (rideXHint()) { show = true; h = rideXHint(); }
   else if (FISH && !FISH.on) { const fh = FISH.hint() || (VEH.cur && VEH.cur.useHint && VEH.cur.useHint()) || ""; if (fh) { show = true; h = fh; } }
   if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
   WN.hint = h; WN.show = show;
@@ -17621,7 +17627,7 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
-    footx: footX(), jobx: jobX(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
+    footx: footX(), jobx: jobX(), ridex: rideX(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,
