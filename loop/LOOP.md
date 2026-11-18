@@ -654,4 +654,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       the "out of your seat 3 s" rule reads the seat, and the flag is documented as unsaved; cover both in
       `x3_convoyline_break.mjs` when this is fixed.
 
-Last triaged report: 213
+Last triaged report: 215
