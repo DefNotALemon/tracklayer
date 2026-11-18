@@ -3,6 +3,46 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 10:45 — 4.2b1: driveways as private customers in the Plow app (v251, tlx-plow v13, lane A) (G4) — e2b56d3
+Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0247-0248 (last triaged ->
+248): 0247 (hand-back fix re-test) no BUG, POLISH #5 (the sign line could warn of a stretch already past 8 h) left
+open; 0248 (used blade, lemon edge) no BUG, POLISH #4 (a held blade with a NaN condition is fitted at 100%) left open.
+Next unticked slice: 4.2b, split in two (4.2b1 the drives and their pay, here; 4.2b2 the windrow across a door).
+What the player gets. Eight Kjøllefjord households with a drive beside the house, listed under the roads in the Plow
+app. TAKE ONE ON and its owner stops shovelling: it snows in with every storm, for real (the mid cell settles at 33 cm
+instead of 9 after 3 h of storm), while the walk to the front door stays plowed. A Jobs row for all snowed-in drives,
+the compass by itself at the wheel of a bladed truck, a Map pin each. Blade down, up the drive from the street or
+back-dragging out: at four fifths of its length the drive is clear and paid at once ($12 + $3 a metre, full inside
+4 h of the weather easing, half at 12 h). Left 12 h or slept through: shovelled by hand, no pay, a miss; the second
+miss loses the customer for a week. DROP is free. Monday: one statement line.
+How. Reading the code changed the design: a grid house's door spur is 2-3.5 m and lies inside the house's yard disc,
+the apron and the street, so there is nothing of it to plow, and drifting the door would undo "walk to a door on hard
+pack". The drive is a strip of its own beside the house (`drvBuild` in tlx-plow.js: grid doors, clear of the
+neighbour's wall box, sheds, lamps, the parked cars' spots, one per gap). One bridge in tracklayer.js: `DRIFTS` /
+`addDrift` (api.world.addDrift), a leg whose `k` takes that share off what `yardOf` gave the cells under it, kept out
+of `YARDS`. Only a taken drive ever has k > 0, so a game that never plows is unchanged. Clearing is counted by marks
+(1 m lengths under the blade's middle, as the road credit does), not by reading cells: a loaded chunk's cells rise to
+a new level only at snowfall's rate and would read "clear" before any work. State in `plow`: `drv`, `drvOff`, `drvH`,
+`drvPaid`, `drvN` (no new system id; x1_save untouched).
+Numbers (`x4_driveways.mjs`, new, 45 asserts, all ok; stills of the app and the drive looked at):
+- 8 drives, 29-84 m from the quay, 9.8-10 m, $41-42; untaken: yard 1.00 on every one, 0 live drift legs;
+- 3 h of storm: level 0.48, plowing 1.00 -> 0.50, settle depth 9 -> 33 cm; the door apron 1.00 -> 1.00; an untaken
+  drive unchanged; the clock 0 in the storm, 2.0 h after 2 h of calm;
+- half a pass: 50% of lengths, $0; the rest back-dragged: clear, +$42 at 2 h; one pass at 8 h: +$31 (74%);
+- 12 h: "gave up waiting", miss 1; again: gone 168 h, TAKE ON refused "in 7 days"; a 9 h sleep over two drives: one
+  line, a miss each; a paid clearing: miss 1 -> 0; Monday: "Driveways · 4 cleared"; reload keeps level, clock and the
+  lost customer's week, and the drift is on the ground from the first frame; junk tidied; TAKE ON / DROP by DOM click
+  with the touch layout on.
+Gate: smoke, x1_save, x4_driveways, x4_plowapp, x4_plowfile, x4_plowapp_break, x4_plowfile_break, x4_blade,
+x4_bladework, g1_lanes (the base game's walks to doors: mean pack 0.77-0.81, as before) all exit 0, page errors none.
+On the way: the four older plow-app scenarios read every card in the app as a road and had to be told to read road
+cards only (`data-tf^='plc:'`); x1_save failed once in the first gate run ("x = a string") and passed the next three
+runs unchanged, cause not found.
+Not done / follow-ups: village drives (non-grid doors); the street's curb ribbon still runs across a drive's mouth
+(visual only); pad focus on the app's buttons still not driven by a scenario; nobody is seen shovelling.
+Open for Lemon (defaults built): the numbers, that only taken-on drives snow in, eight customers.
+Next for lane A: 4.2b2 (the windrow across a door), then 4.2c lots.
+
 ## 2026-11-18 10:15 — beta fix 0246 #1/#2: HAND BACK no longer launders a plow contract's warnings or its clock (tlx-plow v12, lane A) (G4) — 43a597a
 Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0244-0246 (last triaged ->
 246): 0244 (gritter at speed, pad/touch) three POLISH notes, nothing to fix (#2, the ~190 character blade + gritter
