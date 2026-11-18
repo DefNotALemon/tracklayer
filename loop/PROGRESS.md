@@ -3,6 +3,53 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 11:50 — 4.2b2: the blade's snow at doors (v252, tlx-plow v14, lane A) (G4) — 57c5d84
+Builder pass, lane A. Orient: worktree clean, rebased on main (v251), 171 GB free. Triage 0249 (last triaged -> 249):
+4.2a reload / polar night / bladeless pickup, no BLOCKER, no BUG; POLISH #4 (the card quotes the old price for a frame
+or two after the clock jumps into the polar night) and #5 (carried) left open. Next unticked slice: 4.2b2.
+What the player gets. The snow a blade moves has to end up somewhere, and now it matters where. A pile pushed down a
+Kjøllefjord street throwing right leaves its windrow across the front walks it passes; a back-drag stopped or a square
+blade lifted in a drive's mouth leaves the heap there. Beside it, the riding hint says "your snow lies across Sander's
+front walk: cut it clear before you drive on" and nothing else happens. Driven away from, it is a complaint on a 3 h
+clock (stopped in a storm): a line, a Jobs row, a Map pin, a Doors list at the top of the Plow app. Nosed in from the
+street and cut away, it is forgotten. Left or slept through, the household digs it out and holds it against you: a
+customer's miss (the drives' own two-miss rule), 3 days of not asking from a household with a drive that is not
+yours, and at three complaints in a week no new TAKE ON before Monday. No cash. Option `plowdoors` (on).
+How. A probe first, and it changed the slice: the written premise ("the windrow you leave across a door when you plow
+the street") cannot happen, because Kjøllefjord's and the villages' streets never hold snow, and only 12 of 62 doors
+stand within 10 m of a road stretch that can. So the count is of what the blade LAYS, wherever it took it from:
+`heapAt()` -> `winLay()`, zones for 58 front walks and the 8 drive mouths (`winBuild`), and the truth read from the
+snow cells (`winMeasure`: m3 over `api.world.restCell`, new on the api), so any way of clearing counts. Everything in
+tlx-plow.js, state in `plow` (`win`, `winC`, `winN`, `winH`, `drvSulk`; no new system id). Two bridges in
+tracklayer.js: `heapSnow` marks its cells `c.g = 2` and `plowRefresh(legs, keep)` leaves them standing for tlx-plow's
+drives. That fixes something 4.2b1 shipped without knowing: a drive going back to plowed ground flattened every heap
+in the 8 m chunks it touched, the windrow beside it included. A complaint saves its m3 and the heap is laid again
+when you are next within 45 m, so a reload does not clear a door.
+Numbers (`x4_bladedoors.mjs`, new, 54 asserts, all ok; stills of the windrow, the cut and the app looked at):
+- 58 walks (24 on the Kjøllefjord grid, 3.3-4.5 m), 8 mouths; fresh game: nothing over 0.02 m3 in any, nothing saved;
+- a 2.1 m3 pile in the street pushed past a door from the right-hand lane: 0.59 m3 across the walk (blocked from
+  0.30); 4.8 m away: hint only; driven on: complaint, Jobs row on the walk, pin, badge, Doors row;
+- one nose-in pass from the street: 0.00 m3 left, "Sander's front walk is clear again.", nothing on the count;
+- left: clock 0 after 2 h of storm, 1.5 after 1.5 h of calm, dug out at 3 h (0.00 m3), "One complaint";
+- a customer's walk + a neighbour's mouth: one line for both, miss 1 and 72 h; 3 complaints: TAKE ON refused for a
+  third household, every TAKE ON greyed on the touch layout, Monday clears it; the second miss loses the customer;
+- your own snowed-in drive's mouth: not counted; the drive paid clear: the heap still 82 cm deep (1.73 m3) while the
+  uncut snow up the drive went to 0; more laid on it: a complaint;
+- reload: complaint, 1.5 h clock, Jobs row back, the heap back within sight (over 0.30 m3); junk tidied; a 9 h sleep:
+  dug out "while you were away", a miss; option off: complaint dropped, nothing counted or said, TAKE ON free.
+Gate: smoke, x1_save, x4_bladedoors, x4_driveways, x4_plowapp, x4_blade, x4_bladework, x4_bladeroad, g1_lanes,
+ui_responsive all exit 0, page errors none (origin moved by three playtest reports only while it ran, no code).
+Seen on the way, not mine to fix here: near a rental flat's door (tlx-housing) that system's line takes the whole
+riding hint, so the blade's line (this slice's warning included) is not on screen there; `rideXHint` shows the first
+system's line only. The scenario reads `TLXPL.hint()`; the still at Strandgata 3 shows the flat's line instead. A
+tester should look at whether a driver in a bladed truck should get the housing line at all.
+Not done / follow-ups: a heap left in the street itself is nobody's complaint (4.2c, "where the heap may go"); the
+roads' own replow still flattens heaps beside a road stretch whose level changes; back-dragging does not clear a walk
+(it leaves 49% of the pack; the text says nose in and cut); nobody is seen shovelling; pad focus not driven.
+Open for Lemon (defaults built): 3 h, three complaints a week, 72 h; a customer's walk counts as a miss on the drive.
+Next for lane A: beta 0250 #1 first (BUG, low: a partly cleared drive forgets its marks on a reload; reports 0250-0252
+arrived during this pass and are not triaged yet), then 4.2c lots and the hotel forecourt (design to write), then 5.4.
+
 ## 2026-11-18 10:45 — 4.2b1: driveways as private customers in the Plow app (v251, tlx-plow v13, lane A) (G4) — e2b56d3
 Builder pass, lane A. Orient: worktree clean, rebased on main (v250), 171 GB free. Triage 0247-0248 (last triaged ->
 248): 0247 (hand-back fix re-test) no BUG, POLISH #5 (the sign line could warn of a stretch already past 8 h) left
