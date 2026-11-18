@@ -907,7 +907,8 @@ down (unstrap it first; a rig put on any other way takes the straps off and says
 ## The plow blade
 
 The garage has a **Plow** tab. The **Fjellskjær 2.3** ($1,450) is a 2.3 m steel blade for the
-Fjellvogn, slewed so it throws to the right and clears a lane just over two metres wide. The pickup
+Fjellvogn. Slewed, it throws to the right or the left and clears a lane just over two metres
+wide; square, it carries the snow in front of it. The pickup
 has to stand within 60 m of the garage to have it fitted. Taking it off puts it in the garage's
 shed, and fitting it again costs nothing. It adds 280 kg on the truck's nose.
 
@@ -921,7 +922,23 @@ right-hand side. Your wheels follow in the cut, so the pickup doesn't sink the w
 powder: what holds it back now is the push on the blade. That grows with the depth of the snow and
 steeply with speed. About 30 cm is steady work at 20 km/h, 60 cm is a crawl at 12 km/h, and a
 drift that stands over the top of the blade stops the truck with a line telling you to lift it,
-back up and take it in bites. Reversing with it down drags a little.
+back up and take it in bites.
+
+**The throw.** With the blade down, **hold** the use control for half a second (a tap still lifts
+it) and the blade swings to its next setting: throw right, throw left, square, and round again. A
+line says which, the hint shows it and names the next one, and the blade keeps its setting through
+a save. Slewed, the windrow goes off the trailing end on that side. **Square**, nothing is thrown:
+the snow rides on the blade, twice what a slewed blade holds, and what is over a bladeful spills
+off both ends. Stop, or lift the blade, and what it carries is left as a heap in front of it:
+that is how you clear a yard and stack the snow in one corner. A heap is a heap, though: the
+blade won't push through one it has just built.
+
+**Back-dragging.** Reverse with the blade down and it drags snow back with you instead of pushing
+it: the way to get snow away from a door or a wall you can't plow toward. Drive up with the blade
+lifted, drop it against the door, back away. The back of the blade takes the top of the snow
+(about half the pack is left, where a forward cut leaves a plowed yard) and pulls up to a bladeful
+along; the hint reads "back-dragging" and how much it is pulling. When you stop, lift it or drive
+forward again, what it pulled is left as a heap under the blade, ready to be plowed away forward.
 
 **Start from cleared ground.** The blade only clears what is in front of it. Drop it while the
 truck is standing in deep snow and the wheels are still in snow it never reached: the hint says
@@ -930,7 +947,7 @@ shallower snow you can drop it on the move and it cuts its own way out.
 
 **The hint.** In a bladed truck, slow or stopped with snow worth cutting ahead, the hint offers the
 control to drop it. With it down it gives your speed and the depth being cut, or says there is
-nothing to cut.
+nothing to cut, then the control to lift it and what holding it will do.
 
 **Opening a road.** A snowed-in road is yours to open. The roads keep their snow in 400 m
 stretches. Plow along a stretch on one side of the road, turn round past its end and plow back on

@@ -45,10 +45,10 @@ await section("A the control on three schemes", async () => {
   ok(/^E: drop the blade · \d+ cm of snow ahead/.test(s.hint), "the hint, blade up in snow, names E to drop it: " + s.hint);
   // pads: L3 is button 10
   for (const [name, id] of [["Xbox", undefined], ["DualSense", PS]]) {
-    await padSet({ 10: 1 }, [0, 0, 0, 0], id); await sleep(350); await padSet({}, [0, 0, 0, 0], id); await waitGame(0.8); s = await B();
+    await padSet({ 10: 1 }, [0, 0, 0, 0], id); await sleep(200); await padSet({}, [0, 0, 0, 0], id); await waitGame(0.8); s = await B();
     ok(s.down && s.horn === 0 && s.dev === "pad", `${name}: L3 drops it, no horn (down ${s.down}, horn ${s.horn}, pad ${s.pad})`);
     ok(/L3: lift it/.test(s.hint), `${name}: the hint names L3: ` + s.hint);
-    await padSet({ 10: 1 }, [0, 0, 0, 0], id); await sleep(350); await padSet({}, [0, 0, 0, 0], id); await waitGame(0.8); s = await B();
+    await padSet({ 10: 1 }, [0, 0, 0, 0], id); await sleep(200); await padSet({}, [0, 0, 0, 0], id); await waitGame(0.8); s = await B();
     ok(!s.down && /^L3: drop the blade/.test(s.hint), `${name}: L3 lifts it and the hint offers L3 to drop it: ` + s.hint);
   }
   await padOff(); await sleep(200);

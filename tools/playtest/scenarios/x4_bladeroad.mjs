@@ -126,7 +126,10 @@ await section("C driven out along the right-hand side", async () => {
   ok(a.m > 300, "the metres cut are counted (" + a.m + ")");
   outOK = !!a.rc;
   // the hint part-way: back onto the stretch, blade down, standing
-  await ev(`__put(${aid}, ${A.i * SEG + 200}, 1, 1.5); true`); await waitGame(0.5);
+  // (the keyed driver wanders a metre either way, more on a loaded Mac, so the spot the truck is put back on may be half off
+  // its own cut: wheels in uncut snow turn the hint into the "start from cleared ground" line, which names no road. That failed
+  // this assert twice inside a gate. The truck's own footprint and the blade's are cut here first.)
+  await ev(`__put(${aid}, ${A.i * SEG + 200}, 1, 1.5); (() => { const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw); for (let k = -4; k <= 5; k += 0.15) bladeSnow(P.x + fx * k + fz * 2.2, P.z + fz * k - fx * 2.2, P.x + fx * k - fz * 2.2, P.z + fz * k + fx * 2.2, 0.15); P.y = surf(P.x, P.z); })(); true`); await waitGame(0.5);
   const h2 = await ev(`TLXPL.hint()`); console.log("  hint on the stretch:", h2);
   const hm = new RegExp(A.name + ": this side (\\d+)%, the other side (\\d+)%").exec(h2);   // a driver that wanders over the crown marks a length or two of the other side
   ok(hm && +hm[1] === 100 && +hm[2] <= 13, "standing on it, the hint gives the road and both sides: this side 100%, the other side next to nothing (" + (hm ? hm[1] + "% / " + hm[2] + "%" : "no road in the hint") + ")");

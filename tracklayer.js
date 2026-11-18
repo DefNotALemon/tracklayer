@@ -17673,6 +17673,8 @@ function initExpansion() {
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,
     newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
+    // the plow blade's throw (4.1b1): is the use control still held (E, a pad's L3, the touch pill)? A system that gives a hold a second meaning asks this after use()
+    useHeld: () => keys.has("KeyE") || padHorn || $("tcE").classList.contains("on"),
     // tablet app kit for systems with their own app (5.1 staff), and the depot cabins you own (staff workplaces)
     ui: { tabHead, tabCard, chip, sec, esc: tabEsc, ping: tabPing, fmtMi },
     re: { owned: () => GS.re ? reOwned().map(c => ({ id: c.id, name: shortName(c), x: c.x, z: c.z })) : [] },
