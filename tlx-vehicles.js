@@ -1132,7 +1132,7 @@ function buy(id) {
   const s = S(), GS = api.GS, d = byId(id); if (!d) return;
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
   if (s.owned.filter(isTruck).length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
-  { const hp = heldVeh("pickup") || heldVeh("tractor"); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isLorry(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
+  { const hp = heldList().find(heldTruck); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isBig(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
   if (d.lic && !hasLic(d)) { api.toast(`The ${d.name} needs your ${LIC_NAME[d.lic] || d.lic} licence. The ${LIC_NAME[d.lic] || d.lic} app signs you up for school.`, "warn"); return; }
   if (GS.cash < d.cost) { api.toast(`The ${d.name} is ${api.fmtCash(d.cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return; }
   const spot = forecourtSpot(d); if (!spot) { api.toast("No room on the forecourt: move something first.", "warn"); return; }
@@ -1582,6 +1582,11 @@ const MKT_V = {
     why: ["The fish plant went over to a haulier from Alta. Nothing left here for me to pull.", "I'm sixty-eight. My back says the cab steps are one winter too many.", "We kept it for the fuel run. The company sends its own tanker now.",
       "Bought a three-axle for the long trips south. This one only ever worked the peninsula.", "The firm's gone. The bank wants it off the lot by spring."],
     tell: ["The turbo whistles and it blows blue smoke pulling away.", "The fifth wheel's jaws are worn: there's a clunk every time it takes up the load.", "The air system leaks down overnight. It needs ten minutes to build pressure.", "The chassis has been welded behind the cab. Somebody jackknifed it once."]
+  },
+  plowtruck: {
+    why: ["The council put the Dyfjord road out to tender and a firm from Lakselv took it. Twenty-two winters, and that was that.", "My boy was to take the round over. He's on the rigs now and he's not coming back north.",
+      "We ran two of them. There is only work for one these days.", "I plowed the plant's yard and the quay with it. The plant has its own loader now.", "The doctor says no more nights in a cab. It has stood in the bay since March."],
+    tell: ["Salt has eaten the hopper floor: you can see the road through it.", "The blade's lift ram weeps oil and sinks while you look at it.", "The frame is cracked behind the push plate. It has hit something solid at speed.", "The spinner's gearbox howls, and the cab floor is rust under the mat."]
   }
 };
 /* Used tractor units (3.5b3b). A lorry can't be dug out of a cabin yard, so a used one stands in the semitrailer lay-by
@@ -1604,7 +1609,14 @@ function baySpot(b, d) {                                                        
   return null;
 }
 const isLorry = item => { const d = byId(item); return !!(d && d.fifthZ != null); };
-const usedNoun = item => item === "haul" ? "sled trailer" : isLorry(item) ? "tractor unit" : "pickup";
+/* 4.1c3: a used plow truck sells by the lorry rules (a lay-by, the Freight licence, one waiting at a time). isBig = any
+   machine on the lorry's chassis: too big for a yard. isLorry stays "a tractor unit" (it has a fifth wheel), for the words.
+   A used truck's record carries used: 1, which is how tlx-plow.js knows to give it a worn blade instead of a new one. */
+const isBig = item => { const d = byId(item); return !!(d && d.model === "tractor"); };
+const MKT_PLOWT = { w: 0.3, wOwned: 0.06 };                                      // pool weights: rarer than a tractor unit, rarer still once you own one
+const usedNoun = item => item === "haul" ? "sled trailer" : isLorry(item) ? "tractor unit" : isBig(item) ? (byId(item).kind || "lorry") : "pickup";
+const mktVKey = item => item === "haul" ? "haul" : isLorry(item) ? "tractor" : MKT_V[item] ? item : "pickup";
+const licWhy = item => `A ${usedNoun(item)} needs your ${LIC_NAME[byId(item).lic] || byId(item).lic} licence.`;
 /* Foreign items in the Vehicles category (4.1b3a: tlx-plow.js's used blades). Another system lists things under Vehicles
    with TLXV.addMkt({ owns(item), pool(held), info(item, c), why(item), tell(item), howTo(h, place), blocked(h),
    payWhy(l, held), noRoom(h), collect(h, site), pic(g, l, cx, cy, R), sitesFor(item, sites) }): MKTV hands every question
@@ -1643,29 +1655,36 @@ const MKTV = {
       if (d && api.GS.delivered >= MKT_LORRY.need && hasLic(d) && usedTrucks(held) < MAX_OWNED && lorryBays().length && !held.some(h => h.cat === "veh" && h.item === "tractor"))
         out.push({ item: "tractor", w: S().owned.some(r => r.id === "tractor") ? MKT_LORRY.wOwned : MKT_LORRY.w });
     }
+    {                                                                            // a used plow truck (4.1c3): the same rules
+      const d = byId("plowtruck");
+      if (d && api.GS.delivered >= MKT_LORRY.need && hasLic(d) && usedTrucks(held) < MAX_OWNED && lorryBays().length && !held.some(h => h.cat === "veh" && h.item === "plowtruck"))
+        out.push({ item: "plowtruck", w: S().owned.some(r => r.id === "plowtruck") ? MKT_PLOWT.wOwned : MKT_PLOWT.w });
+    }
     for (const x of MKTX) { try { for (const p of x.pool(held) || []) if (p && p.item && p.w > 0) out.push(p); } catch (e) { } }   // foreign items (used blades)
     return out;
   },
   // where a seller of this can live (the marketplace picks one of these; none = no listing)
-  sitesFor: (item, sites) => { const x = mktX(item); return x ? (x.sitesFor ? x.sitesFor(item, sites) : sites) : isLorry(item) ? sites.filter(s => bayNear(s.x, s.z, MKT_LORRY.r)) : sites; },
+  sitesFor: (item, sites) => { const x = mktX(item); return x ? (x.sitesFor ? x.sitesFor(item, sites) : sites) : isBig(item) ? sites.filter(s => bayNear(s.x, s.z, MKT_LORRY.r)) : sites; },
   info(item, c) {
     { const x = mktX(item); if (x) return x.info(item, c); }
     const pct = Math.round(c * 100);
     if (item === "haul") return { name: HAUL.name, newP: HAUL.cost, stat: `Single axle · 3.9 m deck · ramp gate · ${c < 0.8 ? "rolls a bit heavy" : "rolls like new"}`, kind: "haul" };
     if (isLorry(item)) { const d = byId(item); return { name: d.name + " tractor unit", newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · fifth wheel · ${pct < 80 ? "worked hard" : "tidy"}`, kind: "tractor" }; }
+    if (isBig(item)) { const d = byId(item);                                     /* 4.1c3: the blade's cutting edge is as worn as the truck (tlx-plow.js gives it that edge) */
+      return { name: d.name + " " + (d.kind || "lorry"), newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · 3.5 m blade, cutting edge ${pct}% · gritter, hopper empty · ${pct < 80 ? "many winters on the road" : "tidy"}`, kind: item }; }
     const d = byId("pickup");
     return { name: d.name + " pickup", newP: d.cost, stat: `${d.year} · ${Math.round((0.65 + 0.35 * c) * 100)}% power · ${d.fuel} L · heated cab · ${pct < 80 ? "dented" : "tidy"}`, kind: "pickup" };
   },
-  why: item => { const x = mktX(item); return x ? x.why(item) : MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].why; },
-  tell: item => { const x = mktX(item); return x ? x.tell(item) : MKT_V[item === "haul" ? "haul" : isLorry(item) ? "tractor" : "pickup"].tell; },
+  why: item => { const x = mktX(item); return x ? x.why(item) : MKT_V[mktVKey(item)].why; },
+  tell: item => { const x = mktX(item); return x ? x.tell(item) : MKT_V[mktVKey(item)].tell; },
   howTo: (h, place) => mktX(h.item) ? mktX(h.item).howTo(h, place) : h.item === "haul" ? `It stands in ${h.seller}'s yard in ${place}. Collect it there, then back a truck up to the coupler and hitch it.`
-    : isLorry(h.item) ? (() => { const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity);
+    : isBig(h.item) ? (() => { const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity);
         return `Too big for a yard: it stands in the ${n ? n.bay.name : "lay-by"}${n ? `, ${Math.round(n.d / 10) * 10} m from ${h.seller}'s door in ${place}` : ""}. Settle up at the door for the keys, then go out to the lay-by and drive it away; it is on your Map once it's yours.`; })()
     : `It's parked in ${h.seller}'s yard in ${place}. Collect it there, walk over and drive it away; your sled waits where you left it.`,
   blocked(h) {
     { const x = mktX(h.item); if (x) return x.blocked ? x.blocked(h) || "" : ""; }
     if (h.item === "haul") return haulS() ? "You already own a sled trailer." : "";
-    if (isLorry(h.item) && !hasLic(byId(h.item))) return "A tractor unit needs your Freight licence.";
+    if (isBig(h.item) && !hasLic(byId(h.item))) return licWhy(h.item);
     return S().owned.filter(isTruck).length >= MAX_OWNED ? `That's enough trucks (${MAX_OWNED}).` : "";   /* trucks only: a boat in `owned` is not one */
   },
   /* Report 0228 #1: why this listing can't be paid for now ("" = it can). Asked by the marketplace BEFORE it takes the cash:
@@ -1675,12 +1694,13 @@ const MKTV = {
     held = Array.isArray(held) ? held : heldList();
     { const x = mktX(l.item); if (x) return x.payWhy ? x.payWhy(l, held) || "" : ""; }
     if (l.item === "haul") { const hh = held.find(h => h.cat === "veh" && h.item === "haul"); return haulS() ? "You already own a sled trailer." : hh ? `You've already paid for a sled trailer: it's waiting in ${heldWhere(hh)}.` : ""; }
-    if (isLorry(l.item) && !hasLic(byId(l.item))) return "A tractor unit needs your Freight licence.";
+    if (isBig(l.item) && !hasLic(byId(l.item))) return licWhy(l.item);
+    { const same = isBig(l.item) && held.find(h => h.cat === "veh" && h.item === l.item); if (same) return `You've already paid for a ${usedNoun(l.item)}: settle up with ${same.seller || "the seller"} first.`; }   /* one waiting at a time: two would want the same place in a lay-by */
     if (usedTrucks(held) < MAX_OWNED) return "";
     const hp = held.find(heldTruck);
-    return hp ? `That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isLorry(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.` : `That is enough trucks on the forecourt (${MAX_OWNED}).`;
+    return hp ? `That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isBig(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.` : `That is enough trucks on the forecourt (${MAX_OWNED}).`;
   },
-  noRoom: h => { { const x = mktX(h.item); if (x) return x.noRoom ? x.noRoom(h) || "" : ""; } if (!isLorry(h.item)) return ""; const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity); return `${h.seller}: "There's no room to stand it in the ${n ? n.bay.name : "lay-by"}. Move what's parked there and come back."`; },
+  noRoom: h => { { const x = mktX(h.item); if (x) return x.noRoom ? x.noRoom(h) || "" : ""; } if (!isBig(h.item)) return ""; const st = api.world.SITES.find(q => q.id === h.site), n = st && bayNear(st.x, st.z, Infinity); return `${h.seller}: "There's no room to stand it in the ${n ? n.bay.name : "lay-by"}. Move what's parked there and come back."`; },
   collect(h, site) {                                                             // "" = no room right now (the marketplace nags and retries)
     { const x = mktX(h.item); if (x) return x.collect(h, site) || ""; }
     const s = S(), cx = site.x, cz = site.z, away = (x, z) => Math.atan2(x - cx, z - cz);
@@ -1691,10 +1711,11 @@ const MKTV = {
       return `${h.seller} wheels the sled trailer out of the yard. It's yours: ${Math.round(h.cond * 100)}% condition. Back a truck up to the coupler to hitch it.`;
     }
     const d = byId(h.item); if (!d) return "";
-    if (isLorry(h.item)) {                                                       // 3.5b3b: in the nearest lay-by, facing out
+    if (isBig(h.item)) {                                                         // 3.5b3b: in the nearest lay-by, facing out (4.1c3: a plow truck too)
       const n = bayNear(cx, cz, Infinity), spot = n && baySpot(n.bay, d); if (!spot) return "";
-      const r = { uid: "v" + (++s.seq), id: d.id, x: spot.x, z: spot.z, yaw: spot.yaw, fuel: Math.round(d.fuel * 0.25), cond: Math.round(h.cond * 100), load: [] };
+      const r = { uid: "v" + (++s.seq), id: d.id, x: spot.x, z: spot.z, yaw: spot.yaw, fuel: Math.round(d.fuel * 0.25), cond: Math.round(h.cond * 100), load: [], used: 1 };
       s.owned.push(r);
+      if (!isLorry(h.item)) return `${h.seller} hands you the keys. The ${d.name} stands in the ${n.bay.name}, ${Math.round(n.d / 10) * 10} m from here and on your Map: ${r.cond}% condition, a quarter tank, its blade's cutting edge as worn as the truck, the hopper empty.`;
       return `${h.seller} hands you the keys. The ${d.name} stands in the ${n.bay.name}, ${Math.round(n.d / 10) * 10} m from here and on your Map: ${r.cond}% condition, a quarter tank.`;
     }
     const spot = spotNear(cx, cz, d, false, away); if (!spot) return "";
@@ -1715,7 +1736,9 @@ const MKTV = {
       wheel(cx + 6, 14); R(cx + 64, gy - 22, 6, 4, "#c0221c");
       return;
     }
-    if (isLorry(l.item)) {                                                       // a cab-over tractor unit: tall cab, bare chassis, fifth wheel
+    if (isBig(l.item)) {                                                         // a cab-over tractor unit: tall cab, bare chassis, fifth wheel (or, 4.1c3, the plow truck's gritter body and blade)
+      const plow = !isLorry(l.item);
+      if (plow) { g.save(); g.translate(cx + 14, gy + 21); g.scale(0.86, 0.86); g.translate(-cx, -(gy + 21)); }   // the blade makes it longer than the photo: drawn a little smaller, standing on the same ground
       const tc = "#" + byId(l.item).paint.toString(16).padStart(6, "0");
       R(cx - 60, gy - 20, 164, 8, "#23272c");                                     // chassis rails
       g.fillStyle = tc; g.beginPath(); g.moveTo(cx - 104, gy - 14); g.lineTo(cx - 104, gy - 84); g.lineTo(cx - 96, gy - 96); g.lineTo(cx - 36, gy - 96); g.lineTo(cx - 36, gy - 14); g.closePath(); g.fill();   // cab
@@ -1725,10 +1748,20 @@ const MKTV = {
       R(cx - 108, gy - 22, 10, 12, "#1d2024"); R(cx - 106, gy - 34, 5, 7, "#f6f2d8");                            // bumper, headlight
       R(cx - 32, gy - 100, 5, 82, "#8d99a6"); R(cx - 34, gy - 104, 9, 5, "#5d6670");                             // exhaust stack
       R(cx - 22, gy - 34, 38, 16, "#3a4048");                                     // fuel tank
-      R(cx + 34, gy - 28, 44, 5, "#111417"); R(cx + 50, gy - 23, 12, 4, "#3a4048");                              // fifth wheel plate on its saddle
+      if (!plow) { R(cx + 34, gy - 28, 44, 5, "#111417"); R(cx + 50, gy - 23, 12, 4, "#3a4048"); }               // fifth wheel plate on its saddle
+      else {
+        g.fillStyle = tc; g.beginPath(); g.moveTo(cx - 20, gy - 74); g.lineTo(cx + 98, gy - 74); g.lineTo(cx + 84, gy - 28); g.lineTo(cx - 8, gy - 28); g.closePath(); g.fill();   // the hopper, sides sloping in
+        R(cx - 22, gy - 78, 122, 5, "#23272c"); for (const x of [cx + 10, cx + 40, cx + 70]) R(x, gy - 73, 3, 45, "rgba(0,0,0,.28)");                                          // its rim and ribs
+        R(cx + 96, gy - 26, 12, 4, "#3a4048"); R(cx + 92, gy - 20, 22, 3, "#8d99a6");                              // spinner chute and disc
+        R(cx - 80, gy - 110, 22, 6, "#f0a020");                                   // beacon bar
+        R(cx - 128, gy - 12, 26, 5, "#23272c");                                   // push frame
+        g.fillStyle = "#e8b01c"; g.beginPath(); g.moveTo(cx - 126, gy - 52); g.quadraticCurveTo(cx - 146, gy - 30, cx - 138, gy + 6); g.lineTo(cx - 130, gy + 6); g.quadraticCurveTo(cx - 136, gy - 28, cx - 120, gy - 52); g.closePath(); g.fill();   // the mouldboard, side on
+        R(cx - 140, gy + 4, 12, 4, "#5d6670");                                    // cutting edge
+      }
       R(cx + 100, gy - 30, 4, 10, "#c0221c");                                     // tail lamp
       g.fillStyle = "#14171a"; for (const x of [cx - 74, cx + 58]) { g.beginPath(); g.arc(x, gy - 6, 25, Math.PI, 0); g.fill(); }   // arches
       wheel(cx - 74, 21); wheel(cx + 58, 21);
+      if (plow) g.restore();
       return;
     }
     const col = "#" + byId("pickup").paint.toString(16).padStart(6, "0");

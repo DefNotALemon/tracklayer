@@ -988,6 +988,17 @@ the stretch is done. What is in the hopper rides on the truck (three tonnes more
 stop when full). When it runs out the spinner stops and says so. Sleds feel nothing of it. The
 hopper's load and the gritted lengths are saved; the spinner is off after a reload.
 
+**A used plow truck.** With the Freight licence and six deliveries behind you, a used Nordtrekk
+Brøyt now and then turns up on Bytteboden under Vehicles (less often than a tractor unit, and
+seldom once you own one), for about two thirds to three quarters of the $16,800 it costs new.
+It sells by the lorry's rules: only people living within 1.5 km of a road lay-by sell one, it
+stands in that lay-by and not in a yard, you settle at the seller's door for the keys, one can
+be waiting for you at a time, and it counts as one of your three trucks. It comes with a quarter
+tank, an empty hopper and its own blade, whose cutting edge is as worn as the truck: the listing
+says "cutting edge 73%", and the garage's Plow tab mends it at the usual $6 a point. A lemon's
+edge is worse than the ad says, like the rest of it; looking it over in person shows the truth
+and drops the price.
+
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
 posts, rocks and parked cars 80 cm before the bumper does, and it is 2.1 m across, so a bladed
 pickup needs more room than a bare one. With it down at over 14 km/h, a rock, a log or a parked car

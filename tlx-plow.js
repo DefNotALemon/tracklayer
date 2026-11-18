@@ -183,7 +183,8 @@ function tidy() {
   }
   for (const r of own) {                                                         // 4.1c1: a truck that comes with a blade has it
     const fd = BLADES.find(d => d.factory && d.fits.includes(r.id)); if (!fd) continue;
-    const b = s.blades[r.uid]; if (!b || b.id !== fd.id) { s.blades[r.uid] = { id: fd.id, cond: 100, throw: "r" }; if (fd.hop) s.blades[r.uid].hop = 0; }
+    /* 4.1c3: a truck bought used (its record says so, tlx-vehicles.js collect) comes with the edge its seller wore: the truck's own condition */
+    const b = s.blades[r.uid]; if (!b || b.id !== fd.id) { s.blades[r.uid] = { id: fd.id, cond: r.used && Number.isFinite(r.cond) ? Math.max(1, Math.min(100, r.cond)) : 100, throw: "r" }; if (fd.hop) s.blades[r.uid].hop = 0; delete r.used; }
   }
   NT = own.length;
 }
