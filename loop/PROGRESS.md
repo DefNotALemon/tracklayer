@@ -3,6 +3,44 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-18 13:45 — beta fix 0257 #1/#2: DROP and TAKE ON again no longer wipes a lot's or a drive's misses (tlx-plow v17, lane A) (G4) — 93b0666
+Builder pass, lane A. Orient: worktree clean, rebased on main (v253), 171 GB free. Triage 0256, 0257 (last triaged ->
+257): one BUG, 0257 #1 (an exploit), taken this pass with its POLISH twin #2. No BLOCKER. POLISH left open: 0256 #3
+(pad B takes three presses to leave the tablet from the Plow app, two from Map and Jobs: the first only drops the pad
+focus), 0256 #4 (a stray pad A on a focused card takes a customer on with no confirm; DROP of a clear one is still
+free), 0257 #7 (`TLXPL.lot.mark` has no on-foot guard of its own: unreachable in play).
+What the player gets. Giving a plowing customer up no longer wipes the slate. A clear drive or lot with nothing against
+you is handed back for nothing, as before. Hand one back SNOWED IN and its owner digs it out by hand: a miss, like
+leaving it 12 hours; the card warns before you press DROP ("and it would be the second time" when it would). A miss is
+remembered for a week: TAKE ON inside it and the miss comes back with it (the line says so), and while it is not yours
+its card carries the DUG OUT / SHOVELLED BY HAND ONCE chip. The miss that makes two loses it for a week as ever.
+How. The report was on lots; the drives had the same hole (`drvTake` wrote `{ miss: 0 }` too), so both are fixed, with
+one helper set in tlx-plow.js: `fileDrop` (the miss count on a DROP: +1 when snowed in; two -> `lotOff` / `drvOff`,
+else `lotRec` / `drvRec { key: { miss, until: hour + 168 } }`), `fileTake`, `fileOf`, `fileTidy` (junk, old saves).
+State: two new maps in `plow` (`state0` fills them in; no new system id). No tracklayer.js change, no cash anywhere.
+0257 #2's suggestion that a retaken lot "comes back still snowed in" was not built: on a DROP the owner really digs it
+out, and the miss is what that costs.
+Numbers (`x4_dropfile.mjs`, new, 41 asserts, all ok, page errors none; the beta's own `x4_lots_break.mjs` step 3 was
+the failing case on main):
+- lot, clear, no miss: take + drop leaves `lotRec` {} and `lotOff` {}, the plain line;
+- lot, miss 1, clear: DROP files `{ miss: 1, until: +168 h }`, TAKE ON gives miss 1 (was 0), the file closed;
+- lot, miss 1, snowed in (level 0.48): DROP -> gone 7 days, ground back to plowing 1.00, TAKE ON refused;
+- lot, miss 0, snowed in, DROP and TAKE ON pressed on the touch layout: miss 1 on file, picked up; the next 12 h
+  unplowed is then the second miss and the lot goes;
+- 169 h later a filed miss is forgotten; a filed miss survives a save and reload;
+- drives: the same four cases (a drive's `drvSulk` is not set by a DROP loss); junk in the file tidied, a save with no
+  file builds one, cash unchanged to the dollar through all of it.
+Stills (`~/.hermes/cache/scratch/tlloop/b_a_0257/`, f2 and f3 looked at): the forecourt's card with YOURS / SNOWED IN /
+DUG OUT BY HAND ONCE and the warning line above the DROP button; two drive cards with their warnings. The warning is
+the cards' existing small `tcw` line: readable, nothing clipped.
+Gate: smoke, x1_save, x4_dropfile, x4_lots, x4_driveways, x4_drivemarks, x4_bladedoors, x4_plowapp exit 0, page
+errors none. x4_lots / x4_driveways step J's label no longer says "no penalty" (the asserts are unchanged).
+Not done: pad focus on DROP / TAKE ON still not driven by a scenario (DOM click with the touch layout on); no confirm
+step on DROP (the warning is on the card, not a second press).
+Open for Lemon (defaults built): a DROP in the middle of a storm, before the clock runs, counts as a miss too; a week
+as the file's life.
+Next for lane A: 4.2c2 (where a lot's heap may go; closes 4.2), then 5.4 plow drivers.
+
 ## 2026-11-18 13:05 — 4.2c1: lots plowed by the square metre (v253, tlx-plow v16, lane A) (G4) — c7ce1b3
 Builder pass, lane A. Orient: worktree clean, rebased on main (v252), 171 GB free. Triage 0254, 0255 (last triaged ->
 255): no BLOCKER, no BUG. POLISH left open: 0254 #4 (pad B takes two presses to put the tablet away when it was opened
