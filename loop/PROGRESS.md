@@ -3,6 +3,61 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 18:55 — 5.4c1: a plow driver gets stuck, the ping, PAY A TOW (tlx-plow v29, tlx-staff v9, lane A) (G4) — 360339d
+Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0344 (3.3b touch dig: no
+findings), 0345 (5.4b2a at night) and 0346 (5.4b2b break test) read (last triaged 346): no BLOCKER or BUG. 0345 #4
+(POLISH, "NaN L in the tank" from a broken truck record) was one line in the function this slice rewrites, so it is
+fixed here; 0346 #5 (a NaN `q.a` written into a live record) is left: load already cleans it. So the pass took the
+next unticked slice, 5.4c. Too big for one pass: split in EXPANSION.md into 5.4c1 (the bog, the ping, the cold, PAY A
+TOW: built) and 5.4c2 (TOW THEM yourself, SEND SOMEONE: needs a second truck on the road and a pulled pose). 5.4b's
+own box is ticked too (b1 and b2 were both done).
+What landed: tlx-plow.js `PDR.bog` (the tunables), `pdrBogRisk` (bogs a km), the roll in `pdrRun`'s cutting loop,
+`pdrBog` / `pdrStuck` / `pdrTowed` / `pdrTow` / `pdrTowCost` / `pdrJob` / `pdrUnbog`, the state `st: "stuck"` +
+`sk, tow, gone, bogI` (saved, cleaned in `pdrTidy`), and the stuck case in `pdrSee` (stands off its lane toward the
+windrow, skewed, blade down; abandoned: no driver, lamps and beacon dark), `pdrSay`, `pdrHail` / `pdrWave` /
+`pdrHailNear`, `pdrPins`, `pdrWhere`, `pdrPlaces`, `pdrActs` / `pdrAct`. tlx-staff.js: `TLX.staff.dent(placeId, n)`.
+README. No tracklayer.js change (no script version bump).
+Decided: road snow is a level 0..1, not metres, so "over the blade's height" is a level per blade height (0.65 for
+the 1.15 m blade, 0.37 for the pickup's 0.65 m); the roll is per metre cut, so watching changes nothing; no bog
+while you sleep (`pdrSleep` unchanged), on the line from the truck's spot, heading in, or twice in one stretch of a
+trip; a stuck driver is stepped whether wages are owed or not (not paying is not a free way home); letting the
+driver go, handing the road back or hiring a new driver still brings a truck of yours home at once, as before; the
+tow comes whatever the weather and is not drawn; cost is by straight distance from the garage.
+Numbers (`x5_plowdriver_stuck.mjs`, 63 asserts A-F, 0 FAILs alone and in the gate): risk a km for the plow truck's
+blade 0 at 0.5 and 0.6, 0.214 at 0.9, 0.300 drifted level; the pickup's blade 0.063 at 0.5, 0 at 0.3; half the skill
+doubles it; a grade in snowfall (0.5) adds up to 0.066 a km on the Dyfjord road where the snow alone gives 0. Risk
+off: a 0.9 stretch opened as before. Risk certain: stuck 413 m along (inside stretch 1), stretch not opened, nothing
+paid; ping "Bogged in the drift 0.4 km along the Dyfjord road ... PAY A TOW ... ($130) ... after 6 h"; Jobs row on the
+truck (0 m off), pin "NAME: STUCK"; mood 0 -> -5 after the first hour (not before), -25 at 5.9 h; the road's clock
+0.88 -> 1.98 h. Tow: $130 refused a dollar short, paid from the Staff card's button, TOW ON ITS WAY, still stuck at
+0.5 h, moving again after the hour, the stretch opened and paid ($59 after their 40%), no second bog, home. Left: at
+6 h "has walked home", truck where it bogged through a 9 h sleep, pin "NAME'S TRUCK: STUCK", a word at the garage, a
+tow brings it in and the driver goes out on the next snow. Your truck: stays `out`, burns 0 L bogged, card shows
+PAY A TOW only (RECALL refused), towed with the driver in -> plowing on; abandoned + towed -> on its own spot (0.00 m),
+still assigned. Beside it: standing still 2.70 m right of the crown, nosed 17 degrees toward the windrow, driver in,
+lamps on; hail: "Bogged to the axles. I need a pull out of this: 4 min I have sat here."; a reload keeps st, p, sk,
+gone; abandoned: no driver, lamps and beacon dark, no hail.
+Tests changed: the 19 older `x5_plowdriver*` / `x5_assign*` scenarios with a SETUP string now pin
+`TLXPL.PDR.bog.km = 0` (a driver bogging at random is not what they test; only the two that use the pickup's blade
+at 0.5-0.6 could have met it, at about 2.5% a stretch).
+Gate: gate.sh smoke, x1_save, x5_plowdriver_stuck: each exit 0, 0 FAILs, page errors none. Then run alone:
+x5_plowdriver (54 ok), x5_plowdriver_mine (73 ok), x5_plowdriver_hail (42 ok), x5_plowdriver_seen (49 ok),
+x5_plowdriver_way (38 ok), x5_mood (27 ok), x5_plowdriver_hail_mine_night_beta (25 ok, its two FAILs from 0345 gone):
+each exit 0, 0 FAILs, page errors none. The first run of the new scenario had 5 FAILs: one mine (the Jobs row took
+its target from the drawn truck, which lags the clock by a frame after a jump: it now uses the clock's place), four
+the scenario's own (exact `tow === 1` while the game's clock ticks, the truck read while still easing sideways).
+Stills looked at: `k1_bogged.jpg` (the plow truck off its lane in the drift, blade down in the snow, driver in the
+cab, night), `k2_abandoned.jpg` (same place by day, empty cab, the "has walked home" notification on screen).
+NOT checked: a bog happening by chance at the real 0.3 a km (only risk 0 and certain were played; the per-metre roll
+is read from the code); the bog seen as it happens (it was bogged far off, then walked up to); the truck's blade
+after a reload beside it (in k2 it looks carried, not down); a pickup of yours bogged (only the plow truck); two
+drivers stuck at once (the Jobs rows take three); a storm arriving over a stuck truck; the traffic option on with a
+truck standing 1.1 m further into the lane's edge; pad and touch (no new control: the button is the Staff card's
+own kind, tested by x5_assign_pad_touch_beta, not re-run); the 12 other tester x5 scenarios that got the `bog.km = 0`
+pin were syntax-checked only.
+Reports 0347 (3.5c) and 0348 (4.2b2) arrived during the pass and are not triaged.
+Next for lane A: reports 0347 / 0348, then 5.4c2 (tow them yourself, send another driver).
+
 ## 2026-11-19 18:20 — 5.4b2b: your truck's drive from its spot to the road and back (tlx-plow v28, tlx-roads v15, lane A) (G4) — 66bfe56
 Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0341 (3.3b), 0342 (2.6c) and 0343
 (5.4b2a break test) read (last triaged 343): no BLOCKER or BUG in any; 0343 #6 (a sleep ends a hail silently) is
