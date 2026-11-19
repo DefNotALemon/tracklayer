@@ -1146,8 +1146,17 @@ and in a truck of yours what is in the tank and how the cutting edge is; an unha
 that too. While they wait their Staff card has PRAISE and CRITICISE live (a word in person is had
 within 30 m of the truck, wherever it is), and the use control reads **WAVE ON**. They drive on by
 themselves after a minute, or once you have walked 45 m off. The time they stand for you is not
-counted against the road. Not yet: your own truck's drive between its parking spot and the road,
-and a driver who gets stuck.
+counted against the road. Not yet: a driver who gets stuck.
+
+**From its parking spot and back.** A driver in your truck starts where you left the truck. They
+drive it off its spot, over the plowed ground and the streets and round the houses, onto the roads
+and along them to the first end of the road they plow, and they bring it back the same way: you can
+watch it leave and come home. Off the roads it goes at about 20 km/h. The drive is in the hours and
+in the diesel (a truck parked on the Kjøllefjord forecourt is half a minute from the Dyfjord road,
+5 km and some 7 L each way from the Gamvik road at Mehamn: park the truck where its road starts).
+Until they reach the road their pin on the Map reads DRIVING OUT and the cards say so. Coming home
+while you stand on the truck's spot, they stop 16 m short of it and tell you once; step clear and
+they park it.
 
 **A driver in your truck.** A driver without a truck needs one of yours with a blade fitted: their
 Staff card has an **ASSIGN** button for each (the card then shows its litres and its cutting edge).

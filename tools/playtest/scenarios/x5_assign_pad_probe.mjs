@@ -5,7 +5,7 @@ const pad = async n => { await padSet({ [n]: 1 }); await sleep(160); await padSe
 await boot();
 await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; GS.hour = 34; TLX.state("roads").h = 34; GS.cash = 90000; GS.lic = GS.lic || {}; GS.lic.freight = true; TLXV.buy("plowtruck"); TLXV.buy("plowtruck"); true`); await sleep(800);
 const rid = JSON.stringify(await J(`TLXPL.con.routes()[0].id`));
-await ev(`TLXPL.PDR.mine = 1; TLXPL.con.sign(${rid}); TLX.staff.tick(); true`); await sleep(300);
+await ev(`TLXPL.PDR.mine = 1; TLXPL.PDR.wayMax = 0; TLXPL.con.sign(${rid}); TLX.staff.tick(); true`); await sleep(300);
 const DID = (await J(`TLX.state("staff").apps`))[0].id;
 await ev(`TLX.staff.hire(${DID}); TABLET.toggle(true, "staff"); TABLET.render(); true`); await sleep(500);
 console.log("focusables", JSON.stringify(await J(`TABLET.focusables().map(e => e.dataset.tf)`)));

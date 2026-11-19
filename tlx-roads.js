@@ -773,6 +773,23 @@ R.tripDist = (x0, z0, x1, z1) => {
   const A = anchor(x0, z0), B = anchor(x1, z1), path = A && B ? tripPath(A, B) : null; if (!path) return null;
   let d = 0; for (const e of path) d += Math.abs(e.s1 - e.s0); return d;
 };
+// 5.4b2b: the line driven by road between two points (each anchored as above), as the routes' own points [[x, z], ...]:
+// [] when both ends share a waypoint, null when the roads don't join them
+R.tripLine = (x0, z0, x1, z1) => {
+  if (!R.ready) return null;
+  const A = anchor(x0, z0), B = anchor(x1, z1), path = A && B ? tripPath(A, B) : null; if (!path) return null;
+  const out = []; let cur = A.node || "@A";
+  for (const e of path) {
+    const fwd = e.u === cur, sa = fwd ? e.s0 : e.s1, sb = fwd ? e.s1 : e.s0; cur = fwd ? e.v : e.u;
+    const c = e.rt.cum, p = e.rt.pts, n = p.length;
+    const at = s => { let i = 0; while (i < n - 2 && c[i + 1] <= s) i++; const L = (c[i + 1] - c[i]) || 1, t = Math.max(0, Math.min(1, (s - c[i]) / L)); return [p[i][0] + (p[i + 1][0] - p[i][0]) * t, p[i][1] + (p[i + 1][1] - p[i][1]) * t]; };
+    out.push(at(sa));
+    if (sb > sa) { for (let i = 0; i < n; i++) if (c[i] > sa + 0.5 && c[i] < sb - 0.5) out.push([p[i][0], p[i][1]]); }
+    else for (let i = n - 1; i >= 0; i--) if (c[i] < sa - 0.5 && c[i] > sb + 0.5) out.push([p[i][0], p[i][1]]);
+    out.push(at(sb));
+  }
+  return out;
+};
 R.tripWarn = (x0, z0, tgt) => { if (tgt && tgt.isSnow) return ""; /* 4.2a: the target IS the snowed-in stretch (a plow contract) */ const t = R.trip(x0, z0, tgt); return !t ? "" : t.why === "closed" ? `${t.route.name} shut for the winter` : t.why === "convoy" ? `${t.route.name}: ${t.note}` : `${t.route.name} snowed in`; };
 // beta 0149 #1: the minimalist HUD hides the old compass row, so a job whose way runs over a snowed-in stretch also gets a
 // toast, once per road per storm (the note clears when that road is open again; the fell road's once per session).
