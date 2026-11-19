@@ -3,6 +3,52 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 16:25 — 14.4b3: winter haul-out and storm wear on boats (tlx-boats v8, lane C) (G4) — 5cbd5aa
+Builder pass, lane C. Orient: worktree clean (three old stashes left as found), rebased on main, 123 GB free.
+Reports 0327-0331 are lanes A's and B's (3.5, 4.x, 6.3b1, 1.x options rerun): nothing new on boats or sea fishing;
+last triaged left to lane A. Next unticked slice in lane C's list: 14.4b3. Its design was one line; written out in
+EXPANSION.md before building.
+What landed (tlx-boats.js only; no tracklayer.js change, so no script bump). Storm wear, option `stormwear` (on):
+sstep(0.5, 0.9, storm) x 0.5 points of hull an hour on a berth, 1.5 lying off, floor 30%, not while you are sat in
+her, a clock jump counts 6 h at most. It runs from a new small system `x.sys.boats` (saves only the hour last
+reckoned): the vehicles' tick skips a boat over 500 m from the camera, which is when a storm should cost her.
+`x1_save.mjs` lists the new id. One tablet notification a blow once it has cost a full point. Haul-out: $120 flat,
+launch included; the record carries `hard` (1 the cradle, the yard's scenery hull hidden; 2 inside the shed, not
+drawn); on the hard no wear, no tow, no boarding (`dist` out of reach), repairs still work. Decisions: `r.out` was
+taken (5.4a2: a truck out with a driver), hence `hard`; a boat on the hard is never the current vehicle (hauling the
+one you last stepped out of swaps you to the sled first), which kept `core` and `reset` untouched; no weekly storage
+fee (needs a Monday hook and a debt rule: left to 19); the door keeps one meaning, and the haul-out lives on a Yard
+tab in the counter's shop panel rather than a hold on the use control. No sea jobs are posted while every boat is out.
+Numbers (`x14_haulout.mjs`, 68 asserts, 0 FAILs alone and in the gate): full storm 2 h on a berth 1.0 point, storm
+0.7 0.5, storm 0.45 0, a 20 h jump 3.0 (6 h), lying off 2 h 3.0, 30.5% -> 30.0% and no further, option off 0, aboard
+0, stood beside her 1.0; through the game's own tick 1.5 h took her to 99.25%; the notification came on the second
+1.5 h and once. Hauled out she stands 1.27 m above the water on the cradle, 5.0 m from the slip's foot; cash 5000 ->
+4880; mended there 80 -> 100% for $160; reload keeps her out; launched at the counter onto a berth with 5.3 m under
+her; HAUL OUT / LAUNCH by mouse, a touch tap, pad A and keyboard Enter in the app, and by click on the Yard tab
+(the door opening the counter by pad L3 and the touch button is x14_tackle's); two boats launched 4.2 m apart.
+Gate (gate.sh, NOSTILLS): smoke, x1_save, x14_haulout, x14_yard, x14_skiff, x14_docks, x14_seajobs exit 0, 0 FAILs,
+page errors none. x14_tackle failed 2 and x14_boatsapp 1, all three from this slice and expected: the counter's tab
+list is now Lines / Pilks / Gaff / Yard, and x14_boatsapp holds a dented boat at Dyfjord in a 0.9 storm for a few
+seconds, which now wears her a hair under 60. Both asserts updated (boatsapp now checks the reload keeps the value
+and it rounds to 60); re-run alone: exit 0, 0 FAILs, page errors none. x14_fishing failed one assert in the gate
+("RT hauls a saithe aboard (landed)": the fish was landed, the logbook count was not n + 1) and passed alone on the
+re-run, exit 0, 0 FAILs. Cause not shown: the failing run did not print the count. A guess only: a second fish
+logged in the same window. tlx-seafish.js is untouched by this slice. Not run: x14_*_break / x14_skiff_storm (beta
+probes, no asserts on hull), the x1 options scenarios (they count options with `> 10`).
+Then main moved (lane B's tlx-lights v5 and tracklayer.js v257): rebased, gate.sh again on the rebased tree: smoke,
+x1_save, x14_haulout, x14_tackle exit 0, 0 FAILs, page errors none. x14_boatsapp, x14_yard and the rest were not
+re-run after the rebase (it pulled no boat code). Beta 0332 (14.4b2, arrived mid-pass): no BLOCKER or BUG; its #5
+POLISH (the counter opening with the Boats app up) is left for a later pass, as is 0336 (14.4b1), not yet read.
+Stills looked at (cradle from the sea side and from the jetty, the app's cards, the Yard tab): she sits where the
+yard's hull sat, bow to the shed; the cards and the tab's card fit at 1280x720. All of them are night shots, so fine
+contact between keel and cross beams was not judged; the pose is the scenery hull's by construction. Not looked at:
+640x360, daylight, the touch layout.
+Known and left: the lift is instant and unseen; the outboard hangs down on the cradle; the counter's panel is still
+titled "Handline tackle" over the Yard tab; a dented boat at the slip makes the door read REPAIR, so the Yard tab
+waits for the repair or the app; wear ignores which side of the jetty is the lee; a slept night counts 6 h at the
+weather you wake to, so a storm that blew over in the night costs nothing.
+Next for lane C: 14.5 (rowboat, canoe, ferry as a passenger): no design yet, writing it is the next pass.
+
 ## 2026-11-19 15:40 — 6.3b2a: the oil driver's sled on the run (tlx-lights v5, lane B) (G4) — 59f5d1b
 Builder pass, lane B. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0327-0329 are lane A's;
 0330 (6.3b1 beta, landed mid-pass) has no BLOCKER or BUG, and its one POLISH (#5: a driver hired seconds ago read "on
