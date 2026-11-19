@@ -70,6 +70,7 @@ handline panel reading "HEAVY LINE · 120 g" (`~/.hermes/cache/scratch/tlloop/c_
 were then moved together to the right (not re-shot).
 Not done: no meshes for the pilk or the gaff; a dented boat at the slip with no cash for the repair keeps the
 counter shut; the line doesn't wear; 0194 #3 not looked at. Next: 14.4b3 (winter haul-out, storm wear option).
+Post-rebase (the landing pulled lane B's 6.3b1): smoke, x1_save, x14_tackle exit 0, fails 0, page errors none.
 
 ## 2026-11-19 15:05 — beta fix 0325 #1: a drive or lot given up before Monday stays on the Monday statement (tlx-plow v24, lane A) (G4) — 8dc2480
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256, tlx-plow v23), 123 GB free. Reports 0323-0326
