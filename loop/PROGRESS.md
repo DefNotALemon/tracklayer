@@ -3,6 +3,57 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 16:25 — 5.4b1: the plow driver's truck seen on the road (tlx-plow v25, tlx-vehicles v35, tlx-traffic v10, lane A) (G4) — bf764f9
+Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0327-0331 triaged (last
+triaged 331): 0327, 0328, 0329, 0331 have no BLOCKER or BUG (POLISH: reverse weaker than forward in 35 cm, a sled
+held still in 35 cm says nothing, `conLast` keeps last week's row after a quiet week, a bladeless truck honks with
+the tablet up); 0330 is lane B's. 0332-0337 arrived during the pass and are NOT read: 0337 (4.2a, pay lost on
+hand-back) and 0335 (2.5) are lane A's and come first next pass. Next unticked slice: 5.4b. Split in EXPANSION.md
+into 5.4b1 (this) and 5.4b2 (a word on the road, the hail, your truck's drive from its spot), design written there.
+The thing that made it bigger than a model on a line: a game hour is 50 s, so 5.4a's PDR.v / vRoad are 80 / 240 m/s.
+Decided as 3.5c2a did for the convoy's plow: within 600 m of you, on the running clock, the truck keeps 7 m/s
+cutting / 12.5 clean; the hours that costs the driver (PDLOST) come off that road's due clocks in conStep, so the
+contract's rules are untouched for a driver you watch. A clock put forward (a step of 0.05 h or more) keeps 5.4a's
+pace, which is also why the 5.4a scenarios did not move.
+What landed: tlx-vehicles: `TLXV.outPose` (a record that is `out` is drawn at the pose its taker gives, on its own
+wheels, a figure in the cab), `TLXV.ghost / dropGhost` (the same runtime for a truck that is not in the save, body
+paint multiplied by a tint). tlx-plow: `pdrSee` every frame (position eased after p, lane, yaw eased so the turn at
+the far end is a turn, blade, beacon, the cut along its own lane with `bladeSnow` / `heapSnow` within 320 m of you),
+`pdrSpot` / `pdrPad` (their own truck's cleared strip by the road's first end), `pdrNear` / `pdrBlocked`, a `marks`
+pin. tlx-traffic: a `led` entry in TLXT.extra is solid and seen, never driven or drawn; `TLXT.collide` for when the
+traffic option is off. No tracklayer.js change, nothing new saved.
+Numbers (`x5_plowdriver_seen.mjs`, 49 asserts A-H, 0 FAILs): a spot on all three contract roads (14-44 m up, 6.6 m
+off the line); parked truck 0.09 m off the surface on its strip (0.73 m sunk before the strip); you 3.3 km off: out
+and opened at the clock's pace; you beside the road: 12.5 m/s clean and 7.0 m/s cutting by the game clock, fastest
+frame 14.5-18.1 m/s, blade 0 -> 1 at the snow, lane 1.6 m off the crown; 40 m into the stretch the lane behind the
+blade 0.61 -> 0.15 m of snow with the other lane still 0.57 m and the stretch not yet open; no warning, no cover;
+in its lane it waits 13.7 m short and stays, 20 m on in 3.5 s once clear; the sled set down in it is pushed out
+3.4 m (traffic off) / 4.0 m (on); a traffic car 30 m behind sees a car 27.7 m ahead; heading in it faces back in
+the other lane; home on the spot to 0.00 m; your own truck out is your truck's runtime on the road with the record
+still `out` and its spot kept; a reload mid-run has it back on the road; back in, no pose, no led car left.
+Gate: smoke, x1_save exit 0 (gate.sh, before the last rebase; the seen scenario in that gate run was cut off by the
+tool's 10 minute limit, then run alone: exit 0, 0 FAILs, page errors none). Alone, each exit 0, 0 FAILs, page errors
+none: x5_plowdriver, x5_plowdriver_mine (both again after the cut-as-it-goes code went in), x3_traffic, x3_convoy,
+x4_weekpay (those three before it; it touches only pdrSee). After the final rebase (it pulled lane B's tlx-lights
+and lane C's tlx-boats, and 21 lines of tracklayer.js): smoke, x1_save and x5_plowdriver_seen again, alone, each
+exit 0, 0 FAILs, page errors none; the other five were not re-run on the rebased tree.
+`x5_plowdriver_two_break.mjs` (a tester's) fails 2 of its asserts: it hires without setting PDR.mine, and its second
+driver came without a truck ("no truck of yours is assigned"), so the road is never opened. That is 5.4a2's coin,
+not this change; not checked on main. Fix for the tester: `TLXPL.PDR.mine = 0` in its setup.
+Stills looked at (two sheets + two singles): parked truck with blade and beacon beside the road, the truck on the
+road with the driver visible in the cab, beacon and blade down. NOT confirmed by eye: the cut lane and the windrow.
+The stills are shot from a camera 100 m+ from the player, where the snow is the far mesh, and neither the front
+nor the rear view shows a clear groove; the numbers above are from the snow cells. A tester should look from the
+sled, close. Also every still from C on carries the sled's "IN THE WATER" hint: the scenario sets the sled down
+beside the Dyfjord road at the fjord's edge; a test set-up fault, the truck is on the road.
+Known and left: your truck appears on the road's first end at once (no drive from its spot); the truck is moved,
+not driven: no body roll, it does not slow for bends, and at the clock's pace seen from over 600 m it can still
+cover ground fast (eased to at most 45 m/s, not drawn past 500 m from the camera); a driver's own truck is always a
+Nordtrekk Brøyt and the tint multiplies the whole body paint, so white is one of the seven; the pin's label at
+full zoom-out was not looked at; PRAISE / CRITICISE are still at the garage; headlight beams at night are the
+truck's lamps only (no pool of light on the road). Pads and touch: nothing in this slice takes input.
+Next for lane A: reports 0332-0337 first (0337, 0335), then 5.4b2, 5.4c.
+
 ## 2026-11-19 16:25 — 14.4b3: winter haul-out and storm wear on boats (tlx-boats v8, lane C) (G4) — 5cbd5aa
 Builder pass, lane C. Orient: worktree clean (three old stashes left as found), rebased on main, 123 GB free.
 Reports 0327-0331 are lanes A's and B's (3.5, 4.x, 6.3b1, 1.x options rerun): nothing new on boats or sea fishing;
