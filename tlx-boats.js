@@ -1,4 +1,4 @@
-// Tracklayer — boats (expansion slices 14.1-14.4b2, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
+// Tracklayer — boats (expansion slices 14.1-14.4b3, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
 //
 // WHAT IT IS. A 4.6 m aluminium skiff with a 20 hp tiller outboard, bought at the garage (Boats tab) and moored at a timber
 // jetty on piles (the småbåthavn) off the lowest bit of shore near the quay: the concrete quay stands ~9 m above the water,
@@ -25,6 +25,10 @@
 // THE BOATYARD (14.4b1). A slip and a red shed beside the quay jetty (Kjøllefjord Båt & Motor). Dents from groundings are
 // mended there for so much a point of hull, with the boat at the quay jetty and nobody in her: from the Boats app's
 // Boatyard card, or on foot at the shed's side door with the use control.
+//
+// THE HAUL-OUT AND STORM WEAR (14.4b3). A boat left afloat in a blow chafes (option `stormwear`); for a fee the yard
+// lifts her out onto the cradle by the shed, where nothing wears her, and launches her again when asked (the Boats
+// app's card, or the Yard tab at the yard's counter). Its own small system `x.sys.boats` runs the wear by the clock.
 //
 // tracklayer.js hooks for this file: VEH.floor (the jetty planks in walkFloor and past the sea wall in footStep) and the
 // "B" pin on the Map. Place comes from api.world (depot, sea mask, ground), never a Nordkinn constant.
@@ -274,7 +278,7 @@ function seaBoard(dt) {
   seaT -= dt; if (seaT > 0) return;
   seaT = 2;
   const posted = GS.jobs.filter(j => j.sea).length;
-  if (posted >= SEA_MAX || seaJobs().length >= ROW.slots) return;
+  if (posted >= SEA_MAX || seaJobs().length >= ROW.slots || !boats().some(b => !b.hard)) return;   // nothing new while every boat is on the hard (14.4b3)
   const j = seaPost(); if (!j) return;
   seaT = SEA_GAP; api.TABLET.refresh("parcels");
   if (!seaSaid) { seaSaid = true; api.TABLET.notify({ app: "parcels", title: "Sea freight for the skiff", body: `${j.cargo}, ${shortSite(j.from).toLowerCase() === "quay" ? "quay jetty" : shortSite(j.from) + " jetty"} to ${shortSite(j.dest)}: ${api.fmtCash(j.pay)}. Jobs marked BY BOAT load and hand over at the jetties.`, ttl: 9 }); }
@@ -513,6 +517,8 @@ function parcels(R, n) {                                                       /
 }
 function tick(R, r, isCur, dt) {
   const FOOT = api.FOOT, P = api.P;
+  if (r.hard && isCur) delete r.hard;                                           // you are in her: she is not on the hard (a damaged save)
+  if (r.hard) { hardTick(R, r); parcels(R, 0); if (r === boats()[0]) seaBoard(dt); return; }
   if (isCur) {
     if (!api.MNT.on && !api.DMT.on && R.A) R.A = null;
     if (FOOT.on && !api.MNT.on && !api.DMT.on) {                                 // you got out: she rides the swell where you left her
@@ -725,7 +731,7 @@ function garageRows(body, row) {
     const e = document.createElement("div"); e.className = "bfoot";
     let D = DOCKS[0], dd = 1e9; for (const Q of DOCKS) { const d = Math.hypot(r.x - Q.x, r.z - Q.z); if (d < dd) { dd = d; D = Q; } }
     dd = Math.round(dd);
-    e.textContent = `${ROW.name}: ${Math.round(r.cond)}% hull, ${Number(r.fuel).toFixed(0)} of ${ROW.fuel} L, ${!D ? "afloat" : dd < 40 ? "at the " + D.name : dd + " m from the " + D.name}.`;
+    e.textContent = `${ROW.name}: ${Math.round(r.cond)}% hull, ${Number(r.fuel).toFixed(0)} of ${ROW.fuel} L, ${r.hard ? "hauled out at the boatyard" : !D ? "afloat" : dd < 40 ? "at the " + D.name : dd + " m from the " + D.name}.`;
     body.appendChild(e);
   }
   const note = document.createElement("div"); note.className = "bfoot"; note.textContent = `Walk out along the jetty and get in. Step out at any jetty or onto a low bit of shore. ${Math.max(0, DOCKS.length - 1)} villages have a jetty of their own: tie up alongside and their parcels hand over there. Dents from the shallows are mended at the boatyard beside the quay jetty, ${api.fmtCash(YARD.perPt)} a point of hull.`;
@@ -749,6 +755,7 @@ const fuelOf = r => S().cur === r.uid ? api.GS.fuel : Number(r.fuel) || 0;
 const loadOf = r => ((S().cur === r.uid ? api.GS.load : r.load) || []).filter(j => j && !j.big).length;
 function nearDock(x, z) { let D = null, dd = 1e9; for (const Q of DOCKS) { const e = dockEnd(Q), d = Math.hypot(x - e.x, z - e.z); if (d < dd) { dd = d; D = Q; } } return D ? { D, d: dd } : null; }
 function whereOf(r) {
+  if (r.hard) return { at: null, hard: true, text: r.hard === 2 ? "hauled out, in the boatyard's shed" : "hauled out, on the cradle at the boatyard's slip" };
   const p = posOf(r), at = dockAt(p.x, p.z), n = nearDock(p.x, p.z);
   if (at) return { at, text: `at the ${at.name}` };
   if (!n) return { at: null, text: "afloat" };
@@ -760,6 +767,7 @@ function towFee(r) { const rough = clamp(api.GS.storm || 0, 0, 1) > 0.5; return 
 function towBlock(r, lenient) {
   const GS = api.GS, cur = S().cur === r.uid, R = RTS.get(r.uid);
   if (!DOCKS[0]) return "There is no jetty to tow her to.";
+  if (r.hard) return "She's hauled out at the boatyard: have the yard launch her.";
   if (R && R.towing) return "The harbour boat has her already.";
   if (GS.dead || api.busy() || api.HELP.on || (cur && (api.MNT.on || api.DMT.on))) return "Not just now.";
   const p = posOf(r); if (dockAt(p.x, p.z) === DOCKS[0]) return "She's at the quay jetty already.";
@@ -811,8 +819,8 @@ function appRender(el) {
   let h = U.tabHead("BOATS · YOUR MOORINGS", "Boats", money(GS.cash));
   h += `<div class="tsub">${bs.length} of ${MAX_BOATS} berths taken at the quay jetty · the harbour boat tows for ${money(TOW.base)} and ${money(TOW.perKm)} a kilometre by sea${clamp(GS.storm || 0, 0, 1) > 0.5 ? " " + U.chip("HEAVY WEATHER RATE", "due") : ""}</div>`;
   bs.forEach((r, i) => {
-    const w = whereOf(r), aboard = aboardOf(r), f = fuelOf(r), c = clamp(Number(r.cond == null ? 100 : r.cond), 0, 100), n = loadOf(r), km = towKm(r), why = towBlock(r), home = w.at === DOCKS[0];
-    const chips = (aboard ? U.chip("ABOARD", "ok") : w.at ? U.chip("MOORED", "ok") : U.chip("AFLOAT")) + (f <= 0 ? U.chip("NO FUEL", "due") : f < ROW.fuel * 0.2 ? U.chip("LOW FUEL", "due") : "") + (c < 99.5 ? U.chip(`HULL ${Math.round(c)}%`, c < 60 ? "due" : "") : "");
+    const w = whereOf(r), aboard = aboardOf(r), f = fuelOf(r), c = clamp(Number(r.cond == null ? 100 : r.cond), 0, 100), n = loadOf(r), km = towKm(r), why = towBlock(r), home = w.at === DOCKS[0] || !!w.hard;
+    const chips = (aboard ? U.chip("ABOARD", "ok") : w.hard ? U.chip("HAULED OUT", "ok") : w.at ? U.chip("MOORED", "ok") : U.chip("AFLOAT")) + (f <= 0 ? U.chip("NO FUEL", "due") : f < ROW.fuel * 0.2 ? U.chip("LOW FUEL", "due") : "") + (c < 99.5 ? U.chip(`HULL ${Math.round(c)}%`, c < 60 ? "due" : "") : "");
     const extra = aboard ? "" : `<button type="button" class="tbtn ghost" data-tf="btm:${r.uid}" data-act="btm:${r.uid}">MARK ON MAP</button>`;
     h += U.tabCard({ tf: "btc:" + r.uid, title: ROW.name + (bs.length > 1 ? " · no. " + (i + 1) : ""), chips,
       meta: `${w.text[0].toUpperCase() + w.text.slice(1)}${home ? "" : ` · ${km.toFixed(1)} km by sea from the quay jetty`}`,
@@ -830,6 +838,19 @@ function appRender(el) {
         note: `Dents knocked out and the seams welded, ${Math.round(c)}% back to 100%: ${money(YARD.perPt)} a point of hull.${near && whyR ? " " + U.esc(whyR) : ""}`,
         pay: money(repairCost(r)), act: "bry:" + r.uid, actLabel: "REPAIR HULL", blocked: !!whyR });
     }
+    if (BY && BY.hard) {                                                        // the haul-out's card (14.4b3): out for the winter, or back in
+      if (r.hard) { const whyL = launchBlock(r);
+        h += U.tabCard({ tf: "bhc:" + r.uid, title: "On the hard", chips: U.chip("OUT OF THE WEATHER", "ok"),
+          meta: r.hard === 2 ? "Stood on trestles inside the yard's shed" : "Stood on the cradle at the head of the slip",
+          note: `Storms don't wear her while she's out, and nobody takes her anywhere. The launch is paid for: down the slip and round to a berth at the quay jetty.${whyL ? " " + U.esc(whyL) : ""}`,
+          pay: "paid", act: "bhl:" + r.uid, actLabel: "LAUNCH", blocked: !!whyL });
+      } else { const near = atYard(r), whyH = haulBlock(r);
+        h += U.tabCard({ tf: "bhc:" + r.uid, title: "Winter haul-out", chips: near ? U.chip("AT THE SLIP", "ok") : U.chip("NOT HERE"),
+          meta: near ? "The yard lifts her out and stands her on the cradle" : "Bring her to the quay jetty: the yard's slip is beside it",
+          note: `Out of the water no storm wears her. ${money(HARD.fee)} covers the lift, the storage and the launch when you want her back.${wearOn() ? ` Left afloat in a blow she chafes: about a point of hull every ${Math.round(1 / WEAR.berth)} hours on a berth in a full storm, ${Math.round(WEAR.adrift / WEAR.berth)} times as fast lying off.` : ""}${near && whyH ? " " + U.esc(whyH) : ""}`,
+          pay: money(HARD.fee), act: "bho:" + r.uid, actLabel: "HAUL OUT", blocked: !!whyH });
+      }
+    }
   });
   for (const o of ADDONS) if (o.appCard && bs.length) h += o.appCard(U) || "";  // cards from the add-ons (the handline's tackle, 14.4b2)
   if (DOCKS.length) {
@@ -843,6 +864,8 @@ function appRender(el) {
   for (const b of el.querySelectorAll("[data-act^='btw:']")) b.addEventListener("click", () => { tow(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
   for (const b of el.querySelectorAll("[data-act^='btm:']")) b.addEventListener("click", () => mark(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='bry:']")) b.addEventListener("click", () => { repair(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
+  for (const b of el.querySelectorAll("[data-act^='bho:']")) b.addEventListener("click", () => { haulOut(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
+  for (const b of el.querySelectorAll("[data-act^='bhl:']")) b.addEventListener("click", () => { launch(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
   for (const o of ADDONS) if (o.appBind) o.appBind(el);
 }
 
@@ -913,7 +936,9 @@ function buildYard(B) {
   }
   for (const z of [-1.7, 0, 1.7]) add(new T.BoxGeometry(gauge + 0.5, 0.14, 0.16), tim, 0, 0.44, z, 0, 0, 0, cg);
   if (!HULL) HULL = hullGeo();
-  add(HULL, mats().hull, 0, 0.8, 0.1, 0, Math.PI, 0, cg);                                                         // bow to the shed, keel on the cross beams
+  B.scen = add(HULL, mats().hull, 0, 0.8, 0.1, 0, Math.PI, 0, cg);                                                // bow to the shed, keel on the cross beams (the yard's own hull: it makes way for one of yours, 14.4b3)
+  { g.updateMatrixWorld(true); const hv = cg.localToWorld(new T.Vector3(0, 0.8, 0.1)), sp = toW(0, zs);           // where a hauled-out boat of yours stands: on the cradle, and a second one inside the shed
+    B.hard = [{ x: hv.x, y: hv.y, z: hv.z, yaw: wrapA(D.yaw + Math.PI), pitch: ang, show: true }, { x: sp[0], y: c + 0.5, z: sp[1], yaw: wrapA(D.yaw + Math.PI), pitch: 0, show: false }]; }
   add(new T.BoxGeometry(0.025, 0.025, 0.9), steel, 0, 0.5, -2.5, 0, 0, 0, cg, false);
   // ---- the shed on its piles over the water's edge: plank floor, red boarded walls, white corner boards, gables, a snowed roof
   const fy = c;
@@ -1006,10 +1031,129 @@ function repair(uid) {
   const c = repairCost(r), was = Math.round(condOf(r));
   GS.cash -= c; r.cond = 100;
   api.thud(0.35); setTimeout(() => api.thud(0.25), 260); setTimeout(() => api.thud(0.3), 520);
-  api.toast(`The yard had her up the slip: dents knocked out and the seams welded, ${was}% to 100%, ${api.fmtCash(c)}. She's back on the water.`, "good");
+  api.toast(`The yard had her up the slip: dents knocked out and the seams welded, ${was}% to 100%, ${api.fmtCash(c)}. ${r.hard ? "She stays on the hard till you have her launched." : "She's back on the water."}`, "good");
   api.save(); api.TABLET.refresh("boats");
   return true;
 }
+/* ---------------- winter haul-out and storm wear (14.4b3) ----------------
+   STORM WEAR (option `stormwear`, on by default). A boat left afloat while it blows (GS.storm over WEAR.from) chafes:
+   WEAR.berth points of hull an hour on a berth at a jetty in a full storm (fenders, piles, her lines), WEAR.adrift lying
+   off one, scaled by how hard it blows, never under WEAR.floor (a storm scuffs and dents her; only the rocks wreck
+   her). Not while you are sat in her: then you are handling her. It is reckoned by the game clock from the system
+   tick below (`x.sys.boats`, which saves only the hour it was last reckoned), so it goes on while you are inland; a
+   jump of the clock (a night's sleep, a tow) counts for WEAR.maxH hours at most, at the weather you wake to. Once a
+   blow, when it has cost a boat a full point, the tablet says so and names the haul-out.
+   THE HAUL-OUT. For HARD.fee the yard lifts a boat lying at the slip (the same reach and rules as a repair, and
+   nothing aboard) out of the water: the first stands on the cradle at the head of the slip, where the yard's own hull
+   makes way for her, a second goes inside the shed. The record carries `hard` (1 cradle, 2 shed; saved with the
+   boat in x.vehicles) and her place is the cradle's. On the hard she takes no storm wear, cannot be boarded, towed or
+   swapped to (dist is out of reach), and can still be mended. The launch is in the fee: back onto a free berth at
+   the quay jetty. Both are ordered from the Boats app's card under the boat, or at the yard's counter (the door's use
+   control opens the shop panel; its Yard tab has a card per boat), so keyboard, pad and touch all reach them. */
+const HARD = { fee: 120 };
+const WEAR = { from: 0.5, full: 0.9, berth: 0.5, adrift: 1.5, floor: 30, maxH: 6, quiet: 0.3 };
+const wearOn = () => !!(window.TLX && TLX.on && TLX.on("stormwear"));
+let wearSum = 0, wearSaid = false;
+function hardPose(r) { return BY && BY.hard ? BY.hard[r.hard === 2 ? 1 : 0] : null; }
+function hardTick(R, r) {
+  const h = hardPose(r);
+  if (!h) { const b = freeBerth(r) || (DOCKS[0] ? berthPose(DOCKS[0], 1) : null); delete r.hard; if (b) { r.x = b.x; r.z = b.z; r.yaw = b.yaw; } return; }   // no yard in this world: she is afloat
+  r.x = h.x; r.z = h.z; r.yaw = h.yaw;
+  R.drvBody.visible = false; R.til = 0; R.heave = R.hv = R.pitch = R.pv = R.roll = R.rv = 0; R.atSite = undefined;
+  tmpP.x = h.x; tmpP.z = h.z; tmpP.yaw = h.yaw; tmpP.y = h.y; tmpP.pitch = h.pitch; tmpP.roll = 0;
+  place(R, tmpP, false); R.grp.visible = h.show;
+}
+// the system tick: the yard's own hull makes way, and the wear of a blow on every boat left afloat
+function yardTick() {
+  if (!api) return;
+  const bs = boats(), GS = api.GS, st = (window.TLX && TLX.state("boats")) || {};
+  { let one = false; for (const r of bs) if (r.hard) { if (r.hard === 2) continue; if (one) r.hard = 2; else { r.hard = 1; one = true; } } }   // a damaged save: one on the cradle, the other in the shed
+  if (BY && BY.scen) BY.scen.visible = !bs.some(r => r.hard === 1);
+  const hr = GS.hour, storm = clamp(GS.storm || 0, 0, 1);
+  const dh = Number.isFinite(st.wh) ? clamp(hr - st.wh, 0, WEAR.maxH) : 0; st.wh = hr;
+  if (storm < WEAR.quiet) { wearSum = 0; wearSaid = false; }
+  if (!(dh > 0) || !bs.length || !api.started() || api.tutHidden() || GS.dead || !wearOn()) return;
+  const k = sstep(WEAR.from, WEAR.full, storm); if (k <= 0) return;
+  for (const r of bs) {
+    if (r.hard) continue;
+    const cur = S().cur === r.uid; if (cur && (!api.FOOT.on || api.MNT.on || api.DMT.on)) continue;   // you are in her
+    const c = condOf(r); if (c <= WEAR.floor) continue;
+    const p = posOf(r), loss = Math.min(c - WEAR.floor, (dockAt(p.x, p.z) ? WEAR.berth : WEAR.adrift) * k * dh);
+    r.cond = c - loss; wearSum += loss;
+    if (!wearSaid && wearSum >= 1) {
+      wearSaid = true;
+      try { api.TABLET.notify({ app: "boats", kind: "warn", ttl: 10, title: "The blow is wearing your boat", body: `${dockAt(p.x, p.z) ? "She's working against the jetty's piles" : "She's taking it lying off"}: hull ${Math.round(r.cond)}%. ${BY && BY.hard ? `The boatyard hauls her out for ${api.fmtCash(HARD.fee)} and no storm touches her there` : "A berth at a jetty is easier on her than lying off"}; dents are mended at ${api.fmtCash(YARD.perPt)} a point.` }); } catch (e) { }
+      api.TABLET.refresh("boats");
+    }
+  }
+}
+// why the yard can't haul her out just now ("" = it can)
+function haulBlock(r) {
+  const GS = api.GS, cur = S().cur === r.uid, R = RTS.get(r.uid);
+  if (r.hard) return "She's hauled out already.";
+  if (!BY || !BY.hard) return "There is no slip here to haul her out on.";
+  if (R && R.towing) return "The harbour boat has her.";
+  if (GS.dead || api.busy() || api.HELP.on || (cur && (api.MNT.on || api.DMT.on))) return "Not just now.";
+  if (!atYard(r)) return "Bring her to the quay jetty first: the boatyard's slip is beside it.";
+  if (aboardOf(r)) return "Step ashore first: the yard can't lift her out with you sat in her.";
+  if (loadOf(r)) return "Unload her first: the yard won't lift her with parcels aboard.";
+  if (GS.cash < HARD.fee) return `The haul-out is ${api.fmtCash(HARD.fee)}. You have ${api.fmtCash(GS.cash)}.`;
+  return "";
+}
+function haulOut(uid) {
+  const GS = api.GS, r = S().owned.find(q => q.uid === uid && q.id === ROW.id); if (!r) return false;
+  const why = haulBlock(r); if (why) { api.toast(why, "warn"); return false; }
+  if (S().cur === r.uid) TLXV.swapTo(null);                                     // she was the one you last stepped out of: your sled is your machine again
+  if (S().cur === r.uid) { api.toast("Not just now.", "warn"); return false; }
+  const R = RTS.get(r.uid); if (R) for (const o of ADDONS) if (o.stop) o.stop(R);
+  GS.cash -= HARD.fee;
+  r.hard = boats().some(b => b !== r && b.hard === 1) ? 2 : 1;
+  const h = hardPose(r); r.x = h.x; r.z = h.z; r.yaw = h.yaw;
+  api.thud(0.3); setTimeout(() => api.thud(0.2), 320);
+  api.toast(`The yard winched her up the slip: ${r.hard === 2 ? "she's on trestles inside the shed" : "she stands on the cradle by the shed"}, out of the weather, ${api.fmtCash(HARD.fee)}. The launch is paid for: ask at the yard or in the Boats app when you want her back.`, "good");
+  api.save(); api.TABLET.refresh("boats");
+  return true;
+}
+function launchBlock(r) {
+  const GS = api.GS;
+  if (!r.hard) return "She's afloat already.";
+  if (GS.dead || api.busy() || api.HELP.on) return "Not just now.";
+  if (!freeBerth(r)) return "No free berth at the quay jetty: move your other boat off it first.";
+  return "";
+}
+function launch(uid) {
+  const r = S().owned.find(q => q.uid === uid && q.id === ROW.id); if (!r) return false;
+  const why = launchBlock(r); if (why) { api.toast(why, "warn"); return false; }
+  const b = freeBerth(r), R = RTS.get(r.uid);
+  delete r.hard; r.x = b.x; r.z = b.z; r.yaw = b.yaw;
+  if (R) { R.lastW = { x: b.x, z: b.z, yaw: b.yaw }; R.yr = 0; R.aground = 0; }
+  api.thud(0.25);
+  api.toast("Down the slip and afloat: the yard has put her on a berth at the quay jetty.", "good");
+  api.save(); api.TABLET.refresh("boats");
+  return true;
+}
+// the yard's own tab at its counter (the shop panel the door opens): a card per boat, haul out or launch
+const yEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const yardTab = {
+  id: "by_yard", label: "Yard", stores: [YARD.store],
+  get note() { return `The yard lifts a boat lying at the slip out of the water and stands her on the cradle: ${api.fmtCash(HARD.fee)} for the lift, the storage and the launch.${wearOn() ? " A boat left afloat in a blow chafes against the jetty; one on the hard doesn't." : ""}`; },
+  render() {
+    const bs = boats();
+    return bs.map((r, i) => {
+      const why = r.hard ? launchBlock(r) : haulBlock(r), w = whereOf(r), c = condOf(r);
+      const chips = `<span class="ifchip${r.hard ? " ok" : ""}">${r.hard ? "on the hard" : yEsc(w.text)}</span><span class="ifchip${c < 60 ? " bad" : ""}">hull ${Math.round(c)}%</span>`;
+      return `<div class="ifit${r.hard ? " on" : ""}"><div class="ifhd"><span class="ifnm">${yEsc(ROW.name + (bs.length > 1 ? " · no. " + (i + 1) : ""))}</span><span class="ifpr">${r.hard ? "launch paid for" : api.fmtCash(HARD.fee)}</span></div>
+        <p class="ifnote">${yEsc(r.hard ? "Out of the weather on the yard's hard. Launching puts her back on a berth at the quay jetty." : "Afloat. Hauled out she takes no wear from storms, and nobody can take her out.")}${why ? " " + yEsc(why) : ""}</p><div class="ifchips">${chips}</div>
+        <button type="button" data-byh="${yEsc(r.uid)}" ${why ? "disabled" : ""}>${r.hard ? "Launch her" : "Haul her out · " + api.fmtCash(HARD.fee)}</button></div>`;
+    }).join("");
+  },
+  bind(root, rerender) { root.querySelectorAll("button[data-byh]").forEach(b => b.onclick = () => { const r = S().owned.find(q => q.uid === b.dataset.byh); if (r && (r.hard ? launch(r.uid) : haulOut(r.uid))) rerender(); }); }
+};
+if (window.TLX) {
+  if (TLX.register) TLX.register({ id: "boats", v: 1, state0: () => ({ wh: null }), migrate: st => st, tick: () => yardTick() });
+  if (TLX.option) TLX.option({ id: "stormwear", name: "Storm wear on boats", hint: "A boat left afloat while it blows loses hull: slowly on a berth at a jetty, three times as fast lying off one. Never while you're aboard, never on the boatyard's hard. Off = storms don't wear boats." });
+}
+
 // at the shed's side door, on foot: the use control (keyboard, pad L3, the touch button)
 const YPROV = {
   use() {
@@ -1019,7 +1163,7 @@ const YPROV = {
     if (here) return { label: "REPAIR", hint: () => api.keyHint("use", `have the yard mend the ${ROW.name}'s hull (${api.fmtCash(repairCost(here))})`), act: () => repair(here.uid) };
     // the counter (14.4b2): with a boat of yours the door also opens the yard's shop panel (the handline's tackle, tlx-seafish.js)
     const counter = boats().length && api.shop && window.TLX && TLX.stores && TLX.stores[YARD.store];
-    return { label: "BOATYARD", hint: () => api.keyHint("use", "ask at the boatyard" + (counter ? " · hull repairs, handline tackle" : "")), act: () => { api.toast(
+    return { label: "BOATYARD", hint: () => api.keyHint("use", "ask at the boatyard" + (counter ? " · hull repairs, handline tackle, the haul-out" : "")), act: () => { api.toast(
       dent.length ? `${YARD.name}: bring her round to the quay jetty and they'll have her up the slip. About ${api.fmtCash(repairCost(dent[0]))} for her hull as it is.`
       : boats().length ? `${YARD.name}: her hull is sound, nothing for the yard to do. Dents from the shallows are mended here, ${api.fmtCash(YARD.perPt)} a point.`
       : `${YARD.name}: the yard mends hulls on the slip here. Their ${ROW.name} is sold from the garage's Boats tab.`, "info");
@@ -1038,10 +1182,11 @@ function init(a) {
     hidden: () => !boats().length, badge: () => boats().some(r => fuelOf(r) <= 0) ? "!" : "", render: appRender });
   a.TABLET.addLayer("docks", () => DOCKS.map(D => { const e = dockEnd(D); return { x: e.x, z: e.z, name: D.name, kind: "dock" }; }));
   for (const o of ADDONS) if (o.init) o.init(a, { ROW, HB, HL, FLOOR, GUN, DOCKS, bw, sheer, depthAt, shortSite, boats });
+  if (BY && BY.hard && window.TLX && !(TLX.shopTabs || []).includes(yardTab)) TLX.shopTabs = (TLX.shopTabs || []).concat([yardTab]);   // after the tackle's tabs: the counter still opens on Lines
 }
 // tlx-vehicles.js calls init first thing in its own init (a reload may put you straight back in the boat), and adds the tab
-TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
+TLXV.addKind(ROW, { init, runtime, driver, tick, reset, dist: (r, x, z, yaw) => r.hard ? 1e9 : hullDist(x, z, yaw, api.FOOT.x, api.FOOT.z) - 0.6,
   tab: { id: "boats", name: "Boats", render: garageRows } });
-window.TLXB = { YARD, yard: () => BY && { x: BY.shed.x, z: BY.shed.z, door: BY.door, foot: BY.foot, floor: BY.floor, side: BY.sd, off: BY.v, len: BY.uF - BY.uT, u0: BY.u0, ud: BY.ud, yaw: BY.D.yaw, walk: BY.walk, rects: BY.rects, mesh: BY.mesh }, repair, repairCost, repairBlock, atYard,
+window.TLXB = { YARD, HARD, WEAR, haulOut, haulBlock, launch, launchBlock, hardPose, yardTick, yardScen: () => BY && BY.scen, rt: uid => RTS.get(uid), yard: () => BY && { x: BY.shed.x, z: BY.shed.z, door: BY.door, foot: BY.foot, floor: BY.floor, side: BY.sd, off: BY.v, len: BY.uF - BY.uT, u0: BY.u0, ud: BY.ud, yaw: BY.D.yaw, walk: BY.walk, rects: BY.rects, mesh: BY.mesh }, repair, repairCost, repairBlock, atYard,
   addOn: o => { ADDONS.push(o); }, ROW, DOCKS, seaKm, seaKmAt, tow, towFee, towKm, towBlock, whereOf, rangeKm, mark, TOW, seaPost, seaJobs, seaHold: t => { seaT = t; }, siteDock: (x, z) => siteDock(x, z, []), dockFor, dockAt, aimFor, dockEnd, seaLinked, sea: () => SEA, shoreNormal, floorAt, depthAt, landSpot: () => landSpot(api.P), berthPose, berthOK, buy, hullDist, waveAt, keyAt };
 })();

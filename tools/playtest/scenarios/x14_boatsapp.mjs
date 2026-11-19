@@ -150,7 +150,7 @@ await clickAct("btw"); await sleep(400);
 const before = await J(`${boatsS}.map(r => [r.x, r.z, r.cond])`);
 await ev(`save(); true`); await reload(); await sleep(800);
 const after = await J(`${boatsS}.map(r => [r.x, r.z, r.cond])`);
-ok(after.length === 2 && after.every((p, i) => Math.hypot(p[0] - before[i][0], p[1] - before[i][1]) < 0.01) && after[0][2] === 60, "after a reload both boats are on their berths and the dent is still there");
+ok(after.length === 2 && after.every((p, i) => Math.hypot(p[0] - before[i][0], p[1] - before[i][1]) < 0.01) && Math.abs(after[0][2] - before[0][2]) < 1e-6 && Math.round(after[0][2]) === 60, "after a reload both boats are on their berths and the dent is still there (a few seconds of the blow above wore her a hair: 14.4b3)");
 ok(await ev(`TABLET.byId.boats.hidden() === false`), "and the Boats app is still on the home screen");
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

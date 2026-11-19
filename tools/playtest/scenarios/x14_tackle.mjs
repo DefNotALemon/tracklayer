@@ -54,7 +54,7 @@ await recOn();
 let s = await TK();
 ok(s.line === "hand" && s.pilk === "p200" && !Object.keys(s.lines).length && !s.gaff && Object.values(s.pilks).every(n => n === 0), `a new game has the tarred line and the plain pilk: ${JSON.stringify(s)}`);
 let k = await J(`({ sys: !!TLX.state("seafish"), lines: TLXSF.LINES.map(l => [l.id, l.cost, l.lim, l.shy]), pilks: TLXSF.PILKS.map(p => [p.id, p.cost, p.sink]), gaff: TLXSF.GAFF, store: !!(TLX.stores && TLX.stores.boat), tabs: TLX.shopTabs.filter(t => (t.stores || []).includes("boat")).map(t => t.label) })`);
-ok(k.sys && k.store && k.tabs.join() === "Lines,Pilks,Gaff", `the tackle is a saved system and the yard has a counter with ${k.tabs.join(" / ")}`);
+ok(k.sys && k.store && k.tabs.join() === "Lines,Pilks,Gaff,Yard", `the tackle is a saved system and the yard has a counter with ${k.tabs.join(" / ")}`);
 ok(k.lines[0][1] === 0 && k.lines[0][2] === 1 && k.lines[0][3] === 1 && k.pilks[0][1] === 0 && k.pilks[0][2] === 3, "the free line and pilk are the old handline's numbers (strength 1, bites x1, 3 m/s)");
 
 // ---- 2. no boat: the door has no counter
@@ -72,7 +72,7 @@ s = await use();
 ok(s.use === "BOATYARD" && /^E: ask at the boatyard · hull repairs, handline tackle/.test(s.hint), `with a boat the hint names the counter by key: "${s.hint}"`);
 await tap("KeyE"); await sleep(500);
 let p = await panel();
-ok(p.open && p.title === "Handline tackle" && /Båt & Motor/.test(p.eye) && p.tabs.join() === "Lines,Pilks,Gaff" && p.cur === "Lines", `the use key opens the yard's counter: "${p.eye}" / "${p.title}", tabs ${p.tabs.join(", ")}`);
+ok(p.open && p.title === "Handline tackle" && /Båt & Motor/.test(p.eye) && p.tabs.join() === "Lines,Pilks,Gaff,Yard" && p.cur === "Lines", `the use key opens the yard's counter: "${p.eye}" / "${p.title}", tabs ${p.tabs.join(", ")}`);
 ok(p.cards.length === 3 && p.cards[0].on && p.cards[0].btn === "On the frame" && p.cards[0].dis && p.cards[0].pr === "with the boat" && p.cards[1].pr === "$55" && p.cards[2].pr === "$90", `Lines: ${p.cards.map(c => c.nm + " " + c.pr).join(", ")}`);
 ok(p.cards[1].chips.includes("strength −14%") && p.cards[1].chips.includes("bites +25%") && p.cards[2].chips.includes("strength +30%") && p.cards[2].chips.includes("bites −15%"), `the cards say what each line trades: ${JSON.stringify(p.cards.slice(1).map(c => c.chips))}`);
 ok((await use()).use !== "BOATYARD", "with the counter up the door's use control is not offered again");

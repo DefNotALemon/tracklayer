@@ -400,6 +400,19 @@ and you have to be out of her. Order it from the Boats app, where a dented boat 
 the shed's door and use the use control there (E, L3, the REPAIR button on touch). The skiff
 can't run through the shed, the slip or the walk.
 
+**Winter haul-out and storm wear.** A boat left afloat while it blows chafes (Settings > Options >
+**Storm wear on boats**, on by default): in a full storm about a point of hull every two hours on
+a berth at a jetty, three times as fast lying off one, less in a lesser blow, nothing in ordinary
+weather, never while you're sat in her and never below 30%. It goes on while you're away inland,
+and the tablet tells you once a blow when it has cost her a point. For $120 the yard lifts a boat
+lying at the slip out of the water (nobody in her, nothing aboard) and stands her on the cradle
+by the shed, where its own hull makes way for her; a second boat goes inside the shed. On the
+hard no storm wears her, she can't be towed or boarded, and she can still be mended. The launch
+is in the price: she goes back onto a free berth at the quay jetty. Order either from the Boats
+app, where every boat has a **Winter haul-out** card (**HAUL OUT**) or an **On the hard** card
+(**LAUNCH**), or at the yard's counter: the door's use control opens it, and its **Yard** tab has
+a card per boat.
+
 **Fishing from the boat.** Stopped over 4 m or more of water, the use control (E, L3, the FISH
 button on touch) puts a handline over the side: a wooden frame of heavy line with a pilk on the end.
 With the line down, brake lets it out (the pilk sinks about 3 m a second until it lies on the
