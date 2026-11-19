@@ -1,0 +1,34 @@
+// Beta 3.3b: touch use button (#tcUse) label and a real pointerdown/up on it while a buried car is in reach; tap digs, hold stays digging, label returns.
+import { boot, ev, tap, sleep, done, shot, send } from "../lib.mjs";
+let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
+const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
+await boot();
+await ev(`tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; GS.hour = 34; TLXC.cars.forEach(c => { c.wait = 999; }); true`); await sleep(600);
+await tap("KeyQ"); for (let i = 0; i < 40 && !(await ev("FOOT.on && !DMT.on")); i++) await sleep(200);
+const A = await J(`(() => { const cars = TLXC.cars.slice().sort((a, b) => Math.hypot(a.x - depot.x, a.z - depot.z) - Math.hypot(b.x - depot.x, b.z - depot.z));
+  for (const c of cars) { const rx = Math.cos(c.yaw), rz = -Math.sin(c.yaw), x = c.x + rx * 2.4, z = c.z + rz * 2.4;
+    if (obstaclesNear(x, z, 3).some(o => o.top > -1e8 && Math.hypot(o.x - x, o.z - z) < o.r + 0.45)) continue; return { i: c.i, x, z }; } })()`);
+ok(!!A, "setup: car");
+await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+await ev(`SET.touch = "on"; setTouchUI(); true`); await sleep(400);
+await ev(`FOOT.x = ${A.x}; FOOT.z = ${A.z}; FOOT.y = surf(FOOT.x, FOOT.z); FOOT.sp = FOOT.fwd = FOOT.turn = 0; FOOT.dig = false; BOG.on = false; TLXC.setSnow(${A.i}, 0.8); TLXC.cars[${A.i}].paid = false; true`); await sleep(700);
+await send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:700,y:200}]}); await send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]}); await sleep(700);
+const S = () => J(`({ lab: $("tcUse").hidden ? null : $("tcUse").textContent, hint: $("wnHint").textContent, dig: !!FOOT.dig, dev: INP.dev, use: footUse(), cash: GS.cash })`);
+let s = await S(); console.log("idle:", JSON.stringify(s));
+ok(!!s.lab && /dig/i.test(s.lab), "1: #tcUse label names DIG: " + s.lab);
+ok(!/\bE\b/.test(s.lab || "") && !/press E/i.test(s.hint), "1: no keyboard key in label/hint");
+await shot("x3dtb_idle");
+const press = type => ev(`(() => { const e = $("tcUse"); e.dispatchEvent(new PointerEvent("${type}", { pointerId: 7, pointerType: "touch", bubbles: true, clientX: e.getBoundingClientRect().x + 5, clientY: e.getBoundingClientRect().y + 5 })); return true; })()`);
+await press("pointerdown"); await sleep(120); await press("pointerup"); await sleep(600);
+s = await S(); console.log("after tap:", JSON.stringify(s));
+ok(s.dig, "2: real tap on #tcUse starts the dig");
+await shot("x3dtb_dig");
+console.log("label while digging:", s.lab);
+await press("pointerdown"); await sleep(120); await press("pointerup"); await sleep(600);
+s = await S(); console.log("second tap:", JSON.stringify({ dig: s.dig, lab: s.lab }));
+// walk away, label must hide
+await ev(`FOOT.x += 30; FOOT.dig = false; true`); await sleep(700);
+s = await S(); console.log("far:", JSON.stringify({ lab: s.lab, dig: s.dig }));
+ok(!/dig/i.test(s.lab || ""), "3: DIG label gone when far");
+console.log(fails ? `${fails} FAILED` : "all passed");
+await done(fails ? 1 : 0);
