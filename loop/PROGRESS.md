@@ -3,6 +3,34 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 14:50 — 6.3a: keepers at your lights (tlx-lights v3, lane B) (G4) — 16a23aa
+Builder pass, lane B. Orient: the worktree held a dead pass's 6.3a from 14 Nov (README, index.html, EXPANSION.md,
+tlx-lights.js, tlx-staff.js, `x6_keeper.mjs`, never committed). Stashed, rebased on main (v256), popped: conflicts in
+index.html and tlx-staff.js, because lane A's 5.4a1 had meanwhile landed its own `TLX.staff.addRole / addPlaces`
+(a richer row: greet, qs, answer, note, app, acts). Decision: drop the dead pass's tlx-staff.js changes whole
+(file = main's) and rewrite the keeper's role row in tlx-lights.js on lane A's API, rather than keep two role
+mechanisms. 123 GB free. Reports: none new on lane B's systems (0206-0324 are lane A's / other lanes'); last triaged
+left to lane A.
+What landed (tlx-lights.js only, no tracklayer.js or tlx-staff.js change): role `keeper` ($45 + $3.6 a year) and a
+place `lt:<lamp>` per owned light; rounds every 6 h / work (clamped 1-30 h) inside the lamp's quarter-hour clock; a
+round pumps one drum into a tank under 14 lamp hours and relights a lamp that is out with oil; "last drum pumped in"
+once; the dry alert and the card say what the keeper will do; nothing while wages are owed. Saved `kT`, `kDid` on the
+lamp record. Design and what is not done (no keeper figure, no log of rounds): EXPANSION.md 6.3a.
+Numbers (`x6_keeper.mjs`, 29 asserts A-I, 0 FAILs): applicants ask $41-131; work 1.2 = a round every 5.0 h, first
+round at once (9 -> 69 L); six days with two drums: lit 109.5 of 109.5 dark hours, drums in at 12 L and 14 L; a drum
+landed at a dark light is pumped and lit within 3 h; two days from 15 L: good keeper loses 0.0 lamp hours, a slack
+miserable one (round 20 h) loses 5.0 of 41; owed wages: 12 h and still dark, a touch tap on PAY IT and it is lit at
+the next step; pad A praise at the hut (mood 0 -> 10); reload keeps keeper, round clock and tank; a 6.2b save loads
+with the job posted.
+Gate: smoke, x1_save, x6_keeper exit 0, 0 FAILs, page errors none (gate.sh); run singly after it: x6_lamp,
+x6_smalllights, x6_types, x5_plowdriver exit 0, 0 FAILs, page errors none. Not run: the other x5_* staff scenarios
+(tlx-staff.js is byte-identical to main's; the only new thing they could see is a `keeper` key in ROLES).
+Stills looked at (interview, Lights card, Staff card): text legible, the keeper line fits both cards, the gale
+question sits in the question row. The reload still was shot and not looked at.
+Known and left: assert E carries a loose alternative (`|| lamp on within 5 h`) from the dead pass; the keeper's
+`answer` for a caught "xp" is new wording that no assert reads.
+Next for lane B: 6.3b (oil drivers), then 6.3c (options).
+
 ## 2026-11-19 13:10 — beta fix 0285 #1: the sled trailer behind a truck is solid (tlx-vehicles v33, lane A) (G4) — 4ce9b86
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Triage 0317-0318 (last triaged ->
 318): both "no bug today", POLISH only, damaged saves (0317 #1 a 64-char drive mask cap no drive reaches; 0318 #1-#3
