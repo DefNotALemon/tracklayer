@@ -3,6 +3,45 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 13:10 — beta fix 0285 #1: the sled trailer behind a truck is solid (tlx-vehicles v33, lane A) (G4) — 4ce9b86
+Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Triage 0317-0318 (last triaged ->
+318): both "no bug today", POLISH only, damaged saves (0317 #1 a 64-char drive mask cap no drive reaches; 0318 #1-#3
+`conTidy` keeps `due` keys that are no stretch of the road, `conBan` unclamped, one unexplained second strike): not
+taken, no backlog line (a hostile-save tidy for 4.2a can pick them up from the reports if one is ever asked for).
+Picked the first BUG line of the backlog, 0285 #1.
+Cause. `haulFollow()` puts the trailer's axle on the line to the ball and nothing ever asked the obstacle grid about
+it: the truck's `collide()` has circles for the cab and a fitted blade only. Probe before (`x2_trailer_rock_probe`):
+backed 7.9 m, axle 0.15 m from the centre of a 1.3 m rock.
+Fix (tlx-vehicles.js, `haulCollide` + `haulBump`, called at the end of the truck's `collide()`): the hitched trailer
+has a hull of three circles along its own centre line (`HAUL_HULL`, 1.08 / 1.08 / 0.95 m at -0.9 / 0.2 / 1.4 m from
+the axle) and a fourth over the ramp gate when that is down. The trailer has no speed of its own, so a contact is
+resolved in two steps: the sideways part of the overlap slides the axle round the ball (as far as the jackknife
+stop), what is left pushes the truck back and takes its speed into the thing, as for its own bumper. It brings the
+trailer up to the truck's new position first (the first try lagged a frame: 0.31 m into the rock at 7 m/s). Over
+1.5 m/s a thud and shake (and the strapped sled's cargo over 4), over 3.5 m/s the trailer loses condition on the
+truck's curve with "The trailer hit a tree / something solid: the Fjordhenger sled trailer is at N%". A truck held
+still by it says "The trailer is hard against something solid. Pull forward and steer it clear." instead of
+"Something solid is behind the pickup". Trees wobble and drop their snow; a semitrailer's own pass rule is kept. No
+new saved state. README says it.
+Numbers (`x2_trailerhit.mjs`, new, 33 asserts, per-frame clearance meter of the hull against the planted rock):
+- A square on, walking pace: backs 2.2 m (the room there is) and stands at 0.02-0.08 m/s, deepest overlap 0.00 m,
+  axle 3.3 m from the rock's centre (was 0.15), the line shown, condition 100, W frees it (6 m in 5 s).
+- B 0.7 m off centre: swings 0.08 rad and stops, overlap 0.00, W frees it.
+- C 7 m/s into it: 96.7%, the condition line, overlap 0.00, stopped.
+- D ramp down: the ramp meets it, axle 4.44 m off (3.3 with it up).
+- E forward on full lock, a rock 0.24 m inside the trailer's own sweep and clear of the truck's: the trailer touches
+  (0.00), is dragged round, the truck goes on (10.3 m, as without the rock), no toast.
+- F a real pine at 8 m/s set speed: "The trailer hit a tree ... 97%", overlap 0.03 m clear.
+Gate: smoke, x1_save, x2_trailerhit, x2_trailer_rock_probe, x2_tow, x2_haulreverse, x4_blade_trailer_break, x2_haul exit 0, page errors none. The tester's probe passes now; it had "truck reversed at least 6 m", true only
+while the trailer went through the rock: changed to "reversed to the rock" (> 1.5 m), nothing else in it touched.
+Stills looked at (A, E): the outfit is whole and straight on the ball; the planted rocks have no mesh, so the stills
+do not show the contact itself (the numbers do, and F is a real tree but was not shot).
+Known and left: the hull is circles, so a deck corner can overhang a thin post by a few cm; only the truck being
+driven is tested (a parked truck's trailer is still walked round as a box, as before); the sled's own rig
+(`towStep`) is untouched; houses and parked cars use the same obstacle list but only rocks and a pine were run. The
+flat-spot finder again lands on Sikvatnet's ice, which is fine here (nothing in this test reads the snow).
+Next in lane A's list: 0316 #1 (driver position past the road), then 0301/0308, 0279, 0296, then 5.4b.
+
 ## 2026-11-19 12:35 — beta fix 0305 #1: beside a lake the blade's control drops the blade, it no longer goes ice fishing (v256, tlx-plow v23, tlx-vehicles v32, icefish v43, lane A) (G4) — 7a71cc4
 Builder pass, lane A. Orient: worktree clean, rebased on main (v255, 46 playtest commits, no code), 123 GB free. Triage
 0270-0316 (last triaged -> 316), 47 reports, most "no BLOCKER, no BUG". Real ones, all lane A's: 0305 #1 BUG (high),

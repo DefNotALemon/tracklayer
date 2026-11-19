@@ -684,7 +684,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Also seen in the 0269 fix's stills: the section label "STREETS" breaks as "STRE / ETS" in a 370 px pane
       (the `sec` head's first column is too narrow for seven letters).
 
-- [ ] G4 2.5 (BUG, beta 0285 #1, lane A): the sled trailer on a truck's ball (`haulFollow`, tlx-vehicles.js) is never
+- [x] G4 2.5 (BUG, beta 0285 #1, lane A, fixed tlx-vehicles v33, `x2_trailerhit.mjs`): the sled trailer on a truck's ball (`haulFollow`, tlx-vehicles.js) is never
       tested against obstacles: reversing it into a rock passes through. Give it hull circles like the cab's.
 - [ ] G4 5.4a1 (BUG, beta 0316 #1, lane A): `pdrTidy` takes any finite `p` >= 0; a saved driver position past the
       road's length (a damaged save) leaves the driver "out"/"back" for good. Clamp `p` to the road's length on load.
@@ -705,4 +705,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       lake (only a lake is flat under 3% over 200 m), where the use control is ice fishing's: add `bioAt(...) === 1`
       to its `bad` test and loosen the slope/length, or lay the strip along a road, then rerun its pad-at-speed steps.
 
-Last triaged report: 316
+Last triaged report: 318
