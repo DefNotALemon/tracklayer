@@ -3,6 +3,49 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 15:05 — 6.3b1: the oil driver on the run from the quay (tlx-lights v4, lane B) (G4) — 1feefca
+Builder pass, lane B. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0323-0326 are lane A's
+(4.x); none new on lane B's systems, last triaged left to lane A. Next unticked slice: 6.3b (oil drivers). No design
+was written, and it was too big for a pass with the driver as a figure on the trail, so it is split in EXPANSION.md:
+6.3b1 (this: the job, the haul, weather, the standing order, the Map pin) and 6.3b2 (the sled and rider seen in the
+world), as lane A split 5.4a / 5.4b.
+What landed (tlx-lights.js only; no tracklayer.js or tlx-staff.js change): role `oildriver` ($70 + $5 a year) and ONE
+place `oil:quay` while you own a light, on 5.4a1's addRole / addPlaces (own greeting, the whiteout question, own
+answers, `note`, `acts` for the standing order). Trip state `s.drv` stepped inside the lamps' quarter-hour clock;
+`step()` now runs lamps, keepers and the driver together piece by piece instead of each lamp through the whole jump,
+so a slept night has the drum land before the keeper's round. Decisions: one driver for all lights (a driver per
+light would be three wages for one sled's work); the standing order is ON by default because the slice's point is a
+light that runs itself, and each order is a notification naming the sum; the driver's load is saved (yours is not);
+drivers neither pump nor light.
+Numbers (`x6_oildriver.mjs`, 37 asserts A-I, 0 FAILs): applicants ask $65-176; Finnkirka run 3.2 km: 0.5 h to load,
+0.38 h out (0.35 clean at 9 km/h), 0.30 h back; five drums for two lights go kinnarodden:2, finnkirka:2,
+finnkirka:1 (20 lamp hours before 50); a drum on your sled is left alone for 3 h; a storm at the quay: 3 h and not
+out; a storm past 800 m: sits at 1.3 km for 5 h, lands "6 hours late"; weather 0.6: a beginner (limit 0.45) waits,
+an old hand (0.75) rides at about half speed (0.70 h against 0.35); wages owed: 6 h, nothing hauled or ordered;
+standing order switched by touch on the Staff card and pad A on the Lights card, hire by keyboard Enter; keeper +
+driver + standing order for ten days: Finnkirka lit 189 of 189 dark hours, 4 orders, 4 landings; one 24 h jump from
+9 L: 20.0 of 20.0 dark hours lit; reload mid-trip keeps both drums on his sled (no duplicate pickups); let go
+mid-trip puts the drum back at the quay; a 6.3a save loads with the job posted.
+Gate (gate.sh): smoke, x1_save, x6_keeper, x6_lamp, x6_smalllights exit 0, 0 FAILs, page errors none. x6_oildriver
+failed one assert in that gate run (I, let go mid-trip) and again alone: a test artefact, not the game: a reload
+starts you on the sled at the quay, and the drum the driver put back was loaded onto YOUR sled by the quay's own
+pickup before the assert read the claims. The scenario now parks away from the quay after the reload; re-run alone
+after that: exit 0, 0 FAILs, page errors none. Then main moved (lane A's tlx-plow v24): rebased, gate.sh again: smoke
+and x1_save exit 0, x6_oildriver failed a different assert once (C, the standing order's $45): the failing run did
+not print its values, so the cause is a guess, not shown: the game's own once-a-second step can run the standing
+order between the hire and the test's cash reading. The reading now comes before the hire and the assert prints its
+values; two runs alone after that, on the rebased tree: exit 0, 0 FAILs, page errors none, the values as expected
+both times. If it shows again, the printed values will say. tlx-lights.js did not change after the first gate run;
+x6_keeper, x6_lamp and x6_smalllights were not re-run after the rebase (it pulled tlx-plow.js only). Not run: the
+x5_* staff scenarios (tlx-staff.js untouched; they would see one more ROLES key).
+Stills looked at (Lights card, Staff card, Map, interview): the Oil run card and the five buttons on the Staff card
+fit at 1280x720. The Map pin is there but at full zoom-out, 700 m from the quay, its label sits under the town's
+own labels and is hard to read; it separates further out. Not looked at: 640x360, the old-save still.
+Known and left: the driver is a name and a pin, not a sled on the trail (6.3b2); the run is a straight line x 1.3,
+not a route; a drum loaded by the driver and a drum collected by you in the same second is not tested; `late`
+counts a trip slowed only by sub-limit weather as on time unless it passes 1.5x + 0.5 h.
+Next for lane B: 6.3b2 (the driver seen in the world), then 6.3c (options).
+
 ## 2026-11-19 15:05 — beta fix 0325 #1: a drive or lot given up before Monday stays on the Monday statement (tlx-plow v24, lane A) (G4) — 8dc2480
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256, tlx-plow v23), 123 GB free. Reports 0323-0326
 triaged (last triaged 326): 0323 #4, 0324 #4/#5 are POLISH on corrupt-save-only data (NaN ask, a held truck whose
