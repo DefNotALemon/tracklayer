@@ -33,6 +33,11 @@
 // in. A good keeper's rounds (4-6 h) always catch a low tank; a slack or miserable one's (15-25 h) can come too
 // late, and the lamp stands dark until the next round.
 //
+// Slice 6.3b1: THE OIL DRIVER. One driver (tlx-staff.js: role "oildriver", place "oil:quay") hauls the drums you have
+// paid for from the quay out to your lights on a sled of their own, two a trip, to the light that is lowest; a storm
+// keeps them at the quay or makes them late; with the standing order on they order the drums too. Block comment at
+// DRV. Saved as `drv` beside the lamps.
+//
 // SAVED under x.sys.lights: { lamps: { id: { oil (L in the tank), store (L in full drums in the oil store), on,
 // lit / need (lamp hours burned / dark hours, this week), low, q (drums paid for and not yet at this light: at the
 // quay or aboard), kT (game hours since the keeper's last round), kDid (what that round did) } }, hT (game hour last stepped), last: [weekly statements] } (`quay`, 6.2a's one count for
@@ -78,7 +83,7 @@ const LAMPS = [
 ];
 for (const m of SMALL) LAMPS.push({ id: m.id, prop: m.id, name: m.lamp, at: m.at, room: m.id + ":hut", rack: [-1.35, 1.4, 1.25, 1.1], stair: [1.5, 1.72, 0.8, 0.5], up: "ladder", where: "the lantern hut",
   tank: m.tank, burn: m.burn, stipend: m.stipend, start: m.start, stockMax: m.stockMax, small: m, site: () => m.drop || null });
-let api = null, stepT = 0, landN = 0, landT = 0, landAt = null;
+let api = null, stepT = 0, landN = 0, landT = 0, landAt = null, pinned = false;
 const lastAb = {};                                           // drums aboard per lamp at the last look (sync)
 const N = (lp, k) => (lp && lp[k] !== undefined ? lp[k] : LIGHTS[k]);   // this lamp's number, or the default
 const PUMP = { on: false, lamp: null, t: 0 };
@@ -122,18 +127,148 @@ function step() {
   const dh = Math.min(LIGHTS.skipH, h - s.hT); if (dh < 0.01) return;
   const t0 = h - dh; s.hT = h;
   const own = mine(); if (!own.length) return;
-  const n = Math.max(1, Math.ceil(dh / 0.25)), dt = dh / n;
+  const n = Math.max(1, Math.ceil(dh / 0.25)), dt = dh / n, act = [];
   for (const lp of own) {
     const r = rec(lp.id);
     if (r.fresh) { delete r.fresh; welcome(lp, r); continue; }           // the keys came today: the clock starts now
     const kw = keeperWork(lp);
     if (!(kw > 0)) r.kT = 1e3;                                            // nobody on the job: whoever starts makes a round at once
-    for (let i = 0; i < n; i++) { burn(lp, r, t0 + (i + 0.5) * dt, dt); if (kw > 0) { r.kT += dt; if (r.kT >= roundH(kw)) keeperRound(lp, r); } }
+    act.push([lp, r, kw]);
+  }
+  // lamps and the oil driver go through the hours together, piece by piece: a drum that lands at 03:00 of a night
+  // slept through is there for the keeper's 04:00 round
+  for (let i = 0; i < n; i++) {
+    const t = t0 + (i + 0.5) * dt;
+    for (const [lp, r, kw] of act) { burn(lp, r, t, dt); if (kw > 0) { r.kT += dt; if (r.kT >= roundH(kw)) keeperRound(lp, r); } }
+    drvStep(t, dt);
+  }
+  for (const [lp, r, kw] of act) {
     if (r.on && hoursLeft(r, lp) < LIGHTS.lowH && !r.low) {
       r.low = true;
-      if (!(kw > 0 && r.store >= 1)) try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: oil low`, body: `About ${Math.round(hoursLeft(r, lp))} lamp hours left in the tank. ${r.store >= 1 ? `${plural(drumsOf(r.store), "drum")} in the oil store: pump one in.` : "Nothing in the oil store: order a drum and haul it out."}` }); } catch (e) { }
+      if (!(kw > 0 && r.store >= 1)) try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: oil low`, body: `About ${Math.round(hoursLeft(r, lp))} lamp hours left in the tank. ${r.store >= 1 ? `${plural(drumsOf(r.store), "drum")} in the oil store: pump one in.` : drvHas(lp) ? `Nothing in the oil store: ${dFirst()} has ${plural(drvHas(lp), "drum")} for it at the quay or on the way.` : "Nothing in the oil store: order a drum and haul it out."}` }); } catch (e) { }
     } else if (r.on && hoursLeft(r, lp) >= LIGHTS.lowH) r.low = false;
   }
+}
+/* ---------------- 6.3b1: the oil driver (tlx-staff.js hires, pays and keeps them happy) ----------------
+   ONE driver, at the quay, hauls the drums you have paid for out to whichever of your lights is lowest, DRV.cap at a
+   time, on a sled of their own. The trip is stepped with the lamps' clock (drvStep, from step()): QUAY (DRV.load hours
+   to load once there is a drum to take and the weather at the quay is under their limit) -> OUT along the run
+   (DRV.vOut m a game hour x their work, slower in weather, sitting it out where they are at their limit) -> the drums
+   into the light's oil store -> BACK empty (DRV.vBack) -> QUAY. Their limit is DRV.wx[0] + DRV.wx[1] x REAL years:
+   an old hand rides through what keeps a beginner at the quay. Nothing while wages are owed. STANDING ORDER (q.so, on
+   by default; the Staff card and the Oil run card switch it): at the quay they order drums on your account for a
+   light under DRV.orderH lamp hours of oil in tank + store + on the way. They do not pump or light: the keeper does,
+   or you. What they carry is saved (s.drv), so a reload mid-trip carries on; your own drums aboard are still yours. */
+const DRV = { place: "oil:quay", wage: [70, 5], cap: 2, load: 0.5, vOut: 9000, vBack: 12000, trail: 1.3,
+  wx: [0.45, 0.03, 10],   // the weather (WX.at, 0-1) they will not ride in: base + per REAL year, years counted to
+  slow: 0.6,              // the share of their speed lost at that limit (linear under it)
+  orderH: 60,             // standing order: a light under this many lamp hours (tank + store + drums on the way) gets drums ordered
+  late: [1.5, 0.5] };     // a trip over this x its clean time + this many hours is late
+const driverOf = () => (TLX.staff && TLX.staff.at ? TLX.staff.at(DRV.place) : null);
+const driverWork = () => (TLX.staff && TLX.staff.workAt ? +TLX.staff.workAt(DRV.place) || 0 : 0);
+const dFirst = () => { const m = driverOf(); return m ? String(m.name).split(" ")[0] : "the driver"; };
+const drvLimit = m => DRV.wx[0] + DRV.wx[1] * Math.min(DRV.wx[2], Math.max(0, m && m.xpReal | 0));
+const wxAt = (x, z, t) => { try { return clamp(+api.WX.at(x, z, t) || 0, 0, 1); } catch (e) { return 0; } };
+function drvRec() {
+  const s = S(); let q = s.drv;
+  if (!q || typeof q !== "object" || Array.isArray(q)) q = s.drv = { st: "quay", lamp: null, n: 0, p: 0, d: 0, w: 0, t: 0, held: false, who: null, so: true, wkN: 0, wkLate: 0, told: "" };
+  if (q.st !== "out" && q.st !== "back") q.st = "quay";
+  for (const k of ["n", "p", "d", "w", "t", "wkN", "wkLate"]) q[k] = isFinite(+q[k]) ? Math.max(0, +q[k]) : 0;
+  q.n = Math.min(DRV.cap, Math.floor(q.n)); q.so = q.so !== false; q.held = !!q.held; q.told = typeof q.told === "string" ? q.told : "";
+  if (q.st !== "quay" && (!lampOf(q.lamp) || !owns(lampOf(q.lamp)) || !lampOf(q.lamp).site(api.world) || !(q.d > 0))) { q.st = "quay"; q.lamp = null; q.n = 0; q.p = 0; }
+  if (q.st === "quay") { q.lamp = null; q.n = 0; q.p = 0; }
+  if (q.st === "back") q.n = 0;
+  return q;
+}
+// drums of this light's on the driver's sled right now
+function drvAboard(lp) { const q = S().drv; return q && typeof q === "object" && q.st === "out" && q.lamp === lp.id ? Math.max(0, Math.floor(+q.n || 0)) : 0; }
+const itsDrum = lp => j => isDrum(j) && (lampOf(j.lamp) || LAMPS[0]) === lp;
+// drums paid for and standing at the quay (not on your sled, not on the driver's)
+function atQuay(lp) { const r = rec(lp.id); return Math.max(0, r.q - api.GS.load.filter(itsDrum(lp)).length - drvAboard(lp)); }
+// drums of this light's that a WORKING driver has in hand (waiting at the quay or aboard), for the texts
+function drvHas(lp) { return driverOf() && driverWork() > 0 ? atQuay(lp) + drvAboard(lp) : 0; }
+function drvPos(q) {
+  const W = api.world, lp = lampOf(q.lamp), to = lp && lp.site(W); if (!to || q.st === "quay") return { x: W.depot.x, z: W.depot.z };
+  const k = clamp(q.d > 0 ? q.p / q.d : 1, 0, 1), f = q.st === "out" ? k : 1 - k;
+  return { x: W.depot.x + (to.x - W.depot.x) * f, z: W.depot.z + (to.z - W.depot.z) * f };
+}
+const dNote = (title, body, kind) => { try { api.TABLET.notify({ app: "lights", kind: kind || "info", ttl: 8, title, body }); } catch (e) { } };
+// which light's drums go next: the one with the fewest lamp hours in tank + store
+function drvPick() {
+  let best = null, bh = 1e9;
+  for (const lp of mine()) { if (atQuay(lp) < 1) continue; const r = rec(lp.id), h = (r.oil + r.store) / N(lp, "burn"); if (h < bh) { bh = h; best = lp; } }
+  return best;
+}
+// the standing order: drums on your account for a light that is running down
+function drvOrder(q, m) {
+  for (const lp of mine()) {
+    const r = rec(lp.id); let k = 0;
+    while (k < DRV.cap && (r.oil + r.store + r.q * LIGHTS.drum) / N(lp, "burn") < DRV.orderH && stock(lp) < N(lp, "stockMax")) {
+      if (api.GS.cash < LIGHTS.drumCost) {
+        if (q.told !== "cash") { q.told = "cash"; dNote(`${m.name} can't order paraffin`, `${lp.name} needs a drum (${api.fmtCash(LIGHTS.drumCost)}) and your account is short. The standing order waits for the money.`, "warn"); }
+        break;
+      }
+      const c = mkClaim(lp); if (!c) break;
+      api.GS.cash -= LIGHTS.drumCost; r.q++; api.GS.claims.push(c); k++; if (q.told === "cash") q.told = "";
+    }
+    if (k) { dNote(`${m.name} ordered paraffin`, `${plural(k, "drum")} for ${lp.name} on your account (${api.fmtCash(k * LIGHTS.drumCost)}): the standing order.`); try { api.TABLET.refresh("lights"); } catch (e) { } }
+  }
+}
+function drvTake(q, lp) {
+  const W = api.world, to = lp.site(W), G = api.GS, n = Math.min(DRV.cap, atQuay(lp)); if (!to || n < 1) return false;
+  let k = n; for (let i = G.claims.length - 1; i >= 0 && k > 0; i--) if (itsDrum(lp)(G.claims[i])) { G.claims.splice(i, 1); k--; }   // off the quay: no longer a pickup of yours
+  q.st = "out"; q.lamp = lp.id; q.n = n; q.p = 0; q.w = 0; q.t = 0; q.held = false;
+  q.d = Math.max(200, Math.hypot(to.x - W.depot.x, to.z - W.depot.z) * DRV.trail);
+  try { api.TABLET.refresh("lights"); } catch (e) { }
+  return true;
+}
+function drvLand(q, m, lp, w) {
+  const r = rec(lp.id), n = q.n, clean = q.d / (DRV.vOut * w), over = q.t - clean;
+  const late = q.t > clean * DRV.late[0] + DRV.late[1];
+  r.store += LIGHTS.drum * n; r.q = Math.max(0, r.q - n); q.n = 0; q.wkN += n; if (late) q.wkLate++;
+  const kp = keeperOf(lp) && keeperWork(lp) > 0;
+  dNote(`${m.name} reached ${lp.at}`, `${plural(n, "paraffin drum")} rolled into the oil store: ${plural(drumsOf(r.store), "drum")} there.${late ? ` ${Math.max(1, Math.round(over))} hour${Math.round(over) > 1 ? "s" : ""} late: held up by the weather.` : ""}${kp ? "" : !r.on ? ` The lamp is out and nobody is keeping it: pump a drum in and light it in ${lp.where}.` : hoursLeft(r, lp) < LIGHTS.lowH ? ` The tank is low and nobody is keeping the lamp: pump one in at the rack.` : ""}`, late ? "warn" : "good");
+  try { api.TABLET.refresh("lights"); } catch (e) { }
+}
+// the driver has gone (let go, walked out) or changed mid-trip: what was on the sled stands at the quay again
+function drvAbort(q) { q.st = "quay"; q.lamp = null; q.n = 0; q.p = 0; q.w = 0; q.t = 0; q.held = false; }
+function drvStep(t, dt) {
+  const s = S(), m = driverOf();
+  if (!m) { if (s.drv && typeof s.drv === "object") { if (s.drv.st !== "quay") drvAbort(s.drv); s.drv.who = null; } return; }
+  const q = drvRec();
+  if (q.who !== m.id) { drvAbort(q); q.who = m.id; q.told = ""; }
+  const w0 = driverWork(); if (!(w0 > 0)) return;                          // wages owed: they stay where they are
+  const w = clamp(w0, 0.5, 1.3), W = api.world, lim = drvLimit(m);
+  if (q.st === "quay") {
+    if (q.so) drvOrder(q, m);
+    const lp = drvPick(); if (!lp) { q.w = 0; q.held = false; return; }
+    if (wxAt(W.depot.x, W.depot.z, t) >= lim) { q.held = true; return; }
+    q.held = false; q.w += dt; if (q.w >= DRV.load / w) drvTake(q, lp);
+    return;
+  }
+  const lp = lampOf(q.lamp), pos = drvPos(q), wx = wxAt(pos.x, pos.z, t);
+  if (q.st === "out") q.t += dt;
+  if (wx >= lim) { q.held = true; return; }                               // a storm over them: they sit it out where they are
+  q.held = false;
+  q.p += (q.st === "out" ? DRV.vOut : DRV.vBack) * w * (1 - DRV.slow * wx / lim) * dt;
+  if (q.p < q.d) return;
+  if (q.st === "out") { drvLand(q, m, lp, w); q.st = "back"; q.p = 0; }
+  else { q.st = "quay"; q.lamp = null; q.p = 0; q.w = 0; q.t = 0; try { api.TABLET.refresh("lights"); } catch (e) { } }
+}
+// where the driver is and what they are doing, in a line (the Oil run card, the Staff card)
+function drvLine(q, m) {
+  if (!(driverWork() > 0)) return "not working: wages are owed";
+  const lp = lampOf(q.lamp), km = v => (Math.max(0, v) / 1000).toFixed(1);
+  if (q.st === "out") return q.held ? `sitting out the weather ${km(q.p)} km out, ${plural(q.n, "drum")} for ${lp.at} aboard` : `on the way to ${lp.at} with ${plural(q.n, "drum")}, ${km(q.d - q.p)} km to go`;
+  if (q.st === "back") return q.held ? `sitting out the weather on the way back from ${lp.at}` : `on the way back from ${lp.at}, ${km(q.d - q.p)} km to go`;
+  const nx = drvPick();
+  if (!nx) return "at the quay, nothing to haul";
+  return q.held ? `at the quay with ${plural(Math.min(DRV.cap, atQuay(nx)), "drum")} for ${nx.at}, waiting for the weather to ease` : `at the quay, loading ${plural(Math.min(DRV.cap, atQuay(nx)), "drum")} for ${nx.at}`;
+}
+function drvToggle() { const q = drvRec(); q.so = !q.so; q.told = ""; api.ui.ping("note"); api.toast(q.so ? `Standing order on: ${dFirst()} orders drums on your account when a light runs down.` : "Standing order off: drums are ordered only when you order them.", "info"); api.save(); try { api.TABLET.refresh(); } catch (e) { } return q.so; }
+function drvPins() {
+  const m = driverOf(), q = m && S().drv; if (!q || typeof q !== "object" || q.st === "quay" || !lampOf(q.lamp)) return [];
+  const p = drvPos(q); return [{ x: p.x, z: p.z, name: `${dFirst().toUpperCase()} · OIL RUN`, glyph: "O", col: "#e8c36a" }];
 }
 // ---- 6.3a keepers: rounds ----
 const kPlace = lp => "lt:" + lp.id;
@@ -147,7 +282,7 @@ function keeperRound(lp, r) {
   const L = Math.min(LIGHTS.drum, r.store), did = [];
   if (L >= 1 && hoursLeft(r, lp) < KEEP.lowH && N(lp, "tank") - r.oil >= L - 1e-6) {
     r.oil += L; r.store -= L; if (r.store < 0.5) r.store = 0; did.push("pump");
-    if (r.store < 1) { try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: last drum pumped in`, body: `${kFirst(lp)} pumped the last drum into the tank: about ${Math.round(hoursLeft(r, lp))} lamp hours, and the oil store is empty. Order drums and haul them out.` }); } catch (e) { } }
+    if (r.store < 1) { try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: last drum pumped in`, body: `${kFirst(lp)} pumped the last drum into the tank: about ${Math.round(hoursLeft(r, lp))} lamp hours, and the oil store is empty. ${driverOf() && driverWork() > 0 ? `${dFirst()} hauls the next ones out from the quay${drvRec().so ? "" : " once you order them"}.` : "Order drums and haul them out."}` }); } catch (e) { } }
   }
   if (!r.on && r.oil > 0) {
     r.on = true; r.low = hoursLeft(r, lp) < LIGHTS.lowH; did.push("light");
@@ -171,6 +306,7 @@ function monday(week) {
   let pay = 0, lit = 0, need = 0;
   for (const lp of own) { const r = rec(lp.id); lit += r.lit; need += r.need; pay += r.lit * N(lp, "stipend"); r.lit = 0; r.need = 0; }
   pay = Math.round(pay); api.GS.cash += pay;
+  if (s.drv && typeof s.drv === "object") { s.drv.wkN = 0; s.drv.wkLate = 0; }
   const d = week && week.label || "", miss = Math.max(0, Math.round(need - lit));
   s.last.unshift({ d, pay, lit: Math.round(lit), need: Math.round(need) }); s.last = s.last.slice(0, 4);
   api.save(); try { api.TABLET.refresh("lights"); } catch (e) { }
@@ -192,7 +328,7 @@ function order(id) {
   const c = mkClaim(lp); if (!c) return false;
   api.GS.cash -= LIGHTS.drumCost; rec(lp.id).q++; api.GS.claims.push(c);
   api.ui.ping("good"); api.save();
-  api.toast(`Paraffin drum paid for (${LIGHTS.drum} L). It's waiting at the quay: it rides in a parcel slot, out to ${lp.at}.`, "good");
+  api.toast(`Paraffin drum paid for (${LIGHTS.drum} L). It's waiting at the quay: ${driverOf() && driverWork() > 0 ? `${dFirst()} will haul it out to ${lp.at}, or take it yourself in a parcel slot.` : `it rides in a parcel slot, out to ${lp.at}.`}`, "good");
   try { api.TABLET.refresh(); } catch (e) { }
   return true;
 }
@@ -203,12 +339,12 @@ function sync() {
   const s = S(), G = api.GS;
   for (const lp of LAMPS) {                                // each light keeps its own count (6.2b)
     if (!s.lamps[lp.id]) continue;
-    const r = rec(lp.id), its = j => isDrum(j) && (lampOf(j.lamp) || LAMPS[0]) === lp;
+    const r = rec(lp.id), its = itsDrum(lp), dv = drvAboard(lp);          // dv: on the oil driver's sled (6.3b1), saved with the driver
     const ab = G.load.filter(its).length, cl = G.claims.filter(its).length, was = lastAb[lp.id] || 0;
     if (ab < was) r.q = Math.max(0, r.q - (was - ab));
     lastAb[lp.id] = ab;
-    if (r.q < ab + cl) r.q = ab + cl;
-    if (owns(lp)) for (let miss = r.q - ab - cl; miss > 0; miss--) { const c = mkClaim(lp); if (!c) break; G.claims.push(c); }
+    if (r.q < ab + cl + dv) r.q = ab + cl + dv;
+    if (owns(lp)) for (let miss = r.q - ab - cl - dv; miss > 0; miss--) { const c = mkClaim(lp); if (!c) break; G.claims.push(c); }
   }
 }
 // a small light isn't a SITE, so nothing in tracklayer.js hands its drums over: stopped within reach of it, we do
@@ -296,11 +432,19 @@ function render(el) {
   let h = U.tabHead("LIGHTS · KYSTVERKET", own.length === 1 ? own[0].name : "Your lights", api.fmtCash(cash));
   const rates = [...new Set(own.map(lp => api.fmtCash(N(lp, "stipend"))))];
   h += `<div class="tsub">${plural(own.length, "light")} to keep · ${rates.join(" / ")} a lamp hour, paid Mondays</div>`;
+  const dm = driverOf();
+  if (dm) {
+    const q = drvRec();
+    h += U.tabCard({ tf: "oilrun", title: "Oil run", chips: U.chip("OIL DRIVER", "ok") + (driverWork() > 0 ? (q.held ? U.chip("WEATHER", "due") : q.st !== "quay" ? U.chip("OUT") : "") : U.chip("NOT WORKING", "due")),
+      meta: `${U.esc(dm.name)}: ${U.esc(drvLine(q, dm))}`,
+      note: `This week: ${plural(q.wkN, "drum")} hauled${q.wkLate ? `, ${q.wkLate} trip${q.wkLate === 1 ? "" : "s"} late` : ""}. ${q.so ? `Standing order on: at the quay ${U.esc(dFirst())} orders drums on your account (${api.fmtCash(LIGHTS.drumCost)} each) for a light under ${DRV.orderH} lamp hours of oil in the tank, the store and on the way.` : "Standing order off: drums are ordered only when you order them."} Hauls ${DRV.cap} a trip, to the light that is lowest; pumping and lighting are the keeper's, or yours.`,
+      act: "lso", actLabel: q.so ? "STOP THE STANDING ORDER" : "START A STANDING ORDER" });
+  }
   for (const lp of own) {
     const r = rec(lp.id), st = stateOf(r), full = stock(lp) >= N(lp, "stockMax"), due = Math.round(r.lit * N(lp, "stipend")), nd = drumsOf(r.store);
     h += U.tabCard({ tf: "lamp:" + lp.id, title: lp.name, chips: U.chip(st.chip, st.cls) + (r.on && hoursLeft(r, lp) < LIGHTS.lowH ? U.chip("OIL LOW", "due") : ""),
       meta: `Tank ${Math.round(r.oil)} of ${N(lp, "tank")} L · ${r.oil > 0 ? `about ${Math.round(hoursLeft(r, lp))} lamp hours` : "dry"} · lamp ${st.word}${own.length > 1 ? ` · ${api.fmtCash(N(lp, "stipend"))} an hour lit` : ""}`,
-      note: `This week: ${Math.round(r.lit)} lamp hours of ${Math.round(r.need)} dark · stipend so far ${api.fmtCash(due)}. Oil store: ${nd ? `${plural(nd, "full drum")} (${Math.round(r.store)} L)` : "empty"}.${r.q ? ` ${plural(r.q, "drum")} paid for, at the quay or aboard.` : ""}${keeperLine(lp, r)}`,
+      note: `This week: ${Math.round(r.lit)} lamp hours of ${Math.round(r.need)} dark · stipend so far ${api.fmtCash(due)}. Oil store: ${nd ? `${plural(nd, "full drum")} (${Math.round(r.store)} L)` : "empty"}.${r.q ? ` ${plural(r.q, "drum")} paid for, ${drvAboard(lp) ? `${drvAboard(lp)} on ${dFirst()}'s sled${r.q > drvAboard(lp) ? ", the rest at the quay or aboard" : ""}` : "at the quay or aboard"}.` : ""}${keeperLine(lp, r)}`,
       warn: !r.on && keeperWork(lp) > 0 ? (r.oil > 0 || nd ? `The lamp is out. ${kFirst(lp)} will ${r.oil > 0 ? "light it" : "pump a drum in and light it"} on the next round, or do it yourself in ${lp.where}.` : `The lamp is out, the tank is dry and the oil store is empty. Order a drum and haul it out from the quay: ${kFirst(lp)} does the rest.`) : !r.on ? (r.oil > 0 ? `The lamp is out. There's oil in the tank: climb the ${lp.up} in ${lp.where} and light it.` : nd ? `The lamp is out and the tank is dry. Pump a drum into the tank at the rack in ${lp.where}, then climb up and light it.` : "The lamp is out, the tank is dry and the oil store is empty. Order a drum and haul it out from the quay.") : "",
       pay: api.fmtCash(LIGHTS.drumCost), act: "lord:" + lp.id, actLabel: "ORDER A DRUM", blocked: full || cash < LIGHTS.drumCost });
   }
@@ -310,6 +454,7 @@ function render(el) {
   else h += `<p class="tnote2">A lamp burns paraffin only while the sun is down (a sun valve shuts it by day): ${own.map(lp => `${lp.at} ${N(lp, "burn")} L an hour from a ${N(lp, "tank")} L tank, about ${days(lp)} days of polar night`).join("; ")}. A drum is ${LIGHTS.drum} L: it is ordered for one light, waits at the quay, rides out in a parcel slot, and is pumped into the tank by hand at the rack. A lamp that runs dry stays out until someone climbs up and lights it.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='lord:']")) b.addEventListener("click", () => order(b.dataset.act.slice(5)));
+  for (const b of el.querySelectorAll("[data-act='lso']")) b.addEventListener("click", drvToggle);
 }
 
 /* ---------------- 6.2b: the two smaller lights ---------------- */
@@ -448,6 +593,48 @@ if (TLX.staff && TLX.staff.addRole) {
     for (const lp of LAMPS) { if (!owns(lp)) continue; let p = null; try { p = lp.small ? lp.small.at : lp.site(a.world); } catch (e) { } out.push({ id: kPlace(lp), role: "keeper", name: lp.name, cab: lp.id, x: p ? p.x : undefined, z: p ? p.z : undefined }); }
     return out;
   });
+  /* 6.3b1: the oil driver's job, on the oil run from the quay (one driver for every light you own) */
+  TLX.staff.addRole("oildriver", { name: "Oil driver", wage: DRV.wage, blurb: "hauls the paraffin drums from the quay out to your lights",
+    app: true, at: "on the", the: true,
+    greet: () => "Hello! I saw you want a driver for the oil run out to the lights.",
+    qs: { stove: { label: "WHITEOUT ON THE FELL?", ask: "Halfway out with two drums on the sled and it closes in to a whiteout. What do you do?" } },
+    tag: a => "own sled",
+    note(m) {
+      const q = api ? drvRec() : null; if (!q) return "Hauls the paraffin drums out to your lights";
+      return `Hauls the paraffin drums out to your lights, ${DRV.cap} a trip: ${drvLine(q, m)}. Rides in weather up to ${drvLimit(m) >= 0.66 ? "a full gale" : drvLimit(m) >= 0.54 ? "a stiff blow" : "a fresh breeze"}; standing order ${q.so ? "on" : "off"}`;
+    },
+    acts: () => { const q = api ? drvRec() : null; return q ? [{ k: "so", label: q.so ? "STOP THE STANDING ORDER" : "START A STANDING ORDER" }] : []; },
+    act(m, k) { if (k === "so") { drvToggle(); return true; } return false; },
+    answer(a, q, c) {
+      const x = a.xp, r = a.xpReal, v = a.village;
+      if (q === "xp") {
+        if (c.slip) return `${x} years. Well... that's counting riding to school on my brother's sled, and a winter of weekends. Hauling for pay, more like ${r === 0 ? "none" : r === 1 ? "one" : r}.`;
+        if (c.liar) return `${x} years, give or take. Freight, fuel, the lot. Never dropped a load.${c.tail}`;
+        return (x === 0 ? `None for pay. I've ridden the fell out of ${v} since I could reach the bars, and I've a sled and a freight sledge of my own.`
+          : x <= 3 ? `${x} winter${x > 1 ? "s" : ""} hauling fuel and feed to the herder cabins out of ${v}.`
+          : x <= 10 ? `${x} winters on freight: fuel drums, stoves, whatever needed to get out past the road end.`
+          : `${x} winters. I hauled for the lights before Kystverket put them out to tender, so I know every cairn on the way.`) + c.tail;
+      }
+      if (q === "stove") {
+        if (c.slip) return "Keep the throttle in and hope I hit the coast? I've... mostly ridden in good weather, to be fair.";
+        if (c.liar) return `Whiteouts don't bother me. I'd be there on time, same as always.${c.tail}`;
+        return (r >= 3 ? "Stop. Back to the sled's own track if I can still see it, engine off, dig in on the lee side and wait: drums don't spoil. Late is a dark lamp for a night. Lost is a search party."
+          : "Turn round while I can still see my own track, and ring you from the quay. I'd rather be late than be looked for.") + c.tail;
+      }
+      if (q === "why") {
+        const w = a.tr && a.tr.work || 1;
+        return (w >= 1.1 ? "I like a run with a point to it. Somebody is steering by that lamp, and it burns what I bring."
+          : w <= 0.8 ? "It's riding, mostly, and nobody timing me. Suits me."
+          : `It's steady winter work out of ${v}, and I'd be out on the sled anyway.`) + (c.hot ? " Is that it?" : "");
+      }
+      return "";
+    } });
+  TLX.staff.addPlaces(() => {
+    const a = A(); if (!a || !mine().length) return [];
+    const q = S() && S().drv, away = !!(q && typeof q === "object" && (q.st === "out" || q.st === "back") && driverOf());
+    return [{ id: DRV.place, role: "oildriver", name: "oil run", spot: "the quay", x: away ? undefined : a.world.depot.x, z: away ? undefined : a.world.depot.z,
+      talk: away ? `${dFirst()} is out on the run: have a word at the quay once they are back.` : `Go to the quay to talk to ${dFirst()} in person.` }];
+  });
 }
 
 TLX.register({
@@ -462,6 +649,8 @@ TLX.register({
     if (s.hT !== null && !isFinite(+s.hT)) s.hT = null;
     s.last = Array.isArray(s.last) ? s.last.filter(q => q && typeof q === "object").slice(0, 4) : [];
     for (const k in lastAb) delete lastAb[k];
+    if (s.drv !== undefined && (!s.drv || typeof s.drv !== "object" || Array.isArray(s.drv))) delete s.drv;                /* 6.3b1: the oil driver's trip (drvRec tidies the rest at the first step, once the lights are placed) */
+    if (a.TABLET.addLayer && !pinned) { pinned = true; a.TABLET.addLayer("marks", drvPins); }                              // the driver on the Map while out on the run
     if (a.footx && !a.footx.includes(PROV)) a.footx.unshift(PROV);
     a.TABLET.register({ id: "lights", name: "Lights", icon: ICON, order: 8.6, live: 10,
       hidden: () => !mine().length,
@@ -481,5 +670,7 @@ TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); ret
   // 6.2b: the smaller lights
   // 6.3a: keepers
   KEEP, keeper: id => { const lp = lampOf(id); return lp ? keeperOf(lp) : null; }, keeperWork: id => { const lp = lampOf(id); return lp ? keeperWork(lp) : 0; }, roundH, round: id => keeperRound(lampOf(id), rec(id)),
+  // 6.3b1: the oil driver
+  DRV, driver: driverOf, driverWork, drv: () => drvRec(), drvPos: () => drvPos(drvRec()), drvLine: () => { const m = driverOf(); return m ? drvLine(drvRec(), m) : ""; }, drvLimit, drvToggle, drvPins, atQuay: id => atQuay(lampOf(id)), drvAboard: id => drvAboard(lampOf(id)),
   SMALL, num: (id, k) => N(lampOf(id), k), flashOn, dropTick, small: id => { const lp = lampOf(id); return lp && lp.small || null; } };
 })();

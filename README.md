@@ -220,6 +220,17 @@ the lamp never goes dark while there are drums in the store; a slack or miserabl
 and the lamp stands dark until they get to it. They don't order or haul the drums: that is still your ride out, and
 they tell you when the last drum has gone in. A keeper who is owed wages does nothing. The Lights app names each
 lamp's keeper and how often they go round; you can still pump and light by hand.
+Once you own a light there is also one **oil driver's** job, on the oil run from the quay (Staff app; they interview
+in their own trade: ask about a whiteout on the fell; $70 a week and up, own sled). The driver takes the drums that
+are paid for and waiting at the quay, two a trip, out to whichever of your lights is lowest on oil, rolls them into
+its store and rides back: about half an hour to load and 9 km an hour loaded. A drum the driver has loaded leaves
+your Jobs app; a drum already on your own sled stays yours. **Weather** matters: every driver has a limit that
+grows with their real experience. Over it they wait at the quay, or sit it out where they are on the trail, and the
+landing note says how many hours late they were; under it they ride slower. With the **standing order** on (it is by
+default; switch it on the driver's Staff card or the Lights app's Oil run card) the driver also orders drums on your
+account, $45 each, for a light under 60 lamp hours of oil in the tank, the store and on the way. A driver doesn't
+pump or light, so a light with a keeper and a driver runs itself for two wages and the oil. While out the driver is
+a pin on the Map; have a word with them at the quay when they are in. A driver who is owed wages stays put.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight
