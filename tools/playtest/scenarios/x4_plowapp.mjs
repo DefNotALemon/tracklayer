@@ -194,7 +194,7 @@ await section("I the third warning takes the road back", async () => {
 });
 
 await section("J Monday", async () => {
-  await ev(`TLX.state("plow").conBan = {}; TLXPL.con.sign(${rid}); const c = TLX.state("plow").con[${rid}]; c.strikes = 1; c.clean = true; c.wk = 250; c.wkM = 1000; TLXPL.con.monday({ label: "Mon 4 Jan" }); true`);
+  await ev(`TLX.state("plow").conBan = {}; TLX.state("plow").conWk = []; /* beta fix 0337: what this road earned before it was taken back above is kept for Monday; not this step's subject (x4_conweek.mjs) */ TLXPL.con.sign(${rid}); const c = TLX.state("plow").con[${rid}]; c.strikes = 1; c.clean = true; c.wk = 250; c.wkM = 1000; TLXPL.con.monday({ label: "Mon 4 Jan" }); true`);
   let a = await J(`({ c: __con(${rid}), last: TLX.state("plow").conLast })`);
   ok(a.last.length === 1 && a.last[0].pay === 250 && a.last[0].m === 1000 && a.last[0].lapsed === true && a.last[0].d === "Mon 4 Jan" && a.c.strikes === 0 && a.c.wk === 0, "Monday after a clean week: a statement ($250 for 1.0 km) and the warning is struck off: " + JSON.stringify(a.last[0]));
   await ev(`(() => { const c = TLX.state("plow").con[${rid}]; c.strikes = 1; c.clean = false; TLXPL.con.monday({ label: "Mon 11 Jan" }); return true; })()`);

@@ -1088,6 +1088,8 @@ earned. A contract is at risk when the road is left: a stretch that lies **shut*
 that you sleep through, is opened by the kommune's own truck, unpaid, and is a **warning** (a line
 tells you at 4 hours). Three warnings and the road is taken back and not tendered to you for a
 week; a Monday after a week without one strikes a warning off and writes the week's statement.
+What a road earned that week stays on that statement if you hand the road back, or lose it, before
+Monday: its line then reads **handed back** or **taken back by the kommune**.
 **HAND BACK** returns a road to the council whenever you like, but it does not wipe the slate: the
 kommune keeps a road's warnings on file (the card of a road you gave up reads **WARNING 2 OF 3 ON
 FILE**) and they come back with it when you sign again, where it then takes a whole clean week held

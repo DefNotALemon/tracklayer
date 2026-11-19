@@ -791,6 +791,8 @@ function conTidy(s) {
   if (!obj(s.conBan)) s.conBan = {};
   s.conLast = Array.isArray(s.conLast) ? s.conLast.filter(obj).slice(0, 6) : [];
   s.conPaid = num(s.conPaid, 0, 1e9); if (!Number.isFinite(s.conH)) s.conH = -1;
+  s.conWk = (Array.isArray(s.conWk) ? s.conWk : []).filter(e => obj(e) && typeof e.id === "string").slice(0, 12);   /* beta 0337: the week's pay on roads no longer held */
+  for (const e of s.conWk) { e.road = typeof e.road === "string" ? e.road : e.id; e.pay = num(e.pay, 0, 1e9); e.m = num(e.m, 0, 1e9); e.dn = Math.floor(num(e.dn, 0, 1e6)); e.w = Math.floor(num(e.w, 0, PLC.strikes)); e.gone = e.gone === "taken" ? "taken" : "back"; }
   for (const id of Object.keys(s.con)) {
     const c = s.con[id]; if (!obj(c)) { delete s.con[id]; continue; }
     c.name = typeof c.name === "string" ? c.name : id; c.strikes = Math.floor(num(c.strikes, 0, PLC.strikes - 1)); c.wk = num(c.wk, 0, 1e9); c.wkM = num(c.wkM, 0, 1e9);
@@ -827,15 +829,28 @@ function conQuit(id) {
   const due = {}; if (!cost && !c.cover) for (const k of Object.keys(c.due || {})) due[k] = [c.due[k][0], c.due[k][1]];
   if (!obj0(s.conRec)) s.conRec = {};
   if (c.strikes > 0 || Object.keys(due).length) s.conRec[id] = { strikes: c.strikes, due }; else delete s.conRec[id];
-  delete s.con[id];
+  conKeep(s, id, c, "back"); delete s.con[id];
   if (!cost) api.toast(`You've handed the ${c.name} back. The council's plow has it again.` + (c.strikes ? ` The kommune keeps ${c.strikes === 1 ? "the warning" : "the " + c.strikes + " warnings"} on that road's file.` : ""));
   api.save(); conRefresh(); return true;
 }
 const obj0 = v => !!v && typeof v === "object" && !Array.isArray(v);
+/* beta 0337 #1/#2: the week's pay belongs to the week, not to the contract (as 0325 #1 did for drives and lots). A road
+   handed back, taken back on the third warning or gone from the map took its wk / wkM (and its driver's wkN) with it,
+   so Monday's statement had no line for money already paid. conKeep moves them to s.conWk (one entry a road: id, road,
+   pay, m, dn, w, gone "back" | "taken") before the contract is deleted; conMonday writes each as a line, or adds it to
+   the road's own line when you hold the road again by Monday, and clears the list. Saved. */
+function conKeep(s, id, c, gone) {
+  if (!s || !obj0(c)) return; const pos = v => (Number.isFinite(v) && v > 0 ? v : 0), q = s.pdr && s.pdr[id];
+  const pay = pos(c.wk), m = pos(c.wkM), dn = obj0(q) ? Math.floor(pos(q.wkN)) : 0; c.wk = 0; c.wkM = 0; if (obj0(q)) { q.wkN = 0; q.wkCash = 0; }
+  if (!(pay > 0 || m > 0 || dn > 0)) return;
+  if (!Array.isArray(s.conWk)) s.conWk = [];
+  let e = s.conWk.find(v => obj0(v) && v.id === id); if (!e) s.conWk.push(e = { id, road: "", pay: 0, m: 0, dn: 0, w: 0, gone });
+  e.pay = pos(e.pay) + pay; e.m = pos(e.m) + m; e.dn = pos(e.dn) + dn; e.w = Math.floor(pos(c.strikes)); e.gone = gone; e.road = typeof c.name === "string" ? c.name : String(id);
+}
 function conStrike(c, r, slept, lead) {                                          /* lead (4.2c2b): what the warning is for when it is not the road's own snow */
   const s = S(); c.strikes++; c.clean = false;
   if (c.strikes >= PLC.strikes) {
-    delete s.con[r.id]; s.conBan[r.id] = api.GS.hour + PLC.banH;
+    conKeep(s, r.id, c, "taken"); delete s.con[r.id]; s.conBan[r.id] = api.GS.hour + PLC.banH;
     if (s.conRec) delete s.conRec[r.id];
     api.toast(`${lead ? lead + " " : ""}Third warning: the kommune has taken the ${r.name} back. It will not tender it to you again for a week.`, "bad");
     api.save(); conRefresh(); return true;
@@ -856,7 +871,7 @@ function conStep() {
     if (!q.strikes && !Object.keys(q.due).length) delete s.conRec[id];
   }
   for (const id of ids) {
-    const c = s.con[id], r = rs.find(q => q.id === id); if (!r) { delete s.con[id]; continue; }
+    const c = s.con[id], r = rs.find(q => q.id === id); if (!r) { conKeep(s, id, c, "back"); delete s.con[id]; continue; }
     c.name = r.name;
     pdrRun(c, r, dh, slept);                                                     /* 5.4a1: a driver of yours on this road works first: what they open this step is not late */
     let nd = 0, late = false, half = false, stale = false, gone = false, fresh = false;
@@ -889,11 +904,19 @@ function conPay(r, i, sn, share = 1) {                                          
   return { cash, k, h };
 }
 function conMonday(week) {
-  const s = S(); if (!s || !s.con) return; const ids = Object.keys(s.con); if (!ids.length) return;
-  const d = week && week.label || ""; let pay = 0, m = 0, off = 0;
+  const s = S(); if (!s || !s.con) return; const ids = Object.keys(s.con), kept = Array.isArray(s.conWk) ? s.conWk.filter(obj0) : []; s.conWk = [];
+  if (!ids.length && !kept.length) return;                                       /* beta 0337: a week's pay on a road no longer held still gets its line */
+  const d = week && week.label || "", pos = v => (Number.isFinite(v) && v > 0 ? v : 0); let pay = 0, m = 0, off = 0;
+  if (!Array.isArray(s.conLast)) s.conLast = [];
+  for (const e of kept) {
+    if (ids.includes(e.id)) continue;                                            /* held again by Monday: goes into that road's own line below */
+    s.conLast.unshift({ d, road: String(e.road || e.id || ""), pay: pos(e.pay), m: Math.round(pos(e.m)), w: Math.floor(pos(e.w)), lapsed: false, dn: Math.floor(pos(e.dn)), gone: e.gone === "taken" ? "taken" : "back" });
+    pay += pos(e.pay); m += pos(e.m);
+  }
   for (const id of ids) {
     const c = s.con[id], lapsed = c.clean && c.strikes > 0; if (lapsed) { c.strikes--; off++; }
-    const q = s.pdr && s.pdr[id], dn = q ? q.wkN : 0; if (q) { q.wkN = 0; q.wkCash = 0; }
+    const q = s.pdr && s.pdr[id]; let dn = q ? q.wkN : 0; if (q) { q.wkN = 0; q.wkCash = 0; }
+    for (const e of kept) if (e.id === id) { c.wk += pos(e.pay); c.wkM += pos(e.m); dn += Math.floor(pos(e.dn)); }
     s.conLast.unshift({ d, road: c.name, pay: c.wk, m: Math.round(c.wkM), w: c.strikes, lapsed, dn });
     pay += c.wk; m += c.wkM; c.wk = 0; c.wkM = 0; c.clean = true;
   }
@@ -1402,7 +1425,7 @@ function appRender(el) {
   }
   h += drvCards(U, s, has, mul, cash);                                           // 4.2b1: the driveways
   h += lotCards(U, s, has, mul, cash);                                           // 4.2c1: the lots
-  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.dn > 0 ? ` · ${Math.round(q.dn)} by your driver` : ""}${q.lapsed ? " · a warning struck off" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
+  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.dn > 0 ? ` · ${Math.round(q.dn)} by your driver` : ""}${q.lapsed ? " · a warning struck off" : ""}${q.gone === "taken" ? " · taken back by the kommune" : q.gone === "back" ? " · handed back" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself. A plow driver hired in the Staff app works a road of yours whenever snow lies on it. One with their own truck keeps ${Math.round(PDR.cut * 100)}% of what the kommune pays for the stretches they open, the rest yours; one without drives a truck of yours that you assign on their card, and then all the pay is yours and so are the diesel and the cutting edge. Either way a slow driver's late stretches are still your warnings.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='pls:']")) b.addEventListener("click", () => conSign(b.dataset.act.slice(4)));
@@ -2191,7 +2214,7 @@ TLX.option({ id: "plowstreets", name: "Plow heaps in the street", hint: "A heap 
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, pdr: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvWk: 0, drvWkN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0, lotWk: 0, lotWkN: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conWk: [], conPaid: 0, conH: -1, conRec: {}, pdr: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvWk: 0, drvWkN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0, lotWk: 0, lotWkN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
