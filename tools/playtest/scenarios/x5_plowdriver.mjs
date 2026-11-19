@@ -135,7 +135,7 @@ await section("D snow: out, opened, paid, back", async () => {
   ok(a.q.st === "out" && a.q.p > 300 && a.q.p <= 601 && a.sn[1] > 0.4 && /^out on it, \d+\.\d km along, 2 stretches to go$/.test(a.where), "out on the road, the snow not yet opened: " + JSON.stringify(a));
   const pt = await app("plow"); await still("d3_plow_driver_out");
   const stt = await app("staff"); await still("d4_staff_driver_out");
-  ok(/drives it for you: out on it/.test(pt) && /out on it, \d+\.\d km along/.test(stt) && /is out on the .*\. Have a word at the garage once they are back in/.test(stt), "both apps say they are out, and that a word will have to wait");
+  ok(/drives it for you: out on it/.test(pt) && /out on it, \d+\.\d km along/.test(stt) && /is out on the .*: a word in person is had within 30 m of the truck/.test(stt), "both apps say they are out, and where a word is had");
   await ev(`TABLET.toggle(false); true`);
   await ev(`__q(${(((I - 1) * SEG) / 12000 + 0.24).toFixed(3)}, 0.04)`);
   a = await J(`({ q: __pdr(${rid}), sn: [__rt(${rid}).st.s[${I - 1}], __rt(${rid}).st.s[${I}]], c: __con(${rid}), st: TLXR.status(${rid}) })`);
@@ -232,7 +232,7 @@ await section("J a word in person, at the garage", async () => {
   const id = (await J(`TLX.staff.at("plow:" + ${rid})`)).id;
   await ev(`P.x = garageSite.x + 400; P.z = garageSite.z + 300; true`);
   const far = await ev(`TLX.staff.praise(${id})`), t0 = await toasts();
-  ok(far === false && t0.some(m => /is at the garage between runs: go there to have a word in person/.test(m)), "away from the garage: no praise, and it says where they are");
+  ok(far === false && t0.some(m => /is in: have a word beside their truck, parked at the first end of the .*, or at the garage/.test(m)), "away from the garage and their truck: no praise, and it says where they are");
   await ev(`P.x = garageSite.x + 6; P.z = garageSite.z + 6; true`);
   const st = await app("staff");
   ok(/You're at the garage: you can have a word/.test(st), "at the garage the card says you can have a word");

@@ -1122,7 +1122,8 @@ application is slow, the pay has fallen by the time they get there, and a stretc
 8 hours is still **your** warning. Owed wages, they do not go out at all. Sleep through a storm
 and a driver has opened what they could reach in time: paid, and no warning for those. The road's
 card in the Plow app and the driver's card in Staff say where they are; a word in person (PRAISE,
-CRITICISE) is had at the garage while they are in. Hand the road back, or lose it, and the driver
+CRITICISE) is had at the garage while they are in, or beside their own truck where it stands parked
+at the first end of the road, and out on the road beside the truck (below). Hand the road back, or lose it, and the driver
 is let go, paid to the hour.
 
 **Their truck on the road.** A driver who is out is out there: the truck is on the road where the
@@ -1136,7 +1137,17 @@ lane and it waits a few metres short of you until you move. In your sight it dri
 about 45 km/h on a clean road and 25 with the blade cutting, which is far slower than the hours
 on the cards allow for, so the time that costs your driver is not counted against the road:
 watching them work never earns you a warning. The whole stretch still opens when they reach its
-far end, as before. Not yet: a word with them out on the road, and a driver who gets stuck.
+far end, as before.
+
+**Hail them.** On foot within 30 m of your driver's truck while it is out, the use control reads
+**HAIL** (E, L3 on a pad, the use button on touch). They pull up where they are and wind the window
+down: how many stretches are left and how many lie open behind them, or why they are heading in,
+and in a truck of yours what is in the tank and how the cutting edge is; an unhappy driver says
+that too. While they wait their Staff card has PRAISE and CRITICISE live (a word in person is had
+within 30 m of the truck, wherever it is), and the use control reads **WAVE ON**. They drive on by
+themselves after a minute, or once you have walked 45 m off. The time they stand for you is not
+counted against the road. Not yet: your own truck's drive between its parking spot and the road,
+and a driver who gets stuck.
 
 **A driver in your truck.** A driver without a truck needs one of yours with a blade fitted: their
 Staff card has an **ASSIGN** button for each (the card then shows its litres and its cutting edge).

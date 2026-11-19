@@ -220,7 +220,15 @@ function crewTick() {
 }
 // where you are, and whether you're at their workplace (in person)
 function herePos() { const F = api.FOOT, P = api.P; return F && F.on ? { x: F.x, z: F.z } : { x: P.x, z: P.z }; }
-function atPlace(m) { const p = placeOf(m.place); if (!p || !(p.x === +p.x)) return false; const q = herePos(); return Math.hypot(q.x - p.x, q.z - p.z) <= TALK_R; }
+function atPlace(m) { return !!hereSpot(placeOf(m.place)); }
+// the name of the spot of place p you are standing at, or "": the place itself, or one of its pts ([x, z, name]: other spots
+// the same word can be had at; 5.4b2a: a plow driver's parked truck as well as the garage)
+function hereSpot(p) {
+  if (!p || !(p.x === +p.x)) return ""; const q = herePos();
+  if (Math.hypot(q.x - p.x, q.z - p.z) <= TALK_R) return p.spot || p.name || "their place";
+  if (Array.isArray(p.pts)) for (const a of p.pts) if (a && Math.hypot(q.x - a[0], q.z - a[1]) <= TALK_R) return a[2] || p.spot || p.name || "their place";
+  return "";
+}
 function talkBlock(m) {
   const p = placeOf(m.place);
   if (!atPlace(m)) return p && p.talk ? p.talk : `Go to ${p ? p.name : "their place"} to talk to ${first(m)} in person.`;
@@ -442,7 +450,7 @@ function render(el) {
         note: `${R.note ? U.esc(R.note(m, p)) : `${R.blurb}: ${lift > 0 ? `about +${Math.round(lift * 100)}% nights let` : "not working while wages are owed"}`}${m.push > hour() ? " (working hard after your word)" : ""}. Owed so far this week: ${money(wageDue(m, hour()))}.`
           + (m.notice ? ` <b>Leaves in ${nd >= 36 ? Math.round(nd / 24) + " days" : Math.max(1, Math.round(nd)) + " hours"}</b> unless things get better.` : "")
           + (m.ask ? ` Asking for ${money(m.ask.amt)} a week.` : "")
-          + ` ${here ? (tb ? U.esc(tb) : `You're at ${U.esc(p.spot || p.name)}: you can have a word.`) : U.esc(tb)}`,
+          + ` ${here ? (tb ? U.esc(tb) : `You're at ${U.esc(hereSpot(p) || p.spot || p.name)}: you can have a word.`) : U.esc(tb)}`,
         pay: money(m.wage) + "/wk", act: "stl:" + m.id, actLabel: "LET GO" })
         .replace(`data-act="stl:${m.id}">LET GO</button>`, `data-act="stl:${m.id}">LET GO</button>${extra}`);
     }

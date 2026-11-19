@@ -977,8 +977,9 @@ function conJob(k) {
    SAVED in x.sys.plow: pdr { routeId: { st: "home" | "out" | "back", p (m along the route), w (hours waiting to set
    out), n, cash (stretches and your share this trip), wkN, wkCash (this week), who (the driver's staff id), truck (uid
    of yours, or null), f0 (its litres when they took it), told, why, rc (recalled), hold (back, the spot not clear) } },
-   and on the truck's own record (tlx-vehicles.js) out / outBy while it is away. The truck is not seen on the road yet
-   (5.4b) and they cannot get stuck yet (5.4c). */
+   and on the truck's own record (tlx-vehicles.js) out / outBy while it is away.
+   HAILED (5.4b2a, the block at pdrHailed): on foot beside a truck that is out, the use control stops it for a word.
+   They cannot get stuck yet (5.4c). */
 const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [0.7, 0.03, 10],
   mine: 0.5,        // the share of applicants with no truck of their own (5.4a2)
   lkm: [0.5, 1.2],  // litres a km x the truck's burn: on a clean road, with the blade cutting
@@ -989,6 +990,9 @@ const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [
   // [first, last metre along the road looked at, m beyond the plowed edge]; own: their truck and blade; tints: its paint
   seeR: 600, seen: [7, 12.5], stopFor: 11, cutR: 320,   // cutR: within this of you its blade cuts its own lane as it goes
   park: [14, 220, 3.4], own: ["plowtruck", "b35"],
+  // 5.4b2a, the hail: on foot within hailR m of a truck that is out, the use control stops it for hailT seconds (or until
+  // you wave it on, or walk hailOff m away); a word in person (the Staff app's PRAISE / CRITICISE) is had within the same 30 m
+  hailR: 30, hailT: 60, hailOff: 45,
   tints: [0xffffff, 0xb9cfe6, 0xe6c9a0, 0xbfe0c2, 0xe2b3ac, 0xcfd3d8, 0xe9e2a8] };
 const pdrPid = id => "plow:" + id;
 const pdrOf = id => (TLX.staff && TLX.staff.at ? TLX.staff.at(pdrPid(id)) : null);
@@ -1129,7 +1133,7 @@ function pdrRun(c, r, dh, slept) {
   const T = mine ? pdrRec(q.truck) : null, burn = T ? pdrDef(T).burn || 1 : 0, pas = T ? pdrPasses(T.uid) : 1;
   if (mine && !T) { pdrHome(c, r, q, m, "the truck is no longer yours"); return; }
   /* 5.4b1: in your sight the truck keeps a truck's speed (sph: real seconds a game hour took this step; a clock put forward is not capped) */
-  const sph = dh > 0 && dh <= 0.05 && conSec > 0 ? conSec / dh : 0, seen = sph > 0 && pdrNear(r, q), held = seen && pdrBlocked(r.id);
+  const sph = dh > 0 && dh <= 0.05 && conSec > 0 ? conSec / dh : 0, seen = sph > 0 && pdrNear(r, q), held = seen && (pdrBlocked(r.id) || pdrHailed(r.id));
   const dh0 = dh; let lost = 0;
   if (q.st === "out") {
     if (!due.length || c.cover) q.st = "back";
@@ -1250,6 +1254,7 @@ function pdrSee(dt) {
         PDS.set(id, Z);
       }
       live.add(id);
+      if (Z.hail > 0) { Z.hail -= dt; const yh = pdrYou(); if (!out || !(Z.hail > 0) || (Number.isFinite(Z.x) && Math.hypot(Z.x - yh.x, Z.z - yh.z) > PDR.hailOff)) pdrWave(id, !out); }   /* 5.4b2a: hailed, they wait a while, not for ever */
       // where it should be: p along the road (never short of its own parking spot), in the lane it drives in, or on the spot
       const back = q.st === "back", dir = back ? -1 : 1;
       const tS = out ? (spot ? Math.max(q.p, spot.s) : q.p) : spot.s, parked = !out || (spot && q.p <= spot.s && back);
@@ -1295,6 +1300,56 @@ function pdrSee(dt) {
   }
   if (PDS.size > live.size) for (const id of Array.from(PDS.keys())) if (!live.has(id)) pdrSeeDrop(id);
 }
+/* ---- 5.4b2a: on the road with them: the hail, and a word beside the truck ----
+   On foot within PDR.hailR of a driver's truck that is out (or heading in) the use control HAILS it (an api.footx
+   provider: keyboard, pad L3, the touch button): the truck stops where it is (pdrRun's `held`, the same stop as you
+   standing in its lane, so the hours it costs are PDLOST and no stretch runs late for it), the driver says how the run
+   is going (pdrSay: stretches to go or opened, why they are heading in, your truck's tank and edge, a word if they are
+   unhappy), and the use control becomes WAVE ON. They go on by themselves after PDR.hailT seconds, or once you are
+   PDR.hailOff m away. Z.hail (seconds left) lives in PDS: nothing is saved, a reload finds the truck driving.
+   A WORD IN PERSON: pdrPlaces puts the driver's place where the truck is (out: on the road at the seen truck; in, with
+   their own truck: its spot beside the road's first end, and the garage as before through the place's `pts`), so the
+   Staff app's PRAISE / CRITICISE open within tlx-staff's 30 m of it. Hailing is how you make that 30 m hold still. */
+function pdrHailed(id) { const Z = PDS.get(id); return !!Z && Z.hail > 0; }
+function pdrSay(id) {
+  const s = S(), q = s.pdr && s.pdr[id], m = pdrOf(id), c = s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!obj0(q) || !m || !r) return "";
+  const RD = window.TLXR.ROADS, due = pdrDue(c, r), t = pdrMine(m) ? pdrRec(q.truck) : null, bits = [], n = q.n | 0, str = k => `${k} stretch${k === 1 ? "" : "es"}`;
+  if (q.st === "back") { const why = q.rc ? "you called me in" : q.why || (c.cover ? "the kommune's own truck has the rest" : ""); bits.push(`${n ? str(n) + " open. " : ""}Heading in${why ? ": " + why : n ? "" : ", nothing left to open"}.`); }
+  else {
+    const g = r.seg[Math.min(r.seg.length - 1, Math.floor(q.p / RD.seg))];
+    if (g && api.WX.at(g.mx, g.mz) >= RD.plowWx) bits.push("Cannot see the poles in this. I am sitting it out until it eases.");
+    else bits.push(due.length ? `${str(due.length)} to go${n ? ", " + n + " open behind me" : ""}.` : "That was the last of it.");
+  }
+  if (t) bits.push(`${Math.round(t.fuel)} L in the tank, the edge at ${pct(condOf(t.uid))}%.`);
+  if (m.notice) bits.push("You have my notice."); else if (+m.hap < 30) bits.push("And since you ask: I am not happy in this job.");
+  return bits.join(" ");
+}
+function pdrHail(id) {
+  const Z = PDS.get(id), m = pdrOf(id), q = S().pdr[id]; if (!Z || !m || !obj0(q) || q.st === "home") return false;
+  Z.hail = PDR.hailT;
+  api.toast(`${pdrFirst(m)} pulls up and winds the window down: "${pdrSay(id)}" They wait while you have your word: praise or criticism is on their card in the Staff app.`, "info");
+  try { api.TABLET.refresh("staff"); } catch (e) { }
+  return true;
+}
+function pdrWave(id, quiet) {
+  const Z = PDS.get(id), m = pdrOf(id); if (!Z || !(Z.hail !== undefined && Z.hail !== 0)) return false;
+  Z.hail = 0; if (!quiet && m) api.toast(`${pdrFirst(m)} lifts a hand and drives on.`);
+  try { api.TABLET.refresh("staff"); } catch (e) { }
+  return true;
+}
+function pdrHailNear() {                                                         // the nearest truck with a driver in it within hailing distance of you on foot
+  const s = S(), F = api.FOOT; if (!s || !obj0(s.pdr) || !PDS.size) return null; let best = null, bd = PDR.hailR;
+  for (const [id, Z] of PDS) { const q = s.pdr[id]; if (!obj0(q) || q.st === "home" || !Number.isFinite(Z.x) || !pdrOf(id)) continue; const d = Math.hypot(Z.x - F.x, Z.z - F.z); if (d < bd) { bd = d; best = id; } }
+  return best;
+}
+const PDHAIL = {
+  use() {
+    const F = api.FOOT; if (!F.on || busy() || (api.INT && api.INT.on) || (api.MNT && api.MNT.on) || (api.DMT && api.DMT.on)) return null;
+    const id = pdrHailNear(); if (id == null) return null; const me = pdrFirst(pdrOf(id));
+    if (pdrHailed(id)) return { label: "WAVE ON", hint: () => api.keyHint("use", `wave ${me} on`), act: () => pdrWave(id) };
+    return { label: "HAIL", hint: () => api.keyHint("use", `hail ${me}`), act: () => pdrHail(id) };
+  }
+};
 const _pc = [0, 0, 0, 0];
 const T_LANE = 1.6;                                                              // m right of the crown, the traffic's own lane (TRAF.lane)
 function pdrPins() {
@@ -1398,8 +1453,15 @@ function pdrPlaces() {
   const g = api.world.garage();
   return Object.keys(s.con).map(id => {
     const c = s.con[id], q = s.pdr && s.pdr[id], home = !q || q.st === "home", m = pdrOf(id), who = m ? pdrFirst(m) : "Your driver";
-    return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: home ? g.x : NaN, z: home ? g.z : NaN, spot: "the garage",
-      talk: home ? `${who} is at the garage between runs: go there to have a word in person.` : `${who} is out on the ${c.name}. Have a word at the garage once they are back in.` };
+    /* 5.4b2a: a word is had where the truck is. Out: at the truck on the road. In, their own truck: beside it on its spot, or at the garage. */
+    if (!home) {
+      const Z = PDS.get(id), r = Z && Number.isFinite(Z.x) ? null : conR().find(v => v.id === id), p = r ? pdrPt(r, q.p) : Z && Number.isFinite(Z.x) ? Z : null;
+      return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: p ? p.x : NaN, z: p ? p.z : NaN, spot: "the truck",
+        talk: `${who} is out on the ${c.name}: a word in person is had within ${PDR.hailR} m of the truck (the P pin on the Map). On foot beside it, hail them and they stop.` };
+    }
+    const r = m && !pdrMine(m) ? conR().find(v => v.id === id) : null, sp = r ? pdrSpot(r) : null;
+    return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: g.x, z: g.z, pts: sp ? [[sp.x, sp.z, "their truck"]] : null, spot: "the garage",
+      talk: sp ? `${who} is in: have a word beside their truck, parked at the first end of the ${c.name}, or at the garage.` : `${who} is at the garage between runs: go there to have a word in person.` };
   });
 }
 const PICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h9V9h4l3 3v3h2"/><circle cx="7" cy="17" r="1.8"/><circle cx="16" cy="17" r="1.8"/><path d="M21 11c1 2 1 5 0 8"/><path d="M4 9l2-3M9 9l1-3"/></svg>';
@@ -2204,7 +2266,7 @@ let conT = 0, conSec = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, hail: pdrHail, wave: pdrWave, hailed: pdrHailed, say: pdrSay, hailNear: pdrHailNear, prov: PDHAIL, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
@@ -2241,6 +2303,7 @@ TLX.register({
     // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
     try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); lotWake(); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
     if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
+    if (a.footx && !a.footx.includes(PDHAIL)) a.footx.push(PDHAIL);              // 5.4b2a: hail your driver's truck on foot
     if (a.TABLET.addLayer && !CJ.pdr) { CJ.pdr = true; a.TABLET.addLayer("marks", pdrPins); }   // 5.4b1: a driver who is out
     if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" }))).concat(strOpen().map(q => ({ x: q.hx, z: q.hz, name: "HEAP IN THE STREET: " + q.name.toUpperCase(), glyph: "!" })))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
