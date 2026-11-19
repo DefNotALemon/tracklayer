@@ -716,4 +716,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       lake (only a lake is flat under 3% over 200 m), where the use control is ice fishing's: add `bioAt(...) === 1`
       to its `bad` test and loosen the slope/length, or lay the strip along a road, then rerun its pad-at-speed steps.
 
-Last triaged report: 322
+Last triaged report: 326

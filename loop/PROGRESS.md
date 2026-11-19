@@ -3,6 +3,23 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 15:05 — beta fix 0325 #1: a drive or lot given up before Monday stays on the Monday statement (tlx-plow v24, lane A) (G4) — 8dc2480
+Builder pass, lane A. Orient: worktree clean, rebased on main (v256, tlx-plow v23), 123 GB free. Reports 0323-0326
+triaged (last triaged 326): 0323 #4, 0324 #4/#5 are POLISH on corrupt-save-only data (NaN ask, a held truck whose
+site is gone, NaN cond), left listed; 0326 has no BUG; 0325 #1 is a BUG on lane A's 4.2b1, so it came before 5.4b.
+Cause as the tester found: `drvMonday` / `lotMonday` summed `st.wk` / `st.n` only over records still in `s.drv` /
+`s.lot`, and five places delete a record with its week counters (drvDrop, drvGone's second miss, the doors'
+grudge that loses a customer, lotDrop, lotGone). Fix: `wkKeep(s, kind, st)` moves the counters into `drvWk/drvWkN`
+(`lotWk/lotWkN`) before each delete, `wkTake` is what Monday starts its sum from and clears; state0 + tidy carry
+the four fields (junk -> 0), so they survive a reload and an old save. No cash changes hands: only the statement.
+Before -> after (x4_driveways_lost_statement_beta A): Driveways rows after plow $42 + DROP + Monday 0 -> 1 (pay 42, n 1).
+New `x4_weekpay.mjs` (23 asserts): a really plowed drive dropped, kept + dropped summed in one line (72, n 3), a
+customer lost on the second miss (36), a lot dropped (148) and a lot lost (86), no second line next Monday, the
+carry through save + reload, NaN / negative / missing carry tidied and never NaN on a statement.
+Gate: smoke, x1_save, x4_weekpay, x4_driveways_lost_statement_beta, x4_driveways exit 0, fails 0, page errors none;
+x4_lots and x4_dropfile run alone exit 0. No stills (state and statement only). README: one clause in the Driveways
+paragraph. Not done: roads' contract statement was not part of the finding (0326 found it sound). Next: 5.4b.
+
 ## 2026-11-19 14:50 — 6.3a: keepers at your lights (tlx-lights v3, lane B) (G4) — 16a23aa
 Builder pass, lane B. Orient: the worktree held a dead pass's 6.3a from 14 Nov (README, index.html, EXPANSION.md,
 tlx-lights.js, tlx-staff.js, `x6_keeper.mjs`, never committed). Stashed, rebased on main (v256), popped: conflicts in
