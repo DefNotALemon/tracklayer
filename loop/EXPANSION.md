@@ -19,7 +19,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; beta fix 0190 #1 + 0192 #1 (tlx-guns v4): nothing fires under Settings and Settings slings the rifle, the pack stays at 120 when rounds come back out of the magazine; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); 14.4b1 landed (tlx-boats v6): the boatyard beside the quay jetty (a boathouse on piles, a slip with a hull on the cradle, a plank walk from the jetty to its door) and hull repairs at $8 a point from the Boats app's Boatyard card or the shed door's use control; next: 14.4b2 (tackle), 14.4b3 (winter haul-out, storm wear option), then 0178 #2/#3 and 0182 #1/#2 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); 14.4b1 landed (tlx-boats v6): the boatyard beside the quay jetty (a boathouse on piles, a slip with a hull on the cradle, a plank walk from the jetty to its door) and hull repairs at $8 a point from the Boats app's Boatyard card or the shed door's use control; 14.4b2 landed (tlx-seafish v2, tlx-boats v7): handline tackle at the boatyard's counter (the door's use control opens it once you own a boat): mono and heavy lines, a 120 g and a 400 g pilk, a gaff, saved, changed from the Boats app; beta 0194 #1/#2 closed; next: 14.4b3 (winter haul-out, storm wear option), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -1840,8 +1840,29 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
             repair takes no time and nothing is seen of it (she is not hauled out: the hull on the cradle is
             scenery); no pin on the Map (it sits on the quay jetty's anchor); the walker can't go inside; the other
             jetties have no yard; parked boats are not pushed, only the one you drive.
-      - [ ] 14.4b2 Tackle at the boatyard for the handline (14.3's "not done": a stronger line, a gaff, a second
+      - [x] 14.4b2 (tlx-seafish v2, tlx-boats v7) Tackle at the boatyard for the handline (14.3's "not done": a stronger line, a gaff, a second
             pilk), sold at the shed door through the store panel (`api.shop`), saved with the boat's state.
+            Design and as built (lane C, 19 Nov): the tackle is the player's, not one boat's, so it is its own saved
+            system `x.sys.seafish` `{ line, pilk, lines: {id: 1}, pilks: {id: n}, gaff }` (registered from
+            tlx-seafish.js; `tack()` makes any state sane: an unknown or unowned line / pilk falls back to the
+            frame's own, counts clamp to 0-3). Tables `LINES` / `PILKS` / `GAFF` at the top of the file; row 0 of each
+            is free and is 14.3's numbers, so a player who never shops fishes exactly as before. Lines (bought once,
+            one on the frame): tarred (lim 1, parts after 1.0 s over it, bites x1), 0.9 mm mono $55 (lim 0.86, 0.8 s,
+            bites x1.25), 1.6 mm heavy $90 (lim 1.3, 1.4 s, bites x0.85). Pilks (3 of a kind carried): plain 200 g
+            (3.0 m/s, stroke 0.4), 120 g svenskepilk $32 (2.0 m/s, stroke 0.5, saithe x1.6, cod x1.15), 400 g
+            bergmannpilk $38 (4.6 m/s, stroke 0.3, redfish x1.35, halibut x1.4, wolffish x1.25). A parted line takes
+            the bought pilk tied on; the next of its kind goes on, after the last the plain one. Gaff $65: a fish of
+            3 kg+ is landed from 3 m down while hauling and not running. The counter is a store of icefish's shop
+            panel (`TLX.stores.boat`, tabs Lines / Pilks / Gaff): the door's BOATYARD use control (key, pad L3, the
+            touch button) still says its line about the hull and, with a boat owned, opens it; REPAIR keeps the door
+            while a dented boat lies at the slip. Away from the yard the Boats app has a "Handline tackle" card
+            (through two new add-on hooks in tlx-boats.js, `appCard` / `appBind`) with CHANGE LINE / CHANGE PILK;
+            no change with the line over the side. The handline's panel names the tackle ("HEAVY LINE · 120 g ·")
+            and its bar is relative to the line's limit. Also closes beta 0194 #1/#2: the panel hides under the
+            tablet and the tablet up takes gas and brake off the line. No bridge in tracklayer.js. Test
+            `x14_tackle.mjs` (75 asserts). Not done: the tackle has no meshes (the pilk and gaff aren't seen); a
+            dented boat at the slip with no cash for the repair keeps the counter shut (the door reads REPAIR); the
+            line doesn't wear; 0194 #3 (a ghost `F.fish` after a swap, harmless) was not looked at.
       - [ ] 14.4b3 Winter haul-out and storm wear: a fee to have her lifted out and stood on the cradle / the hard
             by the shed (no wear while she is out, launched again from the app or the door); storm wear on a boat
             left afloat in a blow ships as an option (`TLX.option`), on by default.

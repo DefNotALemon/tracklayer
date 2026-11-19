@@ -45,6 +45,31 @@ Known and left: the driver is a name and a pin, not a sled on the trail (6.3b2);
 not a route; a drum loaded by the driver and a drum collected by you in the same second is not tested; `late`
 counts a trip slowed only by sub-limit weather as on time unless it passes 1.5x + 0.5 h.
 Next for lane B: 6.3b2 (the driver seen in the world), then 6.3c (options).
+## 2026-11-19 15:20 — 14.4b2: handline tackle at the boatyard's counter (tlx-seafish v2, tlx-boats v7, lane C) (G4) — 22a7888
+Builder pass, lane C. Orient: worktree clean (three old stashes left as found), rebased on main (v256), 123 GB free.
+Reports: nothing new on lane C's systems (0323-0327 are lane A's); last triaged left to lane A. Next unticked slice
+in lane C's list: 14.4b2. Its one-line design said "saved with the boat's state"; decided the tackle is the
+player's, not one hull's, so it is its own saved system `x.sys.seafish` (design + numbers written into EXPANSION.md).
+What landed (tlx-seafish.js, tlx-boats.js; no tracklayer.js change, so no script bump): tables LINES / PILKS / GAFF,
+row 0 of each free and equal to 14.3's numbers. Lines: mono $55 (limit 0.86, bites x1.25), heavy $90 (limit 1.3,
+bites x0.85). Pilks, 3 of a kind carried: 120 g svenskepilk $32 (2.0 m/s, saithe x1.6), 400 g bergmannpilk $38
+(4.6 m/s, redfish / halibut / wolffish). A parted line takes the bought pilk tied on. Gaff $65: 3 kg+ landed from
+3 m while hauling and not running. The counter is a store of icefish's shop panel (`TLX.stores.boat`), opened by the
+door's BOATYARD use control once a boat is owned (REPAIR still has the door while a dented boat lies at the slip).
+Boats app: "Handline tackle" card with CHANGE LINE / CHANGE PILK through two new add-on hooks (`appCard`,
+`appBind`). Beta 0194 #1/#2 closed on the way (same file): the handline's panel hides under the tablet and the
+tablet up takes gas and brake off the line.
+Measured (x14_tackle, gameClock): sink 3.00 / 4.60 / 2.00 m/s; bites x1.00 / x1.25 / x0.85; a run held at 1.075
+parts the tarred line and the heavy line holds it with no strain; a run at 0.925 holds on tarred and parts the mono.
+Gate: smoke, x14_tackle (75 asserts), x14_yard exit 0, fails 0, page errors none. x1_save in the gate: all asserts
+passed but one page error, "TLX traffic: no car shapes", from three script fetches the run's http.server reset
+(ERR_CONNECTION_RESET on tlx-hud / tlx-wounds / tlx-cars, the known flake); run alone: exit 0, page errors none.
+x14_fishing (52) and x14_boatsapp (47) run alone: exit 0. x14_yard gained two lines that shut the counter the door
+now opens; x1_save's id lists gained "seafish". Stills looked at: the counter's Lines tab, the Boats app card, the
+handline panel reading "HEAVY LINE · 120 g" (`~/.hermes/cache/scratch/tlloop/c_tackle/`); the card's two buttons
+were then moved together to the right (not re-shot).
+Not done: no meshes for the pilk or the gaff; a dented boat at the slip with no cash for the repair keeps the
+counter shut; the line doesn't wear; 0194 #3 not looked at. Next: 14.4b3 (winter haul-out, storm wear option).
 
 ## 2026-11-19 15:05 — beta fix 0325 #1: a drive or lot given up before Monday stays on the Monday statement (tlx-plow v24, lane A) (G4) — 8dc2480
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256, tlx-plow v23), 123 GB free. Reports 0323-0326
