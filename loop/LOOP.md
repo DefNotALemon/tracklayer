@@ -305,6 +305,17 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 - [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
 - [ ] G3 (OWNER, top): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov.
 - [x] G3 (OWNER, top, fixed v223: on the flat it was the same brake term; holding the brake on an empty tank while rolling back 4 m/s went to 28 m/s, now stops in <1 s. Downhill sliding with no engine is left as physics): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
+- [x] G4 (beta 0320 #1 BUG + #2, fixed tlx-vehicles v34, lane A): a feathered pad trigger stalled dead in 25 cm+ of powder (30%: 0.0 m)
+      and a trigger at a tenth was told nothing; light pedal now pulls like an automatic in first, and a held-still truck keeps its
+      reason in the driving hint. `x3_crawl.mjs` / `x3_crawl_break.mjs` find a spot again (obNear 25/15). New `x3_feather.mjs`.
+- [ ] G4 (builder, lane A, stale scenarios found gating 0320): `x2_standstart.mjs` fails on origin/main too (2 FAILs: "bog clears once
+      the truck sits on plowed ground", "then W drives off along the lane (0.9 m)"), and `x2_vehreverse_break.mjs` fails on main with 4
+      (pad LT full/30% back up 0.1-0.2 m, touch stick down 0.0 m, uphill reverse silent). Find out whether the reverse numbers are the
+      game (pad LT reverse really is 0.2 m: then a BUG) or the scenarios' spots since the street grid, before trusting either.
+- [ ] G4 (beta 0319 #1, 0320 #5/#6, 0321 #6, 0322 #3-#5 POLISH, lane A): gritter on + blade up at a shore has no press that only stops
+      the spinner; a 2% grade cuts the 35 cm crawl by two thirds; after a trailer hit the "wheels spin in reverse" line competes with
+      "hard against something solid"; the grit table's tidy keeps a 200,000-entry / string-hours `h` and `__proto__`-named keys.
+      Also seen in a still: "STUCK? PRESS N" shows the keyboard key while a pad trigger at 15% is the only input held.
 - [ ] G4 (builder 3.4b2a, BUG in a test or the drivers): `x3_traffic.mjs` step D fails on origin/main too: the car "stopped
       312.6 m short of the drift" (reported why "shut", s 1578) instead of ~22 m. Either the planted drift isn't the stretch the
       driver reads as shut (TLXR seg.shut vs the step's spot) or stopAhead sees an earlier shut segment; check before trusting D.
@@ -705,4 +716,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       lake (only a lake is flat under 3% over 200 m), where the use control is ice fishing's: add `bioAt(...) === 1`
       to its `bad` test and loosen the slope/length, or lay the strip along a road, then rerun its pad-at-speed steps.
 
-Last triaged report: 318
+Last triaged report: 322

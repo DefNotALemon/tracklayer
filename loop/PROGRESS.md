@@ -30,6 +30,54 @@ question sits in the question row. The reload still was shot and not looked at.
 Known and left: assert E carries a loose alternative (`|| lamp on within 5 h`) from the dead pass; the keeper's
 `answer` for a caught "xp" is new wording that no assert reads.
 Next for lane B: 6.3b (oil drivers), then 6.3c (options).
+## 2026-11-19 14:40 — beta fix 0320 #1/#2: a feathered pad trigger pulls a truck away in powder, and a held-still truck keeps its reason on screen (tlx-vehicles v34, lane A) (G4) — 80c2d89
+Builder pass, lane A. Orient: worktree clean, rebased on main (v256, playtest commits only), 123 GB free. Triage
+0319-0322 (last triaged -> 322): 0320 #1 BUG (med) and #2 (stale scenarios) taken here; 0319, 0321, 0322 no BLOCKER or
+BUG, their POLISH lines and 0320 #5/#6 are one backlog line.
+What the tester saw and what it was. 0320 #1: pad RT 30% moved 1.6 m in 15 cm and 0.0 m in 35 cm "with no feedback".
+Probe before the change (`x3_feather.mjs`, flat land spot, snow laid in a box fixed in the world, 7 s by gameClock):
+RT 30% 15 cm 13.7 m, 25 cm 0.0 m, 35 cm 0.0 m; RT 15% 15 cm 0.0 m; RT 60% 35 cm 13.9 m; W 35 cm 14.3 m. So: a cliff
+between 30% and 60% of the trigger that a keyboard never meets. The feedback half was partly a test artefact: the
+"Not enough throttle..." toast did fire at 1.0-1.2 s in every stalled run (the tester read `#wnHud`, not toasts); but
+the toast is gone in 4 s and the truck then sat silent, and a trigger at exactly a tenth was told nothing at all
+(`held` needed `eff > 0.1`, strictly).
+Cause. Engine force was `thr * fmax`: 30% of the pickup's 8.2 kN is 2.5 kN against 2.7 kN of standing drag in 25 cm
+and 3.3 kN in 35 cm. Reverse already had an automatic's creep mapping (0116 #2); forward never got it.
+Fix (tlx-vehicles.js `core`, `stillLine`): (1) under ~1.5 m/s a light pedal maps onto 0.25..1 of the pull (smooth from
+3% to 15% of the travel), easing back to the plain pedal by 5 m/s; the full pedal, traction control and the dig rules
+are untouched. First cut was 0.35 (as reverse): RT 15% then made 7.5 m in 35 cm and 30% nearly matched the floor
+(12.2 vs 14.3 m), too flat a pedal, so 0.25. (2) `held` starts at 4% of the pedal. (3) A truck held still keeps its
+reason in the driving hint for as long as the pedal is down (first `api.ridex` line; no control named, so the same
+on keys, pad and touch): pull / steep / deep / grip / solid, forward and reverse wording; "dig" keeps the game's own
+WHEELS DIGGING IN line; squeezing 15% further re-asks the question instead of leaving the old answer up. No saved
+state. README says it.
+Numbers after (`x3_feather.mjs`, new, 33 oks): RT 30%: 15 cm 28.7 m, 25 cm 20.3 m (was 0.0), 35 cm 10.0 m (was 0.0),
+nothing said. RT 15%: 15 cm 18.6 m (was 0.0); 35 cm 0.0 m with the toast at 1.1 s and "NOT ENOUGH THROTTLE · give it
+more, smooth and steady" in the hint from 1.1 s to the end of the 7 s, gone on release. RT 10% in 35 cm: the line,
+then full trigger at 3.5 s clears it and the truck makes 5.1 m. Floored in 50 cm: bogs at 3 s as before, never asked
+for throttle. Full pedal unchanged: RT 100% 14.6 m vs W 14.4 m in 35 cm (14.3 before), W 15 cm 49.7 m. Hard pack: RT
+30% is 5.4 m/s at 3 s against 12.8 floored (3.9 before the change: a light pedal is livelier off the line, by design).
+`x3_crawl` (W curve) after: 45.2 / 32.4 / 22.2 / 13.8 / 8.7 / 0.9 / 0.1 / 0.0 m for 15-80 cm, the tester's v256 numbers
+within a metre. The tester's own `x3_crawl_break`: RT 30% 15 cm 21.2 m (their 1.6); RT 30% in 35 cm on their 2.2%
+grade, with the snow re-laid under the truck every 200 ms, still 0.0 m but now with the standing line; their 11.7%
+hill in 20 cm (0320 #5, "a silent wall") now shows TOO STEEP IN THIS SNOW.
+0320 #2: `x3_crawl.mjs` and `x3_crawl_break.mjs` take the tester's relaxed spot search (obNear 25/15) and print one
+"page errors" line (they printed two, which gate.sh counts as a failure); both exit 0 again.
+Gate: smoke, x1_save, x3_feather (gate.sh; its first run counted x3_feather's doubled "page errors" line as bad, fixed
+in the scenario and rerun alone: exit 0, 0 FAILs), x3_crawl, x3_crawl_break, x3_stillwhy_break, x3_tractor, x4_blade,
+x2_tow: exit 0, 0 FAILs, page errors none. NOT clean, and not from this change (same FAILs on an origin/main archive):
+x2_standstart 2 FAILs (bog does not clear on plowed ground, 0.9 m along the lane), x2_vehreverse_break 3 FAILs here and
+4 on main (pad LT reverse 0.1-0.2 m, touch stick 0.0 m, uphill reverse silent). Backlog line added: nobody has checked
+whether those are stale spots or a real reverse bug.
+Still looked at (`feather_line.jpg`, chase view, 1280x720): the line sits bottom centre under the truck, legible, clear
+of the minimap and speed; the toast is top centre. The same frame shows "STUCK? PRESS N" (a keyboard key) with only a
+pad trigger held: not this change, noted in the backlog.
+Not tested: touch (the GAS pedal is analog and goes through the same `input.thr`, but no touch run was made), the
+lorries' feathered pedal (x3_tractor drives them on W only; the mapping is the same share of their own fmax), the
+reverse lines of the standing hint (only forward reasons were produced in a run), a feathered pedal with a trailer or
+the blade down, 640x360.
+Next in lane A's list: 0316 #1 (driver position past the road), then 0301/0308, 0279, 0296, the stale x2 scenarios,
+then 5.4b.
 
 ## 2026-11-19 13:10 — beta fix 0285 #1: the sled trailer behind a truck is solid (tlx-vehicles v33, lane A) (G4) — 4ce9b86
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Triage 0317-0318 (last triaged ->
