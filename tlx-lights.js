@@ -24,9 +24,18 @@
 // not SITES: a drum's destination is the light's own drop point, and this file hands the drum over when the sled
 // (or the skiff) stops within LIGHTS.dropR of it.
 //
+// Slice 6.3a: KEEPERS. Each light you own is a place of work for one keeper (tlx-staff.js: role "keeper", place
+// "lt:<lamp>", hired, interviewed, paid and kept happy in the Staff app like anyone else). A keeper makes ROUNDS:
+// every KEEP.round game hours divided by how hard they work (their hidden work trait x happiness; nothing while
+// wages are owed). On a round they pump a drum from the oil store into the tank if it is down to KEEP.lowH lamp
+// hours, and relight a lamp that is out with oil in the tank. They don't order or haul drums (the player does;
+// 6.3b's oil driver will): an empty store is still yours to fill, and they tell you when they pump the last drum
+// in. A good keeper's rounds (4-6 h) always catch a low tank; a slack or miserable one's (15-25 h) can come too
+// late, and the lamp stands dark until the next round.
+//
 // SAVED under x.sys.lights: { lamps: { id: { oil (L in the tank), store (L in full drums in the oil store), on,
 // lit / need (lamp hours burned / dark hours, this week), low, q (drums paid for and not yet at this light: at the
-// quay or aboard) } }, hT (game hour last stepped), last: [weekly statements] } (`quay`, 6.2a's one count for
+// quay or aboard), kT (game hours since the keeper's last round), kDid (what that round did) } }, hT (game hour last stepped), last: [weekly statements] } (`quay`, 6.2a's one count for
 // Slettnes, is folded into its lamp's q on load). What's aboard isn't saved by the game (GS.load is the session's),
 // so after a reload a drum that was on the sled waits at the quay again.
 (() => {
@@ -47,6 +56,9 @@ const LIGHTS = {
   dropR: 22,          // m: a sled stopped this close to a small light hands its drums over (a site's own radius)
   skipH: 24 * 14      // a clock jump longer than this many game hours counts as this many
 };
+// keepers (6.3a). round: game hours between a keeper's rounds at work 1.0 (divided by their work, so 0.36 = 16.7 h);
+// lowH: a round pumps a drum in when the tank is under this many lamp hours; wage: base + per year, $ a week
+const KEEP = { round: 6, lowH: 14, wage: [45, 3.6], roundMax: 30 };
 // the two smaller lights (6.2b). region: the world they stand in; seed: the headland (the spot is searched round it);
 // tank / burn / stipend / start / stockMax: this lamp's numbers; flash: [period s, [on at, for], ...]
 const SMALL = [
@@ -83,6 +95,7 @@ function rec(id) {
   if (!r || typeof r !== "object") r = s.lamps[id] = { oil: N(lp, "start"), store: 0, on: true, lit: 0, need: 0, low: false, q: 0, fresh: true };
   r.oil = clamp(+r.oil || 0, 0, N(lp, "tank")); r.store = clamp(+r.store || 0, 0, LIGHTS.drum * 40); r.on = !!r.on && r.oil > 0; r.lit = Math.max(0, +r.lit || 0); r.need = Math.max(0, +r.need || 0);
   r.q = clamp(Math.floor(+r.q || 0), 0, 40);
+  r.kT = isFinite(+r.kT) ? Math.max(0, +r.kT) : 1e3;
   return r;
 }
 const dark = h => api.sunEl(((h % 24) + 24) % 24) < LIGHTS.darkEl;
@@ -100,7 +113,7 @@ function burn(lp, r, t, dt) {
 }
 function wentOut(lp, r) {
   r.low = true;
-  try { api.TABLET.notify({ app: "lights", kind: "alert", ttl: 10, title: `${lp.name} is dark`, body: `The tank ran dry and the lamp is out. No stipend until it burns again: ${r.store >= 1 ? "pump a drum into the tank" : "haul a drum out"} and climb the ${lp.up} to light it.` }); } catch (e) { }
+  try { api.TABLET.notify({ app: "lights", kind: "alert", ttl: 10, title: `${lp.name} is dark`, body: keeperOf(lp) && keeperWork(lp) > 0 ? `The tank ran dry and the lamp is out. No stipend until it burns again: ${r.store >= 1 ? `${kFirst(lp)} will pump a drum in and light it on the next round` : `haul a drum out and ${kFirst(lp)} will pump it in and light the lamp`}.` : `The tank ran dry and the lamp is out. No stipend until it burns again: ${r.store >= 1 ? "pump a drum into the tank" : "haul a drum out"} and climb the ${lp.up} to light it.` }); } catch (e) { }
   try { api.TABLET.refresh("lights"); } catch (e) { }
 }
 function step() {
@@ -113,12 +126,42 @@ function step() {
   for (const lp of own) {
     const r = rec(lp.id);
     if (r.fresh) { delete r.fresh; welcome(lp, r); continue; }           // the keys came today: the clock starts now
-    for (let i = 0; i < n; i++) burn(lp, r, t0 + (i + 0.5) * dt, dt);
+    const kw = keeperWork(lp);
+    if (!(kw > 0)) r.kT = 1e3;                                            // nobody on the job: whoever starts makes a round at once
+    for (let i = 0; i < n; i++) { burn(lp, r, t0 + (i + 0.5) * dt, dt); if (kw > 0) { r.kT += dt; if (r.kT >= roundH(kw)) keeperRound(lp, r); } }
     if (r.on && hoursLeft(r, lp) < LIGHTS.lowH && !r.low) {
       r.low = true;
-      try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: oil low`, body: `About ${Math.round(hoursLeft(r, lp))} lamp hours left in the tank. ${r.store >= 1 ? `${plural(drumsOf(r.store), "drum")} in the oil store: pump one in.` : "Nothing in the oil store: order a drum and haul it out."}` }); } catch (e) { }
+      if (!(kw > 0 && r.store >= 1)) try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: oil low`, body: `About ${Math.round(hoursLeft(r, lp))} lamp hours left in the tank. ${r.store >= 1 ? `${plural(drumsOf(r.store), "drum")} in the oil store: pump one in.` : "Nothing in the oil store: order a drum and haul it out."}` }); } catch (e) { }
     } else if (r.on && hoursLeft(r, lp) >= LIGHTS.lowH) r.low = false;
   }
+}
+// ---- 6.3a keepers: rounds ----
+const kPlace = lp => "lt:" + lp.id;
+const keeperOf = lp => (TLX.staff && TLX.staff.at ? TLX.staff.at(kPlace(lp)) : null);
+const keeperWork = lp => (TLX.staff && TLX.staff.workAt ? +TLX.staff.workAt(kPlace(lp)) || 0 : 0);
+const kFirst = lp => { const m = keeperOf(lp); return m ? String(m.name).split(" ")[0] : "the keeper"; };
+const roundH = w => clamp(KEEP.round / Math.max(0.05, w), 1, KEEP.roundMax);
+// one round: a drum into a tank that has run low, a match to a lamp that is out
+function keeperRound(lp, r) {
+  r.kT = 0;
+  const L = Math.min(LIGHTS.drum, r.store), did = [];
+  if (L >= 1 && hoursLeft(r, lp) < KEEP.lowH && N(lp, "tank") - r.oil >= L - 1e-6) {
+    r.oil += L; r.store -= L; if (r.store < 0.5) r.store = 0; did.push("pump");
+    if (r.store < 1) { try { api.TABLET.notify({ app: "lights", kind: "warn", ttl: 9, title: `${lp.name}: last drum pumped in`, body: `${kFirst(lp)} pumped the last drum into the tank: about ${Math.round(hoursLeft(r, lp))} lamp hours, and the oil store is empty. Order drums and haul them out.` }); } catch (e) { } }
+  }
+  if (!r.on && r.oil > 0) {
+    r.on = true; r.low = hoursLeft(r, lp) < LIGHTS.lowH; did.push("light");
+    try { api.TABLET.notify({ app: "lights", kind: "good", ttl: 8, title: `${lp.name} is lit again`, body: `${kFirst(lp)} climbed the ${lp.up} and lit the lamp.` }); } catch (e) { }
+  }
+  r.kDid = did.join("+");
+  if (did.length) { try { api.TABLET.refresh("lights"); } catch (e) { } }
+  return did;
+}
+// the keeper's line on a lamp's card in the Lights app
+function keeperLine(lp, r) {
+  const m = keeperOf(lp); if (!m) return ` No keeper: the lamp is yours to tend (the Staff app posts the job).`;
+  const w = keeperWork(lp); if (!(w > 0)) return ` Keeper ${m.name} isn't working: wages are owed.`;
+  return ` Keeper ${m.name}: a round about every ${Math.round(roundH(w))} hours, pumps a drum in when the tank runs low and relights the lamp.`;
 }
 function welcome(lp, r) {
   try { api.TABLET.notify({ app: "lights", kind: "info", ttl: 11, title: `Kystverket · ${lp.name}`, body: `The lamp is yours to keep burning: ${api.fmtCash(N(lp, "stipend"))} for every hour it's lit, paid Mondays. ${lp.small ? "There's" : "The last keeper left"} about ${Math.round(hoursLeft(r, lp))} hours of paraffin in the tank.` }); } catch (e) { }
@@ -257,8 +300,8 @@ function render(el) {
     const r = rec(lp.id), st = stateOf(r), full = stock(lp) >= N(lp, "stockMax"), due = Math.round(r.lit * N(lp, "stipend")), nd = drumsOf(r.store);
     h += U.tabCard({ tf: "lamp:" + lp.id, title: lp.name, chips: U.chip(st.chip, st.cls) + (r.on && hoursLeft(r, lp) < LIGHTS.lowH ? U.chip("OIL LOW", "due") : ""),
       meta: `Tank ${Math.round(r.oil)} of ${N(lp, "tank")} L · ${r.oil > 0 ? `about ${Math.round(hoursLeft(r, lp))} lamp hours` : "dry"} · lamp ${st.word}${own.length > 1 ? ` · ${api.fmtCash(N(lp, "stipend"))} an hour lit` : ""}`,
-      note: `This week: ${Math.round(r.lit)} lamp hours of ${Math.round(r.need)} dark · stipend so far ${api.fmtCash(due)}. Oil store: ${nd ? `${plural(nd, "full drum")} (${Math.round(r.store)} L)` : "empty"}.${r.q ? ` ${plural(r.q, "drum")} paid for, at the quay or aboard.` : ""}`,
-      warn: !r.on ? (r.oil > 0 ? `The lamp is out. There's oil in the tank: climb the ${lp.up} in ${lp.where} and light it.` : nd ? `The lamp is out and the tank is dry. Pump a drum into the tank at the rack in ${lp.where}, then climb up and light it.` : "The lamp is out, the tank is dry and the oil store is empty. Order a drum and haul it out from the quay.") : "",
+      note: `This week: ${Math.round(r.lit)} lamp hours of ${Math.round(r.need)} dark · stipend so far ${api.fmtCash(due)}. Oil store: ${nd ? `${plural(nd, "full drum")} (${Math.round(r.store)} L)` : "empty"}.${r.q ? ` ${plural(r.q, "drum")} paid for, at the quay or aboard.` : ""}${keeperLine(lp, r)}`,
+      warn: !r.on && keeperWork(lp) > 0 ? (r.oil > 0 || nd ? `The lamp is out. ${kFirst(lp)} will ${r.oil > 0 ? "light it" : "pump a drum in and light it"} on the next round, or do it yourself in ${lp.where}.` : `The lamp is out, the tank is dry and the oil store is empty. Order a drum and haul it out from the quay: ${kFirst(lp)} does the rest.`) : !r.on ? (r.oil > 0 ? `The lamp is out. There's oil in the tank: climb the ${lp.up} in ${lp.where} and light it.` : nd ? `The lamp is out and the tank is dry. Pump a drum into the tank at the rack in ${lp.where}, then climb up and light it.` : "The lamp is out, the tank is dry and the oil store is empty. Order a drum and haul it out from the quay.") : "",
       pay: api.fmtCash(LIGHTS.drumCost), act: "lord:" + lp.id, actLabel: "ORDER A DRUM", blocked: full || cash < LIGHTS.drumCost });
   }
   if (s.last.length) h += U.sec("Stipend statements", "") + `<div class="tsml2">${s.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>Stipend +${api.fmtCash(q.pay)} · ${q.lit} of ${q.need} dark hours lit</span>${q.need - q.lit > 2 ? U.chip("DARK " + (q.need - q.lit) + " H", "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
@@ -364,6 +407,49 @@ if (TLX.prop && TLX.prop.addListing) for (const m of SMALL) TLX.prop.addListing(
   rooms: [{ id: "hut", name: "Lantern hut", door: "The lantern hut's door", jig: m.jig, build: hutRoom, warm: "a bunk, a stove, paraffin drums and the ladder up to the lamp." }],
   place: W => placeSmall(m, W) });
 
+/* ---------------- 6.3a: the keeper's job (tlx-staff.js hires, pays and keeps them happy) ---------------- */
+if (TLX.staff && TLX.staff.addRole) {
+  TLX.staff.addRole("keeper", { name: "Keeper", wage: KEEP.wage, blurb: "keeps the lamp burning: pumps the oil in, lights it when it's out",
+    app: true,
+    greet: p => `Hello! I saw the keeper job at ${p ? p.name : "your light"}.`,
+    qs: { stove: { label: "LAMP OUT IN A GALE?", ask: "A gale at night, the lamp goes out and there's a ship off the point. What do you do?" } },
+    note(m) {
+      const lp = LAMPS.find(l => kPlace(l) === m.place), w = lp ? keeperWork(lp) : 0;
+      return `Keeps the lamp burning: ${!(w > 0) ? "not working while wages are owed" : `a round about every ${Math.round(roundH(w))} hours (pumps a drum in when the tank runs low, relights the lamp)`}`;
+    },
+    // the interview in a keeper's words (tlx-staff.js has already caught a slip and checked an honest reference);
+    // "" = the reference question, answered as anyone's
+    answer(a, q, c) {
+      const x = a.xp, r = a.xpReal, v = a.village;
+      if (q === "xp") {
+        if (c.slip) return `${x} years. Well... counting the summers I painted the tower, and the years I rowed the oil out with my father. Paid, as a keeper, more like ${r === 0 ? "none" : r === 1 ? "one" : r}.`;
+        if (c.liar) return `${x} years, give or take. Lights, beacons, fog signals, you name it.${c.tail}`;
+        return (x === 0 ? `None on a light, to be honest. I've fished out of ${v} all my life, so I know what a dark one costs.`
+          : x <= 3 ? `${x} year${x > 1 ? "s" : ""} as relief keeper, filling in when the regular man was ashore.`
+          : x <= 10 ? `${x} years on the lights for Kystverket: the burner, the clockwork, the log every watch.`
+          : `${x} years. I kept a rock station till they automated it and sent us all home.`) + c.tail;
+      }
+      if (q === "stove") {
+        if (c.slip) return "Go up and... switch it back on? I've mostly done the painting, if I'm honest.";
+        if (c.liar) return `Oh, that happens. I'd have it burning again in no time. Never lost a night.${c.tail}`;
+        return (r >= 3 ? "Check the tank first, then the mantle: nine times in ten it's the mantle. Fit the spare, prime the burner, light it, and stay up by it till the wind drops. Then it goes in the log."
+          : "Honestly? I'd try a match to it, and ring you if it won't take.") + c.tail;
+      }
+      if (q === "why") {
+        const w = a.tr && a.tr.work || 1;
+        return (w >= 1.1 ? "A light has to burn every night, not most nights. I like work where that matters."
+          : w <= 0.8 ? "It's quiet out there, and nobody looks over your shoulder."
+          : `It's steady work, not far from ${v}, and I don't mind my own company.`) + (c.hot ? " Is that it?" : "");
+      }
+      return "";
+    } });
+  TLX.staff.addPlaces(() => {
+    const out = [], a = A(); if (!a) return out;
+    for (const lp of LAMPS) { if (!owns(lp)) continue; let p = null; try { p = lp.small ? lp.small.at : lp.site(a.world); } catch (e) { } out.push({ id: kPlace(lp), role: "keeper", name: lp.name, cab: lp.id, x: p ? p.x : undefined, z: p ? p.z : undefined }); }
+    return out;
+  });
+}
+
 TLX.register({
   id: "lights", v: 1,
   state0: () => ({ lamps: {}, hT: null, last: [] }),
@@ -393,5 +479,7 @@ TLX.register({
 TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); return !!lp && owns(lp); }, mine, step, sync, monday, order, land, light: id => { const lp = lampOf(id); return !!lp && light(lp); },
   PUMP, startPump: id => startPump(lampOf(id)), stopPump, use: () => PROV.use(), dark, hoursLeft: id => hoursLeft(rec(id), lampOf(id)), stock: id => stock(lampOf(id)), state: S,
   // 6.2b: the smaller lights
+  // 6.3a: keepers
+  KEEP, keeper: id => { const lp = lampOf(id); return lp ? keeperOf(lp) : null; }, keeperWork: id => { const lp = lampOf(id); return lp ? keeperWork(lp) : 0; }, roundH, round: id => keeperRound(lampOf(id), rec(id)),
   SMALL, num: (id, k) => N(lampOf(id), k), flashOn, dropTick, small: id => { const lp = lampOf(id); return lp && lp.small || null; } };
 })();

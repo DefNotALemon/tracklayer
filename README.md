@@ -212,6 +212,14 @@ hours of oil with the keys, and the bunk let to walkers at $35 a night. **Drums 
 Lights app has a card per lamp with its own ORDER A DRUM (three at most for a small light), each drum is a pickup at
 the quay bound for that light, and stopping the sled (or the skiff) by the hut rolls that light's drums into its
 store and nobody else's. Pump at the rack and light the lamp at the foot of the ladder, as in the tower.
+Each light you own can have a **keeper**: the job is posted in the Staff app the day the light is yours, and keepers
+apply, interview (in their own trade: ask what they'd do with the lamp out in a gale) and are paid like anyone else,
+$45 a week and up. A keeper makes rounds: on each one they pump a drum from the oil store into the tank if it has run
+low, and climb up to relight a lamp that is out. A good, contented keeper's rounds come every four to six hours and
+the lamp never goes dark while there are drums in the store; a slack or miserable one's can be most of a day apart,
+and the lamp stands dark until they get to it. They don't order or haul the drums: that is still your ride out, and
+they tell you when the last drum has gone in. A keeper who is owed wages does nothing. The Lights app names each
+lamp's keeper and how often they go round; you can still pump and light by hand.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight
