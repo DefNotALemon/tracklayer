@@ -684,4 +684,25 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       Also seen in the 0269 fix's stills: the section label "STREETS" breaks as "STRE / ETS" in a 370 px pane
       (the `sec` head's first column is too narrow for seven letters).
 
-Last triaged report: 269
+- [ ] G4 2.5 (BUG, beta 0285 #1, lane A): the sled trailer on a truck's ball (`haulFollow`, tlx-vehicles.js) is never
+      tested against obstacles: reversing it into a rock passes through. Give it hull circles like the cab's.
+- [ ] G4 5.4a1 (BUG, beta 0316 #1, lane A): `pdrTidy` takes any finite `p` >= 0; a saved driver position past the
+      road's length (a damaged save) leaves the driver "out"/"back" for good. Clamp `p` to the road's length on load.
+- [ ] G4 2.3 / 5.4a2 (BUG, damaged save only, beta 0301 #1 + 0308 #1, lane A): a truck record whose `fuel` is a string
+      or NaN loads as is: boarding sets `GS.fuel` to it (no low-fuel warning, no burn) and a plow driver sets out with
+      "NaN L in the tank". Coerce `fuel` to a finite number in 0..cap where truck records are tidied on load.
+- [ ] G4 4.2 (BUG small, beta 0279 #1, lane A): the Plow app's Statements list keeps 6 lines but one week of 3 roads +
+      driveways + lots writes 5, so last week shows as one orphan line. Keep whole weeks (the last 2-3), not 6 lines.
+- [ ] G4 4.1b2a (POLISH/BUG likely, beta 0296 #1, lane A): a ragged cutting edge cuts almost nothing instead of
+      "twice the snow left" on the road-credit pass. Measure `x4_bladeroad_edge_span_beta` before touching it.
+- [ ] G4 4.1a1 / 2.3 (POLISH, beta 0302 #1/#2 + builder 0305 pass, lane A): a truck parked by teleport in 55 cm of
+      settled snow cannot back out although two hints name that exit (no ruts: possibly a test artefact; check whether
+      a real drive-in leaves ruts that work), and Q once did not get out of a digging-in truck with no toast. Also:
+      the blade-down hint "your wheels stand in snow it has not cut: back up to cleared ground" shows in 25 cm, where
+      the plow truck in fact pulls straight away (27 m in 7 s, `x4_bladelake` step A): raise `BL.sunk` per truck or
+      show it only once the truck has failed to move.
+- [ ] G4 4.1c1 (scenario note, beta 0305, tester): `x4_plowtruck_pad_cut_speed_beta.mjs` picks its flat strip on a
+      lake (only a lake is flat under 3% over 200 m), where the use control is ice fishing's: add `bioAt(...) === 1`
+      to its `bad` test and loosen the slope/length, or lay the strip along a road, then rerun its pad-at-speed steps.
+
+Last triaged report: 316

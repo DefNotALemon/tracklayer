@@ -3,6 +3,45 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 12:35 — beta fix 0305 #1: beside a lake the blade's control drops the blade, it no longer goes ice fishing (v256, tlx-plow v23, tlx-vehicles v32, icefish v43, lane A) (G4) — 7a71cc4
+Builder pass, lane A. Orient: worktree clean, rebased on main (v255, 46 playtest commits, no code), 123 GB free. Triage
+0270-0316 (last triaged -> 316), 47 reports, most "no BLOCKER, no BUG". Real ones, all lane A's: 0305 #1 BUG (high),
+fixed here; 0285 #1 (trailer passes through a rock), 0316 #1 (driver position past the road), 0301 #1 + 0308 #1 (a
+truck's fuel as a string/NaN in a damaged save), 0279 #1 (Statements keeps 6 lines, a week writes 5), 0296 #1 (ragged
+edge cuts almost nothing), 0302 #1/#2 (no way out of 55 cm; Q refused once) are LOOP.md backlog lines now. 0292
+verifies the 0228 #1 fix.
+Cause (not what the report guessed). 0305 saw "a refused blade drop, then the truck will not move". Nothing was refused
+and nothing held the truck: the tester's flat strip is on Litlevatnet (only a lake is flat under 3% for 200 m), and
+within 40 m of a lake the game's use control is ice fishing's. `FISH.ctx()` was asked before `VEH.cur.use()` on all
+three schemes, so with the hint reading "E: drop the blade · 30 cm of snow ahead" the press set the driver down on the
+ice with a rod (`FISH.on`, body class `fishing`); from there W is not the throttle, hence v = 1e-6 for 8 s. Probe before
+the fix: E -> `down: false`, `FISH.on: true`, `input.thr: 0` with W held; without the press 5.9 m/s after 12 samples.
+Any road or drive within 40 m of a lake had it: a plow driver stopped there could not drop the blade at all.
+Fix. A vehicle's use control can now say it has work (`TLXV.addUse({ wants })` -> `VEH.cur.useWants()`), and
+tracklayer.js asks that first in one place (`vehUse()` / `fishUse()`): the keyboard's E, a pad's L3, the touch pill's
+press, the pill's word and the hint line all go the same way. The blade wants the control while it is down (so a press
+by a lake always lifts or slews it, never traps it down), while a press is being decided, while the gritter runs, and
+while its own hint offers the drop or the gritter. Standing ON the lake ice with the blade up it offers nothing (the
+"drop the blade" line is not shown there), so out on the ice the press is still fishing's and the hint says so: a
+bladed truck can still be driven out to fish, and a blade dropped on the shore still plows across. Also: fishing's
+hint had a fixed "E: " (on a DualSense it read "E: get off and fish"); it goes through `btn("use")` now.
+Numbers (`x4_bladelake.mjs`, new, 24 asserts, plow truck on Sikvatnet's shore 9 m off the ice in 25 cm, and on its ice):
+- shore, keyboard: fishing's reach confirmed (`FISH.ctxLabel()` "FISH"); hint "E: drop the blade · 25 cm of snow ahead";
+  E -> blade down, `FISH.on` false; W 7 game s -> 27.3 m, 34 km/h, "cutting 25 cm"; stopped, E -> up. Before: E -> fishing.
+- DualSense: hint names L3, L3 drops, L3 lifts. Touch: pill "BLADE DOWN" (was "FISH"), tap drops, tap lifts.
+- on the ice, blade up: no claim, hint "E: get off and fish Sikvatnet · ice 20 cm", pill FISH, E -> fishing (as before).
+- on the ice, blade down: the control is the blade's, E lifts it.
+- pickup with no blade and the sled by the lake: E -> fishing (unchanged); on a pad fishing's hint no longer says "E:".
+Gate: smoke, x1_save, x4_bladelake, x4_bladework exit 0, page errors none; also run and clean: x4_gritter, x4_bladectl,
+x14_fishing (the skiff's handline shares the control). Stills looked at (shore hint, cutting, touch pill, ice hint):
+the hint and the pill match what the press does in each.
+Known and left: the report's own scenario `x4_plowtruck_pad_cut_speed_beta.mjs` still fails its first assert, rightly:
+its strip is on the lake, where the blade is not offered (a LOOP.md line tells the tester how to move it; adding the
+lake test alone finds no strip). Fishing from a truck's cab was not looked at beyond "it starts and packs up". The
+blade-down hint "your wheels stand in snow it has not cut" shows in 25 cm although the plow truck pulls away at once
+(in the 0302 backlog line). A tlx system other than the blade that wants the control near a lake must add its own
+`wants`. Next in lane A's list: the BUG lines above (0285 #1 first), then 5.4b.
+
 ## 2026-11-18 17:55 — beta fix 0269 #1/#2: tablet list rows readable in a narrow tablet (index.html, lane A) (G4) — d56fedb
 Builder pass, lane A. Orient: worktree clean, rebased on main (v254), 170 GB free. Triage 0267-0269 (last triaged ->
 269): 0267 no BLOCKER/BUG (#6 POLISH: a boundary heap's volume counts on both sides, shown nowhere: dropped until a UI
