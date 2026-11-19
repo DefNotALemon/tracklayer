@@ -3,6 +3,41 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 15:40 — 6.3b2a: the oil driver's sled on the run (tlx-lights v5, lane B) (G4) — 59f5d1b
+Builder pass, lane B. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0327-0329 are lane A's;
+0330 (6.3b1 beta, landed mid-pass) has no BLOCKER or BUG, and its one POLISH (#5: a driver hired seconds ago read "on
+the way back" from the last driver's trip) is closed here: the line, the pin and the sled wait until the trip record
+is the new driver's. Next unticked slice: 6.3b2 (the driver seen in the world). No design was written and it was too
+big for one pass with the driver on foot, so it is split in EXPANSION.md: 6.3b2a (this: the run over the ground, the
+honest pace, the sled and sledge) and 6.3b2b (the driver on foot at the quay and the light, a hail).
+What landed: tlx-lights.js (`route` / `mkRoute` / `posAt` / `quaySpot`, `dsBuild` / `dsTick`), tracklayer.js two api
+fields only (`sledCopy(id, livery)`: a machine's meshes again with the four paint materials cloned; `newWalker` now
+takes materials, callers without arguments unchanged). Nothing new is saved.
+Decisions: (1) THE PACE CHANGED. 6.3b1's 9 / 12 km a game hour is 180 m/s on the ground (a game hour is 50 s), which
+no sled can be shown doing, so `DRV.vOut` / `vBack` are now 720 / 900 m a game hour (52 / 65 km/h): what you meet is
+the haul. Trips went from 20-40 game minutes to 4-7.5 game hours out. Checked that the slice's promise holds: three
+kept lights, one driver at work 1.0, the standing order, ten December days at the new pace, never dark (14 trips,
+$630 of paraffin). A slack driver on all three lights is marginal, on purpose. (2) the trip is the run's own length,
+not 1.3 x the straight line (a trip saved under 6.3b1 carries on by its fraction). (3) the sled is a copy of the
+Trekker rather than a new model: it is the game's own tourer with a rack, and it wears the night as yours does.
+(4) solid only when parked: obstacles are bucketed and a moving one would have to be re-filed every frame.
+Numbers: routes 2,902 / 3,738 / 5,385 m for 2,427 / 3,393 / 5,143 m in a line, 4-12 ms each, 0 points in the sea or
+within 2.2 m of anything standing, sharpest turn 0.15-0.31 rad per 6 m past the pull-out; seen pace 14.3-14.5 m/s
+for 14.4 (half-second windows 13.4-14.7); at most 0.21 m off the snow; pack 0.43 in the track behind; 175 draw calls
+with the sled in view (506 vs 331), none when over 900 m away.
+Stills (`~/.hermes/cache/scratch/tlloop/b632a/`): parked at the quay, loading with two drums, side / front quarter /
+behind while out, night with the headlamp, heading home empty, after a reload. Judged by eye: the rider sits in the
+saddle with hands on the grips, the sledge trails on its drawbar with the drums upright, skis and runners on the
+snow. First build had it half buried (it pressed its own trench under itself to 50% and sat in it) and in your
+livery's hood colour (only the panel material was cloned): both fixed before landing. From a low side camera on a
+side slope the near snow still hides the skis; the front and rear views show it sitting right.
+Gate: smoke, x1_save, x6_oilsled (28 asserts A-J), x6_oildriver (its logic on the old fast clock, the pin checked
+against the run), x6_oildriver_break (the tester's), x6_keeper, x6_smalllights: all exit 0, page errors none.
+Not done / follow-ups: 6.3b2b (driver on foot: beside the sled at the quay, walking the drums in at the light with a
+real gait, a hail); engine sound; the moving sled as an obstacle; snow dust; the run drawn on the Map; then 6.3c.
+Unverified: nobody has met it by actually riding out (the scenario stands the player beside the run), and the
+Slettnes run was checked as a line, not ridden end to end on screen.
+
 ## 2026-11-19 15:05 — 6.3b1: the oil driver on the run from the quay (tlx-lights v4, lane B) (G4) — 1feefca
 Builder pass, lane B. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0323-0326 are lane A's
 (4.x); none new on lane B's systems, last triaged left to lane A. Next unticked slice: 6.3b (oil drivers). No design
