@@ -78,6 +78,8 @@ reverse lines of the standing hint (only forward reasons were produced in a run)
 the blade down, 640x360.
 Next in lane A's list: 0316 #1 (driver position past the road), then 0301/0308, 0279, 0296, the stale x2 scenarios,
 then 5.4b.
+After landing (14:50): the rebase pulled lane B's 6.3a (tlx-lights v3) and the push went out before a re-run; gate.sh
+x3_feather on the landed tree then: smoke, x1_save, x3_feather exit 0, 0 FAILs, page errors none.
 
 ## 2026-11-19 13:10 — beta fix 0285 #1: the sled trailer behind a truck is solid (tlx-vehicles v33, lane A) (G4) — 4ce9b86
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Triage 0317-0318 (last triaged ->
