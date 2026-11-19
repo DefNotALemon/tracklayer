@@ -715,5 +715,15 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 4.1c1 (scenario note, beta 0305, tester): `x4_plowtruck_pad_cut_speed_beta.mjs` picks its flat strip on a
       lake (only a lake is flat under 3% over 200 m), where the use control is ice fishing's: add `bioAt(...) === 1`
       to its `bad` test and loosen the slope/length, or lay the strip along a road, then rerun its pad-at-speed steps.
+- [ ] G4 3.4a (POLISH, beta 0333 #2, lane A): a walker set down 1.0 m ahead of a stopped car's centre stays inside it
+      (0.14 m from the middle circle): `collide()` in tlx-traffic.js pushes out of each circle in turn and the last
+      push shoves back into the one before. Push out of the nearest circle last, or iterate twice.
+- [ ] G4 4.1c2 (POLISH, damaged save only, beta 0338 #2-#4, lane A): the gritter's saved table keeps string hours,
+      trusts a wrong-length array for reads until the truck spreads, and keeps future hours for good. In the tidy:
+      numbers only, `g.h.length === q.n` in `gritAt` / `gritCover`, drop `age < 0`.
+- [ ] G4 14.4b1/b2 (POLISH, beta 0332 #5 + 0336 #2, lane C): at the boatyard door the use control still mends the
+      hull (and charges) or opens the counter while the tablet is up. Lane C's.
+- [ ] G4 6.3b2a (POLISH, beta 0334 #2/#6, lane B): `x6_oilsled` assert F flakes on a loaded machine (0.54 m for
+      < 0.5 m); a clock skip pops the oil sled along the line. Lane B's.
 
-Last triaged report: 331
+Last triaged report: 338

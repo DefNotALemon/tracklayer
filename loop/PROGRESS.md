@@ -3,6 +3,41 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 16:55 — beta fix 0337 #1/#2: a road contract's week of pay stays on Monday's statement after hand-back or strike-off (tlx-plow v26, lane A) (G4) — b1e5ce9
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0332-0338 triaged (last triaged
+338): 0337 #1/#2 are BUGs on lane A's 4.2a and are this pass; 0335 (2.5) has no BLOCKER or BUG; 0333 #2 and
+0338 #2-#4 are POLISH on lane A's systems, now backlog lines; 0332 #5 / 0336 #2 (lane C) and 0334 (lane B) noted as
+backlog lines for their lanes and left alone.
+Cause: as the report says. `conQuit`, the third-warning branch of `conStrike` and the "road gone from the map" delete
+in `conStep` dropped the contract with its `wk` / `wkM`, and `conMonday` summed only `s.con` (and returned early with
+no contracts). 0325's `wkKeep` covered drives and lots only.
+What landed: `conKeep(s, id, c, gone)` moves the week's pay, metres and the driver's `wkN` into `s.conWk` (one entry a
+road, saved, in state0, tidied in `conTidy`: non-objects and entries without a string id dropped, numbers clamped,
+at most 12) before each of the three deletes. `conMonday` runs when there are contracts OR kept entries: a kept road
+not held on Monday gets its own line (`gone: "back" | "taken"`, `w` = its warnings, 3 when taken back), one held again
+is added into that road's own line; the list is cleared. The Statements row reads "· handed back" / "· taken back by
+the kommune". README. No tracklayer.js change.
+Numbers (`x4_conweek.mjs`, 27 asserts A-G, 0 FAILs): handed back with $300 / 800 m: before, no line; after, one line
+$300, 0.8 km, "handed back", cash delta 0, a second Monday adds nothing. Taken back by HAND BACK with a stretch shut
+and by the contract's own clock: before, no line; after, $200 / $120 lines, "taken", WARNINGS 3. Handed back and
+signed again: one line of $450 / 1.2 km, the other road's line untouched; handed back twice: one kept entry of $160.
+Nothing earned: no entry, no line. A driver's 2 stretches go on the line. Save + reload keeps the entry; planted junk
+(null, "x", 7, a numeric id, a string pay / NaN metres) is dropped or zeroed; a state without the list works.
+Gate: gate.sh smoke, x1_save, x4_conweek, x4_con_weekpay_quit_beta (the tester's; it failed on main): each exit 0,
+0 FAILs, page errors none. Alone, each exit 0, 0 FAILs, page errors none: x4_weekpay, x5_plowdriver, x4_plowapp.
+`x4_plowapp.mjs` step J failed once first (1 FAIL: $419 / 1.8 km for the $250 / 1.0 km it expects): its road was
+taken back in step I with $169 earned, which Monday now rightly adds when J signs it again. J clears `conWk` now so
+it keeps testing what it was written for; that is a test change, the behaviour is C in x4_conweek.
+Still looked at (`statements.jpg`): both lines on the tablet, text and chips on one row, nothing clipped at 1280x720.
+NOT checked: the narrow pane (640x360 embed, 0269's wrapped row) with the longer "taken back by the kommune" text;
+pads and touch (nothing here takes input); a real plowed stretch (pay is set on the contract in the scenario, the
+tester's method; `conPay` itself is untouched).
+Known and left: Statements still keeps 6 lines (backlog, 0279 #1), and a handed-back road adds a line to the week, so
+a busy week pushes last week out sooner. The Monday notification's total now includes kept roads.
+Next for lane A: report 0339 (5.4b1 break test, arrived during the pass, NOT read) first, then 5.4b2, 5.4c.
+After the final rebase (it pulled lane C's ferry: tlx-ferry.js, tracklayer.js v258): smoke, x1_save and x4_conweek
+again through gate.sh, each exit 0, 0 FAILs, page errors none; the other four were not re-run on the rebased tree.
+
 ## 2026-11-19 17:00 — 14.5a: the ferry as a passenger, Kjøllefjord to Mehamn and back (v258, tlx-ferry v1, tlx-boats v9, lane C) (G4) — fc0625b
 Builder pass, lane C. Orient: worktree clean (three old stashes left as found), rebased on main, 122 GB free.
 Reports above the last triaged: 0332 (14.4b2) and 0336 (14.4b1) are lane C's, neither holds a BLOCKER or BUG; their
