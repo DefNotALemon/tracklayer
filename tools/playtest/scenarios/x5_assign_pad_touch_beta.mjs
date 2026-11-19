@@ -6,7 +6,7 @@ const app = async id => { await ev(`TABLET.toggle(true, ${JSON.stringify(id)}); 
 const btns = () => J(`[...$("tabS").querySelectorAll("[data-act^='stx:']")].map(b => ({ f: b.dataset.tf, t: b.textContent, off: b.disabled, w: b.offsetWidth, pw: b.closest(".tapp,#tabS").offsetWidth }))`);
 const pad = async (n) => { await padSet({ [n]: 1 }); await sleep(160); await padSet({}); await sleep(350); };
 // 5.4b2b: PDR.wayMax = 0 here: the truck is on the road at once, as when this was written (its drive from the spot has its own test, x5_plowdriver_way.mjs)
-const SETUP = `TLXPL.PDR.wayMax = 0; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); if (window.TLXT) { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; } true`;
+const SETUP = `TLXPL.PDR.bog.km = 0; /* 5.4c1: no driver bogs in this test (x5_plowdriver_stuck.mjs has that) */ TLXPL.PDR.wayMax = 0; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); if (window.TLXT) { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; } true`;
 await boot();
 await ev(SETUP); await sleep(600);
 await ev(`GS.hour = 34; TLX.state("roads").h = 34; GS.cash = 90000; GS.lic = GS.lic || {}; GS.lic.freight = true; TLXV.buy("plowtruck"); TLXV.buy("plowtruck"); true`); await sleep(700);

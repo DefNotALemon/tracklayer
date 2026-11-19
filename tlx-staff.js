@@ -530,6 +530,8 @@ TLX.staff = { ROLES, occ: cabId => { const s = S(); if (!s) return 0; const m = 
   workAt: pid => { const s = S(); if (!s || s.owed > 0) return 0; const m = s.crew.find(q => q.place === pid); return m ? m.tr.work * perfOf(m) : 0; },
   addRole: (id, row) => { ROLES[id] = row; }, addPlaces: f => { if (!XPLACES.includes(f)) XPLACES.push(f); },
   at: pid => { const s = S(); return s ? s.crew.find(q => q && q.place === pid) || null : null; },
+  // a knock to the mood of whoever works at a place (5.4c1: an hour bogged in the cold); it wears off like a criticism
+  dent: (pid, n) => { const s = S(), m = s && s.crew.find(q => q && q.place === pid); if (!m || !(n > 0)) return false; crewPrep(m); m.mood = clampN(m.mood - n, -30, 30); refresh(); return true; },
   places, vacancies, hire, letGo, payOwed, tick: boardTick, wageDue, post: newApplicant, xact, xacts: xactsOf,
   praise, criticise, raise, answerAsk, crewTick, perf: perfOf, target: hapTarget, fair: fairOf, atPlace, moodWord, crewPrep,
   ask, offer, interview: id => { view = id; refresh(); }, get view() { return view; }, typing: id => !!TYPING[id], QS, SLIP };

@@ -1146,7 +1146,21 @@ and in a truck of yours what is in the tank and how the cutting edge is; an unha
 that too. While they wait their Staff card has PRAISE and CRITICISE live (a word in person is had
 within 30 m of the truck, wherever it is), and the use control reads **WAVE ON**. They drive on by
 themselves after a minute, or once you have walked 45 m off. The time they stand for you is not
-counted against the road. Not yet: a driver who gets stuck.
+counted against the road.
+
+**Stuck.** A driver can bog. It happens cutting a stretch that has drifted deeper than their blade
+copes with (the plow truck's tall blade from about two thirds of the snowpack, the pickup's low one
+from little more than a third), or on a grade while it is snowing, and more often to a slow driver.
+Send them out before a road drifts level and it rarely happens. You get a notification, a row in the
+**Jobs** app that leads you to the truck, and their pin on the Map turns red and reads STUCK. The
+truck stands where it bogged with its beacon going; the road's clocks keep running, so its
+stretches run late by the contract's own rules. Every hour in the cold costs the driver some of
+their mood, and after 6 hours they walk home: the truck then stands dark and empty where it is
+until it is fetched. **PAY A TOW** on the driver's card in the Staff app ($120 + $20 a km from the
+garage) has a tow truck there in an hour: with the driver still in it they plow on from there, and
+an abandoned truck is brought in (yours back to its parking spot). Hail a bogged driver and they
+tell you how long they have sat there. Not yet: towing them out yourself, or sending another
+driver.
 
 **From its parking spot and back.** A driver in your truck starts where you left the truck. They
 drive it off its spot, over the plowed ground and the streets and round the houses, onto the roads
