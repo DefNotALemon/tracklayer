@@ -570,6 +570,20 @@ there's a 10% fine. Miss a third and you pay the full value and the post office 
 countdown, the piece count and the value are on the minimap (the ring round the dial is the ferry
 clock) and in the Map app's corner. It's the mail, not the jobs, that brings you back to town.
 
+**The ferry as a passenger** (`tlx-ferry.js`; Settings > Options > *Ferry as a passenger*, on by
+default). She also takes you one port up the coast, to **Mehamn** on the Barents side, 3.4 km over
+the fell by sled. The **northbound** boards at the sign on the Kjøllefjord pier while she lies
+alongside (08:15 to 09:30) and is at Mehamn about 11:15. The **southbound** boards at **Mehamn kai**,
+a landing with a waiting shelter on the shore 430 m north of the village (a plowed lane leads down
+to it, and it has a pin on the Map), from 17:00 to 17:45, and puts you on the Kjøllefjord pier at
+19:45. Walk up to the sign on foot: outside a call the use control reads FERRY and tells you the
+next sailing; during one it reads BOARD. The first press quotes the sailing and the fare, a second
+within 8 seconds goes aboard. **$35** a head; your sled goes as deck cargo for **$45** more if it is
+parked within 40 m of the sign (what it tows and carries comes with it). A truck or a boat stays
+behind. The screen goes dark, the clock runs on to her arrival, and you are stood at the other port
+with the sled beside you; the fare is taken on arrival. Delays move the times, a cancelled call
+doesn't sail, and a foot passenger at Mehamn is never left behind for want of cash.
+
 **Hunger and thirst** are two more stats (0-100, both start full). They drain slowly with game time (about 90 and 60
 minutes from full to empty, so a delivery run never feels like a survival game) and refill at the quay and the garage the
 way the fuel tank does. Empty is a mild penalty: you lose warmth a bit faster. They live in `tlx-survival.js`.
@@ -1333,7 +1347,7 @@ Open `index.html`, or play the hosted copy at
 
 Built with three.js (r128, from a CDN). Everything else — terrain generation, snow
 deformation, physics, weather, audio — is hand-rolled in `tracklayer.js`.
-Ice fishing is `icefish.js` (fishing from the boat is `tlx-seafish.js`). `tlx.js` is the socket the Four Seasons & Enterprise
+Ice fishing is `icefish.js` (fishing from the boat is `tlx-seafish.js`, the ferry's passengers `tlx-ferry.js`). `tlx.js` is the socket the Four Seasons & Enterprise
 expansion plugs into: each of its systems gets a file of its own, and its state rides in
 the same save.
 

@@ -1157,7 +1157,7 @@ if (window.TLX) {
 // at the shed's side door, on foot: the use control (keyboard, pad L3, the touch button)
 const YPROV = {
   use() {
-    const F = api.FOOT; if (!BY || !F.on || api.MNT.on || api.DMT.on || (api.INT && api.INT.on) || (api.shopOpen && api.shopOpen())) return null;
+    const F = api.FOOT; if (!BY || !F.on || api.MNT.on || api.DMT.on || (api.INT && api.INT.on) || (api.shopOpen && api.shopOpen()) || (api.tablet && api.tablet())) return null;   /* beta 0332 #5 / 0336 #2: not under the tablet */
     if (Math.hypot(F.x - BY.door.x, F.z - BY.door.z) > YARD.door) return null;
     const dent = boats().filter(r => condOf(r) < 99.5), here = dent.find(r => atYard(r));
     if (here) return { label: "REPAIR", hint: () => api.keyHint("use", `have the yard mend the ${ROW.name}'s hull (${api.fmtCash(repairCost(here))})`), act: () => repair(here.uid) };

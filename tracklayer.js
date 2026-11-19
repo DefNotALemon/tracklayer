@@ -17750,6 +17750,8 @@ function initExpansion() {
     sunEl,
     // the Boats app (14.4a): the Map's marker
     mark: (x, z) => { WP.x = x; WP.z = z; },
+    // the ferry as a passenger (14.5a): the steamer's calls at Kjøllefjord (weather delays and cancellations in them) and the pier she lies at
+    steamer: { calls: steamerCalls, at: steamerAt, quay: () => QUAY },
     kit: { GEAR, ORDER: GEAR_ORDER, def: gearDef, owns: (slot, id) => !!GS.own.gearOwned[ownKey(slot, id)] || gearDef(slot, id).cost === 0,
       wear: (slot, id) => { const o = gearDef(slot, id), own = !!GS.own.gearOwned[ownKey(slot, id)] || o.cost === 0;
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }
