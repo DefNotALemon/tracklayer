@@ -3,6 +3,46 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 17:00 — 14.5a: the ferry as a passenger, Kjøllefjord to Mehamn and back (v258, tlx-ferry v1, tlx-boats v9, lane C) (G4) — fc0625b
+Builder pass, lane C. Orient: worktree clean (three old stashes left as found), rebased on main, 122 GB free.
+Reports above the last triaged: 0332 (14.4b2) and 0336 (14.4b1) are lane C's, neither holds a BLOCKER or BUG; their
+shared POLISH (0332 #5 / 0336 #2: the boatyard door's use control worked under the tablet, and a stray press could
+spend $480 on a repair) is closed here with one condition in `YPROV`. 0327-0331, 0333-0335, 0337-0338 are other
+lanes'. So the pass took the next unticked slice, 14.5, which had no design: written into EXPANSION.md and split in
+three (a ferry passage, b rowboat, c canoe, which waits on milestone 9's open lakes); 14.5a was small enough to build
+in the same pass.
+What landed: a new file `tlx-ferry.js` (system `x.sys.ferry` `{ n }`, option `ferrypax`, on), one bridge line in
+tracklayer.js (`api.steamer`: `steamerCalls`, `steamerAt`, the pier), `x1_save.mjs` lists the new id. Decisions: the
+steamer only calls at Kjøllefjord, so the second port is Mehamn (the next call north on the real route, and on the
+east sea the skiff can't reach); the northbound boards at the pier while she is alongside and is at Mehamn 1.75 h
+after sailing, the southbound boards at Mehamn 2.75 to 2 h before her Kjøllefjord arrival and lands you there as she
+comes in, so the ship you see at the pier is always the one you board or step off; boarding is two presses (a quote,
+then aboard) so a stray press never costs money or three hours; the fare is taken on arrival so a reload mid-passage
+costs nothing; the clock is stepped an hour at a time under the fade so the roads don't read it as a night's sleep; a
+foot passenger at Mehamn is never refused for want of cash.
+Numbers (`x14_ferrypax.mjs`, 43 asserts, 0 FAILs alone and in the gate): the sign stands on the pier slab 19 m from
+the ship's berth; Mehamn's landing is 434 m north of the village, 1.1 m above the sea, 12 m from the water, slope
+0.05, lane plowed 0.90; northbound open 56.25 / sails 57.5 / Mehamn 59.25, southbound open 65 / sails 65.75 / pier
+67.75; boarded at 56.5 with the sled 10 m off: arrived hour 59.26, cash 500 -> 420, sled 3.2 m from the walker; back
+on foot with $20: hour 67.76, cash 0, ship state "in", sled left at Mehamn; $50 with the sled and $10 at the pier
+refused; a cancelled call reads FERRY; pad L3 quotes, the quote lapses after 8 s, two taps on the touch button board
+($35, hour 107.25); tablet up: nothing at the sign, nothing at the boatyard door; option off: no prompt, shelter
+hidden and not solid, no pin; three passages survive a reload.
+Gate (gate.sh, after rebasing onto lane A's 5.4b1): smoke, x1_save, x14_ferrypax, x14_yard, x14_tackle, x14_skiff:
+all exit 0, 0 FAILs, page errors none. Not run: the other x14 scenarios (docs, seajobs, fishing, boatsapp, haulout:
+no code of theirs changed beyond the door's tablet check) and the x1 options probes.
+Stills looked at (pier sign, arrival at Mehamn, the landing from the sea side and from the land, night): the sign
+reads, the shelter is a boarded red hut with white corner boards, a bench and a snow roof, the sled stands clear
+beside the walker. The low sun turns the lit wall orange. Not judged: the lamp at night (the night still was shot
+from behind the shelter), 640x360, the touch layout on screen, the plowed lane from above.
+Known and left (all in EXPANSION.md under 14.5a "Not done"): no ship is drawn at Mehamn and nobody walks a gangway
+at either port (14.5a2); trucks don't ship; the passage costs no warmth, hunger or thirst; on touch the hint is only
+"tap BOARD" (the fare comes with the quote); the Calendar app doesn't list the Mehamn times; a tour passenger or a
+rescue riding the sled is not checked; with a truck as the current vehicle the "stays here" branch was not run by
+the scenario; option off leaves the plowed lane.
+Next for lane C: 14.5a2 (the ship seen at Mehamn, a gangway, trucks on deck), then 14.5b (rowboat: first the
+one-hull refactor of tlx-boats.js).
+
 ## 2026-11-19 16:25 — 5.4b1: the plow driver's truck seen on the road (tlx-plow v25, tlx-vehicles v35, tlx-traffic v10, lane A) (G4) — bf764f9
 Builder pass, lane A. Orient: worktree clean, rebased on main (v256), 123 GB free. Reports 0327-0331 triaged (last
 triaged 331): 0327, 0328, 0329, 0331 have no BLOCKER or BUG (POLISH: reverse weaker than forward in 35 cm, a sled

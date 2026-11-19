@@ -19,7 +19,7 @@ What comes after this expansion is already decided: The Northern Front, `loop/NO
 | 4-19 | everything else | not started (split across lanes A-D, see Lanes) |
 | 10 | Stores and gear (lane D) | 10.1 layers (v222), 10.2 winter store Sport & Vinter (v225, tlx-gear v2) landed; next for lane D: milestone 11 (Owner 14 Nov), then 10.3-10.4 |
 | 11 | Firearms and hunting (lane D) | 11.1a rifle model + gun shop Jakt & Våpen (tlx-guns v1; fills 10.5) landed; 11.1b in the field (v231, tlx-guns v2): shoulder / aim / fire on foot, clean-kill range, spooked herds, people and houses never down-range, dress the animal, the Game tab pays; 11.2 landed (v232, tlx-gunwheel v1, an ad hoc session): hold R / D-pad left / GUN opens the quick-customize wheel; 11.3 landed (v233, tlx-guns v3, tlx-gunwheel v2): four loads for the .308 (soft point, surplus ball, match, subsonic), one load in the magazine at a time, changed at the counter or from the wheel's sixth slot; beta fix 0188 #1 the wheel shuts when the tablet comes up; beta fix 0190 #1 + 0192 #1 (tlx-guns v4): nothing fires under Settings and Settings slings the rifle, the pack stays at 120 when rounds come back out of the magazine; next: 11.1c the rifle seen on you, 11.4 parts + a second frame |
-| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); 14.4b1 landed (tlx-boats v6): the boatyard beside the quay jetty (a boathouse on piles, a slip with a hull on the cradle, a plank walk from the jetty to its door) and hull repairs at $8 a point from the Boats app's Boatyard card or the shed door's use control; 14.4b2 landed (tlx-seafish v2, tlx-boats v7): handline tackle at the boatyard's counter (the door's use control opens it once you own a boat): mono and heavy lines, a 120 g and a 400 g pilk, a gaff, saved, changed from the Boats app; beta 0194 #1/#2 closed; 14.4b3 landed (tlx-boats v8): storm wear on a boat left afloat in a blow (option `stormwear`: half a point of hull an hour on a berth in a full storm, three times that lying off, never aboard, never under 30%) and the winter haul-out ($120, the launch included: on the cradle by the shed, a second boat in the shed, no wear, from the Boats app or the Yard tab at the counter): 14.4 done; next: 14.5 (rowboat, canoe, ferry as a passenger), then 0178 #2/#3 and 0182 #1/#2 POLISH |
+| 14 | Boats and docks (lane C) | 14.1 landed (v224, tlx-boats v1): the skiff, the jetty below the quay, water handling, getting in/out; 14.2a landed (v228, tlx-boats v2): jetties at Dyfjord, Lebesby, Ifjord, parcels hand over and pickups load at a jetty, compass to the jetty, Map anchor pins; beta 0178 #1 storm no longer sinks the skiff (v228); 14.2b landed (v230, tlx-boats v3): sea freight BY BOAT on the Parcels board for skiff owners, +35% when the road is shut, a jetty's warmth and the quay jetty's fuel: 14.2 done; 14.3 landed (v234, tlx-seafish v1): a handline from the skiff over 4 m+ of water, six sea species by depth, tugs, runs that part the line, the catch in ice fishing's cooler and sold at the Fiskemottak; 14.4a landed (v237, tlx-boats v5): the Boats app (hull, fuel and range, where she lies, MARK ON MAP, the jetties by sea) and the tow home ($40 + $30 a km by sea, x1.5 in a blow; aboard you ride along and the clock moves on; an empty tank at sea calls it with the help control); 14.4b1 landed (tlx-boats v6): the boatyard beside the quay jetty (a boathouse on piles, a slip with a hull on the cradle, a plank walk from the jetty to its door) and hull repairs at $8 a point from the Boats app's Boatyard card or the shed door's use control; 14.4b2 landed (tlx-seafish v2, tlx-boats v7): handline tackle at the boatyard's counter (the door's use control opens it once you own a boat): mono and heavy lines, a 120 g and a 400 g pilk, a gaff, saved, changed from the Boats app; beta 0194 #1/#2 closed; 14.4b3 landed (tlx-boats v8): storm wear on a boat left afloat in a blow (option `stormwear`: half a point of hull an hour on a berth in a full storm, three times that lying off, never aboard, never under 30%) and the winter haul-out ($120, the launch included: on the cradle by the shed, a second boat in the shed, no wear, from the Boats app or the Yard tab at the counter): 14.4 done; 14.5 split in three (19 Nov); 14.5a landed (v258, tlx-ferry v1, tlx-boats v9): the ferry as a passenger, option `ferrypax`: the northbound from the Kjøllefjord pier (08:15-09:30) to Mehamn (11:15), the southbound from Mehamn's new landing (17:00-17:45) back to the pier (19:45), $35 a head and $45 for the sled on deck, boarded on foot at a sign with the use control (a quote, then a second press), the clock runs on to her arrival; beta 0332 #5 / 0336 #2 closed (the boatyard door rests under the tablet); next: 14.5a2 (the ship seen at Mehamn, a gangway, trucks on deck), 14.5b (rowboat), 14.5c (canoe, waits on 9), then 0178 #2/#3 and 0182 #1/#2 POLISH |
 
 Checked against main at 10c6d62 (v166) on the Mac, 10 Nov:
 - `smoke.mjs` passes with no environment variables set (exit 0, page errors none), before and after milestone 1.
@@ -1964,7 +1964,47 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
             REPAIR, so the counter (and its Yard tab) waits for the repair or the app; wear takes no account of
             which side of the jetty is the lee; the other jetties have no yard.
   - [ ] 14.5 Options: rowboat (oars, no fuel), canoe (lakes once they open), ferry as a passenger (the coastal steamer
-        between quays for a fare).
+        between quays for a fare). Split (lane C, 19 Nov) into three, each its own `TLX.option`:
+    - [x] 14.5a (v258, tlx-ferry.js v1, tlx-boats v9) The ferry as a passenger, option `ferrypax`. Design and as
+          built (lane C, 19 Nov). The steamer only ever calls at Kjøllefjord, so "between quays" needs a second
+          port: Mehamn, the next call north on the real coastal route, 3.4 km over the fell and on the east sea
+          the skiff cannot reach (14.2a). The timetable is the game's own (bridge `api.steamer` = `steamerCalls`,
+          `steamerAt`, the pier): the NORTHBOUND boards at the pier while she is alongside (08:15-09:30) and is at
+          Mehamn `PAX.north` 1.75 h after she sails; the SOUTHBOUND calls at Mehamn `PAX.south` 2 h before she is
+          due at Kjøllefjord, boards for `PAX.call` 0.75 h (17:00-17:45) and lands you on the pier as she comes
+          alongside (19:45). Delays shift it, a cancelled call does not sail; the other two legs leave the map.
+          Ports: a boarding sign on the pier's slab (first clear spot toward the ship), and at Mehamn a landing on
+          the first level dry ground in from the nearest sea (as built 434 m north of the village, 1.1 m up, 12 m
+          from the water): a sign, a three-walled red waiting shelter with a bench and a lamp (solid), two
+          bollards, a plowed lane from the village and a turning yard, a Map pin (`marks` layer, glyph F).
+          Boarding: on foot, the use control (an `api.footx` provider: key, pad L3, the touch button) within 4.5 m
+          of a sign; FERRY outside a call (a toast with the next sailing and both fares), BOARD during one; the
+          first press quotes, a second inside 8 s goes aboard (a stray press never spends money or hours). $35 a
+          head, +$45 for the sled as deck cargo when it is your current machine and within 40 m of the sign (a
+          truck or boat stays; `towSnap` brings what the sled tows). Short of cash is refused, except a foot
+          passenger at Mehamn (takes what you have). The passage is a fade (`#tlxfFade`): the clock steps 1 h
+          every 130 ms to her arrival (so roads, mail and the steamer see hours pass, not a sleep), then the
+          walker stands at the other sign facing inland, the sled 3.2 m off on clear ground, the fare is taken
+          (on arrival: a reload mid-passage costs nothing), `x.sys.ferry.n` counts it. Nothing under the tablet,
+          the shop panel, a room, the help panel or the school. Option off: no prompt, shelter hidden and not
+          solid, no pin (the plowed lane stays). Also closes beta 0332 #5 / 0336 #2 (POLISH): the boatyard
+          door's use control does nothing while the tablet is up. Test `x14_ferrypax.mjs` (43 asserts).
+          Not done (14.5a2, next): the ship is not seen at Mehamn (no quay or hull there: you board from the
+          shelter into a fade); no gangway or walk aboard at Kjøllefjord either; a truck as deck cargo; the
+          passage costs no warmth, hunger or thirst; the touch hint reads only "tap BOARD" (the fare comes with
+          the quote); the Calendar app's ferry list does not show the Mehamn times; a tour passenger or a rescue
+          on the sled is not checked; stranded at Mehamn on foot between calls you wait or walk.
+    - [ ] 14.5a2 The ship at Mehamn: a timber quay off the landing, the steamer drawn alongside during her
+          southbound call (and passing northbound), a gangway to walk at both ports instead of boarding from the
+          sign, trucks as deck cargo (fare by vehicle), the Mehamn times in the Calendar app.
+    - [ ] 14.5b The rowboat, option `rowboat`: a second row in the Boats tab (a 4.2 m færing, about $450, no tank):
+          oars instead of a motor (gas = a stroke cycle, thrust in pulses on the catch, about 1.6 m/s cruising,
+          2.4 flat out, tiring like walking; brake = back water), the rower facing aft with a full stroke
+          (catch, drive, finish, recovery; realistic-animation rule), same jetties, berths, yard, parcels (2)
+          and handline as the skiff. Needs `tlx-boats.js` to stop assuming one hull (`ROW` is read in 36 places):
+          the first pass is that refactor with the skiff unchanged, the second the færing.
+    - [ ] 14.5c The canoe, option `canoe`: lakes only, and the lakes are ice until milestone 9's summer. Waits on
+          9; when open water exists, a canoe is a third boat row carried on the sled or the pickup to a lake.
 - [ ] 15 Aircraft and Bush Mail: bush plane (floats / skis / wheels), flight model on all three control schemes,
       Mehamn airfield, plateau strip, quay seaplane dock, Bush Mail / Aircraft / Hangar apps. Options: pilot's
       licence school, preheating, own airstrip, inspections.
