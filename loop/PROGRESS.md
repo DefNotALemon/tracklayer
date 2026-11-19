@@ -3,6 +3,47 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 17:40 — 5.4b2a: hail your plow driver on the road, a word beside the truck (tlx-plow v27, tlx-staff v8, lane A) (G4) — 4c777b0
+Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0339 (5.4b1 break test) and 0340
+(0337's fix verified) triaged (last triaged 340): no BLOCKER or BUG in either. 0339 #4 (no headlamps on the driver's
+truck at night) and 0340 #4 (a $0 Statements row from a damaged save) are POLISH, now backlog lines; 0339 #5 was the
+tester's own placement; 0340 #5 is Monday run three times in one session. So the pass took the next unticked slice,
+5.4b2, and split it in two: the hail and the word (this pass), your truck's drive from its spot to the road (5.4b2b).
+What landed: in tlx-plow.js a footx provider `PDHAIL` (HAIL / WAVE ON on foot within `PDR.hailR` 30 m of a truck that
+is out or heading in; rests under the tablet, Settings, the garage, indoors), `pdrHail` / `pdrWave` / `pdrSay`, a
+countdown in `pdrSee` (`Z.hail`, session only: `PDR.hailT` 60 s, or you `PDR.hailOff` 45 m away), and `pdrRun`'s
+`held` is now "in its lane or hailed", so the stop and its lost hours are 5.4b1's own code. `pdrPlaces` puts the
+driver's place at the truck while they are out, and adds their parked truck to the garage while they are in. In
+tlx-staff.js a place may carry `pts: [[x, z, name]]` and `hereSpot` names the spot you stand at ("You're at the truck",
+"at their truck", "at the garage"). README. No tracklayer.js change, nothing new saved.
+Decided: a parked truck is not hailed (nobody in it); the hail is on foot only (seated, the use control is taken:
+stand in its lane and it waits, as before); a driver in YOUR truck, in, is still found at the garage only.
+Numbers (`x5_plowdriver_hail.mjs`, 42 asserts A-F, 0 FAILs alone and in the gate): the parked truck is 58 m from the
+garage and the card reads "You're at their truck"; truck 255 m off: no hail, PRAISE refused; at 25 m, coming at 12
+m/s: use reads HAIL, hint "E: hail <name>"; hailed it moves under 0.5 m over 3+ s, `PDLOST` > 0 in a step; the card
+reads "You're at the truck", both buttons live, a click on PRAISE lands (mood over 5); waved on it covers 5 m+ in
+3.5 s. Pad: hint "L3: hail <name>", L3 hails. Touch: the button wears WAVE ON, the hint "tap WAVE ON", a tap waves
+them on. Time up (set to 0.6 s) or you 60 m further off: they drive on. Both snowed stretches open, 0 warnings.
+`x5_plowdriver.mjs` had two asserts on the old wording ("Have a word at the garage once they are back in", "is at the
+garage between runs"): reworded to the new lines; that is a test change that follows the behaviour.
+Gate: gate.sh smoke, x1_save, x5_plowdriver_hail, x5_plowdriver (54 ok), x5_plowdriver_seen (49 ok): each exit 0, 0
+FAILs, page errors none. First two runs of the new scenario alone failed on the scenario itself (a 60 m threshold
+for a 58 m gap; PRAISE twice inside 48 h gives +4; a 150 s wait too short for the second stretch at headless pace),
+not on the game.
+Stills looked at: `h1_hailed.jpg` (the truck stopped on the road, blade down, hint "E: wave <name> on") and
+`h2_staff_card.jpg` (the card at 1280x720: one line of text added, four buttons on one row, nothing clipped).
+NOT checked: the walker is not in the hailed still (out of frame), so "you beside the truck" was judged by numbers
+only; the driver has no gesture or window animation (the words are a toast); a hail at night, in a storm (the
+"sitting it out" line is only read from code), with the traffic option on; a driver in YOUR truck hailed (the litres
+/ edge sentence is only read from code); a reload while hailed; the 640x360 embed with the longer "out on the road"
+card line; the tester scenarios that still assert the old garage wording (`x5_*_beta` / `_break`) were not run.
+Known and left: a truck at 45 km/h passes through the 30 m in about 5 s, so the hail has to be timed (or step into
+its lane first); `pdrPlaces` is called often by tlx-staff and now does a `conR().find` per road for a home driver.
+Reports 0341 (3.3b) and 0342 (2.6c), both lane A's, arrived during the pass and are NOT read.
+After the rebase (it pulled lane B's 6.3b2b: tlx-lights v6, tracklayer.js v259): smoke, x1_save, x5_plowdriver_hail
+and x5_plowdriver again through gate.sh; x5_plowdriver_seen was not re-run on the rebased tree.
+Next for lane A: reports 0341 / 0342 first, then 5.4b2b, 5.4c.
+
 ## 2026-11-19 17:05 — 6.3b2b: the oil driver on foot (tlx-lights v6, lane B) (G4) — 9533206
 Builder pass, lane B. Orient: worktree clean, rebased on main (v257), 123 GB free. Reports 0327-0329 and 0331-0333,
 0335 are other lanes'; 0330 was closed last pass; 0334 (6.3b2a beta) has no BLOCKER or BUG. Its POLISH #2 (the

@@ -718,6 +718,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 3.4a (POLISH, beta 0333 #2, lane A): a walker set down 1.0 m ahead of a stopped car's centre stays inside it
       (0.14 m from the middle circle): `collide()` in tlx-traffic.js pushes out of each circle in turn and the last
       push shoves back into the one before. Push out of the nearest circle last, or iterate twice.
+- [ ] G4 5.4b1 (POLISH, beta 0339 #4, lane A): at night the plow driver's truck is a dark silhouette under its beacon: no
+      headlamp pool on the road, no lit cab. Give the seen truck the lamps a truck you drive has (tlx-vehicles' own, or the
+      traffic's beam + pool).
+- [ ] G4 4.2a (POLISH, damaged save only, beta 0340 #4, lane A): junk in `conWk` made safe leaves a $0 / 0 km Statements
+      row for a road that does not exist: drop kept entries with no pay and no metres in `conTidy`.
 - [ ] G4 4.1c2 (POLISH, damaged save only, beta 0338 #2-#4, lane A): the gritter's saved table keeps string hours,
       trusts a wrong-length array for reads until the truck spreads, and keeps future hours for good. In the tidy:
       numbers only, `g.h.length === q.n` in `gritAt` / `gritCover`, drop `age < 0`.
@@ -726,4 +731,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 6.3b2a (POLISH, beta 0334 #2/#6, lane B): `x6_oilsled` assert F flakes on a loaded machine (0.54 m for
       < 0.5 m); a clock skip pops the oil sled along the line. Lane B's.
 
-Last triaged report: 338
+Last triaged report: 340
