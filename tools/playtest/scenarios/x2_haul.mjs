@@ -47,7 +47,20 @@ ok((await toasts()).some(t => /already own the sled trailer/.test(t)) && cash0 -
 await ev(`closeGarage(); true`); await sleep(300);
 
 // ---- 2. truck on a plowed lane, the trailer behind it with the coupler 0.9 m short of the ball
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: Y.x, z: Y.z, x2: Y.x2, z2: Y.z2, L }; } return best; })()`);
+// (a stretch of street whose next 90 m have no door ring within 15 m and nothing solid within 8 m of the centre line:
+// the steps below tow and reverse some 70 m along it. Since the street grid a "longest lane" start ran past a basement
+// door, whose hint replaced the trailer's, and since the 0285 #1 fix the folded trailer meets whatever stands beside it)
+const lane = await J(`(() => { let best = null; const bxz = INT.beacons.map(b => [b.x, b.z]);
+  for (const Y of YARDS) { if (Y.x2 === undefined || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R || Y.r > 5) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (L < 45) continue;
+    const ux = (Y.x2 - Y.x) / L, uz = (Y.z2 - Y.z) / L;
+    for (let a = 12; a <= Math.max(12, L - 82); a += 2) { let dOb = 99, dB = 99;
+      for (let k = -10; k <= Math.min(78, L - a); k += 3) { const cx = Y.x + ux * (a + k), cz = Y.z + uz * (a + k);
+        for (const o of obstaclesNear(cx, cz, 10)) if (!o.down && o.top !== -Infinity) dOb = Math.min(dOb, Math.hypot(o.x - cx, o.z - cz) - (o.r || 0));
+        for (const q of bxz) dB = Math.min(dB, Math.hypot(q[0] - cx, q[1] - cz)); }
+      const sc = Math.min(dOb, 8) * 3 + Math.min(dB, 15) + Math.min(L - a, 80) * 0.3;
+      if (!best || sc > best.sc) best = { x: Y.x + ux * (a - 12), z: Y.z + uz * (a - 12), x2: Y.x2, z2: Y.z2, L: L - (a - 12), sc, dOb, dB }; } }
+  return best; })()`);
+console.log("lane", JSON.stringify(lane));
 ok(lane && lane.L > 35, `a plowed lane to drive on (${lane ? lane.L.toFixed(0) : 0} m)`);
 await ev(`(() => { const L = ${JSON.stringify(lane)}, ux = (L.x2 - L.x) / L.L, uz = (L.z2 - L.z) / L.L, yaw = Math.atan2(ux, uz);
   const r = TLX.state("vehicles").owned[0]; r.x = L.x + ux * 12; r.z = L.z + uz * 12; r.yaw = yaw;

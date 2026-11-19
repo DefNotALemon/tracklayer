@@ -32,7 +32,15 @@ Numbers (`x2_trailerhit.mjs`, new, 33 asserts, per-frame clearance meter of the 
 - E forward on full lock, a rock 0.24 m inside the trailer's own sweep and clear of the truck's: the trailer touches
   (0.00), is dragged round, the truck goes on (10.3 m, as without the rock), no toast.
 - F a real pine at 8 m/s set speed: "The trailer hit a tree ... 97%", overlap 0.03 m clear.
-Gate: smoke, x1_save, x2_trailerhit, x2_trailer_rock_probe, x2_tow, x2_haulreverse, x4_blade_trailer_break, x2_haul exit 0, page errors none. The tester's probe passes now; it had "truck reversed at least 6 m", true only
+Gate: smoke, x1_save, x2_trailerhit, x2_trailer_rock_probe, x2_tow, x2_haulreverse, x4_blade_trailer_break exit 0, page
+errors none. CORRECTION (same pass, 13:25): this line first claimed x2_haul passed too. It had not: the code was landed
+before the gate's last line was read, and `x2_haul` exited 1 with 4 FAILs (1 FAIL on the commit before, 9c83375: its
+"longest town lane" start ran past the Bakgata 5 basement door, whose hint replaces the trailer's; with the trailer
+solid, the folded trailer of its "slewed 100°" step also met something beside the street and stood at 59° instead of
+70°, and the walker at the moved tail stepped into the basement). The game is right in both; the scenario's street
+was wrong. Follow-up commit: `x2_haul.mjs` picks a stretch of street with no door ring and the most room beside it
+for the 90 m it uses, and passes (0 FAILs; it had been failing on main since the street grid). See the gate line at
+the end of this entry. The tester's probe passes now; it had "truck reversed at least 6 m", true only
 while the trailer went through the rock: changed to "reversed to the rock" (> 1.5 m), nothing else in it touched.
 Stills looked at (A, E): the outfit is whole and straight on the ball; the planted rocks have no mesh, so the stills
 do not show the contact itself (the numbers do, and F is a real tree but was not shot).
@@ -41,6 +49,9 @@ driven is tested (a parked truck's trailer is still walked round as a box, as be
 (`towStep`) is untouched; houses and parked cars use the same obstacle list but only rocks and a pine were run. The
 flat-spot finder again lands on Sikvatnet's ice, which is fine here (nothing in this test reads the snow).
 Next in lane A's list: 0316 #1 (driver position past the road), then 0301/0308, 0279, 0296, then 5.4b.
+Gate after the `x2_haul.mjs` follow-up (13:35, read before pushing this time): smoke, x1_save, x2_haul, x2_trailerhit
+exit 0, 0 FAILs, page errors none; x2_haul also clean once alone before it. What the folded trailer met beside the old
+street was not identified.
 
 ## 2026-11-19 12:35 — beta fix 0305 #1: beside a lake the blade's control drops the blade, it no longer goes ice fishing (v256, tlx-plow v23, tlx-vehicles v32, icefish v43, lane A) (G4) — 7a71cc4
 Builder pass, lane A. Orient: worktree clean, rebased on main (v255, 46 playtest commits, no code), 123 GB free. Triage
