@@ -1091,7 +1091,7 @@ find someone else for a week (a paid clearing wipes the first miss). **DROP** gi
 back for nothing. Give one back snowed in and the customer digs it out: that is a miss like any
 other (the card says so before you press), and a miss is remembered for a week, so taking the same
 drive on again does not start you clean. Monday's statement has one line for all the drives you
-cleared that week.
+cleared that week, the ones you have since given up or lost included (lots the same).
 
 **Mind the doors.** The snow a blade moves has to end up somewhere, and the wrong place is somebody's
 way in: the front walk of a house (the few metres from its door to the street) or the mouth of a

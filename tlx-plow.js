@@ -70,7 +70,7 @@
 // The spinner running is not saved: a reload finds it off.
 // DRIVEWAYS (4.2b1). The block comment at DRV: eight Kjøllefjord households with a drive beside the house. One you take on
 // in the Plow app snows in (api.world.addDrift) until your blade has cut four fifths of its length, which pays at once.
-// State: drv, drvOff, drvRec, drvH, drvPaid, drvN.
+// State: drv, drvOff, drvRec, drvH, drvPaid, drvN, drvWk, drvWkN.
 // DOORS (4.2b2). The block comment at WIN: snow the blade leaves lying across a front walk or the mouth of a drive has to
 // be pulled clear again, or the household digs it out and holds it against you. State: win, winC, winN, winH, drvSulk.
 // LOTS (4.2c1). The block comment at LOT: the place's public yards (the sled park, the helsesenter's forecourt) taken on in
@@ -1332,7 +1332,7 @@ function drvTidy(s) {
   const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
   if (!obj0(s.drv)) s.drv = {};
   if (!obj0(s.drvOff)) s.drvOff = {};
-  s.drvPaid = num(s.drvPaid, 0, 1e9); s.drvN = Math.floor(num(s.drvN, 0, 1e9)); if (!Number.isFinite(s.drvH)) s.drvH = -1;
+  s.drvPaid = num(s.drvPaid, 0, 1e9); s.drvN = Math.floor(num(s.drvN, 0, 1e9)); s.drvWk = num(s.drvWk, 0, 1e9); s.drvWkN = Math.floor(num(s.drvWkN, 0, 1e9)); if (!Number.isFinite(s.drvH)) s.drvH = -1;
   for (const k of Object.keys(s.drv)) {
     const st = s.drv[k]; if (!obj0(st)) { delete s.drv[k]; continue; }
     st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, DRV.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= DRV.due ? 1 : 0;
@@ -1361,6 +1361,18 @@ function fileDrop(s, kind, key, st, T) {                                        
   if (miss > 0) s[kind + "Rec"][key] = { miss, until: H + T.offH };
   return due ? 1 : 0;
 }
+/* beta 0325 #1: the week's pay belongs to the week, not to the record. A drive or lot's record (with its week counters
+   wk / n) goes when it is handed back or lost, and the Monday statement summed only the records still held, so a drive
+   plowed for $42 and given up on Saturday was missing from Monday's line. wkKeep moves the counters into drvWk / drvWkN
+   (lotWk / lotWkN) before the record is deleted; wkTake is what Monday adds and clears. Saved. */
+function wkKeep(s, kind, st) {
+  if (!obj0(st)) return; const p = Number.isFinite(st.wk) && st.wk > 0 ? st.wk : 0, n = Number.isFinite(st.n) && st.n > 0 ? Math.floor(st.n) : 0;
+  s[kind + "Wk"] = (Number.isFinite(s[kind + "Wk"]) ? s[kind + "Wk"] : 0) + p; s[kind + "WkN"] = (Number.isFinite(s[kind + "WkN"]) ? s[kind + "WkN"] : 0) + n; st.wk = 0; st.n = 0;
+}
+function wkTake(s, kind) {
+  const p = Number.isFinite(s[kind + "Wk"]) && s[kind + "Wk"] > 0 ? s[kind + "Wk"] : 0, n = Number.isFinite(s[kind + "WkN"]) && s[kind + "WkN"] > 0 ? Math.floor(s[kind + "WkN"]) : 0;
+  s[kind + "Wk"] = 0; s[kind + "WkN"] = 0; return [p, n];
+}
 function fileTidy(s, kind, T) {
   if (!obj0(s[kind + "Rec"])) s[kind + "Rec"] = {};
   const R = s[kind + "Rec"];
@@ -1381,7 +1393,7 @@ function drvDrop(key) {
   const s = S(), c = DV.by[key]; if (!s || !s.drv || !s.drv[key]) return false;
   const st = s.drv[key], due = obj0(st) && st.s >= DRV.due, r = c && obj0(st) ? fileDrop(s, "drv", key, st, DRV) : 0;
   if (r === 2) delete s.drvSulk[key];
-  delete s.drv[key]; DV.marks.delete(key); if (c) drvApply(c, null);
+  wkKeep(s, "drv", st); delete s.drv[key]; DV.marks.delete(key); if (c) drvApply(c, null);
   api.toast(c ? `You've given up ${c.name}'s drive. ${c.name} is back to shovelling it.`
     + (r === 2 ? ` It was snowed in when you gave it up, the second time ${c.name} has had to dig it out: not asking you again for a week.`
       : r === 1 ? ` It was snowed in when you gave it up, and ${c.name} will remember digging it out if you ask for it back this week.`
@@ -1390,7 +1402,7 @@ function drvDrop(key) {
 }
 function drvGone(list, slept) {                                                  // the customers who cleared their own drives: one line for all of them
   const s = S(), H = api.GS.hour, lost = [];
-  for (const c of list) { const st = s.drv[c.key]; st.s = 0; st.h = 0; st.due = 0; st.miss++; drvUnmark(c.key, st); if (st.miss >= DRV.miss) { delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; delete s.drvSulk[c.key]; lost.push(c.name); } drvApply(c, s.drv[c.key]); }
+  for (const c of list) { const st = s.drv[c.key]; st.s = 0; st.h = 0; st.due = 0; st.miss++; drvUnmark(c.key, st); if (st.miss >= DRV.miss) { wkKeep(s, "drv", st); delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; delete s.drvSulk[c.key]; lost.push(c.name); } drvApply(c, s.drv[c.key]); }
   const who = drvList(list.map(c => c.name)), one = list.length === 1;
   api.toast((slept ? `While you were away ${who} dug ${one ? "the drive" : "their drives"} out by hand.` : `${who} gave up waiting and shovelled the drive${one ? "" : "s"} by hand.`) + " No pay."
     + (lost.length ? ` ${drvList(lost)} ${lost.length === 1 ? "has" : "have"} found someone else to plow.` : ` Once more and ${one ? "you lose the customer" : "you lose them"}.`), lost.length ? "bad" : "warn");
@@ -1456,7 +1468,7 @@ function drvJob() {
     hud: d => ({ title, sub: `${U.fmtMi(d)} to ${near.name}'s · ${pay} · ${state}` }) };
 }
 function drvMonday(week) {
-  const s = S(); if (!s || !s.drv) return; let pay = 0, n = 0;
+  const s = S(); if (!s || !s.drv) return; let [pay, n] = wkTake(s, "drv");     // beta 0325 #1: what was earned on drives since handed back or lost
   for (const k of Object.keys(s.drv)) { const st = s.drv[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
   if (!n) return;
   const d = week && week.label || "";
@@ -1588,7 +1600,7 @@ function lotTidy(s) {
   const num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
   if (!obj0(s.lot)) s.lot = {};
   if (!obj0(s.lotOff)) s.lotOff = {};
-  s.lotPaid = num(s.lotPaid, 0, 1e9); s.lotN = Math.floor(num(s.lotN, 0, 1e9)); if (!Number.isFinite(s.lotH)) s.lotH = -1;
+  s.lotPaid = num(s.lotPaid, 0, 1e9); s.lotN = Math.floor(num(s.lotN, 0, 1e9)); s.lotWk = num(s.lotWk, 0, 1e9); s.lotWkN = Math.floor(num(s.lotWkN, 0, 1e9)); if (!Number.isFinite(s.lotH)) s.lotH = -1;
   for (const k of Object.keys(s.lot)) {
     const st = s.lot[k]; if (!obj0(st)) { delete s.lot[k]; continue; }
     st.s = num(st.s, 0, 1); st.h = num(st.h, 0, 1e6); st.miss = Math.floor(num(st.miss, 0, LOT.miss - 1)); st.wk = num(st.wk, 0, 1e9); st.n = Math.floor(num(st.n, 0, 1e9)); st.due = st.s >= LOT.due ? 1 : 0;
@@ -1614,7 +1626,7 @@ function lotDrop(id) {
   const s = S(), c = LT.by[id]; if (!s || !s.lot || !s.lot[id]) return false;
   const st = s.lot[id], due = obj0(st) && st.s >= LOT.due, r = c && obj0(st) ? fileDrop(s, "lot", id, st, LOT) : 0;   // beta 0257 #1/#2: see fileDrop
   const hp = !!(c && obj0(st) && st.hp), was = hp ? "Your heap still stood in its middle" : "It was snowed in"; if (hp) lotShovel(c);
-  delete s.lot[id]; LT.marks.delete(id); if (c) lotApply(c, null);
+  wkKeep(s, "lot", st); delete s.lot[id]; LT.marks.delete(id); if (c) lotApply(c, null);
   api.toast(c ? `You've given up ${c.name}. ${capFirst(c.who)} has it cleared again.`
     + (r === 2 ? ` ${was} when you gave it up, the second time it has had to be dug out by hand: it is not offered to you for a week.`
       : r === 1 ? ` ${was} when you gave it up: dug out by hand, and that is remembered if you ask for it back this week.`
@@ -1623,7 +1635,7 @@ function lotDrop(id) {
 }
 function lotGone(list, slept) {                                                  // the owners who had their lots dug out: one line for all of them
   const s = S(), H = api.GS.hour, lost = [];
-  for (const c of list) { const st = s.lot[c.id]; if (st.hp) lotShovel(c); st.s = 0; st.h = 0; st.due = 0; st.miss++; lotUnmark(c.id, st); if (st.miss >= LOT.miss) { delete s.lot[c.id]; s.lotOff[c.id] = H + LOT.offH; lost.push(c.name); } lotApply(c, s.lot[c.id]); }
+  for (const c of list) { const st = s.lot[c.id]; if (st.hp) lotShovel(c); st.s = 0; st.h = 0; st.due = 0; st.miss++; lotUnmark(c.id, st); if (st.miss >= LOT.miss) { wkKeep(s, "lot", st); delete s.lot[c.id]; s.lotOff[c.id] = H + LOT.offH; lost.push(c.name); } lotApply(c, s.lot[c.id]); }
   const what = drvList(list.map(c => c.name)), one = list.length === 1;
   api.toast((slept ? `While you were away ${what} ${one ? "was" : "were"} dug out by hand.` : `Nobody came to plow ${what}: ${one ? "it was" : "they were"} dug out by hand.`) + " No pay."
     + (lost.length ? ` ${capFirst(drvList(lost))} ${lost.length === 1 ? "has" : "have"} gone to someone else.` : ` Once more and you lose ${one ? "it" : "them"}.`), lost.length ? "bad" : "warn");
@@ -1706,7 +1718,7 @@ function lotJob() {
     hud: d => ({ title, sub: `${U.fmtMi(d)} to ${near.name} · ${pay} · ${state}` }) };
 }
 function lotMonday(week) {
-  const s = S(); if (!s || !s.lot) return; let pay = 0, n = 0;
+  const s = S(); if (!s || !s.lot) return; let [pay, n] = wkTake(s, "lot");
   for (const k of Object.keys(s.lot)) { const st = s.lot[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
   if (!n) return;
   const d = week && week.label || "";
@@ -1792,7 +1804,7 @@ function winGone(list, slept) {                                                 
     winShovel(q); delete s.win[q.key]; s.winC++; s.winN++; if (!names.includes(q.name)) names.push(q.name);
     if (hit.has(q.hk) || !q.c) continue; hit.add(q.hk);                           // a walk and a drive mouth of one house: one grudge
     const c = q.c, st = s.drv[c.key];
-    if (st) { st.miss++; if (st.miss >= DRV.miss) { delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; s.drvSulk[c.key] = 1; DV.marks.delete(c.key); drvApply(c, null); lost.push(c.name); } }
+    if (st) { st.miss++; if (st.miss >= DRV.miss) { wkKeep(s, "drv", st); delete s.drv[c.key]; s.drvOff[c.key] = H + DRV.offH; s.drvSulk[c.key] = 1; DV.marks.delete(c.key); drvApply(c, null); lost.push(c.name); } }
     else { s.drvOff[c.key] = Math.max(s.drvOff[c.key] || 0, H + WIN.sulkH); s.drvSulk[c.key] = 1; }
   }
   api.toast(`${slept ? "While you were away " : ""}${drvList(names)} dug your plow's snow out of the way by hand.`
@@ -2019,7 +2031,7 @@ TLX.option({ id: "plowstreets", name: "Plow heaps in the street", hint: "A heap 
 
 TLX.register({
   id: "plow", v: 1,
-  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, pdr: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0 }),
+  state0: () => ({ blades: {}, shed: [], shedC: [], m: 0, opened: 0, grit: {}, gritKg: 0, con: {}, conBan: {}, conLast: [], conPaid: 0, conH: -1, conRec: {}, pdr: {}, drv: {}, drvOff: {}, drvH: -1, drvPaid: 0, drvN: 0, drvWk: 0, drvWkN: 0, drvSulk: {}, drvRec: {}, win: {}, winC: 0, winN: 0, winH: -1, str: {}, strC: 0, strN: 0, strH: -1, strBan: 0, lot: {}, lotOff: {}, lotRec: {}, lotH: -1, lotPaid: 0, lotN: 0, lotWk: 0, lotWkN: 0 }),
   migrate: st => st,
   init(a) {
     api = a; T = a.THREE; RTB.clear(); RC.clear();
