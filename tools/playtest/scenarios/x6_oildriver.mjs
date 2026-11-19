@@ -35,7 +35,8 @@ const goAway = () => ev(`(() => { if (INT.on) intGoOut(); crashCancel(); FOOT.on
 const notesOn = () => ev(`(() => { window.__n = []; if (!window.__no) { window.__no = TABLET.notify.bind(TABLET); TABLET.notify = n => { window.__n.push(n.title + " | " + n.body); return window.__no(n); }; } return true; })()`);
 const notes = () => J(`window.__n`);
 const warm = () => ev(`window.__warm = window.__warm || setInterval(() => { GS.warmth = 100; }, 300); true`);
-const calm = () => ev(`WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; true`);
+// (the haul's LOGIC is tested on a fast clock: 9 and 12 km a game hour, as 6.3b1 shipped. The real pace, a sled's, is x6_oilsled.mjs's)
+const calm = () => ev(`WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.lights.DRV.vOut = 9000; TLX.lights.DRV.vBack = 12000; true`);
 const drums = () => J(`({ claims: GS.claims.filter(j => j.oil && j.own === "lights").map(j => j.lamp), load: GS.load.filter(j => j.oil && j.own === "lights").map(j => j.lamp), jobs: jobsList().filter(e => /Paraffin drum/.test(e.title || "")).length })`);
 const setLamp = (id, o) => ev(`(() => { Object.assign(TLX.lights.rec("${id}"), ${JSON.stringify(o)}); TLX.state("lights").hT = GS.hour; return true; })()`);
 // run the clock until the driver is in state st (or `max` hours have gone): hours taken
@@ -91,8 +92,8 @@ d = await D(); dr = await drums(); fk = await Lr("finnkirka");
 ok(d.st === "out" && d.lamp === "finnkirka" && d.n === 1 && dr.claims.length === 0 && dr.jobs === 0 && fk.q === 1 && fk.atQuay === 0 && d.d > 1500, `C: half an hour to load and he is away with it: the pickup has left the quay and the Jobs app (run ${(d.d / 1000).toFixed(1)} km)`);
 await pass(0.1, 0.1);
 d = await D();
-const pinD = await J(`(() => { const p = TLX.lights.drvPins()[0], to = TLX.lights.small("finnkirka").drop; return p ? { name: p.name, a: Math.hypot(p.x - depot.x, p.z - depot.z), b: Math.hypot(p.x - to.x, p.z - to.z), ab: Math.hypot(to.x - depot.x, to.z - depot.z) } : null; })()`);
-ok(pinD && pinD.name === "MIKKEL · OIL RUN" && pinD.a > 300 && Math.abs(pinD.a + pinD.b - pinD.ab) < 2 && /on the way to Finnkirka with 1 drum, \d+\.\d km to go/.test(d.line), `C: a pin on the Map, ${Math.round(pinD && pinD.a)} m out along the run: "${d.line}"`);
+const pinD = await J(`(() => { const p = TLX.lights.drvPins()[0], to = TLX.lights.small("finnkirka").drop; const R = TLX.lights.route("finnkirka"); let off = 1e9; if (p && R) for (const q of R.pts) off = Math.min(off, Math.hypot(q[0] - p.x, q[1] - p.z)); return p ? { name: p.name, off, a: Math.hypot(p.x - depot.x, p.z - depot.z), b: Math.hypot(p.x - to.x, p.z - to.z), ab: Math.hypot(to.x - depot.x, to.z - depot.z) } : null; })()`);
+ok(pinD && pinD.name === "MIKKEL · OIL RUN" && pinD.a > 300 && pinD.off < 4 && pinD.a + pinD.b >= pinD.ab - 1 && /on the way to Finnkirka with 1 drum, \d+\.\d km to go/.test(d.line), `C: a pin on the Map, ${Math.round(pinD && pinD.a)} m out along the run: "${d.line}"`);
 txt = await app("lights");
 ok(/Oil run/.test(txt) && /OIL DRIVER/.test(txt) && /Mikkel Utsi: on the way to Finnkirka with 1 drum/.test(txt) && /Standing order on/.test(txt) && /1 drum paid for, 1 on Mikkel's sled/.test(txt), "C: the Lights app has the Oil run card, and Finnkirka's card says whose sled the drum is on");
 await shot("x6o_c_lights");

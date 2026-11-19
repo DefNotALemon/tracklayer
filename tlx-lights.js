@@ -38,6 +38,11 @@
 // keeps them at the quay or makes them late; with the standing order on they order the drums too. Block comment at
 // DRV. Saved as `drv` beside the lamps.
 //
+// Slice 6.3b2a: THE DRIVER SEEN IN THE WORLD. The run to each light is a real line over the ground (never the sea),
+// the trip is a place on it, and the driver's sled (a touring sled in their own colours, a freight sledge with the
+// drums, the driver in the saddle) rides it at a sled's own pace and stands parked by the quay between trips. Block
+// comment at RUN. Nothing more is saved.
+//
 // SAVED under x.sys.lights: { lamps: { id: { oil (L in the tank), store (L in full drums in the oil store), on,
 // lit / need (lamp hours burned / dark hours, this week), low, q (drums paid for and not yet at this light: at the
 // quay or aboard), kT (game hours since the keeper's last round), kDid (what that round did) } }, hT (game hour last stepped), last: [weekly statements] } (`quay`, 6.2a's one count for
@@ -159,7 +164,9 @@ function step() {
    by default; the Staff card and the Oil run card switch it): at the quay they order drums on your account for a
    light under DRV.orderH lamp hours of oil in tank + store + on the way. They do not pump or light: the keeper does,
    or you. What they carry is saved (s.drv), so a reload mid-trip carries on; your own drums aboard are still yours. */
-const DRV = { place: "oil:quay", wage: [70, 5], cap: 2, load: 0.5, vOut: 9000, vBack: 12000, trail: 1.3,
+const DRV = { place: "oil:quay", wage: [70, 5], cap: 2, load: 0.5,
+  vOut: 720, vBack: 900,  // m a GAME hour at work 1.0 (a game hour is 50 s of riding: 52 km/h loaded, 65 empty), so the sled you meet is the haul
+  trail: 1.3,             // with no run by land (6.3b2a's route): the straight line x this
   wx: [0.45, 0.03, 10],   // the weather (WX.at, 0-1) they will not ride in: base + per REAL year, years counted to
   slow: 0.6,              // the share of their speed lost at that limit (linear under it)
   orderH: 60,             // standing order: a light under this many lamp hours (tank + store + drums on the way) gets drums ordered
@@ -189,7 +196,8 @@ function atQuay(lp) { const r = rec(lp.id); return Math.max(0, r.q - api.GS.load
 function drvHas(lp) { return driverOf() && driverWork() > 0 ? atQuay(lp) + drvAboard(lp) : 0; }
 function drvPos(q) {
   const W = api.world, lp = lampOf(q.lamp), to = lp && lp.site(W); if (!to || q.st === "quay") return { x: W.depot.x, z: W.depot.z };
-  const k = clamp(q.d > 0 ? q.p / q.d : 1, 0, 1), f = q.st === "out" ? k : 1 - k;
+  const k = clamp(q.d > 0 ? q.p / q.d : 1, 0, 1), f = q.st === "out" ? k : 1 - k, R = route(lp);
+  if (R) { const a = posAt(R, f * R.len); return { x: a.x, z: a.z }; }    // on the run (6.3b2a); no way by land: the straight line
   return { x: W.depot.x + (to.x - W.depot.x) * f, z: W.depot.z + (to.z - W.depot.z) * f };
 }
 const dNote = (title, body, kind) => { try { api.TABLET.notify({ app: "lights", kind: kind || "info", ttl: 8, title, body }); } catch (e) { } };
@@ -218,7 +226,8 @@ function drvTake(q, lp) {
   const W = api.world, to = lp.site(W), G = api.GS, n = Math.min(DRV.cap, atQuay(lp)); if (!to || n < 1) return false;
   let k = n; for (let i = G.claims.length - 1; i >= 0 && k > 0; i--) if (itsDrum(lp)(G.claims[i])) { G.claims.splice(i, 1); k--; }   // off the quay: no longer a pickup of yours
   q.st = "out"; q.lamp = lp.id; q.n = n; q.p = 0; q.w = 0; q.t = 0; q.held = false;
-  q.d = Math.max(200, Math.hypot(to.x - W.depot.x, to.z - W.depot.z) * DRV.trail);
+  const R = route(lp);
+  q.d = R ? R.len : Math.max(200, Math.hypot(to.x - W.depot.x, to.z - W.depot.z) * DRV.trail);   // the run's own length (6.3b2a)
   try { api.TABLET.refresh("lights"); } catch (e) { }
   return true;
 }
@@ -258,6 +267,7 @@ function drvStep(t, dt) {
 // where the driver is and what they are doing, in a line (the Oil run card, the Staff card)
 function drvLine(q, m) {
   if (!(driverWork() > 0)) return "not working: wages are owed";
+  if (q.who !== m.id) return "at the quay, starting on the run";            /* hired this second: the last driver's trip is not theirs (beta 0330 #5) */
   const lp = lampOf(q.lamp), km = v => (Math.max(0, v) / 1000).toFixed(1);
   if (q.st === "out") return q.held ? `sitting out the weather ${km(q.p)} km out, ${plural(q.n, "drum")} for ${lp.at} aboard` : `on the way to ${lp.at} with ${plural(q.n, "drum")}, ${km(q.d - q.p)} km to go`;
   if (q.st === "back") return q.held ? `sitting out the weather on the way back from ${lp.at}` : `on the way back from ${lp.at}, ${km(q.d - q.p)} km to go`;
@@ -267,8 +277,218 @@ function drvLine(q, m) {
 }
 function drvToggle() { const q = drvRec(); q.so = !q.so; q.told = ""; api.ui.ping("note"); api.toast(q.so ? `Standing order on: ${dFirst()} orders drums on your account when a light runs down.` : "Standing order off: drums are ordered only when you order them.", "info"); api.save(); try { api.TABLET.refresh(); } catch (e) { } return q.so; }
 function drvPins() {
-  const m = driverOf(), q = m && S().drv; if (!q || typeof q !== "object" || q.st === "quay" || !lampOf(q.lamp)) return [];
+  const m = driverOf(), q = m && S().drv; if (!q || typeof q !== "object" || q.st === "quay" || q.who !== m.id || !lampOf(q.lamp)) return [];
   const p = drvPos(q); return [{ x: p.x, z: p.z, name: `${dFirst().toUpperCase()} · OIL RUN`, glyph: "O", col: "#e8c36a" }];
+}
+/* ---------------- 6.3b2a: the oil driver seen in the world ----------------
+   THE RUN is a real line over the ground, one per light (route(): an A* over RUN.cell squares from the quay to the
+   light that never crosses the sea, pays for grade, lake ice, trees and anything standing, then is rounded, stepped
+   out every RUN.step m and pushed sideways off whatever it still touches). The trip's progress q.p / q.d is a place
+   on it, so the Map pin and the sled are where the haul really is, and DRV.vOut / vBack are a sled's honest pace
+   (one game hour is 50 s of riding: 720 m a game hour is 52 km/h).
+   THE SLED (dsTick, every frame; nothing saved) is a copy of a touring sled in the driver's own colour with a
+   freight sledge on a drawbar, the drums that are aboard standing on it, and the driver in the saddle while out.
+   It follows the snow (height, pitch and roll from the surface under it), leaves a pressed track near you, shows a
+   headlamp in the dark, and stands parked beside the quay between trips (solid there; a storm or owed wages stop it
+   where it is). Built only once it comes within RUN.show m of you. */
+const RUN = { cell: 32, step: 6, stop: 12, show: 900, press: 260, sled: "trekker", paint: { body: 0x6b1a12, panel: 0x1c1c1c, trim: 0xe8e2d0, seat: 0x23201d } };
+const routes = {};
+let quayAt = null;
+const segD = (x, z, s) => { const dx = s[2] - s[0], dz = s[3] - s[1], l = dx * dx + dz * dz || 1, t = clamp(((x - s[0]) * dx + (z - s[1]) * dz) / l, 0, 1); return Math.hypot(x - s[0] - dx * t, z - s[1] - dz * t); };
+// where the driver's sled stands between trips: flat, clear ground beside the quay, off the streets
+function quaySpot() {
+  if (quayAt) return quayAt;
+  const W = api.world, d = W.depot, st = W.streets || []; let best = null, bs = 1e9;
+  for (let k = 0; k < 48; k++) for (const r of [12, 15, 18, 22]) {
+    const a = k * Math.PI / 24, x = d.x + Math.cos(a) * r, z = d.z + Math.sin(a) * r;
+    if (W.isSea(x, z) || W.isWater(x, z) || W.obNear(x, z, 3.4)) continue;
+    let sea = 0; for (let j = 0; j < 8; j++) if (W.isSea(x + Math.cos(j * Math.PI / 4) * 9, z + Math.sin(j * Math.PI / 4) * 9)) sea++;
+    let road = 0; for (const s of st) if (segD(x, z, s) < 6) road = 4;
+    const sc = W.slopeAt(x, z, 3) * 12 + sea * 2 + road + r * 0.03; if (sc < bs) { bs = sc; best = { x, z }; }
+  }
+  best = best || { x: d.x + 12, z: d.z };
+  best.yaw = Math.atan2(best.x - d.x, best.z - d.z) + Math.PI / 2;       // side on to the quay
+  return quayAt = best;
+}
+function mkRoute(W, a, b) {
+  const C = RUN.cell, n = Math.floor(2 * W.half / C), ix = v => clamp(Math.floor((v + W.half) / C), 0, n - 1), cx = i => (i + 0.5) * C - W.half;
+  const gi = ix(b.x), gj = ix(b.z), S0 = ix(a.z) * n + ix(a.x), G0 = gj * n + gi, NO = 1e9;
+  const cost = new Float32Array(n * n).fill(-1);
+  const cc = k => {
+    let c = cost[k]; if (c >= 0) return c;
+    const x = cx(k % n), z = cx((k / n) | 0);
+    if (k === S0 || k === G0) c = 1;
+    else if (W.isSea(x, z) || W.isSea(x + 13, z) || W.isSea(x - 13, z) || W.isSea(x, z + 13) || W.isSea(x, z - 13)) c = NO;
+    else { const sl = W.slopeAt(x, z, 12); c = sl > 0.5 ? NO : 1 + (sl / 0.2) * (sl / 0.2) + (W.isWater(x, z) ? 6 : 0) + (W.bioAt(x, z) !== 0 ? 0.8 : 0) + (W.obNear(x, z, 10) ? 1.5 : 0); }
+    return cost[k] = c;
+  };
+  const g = new Float32Array(n * n).fill(Infinity), from = new Int32Array(n * n).fill(-1), shut = new Uint8Array(n * n), hk = [], hf = [];
+  const push = (k, f) => { let i = hk.length; hk.push(k); hf.push(f); while (i > 0) { const p = (i - 1) >> 1; if (hf[p] <= f) break; hk[i] = hk[p]; hf[i] = hf[p]; i = p; } hk[i] = k; hf[i] = f; };
+  const pop = () => { const k0 = hk[0], k = hk.pop(), f = hf.pop(), m = hk.length; if (m) { let i = 0; for (;;) { let c = 2 * i + 1; if (c >= m) break; if (c + 1 < m && hf[c + 1] < hf[c]) c++; if (hf[c] >= f) break; hk[i] = hk[c]; hf[i] = hf[c]; i = c; } hk[i] = k; hf[i] = f; } return k0; };
+  const hh = k => Math.hypot((k % n) - gi, ((k / n) | 0) - gj) * C;
+  g[S0] = 0; push(S0, hh(S0)); let found = false, guard = 0;
+  while (hk.length && guard++ < 600000) {
+    const k = pop(); if (shut[k]) continue; shut[k] = 1; if (k === G0) { found = true; break; }
+    const i = k % n, j = (k / n) | 0, ck = cc(k);
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue; const i2 = i + di, j2 = j + dj; if (i2 < 0 || j2 < 0 || i2 >= n || j2 >= n) continue;
+      const k2 = j2 * n + i2; if (shut[k2]) continue; const c2 = cc(k2); if (c2 >= NO) continue;
+      if (di && dj && (cc(j * n + i2) >= NO || cc(j2 * n + i) >= NO)) continue;                 // never cut a corner of the sea
+      const ng = g[k] + C * (di && dj ? 1.4142 : 1) * (ck + c2) / 2; if (ng < g[k2]) { g[k2] = ng; from[k2] = k; push(k2, ng + hh(k2)); }
+    }
+  }
+  if (!found) return null;
+  let P = []; for (let k = G0; k >= 0; k = from[k]) P.push([cx(k % n), cx((k / n) | 0)]);
+  P.reverse(); P[0] = [a.x, a.z]; P[P.length - 1] = [b.x, b.z];
+  for (let it = 0; it < 2; it++) { const Q = [P[0]]; for (let i = 0; i < P.length - 1; i++) { const p = P[i], q = P[i + 1]; Q.push([p[0] * 0.75 + q[0] * 0.25, p[1] * 0.75 + q[1] * 0.25], [p[0] * 0.25 + q[0] * 0.75, p[1] * 0.25 + q[1] * 0.75]); } Q.push(P[P.length - 1]); P = Q; }
+  // step it out evenly, and stop short of the light's own door
+  let tot = 0; for (let i = 1; i < P.length; i++) tot += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+  const end = Math.max(RUN.step * 4, tot - RUN.stop), R = [P[0]]; let acc = 0, next = RUN.step;
+  for (let i = 1; i < P.length && next <= end; i++) {
+    const p = P[i - 1], q = P[i], l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    while (l > 0 && acc + l >= next && next <= end) { const t = (next - acc) / l; R.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); next += RUN.step; }
+    acc += l;
+  }
+  // off anything it still touches: a sideways bump, eased over the points either side
+  const bad = (x, z) => W.isSea(x, z) || W.obNear(x, z, 2.4); let left = 0;
+  for (let pass = 0; pass < 4; pass++) {
+    left = 0;
+    for (let i = 2; i < R.length; i++) {
+      const p = R[i]; if (!bad(p[0], p[1])) continue;
+      const q0 = R[i - 1], q1 = R[Math.min(R.length - 1, i + 1)], tx = q1[0] - q0[0], tz = q1[1] - q0[1], tl = Math.hypot(tx, tz) || 1, nx = tz / tl, nz = -tx / tl; let off = 0;
+      for (const d of [3, -3, 6, -6, 9, -9, 13, -13, 18, -18, 24, -24]) if (!bad(p[0] + nx * d, p[1] + nz * d)) { off = d; break; }
+      if (!off) { left++; continue; }
+      for (let j = Math.max(2, i - 5); j <= Math.min(R.length - 1, i + 5); j++) { const w = Math.cos((j - i) / 6 * Math.PI / 2); R[j] = [R[j][0] + nx * off * w * w, R[j][1] + nz * off * w * w]; }
+    }
+    let n2 = 0; for (let i = 2; i < R.length; i++) if (bad(R[i][0], R[i][1])) n2++;
+    left = n2; if (!n2) break;
+  }
+  // ease the kinks the bumps left, wherever the eased point is still clear
+  for (let it = 0; it < 8; it++) for (let i = 2; i < R.length - 1; i++) { const x = (R[i - 1][0] + R[i + 1][0]) * 0.25 + R[i][0] * 0.5, z = (R[i - 1][1] + R[i + 1][1]) * 0.25 + R[i][1] * 0.5; if (!bad(x, z)) R[i] = [x, z]; }
+  left = 0; for (let i = 2; i < R.length; i++) if (bad(R[i][0], R[i][1])) left++;
+  const cum = [0]; for (let i = 1; i < R.length; i++) cum.push(cum[i - 1] + Math.hypot(R[i][0] - R[i - 1][0], R[i][1] - R[i - 1][1]));
+  return { pts: R, cum, len: cum[cum.length - 1], bad: left };
+}
+// the run out to this light (null: no way by land, and the driver's place is the straight line as before)
+function route(lp) {
+  if (!lp || !api) return null;
+  if (routes[lp.id] !== undefined) return routes[lp.id];
+  const W = api.world, to = lp.site(W); if (!to) return null;
+  let r = null; try { r = mkRoute(W, quaySpot(), to); } catch (e) { r = null; }
+  return routes[lp.id] = r && r.len > 60 ? r : null;
+}
+// the point s metres along a run, and the way it heads there
+function posAt(R, s) {
+  const c = R.cum, n = c.length; s = clamp(s, 0, R.len);
+  let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (c[m] <= s) lo = m; else hi = m; }
+  const p = R.pts[lo], q = R.pts[hi], l = c[hi] - c[lo] || 1, t = (s - c[lo]) / l, tx = (q[0] - p[0]) / l, tz = (q[1] - p[1]) / l;
+  return { x: p[0] + (q[0] - p[0]) * t, z: p[1] + (q[1] - p[1]) * t, tx, tz };
+}
+const DS = { g: null, sg: null, s: 0, v: 0, tp: -1, tt: 0, key: "", obs: null, y: null, pS: -1e9, shown: false, moving: false, n: 0 };
+function dsOb(p) {
+  const W = api.world;
+  if (DS.obs && (!p || Math.hypot(DS.obs[0].x - p.x, DS.obs[0].z - p.z) > 0.5)) { for (const o of DS.obs) W.dropOb(o); DS.obs = null; }
+  if (p && !DS.obs) { DS.obs = [{ x: p.x, z: p.z, r: 1.0, top: 1e9 }, { x: p.x - p.tx * 3.6, z: p.z - p.tz * 3.6, r: 0.8, top: 1e9 }]; for (const o of DS.obs) W.addOb(o); }
+}
+function dsBuild() {
+  const T = api.THREE, box = api.mesh.box, cyl = api.mesh.cyl, std = api.mesh.std;
+  const g = new T.Group(); g.rotation.order = "YXZ"; api.scene.add(g);
+  const C = api.sledCopy(RUN.sled, RUN.paint); g.add(C.g);
+  const dark = std(0x1b1d20, 0.6, 0.3), steel = std(0x8d9299, 0.45, 0.6), rubber = std(0x101112, 0.95, 0), wood = std(0x7b6548, 0.95, 0), drumM = std(0x3c6152, 0.85, 0.1), strap = std(0xc9a233, 0.9, 0);
+  // the bars and their column (your own sled's are one set, shared by every machine you own)
+  cyl(0.022, 0.026, 0.5, dark, 0, C.barY - 0.22, C.barZ + 0.075, -0.33, 0, 0, g, 8);
+  cyl(0.015, 0.015, 0.74, dark, 0, C.barY, C.barZ, 0, 0, Math.PI / 2, g, 8);
+  for (const sx of [-1, 1]) { cyl(0.021, 0.021, 0.13, rubber, sx * 0.325, C.barY, C.barZ, 0, 0, Math.PI / 2, g, 8); box(0.14, 0.12, 0.02, dark, sx * 0.33, C.barY + 0.02, C.barZ + 0.09, -0.3, 0, 0, g); }
+  // headlamp: a glow at the nose in the dark
+  const lamp = new T.Mesh(new T.SphereGeometry(0.06, 8, 6), new T.MeshBasicMaterial({ color: 0xfff2c8 })); lamp.position.set(0, 0.86, 1.2); g.add(lamp);
+  const glow = new T.Sprite(new T.SpriteMaterial({ map: halo(), color: 0xfff1c0, transparent: true, depthWrite: false, blending: T.AdditiveBlending })); glow.position.set(0, 0.86, 1.3); glow.scale.set(2.2, 2.2, 1); g.add(glow);
+  // the driver, in the saddle: thighs along the seat, shins down to the boards, a lean into the bars, hands on the grips
+  const r = api.newWalker({ jacket: std(0x2d4a63, 0.85, 0), pants: std(0x202328, 0.9, 0), trim: std(0xd8b23a, 0.7, 0) }), U = r.userData, hz = -0.24, lean = 0.5;
+  r.position.set(0, C.seatAt(hz) + 0.1 - 0.93, hz); g.add(r);
+  U.legs[0].rotation.set(-1.27, 0, -0.16); U.legs[1].rotation.set(-1.27, 0, 0.16); for (const s of U.shins) s.rotation.set(1.22, 0, 0); for (const a of U.ank) a.rotation.set(0.05, 0, 0);
+  U.torso.rotation.x = lean; U.head.rotation.x = -0.36;
+  for (let i = 0; i < 2; i++) {
+    const sx = i ? 1 : -1, a = U.arms[i], f = U.fore[i];
+    // the grip in the torso's own frame (the torso turns about its pivot, 0.93 up the figure)
+    const wy = C.barY + 0.03 - r.position.y - 0.93, wz = C.barZ - 0.02 - hz, ly = wy * Math.cos(lean) + wz * Math.sin(lean), lz = -wy * Math.sin(lean) + wz * Math.cos(lean);
+    const dx = sx * 0.325 - sx * 0.25, dy = ly - 0.53, dz = lz, L = Math.min(0.485, Math.hypot(dx, dy, dz)), l1 = 0.25, l2 = 0.24;
+    const p = Math.atan2(Math.hypot(dx, dz), -dy), al = Math.acos(clamp((l1 * l1 + L * L - l2 * l2) / (2 * l1 * L), -1, 1)), ga = Math.acos(clamp((l1 * l1 + l2 * l2 - L * L) / (2 * l1 * l2), -1, 1));
+    a.rotation.set(-(p - al), Math.atan2(dx, dz), 0); f.rotation.set(-(Math.PI - ga), 0, 0);
+  }
+  // the freight sledge: two steel runners, a plank deck, a V drawbar to the sled's hitch
+  const sg = new T.Group(); sg.rotation.order = "YXZ"; api.scene.add(sg);
+  box(0.8, 0.05, 1.75, wood, 0, 0.27, 0, 0, 0, 0, sg);
+  for (const sx of [-1, 1]) {
+    box(0.06, 0.035, 1.9, steel, sx * 0.34, 0.02, 0, 0, 0, 0, sg); box(0.06, 0.035, 0.34, steel, sx * 0.34, 0.09, 1.09, -0.45, 0, 0, sg);
+    for (const z of [-0.7, 0, 0.7]) box(0.04, 0.22, 0.04, steel, sx * 0.34, 0.14, z, 0, 0, 0, sg);
+    box(0.04, 0.04, 1.75, wood, sx * 0.38, 0.33, 0, 0, 0, 0, sg);
+  }
+  const bar = (x0, y0, z0, x1, y1, z1) => { const m = cyl(0.018, 0.018, Math.hypot(x1 - x0, y1 - y0, z1 - z0), steel, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, 0, 0, 0, sg, 6); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize()); };
+  const hitch = -C.zBack + 0.22, gap = 2.15;                               // sled origin -> its hitch; hitch -> the sledge's middle
+  bar(-0.3, 0.2, 0.9, 0, 0.42, gap); bar(0.3, 0.2, 0.9, 0, 0.42, gap);
+  const drums = [];
+  for (const z of [0.4, -0.4]) {
+    const d = new T.Group(); d.position.set(0, 0.295, z); sg.add(d);
+    cyl(0.2, 0.2, 0.62, drumM, 0, 0.31, 0, 0, 0, 0, d, 14); for (const y of [0.2, 0.42]) cyl(0.207, 0.207, 0.025, steel, 0, y, 0, 0, 0, 0, d, 14);
+    cyl(0.03, 0.03, 0.03, steel, 0.1, 0.635, 0, 0, 0, 0, d, 6); box(0.84, 0.012, 0.05, strap, 0, 0.63, 0, 0, 0, 0, d); for (const sx of [-1, 1]) box(0.012, 0.36, 0.05, strap, sx * 0.3, 0.46, 0, 0, 0, sx * 0.3, d);
+    drums.push(d);
+  }
+  Object.assign(DS, { g, sg, rider: r, lamp, glow, drums, back: hitch + gap, C });
+}
+function dsHide() { if (DS.g) { DS.g.visible = false; DS.sg.visible = false; } DS.shown = false; DS.moving = false; }
+function dsTick(dt) {
+  const m = driverOf(), s = S(), q = m && s.drv && typeof s.drv === "object" && s.drv.who === m.id ? s.drv : null;
+  if (!q || !mine().length || api.tutHidden()) { dsHide(); dsOb(null); DS.key = ""; return; }
+  const W = api.world, lp = lampOf(q.lamp), R = q.st !== "quay" && lp ? route(lp) : null, now = api.now();
+  let a, dir = 1, along = 0;
+  if (q.st === "quay") { const u = quaySpot(); a = { x: u.x, z: u.z, tx: Math.sin(u.yaw), tz: Math.cos(u.yaw) }; DS.key = "quay"; DS.v = 0; DS.moving = false; dsOb(a); }
+  else {
+    dsOb(null);
+    if (!R) { dsHide(); return; }
+    // q.p moves once a second, in steps: carry on at the pace of the last step until the next one comes
+    const key = q.st + q.lamp;
+    if (DS.key !== key) { DS.key = key; DS.s = q.p; DS.v = 0; DS.tp = q.p; DS.tt = now; }
+    if (q.p !== DS.tp) { const e = now - DS.tt; DS.v = q.p > DS.tp && e > 0.2 && e < 3 ? (q.p - DS.tp) / e : 0; DS.tp = q.p; DS.tt = now; }
+    const el = now - DS.tt; if (el > 1.6) DS.v = 0;
+    const ideal = DS.tp + DS.v * Math.min(el, 1.15);
+    if (Math.abs(ideal - DS.s) > 70) DS.s = ideal; else DS.s = Math.max(DS.s, DS.s + (ideal - DS.s) * Math.min(1, dt * 5));
+    DS.moving = DS.v > 0.5;
+    const f = clamp(q.d > 0 ? DS.s / q.d : 1, 0, 1);
+    dir = q.st === "out" ? 1 : -1; along = (dir > 0 ? f : 1 - f) * R.len;
+    a = posAt(R, along); a.tx *= dir; a.tz *= dir;
+  }
+  DS.at = a;
+  const F = api.FOOT, pl = F.on ? F : api.P;
+  if (Math.hypot(pl.x - a.x, pl.z - a.z) > RUN.show) { dsHide(); return; }
+  if (!DS.g) dsBuild();
+  const g = DS.g, sg = DS.sg, k = DS.shown ? Math.min(1, dt * 9) : 1;
+  // the sledge trails on the run behind the sled (parked: straight behind it)
+  let b; if (R) { const sb = along - dir * DS.back; b = sb >= 0 && sb <= R.len ? posAt(R, sb) : null; }
+  if (!b) b = { x: a.x - a.tx * DS.back, z: a.z - a.tz * DS.back };
+  const yaw = Math.atan2(a.tx, a.tz), wrap = v => Math.atan2(Math.sin(v), Math.cos(v));
+  const lx = Math.cos(yaw), lz = -Math.sin(yaw);                          // the sled's left
+  // the sled bridges the snow from ski to track: its height is the mean under nose, middle and tail
+  const sF = W.surf(a.x + a.tx * 1.0, a.z + a.tz * 1.0), sB = W.surf(a.x - a.tx * 1.2, a.z - a.tz * 1.2);
+  const sink = 0.05, ya = (sF + sB + W.surf(a.x, a.z)) / 3 - sink, yb = (W.surf(b.x + a.tx * 0.7, b.z + a.tz * 0.7) + W.surf(b.x - a.tx * 0.7, b.z - a.tz * 0.7)) / 2 - sink * 0.6;
+  const pitch = Math.atan2(sF - sB, 2.2), roll = Math.atan2(W.surf(a.x + lx * 0.5, a.z + lz * 0.5) - W.surf(a.x - lx * 0.5, a.z - lz * 0.5), 1.0);
+  g.position.set(a.x, ya, a.z);
+  g.rotation.y = DS.shown ? g.rotation.y + wrap(yaw - g.rotation.y) * Math.min(1, dt * 6) : yaw;
+  g.rotation.x += (clamp(-pitch, -0.6, 0.6) - g.rotation.x) * k * 0.6; g.rotation.z += (clamp(roll, -0.45, 0.45) - g.rotation.z) * k * 0.6;
+  // the sledge looks at the hitch
+  const hx = a.x - Math.sin(g.rotation.y) * (DS.back - 2.15), hz = a.z - Math.cos(g.rotation.y) * (DS.back - 2.15), syaw = Math.atan2(hx - b.x, hz - b.z);
+  sg.position.set(hx - Math.sin(syaw) * 2.15, yb, hz - Math.cos(syaw) * 2.15);
+  sg.rotation.y = syaw; sg.rotation.x += (clamp(-Math.atan2(ya + 0.1 - yb, DS.back), -0.6, 0.6) - sg.rotation.x) * k * 0.6;
+  g.visible = sg.visible = true; DS.shown = true;
+  const out = q.st !== "quay", night = 1 - api.dayFactor();
+  DS.rider.visible = out; DS.lamp.visible = out; DS.glow.visible = out && night > 0.05; if (DS.glow.visible) DS.glow.material.opacity = 0.3 + 0.7 * night;
+  if (out) DS.rider.userData.torso.rotation.x = 0.5 + (DS.moving ? Math.sin(now * 6.3) * 0.012 + clamp(-pitch, -0.3, 0.3) * 0.25 : 0.06);
+  let n = 0; if (q.st === "out") n = q.n; else if (q.st === "quay" && q.w > 0 && !q.held) { const nx = drvPick(); n = nx ? Math.min(DRV.cap, atQuay(nx)) : 0; }
+  DS.n = n; for (let i = 0; i < DS.drums.length; i++) DS.drums[i].visible = i < n;
+  // a pressed track where you can see it
+  if (DS.moving && Math.abs(DS.s - DS.pS) >= 0.5 && Math.hypot(pl.x - a.x, pl.z - a.z) < RUN.press) {
+    DS.pS = DS.s;
+    try { for (const sx of [-1, 1]) W.pressSnow(a.x - a.tx * 1.9 + lx * sx * 0.3, a.z - a.tz * 1.9 + lz * sx * 0.3, 0.3, 0.78); W.pressSnow(b.x - a.tx * 1.2, b.z - a.tz * 1.2, 0.42, 0.7); W.markTrail(a.x, a.z, true); } catch (e) { }
+  }
 }
 // ---- 6.3a keepers: rounds ----
 const kPlace = lp => "lt:" + lp.id;
@@ -663,6 +883,7 @@ TLX.register({
     stepT += dt; if (stepT >= 1) { stepT = 0; if (!api.tutHidden()) { step(); sync(); dropTick(); } }
     if (PUMP.on) { pumpTick(dt); if (PUMP.on) posePump(); }
     flashTick();
+    dsTick(dt);
   }
 });
 TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); return !!lp && owns(lp); }, mine, step, sync, monday, order, land, light: id => { const lp = lampOf(id); return !!lp && light(lp); },
@@ -672,5 +893,7 @@ TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); ret
   KEEP, keeper: id => { const lp = lampOf(id); return lp ? keeperOf(lp) : null; }, keeperWork: id => { const lp = lampOf(id); return lp ? keeperWork(lp) : 0; }, roundH, round: id => keeperRound(lampOf(id), rec(id)),
   // 6.3b1: the oil driver
   DRV, driver: driverOf, driverWork, drv: () => drvRec(), drvPos: () => drvPos(drvRec()), drvLine: () => { const m = driverOf(); return m ? drvLine(drvRec(), m) : ""; }, drvLimit, drvToggle, drvPins, atQuay: id => atQuay(lampOf(id)), drvAboard: id => drvAboard(lampOf(id)),
+  // 6.3b2a: the run over the ground and the sled on it
+  RUN, route: id => route(lampOf(id)), posAt, quaySpot, sled: () => DS,
   SMALL, num: (id, k) => N(lampOf(id), k), flashOn, dropTick, small: id => { const lp = lampOf(id); return lp && lp.small || null; } };
 })();

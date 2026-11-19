@@ -223,7 +223,12 @@ lamp's keeper and how often they go round; you can still pump and light by hand.
 Once you own a light there is also one **oil driver's** job, on the oil run from the quay (Staff app; they interview
 in their own trade: ask about a whiteout on the fell; $70 a week and up, own sled). The driver takes the drums that
 are paid for and waiting at the quay, two a trip, out to whichever of your lights is lowest on oil, rolls them into
-its store and rides back: about half an hour to load and 9 km an hour loaded. A drum the driver has loaded leaves
+its store and rides back: about half an hour to load, then a sled's honest pace (about 52 km/h loaded, 65 empty:
+some four game hours out to Finnkirka, seven and a half to Slettnes). You can meet them: the run to each light is a
+real line over the fells that never touches the sea, and the driver's sled (a dark red tourer with a freight sledge
+on a drawbar, the drums standing on it, the driver in the saddle, a headlamp in the dark) rides it, leaves a track,
+stops where it is when a storm sits them down, and stands parked beside the quay between trips. The Map pin is that
+sled. A drum the driver has loaded leaves
 your Jobs app; a drum already on your own sled stays yours. **Weather** matters: every driver has a limit that
 grows with their real experience. Over it they wait at the quay, or sit it out where they are on the trail, and the
 landing note says how many hours late they were; under it they ride slower. With the **standing order** on (it is by

@@ -17683,6 +17683,23 @@ function crashVisual(dt) {
    are switches on the Settings options page (optBuild), saved with the game, on by default.
    The api's `world` is everything tied to the place: a system reads the ground, snow, sea, sites and latitude
    from it and never from a Nordkinn constant, so it runs unchanged in the regions that come later. */
+/* A second sled of a kind for somebody who isn't you: the machine's meshes again (same geometry, same materials, so it
+   wears the night and the weather as yours does), in its own livery `L` { body, panel, trim, seat }. Your own sled's wear
+   and stickers stay yours. */
+function sledCopy(id, L) {
+  const src = V.machineOf(id), ud = src.userData, own = new Map();
+  for (const [m, c] of [[bodyMat, L.body], [panelMat, L.panel], [sledTrimMat, L.trim], [V.seatMat, L.seat]]) if (m && c !== undefined) { const k = m.clone(); k.color.set(c); own.set(m, k); }
+  const cp = o => {
+    if (o.userData && o.userData.wearDecal) return null;
+    const m0 = o.isMesh ? (o.userData.wear0 || o.material) : null;
+    const n = o.isMesh ? new THREE.Mesh(o.userData.geo0 || o.geometry, own.get(m0) || m0) : new THREE.Group();
+    n.position.copy(o.position); n.quaternion.copy(o.quaternion); n.scale.copy(o.scale); n.visible = o.visible; n.castShadow = o.castShadow; n.receiveShadow = o.receiveShadow; n.renderOrder = o.renderOrder;
+    for (const c of o.children) { const k = cp(c); if (k) n.add(k); }
+    return n;
+  };
+  const g = cp(src); g.visible = true; g.position.set(0, 0, 0);
+  return { g, hip: { y: ud.hip.y, z: ud.hip.z }, zBack: ud.zBack, boardX: ud.boardX, barY: ud.barY, barZ: ud.barZ, seatAt: z => (ud.seatTopAt ? ud.seatTopAt(clamp(z, ud.zBack, 0.05)) : ud.seatTop) };
+}
 function initExpansion() {
   TLX.boot({
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
@@ -17713,7 +17730,9 @@ function initExpansion() {
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,
-    newWalker: () => makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }),
+    newWalker: m => makeWalker(Object.assign({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }, m || {})),
+    // someone else's sled (6.3b2a: the oil driver's): a copy of a machine's model in its own panel colour, and the numbers to seat a rider on it
+    sledCopy,
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
     // the plow blade's throw (4.1b1): is the use control still held (E, a pad's L3, the touch pill)? A system that gives a hold a second meaning asks this after use()
     useHeld: () => keys.has("KeyE") || padHorn || $("tcE").classList.contains("on"),
