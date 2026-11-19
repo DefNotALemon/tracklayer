@@ -3,6 +3,56 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 17:05 — 6.3b2b: the oil driver on foot (tlx-lights v6, lane B) (G4) — 9533206
+Builder pass, lane B. Orient: worktree clean, rebased on main (v257), 123 GB free. Reports 0327-0329 and 0331-0333,
+0335 are other lanes'; 0330 was closed last pass; 0334 (6.3b2a beta) has no BLOCKER or BUG. Its POLISH #2 (the
+builder's storm assert F read the sled's coast-down on a loaded machine: 0.54 m once) is fixed in the test (it waits
+4.2 s, not 2.6); #6 (a clock skip pops the sled along the run) is as designed and left. Last triaged left to lane A.
+Next unticked slice: 6.3b2b. Its design was one line; written into EXPANSION.md, then built.
+What landed: tlx-lights.js (`UN`, `walkWay`, `unPlan`, `unAt`, `figPut`, `figCarry`, `hail` / `hailUse`, the stop in
+`drvStep`, the figure in `dsTick`, the Staff place), tracklayer.js one bridge (`walkAs` + its api field), README.
+Decisions: (1) NO SECOND GAIT. The driver walks with the walker's own code: `api.walkAs` lends FOOT the figure's
+state for one `poseWalker` call and hands it back, with the pace and phase taken from the ground the figure really
+covered. So they wade in the 45-50 cm of loose snow at the lights and walk, boots planted, on the path their first
+trip trod. (2) the stop is REAL TIME IN THE TRIP (`q.st "unload"`), not decoration: 1.4-1.9 game hours for two
+drums, drums in the store at its end. Checked that 6.3b2a's promise still holds with it: three kept lights, one
+driver at work 1.0, ten December days, never dark, 14 trips (x6_oilsled J). (3) a drum goes on the SHOULDER. The
+figure's arms are 49 cm and a 60 L drum stands 62 cm: rolling it or walking it on its rim puts the hands 30 cm below
+where they reach, so a carry is the pose that is honest with this body. (4) weather does not stop the carry (they
+are at the door). (5) the oil run's Staff place moved from the depot to wherever the driver is stopped; riding it
+has none. (6) getting off and on is a cut (seated figure hidden, standing one shown 0.85 m beside): a proper swing
+is its own slice, 6.3b2c, written into EXPANSION.md.
+Numbers (`x6_oilfoot.mjs`, A-J, 0 FAILs): the way to the door 16.3 m at Slettnes (14.4 in a line: it goes round the
+station), 24.5 m Finnkirka, 23.5 m Kinnarodden, 0 points within 0.45 m of anything standing; 30 / 43 / 42 s a drum.
+Finnkirka watched in real time, 2,130 frames: seat > toS > lift > carry > in > back > lift > carry > in > back > toQ
+> seat, 94.6 game seconds for 94.5 planned; 1.10 m/s with a drum, 1.50 back; largest step in a frame 0.09 m; floor
+within 0.25 m of the snow top, lower boot within 0.10 m of the floor; on the packed path the standing boot moves
+0.03-0.05 m/s (median; 80% under 0.16) under a body doing 1.5; the carried drum rides 1.60-1.77 m over the snow;
+mean pack 0.65 along the path after four walks. Hail: "E: talk to Mikkel" / "L3: talk to Mikkel" / "tap TALK", a
+line each time; not from 6 m. A storm over the light: the carry goes on. Reload mid-stop: same place on the clock,
+sled solid. Three hours unwatched: landed. `DRV.unload = false`: lands on arrival. Let go mid-stop: both drums at
+the quay again, nothing left at the light.
+Stills (`~/.hermes/cache/scratch/tlloop/b632b/r3/`, 22): standing by the sled at the quay, at the sledge loading,
+both hands on the drum, the drum going up, six side frames of the carry, front and behind, six of the walk back at
+the door. Judged by eye: hands meet the drum on the lift; on the shoulder the drum sits beside the head with the
+right arm up under it; boots at the snow. First build leaned 35 degrees forward under the drum in deep snow (the
+wade's own pitch): the trunk is now held near upright while carrying. Still rough: the raised arm is mostly hidden
+by the drum from the side, and the first stride out of the door starts from the wade's stance.
+Gate: first run on the pre-rebase tree: smoke, x1_save, x6_oilfoot, x6_oilsled, x6_oildriver_break,
+x6_oilsled_break, x6_smalllights, x6_lamp exit 0, 0 FAILs, page errors none. x6_oildriver failed one assert (A: it
+expected the oil run's place within 1 m of the depot; the place is now the sled's spot, 12 m off): the assert now
+says so. x6_keeper passed its asserts with a page error, `tlx-roads.js` reset by the run's http server
+(ERR_CONNECTION_RESET, the known several-Chromes flake). Main then moved (lanes A and C: tlx-plow, tlx-vehicles,
+tlx-traffic, tlx-boats): rebased clean, second gate on the rebased tree: smoke, x1_save, x6_oilfoot,
+x6_oildriver, x6_keeper, x6_oilsled all exit 0, 0 FAILs, page errors none. Main moved once more (lane C's ferry took v258): rebased clean again, script v259, third gate on that tree: smoke, x1_save,
+x6_oilfoot exit 0, 0 FAILs, page errors none. Then lane A's tlx-plow v26: rebased clean a third time, the same three
+again on the tree that was pushed: exit 0, 0 FAILs, page errors none. Not re-run after the rebases:
+x6_oildriver_break, x6_oilsled_break, x6_smalllights, x6_lamp (tlx-lights.js did not change after their run).
+Not done / follow-ups: 6.3b2c (the swing off and on, the sled easing to its stop: it stops dead at the end of the
+run); the driver on foot is not solid; the door does not open; steps are heard only within 14 m; then 6.3c.
+Unverified: Slettnes and Kinnarodden's carries were checked as planned ways (clear, lengths, times), not watched;
+nobody has ridden out and met the stop from the saddle; 640x360 not looked at (no new UI beyond a hint line).
+
 ## 2026-11-19 16:55 — beta fix 0337 #1/#2: a road contract's week of pay stays on Monday's statement after hand-back or strike-off (tlx-plow v26, lane A) (G4) — b1e5ce9
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0332-0338 triaged (last triaged
 338): 0337 #1/#2 are BUGs on lane A's 4.2a and are this pass; 0335 (2.5) has no BLOCKER or BUG; 0333 #2 and
