@@ -18,7 +18,7 @@ await sleep(800); await tap("KeyQ");
 ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14), "seated in the pickup");
 // lay unpacked snow of depth d in a box round the truck (relative to its position): from `from` to `len` m ahead, ±wid
 const lay = (d, len = 30, wid = 6, from = -6) => ev(`(() => { const cx = P.x, cz = P.z; for (let ix = Math.floor((cx - ${wid} + HALF) / CELL); ix <= Math.ceil((cx + ${wid} + HALF) / CELL); ix++) for (let iz = Math.floor((cz + ${from} + HALF) / CELL); iz <= Math.ceil((cz + ${len} + HALF) / CELL); iz++) { const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), d0 = c.d[k]; c.f[k] = ${d}; c.d[k] = ${d}; writeCell(ix, iz, d0, ${d}, ${d}); } recenter(P.x, P.z, true); return 1; })()`);
-const spot = await J(`(() => { const x0 = P.x, z0 = P.z; for (let r = 700; r < 2500; r += 130) for (let k = 0; k < 40; k++) { const x = x0 + Math.sin(k * 0.157 + r) * r, z = z0 + Math.cos(k * 0.157 + r) * r; if (!isSea(x, z) && !isWater(x, z) && (() => { for (let a = -2; a <= 2; a++) for (let b = -1; b <= 3; b++) { const i = clamp(Math.round((x + a * 20 + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + b * 20 + HALF) / GRES), 0, GN - 1); if (bio[j * GN + i] === 1 || bio[j * GN + i] === 3) return false; } return true; })() && !obNear(x, z, 60) && !obNear(x, z + 30, 30) && slopeAt(x, z, 8) < 0.045 && slopeAt(x, z + 20, 10) < 0.05) return [x, z]; } return null; })()`);
+const spot = await J(`(() => { const x0 = P.x, z0 = P.z; for (let r = 700; r < 2500; r += 130) for (let k = 0; k < 40; k++) { const x = x0 + Math.sin(k * 0.157 + r) * r, z = z0 + Math.cos(k * 0.157 + r) * r; if (!isSea(x, z) && !isWater(x, z) && (() => { for (let a = -2; a <= 2; a++) for (let b = -1; b <= 3; b++) { const i = clamp(Math.round((x + a * 20 + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + b * 20 + HALF) / GRES), 0, GN - 1); if (bio[j * GN + i] === 1 || bio[j * GN + i] === 3) return false; } return true; })() && !obNear(x, z, 25) && !obNear(x, z + 30, 15) && slopeAt(x, z, 8) < 0.045 && slopeAt(x, z + 20, 10) < 0.05) return [x, z]; } return null; })()`);
 console.log("spot", JSON.stringify(spot));
 ok(!!spot, "found a flat land spot");
 const place = () => ev(`(() => { crashCancel(); FOOT.on = false; BOG.on = false; BOG.acc = 0; BOG.immune = 0; BOG.warned = false; P.x = ${spot[0]}; P.z = ${spot[1]}; P.yaw = 0; P.vx = P.vz = 0; P.y = surf(${spot[0]}, ${spot[1]}) + 0.1; recenter(${spot[0]}, ${spot[1]}, true); return 1; })()`);
@@ -68,6 +68,5 @@ into = ru.dz - 18 + 2.6;
 console.log(`hit the bank at ${vin.toFixed(1)} m/s`);
 console.log(`run-up into a 50 cm bank: front ${into.toFixed(1)} m into it, bog ${ru.bog}, v ${ru.v.toFixed(1)}`);
 ok(into > 1 && into < 25 && (ru.bog || ru.v < 0.5), `momentum carries it into the bank and it stops there (${into.toFixed(1)} m in, v ${ru.v.toFixed(1)}, bog ${ru.bog})`);
-console.log("page errors:", errors.length ? errors.join(" | ") : "none");
-ok(!errors.length, "no page errors");
+ok(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));   // done() prints the "page errors:" line itself (a second one fails gate.sh's count)
 await done(fails ? 1 : 0);

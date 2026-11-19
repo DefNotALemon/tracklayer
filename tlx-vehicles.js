@@ -524,7 +524,14 @@ function core(R, dt) {
   const rev = input.brk > 0 && !(input.thr > 0) && GS.fuel > 0 && !GS.dead && !parked && vf < 0.8;
   api.GB.dir = rev ? -1 : 1;
   let Fe = 0;
-  if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = thrE * Math.min(xl.kg > 0 && d.fmaxLow ? d.fmaxLow : d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }   /* 3.5b2b2: a lorry with a trailer on starts in its low gears; at 20 kN the 14.4 t rig could not start on a 9% road */
+  /* a light pedal pulling away (beta 0320 #1, 0129 #1): force was the pedal's share of fmax, so a pad trigger at 30% made
+     2.5 kN and sat dead still in 25 cm of powder that 60% crawls through (a cliff a keyboard never meets: W is all or
+     nothing). An automatic in first multiplies a light pedal through its converter, as reverse already does (brkR below):
+     under ~1.5 m/s the pedal maps onto 0.25..1 of the pull (2 kN at a tenth, 3 kN at 15%, 3.9 kN at 30% on the pickup,
+     against 2.7 kN of standing drag in 25 cm and 3.3 kN in 35 cm), easing back to the plain pedal by 5 m/s, so a feathered
+     trigger creeps into snow the truck can beat and is still a light pedal once it rolls. The full pedal is unchanged */
+  const ped = thrE > 0 ? thrE + 0.25 * (1 - thrE) * sstep(0.03, 0.15, thrE) * (1 - sstep(1.5, 5, Math.abs(vf))) : 0;
+  if (thrE > 0) { const gov = vf > d.top ? Math.max(0, 1 - (vf - d.top) / 2) : 1; Fe = ped * Math.min(xl.kg > 0 && d.fmaxLow ? d.fmaxLow : d.fmax, d.power / Math.max(vf, 2.2)) * condK * gov; }   /* 3.5b2b2: a lorry with a trailer on starts in its low gears; at 20 kN the 14.4 t rig could not start on a 9% road */
   let Fx = 0, spin = 0;
   /* reverse is geared about as low as first: 0.8 of fmax (was 0.6, too weak to back a trailer out of soft snow, 0108) */
   /* a light pull on the pad trigger still backs up: an automatic creeps in reverse, so the pedal maps onto 0.35..1 of the
@@ -598,13 +605,15 @@ R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = v
   /* a truck that sits still with the pedal held says why within a second (beta 0116 #1/#4): before, the dig warning
      needed ~2.7 s of spin to build, and a truck held by a grade on firm snow or by something solid said nothing at all.
      "Still" is ground covered (under 0.4 m in the second), not speed: against a wall the truck jitters at 0-0.3 m/s */
-  const held = eff > 0.1 && !BOG.on && !parked && gndOK && !HELP.on && !P.wet;
+  const held = eff > 0.04 && !BOG.on && !parked && gndOK && !HELP.on && !P.wet;   /* was eff > 0.1: a trigger at a tenth of its travel sat still and was told nothing (0320 #1) */
   if (!held) { R.stillT = 0; R.hold0 = null; R.stillTold = false; }
   else {
+    if (R.stillTold && eff > (R.whyEff || 0) + 0.15) { R.stillTold = false; R.stillT = 0; }   /* more pedal than when it was told why: look again (0320 #1) */
     if (!R.hold0 || Math.hypot(P.x - R.hold0[0], P.z - R.hold0[1]) > 0.4) { R.hold0 = [P.x, P.z]; R.stillT = 0; if (spd0 > 1.5) R.stillTold = false; }
     R.stillT += dt;
-    if (R.stillT > 1 && !R.stillTold) { R.stillTold = true; stillWhy(R, rev, sinkS, gx * fx + gz * fz); }
+    if (R.stillT > 1 && !R.stillTold) { R.stillTold = true; R.whyEff = eff; R.whyRev = rev; stillWhy(R, rev, sinkS, gx * fx + gz * fz); }
   }
+  R.stuckWhy = held && R.stillTold && R.stillT > 1 && R.whyRev === rev ? R.why || "" : ""; R.stuckAt = api.now();   /* the standing line under the toast (stillLine) */
   // --- fuel: a quiet idle, and the throttle against the load
   if (started && !GS.dead) GS.fuel = Math.max(0, GS.fuel - (0.0012 + thrE * (0.010 + 0.014 * clamp(Fres / 6000, 0, 2))) * d.burn * dt);
   // --- vertical: follow the four contact heights, leave the ground over a crest, land with a thump
@@ -682,6 +691,22 @@ function stillWhy(R, rev, sinkS, sf) {
   else { R.why = "grip"; api.toast(`The wheels can't find grip ${rev ? "backing up" : "here"}. Rock it ${rev ? "forward" : "back"} a little and try again.`, "warn"); }
 }
 function toastDig(rev) { api.toast(rev ? "The wheels spin in reverse and dig in. Ease off before it's stuck to the axles." : "The wheels are digging in. Ease off, or back out along your own ruts.", "warn"); }
+/* the standing line while a truck is held still with the pedal down (beta 0320 #1/#5): stillWhy's toast is gone in four
+   seconds and the truck then sat there silent for as long as the pedal was held. One line in the driving hint says why
+   for as long as it lasts; it names no control, so it reads the same on keys, a pad and touch. "dig" has the game's own
+   WHEELS DIGGING IN line, a snowed-in road and a held load say theirs */
+const STILL_LINE = {
+  pull: ["NOT ENOUGH THROTTLE · give it more, smooth and steady", ""],
+  steep: ["TOO STEEP IN THIS SNOW · back down and take a run at it", "TOO STEEP TO BACK UP · pull forward and take a run at it"],
+  deep: ["SNOW TOO DEEP TO PUSH · back out along your ruts", "TOO MUCH SNOW BEHIND · pull forward along your ruts"],
+  grip: ["NO GRIP · rock it back a little and try again", "NO GRIP · rock it forward a little and try again"],
+  solid: ["SOMETHING SOLID IN FRONT · back up and steer round it", "SOMETHING SOLID BEHIND · pull forward and steer clear"]
+};
+function stillLine() {
+  const c = curRec(); if (!c || KINDS[c.id] || api.FOOT.on || api.BOG.on) return "";
+  const R = runtime(c), row = R && R.stuckWhy && api.now() - (R.stuckAt || -9) < 0.5 ? STILL_LINE[R.stuckWhy] : null;
+  return row ? row[R.whyRev ? 1 : 0] : "";
+}
 
 // trees, buildings and boulders stop it: no ejection from a cab, a dent in the paint and a thud instead
 const CIRCLES = [[2.0, 0.98], [0.0, 1.05], [-2.0, 0.98]];                     // the pickup's hull: [m along the centre line, radius]
@@ -1997,6 +2022,7 @@ TLX.register({
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
+    if (a.ridex) a.ridex.unshift(stillLine);                                     /* why a held truck stands still, in the driving hint (0320 #1) */
     api.veh.mkt = MKTV;                                                          // Bytteboden's Vehicles category (2.7)
     Object.assign(api.veh, { rigOn, rigLive, rigAt, rigBall, rigFoot: anyFoot });  // the universal hitch (2.5); the sled trailer's use comes first (2.6a)
     Object.assign(api.veh, { deck: deckAt, deckClamp, strapped: () => { const h = haulS(); return !!(h && h.strap); } });   // the sled on the trailer (2.6b)

@@ -16,7 +16,7 @@ ok(await waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14), "seated in the picku
 // lay depth d in a disc-ish box centred on (cx,cz) of half-size w
 const layAt = (cx, cz, d, w = 22) => ev(`(() => { for (let ix = Math.floor((${cx} - ${w} + HALF) / CELL); ix <= Math.ceil((${cx} + ${w} + HALF) / CELL); ix++) for (let iz = Math.floor((${cz} - ${w} + HALF) / CELL); iz <= Math.ceil((${cz} + ${w} + HALF) / CELL); iz++) { const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), d0 = c.d[k]; c.f[k] = ${d}; c.d[k] = ${d}; writeCell(ix, iz, d0, ${d}, ${d}); } recenter(P.x, P.z, true); return 1; })()`);
 // find spots: flat and a ~10% slope (yaw uphill), land only
-const find = (lo, hi) => J(`(() => { const x0 = P.x, z0 = P.z; for (let r = 600; r < 2600; r += 90) for (let k = 0; k < 60; k++) { const x = x0 + Math.sin(k * 0.105 + r) * r, z = z0 + Math.cos(k * 0.105 + r) * r; if (isSea(x, z) || isWater(x, z) || obNear(x, z, 60)) continue; let bad = false; for (let a = -2; a <= 2 && !bad; a++) for (let b = -2; b <= 2; b++) { const i = clamp(Math.round((x + a * 20 + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + b * 20 + HALF) / GRES), 0, GN - 1); if (bio[j * GN + i] === 1 || bio[j * GN + i] === 3) { bad = true; break; } } if (bad) continue; const gx = (surf(x + 6, z) - surf(x - 6, z)) / 12, gz = (surf(x, z + 6) - surf(x, z - 6)) / 12, g = Math.hypot(gx, gz); if (g < ${lo} || g > ${hi}) continue; const yaw = Math.atan2(gx, gz); const ax = x + Math.sin(yaw) * 25, az = z + Math.cos(yaw) * 25; if (isSea(ax, az) || isWater(ax, az) || obNear(ax, az, 30)) continue; return { x, z, yaw, g }; } return null; })()`);
+const find = (lo, hi) => J(`(() => { const x0 = P.x, z0 = P.z; for (let r = 600; r < 2600; r += 90) for (let k = 0; k < 60; k++) { const x = x0 + Math.sin(k * 0.105 + r) * r, z = z0 + Math.cos(k * 0.105 + r) * r; if (isSea(x, z) || isWater(x, z) || obNear(x, z, 25)) continue; let bad = false; for (let a = -2; a <= 2 && !bad; a++) for (let b = -2; b <= 2; b++) { const i = clamp(Math.round((x + a * 20 + HALF) / GRES), 0, GN - 1), j = clamp(Math.round((z + b * 20 + HALF) / GRES), 0, GN - 1); if (bio[j * GN + i] === 1 || bio[j * GN + i] === 3) { bad = true; break; } } if (bad) continue; const gx = (surf(x + 6, z) - surf(x - 6, z)) / 12, gz = (surf(x, z + 6) - surf(x, z - 6)) / 12, g = Math.hypot(gx, gz); if (g < ${lo} || g > ${hi}) continue; const yaw = Math.atan2(gx, gz); const ax = x + Math.sin(yaw) * 25, az = z + Math.cos(yaw) * 25; if (isSea(ax, az) || isWater(ax, az) || obNear(ax, az, 12)) continue; return { x, z, yaw, g }; } return null; })()`);
 const flat = await find(0, 0.03), hill = await find(0.08, 0.13);
 console.log("flat", JSON.stringify(flat), "hill", JSON.stringify(hill));
 ok(!!flat && !!hill, "found flat and hill spots");
@@ -61,6 +61,5 @@ await run("flat W release/re-press", flat, 0.35, W, 9, { at: 3, fn: async () => 
 await ev(`GS.hour = 23; true`);
 await run("night flat W", flat, 0.35, W);
 await run("night hill W", hill, 0.3, W);
-console.log("page errors:", errors.length ? errors.join(" | ") : "none");
-ok(!errors.length, "no page errors");
+ok(!errors.length, "no page errors" + (errors.length ? ": " + errors.join(" | ") : ""));
 await done(fails ? 1 : 0);

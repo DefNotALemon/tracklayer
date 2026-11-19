@@ -859,8 +859,11 @@ the brake at a standstill to reverse (on a pad even a light pull on the trigger 
 and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
 reverse and dig in) and then bogs like the sled, with the usual dig-out. A truck that sits still for a
 second with the gas or reverse held always tells you why: digging in (only when the wheels really spin), too steep for its grip (or too steep
-in this snow), no grip, not enough throttle for the snow (a light pull on a pad trigger can't push 35 cm: give it
-more), snow deeper than it can push, or something solid behind or in front of it (a parked sled, a rock, a wall). In fresh powder the pickup pulls away through a
+in this snow), no grip, not enough throttle for the snow (a pad trigger at a tenth of its travel can't push 35 cm: give it
+more), snow deeper than it can push, or something solid behind or in front of it (a parked sled, a rock, a wall); and for as long as you hold it there
+the driving hint keeps the reason on screen (NOT ENOUGH THROTTLE, TOO STEEP IN THIS SNOW, SNOW TOO DEEP TO PUSH, NO GRIP, SOMETHING SOLID IN FRONT) after the message has gone. A light pedal
+pulls away like an automatic in first: a pad trigger or the touch pedal at a third of its travel creeps through a boot's depth and crawls on through 35 cm
+(it used to sit dead still from 25 cm, where two thirds crawled), and once the truck rolls a light pedal is a light pedal again. In fresh powder the pickup pulls away through a
 boot's depth, slows to a crawl by about 35 cm (about walking pace; its traction control trims the wheelspin, so a
 floored pedal keeps crawling, up a gentle grade too, instead of digging itself in), creeps a few metres through 38-40 cm, and stops from about 42 cm (no 5 cm cliff from a crawl to a bog). A truck still
 making way, forward or backing up, is left alone instead of being told to ease off. A run at a deep bank carries
