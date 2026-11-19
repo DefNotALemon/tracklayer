@@ -725,6 +725,17 @@ function toggle(R) {
   return true;
 }
 function label(R) { const d = bladeOf(R.rec.uid); if (!d || api.FOOT.on) return null; return rt(R.rec.uid).down ? "BLADE UP" : "BLADE DOWN"; }
+/* beta 0305 #1: whose press is it beside a lake. Stopped within 40 m of a lake the game's use control is ice fishing's
+   ("get off and fish"), and it took the press ahead of the truck: the hint read "drop the blade", the press set the
+   driver down on the ice with a rod, and the truck "would not move". Now the blade says when the control is its own
+   (TLXV.addUse wants): while it is down (the press lifts or slews it), while a press is being decided, while the
+   gritter runs, and while its own hint is offering the drop or the gritter. Standing ON the lake ice with the blade up
+   it offers nothing (nobody plows a lake), so out there the press is still fishing's and the hint says so. */
+const onIce = () => api.world.bioAt(api.P.x, api.P.z) === 1;
+function wants(R) {
+  const uid = R.rec.uid, d = bladeOf(uid); if (!d || api.FOOT.on || curUid() !== uid) return false;
+  const B = rt(uid); return !!(B.down || B.hold || B.grit || bladeLine(uid, d) || gritHint(uid, d, B));
+}
 function rideLine() {
   const uid = curUid(); if (uid == null || api.FOOT.on) return "";
   const d = bladeOf(uid); if (!d) return "";
@@ -733,7 +744,7 @@ function rideLine() {
 }
 function bladeLine(uid, d) {
   const B = rt(uid), P = api.P, v = Math.hypot(P.vx, P.vz), touch = INPdev() === "touch", th = THROWS[throwOf(uid)];
-  if (!B.down) return v < 3 && B.cut >= BL.hintMin ? (touch ? "tap BLADE DOWN" : api.btn("use") + ": drop the blade") + ` · ${Math.round(B.depth * 100)} cm of snow ahead` : "";
+  if (!B.down) return v < 3 && B.cut >= BL.hintMin && !onIce() ? (touch ? "tap BLADE DOWN" : api.btn("use") + ": drop the blade") + ` · ${Math.round(B.depth * 100)} cm of snow ahead` : "";
   const lift = (touch ? "tap BLADE UP" : api.btn("use") + ": lift it") + ` · hold it: ${THROWS[th.next].to}`;
   if (B.trip > 0) return `BLADE DOWN · tripped on ${B.tripWhat || "something solid"}: back off it and the blade springs back · ${touch ? "tap BLADE UP" : api.btn("use") + ": lift it"}`;
   // dropped where the truck stands in deep snow: the wheels are in snow the blade never reached, and that is what holds it
@@ -2016,7 +2027,7 @@ TLX.register({
     tidy();
     a.veh.tabs.push({ id: "plow", name: "Plow", render: garageRows });
     TLXV.addLoad(load);
-    TLXV.addUse({ use: toggle, label });
+    TLXV.addUse({ use: toggle, label, wants });
     if (TLXV.addHull) TLXV.addHull(hull);
     if (TLXV.addGrip && !GQ.on) { GQ.on = true; TLXV.addGrip(grip); }
     if (TLXV.addMkt && !MKB.on) { MKB.on = true; TLXV.addMkt(MKB); }               // used blades on Bytteboden (4.1b3a)

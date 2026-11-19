@@ -442,7 +442,8 @@ const GR = 9.81;
 const LOADS = [], XL0 = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false };
 function xLoad(uid) { for (const f of LOADS) { const r = f(uid); if (r) return r; } return XL0; }
 /* 4.1a (tlx-plow.js, the blade): what a wheeled truck's use control does besides the horn, and things built onto its model.
-   TLXV.addUse({ use(R) -> true if it took the press, label(R) -> the touch pill's word or null, hint(R) -> a hint line or "" }).
+   TLXV.addUse({ use(R) -> true if it took the press, label(R) -> the touch pill's word or null, hint(R) -> a hint line or "",
+   wants(R) -> true while the control has work here and now: the game then gives it the press ahead of ice fishing / the tackle shop / the fish buyer (beta 0305 #1) }).
    TLXV.onModel(fn(R)): called once for every wheeled truck's runtime, as it is built (and at once for those built already).
    A load may also answer `why`: a sentence for when it is the thing holding a truck that can't pull away. */
 const USES = [], MODELS = [], HULLS = [];
@@ -1017,7 +1018,8 @@ function makeDriver(R) {
     nearMount: () => nearMount(R),
     use: () => { for (const u of USES) if (u.use && u.use(R)) return true; return false; },          // 4.1a: false = the horn, as before
     useLabel: () => { for (const u of USES) { const l = u.label && u.label(R); if (l) return l; } return null; },
-    useHint: () => { for (const u of USES) { const h = u.hint && u.hint(R); if (h) return h; } return ""; }
+    useHint: () => { for (const u of USES) { const h = u.hint && u.hint(R); if (h) return h; } return ""; },
+    useWants: () => { for (const u of USES) if (u.wants && u.wants(R)) return true; return false; }   // beta 0305 #1: the use control has work on this truck right now (a blade to drop or lift), so it is not ice fishing's
   };
 }
 

@@ -918,7 +918,9 @@ shed, and fitting it again costs nothing. It adds 280 kg on the truck's nose.
 **Dropping it.** In a truck with a blade, the use control (**E**, **L3** on a pad, the **BLADE
 DOWN** / **BLADE UP** button on touch) drops and lifts it. That control is the horn in any other
 truck; a truck wearing a blade has no horn on it. While Settings, the garage or the tablet is up
-the control rests: it neither drops, lifts nor slews the blade.
+the control rests: it neither drops, lifts nor slews the blade. Beside a lake, where the same control
+would have you get off and fish, it is the blade's whenever the blade has work: while it is down, and
+while the hint offers to drop it. Out on the lake ice with the blade up it is fishing's again.
 
 **Plowing.** With the blade down and the truck rolling forward, the snow in front of the bumper is
 cut down to the level of a plowed yard, and what came off is thrown into a windrow along the

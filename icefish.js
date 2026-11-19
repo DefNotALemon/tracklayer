@@ -1905,7 +1905,7 @@ function ctx() {
 }
 function hint() {
   const c = ctxNow(); if (!c) return "";
-  const k = H.touch() ? "" : "E: ";
+  const k = H.touch() ? "" : (H.btn ? H.btn("use") : "E") + ": ";   // the pad's own name for the control, not always "E" (beta 0305)
   if (c.kind === "shop") return `${k}Nordkinn Fisk & Friluft, tackle and outdoor clothing${H.touch() ? " · tap SHOP" : ""}`;
   if (c.kind === "buyer") return D.cooler.length ? `${k}sell your catch at the fish buyer · ${D.cooler.length} in the cooler${H.touch() ? " · tap SELL" : ""}` : "The fish buyer. Nothing in the cooler yet.";
   if (c.ice < ICE.minCm) return c.ice <= 0 ? "" : `${c.spot.lake.name}: only ${c.ice} cm of ice. Too thin to walk on.`;

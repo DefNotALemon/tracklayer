@@ -796,6 +796,12 @@ function markTrail(x, z, faint) {
 /* ---------------- boot ---------------- */
 let far, pineCells = [], birchCells = [], rockCells = [], cargoMesh = null, started = false, ready = false;
 let FISH = null, FISHSITES = {};                                       // ice fishing (icefish.js) and where its shop and buyer stand
+/* beta 0305 #1: one press, two takers. Stopped within 40 m of a lake (or at the tackle shop / the fish buyer) the use
+   control is fishing's, and it used to take the press ahead of the vehicle you sit in: a plow truck's hint offered
+   "drop the blade", the press went ice fishing instead. A vehicle whose use control has work right now says so
+   (VEH.cur.useWants, tlx-vehicles.js) and then the press, the touch pill's word and the hint are all the vehicle's. */
+function vehUse() { return !FOOT.on && !!(VEH.cur && VEH.cur.useWants && VEH.cur.useWants()); }
+function fishUse() { return !!FISH && !vehUse() && FISH.ctx(); }
 const obGrid = new Map(); const OBC = 16, OBW = WORLD / OBC + 2;
 function addOb(o) { const k = Math.floor((o.z + HALF) / OBC) * OBW + Math.floor((o.x + HALF) / OBC); let a = obGrid.get(k); if (!a) obGrid.set(k, a = []); a.push(o); }
 // take one back out (a parked car that drove off, 3.4b2b); true if it was there
@@ -2589,7 +2595,7 @@ function updTouch() {
     $("tcStickCap").textContent = foot ? "WALK · RIM TO JOG" : "STEER";
   }
   // the GARAGE / fishing pill hides while the tablet is open: on a phone it sat on the tablet card's text (report 0104 #3)
-  const lbl = TABLET.open ? null : GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && FISH.ctxLabel()) || (!foot && VEH.cur && VEH.cur.useLabel && VEH.cur.useLabel()) || null;
+  const lbl = TABLET.open ? null : GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && !vehUse() && FISH.ctxLabel()) || (!foot && VEH.cur && VEH.cur.useLabel && VEH.cur.useLabel()) || null;
   const e = show("tcE", !!lbl); if (lbl) text(e, lbl);
   TC.use = c.use; TC.x = c.x;
   const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);   // the vehicle you left (sled or pickup) decides how close is close
@@ -2683,7 +2689,7 @@ function touchCanvasUp(e) {
       else if (k === "tablet") TABLET.toggle();
       else if (k === "menu") gameKey({ code: "Escape" });
       else if (k === "full") { if (FSC.on()) FSC.exit(); else FSC.go(); }
-      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (!(FISH && FISH.ctx()) && VEH.cur && VEH.cur.use) VEH.cur.use(); }
+      else if (k === "garage") { if (b.textContent === "GARAGE") gameKey({ code: "KeyT" }); else if (!fishUse() && VEH.cur && VEH.cur.use) VEH.cur.use(); }
       else if (k === "horn") horn();
       else if (k === "wings") toggleWings();
       else if (k === "q") gameKey({ code: "KeyQ" });
@@ -2762,7 +2768,7 @@ function readInput(dt) {
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open && !(TLX.gunwheel && TLX.gunwheel.claimsDpadLeft())) wipeVisor(); padWipe = dl;   // rifle owners: a tap wipes on release, a hold opens the gun wheel (tlx-gunwheel.js)   // D-pad left wipes the visor
     const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
-    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!(FISH && FISH.ctx()) && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
@@ -9277,7 +9283,7 @@ function gameKey(e) {
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
   if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; footAction(); return; }
-  if (e.code === "KeyE") { if (!e.repeat && !(FISH && FISH.ctx()) && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
+  if (e.code === "KeyE") { if (!e.repeat && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
   if (e.code === "KeyJ") { jobCycle(); return; }                          // J: point the compass at the next job you've taken on (then back to auto)
@@ -12772,7 +12778,7 @@ function initFishing() {
     THREE, scene, renderer, camera, P, GS, CAL, keys, FOOT, TABLET, GFX, LAKES, SITES, depot, hemi, sun, sunDir,
     mats: { jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot },
     fishSites: FISHSITES, toast, save, wear: (o, a, s, opt) => WEAR.apply(o, a, s, opt), surf, groundAt, bioAt, isSea, isWater, iceThin, fbm, dayFactor, payMul, bumpDelivered, mailVisit,
-    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, showroom: showroomOn, settings: () => gameKey({ code: "Escape" }),
+    started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, btn: a => btn(a), showroom: showroomOn, settings: () => gameKey({ code: "Escape" }),
     onStart() { camState.init = false; TABLET.close(true); },
     onStop() { camState.init = false; camState.yaw = P.yaw; }
   });
@@ -16589,7 +16595,7 @@ function wnPrompt() {
   else if (RJ.on && rescueRideHint()) { show = true; h = rescueRideHint(); }
   else if (intRideHint()) { show = true; h = intRideHint(); }
   else if (rideXHint()) { show = true; h = rideXHint(); }
-  else if (FISH && !FISH.on) { const fh = FISH.hint() || (VEH.cur && VEH.cur.useHint && VEH.cur.useHint()) || ""; if (fh) { show = true; h = fh; } }
+  else if (FISH && !FISH.on) { const fh = (!vehUse() && FISH.hint()) || (VEH.cur && VEH.cur.useHint && VEH.cur.useHint()) || ""; if (fh) { show = true; h = fh; } }
   if (HELP.on && HELP.kind === "fuel") { show = true; h = (h ? h + " · " : "") + (HELP.called ? `FUEL DELIVERY IN ${Math.max(0, Math.ceil(HELP.eta - HELP.t))} s` : ""); }
   WN.hint = h; WN.show = show;
 }
