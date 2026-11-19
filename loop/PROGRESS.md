@@ -3,6 +3,54 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 18:20 — 5.4b2b: your truck's drive from its spot to the road and back (tlx-plow v28, tlx-roads v15, lane A) (G4) — 66bfe56
+Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0341 (3.3b), 0342 (2.6c) and 0343
+(5.4b2a break test) read (last triaged 343): no BLOCKER or BUG in any; 0343 #6 (a sleep ends a hail silently) is
+POLISH and left. So the pass took the next unticked slice, 5.4b2b; its design was three lines, now written into
+EXPANSION.md with the slice. 5.4b2 is done with it.
+What landed: tlx-roads.js `TLXR.tripLine` (the way by road between two points as the routes' own points, on 3.2b's
+graph). tlx-plow.js `pdrWay` / `pdrGrid` (the line: an A* on 3 m cells from the truck's spot to where the roads take
+over, then by road to the road's first end), `pdrWayGo` (the clock along it), `pdrPos` / `pdrOnWay`, `q.a` (saved:
+metres of the line driven), the line in `pdrRun` (out before `p`, back after it, the tank check), in `pdrSleep` (hours
+and diesel there and back), in `pdrSee` (`Z.s` runs over line then road), in the pin, `pdrWhere` and `pdrSay`.
+README. No tracklayer.js change.
+Decided: off the roads the truck is held to 5.5 m/s in your sight (a forecourt and a street are not a road at 45
+km/h); home with you on its spot it stops 16 m short (further than the 14.5 m at which standing in its lane stops it
+anyway, so the notification is reached); a spot over 800 m from the roads, or walled in, has no line and behaves as
+before; the driver drives past a convoy barrier and over a snowed-in stretch on the way (no rule for either yet).
+Numbers (`x5_plowdriver_way.mjs`, 38 asserts A-F, 0 FAILs alone and in the gate): from the forecourt the lines are 34 m
+(Dyfjord road), 2188 m (Skjånes road) and 5253 m (Gamvik road), none in water, each ending on its road's first end.
+The truck moved 102 m across town: a 201 m line (73 m off the roads, all of it on plowed ground, 3.1 m clear of every
+wall, tree and parked car). Clock, you far off: 0.4 of the line's time after setting out it is 80 m along the line
+with `p` 0, pin "DRIVING OUT"; the trip burnt 3.59 L against the road's own 3.02 (the line twice: 0.56). In sight:
+first seen 0.0 m from its spot, never off the line, never within 0.8 m of an obstacle, 5.3 m/s by the game's clock
+off the roads (peak 6.0), then onto the road in its lane; hours handed back (`PDLOST` > 0), 0 warnings. Home with the
+sled on its spot: stopped at a = 16.0 m, one notification, the card says why; stepped clear: parked on its spot. A
+reload 60 m along the line: `a` kept, the truck drawn on the line again. A 9 h sleep: 0.56 L more than with no line.
+Tests changed to follow the behaviour: eleven older x5 scenarios with a driver in your truck now set
+`PDR.wayMax = 0` in SETUP (they were written for a truck that is on the road at once, and x5_plowdriver_mine picks
+the Gamvik road, 5 km from the forecourt: 27 FAILs without it, 73 ok with it).
+Gate: gate.sh smoke, x1_save, x5_plowdriver_way; then run alone x5_plowdriver_mine (73 ok), x5_plowdriver_seen (49
+ok), x5_plowdriver_hail (42 ok), x5_plowdriver (54 ok): each exit 0, 0 FAILs, page errors none. The first run of the
+new scenario had 5 FAILs, all the scenario's own (I stood in the truck's lane on the road part of the line, read the
+truck before it had stopped, asserted a far-off truck was drawn, and expected `a` not to move in the second after a
+reload).
+Stills looked at: `w1_leaving_the_spot.jpg` (the truck on its spot, a driver at the wheel, wheels on the snow),
+`w2_on_the_line.jpg` (on a town street between the houses, clear of them), `w3_waiting_short_of_the_spot.jpg`
+(stopped beside the street short of its spot).
+NOT checked: the turn out of the spot and into it by eye as a motion (stills only: it arrives nose first and the
+parked truck then stands at the record's yaw, so there is a snap of heading at the hand-over; no reversing); the
+2 km and 5 km lines driven in sight (only measured: length, dry, ends); a truck parked off the plowed ground, in a
+village, or beside its own road; another truck of yours parked on the line after it was worked out (the line is
+cached per spot); night; the traffic option on while it crosses the town; the hail on the line (only `pdrSay`'s
+sentence was read); pad and touch (no new control). Of the eleven older scenarios given `wayMax = 0`, only
+x5_plowdriver_mine and x5_plowdriver_seen were run; the nine tester ones (x5_assign_*, *_break, *_beta) were not.
+`x5_plowdriver_hail_mine_night_beta.mjs` (report 0345, landed during this pass) has no `wayMax = 0` and was not run:
+its truck now starts on the forecourt line, not on the road.
+Reports 0344 (3.3b) and 0345 (5.4b2a at night; read in passing: no BLOCKER or BUG, #4 "NaN L in the tank" from a
+corrupt save is POLISH) arrived during the pass and are not triaged.
+Next for lane A: reports 0344 / 0345, then 5.4c (stuck, the ping, the three ways out).
+
 ## 2026-11-19 17:40 — 5.4b2a: hail your plow driver on the road, a word beside the truck (tlx-plow v27, tlx-staff v8, lane A) (G4) — 4c777b0
 Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0339 (5.4b1 break test) and 0340
 (0337's fix verified) triaged (last triaged 340): no BLOCKER or BUG in either. 0339 #4 (no headlamps on the driver's

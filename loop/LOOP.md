@@ -731,4 +731,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 6.3b2a (POLISH, beta 0334 #2/#6, lane B): `x6_oilsled` assert F flakes on a loaded machine (0.54 m for
       < 0.5 m); a clock skip pops the oil sled along the line. Lane B's.
 
-Last triaged report: 340
+Last triaged report: 343
