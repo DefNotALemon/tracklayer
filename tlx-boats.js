@@ -1,4 +1,4 @@
-// Tracklayer — boats (expansion slices 14.1-14.4b1, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
+// Tracklayer — boats (expansion slices 14.1-14.4b2, loop/EXPANSION.md milestone 14; the handline is tlx-seafish.js, through TLXB.addOn). Loaded after tlx-vehicles.js, before tracklayer.js.
 //
 // WHAT IT IS. A 4.6 m aluminium skiff with a 20 hp tiller outboard, bought at the garage (Boats tab) and moored at a timber
 // jetty on piles (the småbåthavn) off the lowest bit of shore near the quay: the concrete quay stands ~9 m above the water,
@@ -831,6 +831,7 @@ function appRender(el) {
         pay: money(repairCost(r)), act: "bry:" + r.uid, actLabel: "REPAIR HULL", blocked: !!whyR });
     }
   });
+  for (const o of ADDONS) if (o.appCard && bs.length) h += o.appCard(U) || "";  // cards from the add-ons (the handline's tackle, 14.4b2)
   if (DOCKS.length) {
     const b0 = bs[0] && posOf(bs[0]);
     h += U.sec("Jetties", b0 ? "by sea from your boat" : "");
@@ -842,6 +843,7 @@ function appRender(el) {
   for (const b of el.querySelectorAll("[data-act^='btw:']")) b.addEventListener("click", () => { tow(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
   for (const b of el.querySelectorAll("[data-act^='btm:']")) b.addEventListener("click", () => mark(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='bry:']")) b.addEventListener("click", () => { repair(b.dataset.act.slice(4)); api.TABLET.refresh("boats"); });
+  for (const o of ADDONS) if (o.appBind) o.appBind(el);
 }
 
 /* ---------------- the boatyard (14.4b1): a slip and a shed beside the quay jetty, hull repairs ----------------
@@ -856,7 +858,7 @@ function appRender(el) {
    or on foot at the shed's side door with the use control (an api.footx provider, so keyboard, pad L3 and the touch
    button all have it and the hint line names it). Without a place for the yard (no water fits) repairs are taken at
    the quay jetty's end instead. */
-const YARD = { perPt: 8, min: 20, reach: 45, door: 2.6, W: 6.4, L: 9.6, H: 3.1, rise: 1.7, slope: 0.25, gauge: 1.5, name: "Kjøllefjord Båt & Motor" };
+const YARD = { perPt: 8, min: 20, reach: 45, door: 2.6, W: 6.4, L: 9.6, H: 3.1, rise: 1.7, slope: 0.25, gauge: 1.5, name: "Kjøllefjord Båt & Motor", store: "boat" };
 let BY = null;
 function siteYard(D) {
   const w = api.world, c = D.y + 0.25, e = rampEnd(D), stern = D.len - 2 * HL - 0.8; let best = null, bs = 1e9;
@@ -1011,14 +1013,17 @@ function repair(uid) {
 // at the shed's side door, on foot: the use control (keyboard, pad L3, the touch button)
 const YPROV = {
   use() {
-    const F = api.FOOT; if (!BY || !F.on || api.MNT.on || api.DMT.on || (api.INT && api.INT.on)) return null;
+    const F = api.FOOT; if (!BY || !F.on || api.MNT.on || api.DMT.on || (api.INT && api.INT.on) || (api.shopOpen && api.shopOpen())) return null;
     if (Math.hypot(F.x - BY.door.x, F.z - BY.door.z) > YARD.door) return null;
     const dent = boats().filter(r => condOf(r) < 99.5), here = dent.find(r => atYard(r));
     if (here) return { label: "REPAIR", hint: () => api.keyHint("use", `have the yard mend the ${ROW.name}'s hull (${api.fmtCash(repairCost(here))})`), act: () => repair(here.uid) };
-    return { label: "BOATYARD", hint: () => api.keyHint("use", "ask at the boatyard"), act: () => api.toast(
+    // the counter (14.4b2): with a boat of yours the door also opens the yard's shop panel (the handline's tackle, tlx-seafish.js)
+    const counter = boats().length && api.shop && window.TLX && TLX.stores && TLX.stores[YARD.store];
+    return { label: "BOATYARD", hint: () => api.keyHint("use", "ask at the boatyard" + (counter ? " · hull repairs, handline tackle" : "")), act: () => { api.toast(
       dent.length ? `${YARD.name}: bring her round to the quay jetty and they'll have her up the slip. About ${api.fmtCash(repairCost(dent[0]))} for her hull as it is.`
       : boats().length ? `${YARD.name}: her hull is sound, nothing for the yard to do. Dents from the shallows are mended here, ${api.fmtCash(YARD.perPt)} a point.`
-      : `${YARD.name}: the yard mends hulls on the slip here. Their ${ROW.name} is sold from the garage's Boats tab.`, "info") };
+      : `${YARD.name}: the yard mends hulls on the slip here. Their ${ROW.name} is sold from the garage's Boats tab.`, "info");
+      if (counter) api.shop(YARD.store); } };
   }
 };
 

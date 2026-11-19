@@ -89,6 +89,7 @@ ok(!/Boatyard/.test(t) && /Hull sound/.test(t) && /the boatyard/.test(t), "a sou
 await appOff(); await atDoor();
 await clearToasts(); await tap("KeyE"); await sleep(400);
 ok((await toasts()).some(x => /hull is sound/.test(x) && /\$8 a point/.test(x)), "at the door with a sound hull: nothing to do, and the rate");
+await ev(`(() => { if (FISH.panelOpen()) FISH.back(); return 1; })()`); await sleep(250);   // 14.4b2: with a boat the door also opens the yard's counter (x14_tackle.mjs)
 
 // ---- 4. dented at the berth: the card, the door, broke, the use key
 await dent(60);
@@ -169,6 +170,7 @@ await appOff(); await atDoor();
 s = await use(); ok(s.use === "BOATYARD", "at the door with her away, it reads BOATYARD");
 await clearToasts(); await tap("KeyE"); await sleep(400);
 ok((await toasts()).some(x => /bring her round to the quay jetty/.test(x) && x.includes("$240")), "and the yard says to bring her round, and about what it will cost ($240)");
+await ev(`(() => { if (FISH.panelOpen()) FISH.back(); return 1; })()`); await sleep(250);
 
 // ---- 10. a reload keeps the dent, and the yard stands where it stood
 const y0 = await J(`(() => { const y = TLXB.yard(); return [y.x, y.z, y.floor]; })()`);

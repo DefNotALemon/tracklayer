@@ -413,6 +413,21 @@ days fresh), the Fiskemottak on the quay pier buys them at the day's price per k
 "any fresh fish" orders in Parcels, and the tablet's logbook keeps your best of each under "From
 the boat". Too rough in a storm: the line comes in by itself when the sea gets up.
 
+**Handline tackle.** Once you own a boat, the use control at the boatyard's side door also opens
+the yard's counter (Lines / Pilks / Gaff). The tarred line and plain 200 g pilks that came with
+the boat are always there and free. **Lines**, bought once: 0.9 mm monofilament ($55) draws a
+quarter more bites and parts sooner, so give line early; the 1.6 mm heavy handline ($90) holds a
+run that parts the others and forgives a late hand, and some fish shy off it. **Pilks**, up to
+three of a kind in the box: the bright 120 g svenskepilk ($32) is worked harder by every lift and
+saithe chase it, but it sinks at 2 m a second; the 400 g bergmannpilk ($38) is down in two thirds
+of the time (4.6 m a second) and redfish, halibut and wolffish want it, but a lift works it less.
+A line that parts takes the pilk that was tied on: the next of its kind goes on, and after the
+last one the plain pilk. The **gaff** ($65) lifts a fish of 3 kg or more aboard from 3 m down
+while you haul and it isn't running. Change line or pilk at the counter, or anywhere from the
+Boats app's **Handline tackle** card (CHANGE LINE / CHANGE PILK), with the line wound in. The
+handline's panel names what is on, and with the tablet up it steps aside and your hands are off
+the line.
+
 ### Santa's Sled (rare)
 
 Once in a while a **Rare** listing turns up: **Santa's Sled**, red lacquer and gold leaf, one of a

@@ -15,8 +15,11 @@
 // THE CATCH is ice fishing's catch: the same cooler (GS.fish.cooler, 10 fish, two days fresh), the same logbook and
 // personal bests, the same Fiskemottak on the quay pier (today's price per kilo wanders the same way), and sea fish
 // fill the "any fresh fish" orders in Parcels. The six sea species are added to icefish.js's species table through
-// TLFish.addSpecies, so an old save with sea fish in the cooler loads. Nothing of its own is saved: a line that was
-// down at a reload is simply back on its frame.
+// TLFish.addSpecies, so an old save with sea fish in the cooler loads. A line that was down at a reload is simply back
+// on its frame.
+//
+// TACKLE (14.4b2). The boatyard's counter sells two more lines, two more pilks and a gaff (the tackle block below);
+// what you own and what is on the frame is saved under x.sys.seafish. The free line and pilk are the 14.3 numbers.
 //
 // CONTROLS. Nothing new to bind: use (E / L3 / the FISH pill on touch) starts and stows, gas and brake work the line
 // while it is down (tracklayer.js hands them here through VEH.cur.grab and the boat's motor gets nothing). Getting out,
@@ -45,6 +48,47 @@ const PAY_V = 3.0, HAUL_V = 1.5, SPOOL = 120;                                  /
 const BITE_K = 0.045, BITE_WIN = 1.5;                                          // bites per second per unit of everything; seconds to set the hook
 const PART_T = 1.0, SLACK_T = 3.5, RIG_T = 5;                                  // seconds over the line's limit before it parts; of slack before the hook may shake out; to tie on a new pilk
 
+/* ---------------- tackle (14.4b2): sold at the boatyard's counter, saved under x.sys.seafish ----------------
+   The frame comes with the boat: a tarred handline and plain 200 g pilks (rows 0, free, never run out). The yard's
+   counter (store "boat", opened by the use control at the shed's side door, tlx-boats.js) sells:
+   LINES, bought once, one on the frame at a time. lim = the strain the line takes before it starts to go (the bar's red),
+     part = seconds over that before it parts, shy = how the fish take to it (bites x shy). Thin mono fishes better and
+     parts sooner; the heavy line holds a big fish's run and puts some fish off.
+   PILKS, carried up to PILK_MAX of a kind, one tied on. sink = m/s on the way down, stroke = how much one lift works it,
+     aff = species that want it more. A parted line takes the pilk on it: the next of its kind goes on, and after the last
+     one the plain 200 g.
+   A GAFF, bought once: a fish of GAFF.kg or more is lifted aboard from GAFF.reach metres down while you haul and it
+     isn't running, instead of the last half metre (where a heavy fish makes one more run under the boat).
+   The Boats app's "Handline tackle" card changes line and pilk among what you own, anywhere, with the line wound in. */
+const LINES = [
+  { id: "hand",  name: "Tarred handline",        tag: "",           cost: 0,  lim: 1,    part: 1.0, shy: 1,    note: "The line that came on the frame. Takes a fair pull, and the fish don't mind it." },
+  { id: "mono",  name: "0.9 mm monofilament",    tag: "MONO",       cost: 55, lim: 0.86, part: 0.8, shy: 1.25, note: "Thin and clear: more fish take the pilk. It parts sooner, so give line early when one runs." },
+  { id: "heavy", name: "1.6 mm heavy handline",  tag: "HEAVY LINE", cost: 90, lim: 1.3,  part: 1.4, shy: 0.85, note: "Halibut line. Holds a run that would part the others, and forgives a late hand. Thick: some fish shy off it." }
+];
+const PILKS = [
+  { id: "p200",  name: "200 g pilk",          tag: "",      cost: 0,  sink: 3.0, stroke: 0.4, aff: {}, note: "Plain lead with a treble hook. A handful came with the boat." },
+  { id: "sv120", name: "120 g svenskepilk",   tag: "120 g", cost: 32, sink: 2.0, stroke: 0.5, aff: { saithe: 1.6, cod: 1.15 }, note: "Bright and light: it flutters on the drop and every lift works it harder. Saithe chase it. Slow to reach deep ground." },
+  { id: "b400",  name: "400 g bergmannpilk",  tag: "400 g", cost: 38, sink: 4.6, stroke: 0.3, aff: { redfish: 1.35, halibut: 1.4, wolffish: 1.25 }, note: "A heavy bar for deep water: down in half the time and it stays put on the bottom. Harder to work with a lift." }
+];
+const GAFF = { cost: 65, reach: 3, kg: 3 }, PILK_MAX = 3, STORE = "boat";
+const TK0 = () => ({ line: "hand", pilk: "p200", lines: {}, pilks: {}, gaff: false });
+let TKF = null;                                                                // the state when tlx.js isn't there (never saved)
+// the tackle state, made sane: an unknown or unowned line / pilk falls back to the frame's own
+function tack() {
+  let s = window.TLX && TLX.state ? TLX.state("seafish") : null; if (!s) s = TKF || (TKF = TK0());
+  if (!s.lines || typeof s.lines !== "object" || Array.isArray(s.lines)) s.lines = {};
+  if (!s.pilks || typeof s.pilks !== "object" || Array.isArray(s.pilks)) s.pilks = {};
+  for (const p of PILKS) if (p.cost) { const n = Math.floor(Number(s.pilks[p.id])); s.pilks[p.id] = Number.isFinite(n) ? clamp(n, 0, PILK_MAX) : 0; }
+  const ln = LINES.find(l => l.id === s.line), pk = PILKS.find(p => p.id === s.pilk);
+  if (!ln || (ln.cost && !s.lines[ln.id])) s.line = "hand";
+  if (!pk || (pk.cost && !(s.pilks[pk.id] > 0))) s.pilk = "p200";
+  s.gaff = s.gaff === true;
+  return s;
+}
+const lineOn = () => { const id = tack().line; return LINES.find(l => l.id === id) || LINES[0]; };
+const pilkOn = () => { const id = tack().pilk; return PILKS.find(p => p.id === id) || PILKS[0]; };
+if (window.TLX && TLX.register) TLX.register({ id: "seafish", v: 1, state0: TK0, migrate: st => st });
+
 let api = null, T = null, K = null;
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x, lerp = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -61,13 +105,13 @@ function markAt(x, z) { return sstep(0.32, 0.72, 0.65 * vnoise(x / 150 + 31.7, z
 function todK() { const d = api.dayFactor(); return 0.75 + 0.6 * (1 - Math.abs(d - 0.45) / 0.55) * (d > 0.02 && d < 0.98 ? 1 : 0.4); }
 // which species would look at a pilk at depth L over a bottom at bot, and how much each wants it right now
 function takers(L, bot, act) {
-  const out = []; let sum = 0;
+  const out = [], aff = pilkOn().aff; let sum = 0;
   for (const k of ORDER) {
     const s = SEA[k]; if (bot < s.depth[0] || L < 2) continue;
     const up = bot - L; if (up > s.off + 1) continue;
     const ideal = 0.3 + 0.55 * s.like, jig = 0.15 + 0.85 * clamp(1 - Math.abs(act - ideal) / 0.9, 0, 1);
     const deepK = k === "saithe" ? 1 : 0.6 + 0.4 * sstep(s.depth[0], s.depth[0] + 15, bot);
-    const w = s.w / 30 * jig * deepK * (up < 0.4 ? 0.35 : 1);                    // a pilk lying on the bottom isn't worked
+    const w = s.w / 30 * jig * deepK * (up < 0.4 ? 0.35 : 1) * (aff[k] || 1);     // a pilk lying on the bottom isn't worked
     out.push([k, w]); sum += w;
   }
   return { list: out, sum };
@@ -112,7 +156,7 @@ function useHint(R) {
   const k = useName();
   return `${k ? k + ": " : ""}handline over the side · ${Math.round(d)} m under the keel${k ? "" : " · tap FISH"}`;
 }
-function grab(R, thr, brk) { if (!F.on || F.R !== R) return false; F.in.thr = thr; F.in.brk = brk; return true; }
+function grab(R, thr, brk) { if (!F.on || F.R !== R) return false; const up = api.tablet && api.tablet(); F.in.thr = up ? 0 : thr; F.in.brk = up ? 0 : brk; return true; }   // the tablet up: the hands are off the line (beta 0194 #2)
 
 /* ---------------- the line, the bite, the fight ---------------- */
 function newFish(key) {
@@ -122,17 +166,22 @@ function newFish(key) {
 }
 function lose(msg, parted) {
   F.fish = null; F.bite = null; F.st = "down"; F.tens = 0; F.strain = 0; F.slack = 0;
-  if (parted) { F.L = 0; F.rigT = RIG_T; }
-  say(msg, 3); api.toast(msg, "warn");
+  const m0 = msg;
+  if (parted) {
+    F.L = 0; F.rigT = RIG_T;
+    const s = tack(), pk = pilkOn();                                              // a bought pilk went with the line
+    if (pk.cost) { s.pilks[pk.id] = Math.max(0, (s.pilks[pk.id] || 0) - 1); msg += s.pilks[pk.id] > 0 ? ` ${s.pilks[pk.id]} more ${pk.name} in the box.` : ` That was your last ${pk.name}: the plain 200 g goes on.`; tack(); api.save(); }
+  }
+  say(m0, 3); api.toast(msg, "warn");
 }
-function land() {
+function land(gaffed) {
   const f = F.fish, s = SEA[f.key], d = D(), cm = Math.round(Math.cbrt(f.kg * 1000 / s.k)), v = Math.max(1, Math.round(f.kg * s.price));
   F.fish = null; F.st = "down"; F.L = 0; F.tens = 0; F.strain = 0; F.act = 0;
   const lg = d.log; lg.n++; lg.kg = +(lg.kg + f.kg).toFixed(2);
   const pb = !lg.best[f.key] || f.kg > lg.best[f.key].kg;
   if (pb) lg.best[f.key] = { kg: f.kg, cm, lake: where(), at: api.CAL.now().label };
   F.land = { key: f.key, kg: f.kg, cm, t: 0 };
-  const head = `${s.name} (${s.local}), ${f.kg.toFixed(1)} kg, ${cm} cm${pb ? ", your best" : ""}`;
+  const head = `${gaffed ? "Gaffed and aboard: " : ""}${s.name} (${s.local}), ${f.kg.toFixed(1)} kg, ${cm} cm${pb ? ", your best" : ""}`;
   if (d.cooler.length >= coolerMax()) { api.toast(`${head}. The cooler's full at ${coolerMax()}: back it goes. Sell some at the Fiskemottak on the quay.`, "warn"); say("Released: the cooler's full", 3); }
   else {
     d.cooler.push({ sp: f.key, kg: f.kg, cm, v, t: +api.CAL.abs().toFixed(3), lake: where() }); lg.kept = (lg.kept || 0) + 1; F.sess++;
@@ -148,7 +197,7 @@ function step(R, dt) {
   if ((api.GS.storm || 0) > ROUGH + 0.1) { stop(R, "The sea's getting up: line wound in."); return; }
   F.msgT = Math.max(0, F.msgT - dt); F.rigT = Math.max(0, F.rigT - dt);
   if (F.land) { F.land.t += dt; if (F.land.t > 1.5) F.land = null; }
-  const maxL = Math.min(SPOOL, F.bot - 0.1), L0 = F.L;
+  const maxL = Math.min(SPOOL, F.bot - 0.1), L0 = F.L, ln = lineOn(), pk = pilkOn();
   if (F.fish) {                                                                 // ---- a fish on
     const f = F.fish, s = SEA[f.key], live = 0.4 + 0.6 * f.stam;
     if (f.run > 0) { f.run -= dt; if (f.run <= 0) f.rest = (1.4 + Math.random() * 2) * (1.6 - 0.6 * f.stam); }
@@ -162,18 +211,19 @@ function step(R, dt) {
     else if (running) F.L += 0.5 * f.pull * dt;
     F.L = clamp(F.L, 0, maxL);
     f.stam = Math.max(0, f.stam - dt * (0.05 + (haul ? 0.12 : 0)) / (0.5 + f.kg / 8));
-    F.strain = F.tens > 1 ? F.strain + dt : Math.max(0, F.strain - dt * 0.7);
+    F.strain = F.tens > ln.lim ? F.strain + dt : Math.max(0, F.strain - dt * 0.7);
     F.slack = !haul && !running ? F.slack + dt : Math.max(0, F.slack - dt * 2);
-    if (F.strain > PART_T) return lose(`The line parted on the ${s.name.toLowerCase()}'s run. Give line when it runs. Tying on a new pilk.`, true);
+    if (F.strain > ln.part) return lose(`The line parted on the ${s.name.toLowerCase()}'s run. Give line when it runs. Tying on a new pilk.`, true);
     if (F.slack > SLACK_T && Math.random() < 0.3 * dt) return lose("Slack line: the hook shook out.");
     if (F.L <= 0.5) return land();
-    if (F.msgT <= 0) F.msg = running ? (F.tens > 1 ? "IT'S RUNNING: ease off!" : "Running: hold, or give line") : haul ? "Coming up" : "Haul!";
+    if (tack().gaff && haul && !running && f.kg >= GAFF.kg && F.L <= GAFF.reach) return land(true);   // the gaff: a heavy fish is lifted in from 3 m down
+    if (F.msgT <= 0) F.msg = running ? (F.tens > ln.lim ? "IT'S RUNNING: ease off!" : "Running: hold, or give line") : haul ? "Coming up" : "Haul!";
   } else {                                                                      // ---- working the pilk
     F.tens += ((haul ? 0.12 : 0.04) - F.tens) * (1 - Math.exp(-6 * dt));
-    if (F.rigT <= 0) { if (pay) F.L += PAY_V * dt; else if (haul) F.L -= HAUL_V * dt; }
+    if (F.rigT <= 0) { if (pay) F.L += pk.sink * dt; else if (haul) F.L -= HAUL_V * dt; }
     F.L = clamp(F.L, 0, maxL);
     const dir = F.rigT > 0 ? 0 : haul ? 1 : pay ? -1 : 0;
-    if (dir === 1 && F.dir !== 1 && F.L > 2) F.act = Math.min(1.5, F.act + 0.4);  // a lift after a drop or a pause: one jig stroke
+    if (dir === 1 && F.dir !== 1 && F.L > 2) F.act = Math.min(1.5, F.act + pk.stroke);  // a lift after a drop or a pause: one jig stroke
     if (dir !== 0) F.dir = dir;
     F.act = Math.max(0, F.act - 0.22 * dt);
     if (F.bite) {                                                               // a tug: haul to set the hook
@@ -181,7 +231,7 @@ function step(R, dt) {
       if (haul) { F.fish = newFish(F.bite.key); F.bite = null; F.st = "fight"; F.slack = 0; F.strain = 0; F.quiet = 0; api.thud(0.2); say(`${SEA[F.fish.key].name} on!`, 1.6); }
       else if (F.bite.t <= 0) { F.bite = null; say("Missed it: haul the moment it tugs", 2.5); }
     } else if (F.rigT <= 0 && F.L > 2) {
-      const tk = takers(F.L, F.bot, F.act), rate = BITE_K * tk.sum * (0.3 + 1.4 * markAt(P.x, P.z)) * todK();
+      const tk = takers(F.L, F.bot, F.act), rate = BITE_K * tk.sum * (0.3 + 1.4 * markAt(P.x, P.z)) * todK() * ln.shy;
       F.rate = rate;
       if (Math.random() < rate * dt) {
         let r = Math.random() * tk.sum, key = tk.list[0][0]; for (const [k, w] of tk.list) { r -= w; if (r <= 0) { key = k; break; } }
@@ -266,13 +316,117 @@ function hud(on) {
 }
 function hudTick() {
   const e = document.getElementById("sfHud"); if (!e || e.hidden) return;
-  const $ = id => document.getElementById(id), k = useName();
-  const top = `HANDLINE · ${F.L.toFixed(0)} m out · bottom ${Math.round(F.bot)} m`, keys = `${api.btn("gas")}: haul · ${api.btn("brake")}: let out · ${k ? k + ": stow" : "tap STOW"}`;
+  const vis = api.tablet && api.tablet() ? "hidden" : ""; if (e.style.visibility !== vis) e.style.visibility = vis;   // not over the open tablet (beta 0194 #1)
+  const $ = id => document.getElementById(id), k = useName(), ln = lineOn(), pk = pilkOn(), tag = [ln.tag, pk.tag].filter(Boolean).join(" · ");
+  const top = `${ln.tag || "HANDLINE"}${pk.tag ? " · " + pk.tag : ""} · ${F.L.toFixed(0)} m out · bottom ${Math.round(F.bot)} m`, keys = `${api.btn("gas")}: haul · ${api.btn("brake")}: let out · ${k ? k + ": stow" : "tap STOW"}`;
   if ($("sfTop").textContent !== top) $("sfTop").textContent = top;
   if ($("sfMsg").textContent !== F.msg) $("sfMsg").textContent = F.msg;
   if ($("sfKeys").textContent !== keys) $("sfKeys").textContent = keys;
-  const b = $("sfBar"); b.style.width = Math.round(clamp(F.tens / 1.25, 0, 1) * 100) + "%"; b.style.background = F.tens > 1 ? "#ff5a4f" : F.tens > 0.75 ? "#ffc15a" : "#5fd38a";
-  $("sfMsg").style.color = F.bite || F.tens > 1 ? "#ff9a4a" : "#e9f0f4";
+  const b = $("sfBar"), rel = F.tens / ln.lim; b.style.width = Math.round(clamp(rel / 1.25, 0, 1) * 100) + "%"; b.style.background = rel > 1 ? "#ff5a4f" : rel > 0.75 ? "#ffc15a" : "#5fd38a";
+  $("sfMsg").style.color = F.bite || rel > 1 ? "#ff9a4a" : "#e9f0f4";
+}
+
+/* ---------------- tackle: buying, fitting, the counter's tabs, the Boats app's card ---------------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cash$ = n => api.fmtCash(n);
+function short(cost) { api.toast(`That's ${cash$(cost)}. You have ${cash$(api.GS.cash)}.`, "warn"); return false; }
+function lineDown() { if (!F.on) return false; api.toast("Wind the line in first: you can't change tackle with it over the side.", "warn"); return true; }
+function fitLine(id) {
+  const s = tack(), o = LINES.find(l => l.id === id); if (!o || (o.cost && !s.lines[id]) || s.line === id || lineDown()) return false;
+  s.line = id; api.toast(`${o.name} wound onto the frame.`, "good"); api.save(); return true;
+}
+function buyLine(id) {
+  const s = tack(), o = LINES.find(l => l.id === id), G = api.GS; if (!o || !o.cost) return false;
+  if (s.lines[id]) return fitLine(id);
+  if (lineDown()) return false;
+  if (G.cash < o.cost) return short(o.cost);
+  G.cash -= o.cost; s.lines[id] = 1; s.line = id;
+  api.toast(`${o.name}: wound onto the frame in your boat. The old line stays in the box.`, "good"); api.save(); return true;
+}
+function fitPilk(id) {
+  const s = tack(), o = PILKS.find(p => p.id === id); if (!o || (o.cost && !(s.pilks[id] > 0)) || s.pilk === id || lineDown()) return false;
+  s.pilk = id; api.toast(`${o.name} tied on.`, "good"); api.save(); return true;
+}
+function buyPilk(id) {
+  const s = tack(), o = PILKS.find(p => p.id === id), G = api.GS; if (!o || !o.cost) return false;
+  if ((s.pilks[id] || 0) >= PILK_MAX) { api.toast(`${PILK_MAX} of those is all the tackle box holds.`, "warn"); return false; }
+  if (G.cash < o.cost) return short(o.cost);
+  G.cash -= o.cost; s.pilks[id] = (s.pilks[id] || 0) + 1; const on = !F.on; if (on) s.pilk = id;
+  api.toast(`${o.name}: ${s.pilks[id]} in the box${on ? ", one tied on" : ""}. A parted line takes the pilk with it.`, "good"); api.save(); return true;
+}
+function buyGaff() {
+  const s = tack(), G = api.GS; if (s.gaff) return false;
+  if (G.cash < GAFF.cost) return short(GAFF.cost);
+  G.cash -= GAFF.cost; s.gaff = true;
+  api.toast(`A gaff, in the boat. A fish of ${GAFF.kg} kg or more comes aboard on it from ${GAFF.reach} m down: keep hauling.`, "good"); api.save(); return true;
+}
+const chip = (t, c) => `<span class="ifchip${c ? " " + c : ""}">${esc(t)}</span>`;
+const pct = k => (k >= 1 ? "+" : "−") + Math.round(Math.abs(k - 1) * 100) + "%";
+function card(o, on, own, chips, lbl, dis, attr) {
+  return `<div class="ifit${on ? " on" : ""}"><div class="ifhd"><span class="ifnm">${esc(o.name)}</span><span class="ifpr">${o.cost ? cash$(o.cost) : "with the boat"}</span></div>
+    <p class="ifnote">${esc(o.note)}</p><div class="ifchips">${chips}</div><button type="button" ${attr} ${dis ? "disabled" : ""}>${esc(lbl)}</button></div>`;
+}
+const lineTab = {
+  id: "sf_line", label: "Lines", stores: [STORE],
+  note: "The line decides how hard a fish can pull before it parts, and how many fish look at the pilk at all. One on the frame at a time; the others wait in the box.",
+  render(cash) {
+    const s = tack();
+    return LINES.map(o => {
+      const own = !o.cost || !!s.lines[o.id], on = s.line === o.id, dis = on || (!own && cash < o.cost);
+      const chips = chip(o.lim === 1 ? "standard strength" : `strength ${pct(o.lim)}`, o.lim > 1 ? "ok" : o.lim < 1 ? "bad" : "") + chip(o.shy === 1 ? "fish don't mind it" : `bites ${pct(o.shy)}`, o.shy > 1 ? "ok" : o.shy < 1 ? "bad" : "") + (own && !on && o.cost ? chip("Owned", "ok") : "");
+      return card(o, on, own, chips, on ? "On the frame" : own ? "Wind this on" : cash < o.cost ? `${cash$(o.cost)} · not enough cash` : `Buy & wind on · ${cash$(o.cost)}`, dis, `data-sfl="${o.id}"`);
+    }).join("");
+  },
+  bind(root, rerender) { root.querySelectorAll("button[data-sfl]").forEach(b => b.onclick = () => { const o = LINES.find(l => l.id === b.dataset.sfl); if (o && (o.cost ? buyLine(o.id) : fitLine(o.id))) rerender(); }); }
+};
+const pilkTab = {
+  id: "sf_pilk", label: "Pilks", stores: [STORE],
+  note: `The pilk decides how fast you reach the fish and who wants it. Up to ${PILK_MAX} of a kind in the box; a line that parts takes the one tied on. Tie another kind on from the Boats app.`,
+  render(cash) {
+    const s = tack();
+    return PILKS.map(o => {
+      const n = o.cost ? s.pilks[o.id] || 0 : 0, on = s.pilk === o.id, full = n >= PILK_MAX, tie = !o.cost || (n > 0 && !on), dis = tie ? on : full || cash < o.cost;
+      const who = Object.keys(o.aff).map(k => SEA[k].name.toLowerCase()).join(", ");
+      const chips = chip(`sinks ${o.sink.toFixed(1)} m a second`, o.sink > 3 ? "ok" : o.sink < 3 ? "bad" : "") + (who ? chip("for " + who, "ok") : "") + (o.cost ? chip(`${n} of ${PILK_MAX} in the box`, n ? "ok" : "") : "") + (on ? chip("Tied on", "ok") : "");
+      const lbl = tie ? (on ? "Tied on" : o.cost ? "Tie one on" : "Tie this on") : full ? `${PILK_MAX} in the box: that's all it holds` : cash < o.cost ? `${cash$(o.cost)} · not enough cash` : `Buy one · ${cash$(o.cost)}`;
+      return card(o, on, true, chips, lbl, dis, `data-sfp="${o.id}" data-tie="${tie ? 1 : 0}"`);
+    }).join("");
+  },
+  bind(root, rerender) { root.querySelectorAll("button[data-sfp]").forEach(b => b.onclick = () => { const o = PILKS.find(p => p.id === b.dataset.sfp); if (o && (b.dataset.tie === "1" ? fitPilk(o.id) : buyPilk(o.id))) rerender(); }); }
+};
+const gaffTab = {
+  id: "sf_gaff", label: "Gaff", stores: [STORE],
+  note: "A heavy fish is most often lost in the last metres, when it sees the boat and runs again.",
+  render(cash) {
+    const s = tack(), o = { name: "Gaff, 90 cm ash shaft", cost: GAFF.cost, note: `With a gaff in the boat a fish of ${GAFF.kg} kg or more is lifted aboard from ${GAFF.reach} m down, as long as you're hauling and it isn't running. Small fish come over the gunwale on the line as before.` };
+    return card(o, s.gaff, s.gaff, s.gaff ? chip("In the boat", "ok") : chip(`lands from ${GAFF.reach} m`, "ok"), s.gaff ? "In the boat" : cash < GAFF.cost ? `${cash$(GAFF.cost)} · not enough cash` : `Buy · ${cash$(GAFF.cost)}`, s.gaff || cash < GAFF.cost, `data-sfg="1"`);
+  },
+  bind(root, rerender) { const b = root.querySelector("button[data-sfg]"); if (b) b.onclick = () => { if (buyGaff()) rerender(); }; }
+};
+if (window.TLX) {
+  TLX.shopTabs = (TLX.shopTabs || []).concat([lineTab, pilkTab, gaffTab]);
+  TLX.stores = Object.assign(TLX.stores || {}, { [STORE]: { eyebrow: "Kjøllefjord Båt &amp; Motor · the slip", title: "Handline tackle",
+    foot: "What you buy goes straight into your boat. Change line or pilk here, or from the Boats app with the line wound in." } });
+}
+// the next line / pilk you own after the one that's on (the Boats app's CHANGE buttons)
+function cycle(what) {
+  const s = tack(), list = what === "line" ? LINES.filter(o => !o.cost || s.lines[o.id]) : PILKS.filter(o => !o.cost || s.pilks[o.id] > 0);
+  const i = list.findIndex(o => o.id === s[what]), nx = list[(i + 1) % list.length];
+  return nx && nx.id !== s[what] ? (what === "line" ? fitLine(nx.id) : fitPilk(nx.id)) : false;
+}
+// the Boats app: what's on the frame, and changing it (tlx-boats.js asks its add-ons for cards)
+function appCard(U) {
+  const s = tack(), ln = lineOn(), pk = pilkOn(), nl = LINES.filter(o => !o.cost || s.lines[o.id]).length, np = PILKS.filter(o => !o.cost || s.pilks[o.id] > 0).length;
+  const box = PILKS.filter(o => o.cost && s.pilks[o.id] > 0).map(o => `${s.pilks[o.id]} × ${o.name}`).join(", ");
+  const btn = (act, lbl) => `<button type="button" class="tbtn ghost" data-tf="${act}" data-act="${act}">${lbl}</button>`;
+  return U.sec("Handline", F.on ? "over the side" : "on its frame")
+    + `<div class="tcard" data-tf="sfc"><div class="tcb"><div class="tct"><span>Handline tackle</span>${s.gaff ? U.chip("GAFF", "ok") : ""}</div>
+      <div class="tcm">${U.esc(ln.name)} · ${U.esc(pk.name)} tied on</div>
+      <div class="tcn">${U.esc(ln.note)} ${box ? "In the box: " + U.esc(box) + "." : "No bought pilks in the box."} ${s.gaff ? "" : "No gaff. "}Lines, pilks and a gaff are sold at the yard's side door by the quay jetty.</div>
+      ${nl > 1 || np > 1 ? `<div class="tca" style="justify-content:flex-end;gap:8px">${nl > 1 ? btn("sfl", "CHANGE LINE") : ""}${np > 1 ? btn("sfp", "CHANGE PILK") : ""}</div>` : ""}</div></div>`;
+}
+function appBind(el) {
+  for (const [act, what] of [["sfl", "line"], ["sfp", "pilk"]]) for (const b of el.querySelectorAll(`[data-act='${act}']`)) b.addEventListener("click", () => { cycle(what); api.TABLET.refresh("boats"); });
 }
 
 function tick(R, r, isCur, dt) {
@@ -282,7 +436,7 @@ function tick(R, r, isCur, dt) {
   if (F.on) { draw(R, dt); hudTick(); }
 }
 function init(a, kit) { api = a; T = a.THREE; K = kit; }
-TLXB.addOn({ init, tick, use, useLabel, useHint, grab, stop: R => stop(R, ""), pose });
-window.TLXSF = { SEA, ORDER, F, markAt, takers, todK, newFish, where,
+TLXB.addOn({ init, tick, use, useLabel, useHint, grab, stop: R => stop(R, ""), pose, appCard, appBind });
+window.TLXSF = { SEA, ORDER, F, markAt, takers, todK, newFish, where, LINES, PILKS, GAFF, PILK_MAX, tackle: tack, lineOn, pilkOn, buyLine, fitLine, buyPilk, fitPilk, buyGaff, cycle,
   T: { MIN_DEPTH, STOP_V, ROUGH, PAY_V, HAUL_V, BITE_K, BITE_WIN, PART_T, SLACK_T, RIG_T } };
 })();
