@@ -43,6 +43,10 @@
 // drums, the driver in the saddle) rides it at a sled's own pace and stands parked by the quay between trips. Block
 // comment at RUN. Nothing more is saved.
 //
+// Slice 6.3b2b: THE DRIVER ON FOOT. At a light the driver gets off and carries the drums to the oil store's door one
+// at a time (a stop that is part of the trip: st "unload", u of uT game hours on the saved trip); at the quay they
+// stand by the parked sled; stopped, they can be hailed with the use control. Block comment at UN.
+//
 // SAVED under x.sys.lights: { lamps: { id: { oil (L in the tank), store (L in full drums in the oil store), on,
 // lit / need (lamp hours burned / dark hours, this week), low, q (drums paid for and not yet at this light: at the
 // quay or aboard), kT (game hours since the keeper's last round), kDid (what that round did) } }, hT (game hour last stepped), last: [weekly statements] } (`quay`, 6.2a's one count for
@@ -169,6 +173,7 @@ const DRV = { place: "oil:quay", wage: [70, 5], cap: 2, load: 0.5,
   trail: 1.3,             // with no run by land (6.3b2a's route): the straight line x this
   wx: [0.45, 0.03, 10],   // the weather (WX.at, 0-1) they will not ride in: base + per REAL year, years counted to
   slow: 0.6,              // the share of their speed lost at that limit (linear under it)
+  unload: true,           // at the light they get off and carry the drums in (6.3b2b: UN); false = the drums land the moment the sled arrives
   orderH: 60,             // standing order: a light under this many lamp hours (tank + store + drums on the way) gets drums ordered
   late: [1.5, 0.5] };     // a trip over this x its clean time + this many hours is late
 const driverOf = () => (TLX.staff && TLX.staff.at ? TLX.staff.at(DRV.place) : null);
@@ -179,16 +184,18 @@ const wxAt = (x, z, t) => { try { return clamp(+api.WX.at(x, z, t) || 0, 0, 1); 
 function drvRec() {
   const s = S(); let q = s.drv;
   if (!q || typeof q !== "object" || Array.isArray(q)) q = s.drv = { st: "quay", lamp: null, n: 0, p: 0, d: 0, w: 0, t: 0, held: false, who: null, so: true, wkN: 0, wkLate: 0, told: "" };
-  if (q.st !== "out" && q.st !== "back") q.st = "quay";
-  for (const k of ["n", "p", "d", "w", "t", "wkN", "wkLate"]) q[k] = isFinite(+q[k]) ? Math.max(0, +q[k]) : 0;
+  if (q.st !== "out" && q.st !== "back" && q.st !== "unload") q.st = "quay";
+  for (const k of ["n", "p", "d", "w", "t", "wkN", "wkLate", "u", "uT"]) q[k] = isFinite(+q[k]) ? Math.max(0, +q[k]) : 0;
   q.n = Math.min(DRV.cap, Math.floor(q.n)); q.so = q.so !== false; q.held = !!q.held; q.told = typeof q.told === "string" ? q.told : "";
   if (q.st !== "quay" && (!lampOf(q.lamp) || !owns(lampOf(q.lamp)) || !lampOf(q.lamp).site(api.world) || !(q.d > 0))) { q.st = "quay"; q.lamp = null; q.n = 0; q.p = 0; }
+  if (q.st === "unload" && (!(q.uT > 0) || q.n < 1)) { q.st = "out"; q.p = q.d; }                  /* a stop with nothing to time it by: they are at the light, and land */
   if (q.st === "quay") { q.lamp = null; q.n = 0; q.p = 0; }
   if (q.st === "back") q.n = 0;
+  if (q.st !== "unload") { q.u = 0; q.uT = 0; }
   return q;
 }
 // drums of this light's on the driver's sled right now
-function drvAboard(lp) { const q = S().drv; return q && typeof q === "object" && q.st === "out" && q.lamp === lp.id ? Math.max(0, Math.floor(+q.n || 0)) : 0; }
+function drvAboard(lp) { const q = S().drv; return q && typeof q === "object" && (q.st === "out" || q.st === "unload") && q.lamp === lp.id ? Math.max(0, Math.floor(+q.n || 0)) : 0; }
 const itsDrum = lp => j => isDrum(j) && (lampOf(j.lamp) || LAMPS[0]) === lp;
 // drums paid for and standing at the quay (not on your sled, not on the driver's)
 function atQuay(lp) { const r = rec(lp.id); return Math.max(0, r.q - api.GS.load.filter(itsDrum(lp)).length - drvAboard(lp)); }
@@ -196,7 +203,7 @@ function atQuay(lp) { const r = rec(lp.id); return Math.max(0, r.q - api.GS.load
 function drvHas(lp) { return driverOf() && driverWork() > 0 ? atQuay(lp) + drvAboard(lp) : 0; }
 function drvPos(q) {
   const W = api.world, lp = lampOf(q.lamp), to = lp && lp.site(W); if (!to || q.st === "quay") return { x: W.depot.x, z: W.depot.z };
-  const k = clamp(q.d > 0 ? q.p / q.d : 1, 0, 1), f = q.st === "out" ? k : 1 - k, R = route(lp);
+  const k = clamp(q.d > 0 ? q.p / q.d : 1, 0, 1), f = q.st === "back" ? 1 - k : q.st === "unload" ? 1 : k, R = route(lp);
   if (R) { const a = posAt(R, f * R.len); return { x: a.x, z: a.z }; }    // on the run (6.3b2a); no way by land: the straight line
   return { x: W.depot.x + (to.x - W.depot.x) * f, z: W.depot.z + (to.z - W.depot.z) * f };
 }
@@ -255,13 +262,23 @@ function drvStep(t, dt) {
     q.held = false; q.w += dt; if (q.w >= DRV.load / w) drvTake(q, lp);
     return;
   }
-  const lp = lampOf(q.lamp), pos = drvPos(q), wx = wxAt(pos.x, pos.z, t);
+  const lp = lampOf(q.lamp);
+  if (q.st === "unload") {                                                 // at the light, walking the drums in: weather does not stop that
+    q.held = false; q.u += dt;
+    if (q.u >= q.uT) { drvLand(q, m, lp, w); q.st = "back"; q.p = 0; q.u = 0; q.uT = 0; }
+    return;
+  }
+  const pos = drvPos(q), wx = wxAt(pos.x, pos.z, t);
   if (q.st === "out") q.t += dt;
   if (wx >= lim) { q.held = true; return; }                               // a storm over them: they sit it out where they are
   q.held = false;
   q.p += (q.st === "out" ? DRV.vOut : DRV.vBack) * w * (1 - DRV.slow * wx / lim) * dt;
   if (q.p < q.d) return;
-  if (q.st === "out") { drvLand(q, m, lp, w); q.st = "back"; q.p = 0; }
+  if (q.st === "out") {
+    const un = DRV.unload ? unPlan(lp) : null;                              // 6.3b2b: off the sled and the drums carried in, one at a time
+    if (un) { q.st = "unload"; q.p = q.d; q.u = 0; q.uT = unTot(un, q.n) / UN.hourS; try { api.TABLET.refresh("lights"); } catch (e) { } }
+    else { drvLand(q, m, lp, w); q.st = "back"; q.p = 0; }
+  }
   else { q.st = "quay"; q.lamp = null; q.p = 0; q.w = 0; q.t = 0; try { api.TABLET.refresh("lights"); } catch (e) { } }
 }
 // where the driver is and what they are doing, in a line (the Oil run card, the Staff card)
@@ -269,6 +286,7 @@ function drvLine(q, m) {
   if (!(driverWork() > 0)) return "not working: wages are owed";
   if (q.who !== m.id) return "at the quay, starting on the run";            /* hired this second: the last driver's trip is not theirs (beta 0330 #5) */
   const lp = lampOf(q.lamp), km = v => (Math.max(0, v) / 1000).toFixed(1);
+  if (q.st === "unload") return `at ${lp.at}, carrying ${plural(q.n, "drum")} in to the oil store`;
   if (q.st === "out") return q.held ? `sitting out the weather ${km(q.p)} km out, ${plural(q.n, "drum")} for ${lp.at} aboard` : `on the way to ${lp.at} with ${plural(q.n, "drum")}, ${km(q.d - q.p)} km to go`;
   if (q.st === "back") return q.held ? `sitting out the weather on the way back from ${lp.at}` : `on the way back from ${lp.at}, ${km(q.d - q.p)} km to go`;
   const nx = drvPick();
@@ -384,7 +402,93 @@ function posAt(R, s) {
   const p = R.pts[lo], q = R.pts[hi], l = c[hi] - c[lo] || 1, t = (s - c[lo]) / l, tx = (q[0] - p[0]) / l, tz = (q[1] - p[1]) / l;
   return { x: p[0] + (q[0] - p[0]) * t, z: p[1] + (q[1] - p[1]) * t, tx, tz };
 }
-const DS = { g: null, sg: null, s: 0, v: 0, tp: -1, tt: 0, key: "", obs: null, y: null, pS: -1e9, shown: false, moving: false, n: 0 };
+/* ---------------- 6.3b2b: the driver on foot ----------------
+   AT THE LIGHT the sled stops at the end of the run and the driver gets off, walks back to the sledge, takes a drum on
+   the shoulder, carries it to the door of the room with the oil store (unPlan(): a way on foot from the sledge to the
+   door that goes round anything standing), is inside a moment, walks back for the next, and rides home. The stop is
+   part of the trip (q.st "unload", q.u of q.uT game hours; the drums are in the store when it ends) and what you see
+   is the same clock (unAt()). AT THE QUAY the driver stands by the parked sled, at the sledge while loading. On foot
+   the figure walks with the walker's own gait (api.walkAs: the wade in loose snow, the walk on a packed path, boots
+   planted, a trench behind). Stopped (at the quay, at a light, sat out in weather) they can be hailed with the use
+   control within UN.reach, and that is where PRAISE / CRITICISE in the Staff app can be had. */
+const UN = { hourS: 50,          // seconds of play in a game hour
+  off: 1, on: 1,                 // s in the saddle before getting off / after getting back on
+  seg: 3,                        // s on foot between the saddle and the sledge, each way
+  lift: 1.6,                     // s to get a drum from the sledge onto the shoulder
+  vC: 1.1, vB: 1.5,              // m/s with a drum on the shoulder / walking back for the next
+  inT: 3,                        // s inside with each drum
+  back: 4.2, side: 0.85,         // the sledge's middle behind the sled's; where they stand beside either
+  far: 60,                       // m: a door further than this from the end of the run is no carry (the drums land as the sled arrives)
+  reach: 3.2 };                  // m: the use control hails them from this close
+const ease = x => { const r = 0.12; x = clamp(x, 0, 1); return x < r ? x * x / (2 * r * (1 - r)) : x > 1 - r ? 1 - (1 - x) * (1 - x) / (2 * r * (1 - r)) : (x - r / 2) / (1 - r); };
+// a way on foot from A to B round whatever stands between them: a straight line if it is clear, else a search over
+// 1 m squares, pulled tight
+function walkWay(W, A, B) {
+  const bad = (x, z) => W.isSea(x, z) || W.obNear(x, z, 0.75);
+  const clear = (p, q) => { const l = Math.hypot(q[0] - p[0], q[1] - p[1]), n = Math.ceil(l / 0.4); for (let i = 1; i < n; i++) if (bad(p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n)) return false; return true; };
+  if (clear(A, B)) return [A, B];
+  const pad = 14, x0 = Math.floor(Math.min(A[0], B[0]) - pad), z0 = Math.floor(Math.min(A[1], B[1]) - pad), w = Math.ceil(Math.abs(A[0] - B[0]) + 2 * pad) + 1, h = Math.ceil(Math.abs(A[1] - B[1]) + 2 * pad) + 1;
+  if (w * h > 16000) return [A, B];
+  const ci = p => (Math.round(p[1] - z0)) * w + Math.round(p[0] - x0), s = ci(A), g = ci(B), from = new Int32Array(w * h).fill(-2), blk = new Int8Array(w * h).fill(-1);
+  const isB = k => { if (k === s || k === g) return false; if (blk[k] < 0) blk[k] = bad(x0 + k % w, z0 + ((k / w) | 0)) ? 1 : 0; return blk[k] === 1; };
+  const Q = [s]; from[s] = -1; let found = false;
+  for (let qi = 0; qi < Q.length && !found; qi++) {
+    const k = Q[qi], i = k % w, j = (k / w) | 0;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const i2 = i + di, j2 = j + dj; if (i2 < 0 || j2 < 0 || i2 >= w || j2 >= h) continue;
+      const k2 = j2 * w + i2; if (from[k2] !== -2 || isB(k2)) continue;
+      if (di && dj && (isB(j * w + i2) || isB(j2 * w + i))) continue;
+      from[k2] = k; if (k2 === g) { found = true; break; } Q.push(k2);
+    }
+  }
+  if (!found) return [A, B];
+  let P = []; for (let k = g; k >= 0; k = from[k]) P.push([x0 + k % w, z0 + ((k / w) | 0)]);
+  P.reverse(); P[0] = A; P[P.length - 1] = B;
+  const out = [A]; let i = 0;
+  while (i < P.length - 1) { let j = P.length - 1; while (j > i + 1 && !clear(P[i], P[j])) j--; out.push(P[j]); i = j; }
+  return out;
+}
+// the carry at this light: where they get off (Q), where they stand at the sledge (S), the way to the door (pts, as a
+// run: posAt reads it), how long one drum takes. Kept on the run; null = no door within reach of it.
+function unPlan(lp) {
+  const R = route(lp); if (!R) return null;
+  if (R.un !== undefined) return R.un;
+  let un = null;
+  try {
+    const W = api.world, l = TLX.prop && TLX.prop.listing ? TLX.prop.listing(lp.prop) : null, d = l && l.at && l.at.rooms ? l.at.rooms[lp.room.split(":")[1]] : null;
+    if (d) {
+      const e = posAt(R, R.len), b = posAt(R, Math.max(0, R.len - UN.back)), lx = b.tz, lz = -b.tx;
+      const side = (d.x - b.x) * lx + (d.z - b.z) * lz >= 0 ? 1 : -1;
+      const S0 = [b.x + lx * side * UN.side, b.z + lz * side * UN.side], Q0 = [e.x + e.tz * side * UN.side - e.tx * 0.3, e.z - e.tx * side * UN.side - e.tz * 0.3];
+      let nx = Math.sin(d.ry || 0), nz = Math.cos(d.ry || 0);                  // out of the door; the house is the other way
+      if (!W.obNear(d.x - nx * 1.6, d.z - nz * 1.6, 0.4) && W.obNear(d.x + nx * 1.6, d.z + nz * 1.6, 0.4)) { nx = -nx; nz = -nz; }
+      let k = 0; while (k < 1.6 && !W.obNear(d.x - nx * (k + 0.15), d.z - nz * (k + 0.15), 0.3)) k += 0.15;
+      const pts = walkWay(W, S0, [d.x, d.z]).concat([[d.x - nx * (k + 0.35), d.z - nz * (k + 0.35)]]);
+      const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const len = cum[cum.length - 1];
+      if (len > 2 && len <= UN.far) un = { pts, cum, len, S: S0, Q: Q0, side, face: Math.atan2(b.x - S0[0], b.z - S0[1]), per: UN.lift + len / UN.vC + UN.inT + len / UN.vB };
+    }
+  } catch (e) { un = null; }
+  return R.un = un;
+}
+const unTot = (un, n) => UN.off + UN.seg + n * un.per + UN.seg + UN.on;       // seconds for the whole stop with n drums
+// what the driver is doing t seconds into the stop: m = seat | toS | lift | carry | in | back | toQ, k = how far
+// through it, s = metres along the way to the door, done = drums already inside
+function unAt(un, n, t) {
+  if (t < UN.off) return { m: "seat", k: 0, done: 0 };
+  t -= UN.off; if (t < UN.seg) return { m: "toS", k: ease(t / UN.seg), done: 0 };
+  t -= UN.seg;
+  for (let i = 0; i < n; i++) {
+    if (t < UN.lift) return { m: "lift", k: t / UN.lift, done: i };
+    t -= UN.lift; const tc = un.len / UN.vC; if (t < tc) return { m: "carry", k: t / tc, s: un.len * ease(t / tc), done: i };
+    t -= tc; if (t < UN.inT) return { m: "in", k: t / UN.inT, done: i + 1 };
+    t -= UN.inT; const tb = un.len / UN.vB; if (t < tb) return { m: "back", k: t / tb, s: un.len * (1 - ease(t / tb)), done: i + 1 };
+    t -= tb;
+  }
+  if (t < UN.seg) return { m: "toQ", k: ease(t / UN.seg), done: n };
+  return { m: "seat", k: 1, done: n };
+}
+const DS = { g: null, sg: null, s: 0, v: 0, tp: -1, tt: 0, key: "", obs: null, y: null, pS: -1e9, shown: false, moving: false, n: 0, fig: null, F: null, hail: null, mode: "", us: 0, uv: 0, up: 0, utt: 0, fq: null };
 function dsOb(p) {
   const W = api.world;
   if (DS.obs && (!p || Math.hypot(DS.obs[0].x - p.x, DS.obs[0].z - p.z) > 0.5)) { for (const o of DS.obs) W.dropOb(o); DS.obs = null; }
@@ -403,7 +507,8 @@ function dsBuild() {
   const lamp = new T.Mesh(new T.SphereGeometry(0.06, 8, 6), new T.MeshBasicMaterial({ color: 0xfff2c8 })); lamp.position.set(0, 0.86, 1.2); g.add(lamp);
   const glow = new T.Sprite(new T.SpriteMaterial({ map: halo(), color: 0xfff1c0, transparent: true, depthWrite: false, blending: T.AdditiveBlending })); glow.position.set(0, 0.86, 1.3); glow.scale.set(2.2, 2.2, 1); g.add(glow);
   // the driver, in the saddle: thighs along the seat, shins down to the boards, a lean into the bars, hands on the grips
-  const r = api.newWalker({ jacket: std(0x2d4a63, 0.85, 0), pants: std(0x202328, 0.9, 0), trim: std(0xd8b23a, 0.7, 0) }), U = r.userData, hz = -0.24, lean = 0.5;
+  const mats = { jacket: std(0x2d4a63, 0.85, 0), pants: std(0x202328, 0.9, 0), trim: std(0xd8b23a, 0.7, 0) };
+  const r = api.newWalker(mats), U = r.userData, hz = -0.24, lean = 0.5;
   r.position.set(0, C.seatAt(hz) + 0.1 - 0.93, hz); g.add(r);
   U.legs[0].rotation.set(-1.27, 0, -0.16); U.legs[1].rotation.set(-1.27, 0, 0.16); for (const s of U.shins) s.rotation.set(1.22, 0, 0); for (const a of U.ank) a.rotation.set(0.05, 0, 0);
   U.torso.rotation.x = lean; U.head.rotation.x = -0.36;
@@ -434,14 +539,70 @@ function dsBuild() {
     drums.push(d);
   }
   Object.assign(DS, { g, sg, rider: r, lamp, glow, drums, back: hitch + gap, C });
+  // the same driver on foot (6.3b2b), and the drum that goes on the shoulder: its middle is its origin; the mount is
+  // where it lies on the right shoulder, bung forward
+  const f = api.newWalker(mats); f.visible = false; api.scene.add(f);
+  const mount = new T.Object3D(); mount.position.set(-0.335, 0.8, 0.0); mount.rotation.set(Math.PI / 2 - 0.1, 0, 0); f.userData.torso.add(mount);
+  const cd = new T.Group(); cd.visible = false; api.scene.add(cd);
+  cyl(0.2, 0.2, 0.62, drumM, 0, 0, 0, 0, 0, 0, cd, 14); for (const y of [-0.11, 0.11]) cyl(0.207, 0.207, 0.025, steel, 0, y, 0, 0, 0, 0, cd, 14); cyl(0.03, 0.03, 0.03, steel, 0.1, 0.325, 0, 0, 0, 0, cd, 6);
+  Object.assign(DS, { fig: f, mount, cd, F: { x: 0, z: 0, yaw: 0, tired: 0.1 }, hy: 0, v1: new T.Vector3(), v2: new T.Vector3(), q1: new T.Quaternion(), q2: new T.Quaternion() });
 }
-function dsHide() { if (DS.g) { DS.g.visible = false; DS.sg.visible = false; } DS.shown = false; DS.moving = false; }
+function dsHide() { if (DS.g) { DS.g.visible = false; DS.sg.visible = false; DS.fig.visible = false; DS.cd.visible = false; } DS.shown = false; DS.moving = false; DS.hail = null; DS.mode = ""; }
+// the driver on foot at (x, z), turning to face yawT: the walker's own gait for the ground covered since the last frame
+function figPut(x, z, yawT, dt, pl) {
+  const F = DS.F, f = DS.fig;
+  if (!f.visible) { F.yaw = yawT; F.px = undefined; }
+  F.x = x; F.z = z; F.yaw += Math.atan2(Math.sin(yawT - F.yaw), Math.cos(yawT - F.yaw)) * Math.min(1, dt * 7);
+  const far = Math.hypot(pl.x - x, pl.z - z); F.vol = far < 14 ? 0.45 * (1 - far / 14) : 0; F.quiet = far > RUN.press;
+  api.walkAs(f, F, dt); f.visible = true;
+}
+// a drum on the right shoulder (w 0..1), the right arm up over it, the left out for balance, the trunk a little under
+// the load and off to the left; reach (0..1): both hands down on a drum that stands on the sledge
+function figCarry(w, reach) {
+  const U = DS.fig.userData, L = (a, b, t) => a + (b - a) * t;
+  if (reach > 0) {
+    for (let i = 0; i < 2; i++) { const a = U.arms[i], sd = i ? 1 : -1; a.rotation.set(L(a.rotation.x, -1.0, reach), 0, L(a.rotation.z, -sd * 0.1, reach)); U.fore[i].rotation.x = L(U.fore[i].rotation.x, -0.35, reach); }
+    U.torso.rotation.x = L(U.torso.rotation.x, 0.42, reach); U.head.rotation.x = L(U.head.rotation.x, 0.1, reach);
+  }
+  if (w > 0) {
+    const a = U.arms[0], b = U.arms[1];
+    a.rotation.set(L(a.rotation.x, -2.5, w), 0, L(a.rotation.z, -0.3, w)); U.fore[0].rotation.x = L(U.fore[0].rotation.x, -0.95, w);
+    b.rotation.x *= 1 - 0.45 * w; b.rotation.z = L(b.rotation.z, 0.26, w);
+    U.torso.rotation.x = L(U.torso.rotation.x, Math.min(U.torso.rotation.x, 0.24) + 0.06, w); U.torso.rotation.z = L(U.torso.rotation.z, -0.07, w); U.head.rotation.x = L(U.head.rotation.x, -0.12, w); U.head.rotation.z = -0.2 * w;   /* upright under the load, even wading */
+  } else U.head.rotation.z = 0;
+}
+// the driver hailed: a line in their own words about what they are at
+function hail() {
+  const m = driverOf(), q = m && S().drv; if (!m || !q) return;
+  const lp = lampOf(q.lamp), nx = q.st === "quay" ? drvPick() : null;
+  const say = !(driverWork() > 0) ? "No wages, no oil. Square up with me and I'll get on with it."
+    : q.st === "unload" ? `${q.n > 1 ? "These two" : "This one"} into the store here, then home. ${lp.name} is good for a while.`
+    : q.st === "quay" ? (q.held ? "Not in this. I'll go when it eases." : nx ? `Loading for ${nx.at}. Away in a minute.` : q.so ? "Nothing to haul just now. I'll order more when a light runs down." : "Nothing to haul just now. Order the drums and I'll take them out.")
+    : q.held ? "Sitting it out. Drums don't spoil." : "Can't stop!";
+  api.ui.ping("note"); api.toast(`${dFirst()}: "${say}" (The Staff app: praise or a word of criticism can be had while you stand here.)`, "info");
+}
+function hailUse() {
+  const h = DS.hail, F = api.FOOT; if (!h || !DS.shown || api.INT.on || !F.on || !driverOf() || Math.hypot(F.x - h.x, F.z - h.z) > UN.reach) return null;
+  return { label: "TALK", hint: () => api.keyHint("use", `talk to ${dFirst()}`), act: hail };
+}
 function dsTick(dt) {
   const m = driverOf(), s = S(), q = m && s.drv && typeof s.drv === "object" && s.drv.who === m.id ? s.drv : null;
   if (!q || !mine().length || api.tutHidden()) { dsHide(); dsOb(null); DS.key = ""; return; }
   const W = api.world, lp = lampOf(q.lamp), R = q.st !== "quay" && lp ? route(lp) : null, now = api.now();
+  const un = q.st === "unload" && lp ? unPlan(lp) : null;                 // (before the parked sled goes down as something standing)
   let a, dir = 1, along = 0;
   if (q.st === "quay") { const u = quaySpot(); a = { x: u.x, z: u.z, tx: Math.sin(u.yaw), tz: Math.cos(u.yaw) }; DS.key = "quay"; DS.v = 0; DS.moving = false; dsOb(a); }
+  else if (q.st === "unload") {
+    if (!R) { dsHide(); dsOb(null); return; }
+    // stopped at the end of the run; the stop's own clock (q.u moves once a second) carried on between its steps
+    const key = "unload" + q.lamp, us = q.u * UN.hourS;
+    if (DS.key !== key) { DS.key = key; DS.us = us; DS.uv = 0; DS.up = us; DS.utt = now; }
+    if (us !== DS.up) { const e = now - DS.utt; DS.uv = us > DS.up && e > 0.2 && e < 3 ? (us - DS.up) / e : 0; DS.up = us; DS.utt = now; }
+    const el = now - DS.utt; if (el > 1.6) DS.uv = 0;
+    const ideal = DS.up + DS.uv * Math.min(el, 1.15);
+    if (Math.abs(ideal - DS.us) > 5) DS.us = ideal; else DS.us = Math.max(DS.us, DS.us + (ideal - DS.us) * Math.min(1, dt * 5));
+    DS.v = 0; DS.moving = false; along = R.len; a = posAt(R, along); dsOb(a);
+  }
   else {
     dsOb(null);
     if (!R) { dsHide(); return; }
@@ -479,10 +640,49 @@ function dsTick(dt) {
   sg.position.set(hx - Math.sin(syaw) * 2.15, yb, hz - Math.cos(syaw) * 2.15);
   sg.rotation.y = syaw; sg.rotation.x += (clamp(-Math.atan2(ya + 0.1 - yb, DS.back), -0.6, 0.6) - sg.rotation.x) * k * 0.6;
   g.visible = sg.visible = true; DS.shown = true;
-  const out = q.st !== "quay", night = 1 - api.dayFactor();
-  DS.rider.visible = out; DS.lamp.visible = out; DS.glow.visible = out && night > 0.05; if (DS.glow.visible) DS.glow.material.opacity = 0.3 + 0.7 * night;
-  if (out) DS.rider.userData.torso.rotation.x = 0.5 + (DS.moving ? Math.sin(now * 6.3) * 0.012 + clamp(-pitch, -0.3, 0.3) * 0.25 : 0.06);
-  let n = 0; if (q.st === "out") n = q.n; else if (q.st === "quay" && q.w > 0 && !q.held) { const nx = drvPick(); n = nx ? Math.min(DRV.cap, atQuay(nx)) : 0; }
+  const night = 1 - api.dayFactor();
+  // who is where: in the saddle (riding, or the first and last moment of a stop), or on foot
+  let seated = q.st === "out" || q.st === "back", n = 0, fig = false, cdOn = false, mode = seated ? "ride" : "";
+  if (q.st === "out") n = q.n;
+  else if (q.st === "quay") {
+    const nx = q.w > 0 && !q.held ? drvPick() : null; n = nx ? Math.min(DRV.cap, atQuay(nx)) : 0;
+    // by the sled; at the sledge while there are drums going on it. They walk between the two.
+    const ld = n > 0, bx = a.x - a.tx * (ld ? DS.back : 0.2), bz = a.z - a.tz * (ld ? DS.back : 0.2), tx = bx + lx * UN.side, tz = bz + lz * UN.side, face = ld ? Math.atan2(-lx, -lz) : Math.atan2(lx * 0.8 + a.tx * 0.6, lz * 0.8 + a.tz * 0.6);
+    if (!DS.fq || !DS.fig.visible || Math.hypot(DS.fq.x - tx, DS.fq.z - tz) > 9) DS.fq = { x: tx, z: tz };
+    const dx = tx - DS.fq.x, dz = tz - DS.fq.z, dd = Math.hypot(dx, dz), st = Math.min(dd, 1.3 * dt);
+    if (dd > 0.02) { DS.fq.x += dx / dd * st; DS.fq.z += dz / dd * st; }
+    figPut(DS.fq.x, DS.fq.z, dd > 0.25 ? Math.atan2(dx, dz) : face, dt, pl); figCarry(0, 0); fig = true; mode = dd > 0.25 ? "walk" : ld ? "load" : "stand";
+  } else if (q.st === "unload") {
+    const u = un ? unAt(un, q.n, DS.us) : { m: "seat", done: 0 };
+    mode = u.m; seated = u.m === "seat"; n = q.n - u.done - (u.m === "lift" || u.m === "carry" ? 1 : 0);
+    if (u.m === "toS" || u.m === "toQ") {
+      const k = u.m === "toS" ? u.k : 1 - u.k, back = u.m === "toS" ? 0 : Math.PI;
+      figPut(un.Q[0] + (un.S[0] - un.Q[0]) * k, un.Q[1] + (un.S[1] - un.Q[1]) * k, Math.atan2(un.S[0] - un.Q[0], un.S[1] - un.Q[1]) + back, dt, pl); figCarry(0, 0); fig = true;
+    } else if (u.m === "lift") {
+      figPut(un.S[0], un.S[1], un.face, dt, pl); fig = true; cdOn = true;
+      const up = api.sstep(0.3, 0.95, u.k);
+      figCarry(api.sstep(0.45, 1, u.k), api.sstep(0, 0.28, u.k) * (1 - api.sstep(0.45, 0.9, u.k)));
+      DS.fig.updateMatrixWorld(true); sg.updateMatrixWorld(true);
+      const slot = DS.drums[Math.max(0, n)];                               // the one being taken: the next index after those left
+      DS.v1.set(0, 0.31, 0); slot.localToWorld(DS.v1); sg.getWorldQuaternion(DS.q1);
+      DS.mount.getWorldPosition(DS.v2); DS.mount.getWorldQuaternion(DS.q2);
+      DS.cd.position.lerpVectors(DS.v1, DS.v2, up); DS.cd.position.y += 0.12 * Math.sin(Math.PI * up); DS.cd.quaternion.copy(DS.q1).slerp(DS.q2, up);
+    } else if (u.m === "carry" || u.m === "back") {
+      const p = posAt(un, u.s), bk = u.m === "back";
+      figPut(p.x, p.z, Math.atan2(bk ? -p.tx : p.tx, bk ? -p.tz : p.tz), dt, pl); fig = true; cdOn = !bk;
+      figCarry(bk ? 0 : 1, 0);
+      if (cdOn) { DS.fig.updateMatrixWorld(true); DS.mount.getWorldPosition(DS.cd.position); DS.mount.getWorldQuaternion(DS.cd.quaternion); }
+    }
+  }
+  DS.mode = mode; DS.fig.visible = fig; DS.cd.visible = cdOn;
+  if (fig) {                                                              // standing, they look round at you when you come close
+    const F = DS.F, dP = Math.hypot(pl.x - F.x, pl.z - F.z), still = mode === "stand" || mode === "load";
+    const want = still && dP < 9 && dP > 0.4 ? clamp(Math.atan2(Math.sin(Math.atan2(pl.x - F.x, pl.z - F.z) - F.yaw), Math.cos(Math.atan2(pl.x - F.x, pl.z - F.z) - F.yaw)), -1.15, 1.15) : 0;
+    DS.hy += (want - DS.hy) * Math.min(1, dt * 4); DS.fig.userData.head.rotation.y += DS.hy;
+  }
+  DS.hail = fig ? { x: DS.F.x, z: DS.F.z } : seated && !DS.moving && (q.held || !(driverWork() > 0)) ? { x: a.x, z: a.z } : null;
+  DS.rider.visible = seated; DS.lamp.visible = seated; DS.glow.visible = seated && night > 0.05; if (DS.glow.visible) DS.glow.material.opacity = 0.3 + 0.7 * night;
+  if (seated) DS.rider.userData.torso.rotation.x = 0.5 + (DS.moving ? Math.sin(now * 6.3) * 0.012 + clamp(-pitch, -0.3, 0.3) * 0.25 : 0.06);
   DS.n = n; for (let i = 0; i < DS.drums.length; i++) DS.drums[i].visible = i < n;
   // a pressed track where you can see it
   if (DS.moving && Math.abs(DS.s - DS.pS) >= 0.5 && Math.hypot(pl.x - a.x, pl.z - a.z) < RUN.press) {
@@ -622,7 +822,7 @@ function light(lp) {
 }
 const PROV = {
   use() {
-    const lp = lampHere(); if (!lp) return null;
+    const lp = lampHere(); if (!lp) return hailUse();                      // out of doors: the oil driver within reach (6.3b2b)
     const I = api.INT, r = rec(lp.id), kh = api.keyHint, P = TLX.prop;
     if (PUMP.on) return { label: "STOP", hint: () => `Pumping ${Math.round(100 * PUMP.t / LIGHTS.pumpT)}% · ${kh("use", "stop")}`, act: () => stopPump("Stopped pumping.") };
     if (P && ((P.SW && P.SW.on) || (P.DU && P.DU.cur >= 0))) return null;      // a sweep or a wipe under way: its STOP comes first
@@ -849,11 +1049,18 @@ if (TLX.staff && TLX.staff.addRole) {
       }
       return "";
     } });
+  // where they can be talked to in person (6.3b2b): wherever they are STOPPED, at the quay, carrying drums in at a light,
+  // sat out in weather or idle over owed wages on the run. Riding, nowhere.
   TLX.staff.addPlaces(() => {
-    const a = A(); if (!a || !mine().length) return [];
-    const q = S() && S().drv, away = !!(q && typeof q === "object" && (q.st === "out" || q.st === "back") && driverOf());
-    return [{ id: DRV.place, role: "oildriver", name: "oil run", spot: "the quay", x: away ? undefined : a.world.depot.x, z: away ? undefined : a.world.depot.z,
-      talk: away ? `${dFirst()} is out on the run: have a word at the quay once they are back.` : `Go to the quay to talk to ${dFirst()} in person.` }];
+    const a = A(); if (!a || !api || !mine().length) return [];
+    const m = driverOf(), q = m && S() && S().drv && typeof S().drv === "object" && S().drv.who === m.id ? S().drv : null, away = !!(q && q.st !== "quay");
+    let pos = null, spot = "the quay", talk = `Go to the quay to talk to ${dFirst()} in person.`;
+    if (!away) { try { pos = quaySpot(); } catch (e) { pos = a.world.depot; } }
+    else if (q.st === "unload" || q.held || !(driverWork() > 0)) {
+      pos = drvPos(q); const lp = lampOf(q.lamp); spot = q.st === "unload" && lp ? lp.at : "their sled";
+      talk = q.st === "unload" && lp ? `${dFirst()} is carrying drums in at ${lp.at}: go there to talk in person.` : `${dFirst()} is stopped out on the run (the Map shows where): go to their sled to talk in person.`;
+    } else talk = `${dFirst()} is riding the run: have a word when they are stopped, at the quay or carrying the drums in at a light.`;
+    return [{ id: DRV.place, role: "oildriver", name: "oil run", spot, x: pos ? pos.x : undefined, z: pos ? pos.z : undefined, talk }];
   });
 }
 
@@ -895,5 +1102,7 @@ TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); ret
   DRV, driver: driverOf, driverWork, drv: () => drvRec(), drvPos: () => drvPos(drvRec()), drvLine: () => { const m = driverOf(); return m ? drvLine(drvRec(), m) : ""; }, drvLimit, drvToggle, drvPins, atQuay: id => atQuay(lampOf(id)), drvAboard: id => drvAboard(lampOf(id)),
   // 6.3b2a: the run over the ground and the sled on it
   RUN, route: id => route(lampOf(id)), posAt, quaySpot, sled: () => DS,
+  // 6.3b2b: the driver on foot
+  UN, unPlan: id => unPlan(lampOf(id)), unTot, unAt, hail, hailUse,
   SMALL, num: (id, k) => N(lampOf(id), k), flashOn, dropTick, small: id => { const lp = lampOf(id); return lp && lp.small || null; } };
 })();

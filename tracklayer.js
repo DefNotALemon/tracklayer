@@ -17700,6 +17700,53 @@ function sledCopy(id, L) {
   const g = cp(src); g.visible = true; g.position.set(0, 0, 0);
   return { g, hip: { y: ud.hip.y, z: ud.hip.z }, zBack: ud.zBack, boardX: ud.boardX, barY: ud.barY, barZ: ud.barZ, seatAt: z => (ud.seatTopAt ? ud.seatTopAt(clamp(z, ud.zBack, 0.05)) : ud.seatTop) };
 }
+/* Somebody who isn't you, on foot (6.3b2b: the oil driver carrying the drums in at a light). The figure is MOVED by its
+   owner (o.x, o.z, o.yaw, set each frame); this gives it your own gait for the ground it really covered: the pace is
+   read from the distance moved, the phase runs on that distance (a planted boot stays planted), deep loose snow gets the
+   wade and packed snow or the quay the walk, blended as under your own boots, and it leaves the same trench and boot
+   holes (not with o.quiet; o.vol = how loud its steps are to you, 0 = unheard). FOOT is lent the figure's state for
+   the pose call and handed back, so the walker's code stays one. The rest of `o` (step, sp, hardW, strain, hgV, hgS,
+   sink, y, half, trk, px, pz) is kept here between frames; o.px = undefined starts it afresh where it stands. */
+const WALKAS_K = ["x", "z", "y", "yaw", "sp", "go", "turn", "step", "hardW", "strain", "tired", "crouch", "runW", "brisk", "hgS", "hgV", "sink", "shoe", "aboard", "latX"];
+function walkAs(g, o, dt) {
+  if (o.px === undefined) { o.px = o.x; o.pz = o.z; o.sp = 0; o.hgV = 0; if (o.step === undefined) { o.step = 0; o.half = 0; o.hardW = 1; o.strain = 0.55; o.hgS = 1.45; o.trk = 0; o.sink = 0; } }
+  let moved = Math.hypot(o.x - o.px, o.z - o.pz); if (moved > 0.5) moved = 0;        /* a jump (a clock skipped) is not a stride */
+  o.px = o.x; o.pz = o.z;
+  const fx = Math.sin(o.yaw), fz = Math.cos(o.yaw), ix = Math.round((o.x + HALF) / CELL), iz = Math.round((o.z + HALF) / CELL);
+  const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
+  const qt = quayTop(o.x, o.z), hardS = qt !== null ? 1 : 0, ls = hardS ? 0 : d * (1 - 0.8 * pack);
+  o.hardW += ((hardS ? 1 : 1 - sstep(0.04, 0.3, ls)) - o.hardW) * (1 - Math.exp(-4 * dt));
+  const hw = o.hardW;
+  o.sp += ((dt > 0 ? moved / dt : 0) - o.sp) * (1 - Math.exp(-8 * dt));
+  o.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - footWade(d, pack, 0)), 0.55, 1) - o.strain) * (1 - Math.exp(-3 * dt));
+  o.hgV += (o.sp - o.hgV) * (1 - Math.exp(-dt / 0.45)); o.hgS = hgStride(o.hgV, 0);
+  o.step += lerp(moved * 3.1, moved * 2 * Math.PI / o.hgS, hw);
+  o.sink = hardS ? 0 : 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
+  o.y = hardS ? qt : surf(o.x, o.z) - o.sink * 0.6;
+  o.trk += moved; if (o.trk > 0.2) { o.trk = 0; if (!hardS && hw < 0.85 && !o.quiet) footPath(o.x - fx * 0.5, o.z - fz * 0.5, fx, fz); }
+  const half = Math.floor(o.step / Math.PI);
+  if (half !== o.half) {
+    o.half = half;
+    if (o.sp > 0.25 && !hardS && !o.quiet) {
+      const sd = (half & 1) ? 1 : -1, lx = Math.cos(o.yaw) * sd * 0.1, lz = -Math.sin(o.yaw) * sd * 0.1;
+      for (let k = 0; k < (3 + d * 8) * (1 - 0.75 * hw); k++) emit(o.x + fx * 0.5 + lx, o.y + 0.15 + o.sink * 0.5, o.z + fz * 0.5 + lz, fx * 0.4, 0.6 + Math.random() * 0.8, fz * 0.4, 0.8, 0.6);
+      if (hw < 0.85) bootHole(o.x - fx * 0.45 + lx, o.z - fz * 0.45 + lz);
+      if (o.vol > 0) snowStep(o.vol * lerp(0.35 + 0.45 * o.strain, 0.22, hw));
+    }
+  }
+  const F = FOOT, keep = WALKAS_K.map(k => F[k]), mnt = MNT.on, dmt = DMT.on, dirty = SWG.dirty, wipe = WIPE.w;
+  let bob = 0, lat = 0;
+  try {
+    F.x = o.x; F.z = o.z; F.y = o.y; F.yaw = o.yaw; F.sp = o.sp; F.go = o.sp; F.turn = 0; F.step = o.step; F.hardW = hw; F.strain = o.strain; F.tired = o.tired || 0; F.crouch = 0;
+    F.runW = 0; F.brisk = 0; F.hgS = o.hgS; F.hgV = o.hgV; F.sink = o.sink; F.shoe = false; F.aboard = false; F.latX = 0;
+    MNT.on = false; DMT.on = false; SWG.dirty = false; WIPE.w = 0;
+    bob = poseWalker(g, dt); lat = F.latX;
+  } finally {
+    for (let i = 0; i < WALKAS_K.length; i++) F[WALKAS_K[i]] = keep[i];
+    MNT.on = mnt; DMT.on = dmt; SWG.dirty = dirty; WIPE.w = wipe;
+  }
+  g.position.set(o.x + Math.cos(o.yaw) * lat, o.y + bob, o.z - Math.sin(o.yaw) * lat);
+}
 function initExpansion() {
   TLX.boot({
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
@@ -17733,6 +17780,8 @@ function initExpansion() {
     newWalker: m => makeWalker(Object.assign({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot }, m || {})),
     // someone else's sled (6.3b2a: the oil driver's): a copy of a machine's model in its own panel colour, and the numbers to seat a rider on it
     sledCopy,
+    // somebody else on foot (6.3b2b): your own gait for a figure its owner moves
+    walkAs,
     garageRefresh: () => { if (GS.garageOpen) renderGarage(); },
     // the plow blade's throw (4.1b1): is the use control still held (E, a pad's L3, the touch pill)? A system that gives a hold a second meaning asks this after use()
     useHeld: () => keys.has("KeyE") || padHorn || $("tcE").classList.contains("on"),

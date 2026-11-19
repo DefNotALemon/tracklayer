@@ -117,7 +117,7 @@ console.log("draw calls with / without the oil sled:", c1, c0);
 ok(c1 - c0 < 420, `D: the sled costs ${c1 - c0} draw calls in view`);
 
 // ---- F: a storm sits them down where they are
-await ev(`WX.at = () => 1; true`); await sleep(2600);
+await ev(`WX.at = () => 1; true`); await sleep(4200);   // (beta 0334 #2: it coasts to its stop; on a loaded machine 2.6 s caught the end of that)
 const f0 = await V(); await sleep(1500); const f1 = await V(); d = await D();
 ok(d.held && f1.vis && f1.rider && !f1.moving && Math.hypot(f1.x - f0.x, f1.z - f0.z) < 0.5, `F: a storm over them: stopped where they are, still on the sled (moved ${Math.hypot(f1.x - f0.x, f1.z - f0.z).toFixed(2)} m in 1.5 s)`);
 await ev(`WX.at = () => 0; true`);
@@ -132,7 +132,7 @@ const far = await J(`(() => { const g = TLX.lights.sled().g, a = TLX.lights.sled
 ok(!v.vis && !v.svis && far > 900, `E: ${Math.round(far)} m from you it is not drawn`);
 
 // ---- G: the drums land; home empty; parked
-let h = 0; while (h < 12 && (await D()).st === "out") { await pass(0.25); h += 0.25; }
+let h = 0; while (h < 14 && ["out", "unload"].includes((await D()).st)) { await pass(0.25); h += 0.25; }   // (6.3b2b: the stop at the light, the drums carried in, is part of the trip)
 d = await D(); const fk = await J(`TLX.lights.rec("finnkirka")`);
 ok(d.st === "back" && fk.store === 120 && h > 2, `G: ${h} game hours out at a sled's pace and the two drums are in Finnkirka's store`);
 await pass(1); d = await D();

@@ -235,7 +235,15 @@ landing note says how many hours late they were; under it they ride slower. With
 default; switch it on the driver's Staff card or the Lights app's Oil run card) the driver also orders drums on your
 account, $45 each, for a light under 60 lamp hours of oil in the tank, the store and on the way. A driver doesn't
 pump or light, so a light with a keeper and a driver runs itself for two wages and the oil. While out the driver is
-a pin on the Map; have a word with them at the quay when they are in. A driver who is owed wages stays put.
+a pin on the Map. A driver who is owed wages stays put.
+**On foot.** At the light the driver gets off, walks back to the sledge, takes a drum on the shoulder and carries it
+to the door of the oil store, one drum at a time, wading in the loose snow and walking on the path their own boots
+tread; that stop is part of the trip (about an hour and a half of game time with two drums at Finnkirka) and the
+drums are in the store when it ends. Between trips they stand by the parked sled at the quay, at the sledge while it
+is being loaded, and look round when you come close. Wherever they are stopped (at the quay, carrying drums in at a
+light, sat out in weather on the run) you can walk up and talk to them with the use control (E, the pad's left
+stick click, the touch button reads TALK), and that is also where PRAISE and CRITICISE in the Staff app can be
+had; riding, they can't be stopped for a word.
 You can walk into them, GTA-style: a warm ring of light stands on the snow in front of each depot's door (and the sauna
 hut's once you've built it). Get off the sled and walk into the light; the screen dips and you're standing inside a room
 built for that cabin: log walls, a plank floor, windows onto the snow, a stove or a stone hearth whose firelight

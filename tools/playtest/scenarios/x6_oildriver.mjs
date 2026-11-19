@@ -36,7 +36,7 @@ const notesOn = () => ev(`(() => { window.__n = []; if (!window.__no) { window._
 const notes = () => J(`window.__n`);
 const warm = () => ev(`window.__warm = window.__warm || setInterval(() => { GS.warmth = 100; }, 300); true`);
 // (the haul's LOGIC is tested on a fast clock: 9 and 12 km a game hour, as 6.3b1 shipped. The real pace, a sled's, is x6_oilsled.mjs's)
-const calm = () => ev(`WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.lights.DRV.vOut = 9000; TLX.lights.DRV.vBack = 12000; true`);
+const calm = () => ev(`WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.lights.DRV.vOut = 9000; TLX.lights.DRV.vBack = 12000; TLX.lights.DRV.unload = false; true`);   // (6.3b2b's carry at the light is x6_oilfoot's: here the drums land as the sled arrives)
 const drums = () => J(`({ claims: GS.claims.filter(j => j.oil && j.own === "lights").map(j => j.lamp), load: GS.load.filter(j => j.oil && j.own === "lights").map(j => j.lamp), jobs: jobsList().filter(e => /Paraffin drum/.test(e.title || "")).length })`);
 const setLamp = (id, o) => ev(`(() => { Object.assign(TLX.lights.rec("${id}"), ${JSON.stringify(o)}); TLX.state("lights").hT = GS.hour; return true; })()`);
 // run the clock until the driver is in state st (or `max` hours have gone): hours taken
@@ -52,7 +52,7 @@ const a0 = await J(`({ roles: Object.keys(TLX.staff.ROLES), places: TLX.staff.pl
 ok(a0.roles.includes("oildriver") && !a0.places.includes("oil:quay") && a0.drv === null, "A: no oil run while the lights are Kystverket's: " + JSON.stringify(a0.places));
 await ev(`TLX.prop.buy("finnkirka"); TLX.prop.buy("kinnarodden"); TLX.lights.step(); TLX.staff.tick(); true`); await sleep(600);
 const a1 = await J(`(() => { const pl = TLX.staff.places(), p = pl.find(q => q.id === "oil:quay"), s = TLX.state("staff"); return { n: pl.filter(q => q.role === "oildriver").length, name: p && p.name, d: p ? Math.hypot(p.x - depot.x, p.z - depot.z) : -1, apps: s.apps.map(q => q.role + "@" + q.place) }; })()`);
-ok(a1.n === 1 && a1.name === "oil run" && a1.d < 1 && a1.apps.includes("oildriver@oil:quay"), "A: two lights bought: ONE oil run, at the quay, and someone applies: " + JSON.stringify(a1));
+ok(a1.n === 1 && a1.name === "oil run" && a1.d > 9 && a1.d < 25 && a1.apps.includes("oildriver@oil:quay"), "A: two lights bought: ONE oil run, at the driver's place by the quay (6.3b2b: where the sled stands), and someone applies: " + JSON.stringify(a1));
 const wages = await J(`(() => { const w = []; for (let i = 0; i < 60; i++) { const a = TLX.staff.post({ id: "oil:quay", role: "oildriver" }); w.push(a.wage); } const s = TLX.state("staff"); s.apps = s.apps.filter(q => q.place !== "oil:quay").slice(0, 2); return { lo: Math.min(...w), hi: Math.max(...w) }; })()`);
 ok(wages.lo >= 63 && wages.hi <= 190 && wages.hi > wages.lo + 30, `A: oil drivers ask $${wages.lo}-$${wages.hi} a week (60 applicants)`);
 
@@ -100,7 +100,7 @@ await shot("x6o_c_lights");
 await ev(`(() => { FOOT.x = depot.x + 4; FOOT.z = depot.z + 3; FOOT.y = surf(FOOT.x, FOOT.z); return true; })()`);
 txt = await app("staff");
 const pd = await ev(`document.querySelector("[data-act='stp:${hon.id}']").disabled`);
-ok(/OIL DRIVER/.test(txt) && /Hauls the paraffin drums out to your lights, 2 a trip: on the way to Finnkirka/.test(txt) && /standing order on/.test(txt) && pd && /Mikkel is out on the run: have a word at the quay once they are back/.test(txt), "C: the Staff card says where he is; PRAISE at the quay waits until he is back");
+ok(/OIL DRIVER/.test(txt) && /Hauls the paraffin drums out to your lights, 2 a trip: on the way to Finnkirka/.test(txt) && /standing order on/.test(txt) && pd && /Mikkel is riding the run: have a word when they are stopped, at the quay or carrying the drums in at a light/.test(txt), "C: the Staff card says where he is; PRAISE waits until he is stopped");
 await shot("x6o_c_staff");
 await ev(`TABLET.toggle(true, "map"); true`); await sleep(700); await shot("x6o_c_map"); await ev(`TABLET.toggle(false); true`);
 await notesOn();
