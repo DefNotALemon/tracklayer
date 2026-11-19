@@ -1969,6 +1969,7 @@ function tick(dt) {
   const s = S(), P = api.P, ST = api.ST(), FOOT = api.FOOT, cam = api.camera;
   rigTick(); heldRefund(dt);
   haulFollow(); haulVisual(dt); strapTick(); rampDragTick();                                   // the sled trailer (2.6a), owned with or without a truck; a sled strapped on it (2.6b)
+  if (GH.size) { const n0 = 1 - api.dayFactor(); for (const R of GH.values()) outDraw(R, dt, n0, cam); }   /* 5.4b1: trucks that are someone else's (a plow driver's own) */
   if (!s.owned.length) return;
   nearestTick();
   syncRecords();
@@ -1978,7 +1979,8 @@ function tick(dt) {
     const R = runtime(r), isCur = cr && cr.uid === r.uid, far = !isCur && Math.hypot(r.x - cam.position.x, r.z - cam.position.z) > 500;
     R.rec = r;
     if (r.out && isCur) { r.out = null; r.outBy = null; }                        /* you are in it: it is not out */
-    if (far || r.out) { R.grp.visible = false; continue; }                       /* 5.4a2: a truck out with someone is not at its spot (not drawn, not in the way, not to be got into) */
+    if (r.out) { outDraw(R, dt, night, cam); continue; }                         /* 5.4a2: a truck out with someone is not at its spot (not in the way, not to be got into); 5.4b1: drawn where they have it */
+    if (far) { R.grp.visible = false; continue; }
     R.grp.visible = true;
     if (R.impl) { R.impl.tick(R, r, isCur, dt); continue; }
     if (!isCur) { R.moved = R.moved || 0; parkedPose(R, r, dt); R.door = Math.max(0, R.door - dt / 0.5); R.steer *= 0.9; }
@@ -2006,9 +2008,36 @@ const GSfuel = () => api.GS.fuel > 0;
 function setOut(uid, text, by) {
   const s = S(), r = rec(uid); if (!r || KINDS[r.id]) return false;
   if (text) { if (s.cur === uid) return false; r.out = String(text); r.outBy = by || ""; const R = RT.get(uid); if (R) R.grp.visible = false; }
-  else { r.out = null; r.outBy = null; const R = RT.get(uid); if (R) { R.pt = undefined; } }
+  else { r.out = null; r.outBy = null; const R = RT.get(uid); if (R) { R.pt = undefined; R.outP = null; R.steer = 0; R.drvBody.visible = R.drvArms.visible = false; } }
   return true;
 }
+/* WHERE AN OUT TRUCK IS SEEN (5.4b1). TLXV.outPose(uid, pose) hands tlx-vehicles.js the place the system that took a truck
+   has it: pose { x, z, yaw, ds (metres rolled since the last frame, taken and zeroed here), steer (rad), lit, driver }.
+   The truck is then drawn there, on its own wheels on the snow like a parked one, with a figure at the wheel; it is still
+   nothing you can get into, hitch to or repair (r.out). No pose, or further than 500 m from the camera: not drawn.
+   TLXV.ghost(uid, id, tint) builds the same model for a truck that is NOT yours (a plow driver's own): a runtime with no
+   record in the save, drawn only through outPose, the body paint multiplied by tint. dropGhost(uid) removes it. */
+const GH = new Map();
+function outPose(uid, pose) { const R = RT.get(uid) || GH.get(String(uid)); if (!R || R.impl) return false; R.outP = pose || null; if (!pose) R.grp.visible = false; return true; }
+function outDraw(R, dt, night, cam) {
+  const o = R.outP;
+  if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.z) || Math.hypot(o.x - cam.position.x, o.z - cam.position.z) > 500) { R.grp.visible = false; return; }
+  if (o.ds) { const a = o.ds / (R.def.tyreR || 0.4); for (let i = 0; i < 4; i++) R.spin[i] = (R.spin[i] + a) % (Math.PI * 2); o.ds = 0; R.pt = undefined; }
+  const st = Number.isFinite(o.steer) ? o.steer : 0; if (Math.abs(st - R.steer) > 1e-3) { R.steer += (st - R.steer) * Math.min(1, dt * 5); R.pt = undefined; }
+  if (!Number.isFinite(o.yaw)) o.yaw = 0;
+  parkedPose(R, o, dt);
+  R.grp.visible = true; R.door = 0; R.doorPivot.rotation.y = 0;
+  lights(R, !!o.lit && night > 0.35, false, false);
+  R.drvBody.visible = R.drvArms.visible = !!o.driver; R.drvArms.rotation.z = -R.steer * 0.35;
+}
+function ghost(uid, id, tint) {
+  uid = String(uid); let R = GH.get(uid); if (R) return R;
+  const d = byId(id); if (!api || !d || KINDS[id] || RT.has(uid)) return null;
+  R = runtime({ uid, id, cond: 100, x: 0, z: 0, yaw: 0, fuel: 0, load: [], ghost: true });
+  if (tint != null) { const m = mats().solid.clone(); m.color.setHex(tint); R.body.material = m; const dm = R.doorPivot.children[0]; if (dm) dm.material = m; R.tintMat = m; }
+  GH.set(uid, R); return R;
+}
+function dropGhost(uid) { uid = String(uid); const R = GH.get(uid); if (!R) return; GH.delete(uid); if (R.tintMat) R.tintMat.dispose(); dropRuntime(uid); }
 
 TLX.register({
   id: "vehicles", v: 1,
@@ -2060,5 +2089,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, outPose, ghost, dropGhost, ghosts: GH, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

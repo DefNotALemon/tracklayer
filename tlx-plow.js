@@ -164,7 +164,8 @@ let api = null, T = null;
 const S = () => TLX.state("plow");
 const RTB = new Map();                                                        // truck uid -> { down, k (0 up .. 1 down), carry, last, drag, cut, depth, full, grp, B, lens }
 const rt = uid => { uid = String(uid); let r = RTB.get(uid); if (!r) RTB.set(uid, r = { down: false, k: 0, carry: 0, last: null, drag: 0, cut: 0, depth: 0, full: false, stopT: 0, volCut: 0, volLaid: 0 }); return r; };
-const bladeOf = uid => { const s = S(), b = s && s.blades[uid]; return b ? byId(b.id) : null; };
+const GHB = {};                                                                 // 5.4b1: a truck that is not yours (a plow driver's own, TLXV.ghost) -> its blade id
+const bladeOf = uid => { const s = S(), b = s && s.blades[uid]; return b ? byId(b.id) : GHB[uid] ? byId(GHB[uid]) : null; };
 const throwOf = uid => { const s = S(), b = s && s.blades[uid]; return b && THROWS[b.throw] ? b.throw : "r"; };
 const condOf = uid => { const s = S(), b = s && s.blades[uid]; return b && Number.isFinite(b.cond) ? Math.max(0, Math.min(100, b.cond)) : 100; };
 const leaveOf = (uid, d) => (condOf(uid) < BL.ragged ? Math.max(d.leave, BL.raggedLeave) : d.leave);   // a ragged edge leaves twice the snow
@@ -612,7 +613,8 @@ const cmax = d => d.carry || BL.carryMax;                                       
 function tick(dt) {
   if (!api || !window.TLXV) return;
   const s = S(); if (!s || !s.blades) return;
-  conT += dt; if (conT >= 0.5) { conT = 0; pdrSweep(); conStep(); drvStep(); lotStep(); winStep(); strStep(); }               // 4.2a: the road contracts' clocks
+  conT += dt; if (conT >= 0.5) { conSec = conT; conT = 0; pdrSweep(); conStep(); conSec = 0; drvStep(); lotStep(); winStep(); strStep(); }               // 4.2a: the road contracts' clocks
+  try { pdrSee(dt); } catch (e) { if (!PDSX.err) console.error("tlx-plow: the driver's truck", e); PDSX.err = String(e); }   // 5.4b1
   if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
@@ -862,7 +864,7 @@ function conStep() {
       if (!g.legs.length) return; const sn = r.st.s[i]; let d = c.due[i];
       if (sn >= PLC.due) {
         if (!d) { d = c.due[i] = [0, 0]; fresh = true; }
-        if (!slept && WX.at(g.mx, g.mz) < RD.plowWx) d[0] += dh;
+        if (!slept && WX.at(g.mx, g.mz) < RD.plowWx) d[0] += Math.max(0, dh - (PDLOST[id] || 0));   /* 5.4b1: less the hours your driver lost to being watched */
         if (sn >= RD.shut) d[1] = 1;
         nd++;
         if (d[1] && d[0] >= PLC.lateH) late = true; else if (d[1] && d[0] >= PLC.lateH / 2) half = true;
@@ -943,6 +945,12 @@ function conJob(k) {
    under you (a blade under BL.both wide cuts each stretch twice, at half the speed); a tank down to the drive home plus
    PDR.spare, or an edge gone ragged, sends them home with a line. RECALL brings them in and takes the truck off them;
    TAKE THE TRUCK BACK does that while they are in.
+   SEEN (5.4b1, the block at PDS). While a driver is out their truck is on the road at p: yours (TLXV.outPose puts your
+   truck's own model there) or their own (a plow truck in their paint, TLXV.ghost), blade down where it cuts, an amber
+   beacon, a figure at the wheel, its own lane cut and a windrow thrown as it goes (near you), solid to you and to the traffic (a `led` car in TLXT.extra), a pin on the Map. A
+   driver's OWN truck stands beside the road's first end while they are in. A game hour is 50 s, so the clock's pace
+   (PDR.v, PDR.vRoad) is 80 to 240 m/s: within PDR.seeR of you the truck is held to PDR.seen instead, and the hours
+   that costs the driver are taken off that road's due clocks (PDLOST), so watching your driver work earns no warning.
    SAVED in x.sys.plow: pdr { routeId: { st: "home" | "out" | "back", p (m along the route), w (hours waiting to set
    out), n, cash (stretches and your share this trip), wkN, wkCash (this week), who (the driver's staff id), truck (uid
    of yours, or null), f0 (its litres when they took it), told, why, rc (recalled), hold (back, the spot not clear) } },
@@ -952,7 +960,13 @@ const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [
   mine: 0.5,        // the share of applicants with no truck of their own (5.4a2)
   lkm: [0.5, 1.2],  // litres a km x the truck's burn: on a clean road, with the blade cutting
   spare: 3,         // litres over the drive home at which they turn back (and under which they do not set out)
-  clearR: 6 };      // m: your truck is put back on its spot once you (and what you ride) are this far from it
+  clearR: 6,        // m: your truck is put back on its spot once you (and what you ride) are this far from it
+  // 5.4b1, the truck seen: within seeR m of you it drives at a truck's real speed, seen[0] m/s with the blade cutting and
+  // seen[1] on a clean road, and waits stopFor m short of you in its lane; park: where a driver's own truck stands at home,
+  // [first, last metre along the road looked at, m beyond the plowed edge]; own: their truck and blade; tints: its paint
+  seeR: 600, seen: [7, 12.5], stopFor: 11, cutR: 320,   // cutR: within this of you its blade cuts its own lane as it goes
+  park: [14, 220, 3.4], own: ["plowtruck", "b35"],
+  tints: [0xffffff, 0xb9cfe6, 0xe6c9a0, 0xbfe0c2, 0xe2b3ac, 0xcfd3d8, 0xe9e2a8] };
 const pdrPid = id => "plow:" + id;
 const pdrOf = id => (TLX.staff && TLX.staff.at ? TLX.staff.at(pdrPid(id)) : null);
 const pdrSkill = (m, id) => (m ? (PDR.xp[0] + PDR.xp[1] * Math.min(PDR.xp[2], Math.max(0, m.xpReal | 0))) * TLX.staff.workAt(pdrPid(id)) : 0);
@@ -1058,6 +1072,7 @@ function pdrSleep(c, r, q, m, k) {                                              
 }
 function pdrRun(c, r, dh, slept) {
   const s = S(), TR = window.TLXR; if (!obj0(s.pdr)) s.pdr = {};
+  PDLOST[r.id] = 0;
   const m = pdrOf(r.id); let q = s.pdr[r.id];
   if (!m) { if (q) { pdrFree(q); delete s.pdr[r.id]; } return; }
   if (!q) q = s.pdr[r.id] = { st: "home", p: 0, w: 0, n: 0, cash: 0, wkN: 0, wkCash: 0, who: m.id, truck: null, f0: 0, told: "", why: "", rc: false, hold: false };
@@ -1090,6 +1105,9 @@ function pdrRun(c, r, dh, slept) {
   }
   const T = mine ? pdrRec(q.truck) : null, burn = T ? pdrDef(T).burn || 1 : 0, pas = T ? pdrPasses(T.uid) : 1;
   if (mine && !T) { pdrHome(c, r, q, m, "the truck is no longer yours"); return; }
+  /* 5.4b1: in your sight the truck keeps a truck's speed (sph: real seconds a game hour took this step; a clock put forward is not capped) */
+  const sph = dh > 0 && dh <= 0.05 && conSec > 0 ? conSec / dh : 0, seen = sph > 0 && pdrNear(r, q), held = seen && pdrBlocked(r.id);
+  const dh0 = dh; let lost = 0;
   if (q.st === "out") {
     if (!due.length || c.cover) q.st = "back";
     else {
@@ -1098,8 +1116,11 @@ function pdrRun(c, r, dh, slept) {
       const far = Math.min(r.len, due[due.length - 1] * SEG + conLen(r, due[due.length - 1])); let t = dh, guard = 0;
       while (t > 1e-9 && q.p < far - 1e-6 && guard++ < 400) {
         if (T && T.fuel <= q.p / 1000 * burn * PDR.lkm[0] + PDR.spare) { q.why = "the tank is nearly dry"; q.st = "back"; break; }
-        const i = Math.floor(q.p / SEG + 1e-9), e = Math.min(far, i * SEG + conLen(r, i)), isDue = !!c.due[i] && r.st.s[i] >= PLC.due, v = isDue ? PDR.v * k / pas : PDR.vRoad, need = (e - q.p) / v;
+        const i = Math.floor(q.p / SEG + 1e-9), e = Math.min(far, i * SEG + conLen(r, i)), isDue = !!c.due[i] && r.st.s[i] >= PLC.due, v0 = isDue ? PDR.v * k / pas : PDR.vRoad;
+        const v = seen ? Math.min(v0, held ? 0 : PDR.seen[isDue ? 0 : 1] * sph) : v0, need = v > 0 ? (e - q.p) / v : Infinity;
         if (!(e > q.p)) break;
+        if (!(v > 0)) { lost += t; t = 0; break; }                                 /* you stand in its lane: it waits */
+        lost += Math.min(need, t) * (1 - v / v0);
         const go = need <= t ? e - q.p : v * t;
         if (T) T.fuel = Math.max(0, T.fuel - go / 1000 * burn * (isDue ? PDR.lkm[1] * pas : PDR.lkm[0]));
         if (need <= t) {
@@ -1114,14 +1135,153 @@ function pdrRun(c, r, dh, slept) {
       dh = t;
     }
   }
+  PDLOST[r.id] = Math.max(0, Math.min(dh0, lost));
   if (q.st === "back") {
-    const go = Math.min(q.p, dh * PDR.vRoad); q.p -= go; if (T) T.fuel = Math.max(0, T.fuel - go / 1000 * burn * PDR.lkm[0]);
+    const go = Math.min(q.p, dh * (seen ? Math.min(PDR.vRoad, held ? 0 : PDR.seen[1] * sph) : PDR.vRoad)); q.p -= go; if (T) T.fuel = Math.max(0, T.fuel - go / 1000 * burn * PDR.lkm[0]);
     if (q.p <= 1e-6) {
       q.p = 0;
       if (T && !pdrSpotClear(T)) { if (!q.hold) { q.hold = true; pdrNote(`${m.name} is back with the ${pdrTName(T)}`, "Something of yours stands on its parking spot: move clear and they put it back.", "warn"); conRefresh(); } return; }
       pdrHome(c, r, q, m, c.cover ? "the kommune's own truck has the rest" : "");
     }
   }
+}
+/* ---------------- 5.4b1: the driver's truck, seen ---------------- */
+// PDS: routeId -> what is drawn for that road's driver { uid, who, gh (their own truck: a TLXV.ghost), s (m along the road,
+// eased after the clock's p), off (m right of the crown), yaw, x, z, v, pose (handed to TLXV.outPose), car (the `led`
+// record in TLXT.extra: solid, and the traffic's drivers see it), bc (the beacon) }. Nothing here is saved: it follows
+// from pdr. pdrSee runs every frame; pdrNear / pdrBlocked are what pdrRun asks before it lets the clock's pace stand.
+const PDS = new Map(), PDLOST = {}, PDSX = { err: null, n: 0 };
+const pdrYou = () => (api.FOOT.on ? api.FOOT : api.P);
+function pdrPt(r, sm) {
+  const c = r.cum, p = r.pts, e = c[c.length - 1]; sm = Math.max(0, Math.min(e, sm));
+  let lo = 0, hi = c.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (c[m] <= sm) lo = m; else hi = m - 1; }
+  const a = p[lo], b = p[lo + 1], L = (c[lo + 1] - c[lo]) || 1, t = Math.max(0, Math.min(1, (sm - c[lo]) / L));
+  return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, tx: (b[0] - a[0]) / L, tz: (b[1] - a[1]) / L };
+}
+function pdrSpot(r) {                                                            // where a driver's own truck stands while they are in: beside the road near its first end
+  if (r.pdrSpot !== undefined) return r.pdrSpot;
+  const W = api.world, TR = window.TLXR, off = TR.ROADS.half + PDR.park[2]; let out = null;
+  const ok = (x, z) => !W.isSea(x, z) && !W.isWater(x, z) && !W.obNear(x, z, 2.2) && TR.near(x, z).d >= off - 0.4 && !(W.yardAt && W.yardAt(x, z) > 0.5);
+  for (let sm = PDR.park[0]; sm <= Math.min(PDR.park[1], r.len - 20) && !out; sm += 6) for (const sd of [1, -1]) {
+    const p = pdrPt(r, sm), x = p.x - p.tz * off * sd, z = p.z + p.tx * off * sd;
+    if (![-3.2, 0, 3.2, 5].every(u => ok(x + p.tx * u, z + p.tz * u)) || W.slopeAt(x, z, 4) > 0.22) continue;
+    out = { s: sm, off: off * sd, x, z, yaw: Math.atan2(p.tx, p.tz), tx: p.tx, tz: p.tz, cx: p.x, cz: p.z, pad: false }; break;
+  }
+  return (r.pdrSpot = out);
+}
+function pdrPad(sp) {                                                            // the spot is kept clear like a drive: a plowed strip the truck's length, joined to the road
+  if (sp.pad) return; sp.pad = true;
+  try { const W = api.world, legs = (W.addLane([[sp.x - sp.tx * 3.6, sp.z - sp.tz * 3.6], [sp.x + sp.tx * 5.6, sp.z + sp.tz * 5.6]], 2.5, 0.9) || []).concat(W.addLane([[sp.x, sp.z], [sp.cx, sp.cz]], 2.4, 0.9) || []); if (legs.length && W.replow) W.replow(legs); } catch (e) { }
+}
+function pdrNear(r, q) { const Z = PDS.get(r.id), p = Z && Number.isFinite(Z.x) ? Z : pdrPt(r, q.p), y = pdrYou(); return Math.hypot(p.x - y.x, p.z - y.z) < PDR.seeR; }
+function pdrBlocked(id) {                                                        // you (walking, or on what you ride) stand in its lane just ahead of it
+  const Z = PDS.get(id); if (!Z || !Number.isFinite(Z.x) || (api.INT && api.INT.on)) return false;
+  const y = pdrYou(), fx = Math.sin(Z.yaw), fz = Math.cos(Z.yaw), dx = y.x - Z.x, dz = y.z - Z.z, a = dx * fx + dz * fz, l = dz * fx - dx * fz;
+  return a > 0 && a < PDR.stopFor + (Z.fro || 3) && Math.abs(l) < 2.6;
+}
+function pdrSeeDrop(id) {
+  const Z = PDS.get(id); if (!Z) return; PDS.delete(id);
+  const V = window.TLXV, TT = window.TLXT;
+  if (Z.car && TT) { const i = TT.extra.indexOf(Z.car); if (i >= 0) TT.extra.splice(i, 1); }
+  if (Z.bc && Z.bc.parent) Z.bc.parent.remove(Z.bc);
+  if (Z.gh) { const B = RTB.get(Z.uid); if (B) { B.grp = null; RTB.delete(Z.uid); } delete GHB[Z.uid]; if (V && V.dropGhost) V.dropGhost(Z.uid); }
+  else { const B = RTB.get(Z.uid); if (B) B.down = false; if (V && V.outPose && Z.rec && Z.rec.out) V.outPose(Z.rec.uid, null); }
+}
+function pdrBeacon(R) {                                                          // an amber lamp on the cab roof (found by a ray down onto the body over the seat)
+  const g = new T.Group(), bm = new T.MeshBasicMaterial({ color: 0x2a1c05 });
+  g.add(new T.Mesh(new T.BoxGeometry(0.2, 0.04, 0.2), new T.MeshStandardMaterial({ color: 0x1d2024, roughness: 0.8 })));
+  const lamp = new T.Mesh(new T.CylinderGeometry(0.075, 0.09, 0.15, 10), bm); lamp.position.y = 0.095; g.add(lamp);
+  let y = 2;
+  try { const gb = R.body.geometry; if (!gb.boundingBox) gb.computeBoundingBox(); y = gb.boundingBox.max.y;
+    const pos = gb.attributes.position, z0 = R.so ? R.so[2] : 0; let top = -Infinity;
+    for (let i = 0; i < pos.count; i++) if (Math.abs(pos.getZ(i) - z0) < 0.45 && Math.abs(pos.getX(i)) < 0.6 && pos.getY(i) > top) top = pos.getY(i);
+    if (Number.isFinite(top)) y = top;
+  } catch (e) { }
+  g.position.set(0, y + 0.02, R.so ? R.so[2] : 0); g.userData.mat = bm; R.grp.add(g); return g;
+}
+function pdrSee(dt) {
+  const s = S(), V = window.TLXV, TT = window.TLXT; if (!V || !V.ghost || !s || !api.started()) return;
+  const live = new Set(), ids = obj0(s.pdr) ? Object.keys(s.pdr) : [];
+  if (ids.length) {
+    const rs = conR(), night = 1 - api.dayFactor(), SEG = window.TLXR.ROADS.seg, now = api.now();
+    for (const id of ids) {
+      const q = s.pdr[id], m = pdrOf(id), r = rs.find(v => v.id === id); if (!obj0(q) || !m || !r || !s.con[id]) continue;
+      const mine = pdrMine(m), out = q.st !== "home", rec = mine ? pdrRec(q.truck) : null;
+      if (mine && (!out || !rec || !rec.out)) continue;                          /* your truck at its own spot is tlx-vehicles' to draw */
+      const spot = mine ? null : pdrSpot(r); if (!mine && !out && !spot) continue;
+      if (spot) pdrPad(spot);
+      const uid = mine ? String(rec.uid) : "pdr:" + id;
+      let Z = PDS.get(id);
+      if (Z && (Z.uid !== uid || Z.who !== m.id)) { pdrSeeDrop(id); Z = null; }
+      if (!Z) {
+        let R = null;
+        if (mine) R = V.runtimeOf(rec.uid);
+        else { GHB[uid] = PDR.own[1]; let h = 0; for (const ch of String(m.id) + m.name) h = (h * 31 + ch.charCodeAt(0)) >>> 0; R = V.ghost(uid, PDR.own[0], PDR.tints[h % PDR.tints.length]); }
+        if (!R) { delete GHB[uid]; continue; }
+        const def = R.def, bd = bladeOf(uid), hw = (def.wid || 2) / 2 + 0.12, hl = (def.len || 5.3) / 2;
+        Z = { uid, who: m.id, gh: !mine, rec, R, s: mine ? q.p : Math.max(q.p, spot.s), off: out || !spot ? T_LANE : spot.off, yaw: NaN, x: NaN, z: NaN, v: 0, vT: 0, qp: q.p, qst: q.st,
+          pose: { x: NaN, z: NaN, yaw: 0, ds: 0, steer: 0, lit: false, driver: false }, car: null, bc: null,
+          circ: [[-hl + hw, hw], [0, hw], [hl - hw, hw]].concat(bd ? [[bd.z - 0.15, Math.min(1.7, bd.w * 0.45)]] : []), fro: bd ? bd.z + 0.4 : hl };
+        Z.bc = pdrBeacon(R);
+        if (TT && TT.extra) { Z.car = { i: 300 + (PDSX.n++ % 90), led: true, plow: true, on: false, x: 0, z: 0, y: 0, yaw: 0, v: 0, st: "drive", fro: Z.fro, hold: 0, blocked: 0, retry: 0, circ: [], who: m.name }; TT.extra.push(Z.car); }
+        PDS.set(id, Z);
+      }
+      live.add(id);
+      // where it should be: p along the road (never short of its own parking spot), in the lane it drives in, or on the spot
+      const back = q.st === "back", dir = back ? -1 : 1;
+      const tS = out ? (spot ? Math.max(q.p, spot.s) : q.p) : spot.s, parked = !out || (spot && q.p <= spot.s && back);
+      if (Z.qp !== q.p || Z.qst !== q.st) { Z.vT = Math.min(45, Math.abs(tS - Z.s) / 0.5); Z.qp = q.p; Z.qst = q.st; }
+      if (Math.abs(tS - Z.s) > 90) Z.s = tS;                                     /* a clock put forward, a reload */
+      const step = dt > 0 ? Math.min(Math.abs(tS - Z.s), Math.max(0.5, Z.vT) * dt) : 0; Z.s += Math.sign(tS - Z.s) * step;
+      const tOff = parked ? spot.off : dir * T_LANE; Z.off += Math.max(-1.6 * dt, Math.min(1.6 * dt, tOff - Z.off));
+      const p = pdrPt(r, Z.s), x = p.x - p.tz * Z.off, z = p.z + p.tx * Z.off;
+      const tYaw = parked ? spot.yaw : Math.atan2(p.tx * dir, p.tz * dir);
+      let dy = Number.isFinite(Z.yaw) ? tYaw - Z.yaw : 0; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+      const turn = Math.max(-2.4 * dt, Math.min(2.4 * dt, dy)); Z.yaw = Number.isFinite(Z.yaw) ? Z.yaw + turn : tYaw;
+      const moved = Number.isFinite(Z.x) ? Math.hypot(x - Z.x, z - Z.z) : 0; Z.x = x; Z.z = z;
+      Z.v = dt > 0 ? Z.v + (Math.min(45, moved / dt) - Z.v) * Math.min(1, dt * 6) : Z.v;
+      const P = Z.pose; P.x = x; P.z = z; P.yaw = Z.yaw; P.ds += moved; P.lit = out; P.driver = out;
+      P.steer = dt > 0 && Z.v > 0.8 ? Math.max(-0.55, Math.min(0.55, Math.atan(3.4 * (turn / dt) / Z.v))) : 0;
+      V.outPose(mine ? rec.uid : uid, P);
+      // the blade: down where it cuts snow, carried otherwise (your own truck's is eased by tick's loop, theirs here)
+      const B = rt(uid), i = Math.floor(Z.s / SEG), cut = q.st === "out" && !!s.con[id].due[i] && r.st.s[i] >= PLC.due;
+      B.down = cut;
+      if (Z.gh) { B.k = Math.max(0, Math.min(1, B.k + (cut ? 1 : -1) * dt / BL.liftT)); if (B.B) B.B.position.y = BL.lift * (1 - B.k); if (B.heap) B.heap.visible = true; }
+      // its own cut (within PDR.cutR of you): the blade takes the snow off the lane it drives in and throws a windrow to the
+      // right, so the truck stands on what it has cleared, not axle-deep in a stretch that only opens at its far end
+      const bd = bladeOf(uid), yo = pdrYou();
+      if (cut && bd && B.k > 0.9 && Math.hypot(x - yo.x, z - yo.z) < PDR.cutR) {
+        const W = api.world, e = ends(bd, P, _pc, 0, bd.ang), L = Z.bl;
+        if (L && moved > 0.01 && moved < 5) {
+          const n = Math.max(1, Math.min(40, Math.ceil(moved / (W.cell * 0.5)))); let vol = 0;
+          for (let j = 1; j <= n; j++) { const t = j / n; vol += W.bladeSnow(L[0] + (e[0] - L[0]) * t, L[1] + (e[1] - L[1]) * t, L[2] + (e[2] - L[2]) * t, L[3] + (e[3] - L[3]) * t, bd.leave); }
+          if (vol > 1e-4) { const fx = Math.sin(Z.yaw), fz = Math.cos(Z.yaw), hx = bd.w * Math.cos(bd.ang) / 2, hz = Math.abs(bd.w / 2 * Math.sin(bd.ang)), rr = BL.rowW / 2, rows = bd.rows || BL.rows; Z.vol = (Z.vol || 0) + vol;
+            for (let j = 0; j < rows.length && vol > 1e-4; j++) { const lx = -(hx + 0.25 + rr * (2 * j + 1)), lz = bd.z - hz - 0.35 - 0.25 * j; vol -= W.heapSnow(x + fz * lx + fx * lz, z - fx * lx + fz * lz, rr, vol, rows[j]); } }
+        }
+        Z.bl = Z.bl || [0, 0, 0, 0]; Z.bl[0] = e[0]; Z.bl[1] = e[1]; Z.bl[2] = e[2]; Z.bl[3] = e[3];
+      } else Z.bl = null;
+      // the beacon: flashing while they are out
+      const on = out && Math.floor(now * 3.2) % 2 === 0, k = on ? 0.9 + 1.6 * night : 0.16 - 0.08 * night; Z.bc.userData.mat.color.setRGB(k, k * 0.52, k * 0.04); Z.lit = out;
+      // solid, and seen by the traffic
+      if (Z.car) {
+        const c = Z.car, fx = Math.sin(Z.yaw), fz = Math.cos(Z.yaw); c.on = true; c.x = x; c.z = z; c.yaw = Z.yaw; c.v = Z.v; c.st = Z.v > 0.3 ? "drive" : "park"; c.y = api.world.surf(x, z); c.hold = 0;
+        c.circ = Z.circ.map(([u, rr]) => [x + fx * u, z + fz * u, rr]); c.pts = [[x + fx * 2.1, z + fz * 2.1], [x - fx * 1.6, z - fz * 1.6]];   /* what the traffic's drivers see of it: its nose and its tail */
+        if (TT.collide && (!TT.ready || !TLX.on("traffic")) && !(api.INT && api.INT.on)) TT.collide(c, dt);   /* the traffic is off: nobody else makes it solid */
+      }
+    }
+  }
+  if (PDS.size > live.size) for (const id of Array.from(PDS.keys())) if (!live.has(id)) pdrSeeDrop(id);
+}
+const _pc = [0, 0, 0, 0];
+const T_LANE = 1.6;                                                              // m right of the crown, the traffic's own lane (TRAF.lane)
+function pdrPins() {
+  const s = S(), out = []; if (!s || !obj0(s.pdr)) return out;
+  for (const id of Object.keys(s.pdr)) {
+    const q = s.pdr[id], m = pdrOf(id); if (!obj0(q) || !m || q.st === "home") continue;
+    const Z = PDS.get(id), r = Z && Number.isFinite(Z.x) ? null : conR().find(v => v.id === id), p = r ? pdrPt(r, q.p) : Z; if (!p || !Number.isFinite(p.x)) continue;
+    out.push({ x: p.x, z: p.z, name: pdrFirst(m).toUpperCase() + (q.st === "back" ? ": HEADING IN" : ": PLOWING"), col: "#e0a020", glyph: "P" });
+  }
+  return out;
 }
 function pdrWhere(id) {                                                          // where the road's driver is, in a few words ("" with no driver)
   const s = S(), m = pdrOf(id), c = s && s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!m || !c || !r) return "";
@@ -2016,12 +2176,12 @@ function strInit() {
   for (const k of Object.keys(s.str)) if (!SN.by[k]) delete s.str[k];
   for (const q of SN.list) { const e = s.str[q.key]; if (e && !Number.isFinite(e.x + e.z)) { e.x = q.cx; e.z = q.cz; } q.pend = 0; q.over = 0; q.relay = !!e; q.hx = e ? e.x : q.cx; q.hz = e ? e.z : q.cz; }
 }
-let conT = 0;
+let conT = 0, conSec = 0;
 
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, PDR, pdr: { run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
@@ -2058,6 +2218,7 @@ TLX.register({
     // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
     try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); lotWake(); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
     if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
+    if (a.TABLET.addLayer && !CJ.pdr) { CJ.pdr = true; a.TABLET.addLayer("marks", pdrPins); }   // 5.4b1: a driver who is out
     if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" }))).concat(strOpen().map(q => ({ x: q.hx, z: q.hz, name: "HEAP IN THE STREET: " + q.name.toUpperCase(), glyph: "!" })))); }
     a.TABLET.register({ id: "plow", name: "Plow", icon: PICON, order: 8.55, live: 6,
       hidden: () => { const s = S(); return !s || !s.blades || (!Object.keys(s.blades).length && !Object.keys(s.con || {}).length && !Object.keys(s.drv || {}).length && !Object.keys(s.lot || {}).length); },

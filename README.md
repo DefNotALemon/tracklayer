@@ -1099,7 +1099,20 @@ application is slow, the pay has fallen by the time they get there, and a stretc
 and a driver has opened what they could reach in time: paid, and no warning for those. The road's
 card in the Plow app and the driver's card in Staff say where they are; a word in person (PRAISE,
 CRITICISE) is had at the garage while they are in. Hand the road back, or lose it, and the driver
-is let go, paid to the hour. You do not see their truck on the road yet.
+is let go, paid to the hour.
+
+**Their truck on the road.** A driver who is out is out there: the truck is on the road where the
+cards say, in the right-hand lane, a figure at the wheel, the amber beacon flashing, the blade
+carried on the clean road and down where it meets the snow, cutting its own lane and throwing a
+windrow to the right as it goes, and a **P** pin on the Map follows it (PLOWING, then HEADING IN). A driver with their own truck has a plow truck in their own paint,
+which stands on a cleared strip beside the first end of their road while they are in; a driver in
+your truck drives your truck, and you will see it leave its spot and come back to it. The truck is
+solid, traffic holds up behind it or pulls out round it, and it will not run you down: stand in its
+lane and it waits a few metres short of you until you move. In your sight it drives like a truck,
+about 45 km/h on a clean road and 25 with the blade cutting, which is far slower than the hours
+on the cards allow for, so the time that costs your driver is not counted against the road:
+watching them work never earns you a warning. The whole stretch still opens when they reach its
+far end, as before. Not yet: a word with them out on the road, and a driver who gets stuck.
 
 **A driver in your truck.** A driver without a truck needs one of yours with a blade fitted: their
 Staff card has an **ASSIGN** button for each (the card then shows its litres and its cutting edge).

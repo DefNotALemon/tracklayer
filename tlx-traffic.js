@@ -50,6 +50,9 @@
 // TRAF.semi.gone m off. It pulls out round something standing in the lane like a car, moving back in only once its
 // trailer is past. Semis never drive home to a parked spot.
 //
+// LED CARS (5.4b1). An entry in T.extra with `led: true` is put on the road by another file every frame (x, z, y, yaw, v,
+// circ): this file neither drives nor draws it, but it is solid to you (collide) and the drivers here hold up behind it
+// or pull out round it like any car. tlx-plow.js: the truck of a plow driver of yours.
 // THE PLOW TRUCK (3.5c2a). One more entry per convoy road, after the semis: `plow: true`, drawn and steered by
 // tlx-convoy.js (which puts it on the road with T.put, holds it at a gate, lets it lead a convoy and turns it round),
 // driven by this file's road driver like any car. It is longer (c.pts, c.circ, c.fro as for a semi), is never placed,
@@ -187,6 +190,7 @@ function stopAhead(c, B, sh0) {
   return { d, why, a: a0, mv, o: ob };
 }
 T.stopAhead = c => stopAhead(c, bodies());
+T.collide = (c, dt) => collide(c, dt);                                        // for a led car's owner while the traffic itself is switched off (5.4b1)
 // for tlx-police.js: its cruisers are cars of this file's kind (T.extra), put on a road by spawn/place/ground and driven by driveStep until a call
 T.k = { spawn, setPose, ground, at, near: (x, z) => window.TLXR.near(x, z), release, youPos, bodies };
 // is the other lane empty from just behind to `look` m ahead (cars either way, you, a walker, anything parked)?
@@ -838,6 +842,7 @@ function tick(dt) {
   const you = youPos(), B = bodies();
   homeTick(dt, you);
   for (const c of everyCar()) {
+    if (c.led) { if (c.on && !(api.INT && api.INT.on)) collide(c, dt); continue; }   /* someone else moves it (a plow driver of yours, tlx-plow.js 5.4b1): solid, and seen by the drivers here, nothing more */
     if (!c.on) { if (T.hold || c.plow || c.police) continue; c.retry -= dt; if (c.retry <= 0) spawn(c, false); continue; }
     if (!T.hold && !c.plow && !c.police && Math.hypot(c.x - you.x, c.z - you.z) > TRAF.drop) { spawn(c, false); continue; }
     const x0 = c.x, z0 = c.z;
