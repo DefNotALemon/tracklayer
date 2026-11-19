@@ -886,7 +886,10 @@ click, or HITCH / UNHITCH on touch) to hitch or unhitch it; use it at the tail (
 RAISE RAMP) to swing the ramp gate down onto the snow or pin it up. Behind the truck it follows on
 its single axle: it cuts the inside of corners, reversing pushes it round until the tongue binds at
 about 70°, and the truck feels its weight and the drag of its tyres in the snow. The chase camera
-backs off so you can see it.
+backs off so you can see it. The trailer is solid: backed into a rock, a tree, a wall or a parked car it
+stops the truck ("The trailer is hard against something solid"), a glancing touch swings it aside on
+its tyres, and a hard hit (over about 13 km/h) costs the trailer condition and says how much is left.
+The lowered ramp gate sticks out behind and meets things first.
 
 **Loading the sled.** With the ramp down, line the sled up behind the trailer and ease it up: the
 ramp and the deck carry it like any other ground, and the front stop rail holds its nose (come in

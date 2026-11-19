@@ -45,7 +45,7 @@ await up("KeyS");
 const dTr = (await T());
 console.log("A reversed", JSON.stringify({ t0, last, rock, minD: +minD.toFixed(2), truckBack: +(t0.pz - last.pz).toFixed(1) }));
 ok(last.fin, "all finite");
-ok(t0.pz - last.pz > 6, `truck reversed at least 6 m (${(t0.pz - last.pz).toFixed(1)} m)`);
+ok(t0.pz - last.pz > 1.5, `truck reversed to the rock (${(t0.pz - last.pz).toFixed(1)} m; 6 m+ before the 0285 #1 fix, when the trailer went through it)`);   // builder, 0285 #1 fix: the rock now stops it after about 2.2 m
 // trailer's axle must never get inside rock radius + half trailer width (~1.1 m)
 ok(minD > rock.r + 0.9, `trailer axle stayed outside the rock (closest centre-to-axle ${minD.toFixed(2)} m, rock r ${rock.r}, needs > ${(rock.r + 0.9).toFixed(1)})`);
 await shot("A_trailer_vs_rock").catch(() => {});

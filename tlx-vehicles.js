@@ -660,7 +660,7 @@ function stillWhy(R, rev, sinkS, sf) {
   const BOG = api.BOG, end = rev ? "behind" : "in front of";
   R.why = "";
   if (rev && xLoad(R.rec.uid).held) { R.why = "load"; return; }                /* a jackknifed semitrailer holds it (tlx-rig.js says so itself) */
-  if (api.now() - (R.touchT || -9) < 0.5 && (rev ? R.touchS < 0 : R.touchS > 0)) { R.why = "solid"; api.toast(`Something solid is ${end} the ${R.def.kind}. ${rev ? "Pull forward" : "Back up"} and steer round it.`, "warn"); return; }
+  if (api.now() - (R.touchT || -9) < 0.5 && (rev ? R.touchS < 0 : R.touchS > 0)) { R.why = "solid"; api.toast(api.now() - (R.touchHaul || -9) < 0.5 ? `The trailer is hard against something solid. ${rev ? "Pull forward" : "Back up"} and steer it clear.` : `Something solid is ${end} the ${R.def.kind}. ${rev ? "Pull forward" : "Back up"} and steer round it.`, "warn"); return; }
   /* a light pedal that can't push the snow and the grade isn't digging at all (beta 0129 #1: pad RT 30% in 35 cm sat dead
      still and the old line said "ease off", the opposite of what helps): if the tyres have grip to spare, ask for more */
   const avail = Math.min(R.t0 || 0, (xLoad(R.rec.uid).kg > 0 && R.def.fmaxLow ? R.def.fmaxLow : R.def.fmax) * (0.65 + 0.35 * R.rec.cond / 100)), need = (R.fsnow || 0) + Math.max(0, sf) * R.mass * GR;
@@ -712,6 +712,7 @@ function collide(R, dt, fx, fz) {
       }
     }
   }
+  haulCollide(R, fx, fz);                                                        /* the sled trailer on its ball is solid too (beta 0285 #1) */
   if (R.hitT > 0) R.hitT -= dt;
 }
 function VEH_SLED() { return api.veh.sled; }
@@ -1336,6 +1337,56 @@ function haulFollow() {
   const back = hp.yaw + Math.PI, rel = wrapA(a - back);
   if (Math.abs(rel) > HAUL.jack) a = back + Math.sign(rel) * HAUL.jack;          // jackknife stop: the tongue binds on the bumper
   h.x = b[0] + Math.sin(a) * HAUL.L; h.z = b[1] + Math.cos(a) * HAUL.L; h.yaw = Math.atan2(b[0] - h.x, b[1] - h.z);
+}
+/* The trailer is solid behind the truck that tows it (beta 0285 #1: it used to follow the ball straight through a boulder).
+   Its hull is HAUL_HULL, circles along its own centre line [m ahead of the axle, radius], one more over the ramp gate when
+   that is down. Asked from the truck's collide(), after the cab's circles. A contact is resolved in two steps, because the
+   trailer hangs on the ball and has no speed of its own:
+   1. the sideways part of the overlap slides the axle round the ball (the tyres scrub across the snow, the trailer swings
+      off the thing), as far as the jackknife stop lets it;
+   2. what is left, the part along the tongue or all of it at the jackknife stop, goes to the truck: it is pushed back by
+      the overlap and loses its speed into the thing, exactly as if its own bumper had met it.
+   So backing a trailer square into a rock stops the truck, and a trailer that cuts a corner into a tree is dragged round it.
+   A hit over 1.5 m/s thuds; over 3.5 m/s it costs the trailer condition (the same curve as the truck's paint) and says so. */
+const HAUL_HULL = [[-0.9, 1.08], [0.2, 1.08], [1.4, 0.95]], HAUL_RAMP_HULL = [-2.3, 0.8];
+function haulCollide(R, fx, fz) {
+  const h = haulS(); if (!h || h.on == null || h.on !== R.rec.uid) return;
+  const P = api.P, w = api.world; haulFollow();                                  /* the truck has just moved: bring the trailer up to this step first */
+  const list = w.obstaclesNear(h.x, h.z, 7); if (!list.length) return;
+  const y = w.surf(h.x, h.z);
+  for (let ci = 0, cn = HAUL_HULL.length + (h.ramp > 0.5 ? 1 : 0); ci < cn; ci++) {
+    const C = ci < HAUL_HULL.length ? HAUL_HULL[ci] : HAUL_RAMP_HULL, k = C[0], r = C[1];
+    for (const o of list) {
+      if (o.down || o.top === -Infinity || y > o.top - 0.12) continue;
+      if (o.rig && window.TLXRIG && TLXRIG.pass(o, R.rec.uid, R.def)) continue;
+      for (let step = 0; step < 2; step++) {
+        const hx = Math.sin(h.yaw), hz = Math.cos(h.yaw), dx = h.x + hx * k - o.x, dz = h.z + hz * k - o.z, d2 = dx * dx + dz * dz, rr = r + (o.r || 0);
+        if (d2 >= rr * rr || d2 < 1e-6) break;
+        const dist = Math.sqrt(d2), nx = dx / dist, nz = dz / dist, pen = rr - dist, vn = P.vx * nx + P.vz * nz;
+        if (step === 0) {
+          R.touchT = api.now(); R.touchS = -(nx * fx + nz * fz); R.touchHaul = R.touchT;
+          if (vn < 0) {
+            P.vx -= 1.12 * vn * nx; P.vz -= 1.12 * vn * nz;
+            if (o.tree !== undefined) { api.wobble(o, 0.06 - vn * 0.014, -dx, -dz); if (o.snowy && vn < -1.5) api.dropSnow(o, true); }
+            if (vn < -1.5 && R.hitT <= 0) { R.hitT = 0.25; haulBump(R, h, -vn, o); }
+          }
+          const lat = nx * hz - nz * hx;                                         /* the overlap across the trailer: +x of (hz, -hx) */
+          if (Math.abs(lat) * pen > 0.002) { const m = lat * (pen + 0.02) * HAUL.L / (HAUL.L - k); h.x += hz * m; h.z -= hx * m; haulFollow(); continue; }
+        }
+        P.x += nx * (pen + 0.02); P.z += nz * (pen + 0.02); haulFollow();
+        break;
+      }
+    }
+  }
+}
+function haulBump(R, h, hit, o) {
+  const P = api.P;
+  P.shake = Math.max(P.shake, Math.min(0.9, hit / 12)); api.thud(Math.min(1, hit / 14));
+  if (hit > 4 && h.strap) api.cargoHit(hit * 0.9);
+  if (hit > 3.5) {
+    h.cond = Math.max(0, (Number.isFinite(h.cond) ? h.cond : 100) - Math.min(30, hit * hit * 0.07));
+    if (api.now() - (R.dentT || -9) > 2.5) { R.dentT = api.now(); api.toast(`${o.tree !== undefined ? "The trailer hit a tree" : "The trailer hit something solid"}: the ${HAUL.name} is at ${Math.round(h.cond)}%.`, hit > 8 ? "bad" : "warn"); }
+  }
 }
 function haulCands() {                                                          // trucks whose ball is within reach of the coupler
   const h = haulS(); if (!h) return [];
