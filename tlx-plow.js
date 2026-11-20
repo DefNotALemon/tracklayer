@@ -789,7 +789,7 @@ function conTidy(s) {
   const obj = v => !!v && typeof v === "object" && !Array.isArray(v), num = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo);
   if (!obj(s.con)) s.con = {};
   if (!obj(s.conBan)) s.conBan = {};
-  s.conLast = Array.isArray(s.conLast) ? s.conLast.filter(obj).slice(0, 6) : [];
+  s.conLast = stKeep(Array.isArray(s.conLast) ? s.conLast.filter(obj) : []);
   s.conPaid = num(s.conPaid, 0, 1e9); if (!Number.isFinite(s.conH)) s.conH = -1;
   s.conWk = (Array.isArray(s.conWk) ? s.conWk : []).filter(e => obj(e) && typeof e.id === "string").slice(0, 12);   /* beta 0337: the week's pay on roads no longer held */
   for (const e of s.conWk) { e.road = typeof e.road === "string" ? e.road : e.id; e.pay = num(e.pay, 0, 1e9); e.m = num(e.m, 0, 1e9); e.dn = Math.floor(num(e.dn, 0, 1e6)); e.w = Math.floor(num(e.w, 0, PLC.strikes)); e.gone = e.gone === "taken" ? "taken" : "back"; }
@@ -903,6 +903,30 @@ function conPay(r, i, sn, share = 1) {                                          
   api.GS.cash += cash; c.wk += cash; c.wkM += len; s.conPaid = (s.conPaid || 0) + cash; conRefresh();
   return { cash, k, h };
 }
+/* The statements on file (beta 0279 #1 / 0356 #1): WHOLE weeks, the last ST_WEEKS of them, never a count of lines.
+   The list is newest first and every line carries its Monday's label `d`; the roads, the drives and the lots each
+   write their lines on the same Monday, so a week is the lines sharing a label. A cap of six lines cut last week
+   to one orphan line as soon as three roads, the drives and the lots were held (five lines a week). ST_MAX only
+   guards a damaged save. `stShow` is the order they are read in: newest week first, and inside a week the roads
+   in the order they were signed, then the drives, then the lots (they are stored newest written first). */
+function stKeep(a) {
+  const ST_WEEKS = 3, ST_MAX = 90;                                               /* in here, not a top-level const: the load tidy may run before this line does */
+  if (!Array.isArray(a)) return [];
+  const seen = [], out = [];
+  for (const q of a) {
+    if (!q || typeof q !== "object") continue;
+    const d = String(q.d || "");
+    if (!seen.includes(d)) { if (seen.length >= ST_WEEKS) continue; seen.push(d); }
+    if (out.length < ST_MAX) out.push(q);
+  }
+  return out;
+}
+function stShow(a) {
+  const out = []; let run = [], d0 = null;
+  for (const q of stKeep(a)) { const d = String(q.d || ""); if (d !== d0) { out.push(...run.reverse()); run = []; d0 = d; } run.push(q); }
+  out.push(...run.reverse());
+  return out;
+}
 function conMonday(week) {
   const s = S(); if (!s || !s.con) return; const ids = Object.keys(s.con), kept = Array.isArray(s.conWk) ? s.conWk.filter(obj0) : []; s.conWk = [];
   if (!ids.length && !kept.length) return;                                       /* beta 0337: a week's pay on a road no longer held still gets its line */
@@ -920,7 +944,7 @@ function conMonday(week) {
     s.conLast.unshift({ d, road: c.name, pay: c.wk, m: Math.round(c.wkM), w: c.strikes, lapsed, dn });
     pay += c.wk; m += c.wkM; c.wk = 0; c.wkM = 0; c.clean = true;
   }
-  s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
+  s.conLast = stKeep(s.conLast); api.save(); conRefresh();
   setTimeout(() => { try { api.TABLET.notify({ app: "plow", kind: "good", title: `Kommunen · week to ${d}`, body: `Plow contracts: ${api.fmtCash(pay)} for ${(m / 1000).toFixed(1)} km opened${off ? " · a warning struck off" : ""}`, ttl: 8 }); } catch (e) { } }, 1500);
 }
 function conWork(c, r) {                                                         // what is waiting on a contract road: { n, m, shut, h (longest clock), near (the stretch nearest you) }
@@ -1959,7 +1983,7 @@ function appRender(el) {
   }
   h += drvCards(U, s, has, mul, cash);                                           // 4.2b1: the driveways
   h += lotCards(U, s, has, mul, cash);                                           // 4.2c1: the lots
-  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${s.conLast.map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.dn > 0 ? ` · ${Math.round(q.dn)} by your driver` : ""}${q.lapsed ? " · a warning struck off" : ""}${q.gone === "taken" ? " · taken back by the kommune" : q.gone === "back" ? " · handed back" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
+  if (s.conLast.length) h += U.sec("Statements", "") + `<div class="tsml2">${stShow(s.conLast).map(q => `<div class="tsm2 tprow"><b>${U.esc(String(q.d || ""))}</b><span>${U.esc(String(q.road || ""))} · ${Number.isFinite(q.n) ? Math.round(q.n) + " cleared" : ((+q.m || 0) / 1000).toFixed(1) + " km"} · +${cash(+q.pay || 0)}${q.dn > 0 ? ` · ${Math.round(q.dn)} by your driver` : ""}${q.lapsed ? " · a warning struck off" : ""}${q.gone === "taken" ? " · taken back by the kommune" : q.gone === "back" ? " · handed back" : ""}</span>${q.w ? U.chip(`WARNINGS ${q.w}`, "due") : U.chip("PAID", "ok")}</div>`).join("")}</div>`;
   h += `<p class="tnote2">A road you sign for is yours: the council's plow stays home on it. Every 400 m stretch your blade opens (both sides of the centre line, or one pass with a blade 3 m wide) pays at once, in full inside ${PLC.fullH} hours of the weather easing and down to half after ${PLC.lowH}. A stretch left shut ${PLC.lateH} hours, or slept through, is opened by the kommune's own truck and is a warning. ${PLC.strikes} warnings and the road is taken back; a week without one strikes a warning off. Handing a road back does not clear its warnings (the kommune keeps them on file for when you sign again), and handing one back with a stretch shut ${PLC.lateH / 2} hours or more is a warning itself. A plow driver hired in the Staff app works a road of yours whenever snow lies on it. One with their own truck keeps ${Math.round(PDR.cut * 100)}% of what the kommune pays for the stretches they open, the rest yours; one without drives a truck of yours that you assign on their card, and then all the pay is yours and so are the diesel and the cutting edge. Either way a slow driver's late stretches are still your warnings.</p>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='pls:']")) b.addEventListener("click", () => conSign(b.dataset.act.slice(4)));
@@ -2189,7 +2213,7 @@ function drvMonday(week) {
   for (const k of Object.keys(s.drv)) { const st = s.drv[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
   if (!n) return;
   const d = week && week.label || "";
-  s.conLast.unshift({ d, road: "Driveways", pay, m: 0, w: 0, n }); s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
+  s.conLast.unshift({ d, road: "Driveways", pay, m: 0, w: 0, n }); s.conLast = stKeep(s.conLast); api.save(); conRefresh();
   setTimeout(() => { try { api.TABLET.notify({ app: "plow", kind: "good", title: `Driveways · week to ${d}`, body: `${n} drive${n === 1 ? "" : "s"} plowed out: ${api.fmtCash(pay)}`, ttl: 8 }); } catch (e) { } }, 2600);
 }
 function drvCards(U, s, has, mul, cash) {
@@ -2439,7 +2463,7 @@ function lotMonday(week) {
   for (const k of Object.keys(s.lot)) { const st = s.lot[k]; pay += st.wk; n += st.n; st.wk = 0; st.n = 0; }
   if (!n) return;
   const d = week && week.label || "";
-  s.conLast.unshift({ d, road: "Lots", pay, m: 0, w: 0, n }); s.conLast = s.conLast.slice(0, 6); api.save(); conRefresh();
+  s.conLast.unshift({ d, road: "Lots", pay, m: 0, w: 0, n }); s.conLast = stKeep(s.conLast); api.save(); conRefresh();
   setTimeout(() => { try { api.TABLET.notify({ app: "plow", kind: "good", title: `Lots · week to ${d}`, body: `${n} lot${n === 1 ? "" : "s"} plowed out: ${api.fmtCash(pay)}`, ttl: 8 }); } catch (e) { } }, 2900);
 }
 function lotCards(U, s, has, mul, cash) {

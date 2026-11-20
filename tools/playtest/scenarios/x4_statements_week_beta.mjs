@@ -36,7 +36,7 @@ await section("B three Mondays", async () => {
   ok(wk1 === 5, "week 1 still on file after week 2 (" + wk1 + " of 5 lines kept)");
   await week("Mon 18 Jan", 300);
   st = await statements(); console.log("  after 3:", JSON.stringify(st));
-  ok(st.length >= 10, "three weeks of statements reachable: " + st.length + " lines");
+  ok(st.length === 15, "three weeks of statements reachable: " + st.length + " lines");
   const cash0 = await ev("GS.cash"); void cash0;
 });
 await section("C the pay line and the totals", async () => {
