@@ -3,6 +3,54 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 19:50 — 5.4c2a: SEND another driver to a bogged one (tlx-plow v30, lane A) (G4) — c668042
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0347 (3.5c options toggled: no
+findings, one scenario gap), 0348 (4.2b2 hostile save: one POLISH, a junk `win` key that nothing reads) and 0349
+(5.4c1 fire / corrupt: one POLISH reachable only by editing live state) read, last triaged now 349: no BLOCKER or
+BUG, so the pass took the next unticked slice, 5.4c2. Too big for one pass: split in EXPANSION.md into 5.4c2a (SEND
+SOMEONE, the way out that runs on the clock: built) and 5.4c2b (TOW THEM yourself, and the helper's truck drawn on
+the road).
+What landed: tlx-plow.js `PDR.aid`, `pdrAidFrom` / `pdrAidLine` (the line by road, `TLXR.tripLine`), `pdrAidWhy` /
+`pdrAidAble` (who can go), `pdrSend`, `pdrAid` (the helper's clock), `pdrHelped`, `pdrAidPos` (the pin), `pdrAidClr`;
+saved fields `help` on the bogged record and `aid, aidL, aidT, aidB` on the helper's (cleaned in `pdrTidy`);
+`pdrStuck` (no walking home and no tow while help is coming, help called off when the helper is gone), `pdrSweep`
+(a helper's truck of yours stays out through a load), and the words in `pdrBog`, `pdrJob`, `pdrSay`, `pdrPins`,
+`pdrWhere`, `pdrActs` / `pdrAct`, `pdrPlaces`; `pdrSee` no longer draws a helper's own truck on its spot while they
+are away. README, index.html (`tlx-plow.js?v=30`). No tracklayer.js change, so no script version bump.
+Decided: the helper's record stays `st: "home"` with `aid` set, so every older "is the driver out" branch is
+untouched; the helper goes whatever the weather, like the tow; no blade is needed to pull; a sleep covers the whole
+errand; an abandoned truck cannot be helped (nobody to drive it on) and a truck with a tow paid gets no second
+rescuer; the helper's Staff card has no buttons while away and a word with them waits until they are back.
+Numbers (`x5_plowdriver_send.mjs`, 69 asserts A-E, 0 FAILs alone and in the gate): Gamvik's driver sent to a truck
+bogged 0.4 km along the Dyfjord road: 5.6 km by road, 0.97 h until free (the drive 0.47 h + 0.5), button
+"SEND INGER · 58 min", $0; the line has 945 points, starts on the helper's spot and ends on the bogged truck; 60%
+of the way through still stuck with the helper's own road's 0.5 of snow unplowed; freed at the hour, plowed on with
+the risk still certain (no second bog), helper back after another 0.47 h and then opened their own stretch. Hitch
+set to 7 h for the test: at 6.6 h still in the truck (mood down 20+, floor -30), then pulled out. Tow paid: no SEND.
+Helper let go on the way: "Nobody is coming for Ole after all", PAY A TOW back. Bogged driver let go 0.1 h in: the
+helper turned round, back in under 0.2 h. Abandoned truck, and a helper out on their own road: not offered, the
+refusal names the reason. In YOUR plow truck from the forecourt: 0.9 km of road, 1.24 L used against 1.24 L
+expected for both legs, truck `out` during, back on its spot to 1 cm; 3.5 L in the tank: not offered ("has not the
+diesel"); a reload mid-way keeps help / aid / the hours and the truck out. A 9 h sleep: both home. Junk in the new
+fields is wiped or clamped and nothing throws.
+Gate: smoke exit 0 (page errors none), x1_save exit 0, x5_plowdriver_send exit 0. Also run alone, all exit 0:
+x5_plowdriver_stuck (63 ok), x5_plowdriver_mine (73 ok), x5_plowdriver_hail (42 ok), x5_plowdriver_two_break (16 ok).
+x5_plowdriver_stuck_fire_corrupt_beta still has the one FAIL its own report 0349 #4 describes (a NaN `p` written
+into a live record): unchanged by this pass.
+Test changed: `x5_plowdriver_two_break.mjs` pinned `PDR.mine = 0`. It hired without fixing the applicant's kit, so
+since 5.4a2 it failed whenever the coin gave a driver with no truck (it did on the first run here: "no truck of
+yours is assigned to them"); it is not a game bug.
+Looked at: the Staff card still (`s1_card_send.jpg`): LET GO / PRAISE / CRITICISE / RAISE / PAY A TOW · $130 /
+SEND JOHAN · 58 min on one row of the desktop tablet, readable, nothing overlapping; the last button ends close to
+the card's right edge.
+Not verified: the card's row of six buttons at 640x360 and on a phone (the card row wraps buttons elsewhere, but
+this row was not shot there); the SEND button pressed with a pad or by touch (it is an ordinary Staff card button,
+as PAY A TOW, which was not pad-tested either: 0349 "not covered"); two helpers and two bogged trucks at once.
+Not done, by design (5.4c2b): the helper's truck is not drawn on the road, only its Map pin moves; towing a bogged
+driver out yourself.
+Follow-ups for the tester: SEND at 640x360 and with a pad; the helper's road handed back mid-errand; selling your
+truck while a helper has it; you standing on the truck's spot when the helper returns (built, not asserted).
+
 ## 2026-11-19 18:55 — 5.4c1: a plow driver gets stuck, the ping, PAY A TOW (tlx-plow v29, tlx-staff v9, lane A) (G4) — 360339d
 Builder pass, lane A. Orient: worktree clean, rebased on main, 123 GB free. Reports 0344 (3.3b touch dig: no
 findings), 0345 (5.4b2a at night) and 0346 (5.4b2b break test) read (last triaged 346): no BLOCKER or BUG. 0345 #4
