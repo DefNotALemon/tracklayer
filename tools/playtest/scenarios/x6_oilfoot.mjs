@@ -98,8 +98,8 @@ await figCam(-2.6, -3.0, 1.6); await sleep(400); await still("x6f_b_loading");
 // ---- D: the stop at Finnkirka, watched
 let h = 0; while (h < 12 && (await D()).st !== "unload") { await pass(0.25); h += 0.25; }
 d = await D(); let fk = await J(`TLX.lights.rec("finnkirka")`);
-const un = await J(`TLX.lights.unPlan("finnkirka")`);
-ok(d.st === "unload" && d.n === 2 && fk.store === 0 && Math.abs(d.uT * 50 - (1 + 3 + 2 * un.per + 3 + 1)) < 0.5 && /at Finnkirka, carrying 2 drums in/.test(d.line), `D: ${h} h out: stopped at the light, the two drums still on the sledge, ${(d.uT).toFixed(2)} game hours of carrying ahead ("${d.line}")`);
+const un = await J(`TLX.lights.unPlan("finnkirka")`), plan = await J(`TLX.lights.unTot(TLX.lights.unPlan("finnkirka"), 2)`);   // (6.3b2c: the brake and the swings off and on are in the stop's clock too)
+ok(d.st === "unload" && d.n === 2 && fk.store === 0 && Math.abs(d.uT * 50 - plan) < 0.5 && /at Finnkirka, carrying 2 drums in/.test(d.line), `D: ${h} h out: stopped at the light, the two drums still on the sledge, ${(d.uT).toFixed(2)} game hours of carrying ahead ("${d.line}")`);
 ok((await J(`TLX.lights.drvAboard("finnkirka")`)) === 2 && (await J(`TLX.lights.atQuay("finnkirka")`)) === 0, "D: the drums are the driver's until they are in the store");
 // watch from beside the way, a third along it
 const mid = await J(`(() => { const L = TLX.lights, un = L.unPlan("finnkirka"), p = L.posAt(un, un.len * 0.4); return { x: p.x - p.tz * 6.5, z: p.z + p.tx * 6.5, px: p.x, pz: p.z, tx: p.tx, tz: p.tz }; })()`);
@@ -128,9 +128,9 @@ d = await D(); fk = await J(`TLX.lights.rec("finnkirka")`); g = await G();
 // the order of things
 const seq = []; for (const f of fr) if (seq[seq.length - 1] !== f[1]) seq.push(f[1]);
 console.log("D seq", seq.join(" > "), "frames", fr.length, "game s", (fr[fr.length - 1][0] - fr[0][0]).toFixed(1));
-ok(seq.join(",") === "seat,toS,lift,carry,in,back,lift,carry,in,back,toQ,seat,ride" || seq.join(",") === "seat,toS,lift,carry,in,back,lift,carry,in,back,toQ,seat", "D: off the sled, to the sledge, a drum up and carried in, back for the second, the same again, back to the sled and on: " + seq.join(" > "));
+ok(/^(brake,)?(seat,)?off,toS,lift,carry,in,back,lift,carry,in,back,toQ,on,seat(,ride)?$/.test(seq.join(",")), "D: off the sled, to the sledge, a drum up and carried in, back for the second, the same again, back to the sled and on: " + seq.join(" > "));
 const span = fr[fr.length - 1][0] - fr[0][0];
-ok(Math.abs(span - d.uT * 50) < 6 || Math.abs(span - (1 + 3 + 2 * un.per + 3 + 1)) < 6, `D: the stop took ${span.toFixed(0)} game seconds (planned ${(1 + 3 + 2 * un.per + 3 + 1).toFixed(0)})`);
+ok(Math.abs(span - d.uT * 50) < 6 || Math.abs(span - plan) < 6, `D: the stop took ${span.toFixed(0)} game seconds (planned ${plan.toFixed(0)})`);
 // pace and jumps, per mode
 const pace = m => { const F = fr.filter(f => f[1] === m && f[2]); let dist = 0, t = 0, jump = 0; for (let i = 1; i < F.length; i++) { const dt = F[i][0] - F[i - 1][0]; if (dt <= 0 || dt > 0.3) continue; const dd = Math.hypot(F[i][3] - F[i - 1][3], F[i][4] - F[i - 1][4]); dist += dd; t += dt; jump = Math.max(jump, dd); } return { v: t ? dist / t : 0, jump, n: F.length }; };
 const pc = pace("carry"), pb = pace("back"), ps = pace("toS");
@@ -138,7 +138,7 @@ console.log("D pace", JSON.stringify({ pc, pb, ps }));
 ok(Math.abs(pc.v - 1.1) < 0.2 && Math.abs(pb.v - 1.5) < 0.25, `D: ${pc.v.toFixed(2)} m/s with a drum on the shoulder, ${pb.v.toFixed(2)} m/s walking back`);
 ok(pc.jump < 0.3 && pb.jump < 0.3 && ps.jump < 0.3, `D: no jumps on foot (largest step in a frame ${Math.max(pc.jump, pb.jump, ps.jump).toFixed(2)} m)`);
 // on the ground: the figure's own floor against the snow, and the lower ankle near that floor
-let off = 0, ank = 0; for (const f of fr) if (f[2]) { off = Math.max(off, Math.abs(f[6] - f[20])); ank = Math.max(ank, Math.abs(Math.min(f[10], f[13]) - 0.075 - f[6])); }
+let off = 0, ank = 0; for (const f of fr) if (f[2] && f[1] !== "off" && f[1] !== "on") { off = Math.max(off, Math.abs(f[6] - f[20])); ank = Math.max(ank, Math.abs(Math.min(f[10], f[13]) - 0.075 - f[6])); }
 ok(off < 0.4 && ank < 0.3, `D: on the ground all the way (floor within ${off.toFixed(2)} m of the snow top, the lower boot within ${ank.toFixed(2)} m of the floor)`);
 // planted boots where the snow is packed (the walk): the lower ankle barely moves over the ground
 const W = fr.filter(f => f[2] && f[7] > 0.9 && f[8] > 0.8 && (f[1] === "carry" || f[1] === "back")); let slide = [], hwMax = 0; for (const f of fr) hwMax = Math.max(hwMax, f[7]);
@@ -152,7 +152,7 @@ const liftN = fr.filter(f => f[1] === "lift").map(f => f[15]), carryCd = fr.filt
 const sh = carryCd.map(f => f[17] - f[6]); const shMin = Math.min(...sh), shMax = Math.max(...sh);
 ok(fr[0][15] === 2 && fr.slice(0, l1).filter(f => f[1] === "carry").every(f => f[15] === 1 && f[16] === 1) && fr.filter(f => f[1] === "back" || f[1] === "toQ").every(f => f[16] === 0) && fr[fr.length - 1][15] === 0, "D: two on the sledge, one while the first is carried, none after the second; a drum is in hand only on the way in");
 ok(shMin > 1.2 && shMax < 2.0, `D: carried, the drum rides ${shMin.toFixed(2)}-${shMax.toFixed(2)} m over the snow (on the shoulder)`);
-ok(fr.filter(f => f[1] === "in").every(f => !f[2]) && fr.filter(f => f[1] === "seat").every(f => f[18] === 1 && !f[2]), "D: inside the door they are out of sight; in the saddle the rider is the one drawn");
+ok(fr.filter(f => f[1] === "in").every(f => !f[2]) && fr.filter(f => f[1] === "seat" || f[1] === "brake").every(f => f[18] === 1 && !f[2]), "D: inside the door they are out of sight; in the saddle the rider is the one drawn");
 ok(d.st === "back" && fk.store === 120 && fk.q === 0, `D: the stop over: both drums in Finnkirka's store (${fk.store} L), on the way home`);
 // the trench they left
 const pk = await J(`(() => { const L = TLX.lights, un = L.unPlan("finnkirka"); let s = 0, n = 0; for (let t = 2; t < un.len - 3; t += 1) { const p = L.posAt(un, t), ix = Math.round((p.x + HALF) / CELL), iz = Math.round((p.z + HALF) / CELL), dd = depthAt(ix, iz), f = freshAt(ix, iz); s += f > 0.02 ? 1 - dd / f : 1; n++; } return s / n; })()`);

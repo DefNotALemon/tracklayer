@@ -412,7 +412,11 @@ function posAt(R, s) {
    planted, a trench behind). Stopped (at the quay, at a light, sat out in weather) they can be hailed with the use
    control within UN.reach, and that is where PRAISE / CRITICISE in the Staff app can be had. */
 const UN = { hourS: 50,          // seconds of play in a game hour
-  off: 1, on: 1,                 // s in the saddle before getting off / after getting back on
+  brake: 3.4, brakeD: 24,        // s and m: the sled eases to its stop over the last metres of the run (6.3b2c)
+  off: 0.4, on: 0.5,             // s still in the saddle once stopped / once back on
+  swOff: 1.9, swOn: 2.1,         // s for the swing from the saddle down to the snow / back up (SW: the body takes what it takes inside this)
+  qx: 0.72, qz: -0.34,           // where they stand to climb on, and come down: beside the footwell (the sled's own space)
+  lead: 7,                       // s before leaving the quay that they walk to the saddle and get on
   seg: 3,                        // s on foot between the saddle and the sledge, each way
   lift: 1.6,                     // s to get a drum from the sledge onto the shoulder
   vC: 1.1, vB: 1.5,              // m/s with a drum on the shoulder / walking back for the next
@@ -459,7 +463,7 @@ function unPlan(lp) {
     if (d) {
       const e = posAt(R, R.len), b = posAt(R, Math.max(0, R.len - UN.back)), lx = b.tz, lz = -b.tx;
       const side = (d.x - b.x) * lx + (d.z - b.z) * lz >= 0 ? 1 : -1;
-      const S0 = [b.x + lx * side * UN.side, b.z + lz * side * UN.side], Q0 = [e.x + e.tz * side * UN.side - e.tx * 0.3, e.z - e.tx * side * UN.side - e.tz * 0.3];
+      const S0 = [b.x + lx * side * UN.side, b.z + lz * side * UN.side], Q0 = [e.x + e.tz * side * UN.qx + e.tx * UN.qz, e.z - e.tx * side * UN.qx + e.tz * UN.qz];
       let nx = Math.sin(d.ry || 0), nz = Math.cos(d.ry || 0);                  // out of the door; the house is the other way
       if (!W.obNear(d.x - nx * 1.6, d.z - nz * 1.6, 0.4) && W.obNear(d.x + nx * 1.6, d.z + nz * 1.6, 0.4)) { nx = -nx; nz = -nz; }
       let k = 0; while (k < 1.6 && !W.obNear(d.x - nx * (k + 0.15), d.z - nz * (k + 0.15), 0.3)) k += 0.15;
@@ -471,12 +475,14 @@ function unPlan(lp) {
   } catch (e) { un = null; }
   return R.un = un;
 }
-const unTot = (un, n) => UN.off + UN.seg + n * un.per + UN.seg + UN.on;       // seconds for the whole stop with n drums
-// what the driver is doing t seconds into the stop: m = seat | toS | lift | carry | in | back | toQ, k = how far
-// through it, s = metres along the way to the door, done = drums already inside
+const unTot = (un, n) => UN.brake + UN.off + UN.swOff + UN.seg + n * un.per + UN.seg + UN.swOn + UN.on;   // seconds for the whole stop with n drums
+// what the driver is doing t seconds into the stop: m = brake | seat | off | toS | lift | carry | in | back | toQ | on,
+// k = how far through it, s = metres along the way to the door, done = drums already inside
 function unAt(un, n, t) {
-  if (t < UN.off) return { m: "seat", k: 0, done: 0 };
-  t -= UN.off; if (t < UN.seg) return { m: "toS", k: ease(t / UN.seg), done: 0 };
+  if (t < UN.brake) return { m: "brake", k: t / UN.brake, done: 0 };
+  t -= UN.brake; if (t < UN.off) return { m: "seat", k: 0, done: 0 };
+  t -= UN.off; if (t < UN.swOff) return { m: "off", k: t / UN.swOff, done: 0 };
+  t -= UN.swOff; if (t < UN.seg) return { m: "toS", k: ease(t / UN.seg), done: 0 };
   t -= UN.seg;
   for (let i = 0; i < n; i++) {
     if (t < UN.lift) return { m: "lift", k: t / UN.lift, done: i };
@@ -486,9 +492,16 @@ function unAt(un, n, t) {
     t -= tb;
   }
   if (t < UN.seg) return { m: "toQ", k: ease(t / UN.seg), done: n };
+  t -= UN.seg; if (t < UN.swOn) return { m: "on", k: t / UN.swOn, done: n };
   return { m: "seat", k: 1, done: n };
 }
-const DS = { g: null, sg: null, s: 0, v: 0, tp: -1, tt: 0, key: "", obs: null, y: null, pS: -1e9, shown: false, moving: false, n: 0, fig: null, F: null, hail: null, mode: "", us: 0, uv: 0, up: 0, utt: 0, fq: null };
+// the last metres of a run, eased: from `from` to `to` (metres along it) in UN.brake seconds, coming in at v0 m/s and
+// ending at rest (a cubic through both speeds; v0 is held to what keeps it from running past its stop)
+function brakeAt(from, to, v0, k) {
+  const B = to - from, m0 = clamp(v0 * UN.brake, 0, 3 * Math.abs(B)) * Math.sign(B || 1); k = clamp(k, 0, 1);
+  return from + m0 * (k - 2 * k * k + k * k * k) + B * (3 * k * k - 2 * k * k * k);
+}
+const DS = { g: null, sg: null, s: 0, v: 0, tp: -1, tt: 0, key: "", obs: null, y: null, pS: -1e9, shown: false, moving: false, n: 0, fig: null, F: null, hail: null, mode: "", us: 0, uv: 0, up: 0, utt: 0, fq: null, al: 0, bv0: 0, b0: 0, bt: 0, bOn: false, lastR: null, qa: null, qm: "foot", qyaw: null, swD: false, lq: null };
 function dsOb(p) {
   const W = api.world;
   if (DS.obs && (!p || Math.hypot(DS.obs[0].x - p.x, DS.obs[0].z - p.z) > 0.5)) { for (const o of DS.obs) W.dropOb(o); DS.obs = null; }
@@ -546,8 +559,325 @@ function dsBuild() {
   const cd = new T.Group(); cd.visible = false; api.scene.add(cd);
   cyl(0.2, 0.2, 0.62, drumM, 0, 0, 0, 0, 0, 0, cd, 14); for (const y of [-0.11, 0.11]) cyl(0.207, 0.207, 0.025, steel, 0, y, 0, 0, 0, 0, cd, 14); cyl(0.03, 0.03, 0.03, steel, 0.1, 0.325, 0, 0, 0, 0, cd, 6);
   Object.assign(DS, { fig: f, mount, cd, F: { x: 0, z: 0, yaw: 0, tired: 0.1 }, hy: 0, v1: new T.Vector3(), v2: new T.Vector3(), q1: new T.Quaternion(), q2: new T.Quaternion() });
+  swInit(C, r, hz);
 }
-function dsHide() { if (DS.g) { DS.g.visible = false; DS.sg.visible = false; DS.fig.visible = false; DS.cd.visible = false; } DS.shown = false; DS.moving = false; DS.hail = null; DS.mode = ""; }
+/* ---------------- 6.3b2c: the driver's swing between the saddle and the snow ----------------
+   Getting off and on is not a cut and not a figure slid by its root (LOOP.md's rule): it is the same kind of body the
+   rider's own swing is (tracklayer.js "getting on and off: the swing"), run here for somebody who is not you, beside a
+   sled that is not yours. SW holds it: the pelvis is a mass on a force- and speed-limited spring, its yaw, the trunk's
+   pitch / roll / twist and the head are springs that feel the pelvis accelerate, both ankles and both hands are
+   points. A planted boot is pinned (to the snow in the world, or to the running board in the sled's space) and the
+   pelvis is never further from it than a leg; a boot only moves by flying its own arc with gravity, leg length, and
+   the seat, boards and snow in its way; a hand on a grip is pinned there. Knees and elbows are two-bone IK.
+   OFF: up off the seat, the far leg back over it and down to the snow, the board boot down beside it, stand. ON: the
+   near boot up onto the board, a hand to the grip, drive up over it, the snow leg thrown back over the seat, sit.
+   It starts from the seated driver's own contacts (K.ft / K.hd, read off the seated figure when the sled is built)
+   and ends on them, so the hand-over to and from the seated figure has boots, hips and hands in the same places; on
+   the snow it starts from the walker's rig as it stands, and hands back to the walker's gait through a short blend of
+   the two poses (boots already where the gait wants them). The sled tips to a loaded board and settles (SW.roll /
+   SW.dip, on springs). Nothing is saved: a stop first seen part-way through a swing shows them seated or standing. */
+const SW = { on: false, dir: "", ph: "", pt: 0, t: 0, s: 1, n: 1, f: 0, K: null, yS: 0, yaw: 0, yv: 0, th: 0, thv: 0, ro: 0, rov: 0, tw: 0, twv: 0, hp: 0, hpv: 0,
+  roll: 0, rollV: 0, dip: 0, dipV: 0, load: 0, loadX: 0, outR: 0, fo: 0, vol: 0, near: false, land: null, mix: null, mixT: 0, runs: 0, last: null };
+const SW_LEG = 0.848, SW_ARM = 0.49, SW_MIX = 0.3, SW_DL = 1.3;   // a leg's reach hip to ankle, an arm's, s of the blend to the gait, how far they turn to the sled coming down
+function swInit(C, r, hz) {
+  const T = api.THREE, V3 = () => new T.Vector3(), Q = () => new T.Quaternion(), U = r.userData;
+  Object.assign(SW, { pel: V3(), pv: V3(), pa: V3(), T: V3(), A: V3(), B: V3(), C: V3(), D: V3(), E: V3(), J: V3(), ikd: V3(), ikp: V3(), dn: new T.Vector3(0, -1, 0),
+    q1: Q(), q2: Q(), q3: Q(), q4: Q(), eu: new T.Euler(), m4: new T.Matrix4(),
+    foot: [0, 1].map(() => ({ p: V3(), v: V3(), at: V3(), pin: 0, ease: 0, yaw: 0, yawT: 0, pit: 0, w: 0, fly: false, u: 0, dur: 0.4, land: 0, b: [V3(), V3(), V3(), V3()] })),
+    hand: [0, 1].map(() => ({ p: V3(), v: V3(), pin: false, grab: false })) });
+  // the seated driver's own contacts, in the sled's space (stopped, they sit at a lean of 0.56)
+  const th0 = U.torso.rotation.x; U.torso.rotation.x = 0.56; DS.g.updateMatrixWorld(true);
+  const ft = [], hd = [];
+  for (let i = 0; i < 2; i++) { ft.push(DS.g.worldToLocal(U.ank[i].getWorldPosition(V3()))); hd.push(DS.g.worldToLocal(U.fore[i].localToWorld(V3().set(0, -0.24, 0)))); }
+  U.torso.rotation.x = th0;
+  const zc = Math.max(hz - 0.42, C.zBack + 0.5); let top = 0; for (let z = zc - 0.2; z <= zc + 0.201; z += 0.1) top = Math.max(top, C.seatAt(z));
+  SW.K = { ft, hd, bx: (Math.abs(ft[0].x) + Math.abs(ft[1].x)) / 2, by: (ft[0].y + ft[1].y) / 2, fz: (ft[0].z + ft[1].z) / 2, qy: r.position.y + 0.93, qz: hz, zc, top, sw: 0.2, zBack: C.zBack, seatAt: C.seatAt, pS: 0.56, hS: -0.36 };
+}
+function swL(x, y, z, out) { return DS.g.localToWorld(out.set(x, y, z)); }
+const swWrap = a => Math.atan2(Math.sin(a), Math.cos(a)), swMx = (a, b, t) => a + (b - a) * t;
+function swBez(b, u, out) { const a = 1 - u; return out.copy(b[0]).multiplyScalar(a * a * a).addScaledVector(b[1], 3 * a * a * u).addScaledVector(b[2], 3 * a * u * u).addScaledVector(b[3], u * u * u); }
+function swFloor(x, z) { return api.world.surf(x, z) - SW.fo + 0.075; }           // where an ankle rides with the sole on the walker's floor
+function swHip(i, out) { const sd = i ? 0.1 : -0.1; return out.set(SW.pel.x + Math.cos(SW.yaw) * sd, SW.pel.y, SW.pel.z - Math.sin(SW.yaw) * sd); }
+function swSpot(x, z, out) { swL(x, 0, z, out); out.y = swFloor(out.x, out.z); return DS.g.worldToLocal(out); }
+function swIk(root, tip, l1, l2, pole, out) {
+  const S = SW, d0 = S.ikd.copy(tip).sub(root); let d = d0.length(); if (d < 1e-4) { d0.set(0, -1, 0); d = 1e-4; }
+  const dmax = (l1 + l2) * 0.995; if (d > dmax) d = dmax; d0.normalize();
+  const a = clamp((l1 * l1 - l2 * l2 + d * d) / (2 * d), -l1, l1), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  const p = S.ikp.copy(pole).addScaledVector(d0, -pole.dot(d0)); if (p.lengthSq() < 1e-6) p.set(0, 0, 1); p.normalize();
+  return out.copy(root).addScaledVector(d0, a).addScaledVector(p, h);
+}
+// send boot i off on an arc (the sled's space: c1, c2 the handles, p3 where it comes down; land 1 = on the snow, 2 = on the sled)
+function swFly(i, land, dur, p3, c1, c2, yawT) {
+  const ft = SW.foot[i]; ft.pin = 0; ft.fly = true; ft.u = 0; ft.dur = dur; ft.land = land; ft.yawT = yawT;
+  DS.g.worldToLocal(ft.b[0].copy(ft.p)); ft.b[1].copy(c1); ft.b[2].copy(c2); ft.b[3].copy(p3); ft.v.copy(SW.pv);
+}
+function swLand(i) {
+  const S = SW, ft = S.foot[i]; ft.fly = false; ft.pin = ft.land; ft.ease = 1; ft.v.set(0, 0, 0); ft.w = 0;
+  if (ft.land === 2) { ft.at.copy(ft.b[3]); S.rollV -= 0.3 * Math.sign(ft.at.x); S.dipV += 0.25; }
+  else {
+    ft.at.copy(ft.p); ft.at.y = swFloor(ft.at.x, ft.at.z);                       // where the boot really came down
+    if (S.near) { try { for (let k = 0; k < 6; k++) api.emit(ft.at.x, ft.at.y + 0.05, ft.at.z, 0, 0.7 + Math.random() * 0.8, 0, 0.9, 0.6); if (S.vol > 0) api.snowStep(S.vol); } catch (e) { } }
+  }
+}
+function swPhase(ph) {
+  const S = SW, K = S.K, s = S.s, n = S.n, f = S.f, F = S.foot, H = S.hand, A = S.A, B = S.B, C = S.C, D = S.D, Y = S.yS;
+  S.ph = ph; S.pt = 0;
+  if (ph === "step") {                                                           // near boot up onto the board, near hand to its grip
+    DS.g.worldToLocal(A.copy(F[n].p));
+    B.set(A.x - s * 0.08, Math.max(A.y, K.by) + 0.3, A.z + 0.03); C.set(s * (K.bx + 0.12), K.by + 0.26, K.fz - 0.05);
+    swFly(n, 2, 0.31, D.copy(K.ft[n]), B, C, Y - s * 0.3);
+    H[n].grab = true;
+  } else if (ph === "over") {                                                    // the snow leg is thrown back and over the seat
+    B.set(s * (K.bx + 0.42), K.top + 0.45, K.zc - 0.25); C.set(-s * (K.bx + 0.1), K.top + 0.62, K.zc - 0.15);
+    swFly(f, 2, 0.47, D.copy(K.ft[f]), B, C, Y);
+    F[n].yawT = Y;
+    if (S.near) { try { for (let k = 0; k < 5; k++) api.emit(F[f].p.x, F[f].p.y, F[f].p.z, 0, 0.8 + Math.random(), 0, 0.8, 0.6); } catch (e) { } }
+  } else if (ph === "sit") S.dipV += 0.5;
+  else if (ph === "back") {                                                      // off: the far leg comes back over the seat and down to the snow
+    const dl = -s * SW_DL, sd = f ? 0.11 : -0.11;
+    swSpot(s * UN.qx + sd * Math.cos(dl), UN.qz - sd * Math.sin(dl), D);
+    B.set(-s * (K.bx + 0.1), K.top + 0.62, K.zc - 0.15); C.set(s * (K.bx + 0.45), Math.max(K.top + 0.45, D.y + 0.5), K.zc - 0.3);
+    swFly(f, 1, 0.5, D, B, C, Y + dl);
+    H[f].grab = false; H[f].pin = false; F[n].yawT = Y - s * 0.5;
+  } else if (ph === "down") {                                                    // the board boot steps down beside it
+    const dl = -s * SW_DL, sd = n ? 0.11 : -0.11;
+    swSpot(s * UN.qx + sd * Math.cos(dl), UN.qz - sd * Math.sin(dl), D);
+    DS.g.worldToLocal(A.copy(F[n].p));
+    B.set(A.x + s * 0.14, Math.max(A.y, D.y) + 0.2, A.z - 0.04); C.set(D.x, Math.max(A.y, D.y) + 0.22, D.z);
+    swFly(n, 1, 0.3, D, B, C, Y + dl);
+    H[n].grab = false; H[n].pin = false;
+  }
+}
+// take the body over: "off" from the seated driver (to the sled's side s), "on" from the walker as it stands there
+function swBegin(dir, s, pl) {
+  const S = SW, K = S.K, g = DS.g, f = DS.fig, U = f.userData, W = api.world; g.updateMatrixWorld(true);
+  S.on = true; S.dir = dir; S.s = s; S.n = s > 0 ? 1 : 0; S.f = 1 - S.n; S.t = 0; S.yS = g.rotation.y; S.mixT = 0; S.runs++;
+  S.pv.set(0, 0, 0); S.pa.set(0, 0, 0); S.yv = S.thv = S.rov = S.twv = S.hpv = 0;
+  const far = pl ? Math.hypot(pl.x - g.position.x, pl.z - g.position.z) : 1e9; S.near = far < RUN.press; S.vol = far < 14 ? 0.4 * (1 - far / 14) : 0;
+  if (dir === "off") {
+    // how far under the snow's top the walker's floor is where they will come down (the gait's own number, asked of it)
+    swL(s * UN.qx, 0, UN.qz, S.A); const o = { x: S.A.x, z: S.A.z, yaw: S.yS, quiet: true, vol: 0 };
+    try { api.walkAs(f, o, 0.016); S.fo = W.surf(o.x, o.z) - o.y; } catch (e) { S.fo = 0; }
+    if (!(S.fo > -0.2 && S.fo < 0.8)) S.fo = 0;
+    swRig(f, S.yS);
+    swL(0, K.qy, K.qz, S.pel); S.yaw = S.yS; S.th = K.pS; S.tw = S.ro = 0; S.hp = K.hS;
+    for (let i = 0; i < 2; i++) {
+      const ft = S.foot[i], hd = S.hand[i];
+      ft.at.copy(K.ft[i]); swL(ft.at.x, ft.at.y, ft.at.z, ft.p); ft.v.set(0, 0, 0); ft.pin = 2; ft.ease = 0; ft.fly = false; ft.yaw = ft.yawT = S.yS; ft.pit = 0; ft.w = 0;
+      swL(K.hd[i].x, K.hd[i].y, K.hd[i].z, hd.p); hd.v.set(0, 0, 0); hd.pin = true; hd.grab = true;
+    }
+    swPhase("rise");
+  } else {
+    f.updateMatrixWorld(true);
+    S.fo = clamp(W.surf(DS.F.x, DS.F.z) - (+DS.F.y || 0), -0.2, 0.8);
+    S.pel.set(f.position.x, f.position.y + 0.93, f.position.z); S.yaw = DS.F.yaw; S.th = U.torso.rotation.x; S.tw = U.torso.rotation.y; S.ro = U.torso.rotation.z; S.hp = U.head.rotation.x;
+    for (let i = 0; i < 2; i++) {
+      const ft = S.foot[i], hd = S.hand[i];
+      U.ank[i].getWorldPosition(ft.p); ft.v.set(0, 0, 0); ft.pin = 1; ft.ease = 1; ft.fly = false; ft.yaw = ft.yawT = S.yaw; ft.pit = 0; ft.w = 0;
+      ft.at.copy(ft.p); ft.at.y = swFloor(ft.p.x, ft.p.z);
+      U.fore[i].localToWorld(hd.p.set(0, -0.24, 0)); hd.v.set(0, 0, 0); hd.pin = false; hd.grab = false;
+    }
+    swPhase("step");
+  }
+  swPose(); f.visible = true;
+}
+// one step of the body. Returns true when the move is finished.
+function swStep(h) {
+  const S = SW, K = S.K, s = S.s, n = S.n, f = S.f, F = S.foot, H = S.hand, T = S.T, A = S.A, B = S.B, C = S.C, D = S.D, g = DS.fig, U = g.userData, Y = S.yS, ss = api.sstep, sg = DS.g;
+  S.pt += h;
+  let wp = 10, zp = 0.8, yawT = Y, thT = 0.3, roT = 0, done = false;
+  // ---- what the body is trying to do right now ----
+  if (S.ph === "step") {
+    swL(s * K.bx, K.by, K.fz, T); T.lerpVectors(F[f].p, T, 0.4); T.y = F[f].at.y + 0.8;
+    wp = 9; zp = 0.85; yawT = Y - s * 0.75; thT = 0.32;
+    if (F[n].pin) swPhase("drive");
+  } else if (S.ph === "drive") {
+    swL(s * (K.bx - 0.06), K.by + 0.8, K.fz - 0.1, T);
+    wp = 10.5; zp = 0.72; yawT = Y - s * 0.5; thT = 0.5;
+    F[f].pit = 0.62 * ss(0, 0.14, S.pt);                                         // up onto the toe as the leg runs out, and it pushes
+    if (S.pt > 0.15) swPhase("over");
+  } else if (S.ph === "over") {
+    const u = Math.min(1, F[f].u), e = ss(0.15, 0.9, u), e2 = ss(0.55, 1, u);
+    swL(s * (K.bx - 0.06) * (1 - e), swMx(K.by + 0.8, K.qy + 0.1, e2), swMx(K.fz - 0.1, K.qz, e), T);
+    wp = 11; zp = 0.8; yawT = Y - s * 0.5 * (1 - ss(0, 0.8, u)); thT = 0.5 + 0.25 * Math.sin(Math.PI * u); roT = s * 0.14 * Math.sin(Math.PI * u);
+    if (u > 0.4) H[f].grab = true;
+    if (F[f].pin) swPhase("sit");
+  } else if (S.ph === "sit") {
+    swL(0, K.qy, K.qz, T); wp = 13; zp = 0.5; thT = K.pS; H[f].grab = true;
+    done = (S.pt > 0.26 && S.pv.length() < 0.4 && S.pel.distanceTo(T) < 0.035 && H[0].pin && H[1].pin) || S.pt > 0.7;
+  } else if (S.ph === "rise") {
+    swL(s * 0.06, K.qy + 0.33, K.qz + 0.16, T); wp = 10; zp = 0.75; thT = 0.6;
+    if (S.pt > 0.22) swPhase("back");
+  } else if (S.ph === "back") {
+    const u = Math.min(1, F[f].u), e = ss(0.1, 0.8, u);
+    const lo = ss(0.6, 1, u), gy = Math.max(F[f].b[3].y + 0.79, K.by + 0.42);     // the board knee folds until the other boot can reach the snow
+    swL(swMx(s * 0.06, s * (K.bx - 0.05 + 0.2 * lo), e), Math.min(swMx(K.qy + 0.33, K.by + 0.8, e), swMx(K.by + 0.8, gy, lo)), swMx(K.qz + 0.16, K.fz - 0.12, e), T);
+    wp = 11; zp = 0.8; yawT = Y - s * 0.8 * ss(0.15, 1, u); thT = swMx(0.6, 0.45, u); roT = s * 0.14 * Math.sin(Math.PI * u);
+    if (F[f].pin) swPhase("down");
+  } else if (S.ph === "down") {
+    swL(F[n].b[3].x, F[n].b[3].y, F[n].b[3].z, T); T.lerp(F[f].at, 0.5); T.y = F[f].at.y - 0.075 + 0.88;
+    wp = 9.5; zp = 0.8; yawT = Y - s * SW_DL; thT = 0.22;
+    if (F[n].pin) swPhase("stand");
+  } else if (S.ph === "stand") {
+    T.lerpVectors(F[0].at, F[1].at, 0.5); T.y = Math.min(F[0].at.y, F[1].at.y) - 0.075 + 0.918;
+    wp = 10; zp = 0.9; yawT = Y - s * SW_DL; thT = 0.08;
+    done = (S.pt > 0.2 && S.pv.length() < 0.2 && T.distanceTo(S.pel) < 0.03) || S.pt > 0.6;
+  }
+  // ---- the pelvis: a mass on a muscle, with only so much force and speed in it ----
+  A.copy(T).sub(S.pel).multiplyScalar(wp * wp).addScaledVector(S.pv, -2 * zp * wp).clampLength(0, 26);
+  S.pa.lerp(A, 1 - Math.exp(-30 * h));
+  S.pv.addScaledVector(A, h).clampLength(0, 2.8); S.pel.addScaledVector(S.pv, h);
+  for (let it = 0; it < 2; it++) for (let i = 0; i < 2; i++) {                   // never further from a planted boot than a leg
+    if (!F[i].pin) continue;
+    swHip(i, A).sub(F[i].p); const d = A.length();
+    if (d > SW_LEG) { A.multiplyScalar(1 / d); S.pel.addScaledVector(A, SW_LEG - d); const vn = S.pv.dot(A); if (vn > 0) S.pv.addScaledVector(A, -vn); }
+  }
+  sg.worldToLocal(A.copy(S.pel));                                                // nor down through the seat
+  if (Math.abs(A.x) < K.sw + 0.1 && A.z > K.zBack && A.z < 0.1) {
+    const lo = K.seatAt(A.z) + 0.07;
+    if (A.y < lo) { A.y = lo; sg.localToWorld(S.pel.copy(A)); if (S.pv.y < 0) S.pv.y = 0; }
+  }
+  for (let i = 0; i < 2; i++) {                                                  // (the seat may have lifted the hips off a planted boot again: the leg has the last word)
+    if (!F[i].pin) continue;
+    swHip(i, A).sub(F[i].p); const d = A.length();
+    if (d > SW_LEG) { A.multiplyScalar(1 / d); S.pel.addScaledVector(A, SW_LEG - d); }
+  }
+  // ---- yaw, trunk and head ----
+  S.yv += (100 * swWrap(yawT - S.yaw) - 2 * 0.85 * 10 * S.yv) * h; S.yaw += S.yv * h;
+  const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), af = S.pa.x * sy + S.pa.z * cy, al = S.pa.x * cy - S.pa.z * sy;
+  const thA = 121 * (thT - S.th) - 2 * 0.5 * 11 * S.thv - 1.2 * af + 0.2 * S.pa.y;
+  S.thv += thA * h; S.th = clamp(S.th + S.thv * h, -0.3, 1.15);
+  S.rov += (121 * (roT - S.ro) - 2 * 0.5 * 11 * S.rov + 1.2 * al) * h; S.ro = clamp(S.ro + S.rov * h, -0.45, 0.45);
+  const twT = H[0].pin || H[1].pin ? clamp(swWrap(Y - S.yaw) * 0.6, -0.7, 0.7) : 0;   // a hand on the bars keeps the shoulders toward them
+  S.twv += (100 * (twT - S.tw) - 2 * 0.7 * 10 * S.twv) * h; S.tw += S.twv * h;
+  S.hpv += (196 * (-0.6 * S.th - S.hp) - 2 * 0.5 * 14 * S.hpv - 0.5 * thA) * h; S.hp = clamp(S.hp + S.hpv * h, -1, 0.6);
+  g.position.set(S.pel.x, S.pel.y - 0.93, S.pel.z); g.rotation.set(0, S.yaw, 0, "YXZ");
+  U.torso.position.y = 0.93; U.torso.rotation.set(S.th, S.tw, S.ro, "XYZ");
+  g.updateMatrixWorld(true);
+  // ---- boots ----
+  for (let i = 0; i < 2; i++) {
+    const ft = F[i];
+    ft.yaw += swWrap(ft.yawT - ft.yaw) * (1 - Math.exp(-10 * h));
+    if (ft.fly) {
+      ft.u += h / ft.dur;
+      const u = Math.min(1, ft.u), e = swMx(u, ss(0, 1, u), 0.6);
+      swBez(ft.b, e, A); sg.localToWorld(A);
+      B.copy(A).sub(ft.p).multiplyScalar(22 * 22).addScaledVector(ft.v, -2 * 0.8 * 22); B.y -= 3; B.clampLength(0, 90);
+      ft.v.addScaledVector(B, h); ft.p.addScaledVector(ft.v, h);
+      ft.pit = 0.3 * Math.sin(Math.PI * u); ft.w = 0.5 * Math.sin(Math.PI * u);
+      swHip(i, C); D.copy(ft.p).sub(C); const d = D.length();                    // the leg is only so long
+      if (d > SW_LEG) { D.multiplyScalar(1 / d); ft.p.copy(C).addScaledVector(D, SW_LEG); const vn = ft.v.dot(D); if (vn > 0) ft.v.addScaledVector(D, -vn); }
+      sg.worldToLocal(C.copy(ft.p)); let hit = false;                            // the seat and the boards are in the way
+      if (Math.abs(C.x) < K.sw + 0.06 && C.z > K.zBack - 0.1 && C.z < 0.1) { const lo = K.seatAt(C.z) + 0.12; if (C.y < lo) { C.y = lo; hit = true; } }
+      else if (Math.abs(C.x) < K.bx + 0.14 && C.z > K.zBack && C.z < 0.6 && C.y < K.by) { C.y = K.by; hit = true; }
+      if (hit) { sg.localToWorld(ft.p.copy(C)); if (ft.v.y < 0) ft.v.y = 0; }
+      if (Math.abs(C.x) > K.bx + 0.14) { const fl = swFloor(ft.p.x, ft.p.z) - (ft.land === 1 ? 0.02 : 0); if (ft.p.y < fl) { ft.p.y = fl; if (ft.v.y < 0) ft.v.y = 0; } }   // and the snow beside it
+      if (ft.u >= 1 && (ft.p.distanceTo(A) < 0.06 || ft.u > 1.3)) swLand(i);
+    } else {
+      if (ft.pin === 2) swL(ft.at.x, ft.at.y, ft.at.z, A); else A.copy(ft.at);
+      if (S.ph === "drive" && i === f) { A.y += 0.19 * Math.sin(ft.pit); const c = 0.19 * (1 - Math.cos(ft.pit)); A.x += Math.sin(ft.yaw) * c; A.z += Math.cos(ft.yaw) * c; }   // up on the ball of the foot
+      else ft.pit += (0 - ft.pit) * (1 - Math.exp(-14 * h));
+      if (ft.ease > 0) { ft.ease -= h / 0.14; ft.p.lerp(A, 1 - Math.exp(-32 * h)); } else ft.p.copy(A);   // settles onto its spot, then it is that spot
+    }
+  }
+  // ---- hands ----
+  for (let i = 0; i < 2; i++) {
+    const hd = H[i], sd = i ? 1 : -1, L = SW_ARM;
+    U.torso.localToWorld(A.set(sd * 0.25, 0.53, 0));                             // the shoulder
+    if (hd.grab) {
+      swL(K.hd[i].x, K.hd[i].y, K.hd[i].z, B);
+      if (hd.pin) { hd.p.copy(B); hd.v.set(0, 0, 0); if (A.distanceTo(B) > L * 1.15) hd.pin = false; }
+      else {
+        C.copy(B).sub(hd.p).multiplyScalar(400).addScaledVector(hd.v, -2 * 0.85 * 20).clampLength(0, 120);
+        hd.v.addScaledVector(C, h); hd.p.addScaledVector(hd.v, h);
+        if (hd.p.distanceTo(B) < 0.05 && A.distanceTo(B) < L * 1.03) hd.pin = true;
+      }
+    } else {                                                                     // a loose arm: it hangs, and swings with what the trunk does
+      U.torso.localToWorld(B.set(sd * 0.31, 0.12, 0.1));
+      C.copy(B).sub(hd.p).multiplyScalar(64).addScaledVector(hd.v, -2 * 0.3 * 8); C.y -= 4.9;
+      hd.v.addScaledVector(C, h); hd.p.addScaledVector(hd.v, h);
+    }
+    if (!hd.pin) { D.copy(hd.p).sub(A); const d = D.length(), Lm = L * 0.985; if (d > Lm) { D.multiplyScalar(1 / d); hd.p.copy(A).addScaledVector(D, Lm); const vn = hd.v.dot(D) - S.pv.dot(D); if (vn > 0) hd.v.addScaledVector(D, -vn); } }
+  }
+  return done;
+}
+// pose the figure's rig from the body: legs and arms by two-bone IK to the ankles and hands
+function swPose() {
+  const S = SW, g = DS.fig, U = g.userData, A = S.A, B = S.B, C = S.C, D = S.D, E = S.E, J = S.J;
+  g.position.set(S.pel.x, S.pel.y - 0.93, S.pel.z); g.rotation.set(0, S.yaw, 0, "YXZ");
+  U.torso.position.y = 0.93; U.torso.rotation.set(S.th, S.tw, S.ro, "XYZ");
+  U.head.rotation.set(S.hp, -S.tw * 0.6, -S.ro * 0.5);
+  g.updateMatrixWorld(true);
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, ft = S.foot[i], yr = clamp(swWrap(ft.yaw - S.yaw), -1.3, 1.3), l = U.legs[i];
+    l.position.set(sd * 0.1, 0.93, 0);
+    A.set(sd * 0.1, 0.93, 0); g.worldToLocal(B.copy(ft.p));
+    swIk(A, B, 0.42, 0.43, C.set(Math.sin(yr) + sd * 0.12, 0.25, Math.cos(yr)), J);
+    D.copy(J).sub(A).normalize(); S.q1.setFromUnitVectors(S.dn, D);
+    E.copy(B).sub(J).normalize(); S.q2.setFromUnitVectors(S.dn, E);
+    l.quaternion.copy(S.q1); U.shins[i].quaternion.copy(S.q1).invert().multiply(S.q2);
+    S.q3.setFromEuler(S.eu.set(ft.pit, yr, 0, "YXZ"));                           // the boot: flat when planted, hanging off the shin in the air
+    if (ft.w > 0.01) {
+      A.copy(E).negate(); B.set(Math.sin(yr), 0, Math.cos(yr)); B.addScaledVector(A, -B.dot(A));
+      if (B.lengthSq() > 1e-4) { B.normalize(); C.crossVectors(A, B); S.q4.setFromRotationMatrix(S.m4.makeBasis(C, A, B)); S.q3.slerp(S.q4, ft.w); }
+    }
+    U.ank[i].quaternion.copy(S.q2).invert().multiply(S.q3);
+  }
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, hd = S.hand[i], a = U.arms[i], fa = U.fore[i];
+    A.set(sd * 0.25, 0.53, 0); U.torso.worldToLocal(B.copy(hd.p));
+    swIk(A, B, 0.25, 0.24, C.set(sd * 0.5, -0.5, -0.6), J);
+    D.copy(J).sub(A).normalize(); S.q1.setFromUnitVectors(S.dn, D);
+    E.copy(B).sub(J).normalize(); S.q2.setFromUnitVectors(S.dn, E);
+    a.quaternion.copy(S.q1); fa.quaternion.copy(S.q1).invert().multiply(S.q2);
+  }
+}
+// back to the plain rig the walker's gait expects (it only writes some of the angles)
+function swRig(f, yaw) {
+  const U = f.userData;
+  for (let i = 0; i < 2; i++) { U.arms[i].rotation.set(0, 0, 0); U.fore[i].rotation.set(0, 0, 0); U.legs[i].rotation.set(0, 0, 0); U.legs[i].position.set(i ? 0.1 : -0.1, 0.93, 0); U.shins[i].rotation.set(0, 0, 0); U.ank[i].rotation.set(0, 0, 0); }
+  U.head.rotation.set(0, 0, 0); U.torso.rotation.set(0, 0, 0, "XYZ"); U.torso.position.y = 0.93; f.rotation.set(0, yaw, 0, "YXZ");
+}
+const swJoints = f => { const U = f.userData; return [f, U.torso, U.head, U.legs[0], U.legs[1], U.shins[0], U.shins[1], U.ank[0], U.ank[1], U.arms[0], U.arms[1], U.fore[0], U.fore[1]]; };
+// run the body for one frame and pose the figure from it. Returns true when the move is finished.
+function swRun(dt) {
+  const S = SW; DS.g.updateMatrixWorld(true); S.t += dt;
+  let done = false; const n = Math.max(1, Math.ceil(dt / 0.0085));
+  for (let k = 0; k < n && !done; k++) done = swStep(dt / n);
+  if (!(S.pel.x === S.pel.x && S.pel.y === S.pel.y && S.yaw === S.yaw) || S.t > 4) { S.bad = (S.bad | 0) + 1; done = true; }   // never leave them in a broken pose
+  swPose();
+  let ws = 0, wx = 0, wg = 0;                                                    // how the sled is loaded: boots on its boards, or all of them in the seat
+  for (const ft of S.foot) { if (ft.pin === 2) { ws++; wx += ft.at.x; } else if (ft.pin === 1) wg++; }
+  if (S.ph === "sit" || S.ph === "rise") { S.load = 1; S.loadX = 0; } else { S.load = ws ? ws / (ws + wg) : 0; S.loadX = ws ? wx / (ws + wg) : 0; }
+  return done;
+}
+// the move is over: seated (the seated figure takes over), or standing on the snow (the gait takes over through a blend)
+function swEnd() {
+  const S = SW, f = DS.fig; S.on = false; S.load = S.loadX = 0; S.last = { dir: S.dir, t: S.t, ph: S.ph };
+  if (S.dir === "off") {
+    S.land = { x: S.pel.x, z: S.pel.z, yaw: S.yaw };
+    const J = swJoints(f); if (!S.mix) S.mix = { q: J.map(() => new api.THREE.Quaternion()), p: new api.THREE.Vector3() };
+    for (let i = 0; i < J.length; i++) S.mix.q[i].copy(J[i].quaternion); S.mix.p.copy(f.position); S.mixT = SW_MIX;
+    swRig(f, S.yaw); const F = DS.F; F.x = S.pel.x; F.z = S.pel.z; F.yaw = S.yaw; F.px = undefined;
+  } else { S.mixT = 0; swRig(f, S.yaw); }
+}
+function swKill() { const S = SW; if (!S.on && !(S.mixT > 0)) return; S.on = false; S.mixT = 0; S.load = S.loadX = 0; if (DS.fig) swRig(DS.fig, DS.F ? DS.F.yaw : 0); }
+// the blend from the swing's last pose into the gait's (call after the gait has posed the figure)
+function swMix(dt) {
+  const S = SW; if (!(S.mixT > 0) || !S.mix) return;
+  S.mixT -= dt; const e = 1 - clamp(S.mixT / SW_MIX, 0, 1), k = e * e * (3 - 2 * e), f = DS.fig, J = swJoints(f);
+  for (let i = 0; i < J.length; i++) { S.q1.copy(S.mix.q[i]).slerp(J[i].quaternion, k); J[i].quaternion.copy(S.q1); }
+  f.position.lerpVectors(S.mix.p, f.position, k);
+}
+// the sled's side of it: tipped toward a loaded board, pressed down under a rider, both on springs
+function swSway(dt) {
+  const S = SW, rT = S.on ? -0.115 * S.loadX : 0, dT = S.on ? 0.028 * S.load : 0;
+  if (!S.on && Math.abs(S.roll) + Math.abs(S.rollV) + Math.abs(S.dip) + Math.abs(S.dipV) < 1e-5) { S.roll = S.dip = 0; return; }
+  const h = Math.min(dt, 0.034);
+  S.rollV += (169 * (rT - S.roll) - 2 * 0.38 * 13 * S.rollV) * h; S.roll = clamp(S.roll + S.rollV * h, -0.2, 0.2);
+  S.dipV += (169 * (dT - S.dip) - 2 * 0.3 * 13 * S.dipV) * h; S.dip = clamp(S.dip + S.dipV * h, -0.06, 0.1);
+}
+function dsHide() { swKill(); if (DS.g) { DS.g.visible = false; DS.sg.visible = false; DS.fig.visible = false; DS.cd.visible = false; } DS.shown = false; DS.moving = false; DS.hail = null; DS.mode = ""; DS.qa = null; DS.qm = "foot"; }
 // the driver on foot at (x, z), turning to face yawT: the walker's own gait for the ground covered since the last frame
 function figPut(x, z, yawT, dt, pl) {
   const F = DS.F, f = DS.fig;
@@ -590,41 +920,78 @@ function dsTick(dt) {
   if (!q || !mine().length || api.tutHidden()) { dsHide(); dsOb(null); DS.key = ""; return; }
   const W = api.world, lp = lampOf(q.lamp), R = q.st !== "quay" && lp ? route(lp) : null, now = api.now();
   const un = q.st === "unload" && lp ? unPlan(lp) : null;                 // (before the parked sled goes down as something standing)
-  let a, dir = 1, along = 0;
-  if (q.st === "quay") { const u = quaySpot(); a = { x: u.x, z: u.z, tx: Math.sin(u.yaw), tz: Math.cos(u.yaw) }; DS.key = "quay"; DS.v = 0; DS.moving = false; dsOb(a); }
+  let a, dir = 1, along = 0, Rt = R;
+  if (q.st === "quay") {
+    const u = quaySpot();
+    if (DS.key !== "quay") {                                               // seen coming in: the last metres eased, then down off the saddle
+      const saw = DS.key.slice(0, 4) === "back" && DS.shown && DS.lastR && (DS.qa || (DS.v > 0.5 && DS.v < 40 && DS.al < 3 * UN.brakeD));   /* (in sight, at a sled's pace, on its last metres: not a clock that skipped) */
+      if (!saw) DS.qa = null; else if (!DS.qa) DS.qa = { t: 0, R: DS.lastR, b0: clamp(DS.al, 0.5, 3 * UN.brakeD), v0: DS.v, ph: "brake" };
+      DS.qm = "foot"; if (!saw) DS.qyaw = null;
+      DS.key = "quay"; DS.bOn = false;
+    }
+    DS.v = 0;
+    const A = DS.qa;
+    if (A && A.ph === "brake") {
+      A.t += dt; const k = Math.min(1, A.t / UN.brake);
+      along = brakeAt(A.b0, 0, A.v0, k); Rt = A.R; dir = -1; a = posAt(A.R, along); a.tx *= -1; a.tz *= -1; DS.moving = k < 0.97; dsOb(null);
+      if (k >= 1) { A.ph = "seat"; A.t = 0; DS.qyaw = Math.atan2(a.tx, a.tz); }   /* parked as it came in, for as long as you are about */
+    } else { const yw = DS.qyaw !== null ? DS.qyaw : u.yaw; a = { x: u.x, z: u.z, tx: Math.sin(yw), tz: Math.cos(yw) }; DS.moving = false; dsOb(a); }
+  }
   else if (q.st === "unload") {
     if (!R) { dsHide(); dsOb(null); return; }
     // stopped at the end of the run; the stop's own clock (q.u moves once a second) carried on between its steps
     const key = "unload" + q.lamp, us = q.u * UN.hourS;
-    if (DS.key !== key) { DS.key = key; DS.us = us; DS.uv = 0; DS.up = us; DS.utt = now; }
+    if (DS.key !== key) {
+      const saw = DS.key === "out" + q.lamp && DS.shown && (DS.bOn || (DS.v > 0.5 && DS.v < 40 && DS.al > R.len - 3 * UN.brakeD));   // seen coming in: the brake is the sled's own, from where it is, at its pace
+      if (!saw) { DS.bOn = false; DS.bv0 = DRV.vOut / UN.hourS; DS.b0 = R.len - UN.brakeD; }
+      else if (!DS.bOn) { DS.bOn = true; DS.bt = 0; DS.bv0 = DS.v; DS.b0 = clamp(DS.al, R.len - 3 * UN.brakeD, R.len - 0.5); }
+      DS.key = key; DS.us = us; DS.uv = saw ? 1 : 0; DS.up = us; DS.utt = now; DS.lq = null; DS.qa = null;
+    }
     if (us !== DS.up) { const e = now - DS.utt; DS.uv = us > DS.up && e > 0.2 && e < 3 ? (us - DS.up) / e : 0; DS.up = us; DS.utt = now; }
     const el = now - DS.utt; if (el > 1.6) DS.uv = 0;
     const ideal = DS.up + DS.uv * Math.min(el, 1.15);
     if (Math.abs(ideal - DS.us) > 5) DS.us = ideal; else DS.us = Math.max(DS.us, DS.us + (ideal - DS.us) * Math.min(1, dt * 5));
-    DS.v = 0; DS.moving = false; along = R.len; a = posAt(R, along); dsOb(a);
+    DS.v = 0;
+    const u0 = un ? unAt(un, q.n, DS.us) : null;
+    if (DS.bOn && u0 && u0.m !== "brake" && DS.bt < UN.brake) DS.bOn = false;   /* the clock is past it: stopped */
+    const bk = DS.bOn ? (DS.bt += dt) / UN.brake : u0 && u0.m === "brake" ? u0.k : 1;
+    if (bk < 1) { along = brakeAt(DS.b0, R.len, DS.bv0, bk); DS.moving = bk < 0.97; a = posAt(R, along); dsOb(null); }
+    else { DS.moving = false; along = R.len; a = posAt(R, along); dsOb(a); }
   }
   else {
     dsOb(null);
     if (!R) { dsHide(); return; }
     // q.p moves once a second, in steps: carry on at the pace of the last step until the next one comes
     const key = q.st + q.lamp;
-    if (DS.key !== key) { DS.key = key; DS.s = q.p; DS.v = 0; DS.tp = q.p; DS.tt = now; }
+    if (DS.key !== key) { DS.key = key; DS.s = q.p; DS.v = 0; DS.tp = q.p; DS.tt = now; DS.bOn = false; DS.qa = null; }
     if (q.p !== DS.tp) { const e = now - DS.tt; DS.v = q.p > DS.tp && e > 0.2 && e < 3 ? (q.p - DS.tp) / e : 0; DS.tp = q.p; DS.tt = now; }
     const el = now - DS.tt; if (el > 1.6) DS.v = 0;
     const ideal = DS.tp + DS.v * Math.min(el, 1.15);
     if (Math.abs(ideal - DS.s) > 70) DS.s = ideal; else DS.s = Math.max(DS.s, DS.s + (ideal - DS.s) * Math.min(1, dt * 5));
     DS.moving = DS.v > 0.5;
     const f = clamp(q.d > 0 ? DS.s / q.d : 1, 0, 1);
-    dir = q.st === "out" ? 1 : -1; along = (dir > 0 ? f : 1 - f) * R.len;
-    a = posAt(R, along); a.tx *= dir; a.tz *= dir;
+    // the clock's run ends a braking distance short of the stop: the last metres are the stop's own (the light: in
+    // its clock, UN.brake; the quay: as you watch)
+    // The sled you watch gets to the end of the clock's run a moment before the clock does (it runs on between the
+    // clock's steps): that is where it begins to brake, and the stop carries the same brake on.
+    dir = q.st === "out" ? 1 : -1;
+    const Bl = dir > 0 && DRV.unload && unPlan(lp) ? UN.brakeD : 0, there = f >= 1 && DS.shown && DS.v > 0.5 && DS.v < 40 && q.d - q.p < Math.max(30, DS.v * 2);   /* (the clock too is within a step of the end: not a clock that skipped) */
+    if (dir > 0) {
+      if (Bl > 0 && (there || DS.bOn)) { if (!DS.bOn) { DS.bOn = true; DS.bt = 0; DS.b0 = R.len - Bl; DS.bv0 = DS.v; } DS.bt += dt; along = brakeAt(DS.b0, R.len, DS.bv0, DS.bt / UN.brake); }
+      else along = f * (R.len - Bl);
+    } else {
+      if (there || DS.qa) { if (!DS.qa) DS.qa = { t: 0, R, b0: UN.brakeD, v0: DS.v, ph: "brake" }; DS.qa.t += dt; along = brakeAt(DS.qa.b0, 0, DS.qa.v0, DS.qa.t / UN.brake); }
+      else along = R.len - f * (R.len - UN.brakeD);
+    }
+    a = posAt(R, along); a.tx *= dir; a.tz *= dir; DS.lastR = R;
   }
-  DS.at = a;
+  DS.at = a; DS.al = along;
   const F = api.FOOT, pl = F.on ? F : api.P;
   if (Math.hypot(pl.x - a.x, pl.z - a.z) > RUN.show) { dsHide(); return; }
   if (!DS.g) dsBuild();
   const g = DS.g, sg = DS.sg, k = DS.shown ? Math.min(1, dt * 9) : 1;
   // the sledge trails on the run behind the sled (parked: straight behind it)
-  let b; if (R) { const sb = along - dir * DS.back; b = sb >= 0 && sb <= R.len ? posAt(R, sb) : null; }
+  let b; if (Rt) { const sb = along - dir * DS.back; b = sb >= 0 && sb <= Rt.len ? posAt(Rt, sb) : null; }
   if (!b) b = { x: a.x - a.tx * DS.back, z: a.z - a.tz * DS.back };
   const yaw = Math.atan2(a.tx, a.tz), wrap = v => Math.atan2(Math.sin(v), Math.cos(v));
   const lx = Math.cos(yaw), lz = -Math.sin(yaw);                          // the sled's left
@@ -634,7 +1001,8 @@ function dsTick(dt) {
   const pitch = Math.atan2(sF - sB, 2.2), roll = Math.atan2(W.surf(a.x + lx * 0.5, a.z + lz * 0.5) - W.surf(a.x - lx * 0.5, a.z - lz * 0.5), 1.0);
   g.position.set(a.x, ya, a.z);
   g.rotation.y = DS.shown ? g.rotation.y + wrap(yaw - g.rotation.y) * Math.min(1, dt * 6) : yaw;
-  g.rotation.x += (clamp(-pitch, -0.6, 0.6) - g.rotation.x) * k * 0.6; g.rotation.z += (clamp(roll, -0.45, 0.45) - g.rotation.z) * k * 0.6;
+  g.rotation.x += (clamp(-pitch, -0.6, 0.6) - g.rotation.x) * k * 0.6; g.rotation.z -= SW.outR; g.rotation.z += (clamp(roll, -0.45, 0.45) - g.rotation.z) * k * 0.6;
+  swSway(dt); g.rotation.z += SW.roll; SW.outR = SW.roll; g.position.y -= SW.dip;   // somebody climbing on or off tips and presses it
   // the sledge looks at the hitch
   const hx = a.x - Math.sin(g.rotation.y) * (DS.back - 2.15), hz = a.z - Math.cos(g.rotation.y) * (DS.back - 2.15), syaw = Math.atan2(hx - b.x, hz - b.z);
   sg.position.set(hx - Math.sin(syaw) * 2.15, yb, hz - Math.cos(syaw) * 2.15);
@@ -643,21 +1011,55 @@ function dsTick(dt) {
   const night = 1 - api.dayFactor();
   // who is where: in the saddle (riding, or the first and last moment of a stop), or on foot
   let seated = q.st === "out" || q.st === "back", n = 0, fig = false, cdOn = false, mode = seated ? "ride" : "";
+  const was = DS.mode; if (seated && (SW.on || SW.mixT > 0)) swKill();
   if (q.st === "out") n = q.n;
   else if (q.st === "quay") {
-    const nx = q.w > 0 && !q.held ? drvPick() : null; n = nx ? Math.min(DRV.cap, atQuay(nx)) : 0;
-    // by the sled; at the sledge while there are drums going on it. They walk between the two.
-    const ld = n > 0, bx = a.x - a.tx * (ld ? DS.back : 0.2), bz = a.z - a.tz * (ld ? DS.back : 0.2), tx = bx + lx * UN.side, tz = bz + lz * UN.side, face = ld ? Math.atan2(-lx, -lz) : Math.atan2(lx * 0.8 + a.tx * 0.6, lz * 0.8 + a.tz * 0.6);
-    if (!DS.fq || !DS.fig.visible || Math.hypot(DS.fq.x - tx, DS.fq.z - tz) > 9) DS.fq = { x: tx, z: tz };
-    const dx = tx - DS.fq.x, dz = tz - DS.fq.z, dd = Math.hypot(dx, dz), st = Math.min(dd, 1.3 * dt);
-    if (dd > 0.02) { DS.fq.x += dx / dd * st; DS.fq.z += dz / dd * st; }
-    figPut(DS.fq.x, DS.fq.z, dd > 0.25 ? Math.atan2(dx, dz) : face, dt, pl); figCarry(0, 0); fig = true; mode = dd > 0.25 ? "walk" : ld ? "load" : "stand";
+    const w = clamp(driverWork(), 0.5, 1.3), nx = q.w > 0 && !q.held ? drvPick() : null; n = nx ? Math.min(DRV.cap, atQuay(nx)) : 0;
+    // about to leave: to the saddle and on, in time (the loading clock says when)
+    const rem = nx && driverWork() > 0 ? (DRV.load / w - q.w) * UN.hourS : 1e9, soon = rem < UN.lead, A = DS.qa;
+    if (A && A.ph === "seat") { A.t += dt; if (A.t >= UN.off) { A.ph = "off"; swBegin("off", 1, pl); } }
+    else if (!A && DS.qm === "sat" && !soon && !q.held) { DS.qm = "off"; swBegin("off", 1, pl); }   /* nothing to haul after all: down again */
+    const sw = (A && A.ph === "off") || DS.qm === "off" ? "off" : DS.qm === "on" ? "on" : "";
+    if (A && A.ph !== "off") { seated = true; mode = A.ph; }
+    else if (sw && SW.on) {
+      fig = true; mode = sw;
+      if (swRun(dt)) {
+        swEnd();
+        if (sw === "off") { DS.fq = { x: SW.land.x, z: SW.land.z }; DS.qa = null; DS.qm = "foot"; figPut(SW.land.x, SW.land.z, SW.land.yaw, dt, pl); figCarry(0, 0); swMix(0); }
+        else { DS.qm = "sat"; fig = false; seated = true; mode = "seat"; }
+      }
+    }
+    else if (sw) { DS.qa = null; DS.qm = sw === "on" ? "sat" : "foot"; seated = sw === "on"; mode = seated ? "seat" : ""; }   /* a swing cut short */
+    else if (DS.qm === "sat") { seated = true; mode = "seat"; }
+    else {
+      // by the sled; at the sledge while there are drums going on it. They walk between the two.
+      const ld = n > 0 && !soon, bx = a.x - a.tx * (ld ? DS.back : 0.2), bz = a.z - a.tz * (ld ? DS.back : 0.2);
+      const tx = soon ? a.x + lx * UN.qx + a.tx * UN.qz : bx + lx * UN.side, tz = soon ? a.z + lz * UN.qx + a.tz * UN.qz : bz + lz * UN.side;
+      const face = soon ? yaw : ld ? Math.atan2(-lx, -lz) : Math.atan2(lx * 0.8 + a.tx * 0.6, lz * 0.8 + a.tz * 0.6);
+      if (!DS.fq || !DS.fig.visible || Math.hypot(DS.fq.x - tx, DS.fq.z - tz) > 9) DS.fq = { x: tx, z: tz };
+      const dx = tx - DS.fq.x, dz = tz - DS.fq.z, dd = Math.hypot(dx, dz), st = Math.min(dd, 1.3 * dt);
+      if (dd > 0.02) { DS.fq.x += dx / dd * st; DS.fq.z += dz / dd * st; }
+      figPut(DS.fq.x, DS.fq.z, dd > 0.25 ? Math.atan2(dx, dz) : face, dt, pl); figCarry(0, 0); swMix(dt); fig = true; mode = dd > 0.25 ? "walk" : ld ? "load" : "stand";
+      if (soon && dd < 0.03 && rem < UN.swOn + 0.9 && Math.abs(wrap(DS.F.yaw - yaw)) < 0.3 && !(DS.F.sp > 0.25)) { DS.qm = "on"; swBegin("on", 1, pl); mode = "on"; }
+    }
   } else if (q.st === "unload") {
-    const u = un ? unAt(un, q.n, DS.us) : { m: "seat", done: 0 };
-    mode = u.m; seated = u.m === "seat"; n = q.n - u.done - (u.m === "lift" || u.m === "carry" ? 1 : 0);
-    if (u.m === "toS" || u.m === "toQ") {
-      const k = u.m === "toS" ? u.k : 1 - u.k, back = u.m === "toS" ? 0 : Math.PI;
-      figPut(un.Q[0] + (un.S[0] - un.Q[0]) * k, un.Q[1] + (un.S[1] - un.Q[1]) * k, Math.atan2(un.S[0] - un.Q[0], un.S[1] - un.Q[1]) + back, dt, pl); figCarry(0, 0); fig = true;
+    const u = un ? unAt(un, q.n, DS.us) : { m: "seat", done: 0 }, yS = g.rotation.y;
+    mode = u.m; seated = u.m === "seat" || u.m === "brake"; n = q.n - u.done - (u.m === "lift" || u.m === "carry" ? 1 : 0);
+    if (u.m !== was) DS.swD = false;
+    if (SW.on && u.m !== "off" && u.m !== "on") swKill();                    // the clock moved on before the body was done: a cut
+    if (u.m === "off") {
+      if (!SW.on && !DS.swD && (was === "seat" || was === "brake")) swBegin("off", un.side, pl);   // seen from its start
+      if (SW.on) { fig = true; if (swRun(dt)) { swEnd(); DS.swD = true; DS.lq = [SW.land.x, SW.land.z]; figPut(SW.land.x, SW.land.z, SW.land.yaw, dt, pl); figCarry(0, 0); swMix(0); } }
+      else if (DS.swD || u.k > 0.5) { const p = DS.lq || un.Q; figPut(p[0], p[1], DS.lq ? SW.land.yaw : yS - un.side * SW_DL, dt, pl); figCarry(0, 0); swMix(dt); fig = true; }
+      else seated = true;
+    } else if (u.m === "on") {
+      if (!SW.on && !DS.swD && was === "toQ" && DS.fig.visible) swBegin("on", un.side, pl);
+      if (SW.on) { fig = true; if (swRun(dt)) { swEnd(); DS.swD = true; fig = false; seated = true; } }
+      else if (DS.swD || u.k > 0.5) seated = true;
+      else { figPut(un.Q[0], un.Q[1], yS, dt, pl); figCarry(0, 0); fig = true; }
+    } else if (u.m === "toS" || u.m === "toQ") {
+      const k = u.m === "toS" ? u.k : 1 - u.k, back = u.m === "toS" ? 0 : Math.PI, Q = u.m === "toS" && DS.lq ? DS.lq : un.Q;
+      figPut(Q[0] + (un.S[0] - Q[0]) * k, Q[1] + (un.S[1] - Q[1]) * k, Math.atan2(un.S[0] - Q[0], un.S[1] - Q[1]) + back, dt, pl); figCarry(0, 0); swMix(dt); fig = true;
     } else if (u.m === "lift") {
       figPut(un.S[0], un.S[1], un.face, dt, pl); fig = true; cdOn = true;
       const up = api.sstep(0.3, 0.95, u.k);
@@ -680,13 +1082,13 @@ function dsTick(dt) {
     const want = still && dP < 9 && dP > 0.4 ? clamp(Math.atan2(Math.sin(Math.atan2(pl.x - F.x, pl.z - F.z) - F.yaw), Math.cos(Math.atan2(pl.x - F.x, pl.z - F.z) - F.yaw)), -1.15, 1.15) : 0;
     DS.hy += (want - DS.hy) * Math.min(1, dt * 4); DS.fig.userData.head.rotation.y += DS.hy;
   }
-  DS.hail = fig ? { x: DS.F.x, z: DS.F.z } : seated && !DS.moving && (q.held || !(driverWork() > 0)) ? { x: a.x, z: a.z } : null;
+  DS.hail = SW.on ? null : fig ? { x: DS.F.x, z: DS.F.z } : seated && !DS.moving && (q.held || !(driverWork() > 0)) ? { x: a.x, z: a.z } : null;
   DS.rider.visible = seated; DS.lamp.visible = seated; DS.glow.visible = seated && night > 0.05; if (DS.glow.visible) DS.glow.material.opacity = 0.3 + 0.7 * night;
   if (seated) DS.rider.userData.torso.rotation.x = 0.5 + (DS.moving ? Math.sin(now * 6.3) * 0.012 + clamp(-pitch, -0.3, 0.3) * 0.25 : 0.06);
   DS.n = n; for (let i = 0; i < DS.drums.length; i++) DS.drums[i].visible = i < n;
   // a pressed track where you can see it
-  if (DS.moving && Math.abs(DS.s - DS.pS) >= 0.5 && Math.hypot(pl.x - a.x, pl.z - a.z) < RUN.press) {
-    DS.pS = DS.s;
+  if (DS.moving && Math.abs(along - DS.pS) >= 0.5 && Math.hypot(pl.x - a.x, pl.z - a.z) < RUN.press) {
+    DS.pS = along;
     try { for (const sx of [-1, 1]) W.pressSnow(a.x - a.tx * 1.9 + lx * sx * 0.3, a.z - a.tz * 1.9 + lz * sx * 0.3, 0.3, 0.78); W.pressSnow(b.x - a.tx * 1.2, b.z - a.tz * 1.2, 0.42, 0.7); W.markTrail(a.x, a.z, true); } catch (e) { }
   }
 }
@@ -1103,6 +1505,6 @@ TLX.lights = { LIGHTS, LAMPS, rec, out, owns: id => { const lp = lampOf(id); ret
   // 6.3b2a: the run over the ground and the sled on it
   RUN, route: id => route(lampOf(id)), posAt, quaySpot, sled: () => DS,
   // 6.3b2b: the driver on foot
-  UN, unPlan: id => unPlan(lampOf(id)), unTot, unAt, hail, hailUse,
+  UN, unPlan: id => unPlan(lampOf(id)), unTot, unAt, hail, hailUse, SW, brakeAt,
   SMALL, num: (id, k) => N(lampOf(id), k), flashOn, dropTick, small: id => { const lp = lampOf(id); return lp && lp.small || null; } };
 })();

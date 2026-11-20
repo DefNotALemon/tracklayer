@@ -236,11 +236,14 @@ default; switch it on the driver's Staff card or the Lights app's Oil run card) 
 account, $45 each, for a light under 60 lamp hours of oil in the tank, the store and on the way. A driver doesn't
 pump or light, so a light with a keeper and a driver runs itself for two wages and the oil. While out the driver is
 a pin on the Map. A driver who is owed wages stays put.
-**On foot.** At the light the driver gets off, walks back to the sledge, takes a drum on the shoulder and carries it
+**On foot.** Coming in to a light the sled slows over its last metres and stops; the driver swings off the saddle
+(up off the seat, a leg back over it, down to the snow), walks back to the sledge, takes a drum on the shoulder and carries it
 to the door of the oil store, one drum at a time, wading in the loose snow and walking on the path their own boots
-tread; that stop is part of the trip (about an hour and a half of game time with two drums at Finnkirka) and the
+tread, then walks back to the sled and climbs on (a boot on the board, a hand to the grip, a leg over); that stop is
+part of the trip (about two hours of game time with two drums at Finnkirka) and the
 drums are in the store when it ends. Between trips they stand by the parked sled at the quay, at the sledge while it
-is being loaded, and look round when you come close. Wherever they are stopped (at the quay, carrying drums in at a
+is being loaded, and look round when you come close; a few seconds before leaving they walk to the saddle and get
+on, and home again the sled brakes to its place and they get off. Wherever they are stopped (at the quay, carrying drums in at a
 light, sat out in weather on the run) you can walk up and talk to them with the use control (E, the pad's left
 stick click, the touch button reads TALK), and that is also where PRAISE and CRITICISE in the Staff app can be
 had; riding, they can't be stopped for a word.
