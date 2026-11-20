@@ -1159,8 +1159,20 @@ their mood, and after 6 hours they walk home: the truck then stands dark and emp
 until it is fetched. **PAY A TOW** on the driver's card in the Staff app ($120 + $20 a km from the
 garage) has a tow truck there in an hour: with the driver still in it they plow on from there, and
 an abandoned truck is brought in (yours back to its parking spot). Hail a bogged driver and they
-tell you how long they have sat there. Not yet: towing them out yourself, or sending another
-driver.
+tell you how long they have sat there.
+
+**Send someone.** If you have a driver on another road who is in, the bogged driver's card also has
+**SEND** with that driver's name and the time it will take. It costs no money. They drive there by
+road, rope up and pull the truck back onto the cut (the drive plus half an hour), and the bogged
+driver plows on; then they drive back, and until they are in again their own road waits, snow or
+no snow. A driver in one of your trucks takes it for the errand and burns your diesel both ways
+(they are not offered if the tank will not cover it), and the truck is away from its spot
+meanwhile. While help is on the way the bogged driver stays with the truck however long it takes
+(the cold still costs their mood), a tow cannot be paid on top, and the Map shows the helper's pin
+moving along the road. If the helper leaves your books on the way you are told nobody is coming;
+if the bogged truck gets free some other way the helper turns round. An abandoned truck still
+needs the tow truck. Not yet: seeing the helper's truck on the road, and towing a bogged driver
+out yourself.
 
 **From its parking spot and back.** A driver in your truck starts where you left the truck. They
 drive it off its spot, over the plowed ground and the streets and round the houses, onto the roads

@@ -983,7 +983,10 @@ function conJob(k) {
    FROM ITS SPOT (5.4b2b, the block at PDA): your truck drives a line from its parking spot to the road's first end
    before p starts, and back along it after p is 0 again.
    STUCK (5.4c1, the block at pdrBogRisk): cutting a stretch drifted deeper than their blade copes with, or a grade while
-   it snows, a driver may bog: st "stuck" (+ sk, tow, gone, bogI), a ping, and PAY A TOW on their Staff card. */
+   it snows, a driver may bog: st "stuck" (+ sk, tow, gone, bogI), a ping, and PAY A TOW on their Staff card.
+   SEND SOMEONE (5.4c2a, the block at pdrAidLine): another road's driver who is in goes and pulls them out: on the bogged
+   record help (the helper's road id), on the helper's aid (the road they went to), aidL (m of the drive), aidT (hours
+   until the truck is free: the drive + PDR.aid.hitch), aidB (hours of the drive back left). All saved. */
 const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [0.7, 0.03, 10],
   mine: 0.5,        // the share of applicants with no truck of their own (5.4a2)
   lkm: [0.5, 1.2],  // litres a km x the truck's burn: on a clean road, with the blade cutting
@@ -1007,6 +1010,9 @@ const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [
   // grade while it snows adds up to hill of that; walk: hours until they walk home; mood: lost each hour stuck;
   // tow: [$, $ a km from the garage, hours until it is there]; off m / skew rad: how the bogged truck sits
   bog: { km: 0.3, deep: 0.65, h: 1.15, grade: [0.05, 0.12], wx: [0.25, 0.55], hill: 0.6, walk: 6, mood: 5, tow: [120, 20, 1], off: 1.1, skew: 0.3, rnd: () => Math.random() },
+  // 5.4c2a, SEND SOMEONE (the block at pdrAidLine): hitch: hours the other driver needs at the bogged truck to rope up
+  // and pull it onto the cut, after the drive there at vRoad
+  aid: { hitch: 0.5 },
   tints: [0xffffff, 0xb9cfe6, 0xe6c9a0, 0xbfe0c2, 0xe2b3ac, 0xcfd3d8, 0xe9e2a8] };
 const pdrPid = id => "plow:" + id;
 const pdrOf = id => (TLX.staff && TLX.staff.at ? TLX.staff.at(pdrPid(id)) : null);
@@ -1028,7 +1034,11 @@ function pdrTidy(s) {
     const q = s.pdr[id]; if (!obj0(q) || !s.con || !s.con[id]) { if (obj0(q)) pdrFree(q); delete s.pdr[id]; continue; }
     if (q.st !== "out" && q.st !== "back" && q.st !== "stuck") q.st = "home";
     q.gone = !!q.gone && q.st === "stuck"; q.bogI = Number.isInteger(q.bogI) ? q.bogI : -1; if (q.st !== "stuck") { q.sk = 0; q.tow = 0; }
-    for (const k of ["p", "w", "n", "cash", "wkN", "wkCash", "a", "sk", "tow"]) q[k] = Number.isFinite(q[k]) ? Math.max(0, q[k]) : 0;
+    for (const k of ["p", "w", "n", "cash", "wkN", "wkCash", "a", "sk", "tow", "aidT", "aidB", "aidL"]) q[k] = Number.isFinite(q[k]) ? Math.max(0, q[k]) : 0;
+    /* 5.4c2a: help is the road whose driver is coming (bogged records only); aid the road this driver went to help on (only from home) */
+    q.help = typeof q.help === "string" && q.st === "stuck" && !q.gone && q.help !== id ? q.help : "";
+    q.aid = typeof q.aid === "string" && q.st === "home" && q.aid !== id ? q.aid : "";
+    if (!q.aid) pdrAidClr(q); else { q.aidT = Math.min(q.aidT, 48); q.aidB = Math.min(q.aidB, 48); q.aidL = Math.min(q.aidL, 2e5); if (!(q.aidT > 0) && !(q.aidB > 0)) q.aidB = 1e-6; }
     if (q.truck != null && !pdrRec(q.truck)) q.truck = null;                     /* the truck is gone */
     q.told = typeof q.told === "string" ? q.told : ""; q.why = typeof q.why === "string" ? q.why : ""; q.rc = !!q.rc; q.hold = !!q.hold;
     if (!Number.isFinite(q.f0)) q.f0 = 0;
@@ -1038,7 +1048,7 @@ function pdrTidy(s) {
 /* a truck marked out by a driver that no driver has out any more comes home (a save edited, a road gone mid-trip) */
 function pdrSweep() {
   const s = S(); if (!s || !window.TLXV || !TLXV.setOut) return;
-  const held = new Set(); if (obj0(s.pdr)) for (const id of Object.keys(s.pdr)) { const q = s.pdr[id]; if (obj0(q) && q.truck != null && q.st !== "home") held.add(String(q.truck)); }
+  const held = new Set(); if (obj0(s.pdr)) for (const id of Object.keys(s.pdr)) { const q = s.pdr[id]; if (obj0(q) && q.truck != null && (q.st !== "home" || q.aid)) held.add(String(q.truck)); }
   for (const t of trucks()) if (t.out && t.outBy === "plow" && !held.has(String(t.uid))) TLXV.setOut(t.uid, null);
 }
 function pdrFree(q) { const t = pdrRec(q.truck); if (t && t.out && t.outBy === "plow" && window.TLXV && TLXV.setOut) TLXV.setOut(t.uid, null); }
@@ -1128,7 +1138,8 @@ function pdrSleep(c, r, q, m, k) {                                              
    tow[2] game hours; with the driver in it they plow on from there, an abandoned truck is brought in (yours to its spot).
    Not here: towing them yourself and sending another driver (5.4c2). */
 const pdrHrs = v => (!(v > 0) ? "a moment" : v >= 1 ? Math.round(v) + " h" : Math.max(1, Math.round(v * 60)) + " min");
-function pdrUnbog(q) { q.sk = 0; q.tow = 0; q.gone = false; q.bogI = -1; }
+function pdrUnbog(q) { q.sk = 0; q.tow = 0; q.gone = false; q.bogI = -1; q.help = ""; }
+function pdrAidClr(q) { q.aid = ""; q.aidT = 0; q.aidB = 0; q.aidL = 0; }
 function pdrBogRisk(r, q, i, k, d) {                                             // bogs a km on due stretch i, for a driver of skill k behind blade d (null: their own)
   const b = PDR.bog; if (!(b.km > 0)) return 0;
   const bh = (d || BLADES.find(v => v.id === PDR.own[1]) || { h: b.h }).h, lim = b.deep * Math.min(1, bh / b.h), sn = r.st.s[i], over = sn > lim ? (sn - lim) / Math.max(0.05, 1 - lim) : 0;
@@ -1140,7 +1151,7 @@ function pdrTowCost(r, q) { const g = api.world.garage(), p = pdrPos(r, q), b = 
 function pdrBog(c, r, q, m, i, T) {
   pdrUnbog(q); q.st = "stuck"; q.bogI = i;
   const Z = PDS.get(r.id); if (Z && Z.hail > 0) pdrWave(r.id, true);
-  pdrNote(`${m.name} is stuck`, `Bogged in the drift ${(q.p / 1000).toFixed(1)} km along the ${r.name}${T ? `, in your ${pdrTName(T)}` : ""}. PAY A TOW on their card in the Staff app (${api.fmtCash(pdrTowCost(r, q))}), or leave them: after ${PDR.bog.walk} h in the cold they walk home and the truck stays where it is.`, "warn");
+  pdrNote(`${m.name} is stuck`, `Bogged in the drift ${(q.p / 1000).toFixed(1)} km along the ${r.name}${T ? `, in your ${pdrTName(T)}` : ""}. PAY A TOW on their card in the Staff app (${api.fmtCash(pdrTowCost(r, q))})${pdrAidAble(r.id).length ? ", SEND another driver of yours from the same card (free, but slower)" : ""}, or leave them: after ${PDR.bog.walk} h in the cold they walk home and the truck stays where it is.`, "warn");
   try { api.ui.ping("note"); } catch (e) { }
   api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
 }
@@ -1160,9 +1171,16 @@ function pdrStuck(c, r, q, m, dh) {                                             
   if (mine && !T) { pdrHome(c, r, q, m, "the truck is no longer yours"); return; }
   if (!(dh > 0)) return;
   if (!Number.isFinite(q.sk) || q.sk < 0) q.sk = 0;
-  const arrive = q.tow > 0 && q.tow <= dh + 1e-9, eff = arrive ? q.tow : dh, sk0 = q.sk;
+  /* 5.4c2a: another driver of yours is on the way: the hours stuck stop at their arrival, and nobody walks home from help that is coming */
+  let hq = null;
+  if (q.help) {
+    const h2 = S().pdr[q.help]; hq = obj0(h2) && h2.aid === r.id && !(h2.aidB > 0) && pdrOf(q.help) ? h2 : null;
+    if (!hq) { q.help = ""; pdrNote(`Nobody is coming for ${pdrFirst(m)} after all`, `The driver you sent out to the ${r.name} is no longer on the way. ${pdrFirst(m)} is still bogged ${(q.p / 1000).toFixed(1)} km along it: PAY A TOW or SEND SOMEONE on their card in the Staff app.`, "warn"); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { } }
+  }
+  const arrive = q.tow > 0 && q.tow <= dh + 1e-9, eff = arrive ? q.tow : hq ? Math.min(dh, Math.max(0, hq.aidT)) : dh, sk0 = q.sk;
   q.sk += eff; if (q.tow > 0) q.tow = arrive ? 0 : q.tow - dh;
-  if (!q.gone) {
+  if (!q.gone && hq) { const n = Math.floor(Math.min(q.sk, b.walk) + 1e-9) - Math.floor(Math.min(sk0, b.walk) + 1e-9); if (n > 0 && TLX.staff && TLX.staff.dent) TLX.staff.dent(pdrPid(r.id), b.mood * n); }
+  else if (!q.gone) {
     const n = Math.floor(Math.min(q.sk, b.walk) + 1e-9) - Math.floor(Math.min(sk0, b.walk) + 1e-9);
     if (n > 0 && TLX.staff && TLX.staff.dent) TLX.staff.dent(pdrPid(r.id), b.mood * n);
     if (q.sk >= b.walk) {
@@ -1173,7 +1191,7 @@ function pdrStuck(c, r, q, m, dh) {                                             
   if (arrive) pdrTowed(c, r, q, m, T);
 }
 function pdrTow(id) {                                                            // PAY A TOW
-  const s = S(), q = s.pdr && s.pdr[id], c = s.con && s.con[id], m = pdrOf(id), r = c && conR().find(v => v.id === id); if (!obj0(q) || !m || !r || q.st !== "stuck" || q.tow > 0) return false;
+  const s = S(), q = s.pdr && s.pdr[id], c = s.con && s.con[id], m = pdrOf(id), r = c && conR().find(v => v.id === id); if (!obj0(q) || !m || !r || q.st !== "stuck" || q.tow > 0 || q.help) return false;
   const cost = pdrTowCost(r, q), GS = api.GS;
   if (!(GS.cash >= cost)) { api.toast(`A tow out on the ${r.name} is ${api.fmtCash(cost)}. You have ${api.fmtCash(GS.cash)}.`, "warn"); return false; }
   GS.cash -= cost; q.tow = PDR.bog.tow[2];
@@ -1186,10 +1204,120 @@ function pdrJob(k) {                                                            
   const id = Object.keys(s.pdr).filter(i => obj0(s.pdr[i]) && s.pdr[i].st === "stuck" && s.con && s.con[i] && pdrOf(i))[k]; if (!id) return null;
   const q = s.pdr[id], m = pdrOf(id), r = conR().find(v => v.id === id); if (!r) return null;
   const p = pdrPos(r, q), U = api.ui, me = pdrFirst(m), title = q.gone ? `${me}'s truck is stuck on the ${r.name}` : `${me} is stuck on the ${r.name}`;
-  const state = q.tow > 0 ? "the tow truck is on its way" : q.gone ? "left there until a tow fetches it" : `${pdrHrs(q.sk)} in the cold · walks home after ${PDR.bog.walk} h`;
+  const hm = q.help ? pdrOf(q.help) : null;
+  const state = hm ? `${pdrFirst(hm)} is on the way to pull them out` : q.tow > 0 ? "the tow truck is on its way" : q.gone ? "left there until a tow fetches it" : `${pdrHrs(q.sk)} in the cold · walks home after ${PDR.bog.walk} h`;
   return { obj: q, kind: "plowstuck", auto: false, tgt: { x: p.x, z: p.z, name: `${me}'s truck`, isSnow: true }, col: "var(--signal)", title,
-    chips: U.chip("STUCK", "due") + (q.tow > 0 ? U.chip("TOW COMING", "ok") : ""), meta: `${(q.p / 1000).toFixed(1)} km along · ${state}`, pay: q.tow > 0 ? "" : "tow " + api.fmtCash(pdrTowCost(r, q)),
+    chips: U.chip("STUCK", "due") + (hm ? U.chip("HELP COMING", "ok") : q.tow > 0 ? U.chip("TOW COMING", "ok") : ""), meta: `${(q.p / 1000).toFixed(1)} km along · ${state}`, pay: q.tow > 0 || hm ? "" : "tow " + api.fmtCash(pdrTowCost(r, q)),
     hud: d => ({ title, sub: `${U.fmtMi(d)} · ${state}` }) };
+}
+/* ---- 5.4c2a: SEND SOMEONE ----
+   The second way out of a bog: another road's driver, who is in, drives to the bogged truck and pulls it back onto the
+   cut. SEND <NAME> on the bogged driver's Staff card, one button for each driver who can go (pdrAidAble / pdrAidWhy: in,
+   paid, not already away, and with a truck: their own, or yours with the diesel for the drive there and back). It costs
+   no money: the drive there by road at PDR.vRoad (pdrAidLine: TLXR.tripLine from where their truck stands to the bogged
+   one) plus PDR.aid.hitch hours roping up, then the same drive back, and until they are in again their own road waits
+   (pdrRun does nothing else for them, asleep or awake). In YOUR truck the diesel for both legs is yours and the truck is
+   away from its spot (pdrTake / pdrFree, as when they plow).
+   On the clock: helper.aidT runs down (pdrAid); at 0 the bogged driver is free (pdrHelped: st "out", they plow on, no
+   second bog in that stretch) and helper.aidB, the drive back, starts. While help is coming the bogged driver does not
+   walk home (the hours still cost mood) and a tow cannot be paid on top. If the bogged truck is freed some other way, its
+   driver let go or its road handed back, the helper turns round where they are; if the helper is let go or their road is
+   handed back, the bogged driver is told nobody is coming (pdrStuck).
+   Told: a toast, notifications at each turn, both cards (pdrWhere), the Jobs row (HELP COMING), the hailed driver, and a
+   Map pin for the helper that moves along the line. NOT here (5.4c2b): the helper's truck drawn on the road (while away
+   it is simply not at its spot: a driver's own truck is not drawn parked, yours is out), and towing them yourself. */
+const PDAID = new Map();                                                         // helper's road id -> { key, pts, cum, len }: the line they drive (session only, worked out again after a reload)
+function pdrAidFrom(r2, q2, m2) {                                                // where the helper's truck stands: yours on its spot, their own beside their road
+  if (pdrMine(m2)) { const t = pdrRec(q2.truck); return t && Number.isFinite(t.x) && Number.isFinite(t.z) ? [t.x, t.z] : null; }
+  const sp = pdrSpot(r2); return sp ? [sp.x, sp.z] : [r2.pts[0][0], r2.pts[0][1]];
+}
+function pdrAidLine(id2, id) {
+  const s = S(), rs = conR(), r2 = rs.find(v => v.id === id2), r = rs.find(v => v.id === id), q2 = s.pdr && s.pdr[id2], q = s.pdr && s.pdr[id], m2 = pdrOf(id2);
+  if (!r2 || !r || !obj0(q2) || !obj0(q) || !m2) return null;
+  const a = pdrAidFrom(r2, q2, m2), b = pdrPos(r, q); if (!a || !Number.isFinite(b.x)) return null;
+  const key = [id, Math.round(a[0]), Math.round(a[1]), Math.round(b.x), Math.round(b.z)].join(":"); let A = PDAID.get(id2);
+  if (A && A.key === key) return A;
+  let road = null; try { road = window.TLXR.tripLine(a[0], a[1], b.x, b.z); } catch (e) { road = null; }
+  const raw = [a].concat(road || [], [[b.x, b.z]]), pts = [raw[0]], cum = [0];
+  for (let i = 1; i < raw.length; i++) { const l = pts[pts.length - 1], d = Math.hypot(raw[i][0] - l[0], raw[i][1] - l[1]); if (!(d >= 0.4)) continue; pts.push(raw[i]); cum.push(cum[cum.length - 1] + d); }
+  if (pts.length < 2) { pts.push([a[0] + 1, a[1]]); cum.push(1); }
+  A = { key, pts, cum, len: cum[cum.length - 1] }; PDAID.set(id2, A); return A;
+}
+function pdrAidWhy(id2, id) {                                                    // why the driver of road id2 cannot be sent to the truck bogged on road id ("" = they can)
+  const s = S(), m2 = pdrOf(id2), q2 = s.pdr && s.pdr[id2], c2 = s.con && s.con[id2]; if (id2 === id || !m2 || !c2) return "no such driver";
+  const me = pdrFirst(m2);
+  if (!obj0(q2)) return `${me} has only just started`;
+  if (q2.aid) return `${me} is already away helping`;
+  if (q2.st !== "home") return `${me} is out on the ${c2.name}`;
+  if (!(pdrSkill(m2, id2) > 0)) return `${me} is not going anywhere while wages are owed`;
+  const A = pdrAidLine(id2, id); if (!A) return `${me} has no truck to come in`;
+  if (pdrMine(m2)) {
+    const t = pdrRec(q2.truck); if (!t) return `${me} has no truck: none of yours is assigned to them`;
+    const n = pdrTName(t);
+    if (t.out) return `the ${n} is out`;
+    if (curUid() === t.uid && (!api.FOOT.on || !api.swapOk())) return `you are in the ${n}`;
+    if (pdrHitched(t.uid)) return `a trailer is hitched to the ${n}`;
+    if (!(pdrFuel(t) >= 2 * A.len / 1000 * (pdrDef(t).burn || 1) * PDR.lkm[0] + PDR.spare)) return `the ${n} has not the diesel for the drive there and back`;
+  }
+  return "";
+}
+const pdrAidHrs = A => A.len / PDR.vRoad + PDR.aid.hitch;
+function pdrAidAble(id) {                                                        // the roads whose drivers could be sent to the truck bogged on road id
+  const s = S(); if (!s || !obj0(s.con)) return [];
+  return Object.keys(s.con).filter(k => k !== id && pdrOf(k) && !pdrAidWhy(k, id));
+}
+function pdrSend(id, id2) {                                                      // SEND SOMEONE: road id2's driver goes to the truck bogged on road id
+  const s = S(), q = s.pdr && s.pdr[id], m = pdrOf(id), rs = conR(), r = rs.find(v => v.id === id), r2 = rs.find(v => v.id === id2);
+  if (!obj0(q) || !m || !r || !r2 || q.st !== "stuck" || q.gone || q.tow > 0 || q.help) return false;
+  const why = pdrAidWhy(id2, id); if (why) { api.toast(`Nobody sent: ${why}.`, "warn"); return false; }
+  const q2 = s.pdr[id2], m2 = pdrOf(id2), A = pdrAidLine(id2, id);
+  if (pdrMine(m2) && !pdrTake(q2, m2, r)) { api.toast(`Nobody sent: ${pdrFirst(m2)} could not take the truck.`, "warn"); return false; }
+  q2.aid = id; q2.aidL = A.len; q2.aidT = pdrAidHrs(A); q2.aidB = 0; q2.w = 0; q2.told = ""; q2.hold = false; q.help = id2;
+  const T2 = pdrMine(m2) ? pdrRec(q2.truck) : null;
+  api.toast(`${pdrFirst(m2)} is on the way out to ${pdrFirst(m)} on the ${r.name}${T2 ? ` in your ${pdrTName(T2)}` : ""}: ${(A.len / 1000).toFixed(1)} km by road, about ${pdrHrs(q2.aidT)} until the truck is free. The ${r2.name} waits until they are back.`, "good");
+  api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+  return true;
+}
+function pdrHelped(c, r, q, m, m2, r2) {                                         // the other driver has pulled the bogged truck back onto the cut
+  const T = pdrMine(m) ? pdrRec(q.truck) : null, bi = q.bogI;
+  q.sk = 0; q.tow = 0; q.help = ""; q.gone = false; q.st = "out"; q.bogI = bi;
+  pdrNote(`${m.name} is moving again`, `${m2.name} pulled ${T ? `your ${pdrTName(T)}` : "their truck"} back onto the cut, ${(q.p / 1000).toFixed(1)} km along the ${r.name}, and is heading back to the ${r2.name}. ${pdrFirst(m)} is plowing on.`, "good");
+  api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+}
+function pdrAid(r2, q2, m2, dh) {                                                // the clock of a driver who is away helping (their own road waits)
+  const s = S(), id = q2.aid, q = s.pdr[id], c = s.con[id], rs = conR(), r = c ? rs.find(v => v.id === id) : null, m = pdrOf(id);
+  const mine = pdrMine(m2), T = mine ? pdrRec(q2.truck) : null, kml = T ? (pdrDef(T).burn || 1) * PDR.lkm[0] : 0, tGo = q2.aidL / PDR.vRoad, name = (c && c.name) || "road";
+  if (mine && !T) { pdrAidClr(q2); q2.hold = false; return; }                    /* the truck is no longer yours: they are simply in again */
+  if (!(dh > 0)) return;
+  const burn = h => { if (T && h > 0) T.fuel = Math.max(0, T.fuel - h * PDR.vRoad / 1000 * kml); };
+  if (!(q2.aidB > 0)) {
+    const live = obj0(q) && q.st === "stuck" && !q.gone && q.help === r2.id && !!m && !!r;
+    if (!live) {                                                                 /* nothing left to pull: they turn round where they are */
+      q2.aidB = Math.max(1e-6, Math.min(tGo, tGo + PDR.aid.hitch - q2.aidT)); q2.aidT = 0;
+      pdrNote(`${m2.name} has turned round`, `Nobody is left to pull out on the ${name}: they are on the way back to the ${r2.name}.`); api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+    } else {
+      const use = Math.min(dh, q2.aidT), drive = Math.max(0, q2.aidT - PDR.aid.hitch);
+      burn(Math.min(use, drive)); q2.aidT -= use; dh -= use;
+      if (q2.aidT > 1e-9) return;
+      q2.aidT = 0; q2.aidB = Math.max(1e-6, tGo); pdrHelped(c, r, q, m, m2, r2);
+    }
+  }
+  const use = Math.min(dh, q2.aidB); burn(use); q2.aidB -= use;
+  if (q2.aidB > 1e-9) return;
+  if (T && !pdrSpotClear(T)) {                                                   /* you stand on your truck's parking spot: they wait for you to move clear, as after a plow run */
+    q2.aidB = 1e-6; if (!q2.hold) { q2.hold = true; pdrNote(`${m2.name} is back with the ${pdrTName(T)}`, "Something of yours stands on its parking spot: move clear and they put it back.", "warn"); conRefresh(); }
+    return;
+  }
+  if (mine) pdrFree(q2);
+  pdrAidClr(q2); q2.hold = false; q2.w = 0; PDAID.delete(r2.id);
+  pdrNote(`${m2.name} is back in`, `Back from the ${name}${T ? `: ${Math.max(0, Math.round(q2.f0 - T.fuel))} L of your diesel, and the ${pdrTName(T)} is on its spot again` : ""}. The ${r2.name} is theirs again.`, "good");
+  api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+}
+function pdrAidPos(id2) {                                                        // where the clock has a helper who is away, on the line they drive (null: not away)
+  const s = S(), q2 = s && s.pdr && s.pdr[id2]; if (!obj0(q2) || !q2.aid) return null;
+  const A = pdrAidLine(id2, q2.aid); if (!A || !(q2.aidL > 0)) return null;
+  const m = q2.aidB > 0 ? q2.aidB * PDR.vRoad : q2.aidL - Math.max(0, q2.aidT - PDR.aid.hitch) * PDR.vRoad;
+  return pdrPt(A, Math.max(0, Math.min(1, m / q2.aidL)) * A.len);
 }
 function pdrRun(c, r, dh, slept) {
   const s = S(), TR = window.TLXR; if (!obj0(s.pdr)) s.pdr = {};
@@ -1200,11 +1328,12 @@ function pdrRun(c, r, dh, slept) {
   const mine = pdrMine(m);
   if (q.who !== m.id) {                                                          /* someone new on this road: the last one's truck comes home */
     const was = q.who; q.who = m.id;
-    if (was != null) { pdrFree(q); q.truck = null; q.st = "home"; q.p = 0; q.w = 0; q.n = 0; q.cash = 0; q.told = q.why = ""; q.rc = q.hold = false; pdrUnbog(q); }
+    if (was != null) { pdrFree(q); q.truck = null; q.st = "home"; q.p = 0; q.w = 0; q.n = 0; q.cash = 0; q.told = q.why = ""; q.rc = q.hold = false; pdrUnbog(q); pdrAidClr(q); }
   }
   if (!mine && q.truck != null) { pdrFree(q); q.truck = null; }
   const k = pdrSkill(m, r.id), RD = TR.ROADS, SEG = RD.seg, WX = api.WX;
   if (q.st === "stuck") { pdrStuck(c, r, q, m, dh); return; }                    /* 5.4c1: bogged: no work, asleep or awake, wages paid or owed */
+  if (q.aid) { if (q.st !== "home") pdrAidClr(q); else { pdrAid(r, q, m, dh); return; } }   /* 5.4c2a: away pulling another driver out: their own road waits */
   if (slept) { pdrSleep(c, r, q, m, k); return; }
   if (!(dh > 0)) return;
   if (!(k > 0)) { if (q.st !== "home") pdrHome(c, r, q, m, "home again: wages are owed"); q.w = 0; return; }
@@ -1433,6 +1562,7 @@ function pdrSee(dt) {
       const q = s.pdr[id], m = pdrOf(id), r = rs.find(v => v.id === id); if (!obj0(q) || !m || !r || !s.con[id]) continue;
       const mine = pdrMine(m), out = q.st !== "home", rec = mine ? pdrRec(q.truck) : null, stuck = q.st === "stuck", crew = out && !(stuck && q.gone);   /* 5.4c1: bogged, and walked home from it */
       if (mine && (!out || !rec || !rec.out)) continue;                          /* your truck at its own spot is tlx-vehicles' to draw */
+      if (!mine && !out && q.aid) continue;                                      /* 5.4c2a: away helping on another road: their truck is not on its spot */
       const spot = mine ? null : pdrSpot(r); if (!mine && !out && !spot) continue;
       if (spot) pdrPad(spot);
       const uid = mine ? String(rec.uid) : "pdr:" + id;
@@ -1514,7 +1644,7 @@ function pdrHailed(id) { const Z = PDS.get(id); return !!Z && Z.hail > 0; }
 function pdrSay(id) {
   const s = S(), q = s.pdr && s.pdr[id], m = pdrOf(id), c = s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!obj0(q) || !m || !r) return "";
   const RD = window.TLXR.ROADS, due = pdrDue(c, r), t = pdrMine(m) ? pdrRec(q.truck) : null, bits = [], n = q.n | 0, str = k => `${k} stretch${k === 1 ? "" : "es"}`;
-  if (q.st === "stuck") bits.push(`Bogged to the axles${n ? ", " + str(n) + " open behind me" : ""}. ${q.tow > 0 ? "They say the tow truck is on its way." : "I need a pull out of this: " + pdrHrs(q.sk) + " I have sat here."}`);
+  if (q.st === "stuck") bits.push(`Bogged to the axles${n ? ", " + str(n) + " open behind me" : ""}. ${q.help && pdrOf(q.help) ? pdrFirst(pdrOf(q.help)) + " is coming out to pull me free, they say." : q.tow > 0 ? "They say the tow truck is on its way." : "I need a pull out of this: " + pdrHrs(q.sk) + " I have sat here."}`);
   else if (q.st === "back") { const why = q.rc ? "you called me in" : q.why || (c.cover ? "the kommune's own truck has the rest" : ""); bits.push(`${n ? str(n) + " open. " : ""}Heading in${why ? ": " + why : n ? "" : ", nothing left to open"}.`); }
   else if (pdrOnWay(r, q)) bits.push(`On my way out to the ${r.name}: ${str(due.length)} to plow.`);
   else {
@@ -1558,7 +1688,8 @@ const T_LANE = 1.6;                                                             
 function pdrPins() {
   const s = S(), out = []; if (!s || !obj0(s.pdr)) return out;
   for (const id of Object.keys(s.pdr)) {
-    const q = s.pdr[id], m = pdrOf(id); if (!obj0(q) || !m || q.st === "home") continue;
+    const q = s.pdr[id], m = pdrOf(id); if (!obj0(q) || !m) continue;
+    if (q.st === "home") { const ap = q.aid ? pdrAidPos(id) : null; if (ap) out.push({ x: ap.x, z: ap.z, name: pdrFirst(m).toUpperCase() + (q.aidB > 0 ? ": HEADING IN" : ": GOING TO HELP"), col: "#e0a020", glyph: "P" }); continue; }   /* 5.4c2a */
     const Z = PDS.get(id), r = Z && Number.isFinite(Z.x) ? null : conR().find(v => v.id === id), p = r ? pdrPos(r, q) : Z; if (!p || !Number.isFinite(p.x)) continue;
     out.push({ x: p.x, z: p.z, name: pdrFirst(m).toUpperCase() + (q.st === "stuck" ? (q.gone ? "'S TRUCK: STUCK" : ": STUCK") : q.st === "back" ? ": HEADING IN" : pdrOnWay(conR().find(v => v.id === id) || { pts: [] }, q) ? ": DRIVING OUT" : ": PLOWING"), col: q.st === "stuck" ? "#e05a3a" : "#e0a020", glyph: "P" });
   }
@@ -1567,6 +1698,9 @@ function pdrPins() {
 function pdrWhere(id) {                                                          // where the road's driver is, in a few words ("" with no driver)
   const s = S(), m = pdrOf(id), c = s && s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!m || !c || !r) return "";
   const q = (s.pdr && s.pdr[id]) || { st: "home", p: 0 }, km = (q.p / 1000).toFixed(1), due = pdrDue(c, r), RD = window.TLXR.ROADS;
+  if (q.st === "stuck" && q.help && pdrOf(q.help)) return `stuck ${km} km along, ${pdrHrs(q.sk)} now: ${pdrFirst(pdrOf(q.help))} is on the way to pull them out`;
+  if (q.st === "home" && q.aid) { const c2 = s.con[q.aid], n2 = (c2 && c2.name) || "road", w2 = pdrOf(q.aid), left = q.aidT - PDR.aid.hitch;
+    return q.aidB > 0 ? `on the way back in from the ${n2}, about ${pdrHrs(q.aidB)} out; the ${c.name} waits` : left > 0 ? `gone to pull ${w2 ? pdrFirst(w2) : "a driver"} out on the ${n2}: there in about ${pdrHrs(left)}; the ${c.name} waits` : `roping up to ${w2 ? pdrFirst(w2) + "'s" : "the bogged"} truck on the ${n2}; the ${c.name} waits`; }
   if (q.st === "stuck") return q.gone ? `walked home after ${PDR.bog.walk} h in the cold; the truck is stuck ${km} km along, ${q.tow > 0 ? "and the tow truck is fetching it" : "until a tow fetches it (PAY A TOW on their Staff card)"}` : `stuck ${km} km along, ${pdrHrs(q.sk)} now: ${q.tow > 0 ? "the tow truck is on its way" : "PAY A TOW on their Staff card"}`;
   if (!(pdrSkill(m, id) > 0)) return "not going out while wages are owed";
   if (q.st !== "home" && pdrOnWay(r, q)) return q.st === "back" ? (q.hold ? "back, waiting for you to move clear of the truck's parking spot" : "nearly in, bringing the truck back to its spot") : `driving the truck out to the road, ${due.length} stretch${due.length === 1 ? "" : "es"} to plow`;
@@ -1616,7 +1750,14 @@ function pdrFleet(id) {
 function pdrActs(m, p) {
   if (!p || !p.road) return [];
   const s = S(), q = s.pdr && s.pdr[p.road], t = q ? pdrRec(q.truck) : null;
-  if (obj0(q) && q.st === "stuck") { const r = conR().find(v => v.id === p.road); return r ? [{ k: "tow", label: q.tow > 0 ? "TOW ON ITS WAY" : `PAY A TOW · ${api.fmtCash(pdrTowCost(r, q))}`, off: q.tow > 0 }] : []; }   /* 5.4c1 */
+  if (obj0(q) && q.st === "stuck") {                                              /* 5.4c1: PAY A TOW; 5.4c2a: SEND one of your other drivers */
+    const r = conR().find(v => v.id === p.road); if (!r) return [];
+    const hm = q.help ? pdrOf(q.help) : null; if (hm) return [{ k: "tow", label: `${pdrFirst(hm).toUpperCase()} IS ON THE WAY`, off: true }];
+    const out = [{ k: "tow", label: q.tow > 0 ? "TOW ON ITS WAY" : `PAY A TOW · ${api.fmtCash(pdrTowCost(r, q))}`, off: q.tow > 0 }];
+    if (!(q.tow > 0) && !q.gone) for (const k of pdrAidAble(p.road)) { const A = pdrAidLine(k, p.road); out.push({ k: "s" + k, label: `SEND ${pdrFirst(pdrOf(k)).toUpperCase()} · ${pdrHrs(pdrAidHrs(A))}` }); }
+    return out;
+  }
+  if (obj0(q) && q.aid) return [];                                               /* away helping: nothing to press until they are back */
   if (!pdrMine(m)) return [];
   if (t) return q.st === "home" ? [{ k: "u", label: "TAKE THE TRUCK BACK" }] : [{ k: "r", label: q.rc ? "RECALLED" : "RECALL", off: !!q.rc }];
   const fl = pdrFleet(p.road);
@@ -1625,10 +1766,12 @@ function pdrActs(m, p) {
 function pdrAct(m, k, p) {
   const s = S(), id = p && p.road, c = id && s.con && s.con[id]; if (!c) return false;
   if (k === "tow") return pdrTow(id);
+  if (k[0] === "s") return pdrSend(id, k.slice(1));
   if (!pdrMine(m)) return false;
   if (!obj0(s.pdr)) s.pdr = {};
   let q = s.pdr[id]; if (!q) q = s.pdr[id] = { st: "home", p: 0, w: 0, n: 0, cash: 0, wkN: 0, wkCash: 0, who: m.id, truck: null, f0: 0, told: "", why: "", rc: false, hold: false };
   const me = pdrFirst(m);
+  if (q.aid) return false;
   if (k[0] === "a") {
     const t = pdrFleet(id).find(v => "a" + v.uid === k); if (!t || pdrRec(q.truck)) return false;
     q.truck = t.uid; q.who = m.id; q.told = ""; q.w = 0;
@@ -1663,6 +1806,8 @@ function pdrPlaces() {
   return Object.keys(s.con).map(id => {
     const c = s.con[id], q = s.pdr && s.pdr[id], home = !q || q.st === "home" || (q.st === "stuck" && !!q.gone), m = pdrOf(id), who = m ? pdrFirst(m) : "Your driver";
     /* 5.4b2a: a word is had where the truck is. Out: at the truck on the road. In, their own truck: beside it on its spot, or at the garage. */
+    if (q && q.st === "home" && q.aid) return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: NaN, z: NaN, spot: "the truck",
+      talk: `${who} is away pulling another driver's truck out of a drift: have your word when they are back in.` };   /* 5.4c2a */
     if (!home) {
       const Z = PDS.get(id), r = Z && Number.isFinite(Z.x) ? null : conR().find(v => v.id === id), p = r ? pdrPos(r, q) : Z && Number.isFinite(Z.x) ? Z : null;
       return { id: pdrPid(id), role: "plowdriver", name: c.name, road: id, x: p ? p.x : NaN, z: p ? p.z : NaN, spot: "the truck",
@@ -2475,7 +2620,7 @@ let conT = 0, conSec = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, way: pdrWay, ways: PDA, onWay: pdrOnWay, pos: pdrPos, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, hail: pdrHail, wave: pdrWave, hailed: pdrHailed, say: pdrSay, hailNear: pdrHailNear, prov: PDHAIL, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses, bogRisk: pdrBogRisk, tow: pdrTow, towCost: id => { const q = S().pdr[id], r = conR().find(v => v.id === id); return q && r ? pdrTowCost(r, q) : 0; }, job: pdrJob, acts: pdrActs }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, way: pdrWay, ways: PDA, onWay: pdrOnWay, pos: pdrPos, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, hail: pdrHail, wave: pdrWave, hailed: pdrHailed, say: pdrSay, hailNear: pdrHailNear, prov: PDHAIL, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses, bogRisk: pdrBogRisk, tow: pdrTow, towCost: id => { const q = S().pdr[id], r = conR().find(v => v.id === id); return q && r ? pdrTowCost(r, q) : 0; }, job: pdrJob, acts: pdrActs, send: pdrSend, aidWhy: pdrAidWhy, aidAble: pdrAidAble, aidPos: pdrAidPos, aidLine: pdrAidLine }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
