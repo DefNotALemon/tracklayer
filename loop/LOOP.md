@@ -702,8 +702,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 2.3 / 5.4a2 (BUG, damaged save only, beta 0301 #1 + 0308 #1, lane A): a truck record whose `fuel` is a string
       or NaN loads as is: boarding sets `GS.fuel` to it (no low-fuel warning, no burn) and a plow driver sets out with
       "NaN L in the tank". Coerce `fuel` to a finite number in 0..cap where truck records are tidied on load.
-- [ ] G4 4.2 (BUG small, beta 0279 #1, lane A): the Plow app's Statements list keeps 6 lines but one week of 3 roads +
-      driveways + lots writes 5, so last week shows as one orphan line. Keep whole weeks (the last 2-3), not 6 lines.
+- [x] G4 4.2 (BUG small, beta 0279 #1 / 0356 #1 + #2, lane A; fixed tlx-plow v32, `x4_statements.mjs`): the Plow
+      app's Statements list keeps 6 lines but one week of 3 roads + driveways + lots writes 5, so last week shows as
+      one orphan line. Now whole weeks, the last 3; a week reads roads (order signed), drives, lots.
 - [ ] G4 4.1b2a (POLISH/BUG likely, beta 0296 #1, lane A): a ragged cutting edge cuts almost nothing instead of
       "twice the snow left" on the road-credit pass. Measure `x4_bladeroad_edge_span_beta` before touching it.
 - [ ] G4 4.1a1 / 2.3 (POLISH, beta 0302 #1/#2 + builder 0305 pass, lane A): a truck parked by teleport in 55 cm of
@@ -740,5 +741,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       take (`kit "mine"`, swapped into before the send). 5.4a2's rule is "you in the cab and they wait"; check that
       SEND is not offered, in a scenario. Also seen while fixing 0354 #1: a helper's truck first drawn part-way along
       its line (a clock put forward, a reload) starts on the centre line and slides into its lane over a second.
+- [ ] G4 5.4c2b1 (POLISH, beta 0355 #4, lane A): the helper's truck cannot be hailed and has nothing to say while
+      every other driver's truck can. Decide with 5.4c2b2 (tow them yourself), which may want a word from it.
+- [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
+      reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 354
+Last triaged report: 357

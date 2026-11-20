@@ -3,6 +3,37 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 21:15 — beta fix 0279 #1 / 0356 #1 + #2: the Plow app's Statements keep whole weeks (tlx-plow v32, lane A) (G4) — 9f18b55
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0355-0357 triaged (last triaged
+354 -> 357): 0355 no BUG (#4 POLISH, the helper's truck cannot be hailed: backlog line, to decide with 5.4c2b2);
+0357 no finding (#3 untested "nobody is coming" note: backlog line); 0356 #1 is a BUG on landed 4.2, open since
+0279 and reproduced again, so it came before 5.4c2b2.
+Cause: `conLast` was cut with `.slice(0, 6)` in four places (the load tidy, `conMonday`, `drvMonday`, `lotMonday`).
+Three roads + the drives + the lots write five lines a Monday, so week 2 left one orphan line of week 1.
+What landed: tlx-plow.js `stKeep` (the file keeps the lines of the three newest Monday labels, whole; 90 lines at
+most, which only a damaged save reaches) in place of the four slices, and `stShow` (the order drawn: newest week
+first, inside a week the stored order reversed, which is roads in the order signed, then Driveways, then Lots:
+0356 #2 / 0279 #2). The saved shape is unchanged, no migrate. README, index.html (tlx-plow v32; no tracklayer.js
+change, no script version bump).
+Decisions: (1) three weeks, by label, not a bigger line count: a count always cuts some week in half. (2) lines
+with no date (junk in a save) count as one week together. (3) the order is fixed at draw time, not in what is
+stored, so old files read right too and `conLast[0]` stays "the line written last" for the tests that read it.
+(4) the limits are locals of `stKeep`, not a top-level const: the load tidy calls it.
+Numbers (`x4_statements.mjs`, new, A-E, 34 asserts, 0 FAILs). Before (0356, `x4_statements_week_beta`): after
+week 2, 1 of 5 week-1 lines; after week 3, 6 lines. After: 5 / 10 / 15 lines after one, two, three Mondays; a
+fourth leaves 15 with 4 Jan gone whole; each week one block reading Gamvik, Dyfjord, Skjånes, Driveways, Lots; a
+Monday with only the drives' line is a week (11 lines, 11 Jan gone whole); reload keeps the file line for line;
+an old six-line file loads as it was; a planted 400-line file with junk entries loads as 90 lines of two weeks,
+draws, and takes a new Monday on top. Only three contract roads exist, so a single week never passes six lines here.
+`x4_statements_week_beta.mjs` (the tester's, exit 2 before) passes; its last check now wants exactly 15.
+Still (`~/.hermes/cache/scratch/tlloop/b42st/statements_list.jpg`): the list's rows read date, name, pay and the
+PAID chip on one line each; the upper half of the frame is under the scenario's own toasts. 15 rows scroll in the
+pane; not looked at on the 640x360 embed or a phone (the row layout there is 0269's fix, untouched).
+Gate: smoke, x1_save, x4_statements, x4_statements_week_beta, x4_weekpay, x4_conweek, x4_driveways, x4_lots,
+x4_plowapp, x4_con_hostile_save_beta, x4_driveways_lost_statement_beta: each exit 0, fails 0, page errors none, one
+run (started before the index.html `?v=32` tag and the README lines were written; tlx-plow.js was as landed).
+Next for lane A: 5.4c2b2 (tow them yourself).
+
 ## 2026-11-19 20:10 — 6.3b2c: the oil driver climbs off and on, the sled brakes to its stop (tlx-lights v7, lane B) (G4) — 1179614
 Builder pass, lane B. Orient: worktree clean, rebased on main, 122 GB free. Reports 0344-0347 (and 0348-0351, which
 landed during the pass) are lane A's systems; none is lane B's, no BLOCKER or BUG for this lane. Last triaged left
