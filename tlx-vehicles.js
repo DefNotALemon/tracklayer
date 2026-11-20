@@ -170,15 +170,11 @@ function buildPickup(d) {
     B(0.1, 0.78, 0.1, sg * 0.86, 1.52, -0.83, P0);                              // C pillars (solid, body colour)
     B(0.055, 1.05, 0.055, sg * 0.89, 1.48, 0.45, TRIM, -wsA);                       // A pillars, raked with the glass
   }
-  // windshield + rear glass + the passenger side (the driver's is the door's)
+  // windshield + rear glass (the side windows are the doors')
   glass.push({ g: new T.PlaneGeometry(1.72, wsL - 0.04), c: 0xffffff, m: tf(0, 1.48, 0.45, -wsA, 0, 0) });
   glass.push({ g: new T.PlaneGeometry(1.5, 0.6), c: 0xffffff, m: tf(0, 1.58, -0.865, 0, Math.PI, 0) });
   const WIN = [[0.74, 1.12], [0.14, 1.86], [-0.76, 1.86], [-0.76, 1.12]];
-  glass.push({ g: pane(WIN, -0.935), c: 0xffffff });
-  // passenger door skin (static) and frame bars
-  body.push({ g: extr(poly([[0.7, 0.55], [0.7, 1.08], [-0.76, 1.08], [-0.76, 0.55]]), 0.06, 0.02, -0.925), c: P0 });
-  B(0.05, 0.05, 0.9, -0.925, 1.87, -0.31, TRIM); B(0.05, 0.05, 1.46, -0.925, 1.1, -0.03, TRIM); B(0.05, 0.96, 0.06, -0.925, 1.49, 0.44, TRIM, -0.68); B(0.05, 0.76, 0.06, -0.925, 1.49, -0.76, TRIM);
-  B(0.04, 0.06, 0.25, -0.985, 0.98, -0.45, CHROME);
+  // (the passenger door is the driver's door mirrored on its own hinge: `doorPivot2` in runtime())
   // mirrors
   for (const sg of [1, -1]) { B(0.16, 0.025, 0.03, sg * 1.04, 1.28, 0.7, TRIM); B(0.06, 0.17, 0.22, sg * 1.13, 1.3, 0.68, TRIM); }
   // tow hitch receiver stub and a fuel flap
@@ -272,12 +268,9 @@ function buildTractor(d) {
     B(0.4, 0.16, 0.4, sg * 0.62, 1.35, 1.52, TRIM);
     B(0.5, 0.15, 0.55, sg * 0.62, 1.5, 1.52, SEAT); B(0.5, 0.62, 0.13, sg * 0.62, 1.88, 1.22, SEAT, -0.17); B(0.27, 0.2, 0.1, sg * 0.62, 2.32, 1.16, SEAT, -0.17);
   }
-  // glass: the windscreen, and the passenger's window in its static door
+  // glass: the windscreen (the passenger door is the driver's mirrored on its own hinge: `doorPivot2`)
   glass.push({ g: new T.PlaneGeometry(W - 0.18, 0.86), c: 0xffffff, m: tf(0, 2.43, f + 0.01) });
   const WIN = [[2.75, 2.0], [2.75, 2.86], [1.8, 2.86], [1.8, 2.0]];
-  glass.push({ g: pane(WIN, -(h - 0.03)), c: 0xffffff });
-  B(0.06, 1.15, 0.95, -(h - 0.03), 1.425, 2.275, P0);
-  B(0.05, 0.05, 0.95, -(h - 0.03), 2.87, 2.275, TRIM); B(0.05, 0.87, 0.05, -(h - 0.03), 2.43, 1.82, TRIM); B(0.04, 0.06, 0.22, -(h + 0.02), 1.5, 1.97, CHROME);
   // mirrors on their arms
   for (const sg of [1, -1]) { B(0.06, 0.06, 0.5, sg * (h + 0.16), 2.62, f - 0.1, TRIM, 0, sg * 0.5); B(0.1, 0.6, 0.24, sg * (h + 0.34), 2.42, f + 0.1, TRIM); }
   // the driver's door, in door space: hinged at its front edge, z runs back from the hinge
@@ -374,7 +367,7 @@ function runtime(r) {
   let R = RT.get(r.uid); if (R) return R;
   if (KINDS[r.id]) { R = KINDS[r.id].runtime(r, byId(r.id)); R.impl = KINDS[r.id]; R.rec = r; R.def = byId(r.id); RT.set(r.uid, R); return R; }
   const d = byId(r.id), G = geos(d), M = mats();
-  R = { rec: r, def: d, G, steer: 0, yr: 0, spin: [0, 0, 0, 0], H: [0, 0, 0, 0], dy: [0, 0, 0, 0], sink: [0, 0, 0, 0], acc: 0, door: 0, A: null, sprayAcc: 0, hitT: 0, bodyP: 0, bodyR: 0, bodyPV: 0, bodyRV: 0, sY: 0, sV: 0, lastVf: 0, air: 0,
+  R = { rec: r, def: d, G, steer: 0, yr: 0, spin: [0, 0, 0, 0], H: [0, 0, 0, 0], dy: [0, 0, 0, 0], sink: [0, 0, 0, 0], acc: 0, door: 0, door2: 0, A: null, sprayAcc: 0, hitT: 0, bodyP: 0, bodyR: 0, bodyPV: 0, bodyRV: 0, sY: 0, sV: 0, lastVf: 0, air: 0,
     bodyPT: 0, bodyRT: 0, axl: 0, ax: 0, ay: 0, brake: 0, rev: 0, baseCold: 1, lastLoad: -1, mass: d.mass, mu: 0.3, spinK: 0, cond: r.cond };
   const grp = R.grp = new T.Group(); grp.rotation.order = "YXZ"; grp.visible = false;
   const body = R.body = mesh(G.body, M.solid, true); grp.add(body);
@@ -384,6 +377,8 @@ function runtime(r) {
   R.glassMesh = grp.children[1];
   const dr = R.doorPivot = new T.Group(); dr.position.set(d.door.x, 0, d.door.z); grp.add(dr);
   dr.add(mesh(G.doorB, M.solid, true)); dr.add(mesh(G.doorG, M.glass, false));
+  const dr2 = R.doorPivot2 = new T.Group(); dr2.position.set(-d.door.x, 0, d.door.z); dr2.scale.x = -1; grp.add(dr2);   // the passenger door: the same door, mirrored
+  dr2.add(mesh(G.doorB, M.solid, true)); dr2.add(mesh(G.doorG, M.glass, false));
   R.nW = d.dualX ? 6 : 4;                                                       // twin rear tyres: instances 4 and 5 are the outer pair
   R.wheels = new T.InstancedMesh(G.wheel, M.solid, R.nW); R.wheels.castShadow = true; R.wheels.frustumCulled = false; R.wheels.instanceMatrix.setUsage(T.DynamicDrawUsage); grp.add(R.wheels);
   R.drvBody = mesh(G.driver.body, M.solid, false); R.drvArms = mesh(G.driver.arms, M.solid, false);
@@ -824,12 +819,47 @@ const standX = d => STAND.x + (d.cab ? d.cab.sx : 0), standZ = d => STAND.z + (d
 function doorSpot(R, P, out) { return toWorld(P, standX(R.def), standZ(R.def), out); }
 /* the climb for this cab: the pickup's keys moved to its door and seat. A tall cab (dy) is climbed in the first three
    quarters of the move, hips rising as the boots take the steps, before the turn onto the seat. */
-function keyOf(R, u) {
-  const k = keyAt(u), c = R.def.cab; if (!c) return k;
-  const e = api.sm(clamp(u, 0, 1));
-  k.x += lerp(c.sx, c.dx, e); k.z += c.dz; k.hip += c.dy * api.sm(clamp(u / 0.75, 0, 1));
-  return k;
+function keyOf(R, u, sd) {
+  const k = keyAt(u), c = R.def.cab;
+  if (c) { const e = api.sm(clamp(u, 0, 1)); k.x += lerp(c.sx, c.dx, e); k.z += c.dz; k.hip += c.dy * api.sm(clamp(u / 0.75, 0, 1)); }
+  if (sd !== -1) return k;
+  const m = mirKey(k), w = api.sm(clamp((u - 0.88) / 0.12, 0, 1));              // the passenger door: the same climb, mirrored,
+  for (let i = 0; i < 2; i++) { m.ar[i] = lerp(m.ar[i], -0.18, w); m.az[i] = lerp(m.az[i], 0.3, w); m.fo[i] = lerp(m.fo[i], -0.25, w); }   // onto a seat with no wheel to hold: hands on the cushion (where slideKey starts)
+  return m;
 }
+/* The passenger door (beta 0364 #1). A truck stopped with something hard beside the driver's door (a fuel pump, a
+   wall, a boulder, the water) used to keep you in the cab: "No room to open the door here." Now the other door is
+   used: side 1 = the driver's, -1 = the passenger's, 0 = neither has room to stand at. The passenger side is the
+   driver's keys mirrored (x and yaw negated, left and right limbs swapped) plus a slide across the seats. */
+function sideSpot(R, P, sd, out) { return toWorld(P, sd * standX(R.def), standZ(R.def), out); }
+function sideClear(R, P, sd) { const w = api.world; sideSpot(R, P, sd, _v); return !(w.isWater(_v[0], _v[1]) || w.obNear(_v[0], _v[1], 0.5)); }
+function doorSide(R, P) { return sideClear(R, P, 1) ? 1 : sideClear(R, P, -1) ? -1 : 0; }
+const _kfm = { x: 0, z: 0, hip: 0, yaw: 0, tor: 0, th: [0, 0], kn: [0, 0], an: [0, 0], ar: [0, 0], az: [0, 0], fo: [0, 0] };
+const _kfs = { x: 0, z: 0, hip: 0, yaw: 0, tor: 0, th: [0, 0], kn: [0, 0], an: [0, 0], ar: [0, 0], az: [0, 0], fo: [0, 0] };
+function mirKey(k) {
+  const o = _kfm; o.x = -k.x; o.z = k.z; o.hip = k.hip; o.yaw = -k.yaw; o.tor = k.tor;
+  for (const f of ["th", "kn", "an", "ar", "az", "fo"]) { o[f][0] = k[f][1]; o[f][1] = k[f][0]; }
+  return o;
+}
+const T_SLIDE = 1.15;
+/* sliding over from the passenger seat (s = 0) to the driver's (s = 1): the hips lift off the cushion and come down
+   twice (two scoots, the body's weight on the hands), the leading leg lifts over the tunnel first and the other
+   follows, the trunk leans the way it is going, and the hands go from the cushion to the wheel at the end */
+function slideKey(R, s) {
+  s = clamp(s, 0, 1);
+  const k = keyOf(R, 1, 1), o = _kfs, sx = k.x, e = api.sm(s), hop = Math.abs(Math.sin(Math.PI * 2 * s)), mid = Math.sin(Math.PI * s);
+  const half = 0.5 - 0.5 * Math.cos(Math.PI * 2 * s);                           // 0 at both seats and in the middle of each scoot's landing
+  o.x = lerp(-sx, sx, e); o.z = k.z - 0.05 * mid; o.hip = k.hip + 0.07 * hop * (0.4 + 0.6 * mid) + 0.03 * mid;
+  o.yaw = 0.3 * mid * (1 - e) - 0.12 * mid * e; o.tor = k.tor + 0.3 * mid + 0.08 * half;
+  const lead = Math.sin(Math.PI * clamp(s * 1.6, 0, 1)), trail = Math.sin(Math.PI * clamp(s * 1.6 - 0.6, 0, 1));
+  o.th[1] = k.th[1] - 0.26 * lead; o.th[0] = k.th[0] - 0.26 * trail;            // limb 1 is the left: the side being slid toward
+  o.kn[1] = k.kn[1] + 0.3 * lead; o.kn[0] = k.kn[0] + 0.3 * trail; o.an[0] = k.an[0]; o.an[1] = k.an[1];
+  const w = api.sm(clamp((s - 0.72) / 0.28, 0, 1));                             // the hands leave the cushion for the wheel
+  for (let i = 0; i < 2; i++) { o.ar[i] = lerp(-0.18 - 0.2 * hop, k.ar[i], w); o.az[i] = lerp(0.3, k.az[i], w); o.fo[i] = lerp(-0.25 - 0.25 * hop, k.fo[i], w); }
+  return o;
+}
+function doorArm(U, sd, rx, rz, fo) { const i = sd === -1 ? 0 : 1; U.arms[i].rotation.set(rx, 0, (i ? 1 : -1) * rz); U.fore[i].rotation.x = fo; }   // the door-side hand
+function setDoor(R, sd, v) { if (sd === -1) R.door2 = v; else R.door = v; }
 function nearMount(R) {
   const FOOT = api.FOOT, P = api.P; doorSpot(R, P, _v); const dd = Math.hypot(FOOT.x - _v[0], FOOT.z - _v[1]), dc = Math.hypot(FOOT.x - P.x, FOOT.z - P.z);
   return Math.min(dd, dc - 1.1) < 3.0;
@@ -868,14 +898,15 @@ function walkTo(R, dt, tx, tz, spd) {                                           
 function angTo(a, b, t) { let d = ((b - a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; return a + d * t; }
 
 // the way round to the door: straight in if you are on its side, round the nose or tail if you are on the far side
-function routeToDoor(R, P) {
+function routeToDoor(R, P, sd) {
+  sd = sd === -1 ? -1 : 1;
   const FOOT = api.FOOT, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), dx = FOOT.x - P.x, dz = FOOT.z - P.z;
-  const lx = dx * fz - dz * fx, lz = dx * fx + dz * fz, pts = [];
+  const lx = (dx * fz - dz * fx) * sd, lz = dx * fx + dz * fz, pts = [];     /* lx: how far out on the door's own side */
   const d = R.def, gw = d.wid / 2 - 0.98, gl = d.len / 2 - 2.65;                // how much wider and longer than the pickup
   if (lx < 0.2 && Math.abs(lz) < 3.4 + gl) {
-    const e = lz >= 0 ? 1 : -1; toWorld(P, -1.7 - gw, e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]); toWorld(P, 1.7 + gw, e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]);
-  } else if (lx >= 0.2 && lx < 1.4 + gw && Math.abs(lz) < 3.2 + gl) { toWorld(P, 1.9 + gw, lz, _v); pts.push([_v[0], _v[1]]); }
-  doorSpot(R, P, _v); pts.push([_v[0], _v[1]]);
+    const e = lz >= 0 ? 1 : -1; toWorld(P, sd * (-1.7 - gw), e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]); toWorld(P, sd * (1.7 + gw), e * (3.7 + gl), _v); pts.push([_v[0], _v[1]]);
+  } else if (lx >= 0.2 && lx < 1.4 + gw && Math.abs(lz) < 3.2 + gl) { toWorld(P, sd * (1.9 + gw), lz, _v); pts.push([_v[0], _v[1]]); }
+  sideSpot(R, P, sd, _v); pts.push([_v[0], _v[1]]);
   return pts;
 }
 
@@ -884,19 +915,20 @@ function doMount(R) {
   if (!mountOK(R)) { api.toast(`Get back to the ${R.def.kind} first.`, "warn"); return; }
   if (Math.hypot(P.vx, P.vz) > 1) return;
   MNT.on = true; MNT.t = 0; MNT.stepped = false; MNT.dur = 99; FOOT.ski = false; FOOT.dig = false; FOOT.fwd = FOOT.turn = FOOT.sp = 0;
-  R.A = { dir: "in", ph: 0, t: 0, route: routeToDoor(R, P), leg: 0, snd: 0, u: 0 };
+  const sd = doorSide(R, P) || 1;                                               // the passenger door when the driver's has no room to stand at
+  R.A = { dir: "in", ph: 0, t: 0, sd, route: routeToDoor(R, P, sd), leg: 0, snd: 0, u: 0 };
   api.snowStep(0.5);
 }
 function doDismount(R) {
   const FOOT = api.FOOT, DMT = api.DMT, P = api.P, w = api.world;
   if (Math.hypot(P.vx, P.vz) > 1.4 || !P.gnd || P.wet) { api.toast(`Stop the ${R.def.kind} first.`, "warn"); return; }
-  doorSpot(R, P, _v);
-  if (w.isWater(_v[0], _v[1]) || w.obNear(_v[0], _v[1], 0.5)) { api.toast("No room to open the door here.", "warn"); return; }
+  const sd = doorSide(R, P); void w;
+  if (!sd) { api.toast("No room to open either door here: pull forward a little.", "warn"); return; }
   DMT.on = true; DMT.t = 0; DMT.stepped = false; DMT.dur = 99;
   FOOT.dig = false; FOOT.sp = FOOT.fwd = FOOT.turn = FOOT.go = 0; FOOT.crouch = 0; FOOT.ski = false; FOOT.shoe = false; FOOT.on = true;
   FOOT.g.userData.shoes && FOOT.g.userData.shoes.forEach(s => s.visible = false);
   P.vx = P.vz = 0; api.camState.init = false;
-  R.A = { dir: "out", ph: 0, t: 0, u: 1 };
+  R.A = { dir: "out", ph: sd === -1 ? -1 : 0, t: 0, u: 1, sd };                 // ph -1: slide over to the passenger seat first
   R.drvBody.visible = R.drvArms.visible = false;
   setWalker(R, keyOf(R, 1), P, 0);
 }
@@ -913,31 +945,38 @@ function mountTick(R, dt) {
   const g = FOOT.g, U = g.userData;
   if (A.ph === 1) {                                                             // stand, turn square to the cab, reach for the handle, door swings open
     const u = clamp(A.t / T_OPEN, 0, 1), e = api.sm(u);
-    const k0 = keyAt(0); doorSpot(R, P, _v);
+    const k0 = keyAt(0); sideSpot(R, P, A.sd, _v);
     FOOT.x = lerp(FOOT.x, _v[0], 1 - Math.exp(-12 * dt)); FOOT.z = lerp(FOOT.z, _v[1], 1 - Math.exp(-12 * dt));
-    const tgtYaw = P.yaw + k0.yaw; FOOT.yaw = angTo(FOOT.yaw, tgtYaw, 1 - Math.exp(-10 * dt));
+    const tgtYaw = P.yaw + A.sd * k0.yaw; FOOT.yaw = angTo(FOOT.yaw, tgtYaw, 1 - Math.exp(-10 * dt));
     FOOT.sp = FOOT.go = 0; FOOT.step = 0; FOOT.y = api.world.surf(FOOT.x, FOOT.z);
     const bob = api.poseWalker(g, dt); g.position.set(FOOT.x, FOOT.y + bob, FOOT.z); g.rotation.y = FOOT.yaw;
     const reach = Math.sin(Math.PI * Math.min(1, u * 1.1)) * (1 - u * 0.4);
-    U.arms[1].rotation.set(-0.5 - 0.5 * reach, 0, 0.3 + 0.35 * reach); U.fore[1].rotation.x = -0.35 - 0.4 * reach;  // the left (door side) hand to the handle
-    R.door = e * 0.999; if (u > 0.2 && !A.snd) { A.snd = 1; api.thud(0.15); }
+    doorArm(U, A.sd, -0.5 - 0.5 * reach, 0.3 + 0.35 * reach, -0.35 - 0.4 * reach);   // the door-side hand to the handle
+    setDoor(R, A.sd, e * 0.999); if (u > 0.2 && !A.snd) { A.snd = 1; api.thud(0.15); }
     if (u >= 1) { A.ph = 2; A.t = 0; A.snd = 0; }
     return;
   }
   if (A.ph === 2) {                                                             // step in and sit
-    const u = clamp(A.t / T_IN, 0, 1); A.u = u; R.door = 1;
-    setWalker(R, keyOf(R, u), P, dt);
+    const u = clamp(A.t / T_IN, 0, 1); A.u = u; setDoor(R, A.sd, 1);
+    setWalker(R, keyOf(R, u, A.sd), P, dt);
     if (!A.snd && u > 0.4) { A.snd = 1; api.snowStep(0.5); }
     if (u >= 1) { A.ph = 3; A.t = 0; A.snd = 0; }
     return;
   }
   if (A.ph === 3) {                                                             // reach out, pull the door shut
     const u = clamp(A.t / T_SHUT, 0, 1), e = api.sm(u);
-    const k = keyOf(R, 1); setWalker(R, k, P, dt);
+    const k = keyOf(R, 1, A.sd); setWalker(R, k, P, dt);
     const reach = Math.sin(Math.PI * Math.min(1, u * 1.15));
-    U.arms[1].rotation.set(-0.55 - 0.1 * reach, 0, 0.12 + 0.95 * reach * (1 - e * 0.6)); U.fore[1].rotation.x = -0.25 - 0.35 * reach;
-    R.door = 1 - Math.pow(e, 1.6);
-    if (u >= 1) { R.door = 0; api.thud(0.4); finishMount(R); }
+    doorArm(U, A.sd, -0.55 - 0.1 * reach, 0.12 + 0.95 * reach * (1 - e * 0.6), -0.25 - 0.35 * reach);
+    setDoor(R, A.sd, 1 - Math.pow(e, 1.6));
+    if (u >= 1) { setDoor(R, A.sd, 0); api.thud(0.4); if (A.sd === -1) { A.ph = 4; A.t = 0; A.snd = 0; } else finishMount(R); }
+    return;
+  }
+  if (A.ph === 4) {                                                             // in by the passenger door: slide over behind the wheel
+    const u = clamp(A.t / T_SLIDE, 0, 1);
+    setWalker(R, slideKey(R, u), P, dt);
+    if (!A.snd && u > 0.5) { A.snd = 1; api.thud(0.08); }
+    if (u >= 1) finishMount(R);
   }
 }
 function finishMount(R) {
@@ -951,18 +990,25 @@ function dismountTick(R, dt) {
   if (!A || A.dir !== "out") { DMT.on = false; return; }
   A.t += dt; DMT.t = A.t;
   const g = FOOT.g, U = g.userData;
+  if (A.ph === -1) {                                                            // out by the passenger door: slide over to that seat first
+    const u = clamp(A.t / T_SLIDE, 0, 1);
+    setWalker(R, slideKey(R, 1 - u), P, dt);
+    if (!A.snd && u > 0.5) { A.snd = 1; api.thud(0.08); }
+    if (u >= 1) { A.ph = 0; A.t = 0; A.snd = 0; }
+    return;
+  }
   if (A.ph === 0) {                                                             // reach to the handle, door swings open
     const u = clamp(A.t / T_GET_OUT_DOOR, 0, 1), e = api.sm(u);
-    setWalker(R, keyOf(R, 1), P, dt);
+    setWalker(R, keyOf(R, 1, A.sd), P, dt);
     const reach = Math.sin(Math.PI * Math.min(1, u * 1.1)) ;
-    U.arms[1].rotation.set(-0.55 - 0.1 * reach, 0, 0.12 + 0.95 * reach); U.fore[1].rotation.x = -0.25 - 0.35 * reach;
-    R.door = e; if (u > 0.15 && !A.snd) { A.snd = 1; api.thud(0.15); }
+    doorArm(U, A.sd, -0.55 - 0.1 * reach, 0.12 + 0.95 * reach, -0.25 - 0.35 * reach);
+    setDoor(R, A.sd, e); if (u > 0.15 && !A.snd) { A.snd = 1; api.thud(0.15); }
     if (u >= 1) { A.ph = 1; A.t = 0; A.snd = 0; }
     return;
   }
   if (A.ph === 1) {                                                             // climb out: the mirror of getting in
-    const u = clamp(A.t / (T_IN * 0.95), 0, 1); A.u = 1 - u; R.door = 1;
-    setWalker(R, keyOf(R, 1 - u), P, dt);
+    const u = clamp(A.t / (T_IN * 0.95), 0, 1); A.u = 1 - u; setDoor(R, A.sd, 1);
+    setWalker(R, keyOf(R, 1 - u, A.sd), P, dt);
     if (!A.snd && u > 0.8) { A.snd = 1; api.snowStep(0.6); }
     if (u >= 1) {
       FOOT.x = FOOT.x; FOOT.crouch = 0; DMT.on = false; R.A = { dir: "shut", t: 0 };
@@ -973,8 +1019,9 @@ function dismountTick(R, dt) {
 // the door closes by itself once you are out
 function idleDoor(R, dt) {
   const A = R.A;
-  if (A && A.dir === "shut") { A.t += dt; R.door = Math.max(0, R.door - dt / 0.7); if (R.door <= 0) { R.door = 0; api.thud(0.3); R.A = null; } return; }
+  if (A && A.dir === "shut") { A.t += dt; R.door = Math.max(0, R.door - dt / 0.7); R.door2 = Math.max(0, R.door2 - dt / 0.7); if (R.door <= 0 && R.door2 <= 0) { api.thud(0.3); R.A = null; } return; }
   if (!A && R.door > 0) { R.door = Math.max(0, R.door - dt / 0.5); }
+  if (!A && R.door2 > 0) { R.door2 = Math.max(0, R.door2 - dt / 0.5); }
 }
 
 /* ---------------- swapping the active vehicle ---------------- */
@@ -1008,7 +1055,7 @@ function swapTo(uid) {                                                          
   setCur(to);
   api.restat();
   if (to && KINDS[to.id]) { const R = runtime(to); R.rec = to; R.impl.reset(R); R.drvBody.visible = !FOOT.on; }
-  else if (to) { const R = runtime(to); R.rec = to; R.drag = 0; for (let i = 0; i < 4; i++) { R.H[i] = P.y; R.dy[i] = 0; } R.A = null; R.door = 0; R.yr = 0; R.steer = 0; R.sY = R.sV = 0; R.drvBody.visible = R.drvArms.visible = !FOOT.on; }
+  else if (to) { const R = runtime(to); R.rec = to; R.drag = 0; for (let i = 0; i < 4; i++) { R.H[i] = P.y; R.dy[i] = 0; } R.A = null; R.door = 0; R.door2 = 0; R.yr = 0; R.steer = 0; R.sY = R.sV = 0; R.drvBody.visible = R.drvArms.visible = !FOOT.on; }
   api.camState.init = false;
   GS.outWarned = GS.lowWarned = false;
 }
@@ -1985,9 +2032,9 @@ function tick(dt) {
     if (far) { R.grp.visible = false; continue; }
     R.grp.visible = true;
     if (R.impl) { R.impl.tick(R, r, isCur, dt); continue; }
-    if (!isCur) { R.moved = R.moved || 0; parkedPose(R, r, dt); R.door = Math.max(0, R.door - dt / 0.5); R.steer *= 0.9; }
+    if (!isCur) { R.moved = R.moved || 0; parkedPose(R, r, dt); R.door = Math.max(0, R.door - dt / 0.5); R.door2 = Math.max(0, (R.door2 || 0) - dt / 0.5); R.steer *= 0.9; }
     else { if (R.A && R.A.dir !== "shut" && !api.MNT.on && !api.DMT.on) R.A = null; idleDoor(R, dt); }
-    R.doorPivot.rotation.y = -R.door * DOOR_OPEN;
+    R.doorPivot.rotation.y = -R.door * DOOR_OPEN; R.doorPivot2.rotation.y = (R.door2 || 0) * DOOR_OPEN;
     const on = night > 0.35 && (isCur ? GSfuel() : false);
     lights(R, on, isCur && R.brake, isCur && R.rev);
     bedBoxes(R, isCur ? smallN(api.GS.load) : smallN(r.load));
@@ -2028,7 +2075,7 @@ function outDraw(R, dt, night, cam) {
   const st = Number.isFinite(o.steer) ? o.steer : 0; if (Math.abs(st - R.steer) > 1e-3) { R.steer += (st - R.steer) * Math.min(1, dt * 5); R.pt = undefined; }
   if (!Number.isFinite(o.yaw)) o.yaw = 0;
   parkedPose(R, o, dt);
-  R.grp.visible = true; R.door = 0; R.doorPivot.rotation.y = 0;
+  R.grp.visible = true; R.door = 0; R.door2 = 0; R.doorPivot.rotation.y = 0; R.doorPivot2.rotation.y = 0;
   lights(R, !!o.lit && night > 0.35, false, false);
   R.drvBody.visible = R.drvArms.visible = !!o.driver; R.drvArms.rotation.z = -R.steer * 0.35;
 }
@@ -2036,7 +2083,7 @@ function ghost(uid, id, tint) {
   uid = String(uid); let R = GH.get(uid); if (R) return R;
   const d = byId(id); if (!api || !d || KINDS[id] || RT.has(uid)) return null;
   R = runtime({ uid, id, cond: 100, x: 0, z: 0, yaw: 0, fuel: 0, load: [], ghost: true });
-  if (tint != null) { const m = mats().solid.clone(); m.color.setHex(tint); R.body.material = m; const dm = R.doorPivot.children[0]; if (dm) dm.material = m; R.tintMat = m; }
+  if (tint != null) { const m = mats().solid.clone(); m.color.setHex(tint); R.body.material = m; const dm = R.doorPivot.children[0]; if (dm) dm.material = m; const dm2 = R.doorPivot2.children[0]; if (dm2) dm2.material = m; R.tintMat = m; }
   GH.set(uid, R); return R;
 }
 function dropGhost(uid) { uid = String(uid); const R = GH.get(uid); if (!R) return; GH.delete(uid); if (R.tintMat) R.tintMat.dispose(); dropRuntime(uid); }

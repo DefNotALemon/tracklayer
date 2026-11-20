@@ -923,6 +923,9 @@ there are roads. The open fell is still the sled's.
 Walk up to a truck and the on-foot line says **get in the pickup** instead of **get on the sled**:
 whichever vehicle is nearest is the one the get-on button takes. The walker goes round to the
 driver's door, opens it, steps up, sits and pulls it shut. Getting out is the same in reverse.
+Parked with a fuel pump, a wall or a rock hard against the driver's door, you slide across the seats
+and use the passenger door instead, out and back in; only with both doors blocked does the truck
+tell you to pull forward a little.
 Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
 the brake at a standstill to reverse (on a pad even a light pull on the trigger creeps it back). Off the plowed lanes a truck backs out along its own ruts
 and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
