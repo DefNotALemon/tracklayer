@@ -615,6 +615,7 @@ function tick(dt) {
   const s = S(); if (!s || !s.blades) return;
   conT += dt; if (conT >= 0.5) { conSec = conT; conT = 0; pdrSweep(); conStep(); conSec = 0; drvStep(); lotStep(); winStep(); strStep(); }               // 4.2a: the road contracts' clocks
   try { pdrSee(dt); } catch (e) { if (!PDSX.err) console.error("tlx-plow: the driver's truck", e); PDSX.err = String(e); }   // 5.4b1
+  try { pdtTick(dt); } catch (e) { if (!PDSX.terr) console.error("tlx-plow: the tow rope", e); PDSX.terr = String(e); pdtDrop(""); }   // 5.4c2b2a
   if (trucks().length !== NT) tidy();                                            // a truck bought or gone since: its factory blade (4.1c1)
   const cur = curUid(), night = 1 - api.dayFactor(); let heard = false;
   for (const uid of Object.keys(s.blades)) {
@@ -740,6 +741,7 @@ function wants(R) {
 }
 function rideLine() {
   const uid = curUid(); if (uid == null || api.FOOT.on) return "";
+  { const t = pdtLine(); if (t) return t; }                                      // 5.4c2b2a: your rope is on a bogged truck
   const d = bladeOf(uid); if (!d) return "";
   const a = bladeLine(uid, d), g = gritHint(uid, d, rt(uid)), w = winLine(), l = lotLine(), sl = strLine();
   return [w, sl, l, a, g].filter(Boolean).join(" · ");
@@ -1041,6 +1043,11 @@ const PDR = { wage: [150, 8], cut: 0.4, v: 4000, vRoad: 12000, wait: 0.75, xp: [
   // bogged truck comes back haul m onto the cut (the helper creeps the same haul m toward home); hookY m over the
   // underside of the body where the rope is made fast
   aid: { hitch: 0.5, gap: 11, pull: 0.25, haul: 2.5, hookY: 0.4 },
+  // 5.4c2b2a, TOW THEM (the block at pdtBog): len m of rope; reach: the two towing eyes must be within this to hook on;
+  // footR: on foot this near an eye the use control hooks / unhooks; pull m along the road and the truck is out;
+  // v m/s: the fastest a bogged truck comes; cone: the rope must lie within acos(cone) of the road for it to come at
+  // all; snatch m/s: taking the slack up faster than this is a snatch (a dead stop and a word about it)
+  tow: { len: 8, reach: 7, footR: 3, pull: 10, v: 1.2, cone: 0.5, snatch: 4.5, lay: 8, far: 45 },   // far: with no truck of yours within this of the eye the use control is the hail's; lay: m a frame of the cut laid behind a truck that bogged unseen (pdrCutBack)
   tints: [0xffffff, 0xb9cfe6, 0xe6c9a0, 0xbfe0c2, 0xe2b3ac, 0xcfd3d8, 0xe9e2a8] };
 const pdrPid = id => "plow:" + id;
 const pdrOf = id => (TLX.staff && TLX.staff.at ? TLX.staff.at(pdrPid(id)) : null);
@@ -1180,7 +1187,8 @@ function pdrTowCost(r, q) { const g = api.world.garage(), p = pdrPos(r, q), b = 
 function pdrBog(c, r, q, m, i, T) {
   pdrUnbog(q); q.st = "stuck"; q.bogI = i;
   const Z = PDS.get(r.id); if (Z && Z.hail > 0) pdrWave(r.id, true);
-  pdrNote(`${m.name} is stuck`, `Bogged in the drift ${(q.p / 1000).toFixed(1)} km along the ${r.name}${T ? `, in your ${pdrTName(T)}` : ""}. PAY A TOW on their card in the Staff app (${api.fmtCash(pdrTowCost(r, q))})${pdrAidAble(r.id).length ? ", SEND another driver of yours from the same card (free, but slower)" : ""}, or leave them: after ${PDR.bog.walk} h in the cold they walk home and the truck stays where it is.`, "warn");
+  if (Z) Z.tw = 0;                                                               /* 5.4c2b2a: nothing left of an earlier pull */
+  pdrNote(`${m.name} is stuck`, `Bogged in the drift ${(q.p / 1000).toFixed(1)} km along the ${r.name}${T ? `, in your ${pdrTName(T)}` : ""}. PAY A TOW on their card in the Staff app (${api.fmtCash(pdrTowCost(r, q))})${pdrAidAble(r.id).length ? ", SEND another driver of yours from the same card (free, but slower)" : ""}, or leave them: after ${PDR.bog.walk} h in the cold they walk home and the truck stays where it is. Or drive out in a truck of yours and pull them out yourself: your tow rope hooks on at either end of theirs.`, "warn");
   try { api.ui.ping("note"); } catch (e) { }
   api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
 }
@@ -1650,16 +1658,19 @@ function pdrRope(Z, Z2, on) {                                                   
   const X = PDROPE; if (!X.mat) { X.mat = new T.MeshStandardMaterial({ color: 0xc8962e, roughness: 0.95 }); X.a = new T.Vector3(); X.b = new T.Vector3(); X.c = new T.Vector3(); }
   Z.R.grp.updateMatrixWorld(true); Z2.R.grp.updateMatrixWorld(true);
   const a = pdrHook(Z.R, false, X.a), b = pdrHook(Z2.R, false, X.b), f = pdrHook(Z2.R, true, X.c), e = f.distanceTo(a) < b.distanceTo(a) ? f : b;   /* the nearer end of the bogged truck */
-  const k = [a.x, a.y, a.z, e.x, e.y, e.z], o = Z.ropeK;
+  pdrRopeMesh(Z, Z.R.grp.parent, a, e, 0);
+}
+function pdrRopeMesh(Z, parent, a, e, slack) {                                   // the rope's tube from a to e, kept on Z (rope, ropeK, ropeL, ropeLow); slack: m more that it hangs
+  const X = PDROPE, k = [a.x, a.y, a.z, e.x, e.y, e.z], o = Z.ropeK;
   if (Z.rope && o && k.every((v, i) => Math.abs(v - o[i]) < 0.02)) return;
-  const span = a.distanceTo(e), sag = Math.min(0.35, 0.03 * span), pts = [], W = api.world; let low = Infinity;
+  const span = a.distanceTo(e), sag = Math.min(0.35, 0.03 * span) + (slack || 0), pts = [], W = api.world; let low = Infinity;
   for (let i = 0; i <= 10; i++) {                                                /* it hangs a little, and lies on the snow where the snow stands higher than that */
     const t = i / 10, x = a.x + (e.x - a.x) * t, z = a.z + (e.z - a.z) * t, top = W.surf(x, z) + 0.035, lift = Math.min(1, 5 * t, 5 * (1 - t));
     let y = a.y + (e.y - a.y) * t - sag * 4 * t * (1 - t); if (y < top) y += (top - y) * lift; if (i > 1 && i < 9) low = Math.min(low, y - top);
     pts.push(new T.Vector3(x, y, z));
   }
   const geo = new T.TubeGeometry(new T.CatmullRomCurve3(pts), 20, 0.03, 5, false);
-  if (Z.rope) { Z.rope.geometry.dispose(); Z.rope.geometry = geo; } else { Z.rope = new T.Mesh(geo, X.mat); Z.rope.frustumCulled = false; Z.R.grp.parent.add(Z.rope); }
+  if (Z.rope) { Z.rope.geometry.dispose(); Z.rope.geometry = geo; } else { Z.rope = new T.Mesh(geo, X.mat); Z.rope.frustumCulled = false; parent.add(Z.rope); }
   Z.ropeK = k; Z.ropeL = span; Z.ropeLow = low;
 }
 function pdrSeeAid(id, q, m, dt, night, now) {
@@ -1701,6 +1712,22 @@ function pdrSeeAid(id, q, m, dt, night, now) {
   pdrRope(Z, Z2, Z.roped);
   return true;
 }
+function pdrCutBack(r, q, Z, bd) {                                               // the bogged truck's own cut behind it, laid a few metres a frame (5.4c2b2a)
+  const W = api.world, SEG = window.TLXR.ROADS.seg, s1 = q.p - 0.5; if (!(q.bogI >= 0) || !W.bladeSnow) return;
+  if (Z.cbI !== q.bogI || !(Z.cb <= s1 + 1)) { Z.cbI = q.bogI; Z.cb = Math.max(0, Math.min(s1, q.bogI * SEG - 12)); Z.cbL = null; }
+  if (Z.cb >= s1) return;
+  const P0 = Z.cbP || (Z.cbP = { x: 0, z: 0, yaw: 0 }), end = Math.min(s1, Z.cb + PDR.tow.lay), hx = bd.w * Math.cos(bd.ang) / 2, hz = Math.abs(bd.w / 2 * Math.sin(bd.ang)), rr = BL.rowW / 2, rows = bd.rows || BL.rows;
+  while (Z.cb < end) {
+    Z.cb = Math.min(end, Z.cb + 1);
+    const p = pdrPt(r, Z.cb); P0.x = p.x - p.tz * T_LANE; P0.z = p.z + p.tx * T_LANE; P0.yaw = Math.atan2(p.tx, p.tz);
+    const e = ends(bd, P0, _pc, 0, bd.ang), L = Z.cbL;
+    if (L) {
+      let vol = 0; for (let j = 1; j <= 8; j++) { const t = j / 8; vol += W.bladeSnow(L[0] + (e[0] - L[0]) * t, L[1] + (e[1] - L[1]) * t, L[2] + (e[2] - L[2]) * t, L[3] + (e[3] - L[3]) * t, bd.leave); }
+      for (let j = 0; j < rows.length && vol > 1e-4; j++) { const lx = -(hx + 0.25 + rr * (2 * j + 1)), lz = bd.z - hz - 0.35 - 0.25 * j; vol -= W.heapSnow(P0.x + p.tz * lx + p.tx * lz, P0.z - p.tx * lx + p.tz * lz, rr, vol, rows[j]); }
+    }
+    Z.cbL = Z.cbL || [0, 0, 0, 0]; Z.cbL[0] = e[0]; Z.cbL[1] = e[1]; Z.cbL[2] = e[2]; Z.cbL[3] = e[3];
+  }
+}
 function pdrSee(dt) {
   const s = S(), V = window.TLXV, TT = window.TLXT; if (!V || !V.ghost || !s || !api.started()) return;
   const live = new Set(), ids = obj0(s.pdr) ? Object.keys(s.pdr) : [];
@@ -1733,9 +1760,12 @@ function pdrSee(dt) {
       const step = dt > 0 ? Math.min(Math.abs(tS - Z.s), Math.max(0.5, Z.vT) * dt) : 0; Z.s += Math.sign(tS - Z.s) * step;
       /* 5.4c2b1: the last of the roping up is the pull: the bogged truck comes back onto the cut (pk 0 to 1), tail first */
       const pk = stuck && q.help ? pdrPullK(s.pdr[q.help], id) : 0, tB = PDR.aid.haul * pk; Z.pull = (Z.pull || 0) + Math.max(-1.5 * dt, Math.min(1.5 * dt, tB - (Z.pull || 0)));
-      const onA = !!A && Z.s < AL, tOff = parked ? spot.off : onA ? 0 : dir * (T_LANE + (stuck ? PDR.bog.off * (1 - pk) : 0)); Z.off += Math.max(-1.6 * dt, Math.min(1.6 * dt, tOff - Z.off)); Z.way = onA;
-      const p = onA ? pdrPt(A, Z.s) : pdrPt(r, Z.s - AL - (parked ? 0 : Z.pull)), x = p.x - p.tz * Z.off, z = p.z + p.tx * Z.off;
-      const tYaw = (parked ? spot.yaw : Math.atan2(p.tx * dir, p.tz * dir)) - (stuck ? PDR.bog.skew * (1 - pk) : 0);   /* bogged: nosed toward the windrow */
+      /* 5.4c2b2a: YOUR rope has brought it Z.tw m along the road (pdtTick; + is the way the road runs); free, it eases back to where the clock has it */
+      if (!stuck && Z.tw) Z.tw = Math.abs(Z.tw) <= 1.5 * dt ? 0 : Z.tw - Math.sign(Z.tw) * 1.5 * dt;
+      const onA = !!A && Z.s < AL, tw = parked || onA ? 0 : Z.tw || 0, kb = (1 - pk) * (1 - Math.min(1, Math.abs(tw) / PDR.tow.pull));
+      const tOff = parked ? spot.off : onA ? 0 : dir * (T_LANE + (stuck ? PDR.bog.off * kb : 0)); Z.off += Math.max(-1.6 * dt, Math.min(1.6 * dt, tOff - Z.off)); Z.way = onA;
+      const p = onA ? pdrPt(A, Z.s) : pdrPt(r, Z.s - AL - (parked ? 0 : Z.pull) + tw), x = p.x - p.tz * Z.off, z = p.z + p.tx * Z.off; Z.tx = p.tx; Z.tz = p.tz;
+      const tYaw = (parked ? spot.yaw : Math.atan2(p.tx * dir, p.tz * dir)) - (stuck ? PDR.bog.skew * kb : 0);   /* bogged: nosed toward the windrow */
       let dy = Number.isFinite(Z.yaw) ? tYaw - Z.yaw : 0; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
       const turn = Math.max(-2.4 * dt, Math.min(2.4 * dt, dy)); Z.yaw = Number.isFinite(Z.yaw) ? Z.yaw + turn : tYaw;
       const moved = Number.isFinite(Z.x) ? Math.hypot(x - Z.x, z - Z.z) : 0; Z.x = x; Z.z = z;
@@ -1760,6 +1790,9 @@ function pdrSee(dt) {
         }
         Z.bl = Z.bl || [0, 0, 0, 0]; Z.bl[0] = e[0]; Z.bl[1] = e[1]; Z.bl[2] = e[2]; Z.bl[3] = e[3];
       } else Z.bl = null;
+      /* 5.4c2b2a: a truck that bogged out of your sight has cut nothing you can see. The lane behind it, from the start of
+         the stretch it bogged in, is laid as you come into range (PDR.tow.lay m a frame): a cut to drive up, and to pull it back onto */
+      if (stuck && bd && !onA && Math.hypot(x - yo.x, z - yo.z) < PDR.cutR) pdrCutBack(r, q, Z, bd);
       // the beacon: flashing while they are out
       const on = crew && Math.floor(now * 3.2) % 2 === 0, k = on ? 0.9 + 1.6 * night : 0.16 - 0.08 * night; Z.bc.userData.mat.color.setRGB(k, k * 0.52, k * 0.04); Z.lit = crew;
       // solid, and seen by the traffic
@@ -1786,7 +1819,7 @@ function pdrHailed(id) { const Z = PDS.get(id); return !!Z && Z.hail > 0; }
 function pdrSay(id) {
   const s = S(), q = s.pdr && s.pdr[id], m = pdrOf(id), c = s.con && s.con[id], r = c && conR().find(v => v.id === id); if (!obj0(q) || !m || !r) return "";
   const RD = window.TLXR.ROADS, due = pdrDue(c, r), t = pdrMine(m) ? pdrRec(q.truck) : null, bits = [], n = q.n | 0, str = k => `${k} stretch${k === 1 ? "" : "es"}`;
-  if (q.st === "stuck") bits.push(`Bogged to the axles${n ? ", " + str(n) + " open behind me" : ""}. ${q.help && pdrOf(q.help) ? pdrFirst(pdrOf(q.help)) + " is coming out to pull me free, they say." : q.tow > 0 ? "They say the tow truck is on its way." : "I need a pull out of this: " + pdrHrs(q.sk) + " I have sat here."}`);
+  if (q.st === "stuck") bits.push(PDT.id === id ? `Your rope is on${n ? ", " + str(n) + " open behind me" : ""}. Take the slack up gently and pull me straight along the road: I will steer.` : `Bogged to the axles${n ? ", " + str(n) + " open behind me" : ""}. ${q.help && pdrOf(q.help) ? pdrFirst(pdrOf(q.help)) + " is coming out to pull me free, they say." : q.tow > 0 ? "They say the tow truck is on its way." : "I need a pull out of this: " + pdrHrs(q.sk) + " I have sat here."}`);
   else if (q.st === "back") { const why = q.rc ? "you called me in" : q.why || (c.cover ? "the kommune's own truck has the rest" : ""); bits.push(`${n ? str(n) + " open. " : ""}Heading in${why ? ": " + why : n ? "" : ", nothing left to open"}.`); }
   else if (pdrOnWay(r, q)) bits.push(`On my way out to the ${r.name}: ${str(due.length)} to plow.`);
   else {
@@ -1826,6 +1859,128 @@ const PDHAIL = {
   }
 };
 const _pc = [0, 0, 0, 0];
+/* ---- 5.4c2b2a: TOW THEM ----
+   The third way out of a bog, and the one you drive: bring a truck of yours (any wheeled truck, blade or no blade; not
+   the sled, not a boat) to within PDR.tow.reach of either end of the bogged truck, get out, and at its towing eye the
+   use control HOOKS ON your tow rope to the nearest truck of yours (PDTOWX, an api.footx provider ahead of the hail:
+   keyboard, pad L3, the touch button; on foot tlx-vehicles makes the nearest machine "current", so the rope is tied to
+   a truck's uid, never to curUid). The rope (PDR.tow.len m, the same tube as the helper's, pdrRopeMesh) runs from the
+   nearer end of your truck to the end of theirs you stood at, lying slack on the snow until you drive it tight.
+   THE PULL (pdtTick): with the rope tight and you pulling, the bogged truck comes along the ROAD (its Z.tw, read by
+   pdrSee: back onto its own cut from its tail, or on through the drift from its nose), no faster than PDR.tow.v, and
+   only while the rope lies within acos(PDR.tow.cone) of the road: a pull across it moves nothing. Your truck is held
+   to the rope: it cannot leave faster than the bogged truck comes. Taking the slack up at over PDR.tow.snatch is a
+   snatch: a dead stop, a thud and a word. PDR.tow.pull m and they are OUT (pdtFree): st "out", they plow on (no
+   second bog in that stretch), the rope is unhooked for you; a tow you had paid for is called off (not refunded), a
+   helper on the way turns round (pdrAid). As it comes the truck straightens out of the windrow.
+   NOT towed: a truck its driver has walked home from (nobody to steer it: that one needs the tow truck; the use
+   control says so). UNHOOK at either end; the rope also comes off if the truck is freed another way or its driver
+   goes. On the sled, or in another truck, the rope stays where it is and pulls nothing. Nothing is saved: a reload
+   finds no rope and the truck where it bogged. */
+const PDT = { id: null, uid: null, mf: false, tf: false, taut: false, along: true, slack: 0, said: -99, rope: null, ropeK: null, ropeL: 0, ropeLow: 0, a: null, b: null, c: null, snatches: 0 };
+function pdtV() { if (!PDT.a) { PDT.a = new T.Vector3(); PDT.b = new T.Vector3(); PDT.c = new T.Vector3(); } if (!PDROPE.mat) { PDROPE.mat = new T.MeshStandardMaterial({ color: 0xc8962e, roughness: 0.95 }); PDROPE.a = new T.Vector3(); PDROPE.b = new T.Vector3(); PDROPE.c = new T.Vector3(); } return PDT; }
+function pdtTruck(uid) {                                                         // a wheeled truck of yours as a thing to rope to (null: not yours, out with a driver, or not drawn)
+  if (uid == null || !window.TLXV) return null; const t = pdrRec(uid); if (!t || t.out) return null;
+  const R = TLXV.runtimeOf(t.uid); return R && R.body && R.grp && R.grp.parent ? R : null;
+}
+function pdtMine(b) {                                                            // the truck of yours nearest that towing eye: { uid, R, front (which of its ends), d }
+  let best = null;
+  for (const t of trucks()) { const R = pdtTruck(t.uid); if (!R || !R.grp.visible) continue; const e = pdtEnd(R, b); if (!best || e.d < best.d) best = { uid: t.uid, R, front: e.front, d: e.d }; }
+  return best;
+}
+function pdtBog() {                                                              // the bogged truck whose towing eye you stand at on foot, and which end it is
+  const s = S(), F = api.FOOT; if (!s || !obj0(s.pdr) || !PDS.size) return null; const X = pdtV(); let best = null, bd = PDR.tow.footR;
+  for (const [id, Z] of PDS) {
+    const q = s.pdr[id]; if (!obj0(q) || q.st !== "stuck" || Z.aid || !Number.isFinite(Z.x) || !Z.R || !Z.R.grp.visible || !pdrOf(id) || Math.hypot(Z.x - F.x, Z.z - F.z) > 14) continue;
+    Z.R.grp.updateMatrixWorld(true);
+    for (const front of [false, true]) { const e = pdrHook(Z.R, front, X.c), d = Math.hypot(e.x - F.x, e.z - F.z); if (d < bd) { bd = d; best = { id, Z, q, front, x: e.x, y: e.y, z: e.z }; } }
+  }
+  return best;
+}
+function pdtEnd(R, b) {                                                          // the end of your truck nearer that eye, and how far off it is
+  const X = pdtV(); R.grp.updateMatrixWorld(true);
+  const t = pdrHook(R, false, X.a), dt = Math.hypot(t.x - b.x, t.y - b.y, t.z - b.z), f = pdrHook(R, true, X.a), df = Math.hypot(f.x - b.x, f.y - b.y, f.z - b.z);
+  return df < dt ? { front: true, d: df } : { front: false, d: dt };
+}
+function pdtDrop(why) {
+  const was = PDT.id; PDT.id = null; PDT.uid = null; PDT.taut = false; PDT.slack = 0; pdrRopeDrop(PDT); PDT.ropeK = null;
+  if (was == null) return false;
+  if (why === "you") api.toast("Tow rope unhooked and back in your truck.");
+  else if (why === "off") api.toast("The tow rope is off: the truck it was made fast to is no longer there.", "warn");
+  return true;
+}
+function pdtHook(id, uid, mf, tf) {
+  const q = S().pdr[id], m = pdrOf(id), Z = PDS.get(id); if (!obj0(q) || q.st !== "stuck" || q.gone || !m || !Z || !pdtTruck(uid)) return false;
+  pdtDrop(""); PDT.id = id; PDT.uid = uid; PDT.mf = !!mf; PDT.tf = !!tf; PDT.taut = false; PDT.along = true;
+  const tw = PDR.tow, mine = pdrRec(uid), left = Math.max(0, tw.pull - Math.abs(Z.tw || 0));
+  api.toast(`Rope on: the ${mf ? "nose" : "tail"} of your ${mine ? pdrTName(mine) : "truck"} to the ${tf ? "nose" : "tail"} of ${pdrFirst(m)}'s truck. Get in, take up the slack at a crawl and pull along the road: ${Math.ceil(left)} m and they are out.`, "good");
+  try { api.thud(0.12); } catch (e) { }
+  return true;
+}
+function pdtFree(id, q, m, Z) {                                                  // you have pulled the bogged truck out
+  const s = S(), r = conR().find(v => v.id === id), T0 = pdrMine(m) ? pdrRec(q.truck) : null, bi = q.bogI, me = pdrFirst(m), hadTow = q.tow > 0, SEG = window.TLXR.ROADS.seg;
+  q.sk = 0; q.tow = 0; q.help = ""; q.gone = false; q.st = "out"; q.bogI = bi;
+  if (Z.tw > 0 && r) { const p1 = Math.min(q.p + Z.tw, (Math.floor(q.p / SEG) + 1) * SEG - 1, r.len); if (p1 > q.p) { Z.s += p1 - q.p; q.p = p1; Z.qp = NaN; } Z.tw = 0; }   /* pulled on through the drift: that is where they plow on from */
+  pdtDrop("");
+  api.toast(`${me} is out. They unhook your rope, throw it in the back of your truck and plow on.`, "good");
+  pdrNote(`${m.name} is moving again`, `You pulled ${T0 ? `your ${pdrTName(T0)}` : "their truck"} out of the drift, ${(q.p / 1000).toFixed(1)} km along the ${r ? r.name : "road"}. They are plowing on.${hadTow ? " The tow truck you had paid for was called off on its way (the call-out is not refunded)." : ""}`, "good");
+  api.save(); conRefresh(); try { api.TABLET.refresh("staff"); } catch (e) { }
+}
+function pdtTick(dt) {
+  if (PDT.id == null) return;
+  const s = S(), id = PDT.id, q = s.pdr && s.pdr[id], Z = PDS.get(id), MR = pdtTruck(PDT.uid), m = pdrOf(id);
+  if (!obj0(q) || q.st !== "stuck" || q.gone || !Z || Z.aid || !m || !Z.R || !Z.R.grp.parent) { pdtDrop(""); return; }
+  if (!MR) { pdtDrop("off"); return; }
+  const X = pdtV(), tw = PDR.tow, P = api.P, seated = !api.FOOT.on && String(curUid()) === String(PDT.uid), M = { R: MR };   /* on foot the nearest machine is "yours": the rope stays on the truck it was made fast to */
+  M.R.grp.updateMatrixWorld(true); Z.R.grp.updateMatrixWorld(true);
+  const a = pdrHook(M.R, PDT.mf, X.a), b = pdrHook(Z.R, PDT.tf, X.b), dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz);
+  let taut = false; PDT.slack = Math.max(0, tw.len - d);
+  if (d > tw.len && d > 0.01 && Number.isFinite(Z.tx)) {
+    const ux = dx / d, uz = dz / d, c = ux * Z.tx + uz * Z.tz, along = Math.abs(c) >= tw.cone, vout = P.vx * ux + P.vz * uz; let ex = d - tw.len, cap = 0; taut = true; PDT.along = along;
+    if (seated && !PDT.taut && vout > tw.snatch) {                              /* the slack taken up too fast */
+      PDT.snatches++; try { api.thud(Math.min(1, 0.4 + vout / 10)); } catch (e) { } P.shake = Math.max(P.shake || 0, Math.min(0.9, vout / 8));
+      if (api.now() - PDT.said > 4) { PDT.said = api.now(); api.toast(`The rope snatched tight at ${Math.round(vout * 3.6)} km/h and stopped you dead. Take the slack up at a crawl, then pull.`, "warn"); }
+      P.vx -= ux * vout; P.vz -= uz * vout;
+    } else if (seated && along && vout > 0.05 && dt > 0) {                       /* a steady pull along the road: they come */
+      const st = Math.min(ex / Math.abs(c), tw.v * dt); Z.tw = (Z.tw || 0) + Math.sign(c) * st; ex -= st * Math.abs(c); cap = tw.v * Math.abs(c);
+    }
+    if (seated) {                                                                /* your truck is on the rope: no further, and no faster than they come */
+      if (ex > 0) { const k = Math.min(ex, 1); P.x -= ux * k; P.z -= uz * k; }
+      const v1 = P.vx * ux + P.vz * uz; if (v1 > cap) { P.vx -= ux * (v1 - cap); P.vz -= uz * (v1 - cap); }
+    }
+  }
+  PDT.taut = taut;
+  if (Math.abs(Z.tw || 0) >= tw.pull) { pdtFree(id, q, m, Z); return; }
+  if (!M.R.grp.visible || !Z.R.grp.visible) { pdrRopeDrop(PDT); PDT.ropeK = null; return; }
+  pdrRopeMesh(PDT, Z.R.grp.parent, a, b, Math.min(1.4, 0.4 * Math.sqrt(Math.max(0, tw.len * tw.len - a.distanceToSquared(b)))));
+}
+function pdtLine() {                                                             // the driving hint with your rope on a bogged truck
+  if (PDT.id == null || api.FOOT.on || String(curUid()) !== String(PDT.uid)) return "";
+  const Z = PDS.get(PDT.id), m = pdrOf(PDT.id); if (!Z || !m) return "";
+  const tw = PDR.tow, me = pdrFirst(m), got = Math.abs(Z.tw || 0);
+  if (!PDT.taut) return `TOW ROPE on ${me}'s truck · ${PDT.slack.toFixed(1)} m of slack: take it up at a crawl, then pull along the road`;
+  if (!PDT.along) return `TOW ROPE tight · across the road it pulls nothing: line your truck up along the road`;
+  return `TOW ROPE tight · ${me}'s truck has come ${got.toFixed(1)} of ${tw.pull} m · keep a steady pull`;
+}
+const PDTOWX = {
+  use() {
+    const F = api.FOOT; if (!F.on || busy() || (api.INT && api.INT.on) || (api.MNT && api.MNT.on) || (api.DMT && api.DMT.on)) return null;
+    const tw = PDR.tow, X = pdtV();
+    if (PDT.id != null) {                                                        /* your rope is on: UNHOOK at either end of it */
+      const Z = PDS.get(PDT.id), MR = pdtTruck(PDT.uid); if (!Z || !Z.R || !MR) return null;
+      Z.R.grp.updateMatrixWorld(true); MR.grp.updateMatrixWorld(true);
+      const b = pdrHook(Z.R, PDT.tf, X.c), db = Math.hypot(b.x - F.x, b.z - F.z), a = pdrHook(MR, PDT.mf, X.c), da = Math.hypot(a.x - F.x, a.z - F.z);
+      return Math.min(da, db) < tw.footR ? { label: "UNHOOK", hint: () => api.keyHint("use", "unhook the tow rope"), act: () => pdtDrop("you") } : null;
+    }
+    const b = pdtBog(); if (!b) return null;
+    const M = pdtMine(b); if (!M || M.d > tw.far) return null;                    /* no truck of yours anywhere near (you came on the sled): nothing to pull with, the hail is still yours */
+    const m = pdrOf(b.id), me = pdrFirst(m);
+    if (b.q.gone) { const why = `Nobody is at the wheel to steer ${me}'s truck out: this one needs the tow truck (PAY A TOW on their card in the Staff app).`; return { label: "TOW ROPE", hint: () => "nobody at the wheel to steer it out: this one needs the tow truck", act: () => api.toast(why, "warn") }; }
+    const e = M, mine = pdrRec(M.uid), tn = mine ? pdrTName(mine) : "truck";
+    if (e.d > tw.reach) { const off = Math.round(e.d); return { label: "TOW ROPE", hint: () => `tow rope: bring your ${tn} within ${tw.reach} m of this end of ${me}'s truck (it stands ${off} m off)`, act: () => api.toast(`Your tow rope is ${tw.len} m. Bring your ${tn} within ${tw.reach} m of this end of ${me}'s truck (it stands ${off} m off), then hook on here.`, "warn") }; }
+    return { label: "HOOK ON", hint: () => api.keyHint("use", `hook your tow rope to ${me}'s truck`), act: () => pdtHook(b.id, M.uid, e.front, b.front) };
+  }
+};
 const T_LANE = 1.6;                                                              // m right of the crown, the traffic's own lane (TRAF.lane)
 function pdrPins() {
   const s = S(), out = []; if (!s || !obj0(s.pdr)) return out;
@@ -2762,7 +2917,7 @@ let conT = 0, conSec = 0;
 const XL = { kg: 0, pin: 0, drag: 0, brakeN: 0, hold: false, held: false, why: "" }, CJ = { on: false };
 function load(uid) { const d = bladeOf(uid); if (!d) return null; const B = rt(uid); XL.kg = XL.pin = d.kg + (d.hop ? hopOf(uid) : 0); XL.drag = B.drag || 0; XL.why = B.why || ""; return XL; }
 
-window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, way: pdrWay, ways: PDA, onWay: pdrOnWay, pos: pdrPos, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, hail: pdrHail, wave: pdrWave, hailed: pdrHailed, say: pdrSay, hailNear: pdrHailNear, prov: PDHAIL, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses, bogRisk: pdrBogRisk, tow: pdrTow, towCost: id => { const q = S().pdr[id], r = conR().find(v => v.id === id); return q && r ? pdrTowCost(r, q) : 0; }, job: pdrJob, acts: pdrActs, send: pdrSend, aidWhy: pdrAidWhy, aidAble: pdrAidAble, aidPos: pdrAidPos, aidLine: pdrAidLine, aidNear: pdrAidNear, pullK: pdrPullK, aidK: PDAIDK }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
+window.TLXPL = { DRV, WIN, PDR, rtb: uid => RTB.get(String(uid)) || null, pdr: { seen: PDS, see: pdrSee, way: pdrWay, ways: PDA, onWay: pdrOnWay, pos: pdrPos, spot: pdrSpot, pt: pdrPt, pins: pdrPins, lost: PDLOST, near: pdrNear, blocked: pdrBlocked, hail: pdrHail, wave: pdrWave, hailed: pdrHailed, say: pdrSay, hailNear: pdrHailNear, prov: PDHAIL, sx: PDSX, run: pdrRun, where: pdrWhere, of: pdrOf, skill: pdrSkill, places: pdrPlaces, role: PDROLE, kitWhy: id => { const q = S().pdr[id]; return q ? pdrKitWhy(q) : ""; }, fleet: pdrFleet, sweep: pdrSweep, passes: pdrPasses, bogRisk: pdrBogRisk, tow: pdrTow, towCost: id => { const q = S().pdr[id], r = conR().find(v => v.id === id); return q && r ? pdrTowCost(r, q) : 0; }, job: pdrJob, acts: pdrActs, send: pdrSend, aidWhy: pdrAidWhy, aidAble: pdrAidAble, aidPos: pdrAidPos, aidLine: pdrAidLine, aidNear: pdrAidNear, pullK: pdrPullK, aidK: PDAIDK, tw: PDT, towProv: PDTOWX, towHook: pdtHook, towDrop: pdtDrop, towTick: pdtTick, towLine: pdtLine, towBog: pdtBog, hook: pdrHook }, fileOf: (kind, key) => fileOf(S(), kind, key), win: { list: () => WN.list, open: winOpen, step: winStep, measure: winMeasure, lay: winLay, job: winJob, line: winLine, label: winLabel, monday: winMonday, talk: () => winTalk(S()) }, str: { STR, list: () => SN.list, open: strOpen, step: strStep, measure: strMeasure, lay: strLay, job: strJob, line: strLine, monday: strMonday, shovel: strShovel }, lot: { LOT, list: () => LT.list, take: lotTake, drop: lotDrop, step: lotStep, mark: lotMark, job: lotJob, due: lotDue, base: lotBase, k: lotK, marks: LT.marks, monday: lotMonday, heap: lotHeap, line: lotLine, shovel: lotShovel }, drv: { list: () => DV.list, take: drvTake, drop: drvDrop, step: drvStep, mark: drvMark, job: drvJob, due: drvDue, base: drvBase, k: drvK, marks: DV.marks, monday: drvMonday }, PLC, con: { routes: conR, sign: conSign, quit: conQuit, quitCost: id => { const s = S(); return conQuitCost(s && s.con && s.con[id]); }, step: conStep, hold: conHold, job: conJob, monday: conMonday, work: conWork, k: conK }, BLADES, BL, GRT, hopOf, fill, gritToggle, gritAt, grip, gritSpot: (x, z) => { const q = gritSpot(x, z); return q ? Object.assign({ k: gritCover(q) }, q) : null; }, THROWS, USED, mkt: MKB, state: S, rt, fit, unfit, mend, mendCost, condOf, leaveOf, bladeOf, throwOf, slew, ends, hint: rideLine, tidy, road: RC, roadSide, hull, snd: () => ({ g: SND.g, f: SND.f, voice: !!SND.v }) };
 
 TLX.option({ id: "plowtrip", name: "Plow blade trips", hint: "With the blade down at over 14 km/h, a rock, a log or a parked car trips the blade: it folds over the thing, the truck is checked and the cutting edge loses a few points. Off = the blade never trips; the truck just stops against whatever it meets.", sys: "plow" });
 TLX.option({ id: "plowdoors", name: "Plow snow at doors", hint: "Snow your plow blade leaves lying across a front walk or the mouth of a drive has to be cut away again: left there, the household digs it out by hand and holds it against you (a customer counts it as a drive left snowed in). Off = the blade's snow may lie anywhere and nobody minds.", sys: "plow" });
@@ -2799,6 +2954,8 @@ TLX.register({
     // 4.2c1: the lots: the place's public yards, their snow from the save, a Jobs row, a pin each
     try { if (!LT.built) lotBuild(); else { LT.marks.clear(); const s = S(); for (const c of LT.list) lotApply(c, s.lot && s.lot[c.id]); lotWake(); } } catch (e) { LT.list = []; LT.by = {}; console.warn("tlx-plow: lots", e); }
     if (a.jobx && !CJ.lot) { CJ.lot = true; a.jobx.push(lotJob); }
+    if (a.footx && !a.footx.includes(PDTOWX)) a.footx.push(PDTOWX);              // 5.4c2b2a: your tow rope on a bogged truck (asked before the hail: at a towing eye it wins)
+    PDT.id = null; PDT.uid = null; PDT.rope = null; PDT.ropeK = null; PDT.a = null;
     if (a.footx && !a.footx.includes(PDHAIL)) a.footx.push(PDHAIL);              // 5.4b2a: hail your driver's truck on foot
     if (a.TABLET.addLayer && !CJ.pdr) { CJ.pdr = true; a.TABLET.addLayer("marks", pdrPins); }   // 5.4b1: a driver who is out
     if (a.TABLET.addLayer && !CJ.pins) { CJ.pins = true; a.TABLET.addLayer("marks", () => drvDue().map(c => ({ x: c.a[0], z: c.a[1], name: c.name.toUpperCase() + "'S DRIVE", glyph: "D" })).concat(lotDue().map(c => ({ x: c.x, z: c.z, name: c.name.toUpperCase() + (S().lot[c.id].hp ? ": YOUR HEAP" : ""), glyph: "L" }))).concat(winOpen().map(q => ({ x: q.cx, z: q.cz, name: "YOUR SNOW: " + q.name.toUpperCase() + "'S " + (q.kind === "w" ? "WALK" : "DRIVE"), glyph: "!" }))).concat(strOpen().map(q => ({ x: q.hx, z: q.hz, name: "HEAP IN THE STREET: " + q.name.toUpperCase(), glyph: "!" })))); }

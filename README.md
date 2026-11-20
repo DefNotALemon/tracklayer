@@ -1187,8 +1187,24 @@ metres and straightens onto the cut while the helper creeps toward home. Then th
 the bogged driver plows on and the helper drives in on the other side of the road. While you are
 within 600 m the helper keeps a truck's real speed (45 km/h), and stands in its lane short of you
 if you are in the way; the time that costs is not counted against either road, nor against the
-driver waiting in the cold. The helper's Map pin is where the truck is. Not yet: towing a bogged
-driver out yourself.
+driver waiting in the cold. The helper's Map pin is where the truck is.
+
+**Tow them out yourself.** The third way out costs nothing but your own drive. Take any truck of
+yours out to the bogged one (the lane it cut before it bogged is there to drive up), stop with
+either end of your truck within 7 m of either end of theirs, get out and walk to their towing eye:
+the use control (**E**, a click of the left stick, the touch button) reads **HOOK ON**, and your
+8 m tow rope goes on between the two nearer ends. With your truck too far off, the same control
+says how far. Get back in and take the slack up at a crawl, then pull **along the road**: the
+bogged truck comes with you at walking pace, straightening out of the windrow, and your truck
+cannot run away from it. After 10 m they are out: the driver unhooks your rope and plows on. From
+their tail you pull them back onto their own cut; from the nose, on through the drift (they plow
+on from there). A pull across the road moves nothing, and slack taken up at over 16 km/h snatches:
+a dead stop and a jolt, no harm done. **UNHOOK** at either end takes the rope off again. On the
+sled, or in another truck, the rope stays on the two trucks and pulls nothing. A tow you had
+already paid for is called off without a
+refund, and a driver you had sent turns round. A truck its driver has walked home from cannot be
+pulled this way (nobody is at the wheel): that one needs the tow truck. Nothing of a half-done pull
+is saved.
 
 **From its parking spot and back.** A driver in your truck starts where you left the truck. They
 drive it off its spot, over the plowed ground and the streets and round the houses, onto the roads
