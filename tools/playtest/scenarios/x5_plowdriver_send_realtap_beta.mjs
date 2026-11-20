@@ -1,0 +1,61 @@
+// Beta 5.4c2a: SEND button on the bogged driver's Staff card pressed by REAL touch (double tap, 640x360 itch size) and by pad focus + A.
+import { boot, ev, sleep, done, send, padSet, padOff } from "../lib.mjs";
+let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
+const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
+const section = async (n, f) => { console.log("--- " + n); try { await f(); } catch (e) { ok(false, n + " threw: " + String(e.message).slice(0, 300)); } };
+const SETUP = `TLXPL.PDR.wayMax = 0; tutSkip(); crashCancel(); FOOT.on = false; WX.at = () => 0; GS.storm = 0; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); if (window.TLXT) { TLXT.hold = true; for (const c of TLXT.cars) c.on = false; } true`;
+const KIT = `(() => {
+  window.__q = (h, st) => { st = st || 0.5; for (let t = 0; t < h - 1e-6; t += st) { GS.hour += Math.min(st, h - t); TLX.state("roads").h = GS.hour; TLXPL.con.step(); } return true; };
+  window.__pdr = id => { const q = TLX.state("plow").pdr[id]; return q ? JSON.parse(JSON.stringify(q)) : null; };
+  window.__drv = (id, work, xp, hap) => { const m = TLX.staff.at("plow:" + id); m.tr.work = work; m.tr.temper = 0; m.xpReal = xp; m.hap = hap; m.mood = 0; m.wage = TLX.staff.fair(m); m.paidTo = GS.hour; return TLXPL.pdr.skill(m, id); };
+  window.__clean = id => { TLXR.setSnow(id, 0); const c = TLX.state("plow").con[id]; c.strikes = 0; c.cover = false; c.due = {}; c.clean = true; TLXPL.con.step(); return true; };
+  window.__rect = sel => { const b = document.querySelector(sel); if (!b) return null; b.scrollIntoView({ block: "center" }); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width, h: r.height, txt: b.textContent, off: b.disabled, vis: r.bottom <= innerHeight && r.top >= 0 }; };
+  if (!window.__rh) window.__rh = setInterval(() => { try { TLX.state("roads").h = GS.hour; } catch (e) { } }, 30);
+  return true; })()`;
+const tapAt = async (x, y) => { await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] }); await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); };
+await boot({ width: 640, height: 360 });
+await ev(SETUP); await sleep(600); await ev(KIT);
+await ev(`GS.hour = 34; TLX.state("roads").h = 34; GS.cash = 90000; GS.lic = GS.lic || {}; GS.lic.freight = true; true`);
+const ids = await J(`TLXPL.con.routes().map(r => r.id)`);
+const RID = "dyfjord", HID = ids.find(i => i !== RID), rid = JSON.stringify(RID), hid = JSON.stringify(HID);
+const pdr = id => J(`__pdr(${JSON.stringify(id || RID)})`);
+const hire = async road => { const r = JSON.stringify(road);
+  const id = await ev(`(() => { const S = TLX.state("staff"); S.apps = S.apps.filter(a => a.place !== "plow:" + ${r}); const a = TLX.staff.post({ id: "plow:" + ${r}, role: "plowdriver" }); a.tr.honest = true; a.xp = a.xpReal = 10; a.exp = GS.hour + 400; return a.id; })()`);
+  const h = await ev(`TLX.staff.hire(${JSON.stringify(id)})`); await ev(`__drv(${r}, 1, 10, 70); TLXPL.con.step(); true`); await sleep(300); return h === true; };
+const bog = async () => { await ev(`__clean(${rid}); __clean(${hid}); __drv(${rid},1,10,70); true`); await ev(`__q(1.6,0.1)`); await ev(`TLXPL.PDR.bog.km = 1e9; TLXR.setSnow(${rid}, 0.9, 1); TLXPL.con.step(); true`); await ev(`__q(0.74,0.37)`);
+  let q = await pdr(); for (let n = 0; n < 40 && q.st !== "stuck"; n++) { await ev(`__q(0.04,0.02)`); q = await pdr(); } return q; };
+await ev(`TLXPL.PDR.mine = 0; TLXV.buy("plowtruck"); TLXPL.con.sign(${rid}); TLXPL.con.sign(${hid}); TLX.staff.tick(); true`); await sleep(500);
+ok(await hire(RID) && await hire(HID), "two drivers");
+const mid = await ev(`TLX.staff.at("plow:" + ${rid}).id`);
+let q = await bog(); ok(q.st === "stuck", "bogged: " + q.st);
+await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+await ev(`SET.touch = "on"; setTouchUI(); TABLET.toggle(true, "staff"); true`); await sleep(800);
+const SEL = `[data-act^='stx:${mid}:s']`;
+await section("A touch double tap SEND at 640x360", async () => {
+  const r = await J(`__rect(${JSON.stringify(SEL)})`); console.log("  send button", JSON.stringify(r));
+  ok(!!r, "SEND button on the card"); if (!r) return;
+  ok(r.h >= 28, "tap target " + r.w + "x" + r.h); ok(r.vis, "on screen after scrollIntoView");
+  const cash0 = await ev(`GS.cash`), fuel0 = await ev(`TLXV.state().owned.map(o => o.fuel).join()`);
+  await tapAt(r.x, r.y); await sleep(60); await tapAt(r.x, r.y); await sleep(700);
+  const a = await pdr(); console.log("  after", JSON.stringify({ help: a.help, st: a.st })); const h = await pdr(HID); console.log("  helper", JSON.stringify({ aid: h.aid, st: h.st, aidT: h.aidT, aidB: h.aidB }));
+  ok(!!a.help, "bogged driver has help set after tap"); ok((await ev(`GS.cash`)) === cash0, "free: no cash moved");
+  const b = await J(`[...document.querySelectorAll("[data-act^='stx:${mid}:']")].map(b => b.textContent + (b.disabled ? " (off)" : ""))`); console.log("  buttons now", JSON.stringify(b));
+  ok(!b.some(t => /SEND/.test(t) && !/off/.test(t)), "no live SEND left (can't send twice)"); ok(!b.some(t => /TOW/.test(t) && !/off/.test(t)), "PAY A TOW not live while help comes");
+  const jr = await J(`jobsList().map(r => JSON.stringify(r.meta||r))`); console.log("  jobs", JSON.stringify(jr)); ok(jr.some(t => /HELP|coming|on the way/i.test(t)), "Jobs row says help is coming");
+  ok(!/NaN|undefined/.test(await ev(`$("tabS").textContent`)), "card text clean");
+});
+await send("Emulation.setTouchEmulationEnabled", { enabled: false });
+await section("B pad focus + A", async () => {
+  await ev(`TABLET.toggle(false); true`);
+  await ev(`TLXPL.pdr.where && 0; (() => { const q = TLX.state("plow").pdr[${rid}]; q.help = ""; const h = TLX.state("plow").pdr[${hid}]; h.aid = ""; h.aidB = 0; h.aidT = 0; h.st = "home"; return true; })()`);
+  q = await bog().catch(() => ({ st: "?" })); console.log("  rebog", q.st);
+  await ev(`TABLET.toggle(true, "staff"); true`); await sleep(700);
+  let f = "", path = [];
+  const pressPad = async b => { await padSet({ [b]: 1 }); await sleep(120); await padSet(); await sleep(250); };
+  for (let i = 0; i < 30; i++) { f = await ev(`TABLET.focus || ""`); path.push(f); if (f.startsWith(`stx:${mid}:s`)) break; await pressPad(i < 12 ? 13 : 15); }
+  console.log("  path", path.join(" > "));
+  console.log("  focus", f); ok(f.startsWith(`stx:${mid}:s`), "pad focus reaches SEND with d-pad down/right");
+  await padSet({ 0: 1 }); await sleep(150); await padSet(); await sleep(600); padOff && await padOff();
+  const a = await pdr(); ok(!!a.help || a.st !== "stuck", "pad A sent help: " + JSON.stringify({ help: a.help, st: a.st }));
+});
+console.log(fails ? `FAILS: ${fails}` : "ALL OK"); await done(fails ? 1 : 0);
