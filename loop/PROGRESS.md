@@ -60,7 +60,7 @@ Also from the gate, two guards: a clock that skips (the tests' fast clock, a sle
 coming in (the brake and the swing run only for a sled in sight, under 40 m/s, on its last 72 m).
 Gate. On the tree rebased on main at 93f7826, with the final tlx-lights.js: gate.sh smoke, x1_save, x6_oilswing,
 x6_oilfoot, x6_oilsled: each exit 0, 0 FAILs, page errors none. After main moved again (5 commits, lane A's
-tlx-plow and tests; rebased clean on 00a5c9a) and the 0.88 limit: gate.sh smoke, x1_save, x6_oilswing: exit 0, 0 FAILs, page
+tlx-plow and tests; rebased clean; the push then pulled one more commit, 00a5c9a, a playtest report and its scenario, no game code) and the 0.88 limit: gate.sh smoke, x1_save, x6_oilswing: exit 0, 0 FAILs, page
 errors none. Earlier, on the same rebase but before the leg fix: x6_oildriver, x6_oildriver_break, x6_keeper exit 0,
 0 FAILs (not re-run after the leg fix: it touches only `swStep`).
 Failures seen on the way and what they were: x6_oilsled B ("hired: the sled stands at the quay") failed once in the
