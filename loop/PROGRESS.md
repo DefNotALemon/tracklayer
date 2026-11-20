@@ -3,6 +3,40 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 23:15 — beta fix 0364 #1: the passenger door, a truck beside a fuel pump no longer keeps you in the cab (tlx-vehicles v37, lane A) (G4) — fe67437
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0363-0364 triaged (last triaged
+362 -> 364): 0364 #1 is a BUG on milestone 2 (lane A's), so it comes before the backlog's POLISH lines; 0364 #2/#3
+and 0363 #4 are POLISH and got backlog lines.
+What the report had and what it was: Q "does nothing, silently" for a truck on the Kjøllefjord station point. A probe
+first: it is not silent ("No room to open the door here." was toasted; the report's 5 s wait outlived the toast) and
+it is not one pocket. The pump's obstacle (r 0.85) pushes a truck dropped on it 1.4 m west, which leaves the pump
+beside the driver's door; any truck stopped with the pump's centre 1.8-2.8 m abeam on the driver's side had no door.
+That is how one pulls up to a pump, so the tester's first suggestion was built: the other door.
+What landed (tlx-vehicles.js only, no bridge):
+- `doorSide(R, P)`: 1 the driver's door, -1 the passenger's when the driver's standing spot is in an obstacle or the
+  water, 0 neither ("No room to open either door here: pull forward a little.").
+- Out by the passenger door: a 1.15 s slide across the seats (`slideKey`: two scoots, hips lift 8 cm, the leading leg
+  first, hands from the cushion to the wheel), then the driver's climb mirrored (`mirKey`). In: `routeToDoor` mirrored
+  (round the nose or tail to that side), door, climb, pull it shut, slide behind the wheel.
+- The model: the passenger door was a static skin baked into the body; it is now the driver's door geometry on its own
+  hinge (`doorPivot2`, `scale.x = -1`, `R.door2`), on the pickup, the lorry and the plow truck; ghosts tint it too.
+Numbers (`x2_passdoor.mjs`, 41 checks, 0 fails; before from the probe):
+- Pickup 2.2 m west of the pump, nose north (pushed 0.00 m by its hull): before BLOCKED, toast only; now out in 2.77 s
+  (the driver's door in the open: 1.63 s), standing at (-1.46, 0.10) in the truck's frame on clear snow, passenger door
+  1.00, driver's 0, both shut 1.6 s later, no toast. Back in the same way; from the pump's side the walk goes round.
+- The walker never moves more than 0.11 m between two frames on either door (no jump at the slide's two ends).
+- Lorry, pump beside its door: out in 2.75 s at -1.82 m, 0.96 m of hip travel down its steps (0.99 m by the driver's).
+- Pad LB and the touch pill: the same, out and in; after a reload in the cab: the same.
+Gate: smoke, x1_save, x2_passdoor, x2_pickup, x3_tractor, x2_pickup_midmount_reload_break and the tester's
+x2_truckpump_swap_beta (1 FAIL on v36, 0 now): exit 0, page errors none.
+Stills (`~/.hermes/cache/scratch/tlloop/a2241/`, k0/kp1/kp2/kt1 sheets): both trucks' passenger sides closed read as a
+door with its window; the pickup's door swings out on its front hinge and the figure steps down beside it; the lorry's
+the same from its steps. The slide itself was judged only from two small crops through the windscreen (a seated figure
+leaning mid-cab, head under the roof): not a slow-motion strip, so the realistic-animation rule is unproven for it.
+Not done: a truck parked door-to-door against another vehicle or a parked car is not caught (hulls are not in
+`obNear`: unchanged from before); the walk to a door still ignores obstacles, as it always did; first person during
+the slide was not looked at. Still open for lane A: the POLISH lines in LOOP.md's backlog (0296 #1 next).
+
 ## 2026-11-19 22:45 — beta fix 0301 #1 / 0308 #1 + #2 / 0316 #1: damaged saves made safe, truck fuel and a driver past the road's end (tlx-vehicles v36, tlx-plow v34, lane A) (G4) — 27edb9d
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0360-0362 triaged (last triaged
 359 -> 362): no BLOCKER or BUG (0360 #1/#2 POLISH: the permanently shut Ifjordfjellet road costs a sled nothing and

@@ -308,6 +308,14 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 - [x] G4 (beta 0320 #1 BUG + #2, fixed tlx-vehicles v34, lane A): a feathered pad trigger stalled dead in 25 cm+ of powder (30%: 0.0 m)
       and a trigger at a tenth was told nothing; light pedal now pulls like an automatic in first, and a held-still truck keeps its
       reason in the driving hint. `x3_crawl.mjs` / `x3_crawl_break.mjs` find a spot again (obNear 25/15). New `x3_feather.mjs`.
+- [x] G4 2.2 (beta 0364 #1 BUG, fixed tlx-vehicles v37, lane A): a truck with a pump beside the driver's door kept you in the cab
+      ("No room to open the door here.", a toast the report missed). Now the passenger door: slide over, out and in on that side.
+      `x2_passdoor.mjs`.
+- [ ] G4 2.2 (beta 0364 #2/#3 POLISH, lane A): the fill toast sums across a move without leaving the pump (115 L "pulled" into a
+      70 L tank, harness only so far: `fuelEnd` is not called when the tank tops up and room reappears); no "Tank full" toast for a
+      truck you walked away from while it fills.
+- [ ] G4 5.4c2b2 (beta 0363 #4 POLISH, lane A): the tow rope on a bogged driver's truck is drawn by which vehicle is current: on
+      the sled (`swapTo(null)`, scripted) the rope mesh goes while the tow stays on. Needs a still from a real Q press first.
 - [ ] G4 (builder, lane A, stale scenarios found gating 0320): `x2_standstart.mjs` fails on origin/main too (2 FAILs: "bog clears once
       the truck sits on plowed ground", "then W drives off along the lane (0.9 m)"), and `x2_vehreverse_break.mjs` fails on main with 4
       (pad LT full/30% back up 0.1-0.2 m, touch stick down 0.0 m, uphill reverse silent). Find out whether the reverse numbers are the
@@ -746,4 +754,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
       reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 362
+Last triaged report: 364
