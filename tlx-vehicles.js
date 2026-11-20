@@ -1110,6 +1110,8 @@ function syncRecords() {
   if (c) { c.x = P.x; c.z = P.z; c.yaw = P.yaw; c.fuel = GS.fuel; c.bog = bogSnap(); c.safe = P.safe ? { x: P.safe.x, z: P.safe.z, yaw: P.safe.yaw } : null; }
 }
 const NUM = v => (typeof v === "number" && isFinite(v) ? v : 0);
+/* a tank reading made safe: a finite number in 0..cap (cap 0 = no upper limit); a string, NaN, null or junk is an empty tank */
+function fuelNum(v, cap) { const f = typeof v === "number" || (typeof v === "string" && v.trim() !== "") ? +v : NaN; return Number.isFinite(f) ? Math.max(0, cap > 0 ? Math.min(cap, f) : f) : 0; }
 function save() {
   const s = S(); syncRecords();
   s.owned = s.owned.filter(r => byId(r.id));
@@ -2049,6 +2051,8 @@ TLX.register({
     _q1 = new T.Quaternion(); _q2 = new T.Quaternion(); _q3 = new T.Quaternion(); _Y = new T.Vector3(0, 1, 0); _X = new T.Vector3(1, 0, 0); _p = new T.Vector3(); _s = new T.Vector3(); _mm = new T.Matrix4();
     const s = S();
     s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(r => r && byId(r.id)).map(r => Object.assign({ x: 0, z: 0, yaw: 0, fuel: byId(r.id).fuel, cond: 100, load: [] }, r, { load: Array.isArray(r.load) ? r.load : [] }));
+    for (const r of s.owned) r.fuel = fuelNum(r.fuel, byId(r.id).fuel);          /* beta 0301 #1 / 0308 #2: a damaged save's tank ("abc", NaN, -5, 9999) is a number in 0..the tank's size before anything reads it */
+    if (s.sled && typeof s.sled === "object") s.sled.fuel = fuelNum(s.sled.fuel, 0);
     if (s.sled && !Array.isArray(s.sled.load)) s.sled.load = [];
     api.veh.block = blockWalker;
     if (a.ridex) a.ridex.unshift(stillLine);                                     /* why a held truck stands still, in the driving hint (0320 #1) */

@@ -321,7 +321,7 @@ await section("K reload with the truck out; an orphan", async () => {
   a = await J(`({ q: __pdr(${rid}), t: __tk(${uid}), sn: [__rt(${rid}).st.s[${I - 1}], __rt(${rid}).st.s[${I}]] })`);
   ok(a.sn[0] === 0 && a.sn[1] === 0 && (await cashNow()) > c0 && a.q.st === "home" && !a.t.out && a.t.vis, "the work goes on: both opened, the truck back on its spot");
   const r = await ev(`(() => { try { const t = TLXV.state().owned.find(q => q.uid === ${uid}); t.out = "with nobody"; t.outBy = "plow"; TLXPL.pdr.sweep(); const o1 = t.out; TLXV.setOut(${uid}, "with a stranger", "other"); TLXPL.pdr.sweep(); const o2 = t.out; TLXV.setOut(${uid}, null);
-    const s = TLX.state("plow"); s.pdr[${rid}].truck = "v999"; s.pdr[${rid}].st = "out"; TLXPL.tidy(); const q1 = JSON.parse(JSON.stringify(s.pdr[${rid}])); TLXPL.con.step(); TABLET.toggle(true, "staff"); TABLET.render();
+    const s = TLX.state("plow"); s.pdr[${rid}].truck = "v999"; s.pdr[${rid}].st = "out"; TLXPL.tidy(); const q1 = JSON.parse(JSON.stringify(s.pdr[${rid}])); GS.hour += 0.01; TLX.state("roads").h = GS.hour; /* the step needs the clock to have moved: without this the check hung on where in the 0.5 s step cycle it landed */ TLXPL.con.step(); TABLET.toggle(true, "staff"); TABLET.render();
     return JSON.stringify({ o1, o2, q1, q2: s.pdr[${rid}], where: TLXPL.pdr.where(${rid}) }); } catch (e) { return "THREW " + e.message; } })()`);
   console.log("  ", r);
   const q = /^THREW/.test(r) ? null : JSON.parse(r);

@@ -1056,7 +1056,13 @@ const pdrFirst = m => String(m.name || "Your driver").split(" ")[0];
 const pdrNote = (title, body, kind) => { try { api.TABLET.notify({ app: "plow", kind: kind || "info", title, body, ttl: 7 }); } catch (e) { } };
 const pdrDue = (c, r) => Object.keys(c.due || {}).map(Number).filter(i => r.seg[i] && r.seg[i].legs.length && r.st.s[i] >= PLC.due).sort((a, b) => a - b);
 const pdrMine = m => !!m && m.kit === "mine";
-const pdrRec = uid => (uid == null ? null : trucks().find(t => String(t.uid) === String(uid)) || null);
+/* beta 0308 #1: a driver's truck is read with a real tank: a fuel that is a string, NaN, negative or past the tank's size is made a number in 0..size here, so no check or note downstream meets "NaN L in the tank" */
+function pdrRec(uid) {
+  if (uid == null) return null;
+  const t = trucks().find(v => String(v.uid) === String(uid)) || null;
+  if (t && !(typeof t.fuel === "number" && t.fuel >= 0 && t.fuel <= 1e4)) { const f = typeof t.fuel === "number" || (typeof t.fuel === "string" && t.fuel.trim() !== "") ? +t.fuel : NaN, cap = pdrDef(t).fuel; t.fuel = Number.isFinite(f) ? Math.max(0, cap > 0 ? Math.min(cap, f) : f) : 0; }
+  return t;
+}
 const pdrDef = t => (window.TLXV ? TLXV.VEHICLES.find(v => v.id === t.id) : null) || { name: "truck", burn: 1 };
 const pdrTName = t => pdrDef(t).name;
 const pdrPasses = uid => { const d = bladeOf(uid); return d && d.w * Math.cos(d.ang) < BL.both ? 2 : 1; };   // a narrow blade cuts each side of the centre line
@@ -1078,8 +1084,17 @@ function pdrTidy(s) {
     if (q.truck != null && !pdrRec(q.truck)) q.truck = null;                     /* the truck is gone */
     q.told = typeof q.told === "string" ? q.told : ""; q.why = typeof q.why === "string" ? q.why : ""; q.rc = !!q.rc; q.hold = !!q.hold;
     if (!Number.isFinite(q.f0)) q.f0 = 0;
+    pdrClamp(q, id);
   }
   pdrSweep();
+}
+/* beta 0316 #1: a driver is never further along than the road is long (a damaged save, a road an update made shorter): a
+   position past the end drove "back" for thousands of game years. Past the end = at the end; at home it is 0. Called from
+   the tidy (once the roads are laid) and at the top of every pdrRun, which has the road in hand. */
+function pdrClamp(q, id, r) {
+  if (q.st === "home") { if (q.p > 0 && !q.aid) q.p = 0; return; }
+  r = r || conR().find(v => v.id === id); if (!r || !(r.len > 0)) return;
+  if (q.p > r.len) q.p = r.len;
 }
 /* a truck marked out by a driver that no driver has out any more comes home (a save edited, a road gone mid-trip) */
 function pdrSweep() {
@@ -1391,6 +1406,7 @@ function pdrRun(c, r, dh, slept) {
     if (was != null) { pdrFree(q); q.truck = null; q.st = "home"; q.p = 0; q.w = 0; q.n = 0; q.cash = 0; q.told = q.why = ""; q.rc = q.hold = false; pdrUnbog(q); pdrAidClr(q); }
   }
   if (!mine && q.truck != null) { pdrFree(q); q.truck = null; }
+  pdrClamp(q, r.id, r);
   const k = pdrSkill(m, r.id), RD = TR.ROADS, SEG = RD.seg, WX = api.WX;
   if (q.st === "stuck") { pdrStuck(c, r, q, m, dh); return; }                    /* 5.4c1: bogged: no work, asleep or awake, wages paid or owed */
   if (q.aid) { if (q.st !== "home") pdrAidClr(q); else { pdrAid(r, q, m, dh); return; } }   /* 5.4c2a: away pulling another driver out: their own road waits */
