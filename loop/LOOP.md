@@ -697,9 +697,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 
 - [x] G4 2.5 (BUG, beta 0285 #1, lane A, fixed tlx-vehicles v33, `x2_trailerhit.mjs`): the sled trailer on a truck's ball (`haulFollow`, tlx-vehicles.js) is never
       tested against obstacles: reversing it into a rock passes through. Give it hull circles like the cab's.
-- [ ] G4 5.4a1 (BUG, beta 0316 #1, lane A): `pdrTidy` takes any finite `p` >= 0; a saved driver position past the
+- [x] G4 5.4a1 (BUG, beta 0316 #1, lane A; fixed tlx-plow v34, `x5_savesafe.mjs`): `pdrTidy` takes any finite `p` >= 0; a saved driver position past the
       road's length (a damaged save) leaves the driver "out"/"back" for good. Clamp `p` to the road's length on load.
-- [ ] G4 2.3 / 5.4a2 (BUG, damaged save only, beta 0301 #1 + 0308 #1, lane A): a truck record whose `fuel` is a string
+- [x] G4 2.3 / 5.4a2 (BUG, damaged save only, beta 0301 #1 + 0308 #1, lane A; fixed tlx-vehicles v36 + tlx-plow v34, `x5_savesafe.mjs`): a truck record whose `fuel` is a string
       or NaN loads as is: boarding sets `GS.fuel` to it (no low-fuel warning, no burn) and a plow driver sets out with
       "NaN L in the tank". Coerce `fuel` to a finite number in 0..cap where truck records are tidied on load.
 - [x] G4 4.2 (BUG small, beta 0279 #1 / 0356 #1 + #2, lane A; fixed tlx-plow v32, `x4_statements.mjs`): the Plow
@@ -746,4 +746,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
       reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 359
+Last triaged report: 362

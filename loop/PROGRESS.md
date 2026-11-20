@@ -3,6 +3,37 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 22:45 — beta fix 0301 #1 / 0308 #1 + #2 / 0316 #1: damaged saves made safe, truck fuel and a driver past the road's end (tlx-vehicles v36, tlx-plow v34, lane A) (G4) — 27edb9d
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0360-0362 triaged (last triaged
+359 -> 362): no BLOCKER or BUG (0360 #1/#2 POLISH: the permanently shut Ifjordfjellet road costs a sled nothing and
+has no boom or sign, no line: it is the unplowed winter road by design, a boom is a 3.1 polish for whoever takes it up;
+0361 #4 `swapTo` on a truck that is out is not reachable by a control; 0362 all ok). Lane A's slice list is done
+(5.4 landed last pass), so by the Status row the open lane-A backlog lines come next: the two BUG lines first.
+What landed:
+- tlx-vehicles.js: `fuelNum(v, cap)` and, in `init`, every owned truck's `fuel` through it (0..the tank's size; a
+  string that is not a number, null, an object = empty; a numeric string is read; a missing key keeps the full tank
+  it always got), the parked sled record's fuel too (no upper limit: the sled's tank is the base game's).
+- tlx-plow.js: `pdrRec` (now a function) makes the same repair on the truck it hands out, so a fuel gone bad in play
+  is caught where every driver check and note reads it; `pdrClamp(q, id, r)`: a position past `r.len` is `r.len`, a
+  "home" record keeps no position; called from `pdrTidy` and at the top of `pdrRun` (the tidy at boot can run before
+  the roads are laid).
+Numbers (before from the reports, after from `x5_savesafe.mjs`, 82 checks, 0 fails):
+- A reload with fuel null / -5 / 9999 / "abc" / "12" / {} / missing / 31.5 on a 300 L plow truck: the record loads as
+  0 / 0 / 300 / 0 / 12 / 0 / 300 / 31.5, type number; before "abc" loaded as "abc" and the cab read null.
+- A driver's assigned truck with fuel "lots" / NaN / null / -40 / Infinity in play: "cannot go out ... tank is
+  empty", driver home, record 0; before "lots" and NaN set out with "NaN L in the tank". 1e9: set out on 300 L.
+- Saved `p` 1e12 (out) / 9e9 (back): 1,604-1,624 m on the 2,008 m Dyfjord road half a second after the load, home
+  with p 0 inside 6 h, truck back on its spot; before: p fell 37 km in 3 h of clock, about 80,000 game years to go.
+  Home with p 5e8: 0. A real half-way position is not moved to the end.
+Gate: smoke, x1_save, x5_savesafe, x5_plowdriver_pdr_hostile_beta (the tester's: 5 FAILs on v33, 0 now),
+x5_assign_hostile_beta (0 fails), x5_plowdriver_mine: exit 0, page errors none.
+Test fixed on the way: `x5_plowdriver_mine.mjs` "a driver out in a truck that no longer exists" called
+`TLXPL.con.step()` without moving the clock, so it passed or failed by where in the 0.5 s step cycle it landed
+(3 fails in a row here, a pass on main and a pass with a probe line added; `dh` 0 vs 0.003 h). It moves the clock
+0.01 h first now: 2 passes of 2.
+Not done: no README line (nothing a player with a sound save meets). Still open for lane A: the POLISH lines in
+LOOP.md's backlog (0296 #1 the ragged edge on the road-credit pass is the next BUG-ish one: measure first).
+
 ## 2026-11-19 21:55 — 5.4c2b2: TOW THEM, your own tow rope on a bogged driver's truck (tlx-plow v33, lane A) (G4) — 37ead12
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0358-0359 triaged (last triaged
 357 -> 359): neither has a BLOCKER or BUG (0358 #4 POLISH unverified, a truck record's `vis` after a quit: no line,
