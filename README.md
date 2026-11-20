@@ -1171,8 +1171,19 @@ meanwhile. While help is on the way the bogged driver stays with the truck howev
 (the cold still costs their mood), a tow cannot be paid on top, and the Map shows the helper's pin
 moving along the road. If the helper leaves your books on the way you are told nobody is coming;
 if the bogged truck gets free some other way the helper turns round. An abandoned truck still
-needs the tow truck. Not yet: seeing the helper's truck on the road, and towing a bogged driver
-out yourself.
+needs the tow truck.
+
+**The helper on the road.** A driver you have sent is out there to be seen: the truck leaves the
+spot it was parked on (a truck of yours finds its way off the forecourt as it does to plow), drives
+by road in the right-hand lane with its blade carried and its beacon going, and stops a rope's
+length short of the bogged truck. There it turns its tail to it, a rope goes on between the two,
+and at the end of the half hour you can watch the pull: the bogged truck comes back a couple of
+metres and straightens onto the cut while the helper creeps toward home. Then the rope comes off,
+the bogged driver plows on and the helper drives in on the other side of the road. While you are
+within 600 m the helper keeps a truck's real speed (45 km/h), and stands in its lane short of you
+if you are in the way; the time that costs is not counted against either road, nor against the
+driver waiting in the cold. The helper's Map pin is where the truck is. Not yet: towing a bogged
+driver out yourself.
 
 **From its parking spot and back.** A driver in your truck starts where you left the truck. They
 drive it off its spot, over the plowed ground and the streets and round the houses, onto the roads
