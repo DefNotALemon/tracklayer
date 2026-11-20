@@ -82,6 +82,39 @@ and 1.95 game hours) are 6.3b2b's measured numbers plus 6.1 s, not re-measured; 
 A trip saved mid-stop under v6 keeps its old, shorter `uT`: that one stop ends about 6 s before the driver is back
 in the saddle (a cut, once).
 Next for lane B: 6.3b2d (pulling away, turning round), then 6.3c.
+## 2026-11-19 20:50 — beta fix 0354 #1: the helper-seen scenario no longer measures a truck that is still moving (test only, lane A) (G4) — e5eb717
+Builder pass, lane A. Orient: worktree clean, rebased on main, 121 GB free. Reports 0352 (5.4c2a SEND by real touch and
+pad), 0353 (3.5c convoy option toggled mid-wait) and 0354 (5.4c2b1 helper seen) read, last triaged now 354. No
+BLOCKER. One BUG, 0354 #1: 5.4c2b1's own scenario failed one check in the tester's first run and none in the second
+(the failing line was not kept). A flaking gate scenario costs every lane a false regression, so it came before
+5.4c2b2. POLISH and untested items went to the LOOP.md backlog as three lines (0352 #3/#4 small SEND / PAY A TOW
+buttons at 640x360 and their place in the pad's focus order; 0353 #1 the `convoy` option switched off and on leaves a
+waiting road open; 0354 #2 SEND while you sit in the truck the helper would take, not yet in a scenario).
+Looking for it: the scenario as landed, 3 at once and then 6 at once on this Mac (two other headless Chromes running):
+9 runs, 0 FAILs, so the failure itself was NOT reproduced. The logs did show which check is thin. The scenario puts
+the clock forward to the roping up and takes its "at the truck" numbers the moment the rope first exists; at that
+moment the helper's truck, first drawn part-way along its line, is still sliding from the centre line into its lane
+and finishing its turn (speed 1.6-2.3 m/s, lane offset 0.99-1.55 of 1.6 m). The rope measured then was 4.71-5.44 m in
+those 9 runs, against 4.51-4.52 m during the pull, and the check is "within 1.2 m of the first": 0.93 m of the 1.2 used
+in the worst run, with the same spread in "the bogged truck has come back" (2.24-3.38 m for a true 2.0). A slower
+frame or two more and it fails. That is the most likely line; it is an inference from the spread, not a caught failure.
+What landed (test only, `x5_plowdriver_aidseen.mjs`): `waitZ(id, pred, ms)` polls what is seen until a condition holds
+(deadline 15-30 s, says so when it passes) and replaces every fixed sleep before a read of the seen truck (parked
+before the send, roped, free, heading in, you in its lane, parked again, going out, your own truck seen, after the
+reload); `settled(id)` waits for a truck to stand still (three reads 200 ms apart with the game clock moving and
+position, yaw and rope unchanged) and the roped numbers are taken after it for both trucks; the two speed checks start
+once the truck is in its lane and rolling and run over 2 / 2.5 s of the GAME clock rather than 4-5 s of wall time; a
+failed check is printed again at the end of the log (`   failed: ...`), so a kept tail names it. No game file changed,
+no version bump.
+Numbers, before -> after (6 runs at once each): rope at rest 4.71-5.44 -> 4.63-4.65 m; the bogged truck back
+2.24-2.91 (3.38 in the runs of 3) -> 2.01-2.05 m; the helper crept 1.88-1.95 -> 1.84-1.88 m (the true figure, haul x
+pull, is 1.85); heading in 12.3-12.7 m/s both; 52 ok and 0 FAILs in 7 of 7 runs after the change (1 alone, 6 at once);
+no deadline passed in any of them.
+Gate: smoke exit 0 (page errors none), x1_save exit 0, x5_plowdriver_aidseen exit 0, 0 FAILs.
+Seen on the way, not fixed (a game matter, logged in LOOP.md with 0354 #2): a helper's truck first drawn part-way
+along its line (a clock put forward, a reload) starts on the centre line and slides into its lane over a second.
+Not verified: that this was the tester's failing line (not reproduced); stills (none taken, nothing drawn changed).
+Next for lane A: 5.4c2b2 (tow a bogged driver out yourself).
 
 ## 2026-11-19 20:10 — 5.4c2b1: the helper you sent is seen on the road, the rope, the pull (tlx-plow v31, lane A) (G4) — cef560d
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0350 (4.2 DROP / TAKE ON by real

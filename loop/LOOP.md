@@ -731,4 +731,14 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 6.3b2a (POLISH, beta 0334 #2/#6, lane B): `x6_oilsled` assert F flakes on a loaded machine (0.54 m for
       < 0.5 m); a clock skip pops the oil sled along the line. Lane B's.
 
-Last triaged report: 351
+- [ ] G4 5.4c2a (POLISH, beta 0352 #3/#4, lane A): at 640x360 SEND / PAY A TOW on a bogged driver's Staff card are
+      about 50 x 22 px (a min-height of ~30 px for `.tbtn` rows in a narrow pane), and on a pad they come last in
+      the focus order, after the next card's row (16 presses from the card).
+- [ ] G4 3.5c (POLISH, beta 0353 #1, lane A): the `convoy` option switched off and on again while a road waits for
+      its convoy leaves the road open (the wait is not rebuilt from the road's snow).
+- [ ] G4 5.4c2b1 (untested, beta 0354 #2, lane A): SEND pressed while you sit in the very truck the helper would
+      take (`kit "mine"`, swapped into before the send). 5.4a2's rule is "you in the cab and they wait"; check that
+      SEND is not offered, in a scenario. Also seen while fixing 0354 #1: a helper's truck first drawn part-way along
+      its line (a clock put forward, a reload) starts on the centre line and slides into its lane over a second.
+
+Last triaged report: 354
