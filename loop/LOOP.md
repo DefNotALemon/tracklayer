@@ -742,8 +742,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       SEND is not offered, in a scenario. Also seen while fixing 0354 #1: a helper's truck first drawn part-way along
       its line (a clock put forward, a reload) starts on the centre line and slides into its lane over a second.
 - [ ] G4 5.4c2b1 (POLISH, beta 0355 #4, lane A): the helper's truck cannot be hailed and has nothing to say while
-      every other driver's truck can. Decide with 5.4c2b2 (tow them yourself), which may want a word from it.
+      every other driver's truck can. (5.4c2b2 landed without needing a word from it: still open.)
 - [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
       reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 357
+Last triaged report: 359

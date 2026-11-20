@@ -3,6 +3,55 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 21:55 — 5.4c2b2: TOW THEM, your own tow rope on a bogged driver's truck (tlx-plow v33, lane A) (G4) — 37ead12
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0358-0359 triaged (last triaged
+357 -> 359): neither has a BLOCKER or BUG (0358 #4 POLISH unverified, a truck record's `vis` after a quit: no line,
+it is the distance cull; 0359 #5 a note on the 90-line cap: no line). So the next unticked slice: 5.4c2b2, the last
+of 5.4. Its design was three lines and pointed at "2.6's tow", which is the sled trailer's: there was no truck rope
+or winch to reuse. Design written into EXPANSION.md, then built.
+What landed: tlx-plow.js only. `PDR.tow`, `PDT`, `pdtBog` / `pdtMine` / `pdtEnd` / `pdtTruck` (the eyes and the truck
+of yours nearest one), `pdtHook` / `pdtDrop` / `pdtFree`, `pdtTick` (the pull), `pdtLine` (the driving hint, first in
+`rideLine`), `PDTOWX` (the footx provider, pushed ahead of the hail), `pdrRopeMesh` split out of `pdrRope`, `Z.tw` in
+`pdrSee`, `pdrCutBack`, a line in the ping and in what the hailed driver says. README, index.html (tlx-plow v33; no
+tracklayer.js change, no script version bump).
+Decisions: (1) NO PART TO BUY: every truck carries the rope; the brief's "winch or tow rope" as a shop item would
+gate a rescue behind a purchase nobody knew they needed. (2) THE TRUCK COMES ALONG THE ROAD, not wherever the rope
+points: it is an outPose model on the road's line (no body of its own), so the rope's pull is projected onto the
+road and a pull more than 60 degrees off it moves nothing. (3) YOUR TRUCK IS HELD ON THE ROPE by position and by
+speed along the rope (`P.x/z`, `P.vx/vz`), no new force in tlx-vehicles: it leaves no faster than the bogged truck
+comes (1.2 m/s). (4) THE ROPE IS TIED TO A TRUCK'S UID, NOT TO `curUid`: found by the scenario, on foot tlx-vehicles
+makes the NEAREST machine current, so "the truck you drive" flipped to the sled the moment the sled was nearer and
+the first build dropped the rope. Hooking takes the nearest truck of yours; the pull needs you at that truck's
+wheel; on the sled the rope stays and pulls nothing. (5) AN ABANDONED TRUCK IS NOT TOWED (nobody to steer it): the
+eye says it needs the tow truck. Bringing it home by magic in front of you was the alternative. (6) THE CUT BEHIND
+IT: found while building, a truck that bogged out of your sight had cut nothing (a stretch opens only at its far
+end), so the pickup would have had 13 to 400 m of 30-80 cm snow between it and the truck, and no cut to pull onto.
+`pdrCutBack` lays the bogged truck's lane from the start of its stretch, 8 m a frame, once you are within 320 m.
+(7) from the nose the truck plows on from where it was pulled to (`q.p` moved, never past its stretch). (8) a paid
+tow is called off without a refund; a helper turns round by 5.4c2a's own rule. (9) `pdrBog` zeroes what is left of
+an earlier pull (a slow frame rate left 6 m of it on the truck at the next bog). (10) nothing saved.
+Numbers (`x5_plowdriver_towthem.mjs`, new, A-C, 51 asserts, 0 FAILs, two clean runs after the last
+change: one with stills, one in the gate). Snow in the lane behind a truck bogged unseen: 0.81 / 0.31 / 0.47 m before, 0.13 / 0.10 / 0.11 m once you
+are in range. Keyboard pull, tail to tail, eyes 4.97 m apart, 3.2 m of slack: the bogged truck came back 9.99 m,
+the eyes never more than 8.11 m apart on the 8 m rope, your speed on the tight rope at most 1.20 m/s, yaw -2.904 ->
+-2.624 (out of the windrow). Held W from 3.2 m of slack does snatch once (the pickup passes 16 km/h in 3 m), then
+pulls: left as it is, the hint says to take it up at a crawl. Snatch at 7 m/s: 0.04 m/s along the rope after, the
+truck not moved. Across the road: truck moved 0.00 m, eyes held at 8.10 m. From the nose with a helper on the way:
+out, `q.p` +10.0 m, the helper turned round. HOOK ON / UNHOOK asserted on keyboard (E), a pad (L3) and the touch
+button.
+Stills (`~/.hermes/cache/scratch/tlloop/b43tow/`): t1 the rope lying slack on the snow between the two tails, the
+walker at the eye, "E: unhook the tow rope"; t2 the rope straight and tight mid-pull, the hint "TOW ROPE tight ·
+... has come 4.5 of 10 m". t3 (after) shows the notification and the toast but the camera missed both trucks:
+nothing to judge there. Not looked at: night, the 640x360 embed, a phone.
+Not verified: the pull with a pad's analogue trigger or the touch throttle (the hook and unhook were, the driving
+was keys and a puppet); a real walk from the cab to the eye (the walker was placed); the plow truck or the lorry as
+the towing truck; a bog 300 m into a stretch (the cut laid here was 25 m); two bogged trucks at once.
+Gate: smoke, x1_save, x5_plowdriver_towthem, x5_plowdriver_aidseen, x5_plowdriver_stuck, x5_plowdriver_send,
+x5_plowdriver_hail, x5_plowdriver_seen, x5_plowdriver: each exit 0, fails 0, page errors none, one run.
+Next for lane A: its list (3.5, milestone 4, 5.4) is done. Open lane-A backlog lines in LOOP.md (5.4c2a card
+buttons at 640x360, 3.5c convoy option toggle, three untested 5.4c2b1 cases), then an unowned milestone (9, 16-19)
+by the Lanes claim rule: write the claim in the Lanes table and push it alone before building.
+
 ## 2026-11-19 21:15 — beta fix 0279 #1 / 0356 #1 + #2: the Plow app's Statements keep whole weeks (tlx-plow v32, lane A) (G4) — 9f18b55
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0355-0357 triaged (last triaged
 354 -> 357): 0355 no BUG (#4 POLISH, the helper's truck cannot be hailed: backlog line, to decide with 5.4c2b2);
