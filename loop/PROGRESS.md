@@ -3,6 +3,65 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-19 20:10 — 5.4c2b1: the helper you sent is seen on the road, the rope, the pull (tlx-plow v31, lane A) (G4) — cef560d
+Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0350 (4.2 DROP / TAKE ON by real
+tap and pad) and 0351 (5.4c2a SEND break test) read, last triaged now 351. No BLOCKER. 0350 #3 was marked "BUG?"
+(one run in three a real tap on TAKE ON did nothing, the button measured 65x27 instead of 69x31, "does the app
+re-render on a timer?"), so it was looked at first with a probe (scratch, not committed: the button's rectangle,
+`TABLET.z` and the render count every 100 ms after `TABLET.toggle(true, "plow")`): the rectangle grows with the
+tablet's opening animation (2x1 px at z 0.17, 62x38 at z 0.95) and is steady from z = 1, which came 625 ms of wall
+time after the toggle in a quiet run; the app's 6 s refresh (`live: 6`, held off while a pointer is down) came at
+12.5 s and moved nothing. The tester's scenario measures and taps 700 ms after the toggle, so under load it measures
+a button that is still growing and taps where it no longer is. Closed as most likely a test artefact; not proven (the
+failing run itself was not reproduced). For the tester: wait for `TABLET.z === 1` before measuring. 0350 #2 / #4
+(POLISH: TAKE ON appears under the finger after DROP; 27-31 px tap targets) and 0351 #3 (POLISH: a truck spliced out
+of the records mid-errand leaves `truck` on the helper's record until the next save's tidy; the bogged driver IS told
+nobody is coming, `pdrStuck`) are left. So the pass took the next unticked slice, 5.4c2b. Too big for one pass: split
+in EXPANSION.md into 5.4c2b1 (the helper seen: built) and 5.4c2b2 (tow them out yourself).
+What landed: tlx-plow.js `pdrSeeAid` (the helper's truck on `pdrAidLine`, through the same `PDS` entry as a plowing
+truck, `Z.aid`), `pdrSeeNew` (the making of a seen truck, lifted out of `pdrSee` unchanged), `pdrRope` / `pdrHook` /
+`pdrRopeDrop` (the rope), `pdrPullK` (the pull, read by `pdrSee` for the bogged truck: back `haul` m, off the windrow,
+straight), `pdrAidNear`; `pdrAid` drives at a truck's speed in your sight and stops for you (`kv`), the hours lost go
+to `PDLOST` and, through `PDAIDK`, off the bogged driver's hours and that road's clocks (`pdrStuck`); `pdrAidLine`
+keeps its far end on the helper's record (`aidX`, `aidZ`, saved, cleaned in `pdrTidy` / `pdrAidClr`) and gives a truck
+of yours 5.4b2b's `pdrGrid` leg from its parking spot; `pdrPins` puts the helper's pin on the seen truck. README,
+index.html (`tlx-plow.js?v=31`). No tracklayer.js change, so no script version bump.
+Decided: one model, not two (a driver's own parked truck becomes the helper and is parked again); the helper turns on
+the spot at the bogged truck, tail to it (it has to turn for home anyway, and a rope on the nose would run through
+the blade); the rope lies on the snow where the snow is higher than the towing eyes (the trucks stand axle-deep);
+only driving is slowed by your sight, not the roping up; the helper cannot be hailed.
+Numbers (`x5_plowdriver_aidseen.mjs`, 52 asserts A-D, 0 FAILs alone twice; a game hour is 50 s, so the clock's 12 km
+an hour is 240 m a real second out of sight): sent, the same truck (`pdr:gamvik`) is the helper 0.0 m from its spot;
+at the bogged truck 5.6 km on it stops 11.1 m short, nose 165 deg off it, rope 5.1 m, ends 3.2-3.3 m from each truck's
+middle and 0.75 m over the ground, never under the snow between them; at 74% of the pull the bogged truck has come back
+3.0 m toward the helper and turned 0.22 rad straighter, the helper has crept 1.9 m,
+the rope 4.5 m; free: no rope left in the scene. Heading in while watched: 12.4 m/s (45 km/h) by the game clock, in
+the other lane (-1.6 m), its clock at the same pace, 95% of each step's hours lost to nobody; you 12 m ahead in its
+lane: 0.00 m moved in 2.5 s and `aidB` unchanged. Watched on the way out: 12.6 m/s, `aidT` down 0.0032 h and the
+bogged driver's hours up 0.0032 h while the game clock went 0.064 h. Your plow truck as the helper: a 448 m line of
+94 points from its parking spot, 0 of 76 sampled points in a wall or the water; the seen truck is `v1` itself; a
+reload mid-way keeps `aidX / aidZ / aidL` and finds the truck 2-11 m from where the clock has it; the bogged driver let
+go: turned round, still seen, still pinned; back in: no `PDS` entry, the truck on its spot to 1 cm. A record without
+`aidX` (a 5.4c2a save): line, pin and truck are there; junk in them is wiped; a far end at 1e9 throws nothing.
+Gate: smoke exit 0 (page errors none), x1_save exit 0, x5_plowdriver_send exit 0 (69 ok: its line, clock and diesel
+numbers are unchanged, it runs with `wayMax = 0`). Also run alone, all exit 0 and 0 FAILs: x5_plowdriver_stuck (63
+ok), x5_plowdriver_seen (49), x5_plowdriver_send_break_beta (20), x5_plowdriver_way (38), x5_plowdriver_mine (73),
+x5_plowdriver_hail (42; its log has one page error from the run's first page load, four scripts reset by the http
+server, `ERR_CONNECTION_RESET`, before lib.mjs loaded the page again: the known fetch flake, not this slice).
+Looked at: `s1_roped.jpg`, `s2_pull.jpg` (two orange plow trucks tail to tail on the fjord road, a thin tan rope
+lying on the snow between their tails; in s2 they are closer to in line) and `s3_heading_in.jpg` (the helper alone on
+the road, blade up, beacon on the roof). The rope is thin at 13 m (3 cm drawn 6 cm wide): it reads, but only just. The
+first try had it invisible, hooked 0.27 m under the snow's top.
+Not verified: at night; the rope where the helper arrives nose to nose (from the far end of the road: built, the
+nearer end is taken, not seen); a pickup as either truck (the plow truck's body only); the helper waiting short of
+your truck's parking spot with you on it (built, not asserted); frame time (one tube of 100 triangles and one more
+seen truck, not measured); the traffic's cars meeting the helper (it is a `led` record like a plowing truck's).
+Not done, by design (5.4c2b2): towing a bogged driver out yourself. Not done: the helper's U-turn is the spin on the
+spot every heading-in truck does; nobody gets out to rope up.
+Follow-ups for the tester: the helper at night and in a storm; you parked ACROSS the road at the bogged truck when
+the helper arrives; the traffic option on; selling your truck while the helper has it (0351 #3); a reload during the
+pull (the rope should be back after the load).
+
 ## 2026-11-19 19:50 — 5.4c2a: SEND another driver to a bogged one (tlx-plow v30, lane A) (G4) — c668042
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0347 (3.5c options toggled: no
 findings, one scenario gap), 0348 (4.2b2 hostile save: one POLISH, a junk `win` key that nothing reads) and 0349
