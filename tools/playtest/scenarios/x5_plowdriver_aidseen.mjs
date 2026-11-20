@@ -16,7 +16,7 @@
 //   D a save from before this slice (no aidX / aidZ) and junk in them: nothing throws, the pin is there.
 // Stills (OUT): s1 roped up, s2 the pull, s3 the helper heading in.
 import { boot, ev, sleep, done, reload, shot, park } from "../lib.mjs";
-let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
+let fails = 0; const FAILED = []; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) { fails++; FAILED.push(m); } };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const NOSTILLS = !!process.env.NOSTILLS;
 const section = async (n, f) => { console.log("--- " + n); try { await f(); } catch (e) { ok(false, n + " threw: " + String(e.message).slice(0, 300)); } };
@@ -56,6 +56,12 @@ const RID = "dyfjord", HID = ids.find(i => i !== RID), rid = JSON.stringify(RID)
 console.log("   roads", JSON.stringify(ids), "bogged on", RID, "helper from", HID, "| a game hour is", await ev(`GAMEHOUR`), "s");
 const pdr = (id = RID) => J(`__pdr(${JSON.stringify(id)})`);
 const z = (id = HID) => J(`__z(${JSON.stringify(id)})`);
+/* What is SEEN runs on the render clock, and a loaded machine renders slowly: read it on a deadline, never after a
+   fixed sleep (beta 0354 #1: one run in two failed a check under load). waitZ polls until pred(seen) holds;
+   settled waits until the seen truck has stopped easing (the clock put forward leaves it sliding into its lane and
+   turning for a second or two: a rope measured then is up to a metre longer than the one it ends with). */
+const waitZ = async (id, pred, ms = 15000) => { let R = null; for (let t = 0; t <= ms; t += 150) { R = await z(id); if (pred(R)) return R; await sleep(150); } console.log("   (waitZ: deadline passed, last seen", JSON.stringify(R).slice(0, 200) + ")"); return R; };
+const settled = async (id, ms = 15000) => { let a = await z(id), n = 0; for (let t = 0; t <= ms && n < 3; t += 200) { await sleep(200); const b = await z(id); n = a && b && b.gc > a.gc && Math.hypot(a.x - b.x, a.z - b.z) < 0.004 && Math.abs(a.yaw - b.yaw) < 0.002 && a.rope === b.rope && Math.abs(a.ropeL - b.ropeL) < 0.004 ? n + 1 : 0; a = b; } if (n < 3) console.log("   (settled: deadline passed)"); return a; };
 const km = v => ev(`TLXPL.PDR.bog.km = ${v}; true`);
 const still = async (name, a, b, dist = 13, h = 3.4) => { if (NOSTILLS) return; await ev(`__look(${JSON.stringify(a)}, ${JSON.stringify(b)}, ${dist}, ${h})`); await sleep(400); await shot(name); await ev(`window.__cam = null; true`); };
 let I = 1, IH = 1, UID = "", uid = "";
@@ -88,8 +94,8 @@ await section("A own trucks: the helper on the road, the rope, the pull, the way
   ok((await hire(RID, "own")) && (await hire(HID, "own")), "a driver with their own truck on each road");
   let q = await bogNow(); ok(q.st === "stuck", "the Dyfjord driver is bogged");
   SP = await J(`(() => { const s = TLXPL.pdr.spot(__rt(${hid})); return { x: s.x, z: s.z }; })()`);
-  await ev(`__me(${SP.x} + 45, ${SP.z} + 45)`); await sleep(900);
-  let h0 = await z(); console.log("   parked:", JSON.stringify(h0));
+  await ev(`__me(${SP.x} + 45, ${SP.z} + 45)`);
+  let h0 = await waitZ(HID, R => R && R.vis && !R.aid); console.log("   parked:", JSON.stringify(h0));
   ok(h0 && !h0.aid && dist(h0, SP) < 1.5 && h0.vis, "before the send the helper's own truck is parked on its spot");
   await far(); await sleep(200);
   await ev(`TLXPL.PDR.aid.hitch = 5; true`);                                      /* a long roping up, so the test can look at it (a game hour is 50 s) */
@@ -104,8 +110,8 @@ await section("A own trucks: the helper on the road, the rope, the pull, the way
   await ev(`__q(${(T0 - HITCH * 0.95).toFixed(4)}, 0.06)`); h = await pdr(HID);
   ok(h.aidT <= HITCH + 1e-6 && h.aidT > HITCH * 0.7, `the clock has them at the truck, roping up (${h.aidT.toFixed(3)} h of the ${HITCH} left)`);
   let R = null, B = null;
-  for (let n = 0; n < 30; n++) { await sleep(300); R = await z(); if (R && R.rope) break; }
-  B = await z(RID); h = await pdr(HID);
+  await waitZ(HID, R => R && R.rope, 20000); R = await settled(HID);              /* roped AND come to rest: the numbers below are of standing trucks */
+  B = await settled(RID); h = await pdr(HID);
   console.log("   at the truck:", JSON.stringify(R)); console.log("   bogged:", JSON.stringify(B));
   const end = { x: h.aidX, z: h.aidZ }, gap = await ev(`TLXPL.PDR.aid.gap`), d0 = dist(R, end);
   ok(R.aid && d0 > gap - 3 && d0 < gap + 3, `the helper has stopped ${d0.toFixed(1)} m short of the bogged truck's place (gap ${gap})`);
@@ -129,11 +135,12 @@ await section("A own trucks: the helper on the road, the rope, the pull, the way
   ok(R2.rope && Math.abs(R2.ropeL - R.ropeL) < 1.2 && (await ev(`__ropes()`)) === 1, `the rope between them is still ${R2.ropeL.toFixed(2)} m`);
   await still("s2_pull", HID, RID);
   // free
-  await clearNotes(); await ev(`__q(${(HITCH * pullAt * 0.3 + 0.02).toFixed(3)}, 0.06); TLXPL.PDR.aid.hitch = 0.5; true`); q = await pdr(); h = await pdr(HID); await sleep(1200);
-  let R3 = await z();
+  await clearNotes(); await ev(`__q(${(HITCH * pullAt * 0.3 + 0.02).toFixed(3)}, 0.06); TLXPL.PDR.aid.hitch = 0.5; true`); q = await pdr(); h = await pdr(HID);
+  let R3 = await waitZ(HID, R => R && !R.rope) || {};
   ok(q.st !== "stuck" && h.aidB > 0 && !R3.rope && (await ev(`__ropes()`)) === 0, "free: the bogged driver plows on, the helper heads in, the rope is gone");
   // watched on the way home: a truck's speed, the other lane, the hours nobody's
-  await sleep(2500); const a = await z(), ha = await pdr(HID), ga = await ev(`GS.hour`); await sleep(4000); const b = await z(), hb = await pdr(HID), gb = await ev(`GS.hour`);
+  await waitZ(HID, R => R && R.vis && R.off < -1.5 && R.v > 6);
+  const a = await z(), ha = await pdr(HID), ga = await ev(`GS.hour`), b = await waitZ(HID, R => R && R.gc - a.gc > 2, 30000), hb = await pdr(HID), gb = await ev(`GS.hour`);   /* over 2 s of the GAME clock, however long that takes */
   const v = (a.s - b.s) / Math.max(0.01, b.gc - a.gc), lost = await ev(`TLXPL.pdr.lost[${hid}]`), kk = await ev(`TLXPL.pdr.aidK[${hid}]`), vR = await ev(`TLXPL.PDR.vRoad`);
   console.log(`   heading in: ${(a.s - b.s).toFixed(1)} m in ${(b.gc - a.gc).toFixed(2)} game s = ${v.toFixed(1)} m/s; aidB ${ha.aidB.toFixed(4)} -> ${hb.aidB.toFixed(4)} h in ${(gb - ga).toFixed(4)} h; lost ${lost}, share ${kk}; off ${b.off.toFixed(2)}`);
   ok(v > 6 && v < 14.5, `in your sight the helper drives home at a truck's speed (${(v * 3.6).toFixed(0)} km/h)`);
@@ -144,23 +151,23 @@ await section("A own trucks: the helper on the road, the rope, the pull, the way
   ok(pin && Math.hypot(pin.x - zb.x, pin.z - zb.z) < 6, "its Map pin is where the truck is");
   await still("s3_heading_in", HID, HID, 12, 3.2);
   // you in its lane
-  await ev(`(() => { const Z = TLXPL.pdr.seen.get(${hid}); return __me(Z.x + Math.sin(Z.yaw) * 12, Z.z + Math.cos(Z.yaw) * 12); })()`); await sleep(1500);
-  const c0 = await z(), hc0 = await pdr(HID); await sleep(2500); const c1 = await z(), hc1 = await pdr(HID);
+  await ev(`(() => { const Z = TLXPL.pdr.seen.get(${hid}); return __me(Z.x + Math.sin(Z.yaw) * 12, Z.z + Math.cos(Z.yaw) * 12); })()`); await waitZ(HID, R => R && R.v < 0.05);
+  const c0 = await z(), hc0 = await pdr(HID), c1 = await waitZ(HID, R => R && R.gc - c0.gc > 1.5, 30000), hc1 = await pdr(HID);
   console.log(`   you in its lane: moved ${dist(c0, c1).toFixed(2)} m, aidB ${hc0.aidB.toFixed(5)} -> ${hc1.aidB.toFixed(5)}, blocked ${await ev(`TLXPL.pdr.blocked(${hid})`)}`);
   ok(dist(c0, c1) < 1.2 && Math.abs(hc0.aidB - hc1.aidB) < 2e-4, "you in its lane: it waits short of you, and its clock with it");
   // home
   await far(); await ev(`__q(${(LEN / 12000 + 0.1).toFixed(3)}, 0.06)`); h = await pdr(HID);
   ok(!h.aid && !("aidX" in h) && !("aidZ" in h), "back in: nothing left of the errand on the record");
-  await ev(`__me(${SP.x} + 45, ${SP.z} + 45)`); await sleep(1500);
-  const p1 = await z();
+  await ev(`__me(${SP.x} + 45, ${SP.z} + 45)`);
+  const p1 = await waitZ(HID, R => R && R.vis && !R.aid);
   ok(p1 && !p1.aid && dist(p1, SP) < 1.5 && !p1.rope, `and their truck is parked on its spot again (${p1 ? dist(p1, SP).toFixed(2) : "?"} m off)`);
   ok(await home(), "everyone home");
 });
 
 await section("B watched on the way out", async () => {
   let q = await bogNow(); ok(q.st === "stuck" && (await send()) === true, "bogged, the other driver sent");
-  await ev(`__me(${SP.x} + 60, ${SP.z} + 60)`); await sleep(2500);
-  const a = await z(), ha = await pdr(HID), qa = await pdr(), ga = await ev(`GS.hour`); await sleep(5000); const b = await z(), hb = await pdr(HID), qb = await pdr(), gb = await ev(`GS.hour`);
+  await ev(`__me(${SP.x} + 60, ${SP.z} + 60)`); await waitZ(HID, R => R && R.aid && R.vis && R.off > 1.5 && R.v > 6);
+  const a = await z(), ha = await pdr(HID), qa = await pdr(), ga = await ev(`GS.hour`), b = await waitZ(HID, R => R && R.gc - a.gc > 2.5, 30000), hb = await pdr(HID), qb = await pdr(), gb = await ev(`GS.hour`);
   const v = (b.s - a.s) / Math.max(0.01, b.gc - a.gc), dT = ha.aidT - hb.aidT, dS = qb.sk - qa.sk, dG = gb - ga;
   console.log(`   going out: ${(b.s - a.s).toFixed(1)} m in ${(b.gc - a.gc).toFixed(2)} game s = ${v.toFixed(1)} m/s; aidT down ${dT.toFixed(4)} h, the bogged driver's hours up ${dS.toFixed(4)}, the clock ${dG.toFixed(4)} h; off ${b.off.toFixed(2)}`);
   ok(b.aid && b.vis && v > 5 && v < 14.5, `the helper sets out at a truck's speed in your sight (${(v * 3.6).toFixed(0)} km/h)`);
@@ -185,14 +192,14 @@ await section("C the helper in a truck of yours; a reload; the bogged driver let
   ok(L && L.s0 < 1 && L.n > 6 && L.bad === 0, `the line starts on your truck's parking spot and goes round what stands in the way (${L && L.sampled} points looked at, ${L && L.bad} in a wall or the water)`);
   await ev(`TLXPL.PDR.aid.hitch = 5; true`);
   ok((await send()) === true, "sent in your truck"); let h = await pdr(HID), t = await J(`__tk(${uid})`);
-  await ev(`__me(${SPOT.x} + 40, ${SPOT.z} + 40)`); await sleep(1500);
-  let Z = await z();
+  await ev(`__me(${SPOT.x} + 40, ${SPOT.z} + 40)`);
+  let Z = await waitZ(HID, R => R && R.aid && R.vis && R.drv);
   console.log("   seen:", JSON.stringify(Z));
   ok(!!t.out && Z && Z.aid && Z.uid === UID && Z.vis && Z.drv, "the truck seen is your own truck, a driver at the wheel");
   await far(); await ev(`__q(${((h.aidT - 5) * 0.4).toFixed(3)}, 0.06)`);
   await ev(`save(); true`); const b4 = await pdr(HID);
-  await reload(); await ev(SETUP); await ev(`TLXPL.PDR.wayMax = 800; TLXPL.PDR.aid.hitch = 5; true`); await sleep(600); await ev(KIT); await far(); await sleep(800);
-  h = await pdr(HID); Z = await z();
+  await reload(); await ev(SETUP); await ev(`TLXPL.PDR.wayMax = 800; TLXPL.PDR.aid.hitch = 5; true`); await sleep(600); await ev(KIT); await far();
+  h = await pdr(HID); Z = await waitZ(HID, R => R && R.aid);
   const ap = await J(`TLXPL.pdr.aidPos(${hid})`);
   ok(h.aid === RID && Math.abs(h.aidX - b4.aidX) < 1e-6 && Math.abs(h.aidZ - b4.aidZ) < 1e-6 && Math.abs(h.aidL - b4.aidL) < 1e-6, "a reload mid-way: the errand and the far end of its line are in the save");
   ok(Z && Z.aid && Z.uid === UID && ap && Math.hypot(Z.x - ap.x, Z.z - ap.z) < 40, `and the truck is on the line again where the clock has it (${Z && ap ? Math.hypot(Z.x - ap.x, Z.z - ap.z).toFixed(1) : "?"} m off)`);
@@ -225,5 +232,6 @@ await section("D a save from before this slice, and junk", async () => {
   ok((await ev(`__ropes()`)) === 0, "no rope left in the world");
 });
 
+for (const m of FAILED) console.log("   failed: " + m);                           /* named again at the end: a kept tail of the log says which (beta 0354 #1) */
 console.log(fails ? `FAILS: ${fails}` : "ALL OK");
 await done(fails ? 1 : 0);
