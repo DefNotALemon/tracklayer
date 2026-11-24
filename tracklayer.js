@@ -564,7 +564,7 @@ const patchGeo = new THREE.BufferGeometry();
   patchGeo.setIndex(new THREE.BufferAttribute(buildGridIndex(S), 1));
 }
 // melt uniforms shared by the snow patch, the far terrain and the lakes (MELT sets them)
-const meltU = { uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uThin: { value: 1 }, uLakeThr: { value: new Array(LAKES.length).fill(9) } };
+const meltU = { uTint: { value: new THREE.Vector3(1, 1, 1) }, uSpr: { value: 0 }, uWet: { value: 0 }, uMeltK: { value: 0 }, uThin: { value: 1 }, uLakeThr: { value: new Array(LAKES.length).fill(9) } };
 // Sky sheen: snow seen at a glancing angle mirrors the sky a little, so on a clear day the flats running away from you
 // lean toward the sky's blue while the snow at your feet stays white (the depth cue that makes an open fell read as
 // distance instead of one pale sheet). uSkyRef = the clear-day fill's hue at luminance 1, set by updSky (white in
@@ -596,7 +596,7 @@ const LAKE_GLSL = `float lkH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q +
 `;
 const patchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.86, metalness: 0 });
 patchMat.onBeforeCompile = sh => {
-  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uWet = meltU.uWet; Object.assign(sh.uniforms, skyRefU);
+  sh.uniforms.uSnow = { value: snowTex }; sh.uniforms.uTexel = { value: 1 / S }; sh.uniforms.uSpr = meltU.uSpr; sh.uniforms.uTint = meltU.uTint; sh.uniforms.uWet = meltU.uWet; Object.assign(sh.uniforms, skyRefU);
   sh.vertexShader = "uniform sampler2D uSnow; uniform float uTexel; attribute vec2 aUv; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" +
     sh.vertexShader
       .replace("#include <beginnormal_vertex>", `
@@ -621,7 +621,7 @@ patchMat.onBeforeCompile = sh => {
   // Drift shadows (v100): the lifted key light alone leaves the foreground evenly lit, but under a real 4° sun every
   // ripple and swell throws a long lee shadow. March the same drift height (×2, like the tilt) toward the true sun
   // (uSunT); where it rises above the sun ray, take most of the direct light off. Same fades as the relief.
-  sh.fragmentShader = "uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchP; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
+  sh.fragmentShader = "uniform vec3 uTint; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchP; uniform float uDrT; uniform vec2 uDrW; varying float vPack; varying float vFresh; varying float vIce; varying float vSlopeY; varying vec3 vWP;\n" + LAKE_GLSL +
     `${snowFieldGLSL()}float tlH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
      float tlN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
        return mix(mix(tlH(i), tlH(i + vec2(1.0, 0.0)), f.x), mix(tlH(i + vec2(0.0, 1.0)), tlH(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -708,7 +708,7 @@ patchMat.onBeforeCompile = sh => {
       float en = fract(sin(dot(ep, vec2(41.31,17.83)))*43758.5453);
       vec3 earth = mix(mix(vec3(0.27,0.22,0.16), vec3(0.29,0.31,0.18), en), vec3(0.34,0.27,0.24), step(0.86, en));
       float bare = (1.0 - smoothstep(0.02,0.1,vFresh)) * (1.0 - ice) * uSpr;
-      col = mix(col, earth, bare);
+      col = mix(col, earth * uTint, bare);
       float rock = (1.0 - smoothstep(0.03,0.14,vFresh)) * (1.0 - ice) * (1.0 - smoothstep(0.55,0.78,vSlopeY));
       col = mix(col, rockC, rock);
       vec2 cellp = floor(vWP.xz*9.0);
@@ -881,7 +881,7 @@ function buildFar() {
     // wind-driven idea at a coarser scale (swells ~90 m, drift ridges ~30 m along a wandering north-westerly,
     // ~10 m ripples close in) tilts the per-pixel normal only on snow-covered fell, fading out by ~3 km so it
     // never shimmers in the haze; the lee sides pick up a faint cold blue. Shading only: geometry and physics untouched.
-    sh.fragmentShader = "uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchF; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
+    sh.fragmentShader = "uniform vec3 uTint; uniform sampler2D uTrail; uniform float uSpr; uniform float uWet; uniform vec3 uSkyRef; uniform float uSkyK; uniform vec3 uSunRef; uniform float uSunK; uniform vec3 uSunW; uniform vec3 uSunT; uniform float uMicroK; uniform float uMarchF; varying vec2 vWxz; varying float vBare; varying float vOpen; varying float vRockS; varying float vLake;\n" + LAKE_GLSL +
       snowFieldGLSL() +
       sh.fragmentShader.replace("#include <normal_fragment_begin>", `#include <normal_fragment_begin>
       float fdSh = 1.0;
@@ -928,7 +928,7 @@ function buildFar() {
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.86,0.89,0.93), uWet * 0.7);
       float en = fract(sin(dot(floor(vWxz / 9.0), vec2(41.31,17.83))) * 43758.5453);
       vec3 earth = mix(vec3(0.26,0.22,0.16), vec3(0.28,0.3,0.18), en);
-      diffuseColor.rgb = mix(diffuseColor.rgb, earth, clamp(vBare, 0.0, 1.0) * uSpr);
+      diffuseColor.rgb = mix(diffuseColor.rgb, earth * uTint, clamp(vBare, 0.0, 1.0) * uSpr);
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09,0.16,0.21), vOpen);
       float lkB = 0.0, lkW = 0.0;`).replace(/#include <output_fragment>|gl_FragColor = vec4\( outgoingLight, diffuseColor\.a \);/, o => `
       { float skyW = max(smoothstep(0.8, 0.9, vColor.r), lkW * (0.75 + 0.5 * lkB)) * (1.0 - fdRock) * (1.0 - vOpen) * (1.0 - clamp(vBare * uSpr, 0.0, 1.0)) * (1.0 - 0.7 * uWet);
@@ -17797,6 +17797,8 @@ function initExpansion() {
     deliver, collectClaims,
     // lighthouses (6.2a): the sun's height (degrees) at an hour of the day, for the lamp's sun valve
     sunEl,
+    // the seasons (9.1-9.3): the bare ground's tint (uniform, free), the tree cells' caps (snow on a pine, snow-leaf on a birch), the winter's return
+    season: { tint: meltU.uTint, trees: { birch: () => birchCells, pine: () => pineCells }, refreeze: meltRefreeze },
     // the Boats app (14.4a): the Map's marker
     mark: (x, z) => { WP.x = x; WP.z = z; },
     // the ferry as a passenger (14.5a): the steamer's calls at Kjøllefjord (weather delays and cancellations in them) and the pier she lies at

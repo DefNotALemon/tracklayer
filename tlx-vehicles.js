@@ -446,6 +446,9 @@ const USES = [], MODELS = [], HULLS = [];
    once a frame for the truck you drive; R.grip is what it came to. Not asked while a wheel is in water. */
 const GRIPS = [];
 function xGrip(x, z) { let k = 1; for (const f of GRIPS) { const q = f(x, z); if (q > 0) k *= q; } return k; }
+/* 9.2 (tlx-seasons.js, mud): TLXV.addRoll(fn(x, z) -> a factor on the tyres' rolling resistance where the truck stands, 1 = nothing). Asked once a frame for the truck you drive. */
+const ROLLS = [];
+function xRoll(x, z) { let k = 1; for (const f of ROLLS) { const q = f(x, z); if (q > 0) k *= q; } return k; }
 function addUse(u) { USES.push(u); }
 /* 4.1b2b (the blade is solid): TLXV.addHull(fn(R) -> null, or { off, r (one more hull circle, like a row of `circles`),
    pass(R, o) -> true: this thing goes through it for now, hit(R, hit, o, nx, nz) -> true: it has taken the blow itself
@@ -494,6 +497,7 @@ function core(R, dt) {
   }
   sinkS /= 4; packS /= 4; muS /= 4; crS /= 4; crB /= 4;
   R.grip = wetN || !GRIPS.length ? 1 : xGrip(P.x, P.z); muS *= R.grip;       // grit on the road under it (4.1c2)
+  R.roll = ROLLS.length ? xRoll(P.x, P.z) : 1; crS *= R.roll; crB *= R.roll;    // mud under it (9.2)
   const Hf = (R.H[0] + R.H[1]) / 2, Hr = (R.H[2] + R.H[3]) / 2, Hl = (R.H[0] + R.H[2]) / 2, Hrt = (R.H[1] + R.H[3]) / 2, Hc = (Hf + Hr) / 2;
   const sf = (Hf - Hr) / (d.zf - d.zr), sl = (Hl - Hrt) / d.track, gx = sf * fx + sl * lx, gz = sf * fz + sl * lz, g2 = gx * gx + gz * gz;
   P.pack = packS; P.ice = !sea && w.bioAt(P.x, P.z) === 1 && w.freshAt(Math.round((P.x + HALF) / CELL), Math.round((P.z + HALF) / CELL)) < 0.12;
@@ -1207,6 +1211,7 @@ const LIC_NAME = { freight: "Freight" };
 const hasLic = d => !d.lic || !!(api.GS.lic && api.GS.lic[d.lic]);
 function buy(id) {
   const s = S(), GS = api.GS, d = byId(id); if (!d) return;
+  if (d.opt && !TLX.on(d.opt)) return;
   if (api.tutHidden()) { api.toast("Collect your first sled first.", "warn"); return; }
   if (s.owned.filter(isTruck).length >= MAX_OWNED) { api.toast(`That is enough trucks on the forecourt (${MAX_OWNED}).`, "warn"); return; }
   { const hp = heldList().find(heldTruck); if (hp && usedTrucks(heldList()) >= MAX_OWNED) { api.toast(`That would be ${MAX_OWNED + 1} trucks: the ${usedNoun(hp.item)} you paid for is waiting ${isBig(hp.item) ? "for you: settle up with " + (hp.seller || "the seller") : "in " + heldWhere(hp)}.`, "warn"); return; } }   // report 0110: a paid-for pickup counts
@@ -1225,7 +1230,8 @@ function garageRows(body, row) {
   for (const d of VEHICLES) {
     if (KINDS[d.id]) continue;                                                     // boats have their own tab (14.1)
     const n = s.owned.filter(r => r.id === d.id).length;
-    const spec = d.spec ? `${d.year} · ${d.spec} · ${d.fuel} L tank · closed, heated cab · ${d.mass} kg` : `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · closed, heated cab · ${d.mass} kg`;
+    if (d.opt && !TLX.on(d.opt) && !n) continue;                                  // a row behind an option (9.4: the four-wheelers)
+    const spec = d.spec ? `${d.year} · ${d.spec} · ${d.fuel} L tank · ${d.open ? "open to the weather" : "closed, heated cab"} · ${d.mass} kg` : `${d.year} · ${d.fuel} L tank · carries ${d.slots} parcels · ${d.open ? "open to the weather" : "closed, heated cab"} · ${d.mass} kg`;
     const how = d.how || `Grips on plowed yards, lanes and hard pack. In deep powder it sinks, digs and bogs, so keep the fell for the sled.`;
     const lic = hasLic(d) ? "" : `\n<span style="color:#f0c674">Needs your ${LIC_NAME[d.lic] || d.lic} licence.</span>`;
     const hd = d.id === "pickup" ? hp : heldVeh(d.id);
@@ -2140,5 +2146,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, outPose, ghost, dropGhost, ghosts: GH, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addRoll: f => { ROLLS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, outPose, ghost, dropGhost, ghosts: GH, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

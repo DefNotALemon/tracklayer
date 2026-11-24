@@ -709,6 +709,15 @@ out they close: the Map app shows each one as open, melting or closed, and work 
 only goes where the trail still holds (melting trails pay a little extra). At the end of May
 there's a summer montage, then it all freezes over again for the next winter.
 
+## The four seasons
+
+Winter is still the game; the rest of the year is now there too. Every part is a switch in Settings > Options, on by default.
+
+- **The look** (*Seasonal colours*): when the snow is gone the bare ground turns green in summer and russet in autumn, birches come into leaf, go gold and drop it, pines lose their snow, and autumn nights and mornings carry a frost that burns off by mid-morning. It costs nothing on the GPU: one colour on the ground and two material colours on the trees.
+- **Mud season** (*Mud season roads*): in April and May the village roads go soft. A truck gets about 45% less grip and roughly double the rolling resistance at the worst of it, a sled drags, and the driving hint says so. The depot town's streets are paved.
+- **Summer and autumn** (*Playable summer and autumn*): 1 June no longer skips for you. The Seasons app on the tablet shows the date, the mud and the frost, and a **Skip to 1 November** button on any day from June to October, with the bills it will settle. The skip settles every skipped week (wages, lets, caches), lets dust and grit gather in your depots and properties (less where a caretaker works) and weathers vehicles left out all summer (less at the garage; a little storage a week each: *Summer upkeep and wear*). On 1 November after a played summer the winter comes back. With the option off the game skips by itself on 1 June, as before.
+- **Light vehicles** (*Four-wheelers, side-by-sides, golf carts*): in the garage's vehicle list, no licence. The four-wheeler ($3,400, 3 parcels) is quick and grippy on bare ground and mud, the side-by-side ($7,800, 6 parcels, hitch) is the steady utility one, the golf cart ($1,900, 2 parcels) is slow and low and for the town. They are open to the weather and, for now, wear the pickup's body.
+
 ## Roads
 
 The Nordkinn has roads now. From Kjøllefjord one runs out past the fuel station, up by the
