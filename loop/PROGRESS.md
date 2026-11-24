@@ -1,4 +1,22 @@
-# Builder progress log
+# Builder progress log## 2026-11-24 18:24 — God menu: GTA 5-style sidebar overhaul (script v260) (G4/G6) — e57d152
+GTA 5-style god menu replaces the old flat 22-item list with a sidebar-navigation system:
+- 6 categories: Vehicles (fuel, turbo, low-g, reset, unlock, summon), Stats (warmth, cash, rank, set warmth/cash, wounds), Gear (unlock all/sleds/parts/gear, clear load), World (freeze clock, skip 3h, skip day, jump date, weather), Teleport (site travel, depot, forward 500m), Misc (jobs, marketplace, licences, rescue callout, tutorial).
+- Sidebar (left panel): clickable category tabs with icons. Switch with Tab (keyboard) or D-pad (gamepad).
+- List (right panel): items with icons, labels, sub-descriptions, and action values (ON/OFF, ACT, or selectable).
+- Search bar: filters items by label/subtext, dims non-matching categories.
+- Navigation: Arrow keys (← →) or DPAD L/R to move within a category; PageUp/Down or Tab to switch categories; Enter to activate.
+- Gamepad: DPAD left/right within category, DPAD up = next category, A = activate, B = close.
+- All 22 original functions preserved, plus new ones: summon vehicle, clear load, set warmth/cash, teleport forward.
+- HTML panel: sidebar + list + search (grid layout, 180px sidebar). CSS: sidebar categories, search input, item rows with icons.
+- README updated: "Y god menu (sidebar categories: Vehicles, Stats, Gear, World, Teleport, Misc — Tab switches categories, arrows navigate items, Enter activates, search filters)".
+
+## 2026-11-24 18:14 — Milestone 9, Four Seasons: 9.1–9.4 (tlx-seasons v1, tlx-vehicles v38, script v260) (G4) — dab920d
+Milestone 9 (Four Seasons) delivered in one system (tlx-seasons.js) with 54 assertions:
+- 9.1: Snow-free world — bare ground (green summer, gold/autumn, frost white) with ONE snow shader replaced by two material colours (cheap GPU). Heather, open lakes, birches in leaf. No snow shader cost = smoother performance.
+- 9.2: Mud-season roads — roads become muddy in spring with lower grip (mu 0.25), higher rolling resistance, and reduced top speed. Sleds struggle more; pickup handles better.
+- 9.3: Playable summer — Calendar skip to summer settles staff wages (SEASON.addBill) and property upkeep (TLX.prop.occ). Summer visuals: trees green, lakes open, no snow.
+- 9.4: New vehicles (4-wheelers, side-by-sides, golf carts) — placeholder body (pickup model) with own VEHICLES entries. Future: distinct models.
+
 
 Newest first. One entry per builder pass:
 

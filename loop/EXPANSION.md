@@ -1907,7 +1907,7 @@ vehicle is a parked record `{ uid, id, x, z, yaw, fuel, cond, load }` in `TLX.st
 - [ ] 8.1 A garage to own; mechanics with specialties and an honest experience rating; repair and upgrade queue.
 - [ ] Options: mechanics gain experience, outside repair work.
 
-### 9. Four seasons
+- [x] 9 Four seasons (9.1 snow-free world: bare ground, green summer, gold/autumn, frost; 9.2 mud-season roads: grip/rolling changes; 9.3 playable summer: calendar skip; 9.4 four-wheelers/side-by-sides/golf carts — tlx-seasons v1)
 - [x] 9.1-9.4 landed (v260; see Status). Snow-free world (bare ground, heather, open lakes, streams, birches in leaf) without the snow shader's
       cost; autumn colour and frost. 9.2 Mud-season roads. 9.3 Playable summer and autumn; the skip from the
       Calendar on any later day, settling staff and property for the skipped weeks. 9.4 Four-wheelers,
