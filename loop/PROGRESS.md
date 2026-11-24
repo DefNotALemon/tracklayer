@@ -3,6 +3,26 @@
 Newest first. One entry per builder pass:
 
 ```
+## 2026-11-24 18:30 — milestone 9, Four seasons: 9.1-9.4 in one system (tlx-seasons v1, tlx-vehicles v38, script v260) (G4) — dab920d
+Delegated build, one pass. Orient: worktree clean, rebased on main (v259), 84 GB free. Milestone 9 was unowned and unbuilt.
+What landed:
+- 9.1 the snow-free look, as a uniform not a shader: the terrain shaders already showed earth where the melt took the snow, so
+  `meltU.uTint` (vec3, multiplies the bare earth in both) plus the colours of the two tree cap materials (`api.season.trees`) do it all:
+  green summer, russet and gold autumn, mud-brown spring, frost on autumn nights (gone by mid-morning), birches bud/leaf/gold/bare,
+  pines losing their snow with the melt. No new mesh, draw call or program (x9_seasons asserts it). Stills judged: July green, 25 Sept
+  russet, 5 Oct 05:00 pale. Not done: streams (no stream geometry exists).
+- 9.2 mud: `mudK()` from the melt (April-May, tail in early June), roads outside the paved depot town; `TLXV.addGrip` (-45% at full mud)
+  and the new `TLXV.addRoll` (x2 rolling at the worst; read in the truck physics as R.roll); sleds drag on a mud road; a hint line.
+- 9.3 playable summer: `CAL.summerSkip` is replaced (no tracklayer.js change): option on = a June-October day is a normal day (day hooks
+  and Mondays run), the Seasons app skips to 1 Nov from ANY day with a bills preview, and the skip settles bills (SEASON.addBill, now plus
+  "Vehicles: summer storage"), dust/grit in every depot and property room (caretaker's work counted) and vehicle wear (0.6%/week, x0.4
+  at the garage, floor 30%); 1 Nov after a played summer calls the refreeze. Option off = the base automatic skip.
+- 9.4 rows atv / sxs / cart in the vehicles table behind option `atvs` (pickup body for now: no bespoke open model).
+Bridges: tracklayer.js `meltU.uTint` + both shader `earth * uTint` + `api.season`; tlx-vehicles `addRoll`, row `opt`/`open`.
+Gate: smoke, x1_save (+ "seasons" in its list), x9_seasons (54 checks) all clean. x2_cab has 3 Map-pin FAILs that are identical on
+origin/main (not from this).
+Left: a bespoke open-frame model and mount animation; summer freight pricing; wear while playing a summer; streams.
+
 ## 2026-11-19 23:15 — beta fix 0364 #1: the passenger door, a truck beside a fuel pump no longer keeps you in the cab (tlx-vehicles v37, lane A) (G4) — fe67437
 Builder pass, lane A. Orient: worktree clean, rebased on main, 122 GB free. Reports 0363-0364 triaged (last triaged
 362 -> 364): 0364 #1 is a BUG on milestone 2 (lane A's), so it comes before the backlog's POLISH lines; 0364 #2/#3
