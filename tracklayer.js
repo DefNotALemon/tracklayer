@@ -17951,42 +17951,57 @@ addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; cam
 
 /* ---------------- god menu (gamepad Y, or the ` key) ---------------- */
 const GOD_DATES = [[10, 1, "1 Nov"], [10, 20, "20 Nov"], [11, 21, "21 Dec (midwinter)"], [0, 21, "21 Jan"], [1, 15, "15 Feb"], [2, 20, "20 Mar"], [3, 25, "25 Apr"], [4, 31, "31 May (summer skip)"]];
-let godDate = 0;
-let godOpen = false, godSel = 0, godTp = 0, padGodA = false, padGodB = false, padGodNav = 0, godNavT = 0;
-const GOD_ITEMS = [
-  { id: "fuel", label: "Infinite fuel", toggle: true },
-  { id: "warm", label: "Never cold", toggle: true },
-  { id: "wound", label: "Take a pot-shot", sub: "Test a bleed + bandage", do: () => { if (TLX.wounds) TLX.wounds.hit(); } },
-  { id: "turbo", label: "Turbo engine", sub: "Power ×2.2", toggle: true },
-  { id: "lowg", label: "Low gravity", sub: "Moon jumps", toggle: true },
-  { id: "freeze", label: "Freeze the clock", toggle: true },
-  { id: "cash", label: "+$1,000", do: () => { GS.cash += 1000; save(); toast("+$1,000. Don't spend it all on studs.", "good"); } },
-  { id: "rank", label: "+5 deliveries", sub: () => rankOf(GS.delivered).name + " · " + GS.delivered, do: () => {
-      const before = rankOf(GS.delivered); GS.delivered += 5; const after = rankOf(GS.delivered);
-      if (after !== before) toast(`Rank up: ${after.name}. ${after.opens || ""}`, "good"); else toast(`${GS.delivered} deliveries on the books.`);
-      if (GS.contracts) makeContracts(depot); save();
-    } },
-  { id: "unlock", label: "Unlock every sled, part & kit", do: () => {
-      for (const s of SLEDS) if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id);
-      for (const cat of PART_ORDER) for (const o of PARTS[cat].options) GS.own.partsOwned[ownKey(cat, o.id)] = true;
-      for (const slot of GEAR_ORDER) for (const o of GEAR[slot].options) GS.own.gearOwned[ownKey(slot, o.id)] = true;
-      save(); toast("The whole garage is yours. Fit it at Nordkinn Skuter & Service.", "good");
-    } },
-  { id: "time", label: "Skip 3 hours", sub: () => fmtTime(GS.hour), do: () => { GS.hour += 3; } },
-  { id: "day", label: "Skip a day", sub: () => CAL.now().label, do: () => { GS.hour += 24; } },
-  { id: "date", label: "Jump to date", sub: () => "◀ " + GOD_DATES[godDate][2] + " ▶", adjust: d => { godDate = (godDate + d + GOD_DATES.length) % GOD_DATES.length; }, do: () => { const g = GOD_DATES[godDate]; CAL.jumpTo(g[0], g[1]); toast(`It's ${CAL.now().long}.`); } },
-  { id: "storm", label: "Weather", sub: () => (WX.force && GS.hour < WX.force.until ? (WX.force.v ? "Storm called in" : "Held clear") : GS.stormPhase === "storm" ? "Storm (front)" : "Clear") + " · A to change", do: () => {
-      if (GS.stormPhase === "storm" || (WX.force && WX.force.v && GS.hour < WX.force.until)) { WX.force = { v: 0, until: GS.hour + 4 }; toast("Sky's clearing for a few hours."); }
-      else { WX.force = { v: 1, until: GS.hour + 3 }; toast("Storm called in for three hours.", "warn"); }
-    } },
-  { id: "tp", label: "Teleport", sub: () => "◀ " + SITES[godTp].name + " ▶", adjust: d => { godTp = (godTp + d + SITES.length) % SITES.length; }, do: () => godTeleport(SITES[godTp]) },
-  { id: "jobs", label: "Fresh jobs in Parcels", do: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels, Freight and Trail Crew."); } },
-  { id: "mkt", label: "Bytteboden: new listings", sub: "reshuffle the marketplace", do: () => { GS.mkt.list = []; mktReseed(CAL.abs()); TABLET.refresh("market"); save(); toast("Bytteboden: a fresh batch of listings."); } },
-  { id: "lic", label: "Grant both licences", sub: "and install the apps", do: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.own.partsOwned[ownKey("hitch", "akja")] = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted, and the rescue toboggan."); } },
-  { id: "sar", label: "Rescue callout now", sub: "on duty, licensed", do: () => { if (!licensed("rescue")) { toast("Grant the licences first.", "warn"); return; } if (SAR.cur || SAR.ping) { toast("Already on one.", "warn"); return; } SAR.duty = true; if (!sarOffer()) toast("No spot found for a callout here.", "warn"); } },
-  { id: "tut", label: "Restart tutorial", sub: "on foot at the quay, sled back in the garage", do: () => tutRestart() },
-  { id: "reset", label: "Reset sled", sub: "Also pad Back / N", do: () => resetSled() }
+let godDate = 0, godTp = 0;
+// GTA 5-style structured god menu: categories (sidebar) → items (list)
+// GOD is already declared globally at line 4268: { fuel, warm, turbo, lowg, freeze }
+// G is already a scalar at line 2684: let G = 32.4 (gravity constant)
+const CATEGORIES = [
+  { id: "vehicles", label: "Vehicles", icon: "🚗", items: [
+    { id: "fuel", label: "Infinite fuel", sub: "Never empty", type: "toggle" },
+    { id: "turbo", label: "Turbo engine", sub: "Power ×2.2", type: "toggle" },
+    { id: "lowg", label: "Low gravity", sub: "Moon jumps", type: "toggle" },
+    { id: "reset", label: "Reset sled", sub: "Current vehicle", type: "action" },
+    { id: "unlock_sleds", label: "Unlock all sleds", sub: "Every machine", type: "action" },
+    { id: "summon", label: "Summon vehicle", sub: "At current position", type: "action" },
+  ]},
+  { id: "stats", label: "Player Stats", icon: "🧍", items: [
+    { id: "warm", label: "Never cold", sub: "Warmth maxed", type: "toggle" },
+    { id: "cash", label: "+$1,000", sub: "Cash", type: "action" },
+    { id: "rank", label: "+5 deliveries", sub: "Rank up", type: "action" },
+    { id: "warmth", label: "Set warmth", sub: "0–100", type: "slider", min: 0, max: 100, step: 5 },
+    { id: "cash2", label: "Set cash", sub: "Exact amount", type: "slider", min: 0, max: 999999, step: 100 },
+    { id: "wound", label: "Take a pot-shot", sub: "Test bleed + bandage", type: "action" },
+  ]},
+  { id: "gear", label: "Loadout / Gear", icon: "🎒", items: [
+    { id: "unlock_all", label: "Unlock every sled, part & kit", sub: "Full garage", type: "action" },
+    { id: "unlock_parts", label: "Unlock all parts", sub: "Every slot, every option", type: "action" },
+    { id: "unlock_gear", label: "Unlock all gear", sub: "Clothing layers + extras", type: "action" },
+    { id: "clear_load", label: "Clear current load", sub: "Sled bed empty", type: "action" },
+  ]},
+  { id: "world", label: "World Editing", icon: "🌍", items: [
+    { id: "freeze", label: "Freeze the clock", sub: "Time stands still", type: "toggle" },
+    { id: "time", label: "Skip 3 hours", sub: "Jump ahead", type: "action" },
+    { id: "day", label: "Skip a day", sub: "24 hours", type: "action" },
+    { id: "date", label: "Jump to date", sub: "Calendar picker", type: "select", data: GOD_DATES, dataKey: 2 },
+    { id: "storm", label: "Weather control", sub: "Call / hold clear", type: "action" },
+  ]},
+  { id: "teleport", label: "Teleport", icon: "📍", items: [
+    { id: "tp", label: "Travel to site", sub: "Click to move", type: "select", data: SITES, dataKey: "name" },
+    { id: "tp_home", label: "Teleport to home depot", sub: "Quay", type: "action" },
+    { id: "tp_near", label: "Teleport forward 500 m", sub: "Along your heading", type: "action" },
+  ]},
+  { id: "misc", label: "Misc / Systems", icon: "⚙️", items: [
+    { id: "jobs", label: "Fresh jobs in Parcels", sub: "Rebuild board", type: "action" },
+    { id: "mkt", label: "Bytteboden: new listings", sub: "Reshuffle marketplace", type: "action" },
+    { id: "lic", label: "Grant both licences", sub: "Freight + rescue", type: "action" },
+    { id: "sar", label: "Rescue callout now", sub: "On duty, licensed", type: "action" },
+    { id: "tut", label: "Restart tutorial", sub: "On foot at the quay", type: "action" },
+  ]},
 ];
+let godOpen = false, godCat = 0, godItem = 0, padGodA = false, padGodB = false;
+function godGetActiveItems() {
+  return CATEGORIES[godCat]?.items || [];
+}
 function godTeleport(s) {
   if (FISH) FISH.abort();
   let x, z, yaw;
@@ -18009,51 +18024,144 @@ function godApply(id) {
   if (id === "turbo") restat();
   if (id === "lowg") G = GOD.lowg ? 5.2 : 32.4;
 }
-function renderGod() {
-  const box = $("godList"); box.innerHTML = "";
-  GOD_ITEMS.forEach((it, i) => {
-    const b = document.createElement("button"); b.className = "row" + (i === godSel ? " sel" : "") + (it.toggle && GOD[it.id] ? " on" : "");
-    const sub = typeof it.sub === "function" ? it.sub() : it.sub;
-    const val = it.toggle ? (GOD[it.id] ? "ON" : "OFF") : it.adjust ? "GO" : "A";
-    b.innerHTML = `<span class="main"><b>${it.label}</b>${sub ? `<em>${sub}</em>` : ""}</span><span class="val">${val}</span>`;
-    b.addEventListener("click", () => { godSel = i; godActivate(); });
-    b.addEventListener("mouseenter", () => { if (godSel !== i) { godSel = i; renderGod(); } });
-    box.appendChild(b);
-  });
-  const sel = box.children[godSel]; if (sel) sel.scrollIntoView({ block: "nearest" });
-}
 function godActivate() {
-  const it = GOD_ITEMS[godSel];
-  if (it.toggle) { GOD[it.id] = !GOD[it.id]; godApply(it.id); toast(`${it.label}: ${GOD[it.id] ? "on" : "off"}`, GOD[it.id] ? "good" : undefined); }
-  else it.do();
+  const cat = CATEGORIES[godCat];
+  if (!cat) return;
+  const it = cat.items[godItem];
+  if (!it) return;
+  if (it.type === "toggle") {
+    GOD[it.id] = !GOD[it.id];
+    godApply(it.id);
+    toast(`${it.label}: ${GOD[it.id] ? "ON" : "OFF"}`, GOD[it.id] ? "good" : undefined);
+  } else if (it.type === "action") {
+    it.do();
+  } else if (it.type === "select") {
+    if (it.data) {
+      const idx = it.current || 0;
+      it.current = (idx + 1) % it.data.length;
+      toast(it.label + ": " + it.data[it.current][it.dataKey]);
+    }
+  } else if (it.type === "slider") {
+    if (it.id === "warmth") { GS.warmth = Math.min(it.max, Math.max(it.min, GS.warmth + it.step)); toast(`Warmth: ${GS.warmth}`); }
+    else if (it.id === "cash2") { GS.cash = Math.min(it.max, GS.cash + it.step); toast(`Cash: $${GS.cash}`); }
+  }
   renderGod();
 }
-function godMove(d) { godSel = (godSel + d + GOD_ITEMS.length) % GOD_ITEMS.length; renderGod(); }
-function godAdjust(d) { const it = GOD_ITEMS[godSel]; if (it.adjust) { it.adjust(d); renderGod(); } }
+function godMove(d) {
+  const cat = CATEGORIES[godCat];
+  const items = cat ? cat.items : [];
+  // If on a select item, cycle its data
+  if (cat && items[godItem] && items[godItem].type === "select" && items[godItem].data) {
+    const si = items[godItem];
+    si.current = (si.current + d + si.data.length) % si.data.length;
+    renderGod();
+    return;
+  }
+  godItem = (godItem + d + (items.length || 1)) % (items.length || 1);
+  renderGod();
+}
+function godSetCategory(c) {
+  godCat = c;
+  godItem = 0;
+  renderGod();
+}
+function renderGod() {
+  const sidebar = $("godSidebar");
+  const box = $("godList");
+  sidebar.innerHTML = "";
+  box.innerHTML = "";
+  // Render sidebar categories
+  CATEGORIES.forEach((cat, i) => {
+    const d = document.createElement("div");
+    d.className = "gcat" + (i === godCat ? " on" : "");
+    d.innerHTML = `${cat.icon} ${cat.label}`;
+    d.addEventListener("click", () => { godSetCategory(i); });
+    sidebar.appendChild(d);
+  });
+  // Render items for active category
+  const cat = CATEGORIES[godCat];
+  if (!cat) return;
+  cat.items.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "row" + (i === godItem ? " sel" : "");
+    let val = "";
+    if (it.type === "toggle") val = GOD[it.id] ? "ON" : "OFF";
+    else if (it.type === "action") val = "ACT";
+    else if (it.type === "select" && it.data) {
+      const idx = it.current || 0;
+      val = it.data[idx][it.dataKey];
+    } else if (it.type === "slider") {
+      val = it.id === "warmth" ? GS.warmth : GS.cash;
+    }
+    row.innerHTML = `<span class="gitem"><span class="gicon">${it.icon || (it.type === "toggle" ? (GOD[it.id] ? "✓" : "○") : it.type === "action" ? "⚡" : it.type === "select" ? "📌" : "⏱")}</span><span class="glabel">${it.label}</span>${it.sub ? `<span class="gsub">${it.sub}</span>` : ""}</span><span class="val">${val}</span>`;
+    row.addEventListener("click", () => { godItem = i; godActivate(); });
+    row.addEventListener("mouseenter", () => { if (godItem !== i) { godItem = i; renderGod(); } });
+    box.appendChild(row);
+  });
+  // Scroll selected item into view
+  const rows = box.children;
+  if (rows[godItem]) rows[godItem].scrollIntoView({ block: "nearest" });
+}
 function toggleGod(force) {
   godOpen = force !== undefined ? force : !godOpen;
   $("god").hidden = !godOpen;
-  if (godOpen) { TABLET.close(true); renderGod(); }
+  if (godOpen) { TABLET.close(true); godCat = 0; godItem = 0; renderGod(); }
 }
 function godPad(gp, dt) {
-  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ay = gp.axes[1] || 0, ax = gp.axes[0] || 0;
-  const nav = b(12) || ay < -0.6 ? -1 : b(13) || ay > 0.6 ? 1 : b(14) || ax < -0.6 ? -2 : b(15) || ax > 0.6 ? 2 : 0;
-  godNavT -= dt;
-  if (nav !== padGodNav || (nav && godNavT <= 0)) {
-    if (nav === -1 || nav === 1) godMove(nav); else if (nav) godAdjust(nav / 2);
-    godNavT = nav === padGodNav ? 0.12 : 0.38;
+  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+  const ay = gp.axes[1] || 0, ax = gp.axes[0] || 0;
+  // Horizontal stick/DPAD: navigate within current category
+  const horz = b(13) || ay > 0.6 ? 1 : b(12) || ay < -0.6 ? -1 : b(15) || ax > 0.6 ? 1 : b(14) || ax < -0.6 ? -1 : 0;
+  // Vertical navigation: up = back to sidebar, down = next category
+  const vert = b(9) || (gp.axes[4] || 0) > 0.6 ? 1 : b(8) || (gp.axes[4] || 0) < -0.6 ? -1 : 0;
+  if (horz !== 0) {
+    godMove(horz);
+  } else if (vert !== 0) {
+    // Back = close god menu, Next category = switch sidebar
+    if (vert < 0 && godItem > 0) godMove(-1);
+    else if (vert > 0) {
+      const nextCat = (godCat + 1) % CATEGORIES.length;
+      godSetCategory(nextCat);
+    } else {
+      // On first item + back, close
+      if (godItem === 0) { toggleGod(false); return; }
+      godMove(-1);
+    }
   }
-  padGodNav = nav;
-  const a = b(0); if (a && !padGodA) godActivate(); padGodA = a;
-  const bb = b(1); if (bb && !padGodB) toggleGod(false); padGodB = bb;
+  if (b(0) && !padGodA) { godActivate(); padGodA = true; }
+  if (!b(0)) padGodA = false;
+  if (b(1)) { toggleGod(false); }
 }
 $("godClose").addEventListener("click", () => toggleGod(false));
+$("godSearch").addEventListener("input", (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  const rows = $("godList").children;
+  for (let i = 0; i < rows.length; i++) {
+    const text = rows[i].textContent.toLowerCase();
+    rows[i].classList.toggle("hide", q && !text.includes(q));
+  }
+  // Show/hide categories based on whether they have matching items
+  const cats = $("godSidebar").children;
+  for (let c = 0; c < cats.length; c++) {
+    let hasMatch = false;
+    const catItems = CATEGORIES[c].items;
+    for (let i = 0; i < catItems.length; i++) {
+      if (!q || catItems[i].label.toLowerCase().includes(q) || (catItems[i].sub && catItems[i].sub.toLowerCase().includes(q))) {
+        hasMatch = true; break;
+      }
+    }
+    cats[c].style.opacity = hasMatch || !q ? 1 : 0.3;
+  }
+});
 addEventListener("keydown", e => {
   if (!started || e.repeat) return;
   if (e.code === "KeyY" || e.code === "Backquote") { toggleGod(); return; }
   if (!godOpen) return;
-  if (e.code === "PageUp" || e.code === "BracketLeft") godMove(-1);
-  if (e.code === "PageDown" || e.code === "BracketRight") godMove(1);
+  if (e.code === "PageUp" || e.code === "BracketLeft") godSetCategory(Math.max(0, godCat - 1));
+  if (e.code === "PageDown" || e.code === "BracketRight") godSetCategory(Math.min(CATEGORIES.length - 1, godCat + 1));
+  if (e.code === "Tab") { e.preventDefault(); godSetCategory((godCat + 1) % CATEGORIES.length); }
+  if (e.code === "ArrowLeft") godMove(-1);
+  if (e.code === "ArrowRight") godMove(1);
   if (e.code === "Enter") godActivate();
 });
 

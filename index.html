@@ -244,6 +244,26 @@
   #godList .row em{font-style:normal;font-size:13px;color:var(--slate)}
   #godList .row .val{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.12em;color:var(--slate);border:1px solid var(--line);border-radius:3px;padding:2px 8px}
   #godList .row.on .val{color:var(--ink);background:#ffc26b;border-color:#ffc26b}
+  /* GTA 5-style god menu layout: sidebar + list + search */
+  #god{display:grid;grid-template-columns:180px 1fr;min-width:720px;max-width:900px}
+  #godSidebar{padding:0 10px 0 0;border-right:1px solid var(--line);overflow-y:auto}
+  #godSidebar .gcat{font:inherit;font-size:13px;font-weight:700;color:var(--slate);padding:8px 12px;cursor:pointer;border-radius:var(--r-md);transition:all .2s var(--ease);text-transform:uppercase;letter-spacing:.08em}
+  #godSidebar .gcat:hover{background:rgba(234,242,248,.06)}
+  #godSidebar .gcat.on{color:var(--signal);background:rgba(255,90,31,.12)}
+  #godList{padding:0 10px 0 14px;overflow-y:auto;max-height:55vh}
+  #godSearchWrap{position:relative;padding:8px 10px 4px;border-bottom:1px solid var(--line)}
+  #godSearch{font:inherit;font-size:13px;width:100%;box-sizing:border-box;padding:6px 10px;background:rgba(234,242,248,.04);border:1px solid var(--line);border-radius:var(--r-md);color:var(--frost);outline:none;transition:border-color .2s}
+  #godSearch:focus{border-color:var(--signal)}
+  #godSearch::placeholder{color:var(--slate);opacity:.6}
+  .godlist .row{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:7px 10px}
+  .godlist .row .gitem{display:flex;align-items:center;gap:8px}
+  .godlist .row .gicon{font-size:16px;opacity:.7;width:20px;text-align:center}
+  .godlist .row .glabel{font:inherit;font-size:14px;color:var(--frost)}
+  .godlist .row .gsub{font-size:12px;color:var(--slate)}
+  .godlist .row.sel{background:rgba(255,90,31,.12);border-color:rgba(255,90,31,.4)}
+  .godlist .row .val{font-size:12px;padding:2px 6px}
+  .godlist .row.on .val{color:var(--ink);background:#ffc26b}
+  .godlist .hide{display:none}
   #intFade{position:fixed;inset:0;z-index:5;background:#05070a;opacity:0;pointer-events:none;transition:opacity .3s linear}
   #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
   @keyframes fadein{from{opacity:0}}
@@ -1181,10 +1201,11 @@
   <div class="bfoot"><b>Esc</b> closes. Pad: <b>D-pad</b> or stick to move, <b>A</b> to pick, <b>◀ ▶</b> on a slider, <b>B</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
 </div>
 
-<div class="panel" id="god" hidden>
-  <div class="bhead"><div><div class="brand">TRACKLAYER · GOD MODE</div><div class="btitle">God menu</div></div><button id="godClose" class="xbtn" aria-label="Close god menu">✕</button></div>
-  <div id="godList"></div>
-  <div class="bfoot">Pad: <b>D-pad</b> or stick to pick, <b>A</b> to use, <b>◀ ▶</b> to change the teleport spot, <b>B</b> or <b>Y</b> closes. Keyboard: <b>Y</b> opens and closes, click a row, <b>Esc</b> closes. The sled keeps rolling.</div>
+  <div class="bhead"><div><div class="brand">TRACKLAYER · GOD MODE</div><div class="btitle" id="godTitle">Categories</div></div><button id="godClose" class="xbtn" aria-label="Close god menu">✕</button></div>
+  <div id="godSidebar" class="godsid"></div>
+  <div id="godList" class="godlist"></div>
+  <div id="godSearchWrap" class="godsearch"><input id="godSearch" placeholder="search… (⌘F)" /></div>
+  <div class="bfoot">Pad: <b>D-pad</b> or stick to navigate, <b>A</b> to pick, <b>B</b> to back. Keyboard: <b>Y</b> opens, <b>Esc</b> closes, <b>Tab</b> categories, <b>Enter</b> activate.</div>
 </div>
 
 <div id="srHint" hidden>Showroom · <b>hover</b> a row to try it on · <b>drag</b> to spin</div>
@@ -1318,6 +1339,10 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tlx-seasons.js?v=1"></script>
+<<<<<<< HEAD
 <script src="tracklayer.js?v=260"></script>
+=======
+<script src="tracklayer.js?v=260"></script>
+>>>>>>> 9548fc5 (God menu: GTA 5-style sidebar categories (Vehicles, Stats, Gear, World, Teleport, Misc) with search, sub-menus, and gamepad/keyboard support — script v260)
+>>>>>>> ff7dfcb (God menu: GTA 5-style sidebar categories (Vehicles, Stats, Gear, World, Teleport, Misc) with search, sub-menus, and gamepad/keyboard support — script v260)
 </body></html>
