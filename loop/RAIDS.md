@@ -14,7 +14,7 @@ the gate and looks at the stills. Worktree `~/Documents/GitHub/tracklayer-raids`
 ## Status
 | Slice | What | State |
 |---|---|---|
-| A1 | Armed work: armed courier and guard shifts for the state and for companies, armed standing | building |
+| A1 | Armed work: armed courier and guard shifts for the state and for companies, armed standing | landed (25 Nov 2026, `tlx-armed.js` v1, `a1_armed.mjs`) |
 | A2 | Tip-offs and the first raid: the grow barn, an armed crew, the cash, the Politi clock | not started |
 | A3 | More places (meth lab, hjemmebrent still, smugglers' boathouse, pill press), your name gets out | not started |
 | A4 | Tools for the job: pistol, pump shotgun, body armour, a mask; crews that come looking for you | not started |
@@ -106,6 +106,29 @@ the gate and looks at the stills. Worktree `~/Documents/GitHub/tracklayer-raids`
 ### A5. Played as a player
 - Three raids from a fresh qualification, played start to finish with no forced state; stills at each beat; the ten
   worst things listed and fixed; repeat until it plays like a mission worth driving out for.
+
+### A1 notes (built 25 Nov 2026)
+Built as `tlx-armed.js` (global `TLXAW`, state `x.sys.armed`, option `armedwork`), the Vakt tablet app (Work / Standing), Jobs rows through `api.jobx`, the
+use control through an `api.footx` provider (so keyboard, pad and touch all work), `api.warmx` for the post's brazier and hut heater, and one hook in
+tracklayer.js (`crashEject` calls `TLXAW.crashed`). Scenario `a1_armed.mjs`.
+- **Pay (read off the board).** A parcel pays `30 + 0.09 m + 0.4 climb` (x cargo), a long parcel `60 + 0.11 m + 0.5 climb`, heavy freight `120 + 0.3 m + 1.2 climb`
+  (x a mul). Armed courier = the long-parcel formula x 1.15 x a case mul (payroll 1.2, firearm 1.15, pharmacy 1.1, evidence 1.05, cores 1.05, lighthouse spares
+  1.0): 1.15x to 1.38x a long parcel of the same distance (a 2.5 km run pays about $430-470). Guard shift = $85 a game hour for the state, $95 for a company
+  (3 or 4 h: $255-380; the ferry quay on a Friday x1.2). A game hour is 50 s of play, so a shift of 3 h is about 2.5 minutes of game time and pays a little over
+  a hauling job of the same length. Right calls add $6-24, wrong ones take $8-45 (never below 40% of the shift). Each standing level adds 3%.
+- **Standing.** +3 overall and with the employer for a clean job, -4 for a failed one (-1 for abandoning, a missed pickup or arriving at a post too late), +1 /
+  -1 per right / wrong call on a shift. Never below 0. Levels at 0 / 4 / 10 / 20 / 35 points: New, Known, Trusted, Reliable, Old hand. A2 reads `TLXAW.standing()`
+  (`{ all, level, name, emp: { employer: points } }`); a Tips tab is NOT in A1.
+- **Decisions.** The build has no way to sell, drop or stow the rifle, so "carried the whole way" fails the run when `TLXGUN.gun()` is no longer there (sold,
+  dropped or removed by a later system); the rule is checked every frame. One armed job at a time. The shift starts when you reach the post; you must reach it
+  within 4 game hours of accepting. Guard figures and the tail are never shot (A1 has no shooting). The tail follows your own breadcrumb trail (so it can never
+  take a line through water or a house), spawns 140 m back along it and settles 40-80 m behind; patience (30 s) runs only while it sits on your tail.
+  A named person in a card or a news post is a real household member (`TLXN.people`, by trade); the armed forces and the lensmann's desk have none, so they
+  read "the duty desk". Posts: the spot is found in the world by `findSpot` (dry, level, 11 m clear of obstacles, 30 m of any door, 40 m of other sites), seeded by
+  the post id, so the same post stands in the same place in every game. The post is warm (brazier / hut heater through `api.warmx`), or a guard would freeze.
+- **Tested only with forced odds.** The tail's one-in-four chance is forced in the scenario (`TLXAW.force({ tail: true })`); every guard event is started by hand
+  (`TLXAW.evStart`) rather than waiting for the schedule; events run in a time-lapse (`TUNE.evK = 3`) except the gait strip; the tail's patience is shortened to 12 s.
+  The tail giving up by line of sight is tested as the LOS function only (open ground sees, a rise blocks), not as a drive.
 
 ## Decisions (defaults are built; Lemon can change any)
 - Only raid crews can be shot (default above).

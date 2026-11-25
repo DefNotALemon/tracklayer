@@ -20,7 +20,7 @@ let a = await J(`{ tlx: typeof TLX, api: !!TLX.api, surf: isFinite(TLX.api.world
   optHidden: $("optSec").hidden && $("optRows").hidden, scripts: [...document.scripts].map(s => s.getAttribute("src")).filter(Boolean) }`);
 console.log("1", JSON.stringify(a));
 ok(a.tlx === "object" && a.api && a.surf, "TLX booted with the game's api");
-ok(a.region === "nordkinn" && a.dump.v === 1 && Object.keys(a.dump.opt).length === 0 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds", "roads", "cars", "traffic", "staff", "gear", "guns", "prop", "gunwheel", "lights", "rig", "convoy", "police", "housing", "plow", "seafish", "boats", "ferry", "seasons", "news", "trails", "gram"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "fresh game: empty expansion state on the Nordkinn (the vehicles system is registered and owns nothing)");
+ok(a.region === "nordkinn" && a.dump.v === 1 && Object.keys(a.dump.opt).length === 0 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds", "roads", "cars", "traffic", "staff", "gear", "guns", "prop", "gunwheel", "lights", "rig", "convoy", "police", "housing", "plow", "seafish", "boats", "ferry", "seasons", "news", "trails", "gram", "armed"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "fresh game: empty expansion state on the Nordkinn (the vehicles system is registered and owns nothing)");
 ok(!a.optHidden, "the Options page lists the wounds switch (the only registered option before the test adds one)");
 ok(Math.abs(a.lat * 180 / Math.PI - 70.9) < 0.5, "world latitude comes through the api (" + (a.lat * 180 / Math.PI).toFixed(1) + " N)");
 
@@ -33,7 +33,7 @@ await reload(old);
 a = await J(`{ cash: GS.cash, del: GS.delivered, sled: GS.own.sled, app: GS.apps.freight, tut: TUT.stage, dump: TLX.dump() }`);
 console.log("2", JSON.stringify(a));
 ok(a.cash === 4444 && a.del === 9 && a.sled === "woodsman" && a.app === 1 && a.tut === 99, "old save (no x) loads intact");
-ok(a.dump.v === 1 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds", "roads", "cars", "traffic", "staff", "gear", "guns", "prop", "gunwheel", "lights", "rig", "convoy", "police", "housing", "plow", "seafish", "boats", "ferry", "seasons", "news", "trails", "gram"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "old save: expansion starts fresh");
+ok(a.dump.v === 1 && Object.keys(a.dump.sys).every(k => ["vehicles", "survival", "hud", "wounds", "roads", "cars", "traffic", "staff", "gear", "guns", "prop", "gunwheel", "lights", "rig", "convoy", "police", "housing", "plow", "seafish", "boats", "ferry", "seasons", "news", "trails", "gram", "armed"].includes(k)) && !(a.dump.sys.vehicles && (a.dump.sys.vehicles.s.owned.length || a.dump.sys.vehicles.s.cur)), "old save: expansion starts fresh");
 
 // 3 + 4: a system, an option, and a stranger's state
 await ev(SYS);
@@ -76,7 +76,8 @@ for (const [nm, bad] of [["a string", "junk"], ["an array", [1, 2]], ["wrong inn
   const b = JSON.parse(await stored()); b.x = bad; b.cash = 777;
   await reload(b); await ev(SYS);
   a = await J(`{ cash: GS.cash, sled: GS.own.sled, st: TLX.state("t1"), region: TLX.region(), on: TLX.on("t1opt") }`);
-  ok(a.cash === 777 && a.sled === "woodsman" && a.st.n === 0 && a.region === "nordkinn" && a.on === true, "x = " + nm + ": save loads, expansion falls back to fresh");
+  const good = a.cash === 777 && a.sled === "woodsman" && a.st.n === 0 && a.region === "nordkinn" && a.on === true; if (!good) console.log("  got", JSON.stringify(a));
+  ok(good, "x = " + nm + ": save loads, expansion falls back to fresh");
 }
 console.log(fails ? `${fails} FAILED` : "all passed");
 await done(fails ? 1 : 0);

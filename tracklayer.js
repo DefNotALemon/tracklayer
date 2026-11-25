@@ -17446,6 +17446,7 @@ function crashEject(why, vx, vy, vz, skip) {
   TABLET.close(true); camState.init = false;
   P.shake = 1; thud(1); cargoHit(spd * 0.9);
   gnews({ kind: "crash", who: "you", x: P.x, z: P.z, text: `You came off hard at ${Math.round(spd * 3.6)} km/h (${why}).`, data: { sys: "crash", what: "crash", why, kmh: Math.round(spd * 3.6) } });
+  try { if (window.TLXAW && TLXAW.crashed) TLXAW.crashed(spd, why); } catch (e) { }   // armed work (tlx-armed.js): a hard crash loses the courier case
   for (let k = 0; k < 40; k++) emit(P.x, P.y + 0.6, P.z, vx * 0.3 + (Math.random() - 0.5) * 4, 1 + Math.random() * 3, vz * 0.3 + (Math.random() - 0.5) * 4, 1.4, 1);
   const c = SAR.cur;
   if (c && !c.res && c.v && c.v.state === "pillion") setTimeout(() => { if (SAR.cur === c) toast(`${c.name} somehow stayed on the seat. Shaken, still aboard.`, "warn"); }, 1600);
