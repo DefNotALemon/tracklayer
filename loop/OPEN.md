@@ -26,7 +26,7 @@ the cron list and the usage governor):
 | G6 Living enemy NPCs | 11 Nov | not started (after G5) |
 | G7 Home on the Nordkinn | 24 Nov | H1 ski trails done; Gram being remade (H2R-a building); I1-I10 designed; H4-H8 outlined |
 | G8 The realistic look | 24 Nov | R1 figures, R2 sleds done; R3 streets to R8 nitpick round not started |
-| G9 Armed work and raids: armed courier and guard jobs, tip-offs, shoot-up raids on drug sites, your name gets out | 25 Nov | A1 armed work landed v274 (gate re-run by supervisor pending; walk-in gait reads hunched, to fix in A2). Left: A2 tip-offs + first raid + places found by chance with suspicious people outside (his add of 25 Nov), A3, A4, A5. Plan `loop/RAIDS.md` |
+| G9 Armed work and raids: armed courier and guard jobs, tip-offs, shoot-up raids on drug sites, your name gets out | 25 Nov | A1 armed work landed v274 (gate re-run by supervisor clean; its walk-in gait and bare posts are fixes in A2a); A2a building. Left: A2 tip-offs + first raid + places found by chance with suspicious people outside (his add of 25 Nov), A3, A4, A5. Plan `loop/RAIDS.md` |
 | New-player tutorial arriving on the ferry on foot (G2) | 30 Oct | not built; needs snow-free walking |
 | Upgrade every old animation to the realistic rule (G3) | 30 Oct | only climb on/off done; walker, wader, crash/get-up, skier, passengers left |
 | Smooth the snow LOD line 9-12 m out (G3, "top priority until he's happy") | 26 Oct | still open in LOOP.md |
