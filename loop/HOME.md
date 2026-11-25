@@ -12,7 +12,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
 | H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c, plus the H2a posture fixes) |
 | H2 | Gram (`tlx-gram.js`) | first build landed (v273); being remade (Lemon, 25 Nov): H2R-a next |
-| H3 | Radio Nordkinn with call-ins (`tlx-radio.js`) | design below, after H2 |
+| I1-I10 | Indoors and Senses update: walk-in places, a word with anybody, furnishing, radio stations with sound, haptics, camera, field guide, Paths, save slots, summer on foot | designed 25 Nov; I1 after the Gram remake |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
 | H5 | The outdoors life (avalanches, sea ice, snow shelters, ghosts, dog team, camera) | outline |
 | H6 | Your own land (buy, build, raise animals) | outline |
@@ -168,11 +168,15 @@ one reel; the polar night made every picture the same murky purple; three small 
 a feed anyone scrolls.
 
 ### Two grams, one scroll each
-- **Local**: what the place you are in is posting. One post per screen in a phone-shaped column, snap-scrolled, newest
-  first: photos, short clips and text posts mixed, from the nearest village and its trails, road, harbour and fell, with
-  the peninsula's big news let in (a storm, a road shut, the sun's return). It changes as you travel. The old Local chat
-  lives here as text posts and as the comments under posts.
-- **Reels**: full-height clips from the whole Nordkinn, one per screen, playing as you land on it, swipe for the next.
+- **Local**: the whole land you are in (Lemon, 25 Nov: "make local cover the current place you're in, the whole map
+  like all of greenland, or all of maine"). On the Nordkinn that is every village, trail, road, harbour and fell of the
+  peninsula; in Greenland all of Greenland; in the county all of the county. It is keyed to `TLX.region()`, never to the
+  nearest village. One post per screen in a phone-shaped column, snap-scrolled, newest first: photos, short clips and
+  text posts mixed, each naming its village or place. The old Local chat lives here as text posts and as the comments
+  under posts. Posts from near where you stand may sort a little earlier among posts of the same hour, nothing more.
+- **Reels**: the whole world: clips from every land the game has (today only the Nordkinn exists, so the director
+  takes a region id and Reels asks it for all regions; a land's reels show its name). One per screen, playing as you
+  land on it, swipe for the next. A land you have not travelled to yet still shows up here: that is the advert for it.
 - Tabs: Local, Reels. Nothing else. No "soon" cards, no "not yet" posts: everything shown is something that happens.
 
 ### The game's own way of making a post: moments
@@ -200,7 +204,7 @@ a reel is the same scene moving. So one library feeds both grams, and adding a k
   the moment (who, where, how much, what happened) and bent by the person's voice in word choice, not by a tag glued
   on. Comments come from the people who would care: who is in the picture, family, the neighbour who knows the spot,
   someone it annoys.
-- **Rhythm.** About 30 to 40 posts a game day across the peninsula (8 to 15 in a village's Local), 8 to 12 reels a day,
+- **Rhythm.** About 30 to 40 Local posts a game day across the land you are in, 8 to 12 reels a day,
   more on a weekend and after a storm, fewer at 04:00. A new game starts with two days of posts already there.
 
 ### The posts (the catalogue: each is a moment kind; a * also makes a reel)
@@ -232,7 +236,7 @@ Text posts (Local only, no picture, a coloured card): the trail report, the road
 
 ### Testing how cool it is (the scroll test, a tool kept in the repo)
 `tools/playtest/scenarios/gram_scroll.mjs`: plays N ordinary days at a named date (polar night, sun's return, spring),
-then scrolls Local in two villages and Reels as a player would and writes every screen as a still plus contact sheets,
+then scrolls Local (the whole land) and Reels as a player would and writes every screen as a still plus contact sheets,
 and prints the numbers: kinds per 30 posts, the longest run of one kind / place / shot type, repeated captions, the
 share of people shots with a face to camera, each picture's subject size and luminance, how different each picture
 is from the one before, posts and reels per day. The gate asserts the floor (below); the builder and then the
@@ -254,7 +258,94 @@ threshold); Reels has at least 8 new a day and at least 10 kinds in 20.
       rhythm, and the scroll test for reels.
 - [ ] **H2R-c** The rest of the catalogue, the nitpick rounds from the scroll sheets, low-preset and phone look.
 
-## H3. Radio Nordkinn (`tlx-radio.js`, id `radio`)
+## The Indoors and Senses update (Lemon, 25 Nov): slices I1 to I10, built in this order after the Gram remake
+
+His words: "add in 1 and 2 as a big update, where you can now go inside and talk to people ... a stardew valley
+conversation real quick with somebody where you exchange a sentence while nothing around the world stops. also add in
+6 to this loop, businesses and homes need plenty to furnish. keep 5 [cooking] in mind when you do all the assets ...
+[clothing:] either spend a bunch of time on clothing adding in truly cool and fitting options to your wardrobe, or
+don't spend any time on it. [music:] give me different radio stations with different styles, and no matter what
+station you're on you should get safety updates ... i thought you would go ahead and add sound to them. [rumble:]
+i play on a dualsense 5 so make sure the rumble and all works on an xbox controller too, but for now i want the full
+dualsense controller haptics hooked up. [photo:] a camera app from now on that is like a pokemon snap mode where you
+can take pictures from fpv right there, but without the pause. field guide as an app to keep track of wildlife,
+their tracks, their locations, their nests. [goals page:] sounds awesome, paths app? [save slots:] do that, and
+[summer hiking and swimming] should've been done already".
+
+- [ ] **I1 Walk-in places, with people in them.** Every village gets real rooms you walk into through the existing
+      interiors system (`api.intAdd`, the int* furniture kit): Kjøllefjord a café, the pub, the church, the school
+      hall, the shop floor, the garage's waiting room; each smaller village at least a shop with a coffee corner and a
+      meeting house, plus the homes of households (a knock, and you are let in when someone is home and regards you).
+      People from the households are really there by the hour and day (the café at 10, church on Sunday, the pub on
+      Friday, kids in the hall after school, home in the evening) and the room agrees with the outside (a lit window
+      means someone is in). They sit, stand, drink, read, play cards, knit, look up when you come in. Realistic
+      animation rule. Everything a room needs is built as **placeable furniture assets** in one shared catalogue
+      (`tlx-furnish.js`), and every kitchen is built **cooking-ready** (a stove with hobs and an oven door that opens,
+      a sink, counters, pots, pans, a kettle, plates, a fridge and a larder as separate named props with anchor
+      points), so the later cooking update needs no new models.
+- [ ] **I2 A word with anybody.** Walk up to any person, indoors or out, press the use control: one exchange, one
+      line each way, in a small speech bubble over their head, two or three replies to pick from (or none: it closes
+      itself in a few seconds). **Nothing stops**: no pause, no camera cut, no lock on movement; walk away and it
+      ends. Who is busy says so in a word and carries on: someone serving at a counter or working a job (selling, a
+      mechanic at work, a plow driver driving, a keeper at the lens) is a counter or a job, not a chat. What they say
+      comes from what they know: the news bus, their family, the weather, the trail, what you did (your crash, the
+      drive you plowed), their own day, and it does not repeat. Each person keeps a small regard for you that rises
+      with a word a day, a favour, a familiar face (the seed of H8). Keyboard, pad and touch.
+- [ ] **I3 Furnishing homes and businesses.** A furnish mode for every interior you own or rent (cabins, flats, the
+      depot rooms, inns, the garage, a shop): pick from the catalogue, place, turn, snap to walls and floors, stack on
+      tables and shelves, move, sell back. A big catalogue ("plenty to furnish"): at least 150 pieces across beds and
+      sofas, tables and chairs, kitchens (the cooking-ready set), stoves and lamps, rugs, curtains, shelves and books,
+      pictures (your own camera shots can be hung), plants, coat racks and boot trays, workshop benches and tool
+      walls, shop counters and racks, café tables, bar stools, reception desks, guest-room beds. Bought from a
+      furniture shop, the marketplace, and by catalogue order that arrives on the ferry as freight you carry home.
+      Business rooms score on what is in them (an inn room with a bed, a lamp and a rug rents for more; a café with
+      seats fills them with villagers).
+- [ ] **I4 The radio, with sound (replaces the old H3 below).** A radio on the sled, in every cab and in rooms:
+      on/off, station and volume on all three control schemes. **Several stations, each a different style**, all real
+      sound made in the browser (WebAudio synthesis and sequencing, no files to load): Radio Nordkinn (local: talk,
+      call-ins from villagers built from the news bus, trail and road reports, accordion and dance-band), a rock
+      station for riding, a calm ambient night station for the polar night, a country and trucker station the plow
+      drivers have on, a Sami station with joik-inspired music, a classical and news station. Each has its own jingle,
+      presenter (captions always; spoken voice an option using the browser's speech), programme by hour, and hours of
+      generated music in its style before a tune repeats. **Safety updates cut in on every station**: storm warnings,
+      a road shut or a convoy leaving, avalanche and thin-ice warnings when those exist, a rescue call near you, with
+      a two-tone alert and the music ducked. Reception fades behind the fell and in a storm; the relay mast matters.
+- [ ] **I5 Haptics.** Full use of the pad. DualSense first (Lemon's pad), Xbox working too, anything else falls back
+      to plain rumble. Through the Gamepad API (`vibrationActuator.playEffect`: dual-rumble on every pad,
+      trigger-rumble where the browser offers it) and, for the DualSense's own features, WebHID after a one-time
+      "connect controller" prompt in Settings (Chrome and Edge; a browser without it gets the Gamepad API rumble and
+      the page says so): adaptive triggers (throttle resistance that rises with load and goes slack when the track
+      spins in powder, a brake that firms up and pulses when the sled slides, a click at the rev limiter, the winch),
+      the light bar (cold, fuel, a warning). Effects designed per surface and event, not one buzz: engine idle and
+      revs, powder versus packed trail versus ice versus gravel, landings by height, bogging down, ice cracking under
+      you, a collision by speed, the blade biting, a fish on the line, a heartbeat when freezing. Strength slider and
+      off switch in Settings. A scenario records every effect call per event.
+- [ ] **I6 Camera app (replaces the old H2c).** A camera on the tablet and a shortcut on every scheme: lifts the phone
+      into first person right where you are, riding, walking or in a cab, and **the world keeps running** (Pokemon
+      Snap style: animals move, weather blows). Zoom, a focus reticle that names what it is on, a shutter. Each shot is
+      scored on subject, size, pose (an animal doing something beats one standing), light and rarity, kept in a roll,
+      can be hung in a furnished room (I3) and files itself in the Field guide (I7).
+- [ ] **I7 Field guide app.** Every animal, bird and fish of the land with a page that fills in as you meet it: your
+      best photo, where and when you have seen it (pins on a map, by season and hour), its **tracks** (the real
+      prints it leaves in the snow), its **nests, dens and haul-outs** once found, what it eats, how close it lets
+      you. Tracks in the snow become readable in the world (fresh or old, which way) so the guide can be used to find
+      the animal. A count per species group and per area.
+- [ ] **I8 Paths app.** One screen for your whole life here: each path (courier, freight, trail crew, rescue, plowing,
+      roads, staff, property, lighthouses, boats, fishing, hunting, trails, the village: people who know you, places
+      furnished, field guide, photos) as a line with where you stand, the next step in plain words and what it opens,
+      and a "today" card of three things worth doing now. Reads the real state of every system.
+- [ ] **I9 Save slots.** Three or more named saves with a card each (place, day, cash, time played, a thumbnail),
+      new / load / copy / delete with a confirm, export to and import from a file; the old single save becomes slot 1.
+- [ ] **I10 Summer on foot and in the water.** Marked hiking trails in the snow-free months (the ski trails and old
+      routes as paths, cairns and signposts, summit books to sign, the gapahuks in use, villagers out walking), and
+      swimming: a real stroke by the realistic-animation rule, cold that bites, the quay ladder, a beach at each
+      village, a sauna-and-jump where there is a sauna. First an audit of milestone 9 (four seasons, v260) against
+      Lemon's original brief for anything else summer is missing, written into `loop/OPEN.md`.
+
+Not in this update, on purpose: **clothing** (Lemon: all of it or none of it; it gets its own full update when he
+calls it) and **cooking** (his later update; I1 and I3 build the kitchens ready for it).
+
+## H3. Radio Nordkinn (superseded by I4 above; kept for its notes) (`tlx-radio.js`, id `radio`)
 
 - A radio on the sled's dash tablet and in every cab: on/off and volume on a control bound on all three schemes.
   One local station. Music is a synthesised bed (WebAudio, no files), a jingle, the weather on the hour from the
