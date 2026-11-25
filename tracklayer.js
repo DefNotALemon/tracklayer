@@ -17792,7 +17792,7 @@ function initExpansion() {
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
     groomx: GROOMX, warmx: WARMX, calx: CALX, sarCall: (spec) => sarCallIn(spec), sarState: () => ({ cur: SAR.cur, ping: SAR.ping, busy: sarBusy() }), sarAccept: c => sarAccept(c), crewAt: RANKS[1].at, gameHour: GAMEHOUR,
-    gram: { lights: { sun, hemi }, shot: gramShot, quad: { make: wildRig, free: wildFree, pose: quadPose, kinds: () => Object.keys(QSP) }, sunEl: sunEl, aur: () => AUR },
+    gram: { lights: { sun, hemi }, sky: () => sky.material.uniforms, stars: () => stars.material.uniforms, shot: gramShot, quad: { make: wildRig, free: wildFree, pose: quadPose, kinds: () => Object.keys(QSP) }, sunEl: sunEl, aur: () => AUR },
     footx: footX(), jobx: jobX(), ridex: rideX(), rideUse: rideUseA(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules

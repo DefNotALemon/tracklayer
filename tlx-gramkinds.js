@@ -48,13 +48,27 @@ function stand(w, o) {                                                          
   for (let i = 0; i < 2; i++) { const sd = i ? 1 : -1; U.arms[i].rotation.set(0.04, 0, sd * 0.1); U.fore[i].rotation.set(-0.18, 0, 0); }
   w.phone.visible = false;
 }
-// a smile (and, wide, a laugh with teeth) laid on the face: the kit's lips are closed, so a grin is a crescent in front of them, shown for the frame
+// a face laid on the head for the frame: eyes with brows, cold-red cheeks and a smile (a laugh, wide, with teeth and squinting eyes). The kit's face is plain, and at feed size a selfie needs these.
+// Unlit flat shapes just off the head's surface (they stay readable at night); k is the smile (0..1.4), the laugh squints the eyes.
 function grin(w, k) {
   if (!w.smile) { const t = T(), g = new t.Group(), dk = new t.MeshBasicMaterial({ color: 0x3a1010 }), tt = new t.MeshBasicMaterial({ color: 0xf2eee6 });
-    const cres = new t.Mesh(new t.CircleGeometry(0.025, 14, Math.PI * 1.08, Math.PI * 0.84), dk); cres.position.set(0, -0.052, 0.0935); cres.scale.set(1, 1.1, 1); g.add(cres);
-    const teeth = new t.Mesh(new t.PlaneGeometry(0.034, 0.007), tt); teeth.position.set(0, -0.0575, 0.0937); g.add(teeth); w.smile = g; w.U.headParts.all[4].parent.add(g); }
-  w.smile.visible = k > 0; w.smile.scale.set(0.8 + 0.5 * k, 0.6 + 0.9 * k, 1); w.smile.children[1].visible = k > 0.5;
+    const cres = new t.Mesh(new t.CircleGeometry(0.03, 16, Math.PI * 1.06, Math.PI * 0.88), dk); cres.position.set(0, -0.046, 0.0975); cres.scale.set(1, 1.1, 1); g.add(cres);
+    const teeth = new t.Mesh(new t.PlaneGeometry(0.044, 0.009), tt); teeth.position.set(0, -0.0535, 0.0978); g.add(teeth);
+    const open = new t.Mesh(new t.CircleGeometry(0.028, 16, Math.PI, Math.PI), new t.MeshBasicMaterial({ color: 0x4a0f12 })); open.position.set(0, -0.043, 0.0985); g.add(open); open.visible = false;
+    const tng = new t.Mesh(new t.CircleGeometry(0.014, 12, Math.PI, Math.PI), new t.MeshBasicMaterial({ color: 0xd8607a })); tng.position.set(0, -0.0545, 0.099); g.add(tng); tng.visible = false;
+    g.userData.open = open; g.userData.tng = tng; w.smile = g; w.U.headParts.all[4].parent.add(g);
+    const f = new t.Group(), wh = new t.MeshBasicMaterial({ color: 0xf6f4ee }), ir = new t.MeshBasicMaterial({ color: 0x24160f }), bw = new t.MeshBasicMaterial({ color: 0x2c1c14 }), ch = new t.MeshBasicMaterial({ color: 0xe23a3a, transparent: true, opacity: 0.72, depthWrite: false });
+    f.userData.eyes = [];
+    for (const s of [-1, 1]) {
+      const eg = new t.Group(); eg.position.set(s * 0.036, 0.016, 0.0985); eg.rotation.y = s * 0.34; const e1 = new t.Mesh(new t.CircleGeometry(0.0165, 14), wh), e2 = new t.Mesh(new t.CircleGeometry(0.01, 12), ir); e2.position.set(0, -0.001, 0.0007); eg.add(e1, e2); f.add(eg); f.userData.eyes.push(eg);
+      const br = new t.Mesh(new t.PlaneGeometry(0.034, 0.0085), bw); br.position.set(s * 0.038, 0.0405, 0.0955); br.rotation.set(0, s * 0.4, -s * 0.16); f.add(br);
+      const c = new t.Mesh(new t.CircleGeometry(0.027, 14), ch); c.position.set(s * 0.057, -0.021, 0.0895); c.rotation.y = s * 0.72; f.add(c);
+    }
+    w.faceFx = f; w.U.headParts.all[4].parent.add(f); }
+  const laugh = k > 1.15, u = w.smile.userData; w.smile.visible = k > 0; w.smile.scale.set(0.85 + 0.25 * Math.min(k, 1.2), 0.62 + 0.5 * Math.min(k, 1.2), 1); w.smile.children[1].visible = k > 0.5 && !laugh; u.open.visible = laugh; u.tng.visible = laugh; w.smile.children[0].visible = !laugh;
+  w.faceFx.visible = true; for (const e of w.faceFx.userData.eyes) e.scale.set(1, laugh ? 0.35 : 1, 1);
 }
+K.faceOff = w => { if (w.faceFx) w.faceFx.visible = false; if (w.smile) w.smile.visible = false; };
 K.grin = grin;
 // an arm to a point in torso space (x right-to-left of the figure's own x axis, y up, z forward), by two-bone IK like the riders' (shoulder at x = +-0.21, y = 0.53)
 function armTo(w, i, tx, ty, tz) {
@@ -74,7 +88,7 @@ const _v1 = () => new (T().Vector3)();
 function headPos(w, out) { w.g.updateMatrixWorld(true); out.set(0, 0.1, 0.02); w.U.head.localToWorld(out); return out; }
 K.headPos = headPos;
 function person(E, slot, p, x, z, yaw, o) {
-  const w = E.walkers[slot]; o = o || {}; const L = dress(w, p, o); const rs = E.reset, dt = E.dt; w.o.px = undefined; w.o.sp = 0; w.o.hgV = 0; E.reset = false; E.dt = 0.05; E.walk(w, x, z, yaw, o.sc || L.sc); E.walk(w, x, z, yaw, o.sc || L.sc); E.reset = rs; E.dt = dt; stand(w, o); w.g.position.y += o.dy || 0; return w;
+  const w = E.walkers[slot]; o = o || {}; const L = dress(w, p, o); const rs = E.reset, dt = E.dt; w.o.px = undefined; w.o.sp = 0; w.o.hgV = 0; E.reset = false; E.dt = 0.05; E.walk(w, x, z, yaw, o.sc || L.sc); E.walk(w, x, z, yaw, o.sc || L.sc); E.reset = rs; E.dt = dt; stand(w, o); w.g.position.y += o.dy || 0; grin(w, o.smile === undefined ? 0.5 : o.smile); return w;
 }
 K.person = person;
 // mark what the shot is of, for the composition check: head top and feet of a figure, a point, and the faces that must be to the camera
@@ -134,6 +148,42 @@ PB.carMound = () => { const t = T(), g = new t.Group(), sm = mat("snowM", 0xeef3
 PB.sign = (o) => { const g = new (T().Group)(); cy(g, mat("signP", 0x5a5a60, 0.6, 0.4), 0.03, 0.03, 2.2, 0, 1.1, 0, null, 6); const m = mat("sign" + (o && o.c || 0), o && o.c || 0xf0d020, 0.5, 0); bx(g, m, 0.7, 0.5, 0.025, 0, 2.0, 0.03); return g; };
 PB.pole = () => { const g = new (T().Group)(); cy(g, mat("polR", 0xd02020, 0.6, 0), 0.025, 0.025, 2.4, 0, 1.2, 0, null, 6); cy(g, mat("polW", 0xf0f0f0, 0.6, 0), 0.026, 0.026, 0.5, 0, 1.0, 0, null, 6); return g; };
 K.PB = PB;
+
+/* ================= set dressing: thrown snow, a trailhead board, corduroy, a window to shoot through, street lamps behind ================= */
+PB.berm = (o) => { const g = new (T().Group)(), m = mat("snowB", 0xf0f5fa, 0.97, 0), s = o && o.s || 1; for (const [x, z, r, h] of [[0, 0, 1.0, 0.3], [0.8, 0.35, 0.7, 0.22], [-0.7, -0.25, 0.8, 0.26], [0.1, 0.6, 0.55, 0.18]]) ell(g, m, r * s, h * s, r * s * 0.8, x * s, 0.02, z * s); return g; };
+PB.board = () => { const g = new (T().Group)(), wd = mat("brdW", 0x6a4a2c, 0.9, 0), pn = mat("brdP", 0x2e5a4a, 0.7, 0), wh = mat("brdL", 0xe8eef2, 0.8, 0), rf = mat("brdR", 0x4a3a2c, 0.9, 0);
+  for (const sx of [-1, 1]) bx(g, wd, 0.1, 2.0, 0.1, sx * 0.62, 1.0, 0); bx(g, pn, 1.3, 0.95, 0.05, 0, 1.45, 0.02); bx(g, wd, 1.4, 0.06, 0.07, 0, 1.97, 0); bx(g, rf, 1.5, 0.05, 0.42, 0, 2.08, 0.1, [-0.35, 0, 0]);
+  for (let i = 0; i < 4; i++) bx(g, wh, 0.9 - i * 0.12, 0.025, 0.012, -0.05 + i * 0.03, 1.8 - i * 0.2, 0.052, [0, 0, (i - 1.5) * 0.12]); bx(g, mat("brdT", 0xd8352a, 0.6, 0), 0.1, 0.1, 0.012, 0.3, 1.2, 0.052); return g; };
+PB.lamp = () => { const t = T(), g = new t.Group(); cy(g, mat("lampP", 0x2a2d32, 0.6, 0.4), 0.05, 0.07, 5.0, 0, 2.5, 0, null, 7); bx(g, mat("lampA", 0x2a2d32, 0.6, 0.4), 0.9, 0.06, 0.06, 0.4, 5.0, 0); ell(g, new t.MeshBasicMaterial({ color: 0xfff0c0, fog: false }), 0.16, 0.08, 0.16, 0.8, 4.92, 0); glow(g, "lampG", 0xffd890, 1.7, 0.8, 4.9, 0, 0.9); return g; };
+K.lampsBehind = (E, rec, night) => {                                                                       // street lamps and a lit window behind the subject of a night picture
+  if (night < 0.35) return; if (!W().doors.some(d => Math.hypot(d.x - (E.marks[0] || [1e9, 0, 1e9])[0], d.z - (E.marks[0] || [1e9, 0, 1e9])[2]) < 130)) return; const m = E.marks && E.marks.length ? E.marks[0] : null; if (!m) return; const c = E.cam.position, dx = m[0] - c.x, dz = m[2] - c.z, dl = Math.hypot(dx, dz) || 1, fx = dx / dl, fz = dz / dl, lx = fz, lz = -fx, r = mulb((rec.sd | 0) + 31);
+  for (let i = 0; i < 2; i++) { const d = dl + 8 + i * 9 + r() * 4, side = (i ? -1 : 1) * (4 + r() * 5), x = c.x + fx * d + lx * side, z = c.z + fz * d + lz * side; if (!landOk(x, z) || W().obNear(x, z, 1.2)) continue; prop(E, "lamp", i, x, z, Math.atan2(-lx, -lz) * 0 + (side > 0 ? Math.PI : 0), {}); lampPool(E, "lp" + i, x + (side > 0 ? 0.0 : 0), z, 9, 0xffd890, 0.5 * night); }
+};
+// corduroy: a ribbon of ground-hugging stripes laid along a trail from (x, z) heading yaw, len metres, width metres; the ribbon is rebuilt from the terrain each frame (a few dozen vertices)
+let CORD = null;
+function cordTex() { if (CORD) return CORD; const c = document.createElement("canvas"); c.width = 128; c.height = 128; const g = c.getContext("2d"); g.clearRect(0, 0, 128, 128); const n = 8; for (let i = 0; i < n; i++) { const x = i * 128 / n, e = Math.sin((i + 0.5) / n * Math.PI), a = Math.min(1, e * 2.2); g.fillStyle = i % 2 ? `rgba(196,212,236,${0.95 * a})` : `rgba(250,252,255,${0.95 * a})`; g.fillRect(x, 0, 128 / n, 128); g.fillStyle = `rgba(86,118,176,${0.85 * a})`; g.fillRect(x, 0, 3.5, 128); g.fillStyle = `rgba(255,255,255,${0.7 * a})`; g.fillRect(x + 5, 0, 2, 128); }
+  const t = new (T().CanvasTexture)(c); t.wrapS = t.wrapT = T().RepeatWrapping; t.anisotropy = 4; return (CORD = t); }
+K.corduroy = (E, x, z, yaw, len, width, back) => {
+  const t = T(), n = 28, e = E.extraOf("gp:cord", () => { const geo = new t.BufferGeometry(); geo.setAttribute("position", new t.BufferAttribute(new Float32Array((n + 1) * 6), 3)); const uv = new Float32Array((n + 1) * 4), idx = []; for (let i = 0; i <= n; i++) { uv[i * 4] = 0; uv[i * 4 + 1] = i * len / n / 3; uv[i * 4 + 2] = 1; uv[i * 4 + 3] = i * len / n / 3; } for (let i = 0; i < n; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    geo.setAttribute("uv", new t.BufferAttribute(uv, 2)); { const nm = new Float32Array((n + 1) * 6); for (let i = 0; i < nm.length; i += 3) nm[i + 1] = 1; geo.setAttribute("normal", new t.BufferAttribute(nm, 3)); } geo.setIndex(idx); const m = new t.Mesh(geo, new t.MeshStandardMaterial({ map: cordTex(), transparent: true, depthWrite: false, roughness: 0.95, side: t.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); m.frustumCulled = false; m.renderOrder = 3; return m; });
+  const geo = e.m.geometry, P = geo.attributes.position, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, hw = width / 2;
+  for (let i = 0; i <= n; i++) { const s = -(back || 0) + (len + (back || 0)) * i / n, cx = x + fx * s, cz = z + fz * s, jx = Math.sin(s * 0.05) * 0.25, ax = cx + lx * jx, az = cz + lz * jx; for (let k = 0; k < 2; k++) { const sd = k ? 1 : -1, px = ax + lx * hw * sd, pz = az + lz * hw * sd; P.setXYZ(i * 2 + k, px, surf(px, pz) + 0.05, pz); } }
+  P.needsUpdate = true; e.m.position.set(0, 0, 0); e.m.visible = true; e.on = true; return e;
+};
+// a window to shoot through: a frame, a sill, a curtain's edge and a mullion laid just in front of the lens; the world is seen through it
+K.windowFrame = (E, night, o) => {
+  const t = T(), e = E.extraOf("gp:winframe", () => { const g = new t.Group(), mk = (c) => new t.MeshBasicMaterial({ color: c, fog: false }), parts = {};
+    parts.frame = mk(0xdad4c8); parts.dark = mk(0x7a6a58); parts.cur = mk(0xb8463a); parts.cur2 = mk(0x963a30); parts.glass = new t.MeshBasicMaterial({ color: 0xa8c4e0, transparent: true, opacity: 0.06, fog: false, depthWrite: false });
+    const box = (m) => { const b = new t.Mesh(new t.BoxGeometry(1, 1, 1), m); g.add(b); return b; };
+    g.userData.b = { top: box(parts.frame), bot: box(parts.frame), l: box(parts.frame), r: box(parts.frame), mull: box(parts.frame), sill: box(parts.dark), cur: box(parts.cur), cur2: box(parts.cur2), cur3: box(parts.cur), glass: box(parts.glass), warm: box(new t.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.0, fog: false, depthWrite: false })) }; g.userData.parts = parts; g.traverse(q => { q.frustumCulled = false; q.renderOrder = 20; }); return g; }), g = e.m, B = g.userData.b, cam = E.cam;
+  const d = 0.42, hh = Math.tan(cam.fov * Math.PI / 360) * d, hw = hh * cam.aspect, bar = 0.1 * hw, k = 1 - 0.55 * night; g.userData.parts.frame.color.setRGB(0.86 * k, 0.83 * k, 0.78 * k); g.userData.parts.dark.color.setRGB(0.5 * k, 0.42 * k, 0.34 * k); g.userData.parts.cur.color.setRGB(0.72 * k, 0.27 * k, 0.23 * k); g.userData.parts.cur2.color.setRGB(0.58 * k, 0.2 * k, 0.18 * k);
+  const dp = 0.012, set = (b, x, y, w, h, z) => { b.position.set(x, y, -d + (z || 0)); b.scale.set(w, h, dp); };
+  set(B.top, 0, hh - bar * 0.5, 2 * hw, bar); set(B.bot, 0, -hh + bar * 0.5, 2 * hw, bar); set(B.l, -hw + bar * 0.5, 0, bar, 2 * hh); set(B.r, hw - bar * 0.5, 0, bar, 2 * hh); set(B.mull, (o && o.mull || 0.12) * hw, 0, bar * 0.4, 2 * hh, 0.001);
+  B.sill.position.set(0, -hh + bar * 1.1, -d + 0.05); B.sill.scale.set(2 * hw, bar * 0.28, 0.08);
+  set(B.cur, -hw + bar + hw * 0.1, 0.12 * hh, hw * 0.22, 2 * hh, 0.003); set(B.cur2, -hw + bar + hw * 0.04, 0.12 * hh, hw * 0.08, 2 * hh, 0.006); set(B.cur3, -hw + bar + hw * 0.17, 0.12 * hh, hw * 0.04, 2 * hh, 0.004);
+  set(B.glass, 0, 0, 2 * hw, 2 * hh, 0.0005); set(B.warm, 0, 0, 2 * hw, 2 * hh, 0.0007); B.warm.material.opacity = 0.0;
+  g.position.copy(cam.position); g.quaternion.copy(cam.quaternion); g.scale.setScalar(1); g.visible = true; e.on = true; return e;
+};
 // a pooled prop: built once per key and index, placed for the frame (the engine hides it after the shot)
 function prop(E, name, i, x, z, yaw, o) {
   o = o || {}; const key = "gp:" + name + (i || 0) + (o.key || ""), e = E.extraOf(key, () => { const g = PB[name](o), r = new (T().Group)(); r.add(g); r.traverse(q => { q.frustumCulled = false; }); return r; }); const m = e.m;
@@ -151,9 +201,16 @@ const RIGS = {};
 function animal(E, kind, i, x, z, yaw, o) {
   o = o || {}; const Q = A().gram.quad, key = kind + (i || 0); let q = RIGS[key]; if (!q) { q = RIGS[key] = Q.make(kind, ""); }
   q.g.traverse(n => { n.frustumCulled = false; }); const e = E.extraOf("ga:" + key, () => q.g); e.q = q; const y = surf(x, z);
-  q.g.position.set(x, y - 0.05 + (o.dy || 0), z); q.g.rotation.set(0, yaw, 0); q.g.scale.setScalar(o.s || 1); q.graze = o.graze || 0; Q.pose(q, o.dt === undefined ? 0.04 : o.dt, o.v || 0, q.graze, 0); q.g.visible = true; e.on = true; return q;
+  q.g.position.set(x, y - 0.05 + (o.dy || 0), z); q.g.rotation.set(0, yaw, 0); q.g.scale.setScalar(o.s || 1); q.graze = o.graze || 0; Q.pose(q, o.dt === undefined ? 0.04 : o.dt, o.v || 0, q.graze, 0); q.g.visible = true; e.on = true; if (kind === "fox") foxCoat(q); return q;
 }
 K.animal = animal;
+// the fox's coat: the game's winter fox is a white blank; for a picture it is a red fox with a pale belly, dark legs and a white tail tip (own materials: the game's fox is untouched)
+function foxCoat(q) {
+  if (q.coated) return; q.coated = 1; const t = T(), seen = new Map(), cl = (m, hex, rough) => { if (!seen.has(m)) { const c = m.clone(); c.color.setHex(hex); if (rough !== undefined) c.roughness = rough; seen.set(m, c); } return seen.get(m); };
+  const cols = [0xc4642a, 0xe9dcc4, 0x7c3c1c, 0xb05620]; let i = 0;
+  q.g.traverse(o => { if (o.isMesh && o.material && o.material.color) { const h = o.material.color.getHex(); if (h === 0xeceef0) o.material = cl(o.material, 0xc4632a); else if (h === 0xc9ccd0) o.material = cl(o.material, 0xe4d6bc); else if (h === 0x141414) o.material = cl(o.material, 0x1a1210); } });
+}
+K.foxCoat = foxCoat;
 // the figure kit's dead ground: set a sprite's glow pool on the snow for a lamp
 function lampPool(E, key, x, z, r, col, op) { const t = T(), e = E.extraOf("gl:" + key, () => { const m = new t.Mesh(E.blobGeo, new t.MeshBasicMaterial({ map: E.tex().glow, color: col, transparent: true, depthWrite: false, blending: t.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, fog: false })); return m; }); const m = e.m; m.position.set(x, surf(x, z) + 0.1, z); m.scale.set(r, 1, r); m.material.opacity = op === undefined ? 0.6 : op; m.material.color.setHex(col); m.visible = true; e.on = true; return m; }
 K.lampPool = lampPool;

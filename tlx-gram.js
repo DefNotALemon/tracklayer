@@ -360,8 +360,23 @@ function litPlan(Sc, rec, boost) {
       L.sun.intensity = L.sun.intensity + (fill - L.sun.intensity) * swing; L.sun.color.setRGB(1, 0.95 - 0.12 * warm, 0.88 - 0.34 * warm);
     }
     L.hemi.intensity += up; api.renderer.toneMappingExposure *= 1 + expo;
+    skyDress(E, rec, el, Sc.storm !== undefined ? Sc.storm : rec.s || 0);
   };
   E.litOff = () => { if (sp) { L.sun.position.copy(sp); L.sun.target.position.copy(st); L.sun.target.updateMatrixWorld(); } E.lit = null; E.litOff = null; };
+}
+// A phone's night picture never has a flat black sky: stars brighter, a moon where the real one is down, a faint aurora on some clear nights, the dark fog lifted to a deep blue, and in the polar night's
+// midday the dusk made blue. Changes the sky's uniforms and the fog colour for the frame only (gramShot's updSky puts them back).
+function skyDress(E, rec, el, st) {
+  const SU = api.gram.sky && api.gram.sky(), ST = api.gram.stars && api.gram.stars(); if (!SU) return; const clearK = 1 - clamp(st * 1.3, 0, 1); if (clearK < 0.2) return;
+  const d = clamp((3 - el) / 11, 0, 1) * clearK; if (d < 0.05) return; const m = d * (el > -9 ? 0.6 : 0.88), fog = api.scene.fog, tmp = tv3()[0];
+  const lerpC = (c, r, g, b, k) => c.setRGB(c.r + (r - c.r) * k, c.g + (g - c.g) * k, c.b + (b - c.b) * k);
+  lerpC(SU.uZen.value, 0.03, 0.075, 0.2, m); lerpC(SU.uMid.value, 0.07, 0.15, 0.33, m); lerpC(SU.uHor.value, 0.17, 0.3, 0.46, m * (el > -9 ? 0.6 : 1)); lerpC(SU.uHorA.value, 0.14, 0.26, 0.42, m);
+  if (fog && fog.color) { lerpC(fog.color, 0.1, 0.18, 0.3, m * 0.7); SU.uFog && SU.uFog.value.copy(fog.color); }
+  if (ST && el < -6) ST.uOp.value = Math.max(ST.uOp.value, 0.9 * d) * 1.25;
+  if (el < -6 && (SU.uMoonI.value < 0.3 || SU.uMoon.value.y < 0.12)) {                                   // the real moon is down: put one in the frame, a little left of where the lens looks, well up
+    E.cam.getWorldDirection(tmp); const a = Math.atan2(tmp.x, tmp.z) + 0.45 + 0.3 * (hash01("moon" + (rec.sd | 0)) - 0.5); SU.uMoon.value.set(Math.sin(a) * 0.9, 0.42, Math.cos(a) * 0.9).normalize(); SU.uMoonI.value = 0.8 * clearK;
+  }
+  if (el < -10 && hash01("aur" + (rec.sd | 0)) < 0.42) SU.uAurora.value = Math.max(SU.uAurora.value, 0.75 * clearK);
 }
 G.litPlan = litPlan;
 // the shot's subject on the frame: its projected box (NDC), whether each face is to the camera, whether anything stands in front
@@ -372,7 +387,7 @@ function compose(E, row) {
   for (const q of m) { V.set(q[0], q[1], q[2]).project(cam); if (V.z > 1 || V.z < -1) { why.push("behind"); continue; } x0 = Math.min(x0, V.x); x1 = Math.max(x1, V.x); y0 = Math.min(y0, V.y); y1 = Math.max(y1, V.y); n++; }
   const h = (y1 - y0) / 2, need = (E.needH || 0.25) * 0.82;
   if (n < m.length) why.push("subject behind the camera"); else {
-    if (h < need) why.push("small " + h.toFixed(2) + "<" + need); if (x0 < -1.12 || x1 > 1.12 || y0 < -1.15 || y1 > 1.12) why.push("cropped"); if (!row.wideOk && ((x0 + x1) / 2 < -0.8 || (x0 + x1) / 2 > 0.8)) why.push("off centre");
+    if (h < need) why.push("small " + h.toFixed(2) + "<" + need); if (x0 < -1.12 || x1 > 1.12 || y0 < -1.15 || y1 > 1.12) why.push("cropped " + [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",")); if (!row.wideOk && ((x0 + x1) / 2 < -0.8 || (x0 + x1) / 2 > 0.8)) why.push("off centre");
   }
   for (const f of E.faces || []) { const dx = cam.position.x - f.x, dz = cam.position.z - f.z, dl = Math.hypot(dx, dz) || 1, d = (dx * Math.sin(f.yaw) + dz * Math.cos(f.yaw)) / dl; if (d < 0.5) { why.push("a face turned away " + d.toFixed(2)); break; } V.set(f.x, f.y, f.z).project(cam); if (Math.abs(V.x) > 1.1 || Math.abs(V.y) > 1.1) { why.push("a face out of frame"); break; } }
   if (!row.open && !why.length) {                                                                         // nothing solid between the lens and the subject
@@ -404,7 +419,7 @@ G.dims = dims;
 // one render of a moment into a canvas (size w x h), with its light plan; returns { Sc, E } or null
 function shotInto(rec, cv, boost) {
   const R = window.TLXRL, E = R.E, row = kinds()[rec.k]; if (!R || !R.ready || !row || !api.gram.lights) return null;
-  E.prepare(row.need || {}); const Sc = row.plan(rec, E); if (Sc.setup) Sc.setup(E);
+  E.prepare(row.need || {}); const Sc = planOf(row, rec, E); if (Sc.setup) Sc.setup(E);
   E.tPrev = -1; E.reset = true; E.clearFx(); Sc.frame(Sc.still, E);
   const sig = E.walkers.length * 1000 + E.extra.length + E.sleds.length * 100000 + E.deer.length * 10 + (E.walkers.length && E.walkers[0].smile ? 7 : 0);       // a figure or prop that is new draws nothing for its first couple of renders (materials not ready): draw them out of sight first
   if (sig !== G.sig) { G.sig = sig; const w0 = cv.width, h0 = cv.height, tc = G.warmCv || (G.warmCv = document.createElement("canvas")); tc.width = 24; tc.height = 30; G.warmed = (G.warmed || 0) + 1; for (let i = 0; i < 3; i++) { E.tPrev = -1; E.reset = true; try { R.renderAt(Sc, Sc.still, tc, tc.getContext("2d")); } catch (e) { } } }
@@ -414,13 +429,20 @@ function shotInto(rec, cv, boost) {
   return ok ? { Sc, E } : null;
 }
 G.shotInto = shotInto;
+// the plan of a moment with the street lamps put behind its subject at night
+function planOf(row, rec, E) {
+  const Sc = row.plan(rec, E); if (!Sc || row.nolamp || !window.TLXGK || !TLXGK.lampsBehind) return Sc; const fr = Sc.frame, night = clamp((2 - elAt(rec.h)) / 8, 0, 1);
+  if (night > 0.3) Sc.frame = (t, E2) => { fr(t, E2); try { TLXGK.lampsBehind(E2, rec, night); } catch (e) { } };
+  return Sc;
+}
+G.planOf = planOf;
 const TC = { cv: null };
 // is this moment worth posting: composition from the projected bounds, then a small test render measured and re-lit once; { ok, lb (the light boost to use), why }
 function verify(rec, row) {
   const R = window.TLXRL; G.checks++;
   if (!R || !R.ready || !api.gram.lights) return { ok: true, lb: 1, skip: 1 };
   const E = R.E; E.prepare(row.need || {}); let Sc;
-  try { Sc = row.plan(rec, E); if (!Sc) return { ok: false, why: ["no plan"] }; if (Sc.setup) Sc.setup(E); E.tPrev = -1; E.reset = true; E.clearFx(); KT().begin(E); Sc.frame(Sc.still, E); } catch (e) { console.error("TLX gram plan", rec.k, e); G.err = String(e && e.stack || e); return { ok: false, why: ["plan threw"] }; }
+  try { Sc = planOf(row, rec, E); if (!Sc) return { ok: false, why: ["no plan"] }; if (Sc.setup) Sc.setup(E); E.tPrev = -1; E.reset = true; E.clearFx(); KT().begin(E); Sc.frame(Sc.still, E); } catch (e) { console.error("TLX gram plan", rec.k, e); G.err = String(e && e.stack || e); return { ok: false, why: ["plan threw"] }; }
   E.clearFx(); const cm = compose(E, row); G.framing.tries++; if (!cm.ok) { G.framing.rejected++; G.framing.why.push(rec.k + ": " + cm.why.join("; ")); if (G.framing.why.length > 80) G.framing.why.shift(); return { ok: false, why: cm.why }; }
   G.framing.ok++;
   if (api.GFX.low || G.noLum) return { ok: true, lb: 1, h: cm.h };

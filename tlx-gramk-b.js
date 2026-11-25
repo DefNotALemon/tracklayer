@@ -200,15 +200,18 @@ K.add({
 });
 
 K.add({
-  id: "moosewindow", fam: "animals", chip: "MOOSE", paint: "deer", need: {}, close: false, open: true,
+  id: "moosewindow", fam: "animals", chip: "MOOSE", paint: "deer", need: {}, close: false, open: true, nolamp: true,
   w: c => c.snow && c.storm < 0.6 && c.hr >= 14 || c.hr < 9 ? (c.vil && ["lebesby", "ifjord", "skjanes"].includes(c.vil.id) ? 1.0 : 0.4) : 0,
-  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; return { x: d.x + d.nx * 5.5, z: d.z + d.nz * 5.5, a: d.yaw, place: c.vil.name, w: [], v: 0 }; },
+  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; return { x: d.x + d.nx * 4.6, z: d.z + d.nz * 4.6, a: d.yaw, place: c.vil.name, w: [], v: 0 }; },
   plan(rec, E) {
-    const r = mulb(rec.sd), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, face = yaw + Math.PI + (r() - 0.5) * 1.1, cx = rec.x + fx * 7.5 + lx * 2.2, cz = rec.z + fz * 7.5 + lz * 2.2;
-    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.24, light: { fill: 0.5 },
+    // shot from indoors: the frame of the kitchen window, a curtain's edge and the sill in front of the lens, the moose's head large outside in the porch light
+    const r = mulb(rec.sd), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, face = yaw + Math.PI + (r() - 0.5) * 0.9, night = NIGHTK(rec.h), side = (r() - 0.5) * 1.1, cx = rec.x - fx * 4.2 + lx * side * 0.4, cz = rec.z - fz * 4.2 + lz * side * 0.4;
+    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.3, light: { fill: 0.6 },
       frame(t, E) {
-        K.begin(E); const q = K.animal(E, "moose", 0, rec.x, rec.z, face, { v: 0 }); const hd = _v(); q.head.getWorldPosition(hd);
-        E.look(cx, surf(cx, cz) + 1.5, cz, rec.x - fx * 1.5, surf(rec.x, rec.z) + 1.5, rec.z - fz * 1.5, 50, 0); E.marks.push([rec.x, surf(rec.x, rec.z) + 0.2, rec.z], [hd.x, hd.y + 0.3, hd.z]); E.needH = 0.25;
+        K.begin(E); const q = K.animal(E, "moose", 0, rec.x, rec.z, face, { v: 0, graze: 0 }); const hd = _v(); q.head.getWorldPosition(hd);
+        K.lampPool(E, "porch", rec.x - fx * 1.2, rec.z - fz * 1.2, 9, 0xffc070, 0.55 * Math.max(night, 0.3)); K.prop(E, "lamp", 0, rec.x - fx * 4.2 - lx * 3, rec.z - fz * 4.2 - lz * 3, 0, {});
+        E.look(cx, surf(cx, cz) + 1.62, cz, hd.x, hd.y - 0.1, hd.z, 40, 0.02); K.windowFrame(E, night, { mull: 0.8 });
+        E.marks.push([hd.x, hd.y + 0.45, hd.z], [hd.x, hd.y - 0.45, hd.z]); E.needH = 0.3;
       } };
   },
   cap: [["w", "A moose at our kitchen window, looking in at the waffles. We looked back."], ["c", "THERE IS A MOOSE LOOKING IN OUR WINDOW and the kids are screaming and the moose is chewing the hedge"], ["d", "Moose. Garden. I am staying in."], ["t", "Moose at the window."], ["y", "The moose has been standing at the window for ten minutes. I think it wants the recipe."], ["e", "A big bull, close to the house. We kept the lights low and let it be."], ["w", "Tall as the window, quiet as the snow. What a visitor."], ["c", "okay so it ate half of the birch and then stared at ME through the glass"], ["y", "Hedge trimmed free of charge. Standard moose service."], ["d", "The moose is on the lawn. The lawn is under a metre of snow. The moose does not care."]],

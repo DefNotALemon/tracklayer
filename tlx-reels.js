@@ -200,6 +200,8 @@ function pre(bw, bh) {  if (E.lit) E.lit(bw, bh);                               
   const k = bh / (2 * Math.tan(E.cam.fov * Math.PI / 360)), f = A.scene.fog, c = f && f.color ? f.color : null; if (E.fogD && f) f.density = E.fogD;
   for (const P of [E.fx, E.fl]) { P.u.uScale.value = k; if (c) { const dl = A.dayFactor(); P.u.uCol.value.setRGB(lerp(c.r, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.g, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.b, 1, 0.4) * (0.52 + 0.42 * dl)); } }
 }
+// the world's own animals near the camera are hidden for the frame: the picture is staged (a pinned shot of a real fox would otherwise show it twice, the real one white beside the posed one)
+function hideWild() { const out = [], c = E.cam.position; for (const G of A.wild.groups()) for (const q of G.m || []) { const g = q && q.g; if (g && g.visible && Math.hypot(g.position.x - c.x, g.position.z - c.z) < 120) { g.visible = false; out.push(g); } } return out; }
 function renderAt(Sc, t, cv, g) {
   const t0 = performance.now(); engInit();
   E.dt = E.tPrev >= 0 && t >= E.tPrev && t - E.tPrev < 0.3 ? t - E.tPrev : 0; E.reset = E.tPrev < 0 || t < E.tPrev || t - E.tPrev >= 0.3; E.tPrev = t; E.t = t;
@@ -207,9 +209,10 @@ function renderAt(Sc, t, cv, g) {
   E.fogD = Sc.fog || 0; Sc.frame(t, E);
   if (belt0 !== null) TLXL.sled.beltU.value = E.belt;
   fxUpdate(t); actorsShow(true);
-  const c0 = A.renderer.info.render.calls; let ok = false;
+  const c0 = A.renderer.info.render.calls; let ok = false, hid = null;
+  try { hid = hideWild(); } catch (e) { }
   try { ok = A.gram.shot({ cam: E.cam, hour: Sc.hour, storm: Sc.storm, w: cv.width, h: cv.height, ctx: g, noShadow: true, pre }); }
-  finally { actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
+  finally { if (hid) for (const g of hid) g.visible = true; actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
   E.reset = false; R.calls.push(A.renderer.info.render.calls); if (R.calls.length > 60) R.calls.shift();
   if (ok) { if (Sc.post) Sc.post(g, t, cv.width, cv.height, E); vignette(g, cv.width, cv.height, Sc); }
   const ms = performance.now() - t0; R.ms.push(ms); if (R.ms.length > 90) R.ms.shift(); R.renders++;

@@ -59,6 +59,6 @@ for (let i = 0; i < rn; i++) { await sleep(2400); await clip(`reel_${String(i).p
 ok(rn >= NR, `Reels has ${rn} to scroll (asked ${NR})`); console.log("reels:", rk.map(r => `${r.ty}@${r.rg}`).join(" "));
 ok(rk.every(r => r.rg === "nordkinn"), "every reel carries its land (nordkinn)");
 console.log("errors:", await ev("TLXGR.err || ''"), "|", await ev("(TLXRL.err || '')"));
-for (const pre of ["local", "reel"]) try { console.log(execFileSync("python3", [new URL("../gramsheet.py", import.meta.url).pathname, OUT, pre, pre === "local" ? "6" : "8", pre === "local" ? "18" : "16"]).toString().trim()); } catch (e) { console.log("sheet failed", String(e).slice(0, 200)); }
+for (const pre of ["local", "reel"]) try { console.log(execFileSync(process.env.PYTHON || "/usr/bin/python3", [new URL("../gramsheet.py", import.meta.url).pathname, OUT, pre, pre === "local" ? "6" : "8", pre === "local" ? "18" : "16"]).toString().trim()); } catch (e) { console.log("sheet failed", String(e).slice(0, 200)); }
 console.log(fails ? `GRAM SCROLL: ${fails} below the floor` : "GRAM SCROLL: floor passed");
 await done(fails ? 1 : 0);

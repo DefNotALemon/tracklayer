@@ -24,7 +24,7 @@ the cron list and the usage governor):
 | Living world, GTA-flavoured events | 17 Nov | release 1 in v243; direction open, nothing since |
 | G5 The Northern Front | 11 Nov | not started (waits on G4 by his own rule) |
 | G6 Living enemy NPCs | 11 Nov | not started (after G5) |
-| G7 Home on the Nordkinn | 24 Nov | H1 ski trails done; Gram remade core H2R-a live v275 (25 Nov, supervisor gate green); open: visual defects (stuck-sled, groomed-trail, fox, moose-window posts, black night skies, plain faces), reels still the old 12 scenes and repeat (H2R-b), reel draw calls hit 1386 vs 900 budget in one gate run, skier hold-off 0.79 m once; I1-I10 designed; H4-H8 outlined |
+| G7 Home on the Nordkinn | 24 Nov | H1 ski trails done; Gram remake core H2R-a live v275, its photo defects fixed in v276 (buried sled, groomed trail, fox, moose window, night skies, faces; skier hold-off made frame-rate independent); open: reels still the old 12 scenes and repeat, reel draw calls (H2R-b), the eight switched-off photo kinds and flat text cards (H2R-c), the car-mound and woodpile pictures are dull; I1-I10 designed; H4-H8 outlined |
 | G8 The realistic look | 24 Nov | R1 figures, R2 sleds done; R3 streets to R8 nitpick round not started |
 | G9 Armed work and raids: armed courier and guard jobs, tip-offs, shoot-up raids on drug sites, your name gets out | 25 Nov | A1 armed work landed v274 (gate re-run by supervisor clean; its walk-in gait and bare posts are fixes in A2a); A2a building. Left: A2 tip-offs + first raid + places found by chance with suspicious people outside (his add of 25 Nov), A3, A4, A5. Plan `loop/RAIDS.md` |
 | New-player tutorial arriving on the ferry on foot (G2) | 30 Oct | not built; needs snow-free walking |
@@ -41,5 +41,4 @@ the cron list and the usage governor):
 - Delivery rewards with flavour dialogue: snacks and the like (11 Nov). Open.
 - About 60 polish and test lines from the beta tester under G4 in `loop/LOOP.md` (pad/touch gaps, toasts, stale
   scenarios `x2_standstart`, `x3_traffic` step D). Open.
-- G7 leftovers: two flaky tests under load (`h1_life` fire prompt null, `h2_reels` aurora place), reel defects (lake
-  race crowd, white tail lamps, flat gulls), ski rescue odds never measured in real play.
+- G7 leftovers: two flaky tests under load (`h1_life` fire prompt null, `h2_reels` aurora place), reel defects (H2R-b), ski rescue odds never measured in real play.

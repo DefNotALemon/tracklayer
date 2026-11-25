@@ -247,15 +247,23 @@ K.add({
 
 /* ---------------- funny ---------------- */
 K.add({
-  id: "sledburied", fam: "funny", chip: "OOPS", paint: "sled", need: { sled: 1 }, close: false, open: true,
+  id: "sledburied", fam: "funny", chip: "OOPS", paint: "sled", need: { sled: 1, walker: 1 }, close: false, open: true,
   w: c => c.snow && (c.int.sled || c.int.racing) && c.el > -17 && (c.depth > 0.2 || c.sinceStorm || c.storm > 0.3) ? 2.4 : c.depth > 0.1 ? 1 : 0,
-  anchor(c, rng) { const sp = SP.ring(rng, c.vil.x, c.vil.z, 90, 900, 4); if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: c.vil.name + " backcountry", w: [] }; },
+  anchor(c, rng) { let sp = null; for (let k = 0; k < 14 && !sp; k++) { const q = SP.ring(rng, c.vil.x, c.vil.z, 90, 900, 4); if (q && Math.abs(surf(q[0] + 4, q[1]) - surf(q[0] - 4, q[1])) < 0.5 && Math.abs(surf(q[0], q[1] + 4) - surf(q[0], q[1] - 4)) < 0.5) sp = q; } if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: c.vil.name + " backcountry", w: [c.p.id] }; },
   plan(rec, E) {
-    const r = mulb(rec.sd), night = NIGHTK(rec.h), yaw = rec.a; return { dur: 3, still: 1, need: { sled: 1 }, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.5 },
+    const r = mulb(rec.sd), night = NIGHTK(rec.h), yaw = rec.a, p = who(rec.w[0]) || { id: "x", first: "?", age: 30 }, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = Math.cos(yaw), lz = -Math.sin(yaw), shrug = r() < 0.6, side = r() < 0.5 ? 1 : -1;
+    return { dur: 4, still: 1.4, need: { sled: 1, walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.55 },
       frame(t, E) {
-        K.begin(E); const a = E.sleds[0]; E.placeSled(a, rec.x, rec.z, yaw, 0, 0, false, { noRider: true }); a.g.position.y -= 0.5; a.g.rotation.x += 0.18; E.sledLights(a, true, true, night); a.blob.visible = false;
-        K.prop(E, "drift", 0, rec.x + Math.cos(yaw) * 0.9, rec.z - Math.sin(yaw) * 0.9, 0, { s: 1.2 }); K.prop(E, "drift", 1, rec.x - Math.cos(yaw) * 0.8, rec.z + Math.sin(yaw) * 0.8, 1, { s: 1.0 }); K.prop(E, "drift", 2, rec.x + Math.sin(yaw) * 1.8, rec.z + Math.cos(yaw) * 1.8, 2, { s: 1.0 });
-        const cx = rec.x + Math.sin(yaw + 1.1) * 4.6, cz = rec.z + Math.cos(yaw + 1.1) * 4.6, y = surf(rec.x, rec.z); E.look(cx, surf(cx, cz) + 1.3, cz, rec.x, y + 0.7, rec.z, 52, 0); E.marks.push([rec.x, y - 0.1, rec.z], [rec.x, y + 1.2, rec.z]); E.needH = 0.24;
+        K.begin(E); const a = E.sleds[0], y = surf(rec.x, rec.z); E.placeSled(a, rec.x, rec.z, yaw, 0, 0, false, { noRider: true }); a.g.position.y -= 0.3; a.g.rotation.x += 0.07; a.g.rotation.z += 0.03 * side; E.sledLights(a, true, true, night); a.blob.visible = false;
+        // snow thrown round the track: berms to the sides and behind (low, so the seat, windshield and bars stand clear), and a puff hanging where the track dug in
+        K.prop(E, "berm", 0, rec.x + lx * 1.0, rec.z + lz * 1.0, yaw + 0.3, { s: 0.8, dy: -0.06 }); K.prop(E, "berm", 1, rec.x - lx * 1.0, rec.z - lz * 1.0, yaw - 0.4, { s: 0.75, dy: -0.06 }); K.prop(E, "berm", 2, rec.x - fx * 1.7, rec.z - fz * 1.7, yaw, { s: 1.0, dy: -0.06 }); K.prop(E, "berm", 3, rec.x + fx * 1.55, rec.z + fz * 1.55, yaw + 1, { s: 0.7, dy: -0.06 });
+        E.emitter({ n: 120, life: 1.8, size0: 0.25, size1: 0.8, a: 0.5, g: 5, drag: 2.2, spread: 0.9, fn(te, o) { o.on = 1; const q = (te * 3.1) % 6.28; o.x = rec.x - fx * 1.3 + Math.cos(q) * 0.45; o.z = rec.z - fz * 1.3 + Math.sin(q) * 0.45; o.y = y + 0.1; o.vx = -fx * 1.5 + Math.cos(q) * 1.2; o.vz = -fz * 1.5 + Math.sin(q) * 1.2; o.vy = 3.4; } });
+        // the rider stands beside it facing the lens: a shrug (arms out, palms up) or a thumbs-up arm, a rueful grin
+        const cx = rec.x + lx * 4.2 * side + fx * 0.9, cz = rec.z + lz * 4.2 * side + fz * 0.9, px = rec.x - lx * 0.2 * side + fx * 2.1, pz = rec.z - lz * 0.2 * side + fz * 2.1, fy = Math.atan2(cx - px, cz - pz);
+        const w = person(E, 0, p, px, pz, fy, { smile: 1.0 }), U = w.U; U.head.rotation.set(0.02, 0, 0.12 * side); U.torso.rotation.set(-0.02, 0, 0.04 * side);
+        if (shrug) { for (let i = 0; i < 2; i++) { const sd = i ? 1 : -1; U.arms[i].rotation.set(-0.15, 0, sd * 0.95); U.fore[i].rotation.set(-1.05, sd * 0.2, 0); } U.head.rotation.z = 0.2 * side; w.g.position.y += 0.01 * Math.sin(t * 6); }
+        else { U.arms[1].rotation.set(-2.5 + 0.12 * Math.sin(t * 4), 0, 0.25); U.fore[1].rotation.set(-0.35, 0, 0); armTo(w, 0, -0.2, 0.38, 0.25); }
+        markFig(E, w, true); const hd = K.headPos(w, _v()); E.look(cx, surf(cx, cz) + 1.2, cz, rec.x + fx * 1.0, y + 0.8, rec.z + fz * 1.0, 62, 0); E.marks.push([rec.x, y - 0.05, rec.z], [rec.x, y + 1.15, rec.z], [hd.x, hd.y + 0.15, hd.z]); E.needH = 0.3;
       } };
   },
   cap: [["w", "The sled is parked. Properly parked. Up to the handlebars. It is fine."], ["c", "OKAY SO IT IS FINE. IT IS COMPLETELY FINE. the sled is just resting. in the snow. up to the bars."], ["d", "Stuck. Dug in. Not asking for help."], ["t", "Sled buried. It is fine."], ["y", "It is not stuck, it is making a point about snow depth."], ["e", "A sled in a drift near {place}. I went for help and I am laughing as I type."], ["w", "A soft landing, a little further than planned. Thermos time."], ["c", "{pic1} says if we just rock it a bit. we have been rocking it for an hour"], ["y", "Technically it is now a permanent installation."], ["d", "The snow won. Rope needed."]],
@@ -299,8 +307,15 @@ K.add({
   w: c => c.int.ski && c.snow && c.el > -17 && c.storm < 0.4 && window.TLXSK && TLXSK.ready ? 1.1 : 0,
   anchor(c, rng) { const t = SP.trail(rng, c.vil, false); if (!t) return null; return { x: t.x, z: t.z, a: t.yaw, place: t.name, w: [] }; },
   plan(rec, E) {
-    const fx = Math.sin(rec.a), fz = Math.cos(rec.a), r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.4 },
-      frame(t, E) { K.begin(E); const px = rec.x + fx * 7 + fz * 1.8, pz = rec.z + fz * 7 - fx * 1.8; K.prop(E, "pole", 0, px, pz, 0, {}); const cx = rec.x - fx * 1.5, cz = rec.z - fz * 1.5; E.look(cx, surf(cx, cz) + 0.55, cz, rec.x + fx * 20, surf(rec.x + fx * 20, rec.z + fz * 20) + 0.4, rec.z + fz * 20, 58, 0); mark2(E, px, pz, 0.05, 2.4); E.needH = 0.2; } };
+    const fx = Math.sin(rec.a), fz = Math.cos(rec.a), lx = Math.cos(rec.a), lz = -Math.sin(rec.a), r = mulb(rec.sd), side = r() < 0.5 ? 1 : -1; return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.55 },
+      frame(t, E) {
+        K.begin(E); K.corduroy(E, rec.x, rec.z, rec.a, 46, 3.4, 9);
+        // the marker poles in a line down one edge, every 7 m, getting smaller; a trailhead board at the near edge
+        for (let i = 0; i < 6; i++) { const s = 4 + i * 7, px = rec.x + fx * s + lx * 2.0 * side, pz = rec.z + fz * s + lz * 2.0 * side; K.prop(E, "pole", i, px, pz, 0, {}); }
+        const bxp = rec.x + fx * 5.0 - lx * 2.4 * side, bzp = rec.z + fz * 5.0 - lz * 2.4 * side; K.prop(E, "board", 0, bxp, bzp, Math.atan2(lx * side, lz * side) * 0 + rec.a + (side > 0 ? 0.9 : -0.9) + Math.PI, { s: 1.0 });
+        const cx = rec.x - fx * 2.6 - lx * 0.3 * side, cz = rec.z - fz * 2.6 - lz * 0.3 * side; E.look(cx, surf(cx, cz) + 1.15, cz, rec.x + fx * 12, surf(rec.x + fx * 12, rec.z + fz * 12) + 0.7, rec.z + fz * 12, 62, 0);
+        const py = rec.x + fx * 25, pz2 = rec.z + fz * 25; mark2(E, rec.x + fx * 4 + lx * 2.0 * side, rec.z + fz * 4 + lz * 2.0 * side, 0.02, 2.4); mark2(E, rec.x + fx * 25 + lx * 2.0 * side, rec.z + fz * 25 + lz * 2.0 * side, 0.02, 2.4); E.needH = 0.2;
+      } };
   },
   vars: (c, rec, an) => ({ trail: (an && an.place || rec.place || ""), you: "@courier" }),
   cap: [["w", "First light on {trail} and the corduroy is perfect. Someone set it in the night."], ["c", "{trail} IS PERFECT!! the lines are so straight!! thank you whoever did this!!"], ["d", "{trail}, set. Skis on, then."], ["t", "{trail}. Fresh track."], ["y", "{trail} looks like a cut lawn. In snow. I approve."], ["e", "Someone has set {trail} before the sun. Thank you, whoever you are."], ["w", "Long blue shadows, straight lines and nobody ahead of me."], ["c", "I am the first one on it and I feel like a king"], ["y", "Corduroy: the only fabric I would wear to the fell."], ["d", "{trail}, {hr}. Set. Go."]],

@@ -1496,7 +1496,7 @@ function updSlot(sl, H, dt) {
   if (sl.stag > 0) staggerPose(sl, sl.P);
   rig(sl, sl.P);
   sl.lamp.visible = _lampOn(); sl.x = sl.P.x; sl.z = sl.P.z; sl.hist++;
-  if (dt > 0) { groove(sl); solidBody(sl); }
+  if (dt > 0) { groove(sl); solidBody(sl, dt); }
 }
 function skiTick(dt) {
   if (!X.ready || !api.started()) return;
@@ -1635,12 +1635,14 @@ function staggerPose(sl, P) {
   for (let j = 0; j < 2; j++) { const sd = sg(j), h = P.h[j]; h.x += cs * sd * 0.35 * w * k; h.z -= sn * sd * 0.35 * w * k; h.y += 0.35 * w * sc; const p = P.p[j]; p.x += cs * sd * 0.5 * w; p.z -= sn * sd * 0.5 * w; p.y += 0.25 * w; }
 }
 // solid: a sled that reaches a skier stops against them, as against a walker, and it is the worst complaint
-function solidBody(sl) {
+function solidBody(sl, dt) {
   const V = api.FOOT.on ? null : api.P, F = api.FOOT;
   if (V && TLX.on("skitrails")) {
     const fx = Math.sin(V.yaw), fz = Math.cos(V.yaw);
     for (const [off, r] of [[1.15, 0.62], [-0.7, 0.7]]) {
       const cx = V.x + fx * off, cz = V.z + fz * off, dx = cx - sl.x, dz = cz - sl.z, d = Math.hypot(dx, dz), rr = r + SHARE.bodyR;
+      // swept: a sled closing on the skier is slowed so that this frame's travel ends at contact, not inside it: how deep it would otherwise get depends on the frame time (7 m/s is 0.1 m a frame at 60 fps and 0.35 m at 20)
+      if (d >= rr && dt > 0 && d > 1e-4) { const nx0 = dx / d, nz0 = dz / d, cl = -((V.vx || 0) * nx0 + (V.vz || 0) * nz0), gap = d - rr; if (cl > 0 && cl * dt * 1.05 > gap) { const keep = Math.max(0, gap / (cl * dt * 1.05)); V.vx += (1 - keep) * cl * nx0; V.vz += (1 - keep) * cl * nz0; if (cl > 0.8) complain(sl, "hit"); sl.hit = 1; }}
       if (d < rr && d > 1e-4) { const nx = dx / d, nz = dz / d, vn = (V.vx || 0) * nx + (V.vz || 0) * nz; V.x += nx * (rr - d + 0.02); V.z += nz * (rr - d + 0.02); if (vn < 0) { V.vx -= vn * nx * 1.0; V.vz -= vn * nz * 1.0; const sp = Math.hypot(V.vx, V.vz); if (sp > 0) { V.vx *= 0.35; V.vz *= 0.35; } if (-vn > 0.8) complain(sl, "hit"); } sl.hit = 1; }
     }
   } else if (F.on) {

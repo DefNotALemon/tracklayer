@@ -15,6 +15,7 @@ K.PB.log = () => { const g = new (T().Group)(); const m = A().mesh.std(0x6a4a2c,
 const fishName = c => c.coast ? ["cod", "haddock", "saithe", "halibut", "redfish"] : ["char", "grayling", "trout"];
 const kidsOf = p => GH().A && window.TLXN ? TLXN.family(p).filter(q => q && q.age >= 3 && q.age < 14) : [];
 const noon = c => c.el > -17;
+const NIGHTK = h => clamp((4 - A().sunEl(((h % 24) + 24) % 24)) / 14, 0, 1);
 const T_ = (lines) => lines;
 
 /* ---------------- people ---------------- */
@@ -30,10 +31,10 @@ K.add({
     const p = who(rec.w[0]), az = rec.a, fy = yawOfAz(opp(az)), px = rec.x, pz = rec.z, r = mulb(rec.sd), roll = (r() - 0.5) * 0.12, wave = r() < 0.6, fov = 62 + r() * 6;
     return { dur: 5, still: 1.1, need: { walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.14,
       frame(t, E) {
-        K.begin(E); const w = person(E, 0, p, px, pz, fy, { warm: true }), U = w.U; K.grin(w, 1);
-        armTo(w, 1, 0.38, 0.52, 0.4); U.head.rotation.set(-0.05, 0.1 * Math.sin(t * 0.8), 0.1 + 0.03 * Math.sin(t)); U.torso.rotation.set(-0.04, 0, 0);
+        K.begin(E); const w = person(E, 0, p, px, pz, fy, { warm: false }), U = w.U; K.grin(w, 1);
+        armTo(w, 1, 0.26, 0.48, 0.34); U.head.rotation.set(-0.05, 0.1 * Math.sin(t * 0.8), 0.1 + 0.03 * Math.sin(t)); U.torso.rotation.set(-0.04, 0, 0);
         if (wave) { U.arms[0].rotation.set(-2.3 - 0.1 * Math.sin(t * 5), 0, -0.35); U.fore[0].rotation.set(-0.45 - 0.3 * Math.sin(t * 5), 0, 0); } else { armTo(w, 0, -0.16, 0.55, 0.15); }
-        w.g.updateMatrixWorld(true); const c = new (T().Vector3)(0.4, 0.66, 0.6); U.torso.localToWorld(c); const h = K.headPos(w, _v());
+        w.g.updateMatrixWorld(true); const c = new (T().Vector3)(0.3, 0.6, 0.5); U.torso.localToWorld(c); const h = K.headPos(w, _v());
         E.look(c.x, c.y, c.z, h.x, h.y + 0.1 * w.g.scale.x, h.z, fov, roll); markHead(E, w);
       } };
   },
@@ -78,11 +79,11 @@ K.add({
     const p = who(rec.w[0]), az = rec.a, fy = yawOfAz(opp(az)), r = mulb(rec.sd), col = [0xd8352a, 0x2a6ad0, 0xe0a020, 0x2fa05a][Math.floor(r() * 4)], tilt = (r() - 0.5) * 0.16;
     return { dur: 5, still: 1, need: { walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.14,
       frame(t, E) {
-        K.begin(E); const w = person(E, 0, p, rec.x, rec.z, fy, { bn: 0 }), U = w.U; K.grin(w, 1);
+        K.begin(E); const w = person(E, 0, p, rec.x, rec.z, fy, { bn: 0 }), U = w.U; K.grin(w, 1.35);
         U.head.rotation.set(-0.12, 0.08 * Math.sin(t * 2), tilt + 0.05 * Math.sin(t * 3)); U.torso.rotation.set(-0.04, 0, 0);
         armTo(w, 0, -0.25, 0.18, 0.12); U.arms[1].rotation.set(-2.5 + 0.1 * Math.sin(t * 6), 0, 0.3); U.fore[1].rotation.set(-0.4, 0, 0);
         const sx = rec.x + Math.cos(fy) * 0.55, sz = rec.z - Math.sin(fy) * 0.55; K.prop(E, "plasticSled", 0, sx, sz, fy + 0.5, { c: col, key: "k" + col, rx: 0 });
-        const h = K.headPos(w, _v()); const sc = w.g.scale.x; E.look(h.x + Math.sin(fy) * 1.9 * sc + 0.2, h.y + 0.03, h.z + Math.cos(fy) * 1.9 * sc, h.x, h.y - 0.2 * sc, h.z, 50, tilt * 0.5); markBust(E, w);
+        const h = K.headPos(w, _v()); const sc = w.g.scale.x; E.look(h.x + Math.sin(fy) * 1.0 * sc + 0.1, h.y + 0.03, h.z + Math.cos(fy) * 1.0 * sc, h.x, h.y - 0.17 * sc, h.z, 50, tilt * 0.5); markBust(E, w);
       } };
   },
   vars: (c, rec) => { const q = who(rec.w[0]); return { kid: q ? q.first : "the kid" }; },
@@ -125,13 +126,17 @@ K.add({
     return { x: sp[0], z: sp[1], a: rng() * TAU, place: c.vil.name, v: kind };
   },
   plan(rec, E) {
-    const kind = rec.v || "reindeer", r = mulb(rec.sd), yaw = rec.a, dist = kind === "moose" ? 7.5 : kind === "reindeer" ? 4.8 : kind === "fox" ? 1.9 : 1.6, hh = kind === "moose" ? 2.1 : kind === "reindeer" ? 1.0 : kind === "fox" ? 0.28 : 0.2, hgt = kind === "moose" ? 1.7 : kind === "reindeer" ? 1.2 : kind === "fox" ? 0.45 : 0.4, ca = r() * TAU;
-    const cx = rec.x + Math.cos(ca) * dist, cz = rec.z + Math.sin(ca) * dist, ay = yawOfAz(ca + Math.PI + 0.0) , face = Math.atan2(cx - rec.x, cz - rec.z) + (r() - 0.5) * 0.9;
-    return { dur: 6, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { warm: 0.0 },
+    const kind = rec.v || "reindeer", r = mulb(rec.sd), yaw = rec.a, night = NIGHTK(rec.h), dist = kind === "moose" ? 7.5 : kind === "reindeer" ? 4.8 : kind === "fox" ? 2.3 : 1.7, hh = kind === "moose" ? 2.1 : kind === "reindeer" ? 1.0 : kind === "fox" ? 0.3 : 0.2, hgt = kind === "moose" ? 1.7 : kind === "reindeer" ? 1.2 : kind === "fox" ? 0.5 : 0.4, ca = r() * TAU;
+    const cx = rec.x + Math.cos(ca) * dist, cz = rec.z + Math.sin(ca) * dist, face = Math.atan2(cx - rec.x, cz - rec.z) + (r() - 0.5) * 0.9, bx = rec.x - Math.cos(ca) * 7, bz = rec.z - Math.sin(ca) * 7;
+    return { dur: 6, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { warm: 0.0, fill: kind === "fox" || kind === "hare" ? 0.7 : undefined },
       frame(t, E) {
-        K.begin(E); const n = kind === "reindeer" ? 1 + Math.floor(r() * 0) : 1; const q = K.animal(E, kind, 0, rec.x, rec.z, face, { s: 1, graze: 0, v: 0 });
+        K.begin(E); const q = K.animal(E, kind, 0, rec.x, rec.z, face, { s: 1, graze: 0, v: 0 }); if (kind === "fox") K.foxCoat(q);
         if (kind === "reindeer") { K.animal(E, "reindeer", 1, rec.x + Math.cos(ca + 1.9) * 3.2, rec.z + Math.sin(ca + 1.9) * 3.2, face + 0.8, { graze: 0.7 }); }
-        const y = surf(rec.x, rec.z); E.look(cx, surf(cx, cz) + (kind === "moose" ? 1.5 : kind === "reindeer" ? 1.3 : 0.45), cz, rec.x, y + hh, rec.z, kind === "fox" || kind === "hare" ? 44 : 42, 0);
+        if (kind === "fox" || kind === "hare") {                                                              // something behind it: a fence of posts and a woodpile, lit, so the snow ground has a back to it
+          const lx = -Math.sin(ca), lz = Math.cos(ca); for (let i = 0; i < 5; i++) { const px = bx + lx * (i - 2) * 2.4, pz = bz + lz * (i - 2) * 2.4; K.prop(E, "post", i, px, pz, 0, { h: 1.1 }); }
+          K.prop(E, "woodpile", 0, bx - Math.cos(ca) * 2 + lx * 3.2, bz - Math.sin(ca) * 2 + lz * 3.2, Math.atan2(-Math.cos(ca), -Math.sin(ca)) + 1.57, { s: 1.2 }); K.lampPool(E, "bk", rec.x - Math.cos(ca) * 2.5, rec.z - Math.sin(ca) * 2.5, 11, 0xffe6b0, 0.35 + 0.3 * night);
+        }
+        const y = surf(rec.x, rec.z); E.look(cx, surf(cx, cz) + (kind === "moose" ? 1.5 : kind === "reindeer" ? 1.3 : 0.42), cz, rec.x, y + hh, rec.z, kind === "fox" || kind === "hare" ? 46 : 42, 0);
         E.marks.push([rec.x, y + 0.05, rec.z], [rec.x, y + hgt, rec.z]); E.needH = 0.26;
       } };
   },
