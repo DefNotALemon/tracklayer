@@ -13,7 +13,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 
 | # | Part | State |
 |---|---|---|
-| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v264 (24 Nov 2026) |
+| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265 (24 Nov 2026) |
 | R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | after R1 |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
@@ -105,7 +105,7 @@ with knee panels and a boot gaiter; a helmet with a visor, a peak and vents, or 
 strap, or the balaclava, as `GS.own.gear.head` says; the pack. Fabric normal maps with weave and stitched seams;
 snow dusting on shoulders and boots when it has been snowing.
 
-#### R1 as built (24 Nov 2026, script v264)
+#### R1 as built (24 Nov 2026, script v265)
 
 `tlx-look.js` (`TLXL`) offers, for the next slices:
 - Textures, cached by key, mipmapped, anisotropy from `TLXL.init(renderer)`: `TLXL.height(w,h)` height field with `.noise .weave .grain .bumps .seam .zip .ridge .panel .toNormal .toGray .toTone` (UV rectangles, v up); `TLXL.fabric(kind, {size, stamp, repeat, key})` for `shell fleece knit leather rubber plastic gloss skin lens` returns `{map, normalMap, roughnessMap}`; `TLXL.dressMat(mat, kind, opts)` puts them on a material and keeps its colour as the tint. Maps are neutral on purpose: recolouring a material still works. Use `size` 128 for small things, 256 for tiles, 512 only for an atlas with stamped seams.
