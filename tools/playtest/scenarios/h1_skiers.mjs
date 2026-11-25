@@ -29,8 +29,8 @@ const PUP = `(() => {
   return true; })()`;
 async function book(id, opt = {}) {
   return J(`(() => { const t = __T("${id}"); GS.hour = 34.2 + (window.__bk = ((window.__bk || 0) + 1)) * 0.11; TLXSK.slots.forEach(s => { if (s.vis) TLXSK.hide(s); }); t.st.taken = 1; t.st.out = []; t.st.seg.forEach((g, i) => TLXSK.setSeg(t, i, ${opt.wide ? 5.8 : 2.4}));
-    const p = TLXN.people.find(q => q.interests.includes("ski") && q.age > 25 && q.age < 50 && q.vid === t.villages[0]) || TLXN.people.find(q => q.interests.includes("ski") && q.age > 25 && q.age < 50);
-    TLXSK.goOut(t, p, { pace: ${opt.pace || 9} }, GS.hour, false, -5);
+    const okp = q => q.interests.includes("ski") && q.age > 25 && q.age < 50 && (${opt.wide ? "TLXSK.trait(q).skate" : "true"}), p = TLXN.people.find(q => okp(q) && q.vid === t.villages[0]) || TLXN.people.find(okp);   // a wide-set trail is skated by those who skate
+    TLXSK.goOut(t, p, { ...TLXSK.trait(p), pace: ${opt.pace || 9} }, GS.hour, false, -5);
     const o = t.st.out.find(q => q.p === p.id && q.t0 === GS.hour) || t.st.out.at(-1), pl = TLXSK.planOf(t, o);
     return { who: p.id, name: p.name, o: JSON.parse(JSON.stringify(o)), T: pl.T, blocks: pl.blocks.map(b => [b.k, Math.round(b.a), Math.round(b.b)]), runs: TLXSK.gaitRuns(t, o) }; })()`);
 }
@@ -114,7 +114,7 @@ await section("C foot-slide and ski tracks", async () => {
       let planted = 0, still = 0, worst = 0, mid = 0, onN = 0, maxv = 0;
       for (let i = 0; i < 2; i++) { let st = null; for (const h of hist[i]) { if (h.on) onN++; const slow = h.on && h.sp >= 0 && h.sp < 0.25 + 0.1 * h.v; if (slow) { if (!st) st = { x0: h.x, z0: h.z, n: 0 }; st.n++; const d = Math.hypot(h.x - st.x0, h.z - st.z0); if (d > worst) worst = d; } else { if (st && st.n >= 3) { planted += st.n; } st = null; }
           if (h.on && h.sp >= 0.25 + 0.1 * h.v && h.sp < 0.6 * h.v) mid++; } if (st && st.n >= 3) planted += st.n; }
-      return { frames: N + 1, planted, worstDrift: +worst.toFixed(3), mid, onN, v: sl.v }; })()`);
+      return { frames: N + 1, planted, worstDrift: +worst.toFixed(3), mid, onN, v: sl.v}; })()`);
     res[g] = m; console.log("  ", g, JSON.stringify(m));
     ok(!!m && m.worstDrift < 0.1, `${g}: a planted ski moves less than 10 cm while it is planted (worst ${m && m.worstDrift} m over ${m && m.planted} planted frames)`);
     if (g === "classic" || g === "herringbone") ok(!!m && m.planted >= 3, `${g}: skis really are planted for a while (${m && m.planted} frames)`);

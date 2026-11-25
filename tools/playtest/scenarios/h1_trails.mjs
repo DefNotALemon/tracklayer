@@ -236,11 +236,12 @@ await section("G a week: visits, pay, statement", async () => {
   await hours(167, ["lys"]);                                                            // Monday 00:00 -> Sunday 23:00
   await ev(`GS.hour = 192; TLXSK.catchUp(); true`);                                     // Monday 00:00: the Sunday is closed
   const w = await J(`(() => { const L = __T("lys").st, S = __T("san").st, J = __T("stj").st; return { lys: { v: L.wk.v, km: L.wk.km, kw: L.wk.kw, days: L.wk.days, low: L.wk.low, under: L.wk.under, out: L.out.length }, san: { v: S.wk.v, km: S.wk.km, set: S.seg[5][0] }, stj: { v: J.tot.v, taken: J.taken },
-    words: [...new Set(__T("lys").st.seg.map((g, i) => TLXSK.segWord(__T("lys"), i)))], ski: TLXN.all().filter(p => p.kind === "ski").length, withN: TLXN.all().filter(p => p.kind === "ski").reduce((a, p) => a + p.data.with.length, 0), skiWho: [...new Set(TLXN.all().filter(p => p.kind === "ski").map(p => p.who))].length, sample: TLXN.all().filter(p => p.kind === "ski").slice(0, 3).map(p => p.text + " [" + p.who + ", " + p.place + "]") }; })()`);
+    words: [...new Set(__T("lys").st.seg.map((g, i) => TLXSK.segWord(__T("lys"), i)))], ski: TLXN.all().filter(p => p.kind === "ski").length, withN: TLXN.all().filter(p => p.kind === "ski").reduce((a, p) => a + p.data.with.length, 0), crowd: TLXN.all().filter(p => p.kind === "skidag" && p.data.what === "done").reduce((a, p) => a + p.data.n, 0), skiWho: [...new Set(TLXN.all().filter(p => p.kind === "ski").map(p => p.who))].length, sample: TLXN.all().filter(p => p.kind === "ski").slice(0, 3).map(p => p.text + " [" + p.who + ", " + p.place + "]") }; })()`);
   console.log("  ", JSON.stringify(w));
   ok(w.lys.v > w.san.v && w.lys.v >= 8, `a kept good trail is skied more than a worn one over a week: Lysløypa ${w.lys.v} visits (${w.lys.km.toFixed(1)} km), Sandfjorddalen ${w.san.v}`);
   ok(w.stj.v === 0 && !w.stj.taken, "a trail nobody has taken on gets no visits");
-  ok(w.ski <= w.lys.v + w.san.v && w.ski + w.withN === w.lys.v + w.san.v && w.ski >= 5 && w.skiWho >= 3 && w.sample.every(t => t.length > 10 && /Lysløypa|Sandfjord/.test(t)), `every outing posted a ski item to the bus, in the person's voice (${w.skiWho} people): ` + w.sample[0]);
+  ok(w.ski <= w.lys.v + w.san.v && w.ski + w.withN <= w.lys.v + w.san.v && w.lys.v + w.san.v - w.ski - w.withN <= w.crowd &&   // (a skidag crowd is posted as one item for the day, not one per skier)
+    w.ski >= 5 && w.skiWho >= 3 && w.sample.every(t => t.length > 10 && /Lysløypa|Sandfjord/.test(t)), `every outing but a skidag crowd's posted a ski item to the bus, in the person's voice (${w.skiWho} people): ` + w.sample[0]);
   ok(w.lys.days === 7 && w.lys.low === 0 && w.lys.under === 0, "a week with no day under good: 7 days counted, none low, none snowed under");
   const exp = await J(`(() => { const t = __T("lys"), p = TLXSK.weekPay(t, true); return { base: p.base, bonus: p.bonus, rate: TLXSK.TR.rate, kw: p.kw }; })()`);
   ok(exp.bonus > 0 && Math.abs(exp.bonus - exp.base * 0.2) < 0.01, `the bonus is 20% of ${Math.round(exp.base)} for a week with no day under good`);
@@ -252,7 +253,8 @@ await section("G a week: visits, pay, statement", async () => {
   ok(net.wk.v === 0 && net.wk.days === 0, "the week's books are reset after the statement");
   const refc = contracts.length ? contracts.reduce((a, b) => a + b, 0) / contracts.length : 0;
   console.log(`   a well-kept Lysløypa paid $${net.last[0].pay} for the week; one grooming contract pays ~$${Math.round(refc)} (${Math.min(...contracts)} to ${Math.max(...contracts)})`);
-  ok(refc > 0 && net.last[0].pay > refc * 0.6 && net.last[0].pay < refc * 1.8, "a well-kept Lysløypa pays roughly what one good grooming contract pays a week");
+  ok(refc > 0 && net.last[0].pay > refc * 0.6 && net.last[0].pay < refc * 2.2,   // (H1c: that week holds a skidag Sunday and busier weekends)
+    "a well-kept Lysløypa pays roughly what one good grooming contract pays a week");
   // a week left to rot: no pay for a day snowed under, no bonus
   await ev(`(() => { const t = __T("lys"); t.st.wk = { v: 4, km: 10, kw: 12, days: 6, low: 0, under: 0 }; t.st.day = { v: 1, km: 2.5, kw: 2.5 }; t.st.noon = "snowed under"; return true; })()`);
   const dead = await J(`(() => { const p = TLXSK.weekPay(__T("lys"), true); return { base: p.base, bonus: p.bonus, kw: p.kw }; })()`);

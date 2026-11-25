@@ -578,6 +578,7 @@ const TRAIT = {};
 function trait(p) {
   return TRAIT[p.id] || (TRAIT[p.id] = { cold: -24 + 12 * hash(p.id + "c"), wind: 0.35 + 0.25 * hash(p.id + "w"), tol: 0.3 + 0.3 * hash(p.id + "q"), habit: Math.floor(hash(p.id + "h") * 3), pace: clamp(11 - Math.abs(p.age - 30) * 0.07, 5.5, 11), fav: Math.floor(hash(p.id + "f") * 7), skate: hash(p.id + "k") < 0.34 && p.age < 65 });
 }
+X.trait = trait;
 const skiers = () => (TLXN.people || []).filter(p => p.interests.includes("ski"));
 // the sun's height (degrees) at game hour H, from the calendar's declination: skis go out while it is light enough to see the track (the sun
 // no lower than -9 degrees: polar night still has a blue noon), and the lamps that would change that are a later slice
@@ -1241,10 +1242,10 @@ function gDiag(sl, L, u, P, gait) {
   for (let i = 0; i < 2; i++) {
     const sd = sg(i), off = i * 0.5, x = ph - off, n = Math.floor(x), fr = x - n, u0 = uAtPhi(L, kc, n + off), uP0 = u0 + 0.5 * b * sAt(L, kc, u0);
     let uf = uP0, lift = 0, tip = 0;
-    if (cls && fr < b) { const z = sstep(0.5, 1, fr / b); lift = 0.045 * k * z; tip = -0.12 * z; }              // classic: the heel peels off at the end of the kick, the tail lifts a little
+    if (cls && fr < b) { const z = sstep(0.6, 1, fr / b); lift = 0.011 * k * z; tip = -0.07 * z; }              // classic: the heel peels off at the end of the kick, the tail lifts a little
     if (fr >= b) {                                                                       // after the kick: a quick swing forward (the ski just off the snow), then a glide ON the snow at the body's own speed
       const q = (fr - b) / (1 - b), u1 = uAtPhi(L, kc, n + 1 + off), uP1 = u1 + 0.5 * b * sAt(L, kc, u1), qs = 0.4, fg = (1 - qs) * (1 - b); let x;
-      if (q < qs) { const s = q / qs, s2 = s * s, s3 = s2 * s; x = (1 - fg) * (3 * s2 - 2 * s3) + (1 - b) * qs * (s3 - s2); const kk0 = cls ? 1 - ease(Math.min(1, s * 2)) : 0; lift = 0.05 * Math.sin(Math.PI * s) * k + 0.045 * k * kk0; tip = 0.1 * Math.sin(Math.PI * s) - 0.12 * kk0; }
+      if (q < qs) { const s = q / qs, s2 = s * s, s3 = s2 * s; x = (1 - fg) * (3 * s2 - 2 * s3) + (1 - b) * qs * (s3 - s2); const kk0 = cls ? 1 - ease(Math.min(1, s * 2)) : 0; lift = 0.05 * Math.sin(Math.PI * s) * k + 0.011 * k * kk0; tip = 0.1 * Math.sin(Math.PI * s) - 0.07 * kk0; }
       else x = (1 - fg) + fg * (q - qs) / (1 - qs);
       uf = uP0 + (uP1 - uP0) * x;
     }
