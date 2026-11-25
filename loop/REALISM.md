@@ -14,7 +14,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 | # | Part | State |
 |---|---|---|
 | R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265, reworked v267 (24 Nov 2026) |
-| R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | next |
+| R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | landed v269 (25 Nov 2026) |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
 | R5 | Vehicles and props: trucks, cars, boats, trailers, crates, fuel pumps, quay | after R4 |
@@ -166,6 +166,19 @@ narrow sharp hood, a 2029 electric), and as a real manufactured machine.
   harness leather. It gets the same care.
 - The rider (R1) must still sit, grip the bars and plant boots on the boards on every machine: check
   `references/sled-geometry.md` numbers still hold, and shoot the seated rider on all ten.
+
+#### R2 as built (25 Nov 2026, script v269, tlx-look.js v11)
+
+`TLXL.sled` (end of `tlx-look.js`) is the sled kit. Everything returns `{g, m}` items for `TLXL.build` (one mesh per material); `buildMachine` in tracklayer.js passes each machine's `shape` numbers and the live livery materials (`SKCTX`) and keeps every `userData` field the rest of the game reads.
+- `S.mats(ctx)`: the shared set `S.M` (alu, cast, steel, chrome, black, dark, rubber, belt, lug, stud, glass, tint, lamp, led, tail lenses with a drawn bulb and reflector rings, board with punched holes (alpha), dial, screen, brass, leather, paint red). The livery materials (`bodyMat`, `panelMat`, `sledTrimMat`, `V.seatMat`) are dressed in place, so recolouring and wear still work. Lens emissive follows `headlight.intensity` (set in `updSledEnv`), so lenses are dull by day. `S.texMs` is the texture time (about 45 to 60 ms).
+- `S.hood(shape, H, HB, ctx)`: lofted hood, belly pan, recessed shut line, pinstripe, `decal.stripe/wide/flash` patches, firewall, lamp bucket per `shape.lamp` (bezel, reflector bowl, lens), intake, louvres, crown slots, latches, badge, bumper (hoop/bar/skid) and skid plate. `STYLE` sets plan taper, side squareness and nose cap per `shape.style`. The hood top is exactly `crownY + HB`, so `ud.hoodY`, the first-person block test and the tablet rules are unchanged. Helpers inside: `patch` (a band of the loft between two heights or widths), `frontZ`, `sideX`.
+- `S.chassis`: tunnel (lofted, rivets), deck, tail, snow flap, tail lamp, grab bar, running boards (punched alpha holes, serrated rail, gussets), bogies, rack, spoiler, charge port, exhaust. `S.seat`: vinyl loft with stitched seams, piping, strap, grab rails. `S.ski(kind)`: swept ski, keel, spine, loop, saddle, spindle (leaf pack or strut). `S.front`: radius rods or A-arms with coil-over springs. `S.carbide`.
+- `S.track`: the belt is path geometry (`aPath` = distance along the loop, height, lateral) moved by one uniform `TLXL.sled.beltU` in the vertex shader (`pathify` patches belt, lug and stud materials), so lugs really roll round the wheels. `updVisuals` adds distance to `V.beltU` and turns `V.wheelA/B`. `V.lugs` (stock), `V.paddles`, `V.hardpack`, `V.studs[0]` are separate meshes; belt meshes are `frustumCulled = false` (positions live in the shader; `sledCopy` copies that flag). Lug and wheel sizes assume the track group's x/z scale (trackW, trackLen).
+- `S.bars` (bars, grips, levers, master cylinder, kill switch, guards, riser, mirrors), `S.shield`, `S.pod`, `S.column`, `S.parts` (cans, light bar, race/trail/turbo cans, rack box, deck, coil kits, clutch guard, scoops, and models for cool, grips, tether, tank pods, guard, survival, recovery, winch, receiver, hitch), `S.sleigh` (Santa: lacquered side boards, brass rails and bells, leather, tufting, sack, gifts).
+- Low preset (`TLXL.lite`): fewer segments, 24.6k triangles instead of 39k.
+- Numbers (frontier, sled meshes only, no rider): 135 -> 66 draw calls, 8.4k -> 39.1k triangles (lite 24.6k); ten machines 58-64 ms -> 157-188 ms to build; sled textures 45-60 ms; look kit total 88-94 -> 150-162 ms (same load, back to back).
+- Lessons: `BufferGeometry.applyQuaternion` does not exist in r128 (use `applyMatrix4`); hand-built index winding must be checked against the outward normal (the belt first rendered inside-out); a lens set flush with the hood skin disappears (stand it 2 mm proud); an AABB of an AABB inflates under pitch (measure bounds in sled space with one matrix); big-load gate runs inflate every timing 5x (check `uptime` before trusting a budget assert).
+- Known remaining: paint has no chips and only a name decal; the 1990s wedge hoods are softer than real sheet plastic; no cables or hoses on the bars; handguards are curved plates; chrome and alu read pale under the noon sky; the flap has no logo; no engine glimpse, pull-start or fuel cap; powder skis are the stock ski with a wider blade; the two-up seat piping wobbles; `r2_sleds` `buildMachines` and texture asserts are generous because the gate machine is shared. `g2_santa` (rareSpots()[0].q is null) and `x2_deckeverysled` (the sled never leaves the start) fail the same way on origin/main (not caused by R2).
 
 ### R3 to R8
 
