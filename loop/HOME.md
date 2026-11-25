@@ -11,7 +11,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 |---|---|---|
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
 | H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c, plus the H2a posture fixes) |
-| H2 | Gram: feed, reels, local chat (`tlx-gram.js`) | H2a and H2b built (feed, Reels, Local chat); H2c own posts next |
+| H2 | Gram (`tlx-gram.js`) | first build landed (v273); being remade (Lemon, 25 Nov): H2R-a next |
 | H3 | Radio Nordkinn with call-ins (`tlx-radio.js`) | design below, after H2 |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
 | H5 | The outdoors life (avalanches, sea ice, snow shelters, ghosts, dog team, camera) | outline |
@@ -153,39 +153,106 @@ good, and the løypelag pays you by how much they are used. The old grooming con
       skating lane, weekend crowds, a Sunday "skidag" once a month (a crowd, a waffle table at the trailhead, a
       bonus if the trail is freshly set that morning).
 
-## H2. Gram (`tlx-gram.js`, id `gram`)
+## H2. Gram, remade (`tlx-gram.js`, id `gram`)
 
-A tablet app in the style of a photo and reels app, for the Nordkinn only. Three tabs.
+Lemon, 25 Nov, on the first build (feed + reels + local chat + own posts next): "no ok i wanna remake the gram. the
+game should have it's own way to make the gram posts, you just have to come up with cool posts for it and test how
+cool it is to scroll through both the local gram and the reels gram". The player's own posts (old H2c) are dropped
+until he asks again.
 
-- **Feed.** Posts from villagers and from the game itself: a picture, who, where, when, a caption in their voice,
-  likes and a few comments from other villagers. A post is made from a news-bus event or from an ambient idea, and
-  its picture is a real render of the real place: an off-screen camera set where that person would have stood
-  (a peak at sunrise, the fjord in a blow, the trail they just skied, a reindeer a metre away), with the hour and
-  weather of the moment, rendered small to a texture and kept for the session. Saved as the recipe (where, which
-  way, hour, weather, subject), not the pixels, so an old post draws again after a reload. Renders are spread out
-  (one at a time, never while the frame rate is low, a painted fallback on a weak phone).
-- **Reels.** Short loops that play as you scroll: a recipe for a little scene (a camera path and actors) rendered
-  live at low resolution while it is on screen. The first set, each a real thing in the world or one that will be:
-  the view turning on a peak; riders racing on a lake and the crowd at the rope; a sled skipping open water and
-  making the far bank (or not); two sleds in a whiteout with only tail lamps; a reindeer licking the lens from
-  above a snow hole; a skier's tuck down Lysløypa at night; a whale's fluke off the skiff's bow; the plow truck
-  throwing a white wall; the aurora over the lighthouse. Lemon's note: these are also a list of things the player
-  should be able to do; each reel that shows something not yet playable is a line in "Inspired by Gram" below.
-- **Local.** A chat for the place you are in (the nearest village; it changes as you travel), with the last days'
-  events as people talked about them: the road shut, who set the trail, a moose in the school yard, the ferry late,
-  a storm coming, your own crash on the quay. Familiar names, familiar places, the right hour. You can post a line
-  from a short list of replies that fit the last message, and people answer.
-- **You.** Post your own: a shutter control takes the shot you are looking at (until H5's camera, the view as it
-  is), with a caption picked or written. Villagers like and comment by what is in it (the subject is known from
-  what was in the frustum: a peak, an animal, a storm, a person, your sled). Followers grow with good posts; a few
-  small real effects (a tourist asks for the spot, a seller knocks a little off for a face they know).
-- A notification now and then, never a stream. Option `gramnotes`.
+**What was wrong with the first build** (scrolled after three ordinary game days, stills in
+`~/.hermes/cache/scratch/gramscroll/s2/`): almost every picture was the same shot, a person seen from behind standing
+in dusk snow, whatever the caption said (a "catch" post showed no fish); captions were a few templates with a voice
+tag glued on each end ("Behold. ... As one does."); "not yet" wish posts broke the fiction; three days produced zero or
+one reel; the polar night made every picture the same murky purple; three small cards across on a wide tablet is not
+a feed anyone scrolls.
 
-Slices: H2a feed + render recipes + local chat from the bus; H2b reels; H2c your own posts, likes, followers.
+### Two grams, one scroll each
+- **Local**: what the place you are in is posting. One post per screen in a phone-shaped column, snap-scrolled, newest
+  first: photos, short clips and text posts mixed, from the nearest village and its trails, road, harbour and fell, with
+  the peninsula's big news let in (a storm, a road shut, the sun's return). It changes as you travel. The old Local chat
+  lives here as text posts and as the comments under posts.
+- **Reels**: full-height clips from the whole Nordkinn, one per screen, playing as you land on it, swipe for the next.
+- Tabs: Local, Reels. Nothing else. No "soon" cards, no "not yet" posts: everything shown is something that happens.
 
-- [x] **H2a** (script v272) the feed with render recipes and real off-screen pictures, the ambient generator, bus posts from the game's systems, the Local chat. `h2_gram.mjs`.
-- [x] **H2b** (script v273) the Reels tab: twelve reel types (summit pan, lake drag race, at the rope, water skip and its sinking twin, storm ride, reindeer at the snow hole, night ski, plow wall, aurora over the lighthouse, skiff at sea, kids sledging, powder turn), each a recipe planned into a scene script and drawn live at 270x480 through `gramShot`; `tlx-reels.js`, `tlx-reelscenes.js`; plus the H2a fixes (feed layout, composition rule, Local chat order and voice). `h2_reels.mjs`.
-- [ ] **H2c** your own posts (the shutter, captions, likes, followers).
+### The game's own way of making a post: moments
+One director (`TLXGR.director`) makes every post and reel from a **moment**: a small scene the world could really be
+showing right now, staged at a real place with real people from the households, shot the way that person would shoot
+it. A moment kind is one table row: when it can happen (season, hour, light, weather, place type, who: interests, age,
+family, trade), its cast and props, where it is set, one or more **shots** (camera, lens, who is facing it), whether
+it moves (a clip) or is a still, and how its caption and comments are written. A photo is one good frame of the scene;
+a reel is the same scene moving. So one library feeds both grams, and adding a kind of post is adding a row.
+- **Witnessed first.** When the simulation is truly showing the thing (skiers out on a trail you keep, the plow truck
+  on its round, the ferry at the quay, a herd near the road, an NPC rider on the fell, a fire lit at a gapahuk, the
+  player's own crash, bog, groomed trail or rescue), the moment is pinned to those real things: same people, same
+  place, same hour. Otherwise it is staged from what the bookkeeping says people did that hour.
+- **Light.** The Nordkinn is dark for two months. Every shot carries its own light plan: the scene's lamps (headlamps,
+  sled and truck lights, windows, street lamps, a fire, the aurora, the moon on snow) and a phone-style fill from the
+  camera on faces and close subjects, with exposure lifted like a phone's night mode. A picture that comes out murky
+  (measured: the subject's mean luminance, the frame's contrast) is re-lit or dropped, never posted.
+- **A subject, always.** Faces to the camera for people shots (a selfie is an arm out and a face, not a back), the
+  thing the caption names visible and big (the fish, the buried car, the fox). Composition is checked from projected
+  bounds before a moment is accepted.
+- **Variety is the director's job.** It keeps a memory of what the feed has shown: no kind twice within five posts, no
+  place twice within four, no person twice in a day, a mix of people / action / animals / weather / work / cosy /
+  funny in any ten, and it favours kinds the player has not seen yet.
+- **Captions are written per kind**, each with at least eight lines that only make sense for that kind, filled from
+  the moment (who, where, how much, what happened) and bent by the person's voice in word choice, not by a tag glued
+  on. Comments come from the people who would care: who is in the picture, family, the neighbour who knows the spot,
+  someone it annoys.
+- **Rhythm.** About 30 to 40 posts a game day across the peninsula (8 to 15 in a village's Local), 8 to 12 reels a day,
+  more on a weekend and after a storm, fewer at 04:00. A new game starts with two days of posts already there.
+
+### The posts (the catalogue: each is a moment kind; a * also makes a reel)
+People: summit selfie with the view behind*; family selfie on skis at the trailhead; a child's grin with the sled
+they just rode*; grandfather with the thermos at the gapahuk fire; two friends on sleds, visors up; a couple at the
+lighthouse rail; first day on skis for a three-year-old*; the whole village in the road for the sun's return*.
+Action: off a cornice, mid-air*; a deep powder turn from below*; the hill climb that made it, and the one that did
+not (sled on its tail)*; the lake drag launch from the rope*; skipping open water, and sinking short*; a wheelie down
+the harbour road*; the kids' sledging bank and the tumble at the bottom*; the tuck down Lysløypa under the lamps*;
+a sprint finish on the skating lane*; a snowball fight*; riding in file through a whiteout on tail lamps*.
+Animals: a reindeer's nose in the lens from a snow hole*; the herd crossing the road in the headlights, cars
+waiting*; a moose looking in at the kitchen window; the fox that took a fish off the quay*; the sea eagle lifting
+off its post*; "spot the ptarmigan" (white on white); an ermine on the woodpile; a hare's tracks to the door; gulls
+behind the boat*.
+Sea and work: the catch held up to the camera, face behind a cod; the deck in a swell*; stockfish racks under the
+aurora; the ferry coming in lit through snow*; the plow's white wall*; the groomer's corduroy at first light (yours,
+by name, when you set it); digging the car out, only the roof showing*; the convoy's tail lamps going over the fell*.
+Weather and light: the door opened on a wall of snow; a car that is now a mound with an aerial; "this is the road"
+(nothing but white and one pole); waves over the breakwater*; the aurora's corona straight up*; a moon halo over
+the fell; the pink hour on the peaks; the first sun on a face.
+Cosy: bonfire and sausages on sticks*; the waffle table at skidag; a snow lantern with a candle; the snowman family
+(one per family member, same heights); the kicksled outside the shop; skis stood in the drift outside a lit cabin;
+the woodpile, squared and proud; Christmas lights on the last house before the fell.
+Funny: sled buried to the bars, "it's fine"; the snapped ski pole; whoever parked like that; the snow that slid off
+the roof onto the path just shovelled*; a glove on a fence post, "whose?".
+About you: your sled outside the shop; your plowed drive, "legend"; your crash, witnessed*; the trail you set.
+Text posts (Local only, no picture, a coloured card): the trail report, the road, a lost glove, waffles Sunday,
+"who has a rope", the ferry, the storm coming, thanks by name.
+
+### Testing how cool it is (the scroll test, a tool kept in the repo)
+`tools/playtest/scenarios/gram_scroll.mjs`: plays N ordinary days at a named date (polar night, sun's return, spring),
+then scrolls Local in two villages and Reels as a player would and writes every screen as a still plus contact sheets,
+and prints the numbers: kinds per 30 posts, the longest run of one kind / place / shot type, repeated captions, the
+share of people shots with a face to camera, each picture's subject size and luminance, how different each picture
+is from the one before, posts and reels per day. The gate asserts the floor (below); the builder and then the
+supervising session LOOK at the sheets and write down what is boring, and that list is the next round's work. A slice
+is not done until a 30-post scroll has nothing one would flick past twice.
+Floor: in any 30 consecutive Local posts at least 12 kinds and 6 of the 7 families of kinds; no kind within 5, no place
+within 4; no caption twice in 60; every people shot has a face to camera unless the kind says otherwise; subject at
+least 25% of frame height; no picture under the luminance floor; adjacent pictures differ (thumbnail distance over a
+threshold); Reels has at least 8 new a day and at least 10 kinds in 20.
+
+### Slices
+- [x] H2a, H2b (v272, v273): the first build (feed, 12 reel scenes, local chat). Its render path (`gramShot`), reel
+      engine and cast pool, bus posts and tests are the base the remake is cut from.
+- [ ] **H2R-a** The remake's core: the director and moment table, the light plan and the checks, the phone-column
+      Local gram with text posts and comments, at least 24 photo kinds from the catalogue across all seven families
+      (new props as needed: fish, thermos, sausage stick, snowman, snow lantern, kicksled, a phone in the selfie hand),
+      the old Feed/Local/You tabs gone, two days of posts on a new game, and the scroll test with its floor.
+- [ ] **H2R-b** Reels gram on the same moments: full-height player, every starred kind as a clip (at least 20), the
+      rhythm, and the scroll test for reels.
+- [ ] **H2R-c** The rest of the catalogue, the nitpick rounds from the scroll sheets, low-preset and phone look.
 
 ## H3. Radio Nordkinn (`tlx-radio.js`, id `radio`)
 
