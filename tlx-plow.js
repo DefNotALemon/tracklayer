@@ -502,6 +502,7 @@ function opened(r, i, sn) {
   const paid = pd ? ` The kommune pays ${api.fmtCash(pd.cash)}${pd.k < 0.995 ? ` (${Math.round(pd.k * 100)}%: ${Math.round(pd.h)} h after the weather eased)` : ""}.` : "";
   const km = v => (v / 1000).toFixed(1), from = `km ${km(i * SEG)} to ${km(Math.min(r.len, (i + 1) * SEG))}`;
   api.toast((!wasShut ? `You've plowed the ${r.name}, ${from}.` : TR.status(r.id) === "open" ? `The ${r.name} is open again: your blade cleared ${from}.` : `You've opened the ${r.name}, ${from}. More of it is still snowed in.`) + paid, "good");
+  try { if (window.TLXN) TLXN.post({ kind: "road", who: "you", x: r.pts && r.pts[0] ? r.pts[0][0] : null, z: r.pts && r.pts[0] ? r.pts[0][1] : null, place: r.name, text: wasShut ? `You opened the ${r.name}, ${from}.` : `You plowed the ${r.name}, ${from}.`, data: { sys: "plow", what: wasShut ? "opened" : "plowed", road: r.id, open: TR.status(r.id) === "open" } }); } catch (e) { }
   api.save();
 }
 

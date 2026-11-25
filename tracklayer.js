@@ -4841,6 +4841,7 @@ CAL.onDayChange((n, prev) => {
   const pn = CAL.isPolarNight(), was = CAL.isPolarNight(GS.hour - 24);
   if (pn && !was) toast("The sun didn't come up today. Polar night: every job pays ×1.5 until it's back in January.", "good");
   else if (!pn && was) toast("A sliver of sun at noon today. Polar night is over, and so is the ×1.5.");
+  if (pn !== was) gnews({ kind: "sky", text: pn ? "The sun did not come up today: the polar night has begun." : "First light: the sun showed over the fell at noon, the polar night is over.", data: { sys: "calendar", what: pn ? "polarnight" : "firstlight" } });
   const t = WX.forecast().days[0];
   setTimeout(() => TABLET.notify({ app: "weather", title: `${n.label} · met office`, body: `Tomorrow: ${t.word.toLowerCase()}${t.win ? ` from about ${fmtTime(t.win[0])}` : ""}. ${t.conf}% sure.`, ttl: 7 }), 2600);
 });
@@ -6630,6 +6631,7 @@ function finishGroom(site) {
   if (payMul() > 1) { p *= payMul(); notes.push("polar night ×1.5"); }
   p = Math.round(p); GS.cash += p; GS.groomJob = null; bumpDelivered(); mailVisit(site);
   toast(`Trail groomed to ${site.name}: +$${p} (${Math.round(fr * 100)}% of the line${notes.length ? ", " + notes.join(", ") : ""}).`, "good");
+  gnews({ kind: "job", who: "you", x: site.x, z: site.z, place: site.name, text: `You groomed the trail to ${site.name}, ${Math.round(fr * 100)}% of the line.`, data: { sys: "groomjob", what: "groomed", site: site.id, pc: Math.round(fr * 100) } });
   updGroom(); save();
 }
 function bumpDelivered() {
@@ -12067,6 +12069,7 @@ function updSteamer(dt = 0) {
     for (const c of steamerCalls(GS.hour, GS.hour + 6, true)) {
       if (c.told || c.state === "on time" || GS.hour < c.sArr - 6 || GS.hour > c.sArr) continue;
       c.told = true;
+      if (c.state !== "on time") gnews({ kind: "ferry", x: depot.x, z: depot.z, place: "Kjøllefjord quay", text: c.state === "cancelled" ? `The ${c.dir} ferry is cancelled for weather.` : `The ${c.dir} ferry is ${c.delay} h late.`, data: { sys: "ferry", what: c.state, dir: c.dir, delay: c.delay || 0 } });
       TABLET.notify({ app: "map", kind: c.state === "cancelled" ? "alert" : "warn", ttl: 9,
         title: c.state === "cancelled" ? `Ferry cancelled · ${c.dir} ${fmtTime(c.sArr)}` : `Ferry delayed +${c.delay} h · ${c.dir}`,
         body: c.state === "cancelled" ? `Weather. No call at Kjøllefjord, so no sailing at ${fmtTime(c.sDep)}. Mail waits for the next one, no miss counted.` : `Alongside about ${fmtTime(c.arr)} instead of ${fmtTime(c.sArr)}, sails ${fmtTime(c.dep)}.` });
@@ -13043,7 +13046,9 @@ function wildSpawn(px, pz) {
       q.ant.visible = K.k === "moose" ? i === 0 && n === 1 && Math.random() < 0.7 : true;                      // a lone moose is usually a bull
       G.m.push(q);
     }
-    WILD.groups.push(G); return;
+    WILD.groups.push(G);
+    if (GS.hour - (WILD.newsH === undefined ? -99 : WILD.newsH) > 4 && SITES.some(v => v.type === "cabin" && v.x !== undefined && Math.hypot(v.x - x, v.z - z) < 450)) { WILD.newsH = GS.hour; gnews({ kind: "wildlife", x, z, text: `${K.k === "fox" ? "A fox" : K.k === "moose" ? (n > 1 ? "A moose and her calf" : "A moose") : K.k === "reindeer" ? "A reindeer herd" : "A " + K.k} was seen near the village.`, data: { sys: "wild", what: "seen", kind: K.k, n } }); }
+    return;
   }
 }
 // stand the rig on the snow at its x/z and pose it (only near the camera; far ones just slide along, too small to see)
@@ -14569,6 +14574,7 @@ function hollowAt(x, z) {
   return s / 8 - groundAt(x, z);
 }
 function enterBog(depth) {
+  gnews({ kind: "crash", who: "you", x: P.x, z: P.z, text: "You bogged down in deep snow.", data: { sys: "bog", what: "bog", depth: Math.round(depth * 100) / 100 } });
   BOG.on = true; BOG.depth = depth; BOG.x = P.x; BOG.z = P.z; BOG.r = 2.6 + 2.4 * depth; BOG.moved = 0; BOG.dig = 0; BOG.t = 0; BOG.acc = 0; BOG.warned = false;
   BOG.r0 = (VEH.cur ? VEH.cur.mass : MASS + TOW.mass) * GR * (0.5 + 1.1 * depth); BOG.resist = BOG.r0;
   P.vx = P.vz = 0;
@@ -16405,6 +16411,7 @@ function rjPay() {
   GS.cash += pay;
   const before = rrank(GS.rescues || 0); GS.rescues = (GS.rescues || 0) + 1; const after = rrank(GS.rescues);
   toast(`Recovery done: +$${pay}${notes.length ? " (" + notes.join(", ") + ")" : ""}. ${GS.rescues} recover${GS.rescues === 1 ? "y" : "ies"}.`, "good");
+  gnews({ kind: "rescue", who: "you", x: P.x, z: P.z, text: "You brought a stranded rider home on the rescue sled.", data: { sys: "sar", what: "done", n: GS.rescues } });
   if (after !== before) setTimeout(() => toast(`New rescue rank: ${after.name}. ${after.opens || ""}`, "good"), 2600);
   RJ.ended = { t: 0 }; GS.rescueJob = null; GS.contracts = null;
   for (const v of RJ.vs) v.left = 0.001;
@@ -17438,6 +17445,7 @@ function crashEject(why, vx, vy, vz, skip) {
   C.tied = tetherOn(); C.taut = 0; ROPE.clip = C.tied;
   TABLET.close(true); camState.init = false;
   P.shake = 1; thud(1); cargoHit(spd * 0.9);
+  gnews({ kind: "crash", who: "you", x: P.x, z: P.z, text: `You came off hard at ${Math.round(spd * 3.6)} km/h (${why}).`, data: { sys: "crash", what: "crash", why, kmh: Math.round(spd * 3.6) } });
   for (let k = 0; k < 40; k++) emit(P.x, P.y + 0.6, P.z, vx * 0.3 + (Math.random() - 0.5) * 4, 1 + Math.random() * 3, vz * 0.3 + (Math.random() - 0.5) * 4, 1.4, 1);
   const c = SAR.cur;
   if (c && !c.res && c.v && c.v.state === "pillion") setTimeout(() => { if (SAR.cur === c) toast(`${c.name} somehow stayed on the seat. Shaken, still aboard.`, "warn"); }, 1600);
@@ -17734,6 +17742,27 @@ function walkAs(g, o, dt) {
   }
   g.position.set(o.x + Math.cos(o.yaw) * lat, o.y + bob, o.z - Math.sin(o.yaw) * lat);
 }
+// the news bus (G7): a one-line post from the game, never changing what happens and never throwing
+function gnews(o) { try { if (window.TLXN && TLXN.post) TLXN.post(o); } catch (e) { } }
+// Gram's off-screen picture (H2a): the world from the caller's camera at another hour and storm, into a small corner of the drawing buffer, copied out to the caller's
+// 2D canvas in the same task (so it is never presented), through the same tone map and encoding as the main view. The sky, fog, sun and screen grade are put back by
+// one more updSky with the real hour, and viewport, scissor and render target are restored, so nothing about the main view differs afterwards.
+function gramShot(o) {
+  if (INT.on || !o || !o.cam || !o.ctx || !renderer.getContext || (FISH && FISH.on)) return false;
+  const r = renderer, pr = r.getPixelRatio(), cv = r.domElement, k = Math.min(1, (cv.width - 1) / o.w, (cv.height - 1) / o.h);   // a small buffer (the frame governor's low pixel ratio) renders smaller and is scaled up
+  const W_ = Math.max(8, Math.floor(o.w * k / pr)), H_ = Math.max(8, Math.floor(o.h * k / pr)), bw = Math.round(W_ * pr), bh = Math.round(H_ * pr); if (bw > cv.width || bh > cv.height) return false;
+  const h0 = GS.hour, s0 = GS.storm, skyP = sky.position.clone(), starP = stars.position.clone(), rt0 = r.getRenderTarget(), vp = new THREE.Vector4(), sc = new THREE.Vector4(), st0 = r.getScissorTest();
+  r.getViewport(vp); r.getScissor(sc); let ok = false;
+  try {
+    GS.hour = o.hour; GS.storm = o.storm; updSky(); sky.position.copy(o.cam.position); stars.position.copy(o.cam.position);
+    r.setRenderTarget(null); r.setViewport(0, 0, W_, H_); r.setScissor(0, 0, W_, H_); r.setScissorTest(true); r.clear(); r.render(scene, o.cam);
+    o.ctx.drawImage(cv, 0, cv.height - bh, bw, bh, 0, 0, o.w, o.h); ok = true;
+  } finally {
+    r.setRenderTarget(rt0); r.setViewport(vp); r.setScissor(sc); r.setScissorTest(st0);
+    GS.hour = h0; GS.storm = s0; updSky(); sky.position.copy(skyP); stars.position.copy(starP); r.shadowMap.needsUpdate = true;
+  }
+  return ok;
+}
 function initExpansion() {
   TLX.boot({
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
@@ -17761,6 +17790,7 @@ function initExpansion() {
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
     groomx: GROOMX, warmx: WARMX, calx: CALX, sarCall: (spec) => sarCallIn(spec), sarState: () => ({ cur: SAR.cur, ping: SAR.ping, busy: sarBusy() }), sarAccept: c => sarAccept(c), crewAt: RANKS[1].at, gameHour: GAMEHOUR,
+    gram: { shot: gramShot, quad: { make: wildRig, free: wildFree, pose: quadPose, kinds: () => Object.keys(QSP) }, sunEl: sunEl, aur: () => AUR },
     footx: footX(), jobx: jobX(), ridex: rideX(), rideUse: rideUseA(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules

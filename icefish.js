@@ -905,6 +905,7 @@ function land() {
   const pb = !lg.best[f.key] || f.kg > lg.best[f.key].kg;
   if (pb) lg.best[f.key] = { kg: f.kg, cm, lake: lake.name, at: H.CAL.now().label };
   S.landed.pb = pb;
+  try { if (pb && f.kg >= 1.5 && window.TLXN) TLXN.post({ kind: "catch", who: "you", x: lake.x, z: lake.z, place: lake.name, text: `You landed a ${f.kg.toFixed(1)} kg ${f.sp.name} at ${lake.name}.`, data: { sys: "fish", what: "big", species: f.key, kg: +f.kg.toFixed(1) } }); } catch (e) { }
   lg.bestDayKg = Math.max(lg.bestDayKg || 0, +S.sess.kg.toFixed(2));
   S.baitOn = kitBait().live ? false : S.baitOn;       // a live bait's chewed to bits: you rebait at the hole
   S.mode = "caught"; S.L = 0; syncUI(); showCatch(); H.save();

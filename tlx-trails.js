@@ -1018,7 +1018,7 @@ const crewCard = {
    a gait (diagonal stride, skating on a wide stretch, herringbone up a steep climb, a tuck down one, double-poling on a fast
    flat) and a stride phase, so the figure's feet are placed from the path and not from its root: a planted ski stays where it
    landed and the body goes over it. rig() poses the shared body kit from those targets by two-bone IK. */
-const SKI = { see: 480, drop: 560, pool: { low: 4, high: 8 }, fast: 1.85, ds: 2, lead: 2.3, prep: 6.5, fin: 5.5, Lp: 1.22, hip: 0.9, ank: 0.075, skiT: 0.03 };
+const SKI = { see: 480, drop: 560, pool: { low: 4, high: 8 }, fast: 1.85, ds: 2, lead: 3.6, prep: 6.5, fin: 5.5, Lp: 1.22, hip: 0.9, ank: 0.075, skiT: 0.03 };
 const HOURS = () => api.gameHour || 50;
 const frac = v => v - Math.floor(v);
 const ease = q => q * q * (3 - 2 * q);
@@ -1154,13 +1154,13 @@ function buildPlan(t, o) {
 }
 
 /* ---- the body: P is a pose in world terms (root, feet, hands, pole tips); rig() turns it into joint angles ---- */
-const newP = () => ({ ed: 0, x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
+const newP = () => ({ ed: 0, x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), pw: 0, q: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
 function lerpP(A, B, w, o) {
   const m = (a, b) => a + (b - a) * w, ma = (a, b) => a + wrapA(b - a) * w;
-  o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head); o.ed = B.ed;
+  o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head); o.ed = B.ed; o.pw = m(A.pw, B.pw);
   for (let i = 0; i < 2; i++) {
     const a = A.f[i], b = B.f[i], c = o.f[i]; c.x = m(a.x, b.x); c.z = m(a.z, b.z); c.yaw = ma(a.yaw, b.yaw); c.lift = m(a.lift, b.lift); c.tip = m(a.tip, b.tip); c.ski = b.ski; c.sx = b.sx; c.sz = b.sz; c.syaw = b.syaw; c.sv = b.sv;
-    for (const k of ["x", "y", "z"]) { o.h[i][k] = m(A.h[i][k], B.h[i][k]); o.p[i][k] = m(A.p[i][k], B.p[i][k]); }
+    for (const k of ["x", "y", "z"]) { o.h[i][k] = m(A.h[i][k], B.h[i][k]); o.p[i][k] = m(A.p[i][k], B.p[i][k]); o.q[i][k] = m(A.q[i][k], B.q[i][k]); }
   }
   return o;
 }
@@ -1205,7 +1205,7 @@ function rig(sl, P) {
     limb(0.25, 0.24, vx, -ty, tz, !P.ed, _lb);                                         // the elbow bends up and back, except in the tuck (P.ed): there the torso lies nearly flat and the elbow hangs down in front of the knee
     U.arms[i].rotation.set(_lb.hx, 0, _lb.hz); U.fore[i].rotation.x = P.ed ? _lb.kn : -_lb.kn;
     sl.reach[i] = Math.hypot(vx, ty, tz) - 0.49;
-    const p = P.p[i], pm = sl.poles[i], dx = h.x - p.x, dy = h.y - p.y, dz = h.z - p.z, len = Math.hypot(dx, dy, dz) || 1;
+    const p = P.p[i], pm = sl.poles[i], tq = P.q[i], pw = P.pw, dx = h.x + (tq.x - h.x) * pw - p.x, dy = h.y + (tq.y - h.y) * pw - p.y, dz = h.z + (tq.z - h.z) * pw - p.z, len = Math.hypot(dx, dy, dz) || 1;
     pm.visible = true; pm.position.set(p.x, p.y, p.z); pm.scale.set(ks, len / SKI.Lp, ks); PV.set(dx / len, dy / len, dz / len); pm.quaternion.setFromUnitVectors(UPV, PV);
   }
 }
@@ -1260,9 +1260,18 @@ function gDiag(sl, L, u, P, gait) {
     const sd = sg(j), off = ska ? 0 : (1 - j) * 0.5 - 0.05;
     setPole(sl, P, j, L, u, ph, off, freq, S0, kp, (ska ? 0.75 : her ? 0.35 : 0.11) * k, (cls ? 0.59 : 0.45) * k, (cls ? -0.03 : -0.1) * k, sd * (ska ? 0.5 : her ? 0.55 : 0.34) * k, sd * 0.25 * k);
   }
+  if (cls) {                                                                           // an upright classic stride (H2a): the hips stay high over the gliding foot, the kicking leg reaches back nearly straight and its heel
+    // peels up (the ski pivots on its tip) instead of the hips sinking to meet it
+    const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), sc2 = sl.sc, ank = (SKI.ank * sc2 + SKI.skiT) / sc2, hipT = 0.88;
+    for (let i = 0; i < 2; i++) {
+      const f = P.f[i], lz = ((f.x - P.x) * fx + (f.z - P.z) * fz) / sc2, dx = 0.015;
+      const need = hipT - Math.sqrt(Math.max(0.04, 0.8 * 0.8 - dx * dx - lz * lz)) - ank;                   // how high this ankle must be for the leg to reach the hip
+      if (need > f.lift / sc2) { const e = Math.min(need, 0.17); f.lift = e * sc2 * 0.55; f.tip = -Math.asin(Math.min(0.3, e / 0.95)); }
+    }
+  }
   if (!her) for (let j = 0; j < 2; j++) P.h[j].y = Math.min(P.h[j].y, W.surf(P.x, P.z) + (ska ? 1.42 : 1.3) * sl.sc);                // a classic hand never goes above the head
-  P.pitch = ska ? 0.42 + 0.08 * Math.cos(4 * Math.PI * ph) : her ? 0.5 : 0.21 + 0.03 * Math.cos(4 * Math.PI * ph); P.twist = ska ? 0 : 0.07 * Math.cos(2 * Math.PI * ph) * (her ? 0.5 : 1);
-  P.roll = ska ? -lat / k * 0.8 : 0; P.hip = ska ? 0.8 : her ? 0.82 : 0.87; P.head = 0;
+  P.pitch = ska ? 0.42 + 0.08 * Math.cos(4 * Math.PI * ph) : her ? 0.5 : 0.2 + 0.03 * Math.cos(4 * Math.PI * ph); P.twist = ska ? 0 : 0.07 * Math.cos(2 * Math.PI * ph) * (her ? 0.5 : 1);
+  P.roll = ska ? -lat / k * 0.8 : 0; P.hip = ska ? 0.8 : her ? 0.82 : 0.89; P.head = 0;
 }
 function gDpole(sl, L, u, P) {
   const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), kp = clamp(1.3 * k / S0, 0.3, 0.5);
@@ -1308,8 +1317,8 @@ function gStand(sl, P, x, z, yaw, bend, t) {
 const _pa = newP(), _pb = newP();
 const bump = (s, a, b, c, d) => sstep(a, b, s) * (1 - sstep(c, d, s));
 function poseLeg(sl, B, tau, P, gaitOv) {
-  P.ed = 0;
-  const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL - sl.lag * lagF(B, uL) * (sl.pl.kind === "lap" ? 1 : 0), uc = clamp(u, 0, L.D); lIdx(L, uc);
+  P.ed = 0; P.pw = 0;
+  const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL + (sl.pl.kind === "lap" ? -sl.lag * lagF(B, uL) : B.flip ? sl.lag : -sl.lag), uc = clamp(u, 0, L.D); lIdx(L, uc);
   const i = _li, gait = gaitOv === undefined ? L.gait[i] : gaitOv;
   sl.u = u; sl.v = lerpA(L.v, i, _lf); sl.gait = gait;
   if (gait === G_DPOLE) gDpole(sl, L, u, P); else if (gait === G_TUCK) gTuck(sl, L, u, P); else gDiag(sl, L, u, P, gait);
@@ -1323,7 +1332,7 @@ function poseLeg(sl, B, tau, P, gaitOv) {
 const lagF = (B, u) => B.spur === 1 ? 1 - ease(clamp(u / B.leg.D, 0, 1)) : B.spur === 2 ? ease(clamp(u / B.leg.D, 0, 1)) : 1;
 function shiftP(P, dx, dz) { P.x += dx; P.z += dz; for (let i = 0; i < 2; i++) { P.f[i].x += dx; P.f[i].z += dz; P.h[i].x += dx; P.h[i].z += dz; P.p[i].x += dx; P.p[i].z += dz; } }
 function poseBlock(sl, bi, tau, P) {
-  P.ed = 0;
+  P.ed = 0; P.pw = 0;
   const pl = sl.pl, B = pl.blocks[bi], t = gameClockNow();
   if (B.k === "leg") {
     poseLeg(sl, B, tau, P);
@@ -1332,10 +1341,10 @@ function poseBlock(sl, bi, tau, P) {
     if (pg !== 255 && uc - run < Math.max(1.2, sl.v * 0.5)) { const w = ease(clamp((uc - run) / Math.max(1.2, sl.v * 0.5), 0, 1)); const keepG = sl.gait; poseLeg(sl, B, tau, _pa, pg); sl.gait = keepG; const keepV = sl.v; lerpP(_pa, P, w, P); sl.v = keepV; }
   } else if (B.k === "stand") {
     const L = B.mode === "prep" ? pl.blocks.find(b => b.k === "leg").leg : pl.blocks[pl.nb - 2].leg, at = B.mode === "prep" ? 0 : L.D, s = (tau - B.a) / (B.b - B.a);
-    const lag = pl.kind === "lap" ? sl.lag : 0; ppL(L, at - lag, _s1); const yaw = Math.atan2(_s1.tx, _s1.tz);
+    const lag = pl.kind === "lap" ? sl.lag : 0, lg2 = pl.kind === "lap" ? -lag : B.mode === "prep" ? -sl.lag : sl.lag; ppL(L, at + lg2, _s1); const yaw = Math.atan2(_s1.tx, _s1.tz);
     let x = _s1.x, z = _s1.z; if (sl.lat) { const sgn = (B.mode === "fin" && pl.kind !== "lap") ? -1 : 1; x += _s1.tz * sl.lat * sgn; z -= _s1.tx * sl.lat * sgn; }
     gStand(sl, P, x, z, yaw + (B.mode === "fin" && pl.kind !== "lap" ? 0 : 0), B.mode === "prep" ? bump(s, 0.12, 0.3, 0.68, 0.88) : bump(s, 0.15, 0.35, 0.7, 0.9), t);
-    sl.u = at - lag; sl.v = 0; sl.gait = -1;
+    sl.u = at + lg2; sl.v = 0; sl.gait = -1;
   } else if (B.k === "turn") poseTurn(sl, B, tau, P);
   else if (B.k === "bench") poseBench(sl, B, tau, P);
 }
@@ -1369,8 +1378,9 @@ function penHands(sl, P, rx, rz, yaw, ahead, ang) {
     }
   }
 }
+const pl0 = sl => sl.pl.kind === "lap";
 function poseTurn(sl, B, tau, P) {
-  const L = B.leg; ppL(L, L.D, _s1); const th0 = Math.atan2(_s1.tx, _s1.tz); let cx = _s1.x, cz = _s1.z; if (sl.lat) { cx += _s1.tz * sl.lat; cz -= _s1.tx * sl.lat; }
+  const L = B.leg; ppL(L, L.D - (pl0(sl) ? 0 : sl.lag), _s1); const th0 = Math.atan2(_s1.tx, _s1.tz); let cx = _s1.x, cz = _s1.z; if (sl.lat) { cx += _s1.tz * sl.lat; cz -= _s1.tx * sl.lat; }
   starTurn(sl, P, cx, cz, th0, tau - B.a); sl.u = L.D; sl.v = 0; sl.gait = -1;
 }
 // the rest on the gapahuk's bench: a star turn at the spot in front of it (skis stay under the feet to here), backing out of the skis a step at a time,
@@ -1391,8 +1401,22 @@ function poseBench(sl, B, tau, P) {
   }
   const sit = sstep(A1, A2, s) * (1 - sstep(A3, A4, s)), zr = (z[0] + z[1]) / 2 * (1 - sit) + (-0.52) * sit;
   lx(bx, zr, P); P.yaw = psi; const g0 = W.surf(P.x, P.z), seatTop = W.surf(g.x, g.z) + 0.45, hipSeat = (seatTop - g0) / sc + 0.17;
-  P.hip = 0.88 + (hipSeat - 0.88) * sit; P.pitch = 0.14 - 0.2 * sit; P.twist = 0.14 * Math.sin(s * 0.8) * sit; P.roll = 0; P.head = 0;
+  P.hip = 0.88 + (hipSeat - 0.88) * sit; P.pitch = 0.14 + 0.05 * sit; P.twist = 0.1 * Math.sin(s * 0.5 + sl.i) * sit; P.roll = 0.03 * Math.sin(s * 0.37 + sl.i) * sit; P.head = 0.1 * sit;
   penHands(sl, P, P.x, P.z, psi, 0.35 - 0.1 * sit, 0.5);
+  // seated: the poles stand in the snow in front of the bench (tips where they were last planted, tops leaning on the roof's edge), the hands rest on the knees
+  // or one is held out toward the fire; a stood pole follows the hand until the skier is on the bench
+  const wv = sstep(A0 + 0.6, A1, s) * (1 - sstep(A3, A4, s)), ky = seatTop + 0.2, Lp = SKI.Lp * sc / 0.88;
+  if (wv > 0) {
+    P.pw = wv;
+    for (let j = 0; j < 2; j++) {
+      const sd = sg(j), h = P.h[j], p = P.p[j], q = P.q[j], hk = lx(bx + sd * 0.21 * k, zr + 0.5 * k, _bw), toFire = (sl.mk + j) % 3 === 0;
+      const hx = toFire ? lx(bx + sd * 0.16 * k, zr + 0.62 * k, _bw) : hk, hy = toFire ? seatTop + 0.52 : ky;
+      h.x += (hx.x - h.x) * wv; h.z += (hx.z - h.z) * wv; h.y += (hy - h.y) * wv;
+      const pp = lx(bx + sd * (0.33 + 0.1 * j) * k, 1.62 + 0.14 * j, _bw); p.x += (pp.x - p.x) * wv; p.z += (pp.z - p.z) * wv; p.y = W.surf(p.x, p.z) + 0.02;
+      const tl = lx(bx + sd * (0.33 + 0.1 * j) * k, 1.62 + 0.14 * j - 0.35, _bw); q.x = tl.x; q.z = tl.z;   // the top leans a little toward the bench
+      const dl = Math.hypot(q.x - p.x, q.z - p.z), cs2 = Math.sqrt(Math.max(0.01, 1 - dl * dl / (Lp * Lp))); q.y = p.y + Lp * 0.97 * cs2;
+    }
+  }
 }
 const _bw = { x: 0, z: 0 };
 
@@ -1423,7 +1447,7 @@ function hideSlot(sl) { sl.vis = false; sl.g.visible = false; sl.o = null; sl.ke
 function bindSlot(sl, t, o, pl, key) {
   const p = TLXN.person(o.p) || { id: o.p, age: 30 }, k = o.k || 0, kid = p.age < 16;
   sl.t = t; sl.o = o; sl.pl = pl; sl.key = key; sl.who = p; sl.mk = k; sl.kc = kid ? 0 : 1; sl.sc = kid ? clamp(0.5 + 0.026 * p.age, 0.62, 0.86) : 0.86 + 0.06 * hash(p.id + "s"); sl.k = sl.sc / 0.88;
-  sl.lag = pl.kind === "lap" ? k * SKI.lead : 0; sl.lat = pl.kind === "lap" ? 0 : ((k + 1) >> 1) * 1.1 * (k & 1 ? 1 : -1);
+  sl.rank = fileRank(sl); sl.lag = sl.rank * SKI.lead; sl.lat = 0;                   // single file with a gap of a few metres between them, a child between the adults; they close up only when stopped
   sl.mats.jacket.color.setHex(JACKETS[Math.floor(hash(p.id + "j") * JACKETS.length)]); sl.mats.pants.color.setHex(PANTS_C[Math.floor(hash(p.id + "p") * PANTS_C.length)]); sl.mats.trim.color.setHex(TRIM_C[Math.floor(hash(p.id + "t") * TRIM_C.length)]);
   sl.skiMat.color.setHex(JACKETS[Math.floor(hash(p.id + "k") * JACKETS.length)]);
   sl.g.scale.setScalar(sl.sc); sl.pk.visible = t.kind !== "loop"; sl.vis = true; sl.g.visible = true; sl.hist = 0;
@@ -1487,6 +1511,20 @@ function skiTick(dt) {
 }
 X.skiers = () => SL.filter(s => s.vis).map(s => ({ i: s.i, p: s.o.p, trail: s.t.id, k: s.mk, x: s.P.x, z: s.P.z, u: s.u, v: s.v, gait: GAITS[s.gait] || "", blk: s.blk, bi: s.bi, as: s.as ? s.as.ph : -1, stag: s.stag || 0, tw: s.tw === undefined ? 1 : s.tw, kind: s.pl.kind, tau: (api.GS.hour - s.o.t0) * HOURS() - (s.o.dl || 0), sc: s.sc }));
 X.poseAll = H => { if (!UPV) { UPV = new T.Vector3(0, 1, 0); PV = new T.Vector3(); } for (const sl of SL) if (sl.vis) updSlot(sl, H, 0); };
+// a skier posed for a picture (Gram, H2a): one figure of its own, outside the pool, standing on its skis with the poles planted; the caller hides it with shotDone
+let SHOT = null;
+X.shotPose = o => {
+  if (!X.ready || !o || !Number.isFinite(o.x) || !Number.isFinite(o.z)) return null;
+  if (!UPV) { UPV = new T.Vector3(0, 1, 0); PV = new T.Vector3(); }
+  if (!SHOT) { SHOT = makeSlot(SL.length); const i = SL.indexOf(SHOT); if (i >= 0) SL.splice(i, 1); }
+  const sl = SHOT, p = TLXN.person(o.p) || { id: String(o.p || "x"), age: 30 }, kid = p.age < 16;
+  sl.who = p; sl.mk = 0; sl.vis = false; sl.kc = kid ? 0 : 1; sl.sc = kid ? clamp(0.5 + 0.026 * p.age, 0.62, 0.86) : 0.86 + 0.06 * hash(p.id + "s"); sl.k = sl.sc / 0.88;
+  sl.mats.jacket.color.setHex(JACKETS[Math.floor(hash(p.id + "j") * JACKETS.length)]); sl.mats.pants.color.setHex(PANTS_C[Math.floor(hash(p.id + "p") * PANTS_C.length)]); sl.mats.trim.color.setHex(TRIM_C[Math.floor(hash(p.id + "t") * TRIM_C.length)]);
+  sl.skiMat.color.setHex(JACKETS[Math.floor(hash(p.id + "k") * JACKETS.length)]);
+  sl.g.scale.setScalar(sl.sc); sl.pk.visible = !!o.pack; sl.g.visible = true; sl.lamp.visible = !!o.lamp;
+  const P = sl.P; P.ed = 0; P.pw = 0; gStand(sl, P, o.x, o.z, o.yaw || 0, 0, 0); rig(sl, P); return sl.g;
+};
+X.shotDone = () => { if (!SHOT) return; SHOT.g.visible = false; for (const m of SHOT.skis) m.visible = false; for (const m of SHOT.poles) m.visible = false; SHOT.lamp.visible = false; };
 X.pp = (L, u) => { const q = ppL(L, clamp(u, 0, L.D), {}); return q; }; X.uAtTau = uAtTau; X.hide = hideSlot; X.solidBody = solidBody; X.slots = SL; X.planOf = planOf; X.SKI = SKI; X.SKS = SKS; X.rescan = rescan;
 X.hourAtU = (t, o, bi, u) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + tauAt(B.leg, u)) + (o.dl || 0)) / HOURS(); };
 X.hourAtBlock = (t, o, bi, f) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + f * (B.b - B.a)) + (o.dl || 0)) / HOURS(); };
@@ -1499,6 +1537,11 @@ function vehicleNow() {
   if (api.FOOT.on) return null; const P = api.P, sp = Math.hypot(P.vx || 0, P.vz || 0); return { x: P.x, z: P.z, vx: P.vx || 0, vz: P.vz || 0, sp };
 }
 const kh = (a, w) => api.INP.dev === "touch" ? "tap " + api.btn(a) : api.btn(a) + ": " + w;
+// the order a party skis in: the first adult, then the children (oldest first), then the other adults
+function fileRank(sl) {
+  const g = groupOf(sl), ps = g.map(q => ({ q, a: (TLXN.person(q.p) || { age: 30 }).age })), ad = ps.filter(r => r.a >= 16), kd = ps.filter(r => r.a < 16).sort((a, b) => b.a - a.a);
+  const order = ad.length ? [ad[0], ...kd, ...ad.slice(1)] : kd, i = order.findIndex(r => r.q === sl.o); return i < 0 ? sl.o.k || 0 : i;
+}
 function groupOf(sl) { const t = sl.t, o = sl.o, out = [], g = o.g || o.p; for (const q of t.st.out) if (q.t0 === o.t0 && (q.g || q.p) === g) out.push(q); return out; }
 const handler = sl => { for (const s of SL) if (s.vis && s !== sl && s.t === sl.t && s.o.t0 === sl.o.t0 && (s.o.g || s.o.p) === (sl.o.g || sl.o.p) && s.mk < sl.mk) return false; return true; };
 function addDelay(sl, dt) { if (!handler(sl)) return; for (const q of groupOf(sl)) { q.dl = (q.dl || 0) + dt; q.t1 += dt / HOURS(); } }
@@ -1795,7 +1838,7 @@ X.FIREX = FIREX; X.FIRERIDE = FIRERIDE; X.fireRideLine = fireRideLine;
 const FK = { kits: [], tex: null, smoke: null, scanT: 0, act: [], n: 0 };
 function flameTex() {
   if (FK.tex) return FK.tex; const c = document.createElement("canvas"); c.width = 64; c.height = 128; const g = c.getContext("2d");
-  const r = g.createRadialGradient(32, 92, 2, 32, 84, 58); r.addColorStop(0, "rgba(255,246,200,1)"); r.addColorStop(0.25, "rgba(255,190,80,.9)"); r.addColorStop(0.6, "rgba(255,110,30,.4)"); r.addColorStop(1, "rgba(255,70,10,0)");
+  const r = g.createRadialGradient(32, 92, 2, 32, 84, 58); r.addColorStop(0, "rgba(255,200,90,1)"); r.addColorStop(0.25, "rgba(255,140,30,.85)"); r.addColorStop(0.6, "rgba(235,70,8,.4)"); r.addColorStop(1, "rgba(200,40,0,0)");
   g.fillStyle = r; g.beginPath(); g.moveTo(32, 2); g.bezierCurveTo(56, 52, 62, 82, 32, 126); g.bezierCurveTo(2, 82, 8, 52, 32, 2); g.fill();
   return (FK.tex = new T.CanvasTexture(c));
 }
@@ -1807,7 +1850,7 @@ function smokeTex() {
 function makeKit() {
   const grp = new T.Group(); grp.visible = false; api.scene.add(grp);
   const spr = (map, color, add, fog) => { const s = new T.Sprite(new T.SpriteMaterial({ map, color, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending, fog: !!fog })); grp.add(s); return s; };
-  const kit = { grp, g: null, flames: [0, 1, 2].map(() => spr(flameTex(), 0xff9a38, true, false)), halo: spr(lampTex(), 0xff9a40, true, false), smoke: [0, 1, 2, 3, 4].map(() => spr(smokeTex(), 0xffffff, false, true)) };
+  const kit = { grp, g: null, flames: [0, 1, 2].map(() => spr(flameTex(), 0xff8a24, true, false)), halo: spr(lampTex(), 0xff9a40, true, false), smoke: [0, 1, 2, 3, 4].map(() => spr(smokeTex(), 0xffffff, false, true)) };
   kit.pool = new T.Mesh(poolGeo(1, [1, 0.5, 0.2]), new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false })); kit.pool.frustumCulled = false; kit.pool.material.polygonOffset = true; kit.pool.material.polygonOffsetFactor = -2; kit.pool.visible = false; api.scene.add(kit.pool);
   kit.wall = new T.Mesh(new T.PlaneGeometry(3.3, 2.0), new T.MeshBasicMaterial({ map: poolTex(), color: 0xff8030, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide })); grp.add(kit.wall);
   FK.kits.push(kit); return kit;
@@ -1833,10 +1876,10 @@ function fireTick(dt) {
     const flick = 0.8 + 0.2 * Math.sin(t * 13 + g.x) + 0.1 * Math.sin(t * 7.3 + 1.7);
     for (let i = 0; i < 3; i++) {
       const s = k.flames[i], sy = (0.5 + 0.55 * Math.abs(Math.sin(t * (8 + i * 2.3) + i * 2.1))) * (0.35 + 0.65 * fi), sx = (0.34 + 0.12 * Math.sin(t * (10 + i) + i)) * (0.4 + 0.6 * fi);
-      s.scale.set(sx, sy * 1.5, 1); s.position.set((i - 1) * 0.2 + 0.06 * Math.sin(t * 6 + i), 0.32 + sy * 0.62, (i - 1) * 0.06); s.material.opacity = Math.min(1, 0.4 + fi) * flick;
+      s.scale.set(sx, sy * 1.5, 1); s.position.set((i - 1) * 0.2 + 0.06 * Math.sin(t * 6 + i), 0.32 + sy * 0.62, (i - 1) * 0.06); s.material.opacity = Math.min(0.8, 0.3 + 0.6 * fi) * flick;
     }
     const d = Math.hypot(f.x - V.x, f.z - V.z), hs = clamp(d * 0.011, 3.2, 28);
-    k.halo.position.set(0, 1.0, 0); k.halo.scale.set(hs, hs, 1); k.halo.material.opacity = fi * (0.18 + 0.7 * night) * (0.9 + 0.1 * flick) * (d < 40 ? 0.45 + d / 80 : 1);
+    k.halo.position.set(0, 1.0, 0); k.halo.scale.set(hs, hs, 1); k.halo.material.opacity = fi * (0.14 + 0.46 * night) * (0.9 + 0.1 * flick) * (d < 40 ? 0.3 + d / 100 : 1);
     for (let j = 0; j < 5; j++) {
       const p = ((t * 0.16 + j / 5) % 1), s = k.smoke[j];
       s.position.set(p * p * 3.2 + Math.sin(t + j) * 0.2, 0.9 + p * 6.2, p * 1.1); const sc = 0.6 + p * 2.8; s.scale.set(sc, sc, 1);
@@ -1844,7 +1887,7 @@ function fireTick(dt) {
     }
     if (k.poolAt !== g || (FU.h !== k.poolH)) { k.poolAt = g; k.poolH = FU.h; poolFit(k.pool.geometry, 0, f.x, f.z, 9, 0.09); }
     k.pool.visible = true; k.pool.material.opacity = 0.9 * fi * flick * clamp(0.25 + night, 0, 1);
-    lw(g, 0, -1.0, _fp); k.wall.position.set(_fp.x - f.x, snowY(_fp.x, _fp.z) - gy + 0.98, _fp.z - f.z); k.wall.rotation.y = g.yaw; k.wall.material.opacity = 0.62 * fi * flick * clamp(0.2 + night, 0, 1);
+    lw(g, 0, -1.0, _fp); k.wall.position.set(_fp.x - f.x, snowY(_fp.x, _fp.z) - gy + 0.98, _fp.z - f.z); k.wall.rotation.y = g.yaw; k.wall.material.opacity = 0.4 * fi * flick * clamp(0.2 + night, 0, 1);
   }
 }
 X.FK = FK; X.fireScan = fireScan;
@@ -1864,8 +1907,15 @@ function poseStandBy(sl, B, tau, P, sp) {
   if (s < A0) { starTurn(sl, P, c.x, c.z, th0, s, wrapPi(Y - th0)); return; }
   if (s > dur - A0) { starTurn(sl, P, c.x, c.z, Y, s - (dur - A0), wrapPi(psi - Y)); return; }
   gStand(sl, P, c.x, c.z, Y, 0, gameClockNow()); const k = sl.k, sn = Math.sin(Y), cs = Math.cos(Y), sc = sl.sc;
-  for (let j = 0; j < 2; j++) { const sd = sg(j), h = P.h[j], p = P.p[j]; h.x = c.x + cs * sd * 0.2 * k + sn * 0.42 * k; h.z = c.z - sn * sd * 0.2 * k + cs * 0.42 * k; h.y = W.surf(c.x, c.z) + 1.0 * sc; p.x = h.x - sn * 0.1 + cs * sd * 0.05; p.z = h.z - cs * 0.1 - sn * sd * 0.05; p.y = h.y - 1.15 * (sc / 0.88) + 0.0; if (p.y < W.surf(p.x, p.z)) p.y = W.surf(p.x, p.z) + 0.02; }
-  P.pitch = 0.1 + 0.02 * Math.sin(gameClockNow() * 1.3 + sl.i); P.hip = 0.9;
+  const tt = gameClockNow(), Lp = SKI.Lp * sc / 0.88; P.pw = 1;
+  for (let j = 0; j < 2; j++) {
+    // the hands out toward the fire, palms to it, a little unsteady; the poles stood in the snow at the side (tops leaning in a little)
+    const sd = sg(j), h = P.h[j], p = P.p[j], q = P.q[j], rub = 0.03 * Math.sin(tt * 2.6 + j * 2 + sl.i);
+    h.x = c.x + cs * sd * 0.2 * k + sn * (0.46 + rub) * k; h.z = c.z - sn * sd * 0.2 * k + cs * (0.46 + rub) * k; h.y = W.surf(c.x, c.z) + (1.08 + 0.04 * Math.sin(tt * 1.7 + j + sl.i)) * sc;
+    p.x = c.x + cs * sd * 0.62 * k - sn * 0.2 * k; p.z = c.z - sn * sd * 0.62 * k - cs * 0.2 * k; p.y = W.surf(p.x, p.z) + 0.02;
+    q.x = p.x - cs * sd * 0.12; q.z = p.z + sn * sd * 0.12; q.y = p.y + Lp * 0.99;
+  }
+  P.pitch = 0.1 + 0.03 * Math.sin(tt * 0.9 + sl.i); P.hip = 0.9 - 0.012 * Math.sin(tt * 0.9 + sl.i); P.roll = 0.045 * Math.sin(tt * 0.7 + sl.i * 1.7); P.twist = 0.04 * Math.sin(tt * 0.45 + sl.i);
 }
 
 /* ---- the ski rescue ---- */
