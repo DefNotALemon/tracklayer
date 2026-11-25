@@ -383,6 +383,10 @@ Order = priority. Builder keeps it ordered; ties go to whichever goal has had th
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
 - [ ] G4 (OWNER): the expansion. Take the next unticked slice in `loop/EXPANSION.md` (its Status table says which).
+- [ ] G7 (OWNER, 24 Nov): Home on the Nordkinn: the ski trail network villagers use, Gram (feed, reels, local chat), Radio
+  Nordkinn with call-ins, whales and seabirds, then the outdoors life, your own land, herding, romance and family.
+  Plan and slices in `loop/HOME.md`. Built from chat sessions in worktree `tracklayer-home` (branch `home`), not by a
+  lane; lanes leave `tlx-news.js`, `tlx-trails.js`, `tlx-gram.js`, `tlx-radio.js`, `tlx-sealife.js` alone.
 - [ ] G5 (OWNER): The Northern Front, after G4 has landed. Plan its slices in `loop/NORTHERN-FRONT.md` first.
 - [ ] G6 (OWNER): Living enemy NPCs (idle animations, hearing death screams, last-seen-location memory +
   investigation), after G5 has landed. See goal G6 above and the Owner note for the brief.
