@@ -783,7 +783,7 @@ function swStep(h) {
   // ---- hands ----
   for (let i = 0; i < 2; i++) {
     const hd = H[i], sd = i ? 1 : -1, L = SW_ARM;
-    U.torso.localToWorld(A.set(sd * 0.25, 0.53, 0));                             // the shoulder
+    U.torso.localToWorld(A.set(sd * 0.21, 0.53, 0));                             // the shoulder
     if (hd.grab) {
       swL(K.hd[i].x, K.hd[i].y, K.hd[i].z, B);
       if (hd.pin) { hd.p.copy(B); hd.v.set(0, 0, 0); if (A.distanceTo(B) > L * 1.15) hd.pin = false; }
@@ -825,7 +825,7 @@ function swPose() {
   }
   for (let i = 0; i < 2; i++) {
     const sd = i ? 1 : -1, hd = S.hand[i], a = U.arms[i], fa = U.fore[i];
-    A.set(sd * 0.25, 0.53, 0); U.torso.worldToLocal(B.copy(hd.p));
+    A.set(sd * 0.21, 0.53, 0); U.torso.worldToLocal(B.copy(hd.p));
     swIk(A, B, 0.25, 0.24, C.set(sd * 0.5, -0.5, -0.6), J);
     D.copy(J).sub(A).normalize(); S.q1.setFromUnitVectors(S.dn, D);
     E.copy(B).sub(J).normalize(); S.q2.setFromUnitVectors(S.dn, E);

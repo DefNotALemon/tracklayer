@@ -1269,6 +1269,7 @@ const V = {};   // swappable parts, machines and rider kit, toggled by the garag
 const SR = { on: false, a: 0, drag: false, lx: 0 };           // garage / settings showroom camera
 const PV = { sled: null, cat: null, slot: null, id: null };   // what the mouse is trying on
 function showroomOn() { return GS.garageOpen || !document.getElementById("settings").hidden; }
+let godOpen = false, godCat = 0, godItem = 0, padGodA = false, padGodB = false;   // the god menu's state (declared up here: v264 dropped it and every frame threw)
 // nobody's hands are on the controls: garage, settings or the god menu are up, or the rider is dead.
 // Riding (or coasting) through a menu like this used to keep whatever thr/brk was held when it opened.
 function noControl() { return GS.garageOpen || godOpen || !document.getElementById("settings").hidden || GS.dead; }
@@ -1353,6 +1354,9 @@ M.helmet = std(0xf2f5f8, 0.25, 0.15); M.visor = std(0x0d141c, 0.08, 0.6);
 M.vinyl = std(0x1a2027, 0.8);                                 // seat, recoloured by the livery / settings
 M.spring = std(0x3a4048, 0.4, 0.5); M.pad = std(0x1a1f26, 0.5, 0.1);
 V.seatMat = M.vinyl; V.helmetMat = M.helmet; V.visorMat = M.visor;
+// the look kit (tlx-look.js): textures for every figure material, made once, shared by every person in the game
+TLXL.init(renderer); TLXL.lite = !!(GFX.low || GFX.mobile);
+TLXL.fig.dress({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, glove: M.glove, skin: M.skin, boot: M.boot, helmet: M.helmet, visor: M.visor }, sledEnvCube);
 
 const put = (m, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody) => {
   m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; parent.add(m); return m;
@@ -1877,68 +1881,53 @@ const RIDER_SCALE = 1.14;
 const rider = new THREE.Group(); sledBody.add(rider); V.rider = rider;
 const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER_SCALE);
 {
-  const fur = std(0x8a7358, 1.0), reflect = std(0xdde6ee, 0.3, 0.4, { emissive: 0x3a4652, emissiveIntensity: 0.4 }),
-    heatMat = std(0xff7a2a, 0.4, 0, { emissive: 0xff5a10, emissiveIntensity: 1.4 }), packMat = std(0x2a3038, 0.9);
+  const F = TLXL.fig, K = F.K, KS = 1 / RIDER_SCALE;      // the body kit is built at true size: inside the scaled `ub` every kit group is scaled back by KS
+  const heatMat = std(0xff7a2a, 0.4, 0, { emissive: 0xff5a10, emissiveIntensity: 1.4 }); heatMat.userData.heater = true;
+  const grp = (items, parent) => { const g = new THREE.Group(); TLXL.build(items, g); parent.add(g); return g; };
+  const kitG = (parent, s) => { const g = new THREE.Group(); g.scale.setScalar(s); parent.add(g); return g; };
   V.footX = 0.27;
   V.boots = []; V.bootCuff = []; V.footPlain = []; V.legs = []; V.kneePads = []; V.reflect = [];
   for (const sx of [-1, 1]) {
-    V.footPlain.push(box(0.15, 0.12, 0.34, M.boot, sx * V.footX, 0.445, 0, 0, 0, 0, rider));                 // pac boot on the board
-    V.boots.push(box(0.17, 0.22, 0.36, std(0x2a3038, 0.85), sx * V.footX, 0.49, -0.01, 0, 0, 0, rider));    // taller arctic boot
-    V.bootCuff.push(ball(0.125, fur, sx * V.footX, 0.6, -0.04, rider, 1, 0.5, 1.1));
-    V.legs.push(limbDyn(0.11, 0.092, pantsMat, rider));                                                   // thigh
-    V.legs.push(limbDyn(0.092, 0.075, pantsMat, rider));                                                   // shin
-    V.kneePads.push(box(0.17, 0.2, 0.09, M.pad, 0, 0, 0, -0.4, 0, 0, rider));
-    V.reflect.push(box(0.195, 0.04, 0.195, reflect, 0, 0, 0, 0, 0, 0, rider));                             // shin band, positioned in pose
+    V.footPlain.push(grp(F.boot(K, "pac", 0.145), rider));                                                 // pac boot on the board (origin: sole under the ankle)
+    V.boots.push(grp(F.boot(K, "arctic", 0.145), rider));                                                  // taller arctic boot
+    V.bootCuff.push(grp([{ m: K.fur, g: TLXL.loft([{ y: -0.02, rx: 0.088, rz: 0.094 }, { y: 0.0, rx: 0.102, rz: 0.108 }, { y: 0.03, rx: 0.106, rz: 0.112 }, { y: 0.05, rx: 0.092, rz: 0.098 }], { uv: [0, 0, 2, 1], seg: TLXL.lite ? 12 : 18, roundTop: 0.01 }) }], rider));
+    V.legs.push(limbKit(F.thigh(K, 0.44), 0.44, rider));                                                    // thigh
+    V.legs.push(limbKit(F.shin(K, 0.43), 0.43, rider));                                                     // shin, ending in the trouser gaiter over the boot
+    V.kneePads.push(grp(F.kneePad(K, 0.43), rider));
+    V.reflect.push(grp(F.band(K, 0.104, 0.04), rider));                                                     // shin band, positioned in pose
   }
-  // seat: a pelvis core plus two cheeks behind it (rear is -z); cheek bottoms stay at the old ball's
-  // underside (y -0.14) so the rider still rests on ud.seatTop
+  // seat: the pelvis sits in `hips` (rear is -z); raised a little so its underside rests on ud.seatTop as the old cheeks did
   V.hips = new THREE.Group(); ub.add(V.hips);
-  V.hipParts = [ball(0.17, pantsMat, 0, 0.0, 0.03, V.hips, 1.0, 0.65, 1.0)];
-  for (const sx of [-1, 1]) V.hipParts.push(ball(0.125, pantsMat, sx * 0.085, -0.035, -0.07, V.hips, 0.95, 0.84, 1.0));
+  { const hk = kitG(V.hips, KS); hk.position.y = 0.06 * KS; V.hipParts = TLXL.build(F.pelvis(K), hk); }
   V.fpHide = [];                                  // upper-body pieces that sit around the first-person eye: hidden there, or the near plane slices them open
-  V.torso = box(0.36, 0.38, 0.25, jacketMat, 0, 0.22, 0.0, 0, 0, 0, ub);
-  V.chest = ball(0.22, jacketMat, 0, 0.36, 0.03, ub, 1.0, 0.75, 0.85);
-  V.fpHide.push(V.torso, V.chest, ball(0.14, jacketMat, 0, 0.47, 0.0, ub, 1.0, 0.6, 0.9));                                                   // collar
-  V.furCollar = ball(0.17, fur, 0, 0.48, -0.02, ub, 1.15, 0.5, 1.05);
-  V.fpHide.push(box(0.22, 0.26, 0.11, packMat, 0, 0.26, -0.18, 0, 0, 0, ub),                                // small pack
-    box(0.24, 0.05, 0.12, packMat, 0, 0.4, -0.18, 0, 0, 0, ub));
+  V.torso = new THREE.Group(); ub.add(V.torso); V.chest = new THREE.Group(); ub.add(V.chest);              // chest: kept as an empty stand-in (applyLoadout scales it)
+  const tk = kitG(V.torso, KS);
+  TLXL.build(F.torso(K), tk); TLXL.build(F.pack(K), tk);
+  V.fpHide.push(V.torso);
+  V.furCollar = TLXL.build(F.furCollar(K), tk)[0];
+  V.neck = TLXL.build(F.neck(K), tk)[0];
+  styleParts.stripe = TLXL.build(F.torsoPatch(K, "stripe"), tk)[0];
+  styleParts.chestPanel = TLXL.build(F.torsoPatch(K, "chest"), tk)[0];
+  styleParts.back = TLXL.build(F.torsoPatch(K, "back"), tk)[0];
   styleParts.sleeves = [];
   V.arms = []; V.shoulder = [];
-  { const sg = new THREE.CylinderGeometry(0.095, 0.095, 0.4, 12); sg.rotateZ(Math.PI / 2); V.fpHide.push(put(new THREE.Mesh(sg, jacketMat), 0, 0.39, 0.02, 0, 0, 0, ub)); }   // shoulder line across the top of the jacket
   for (const sx of [-1, 1]) {
-    V.fpHide.push(ball(0.1, jacketMat, sx * 0.2, 0.39, 0.02, ub, 1, 1, 1));                                              // rounded shoulder cap the sleeve grows from
-    V.shoulder.push(new THREE.Vector3(sx * 0.2, 0.39, 0.03));
-    const ua = limbDyn(0.075, 0.065, jacketMat, ub), fa = limbDyn(0.065, 0.055, jacketMat, ub);
-    V.arms.push(ua, fa); V.fpHide.push(ua);                                                              // upper arm (and its band) goes with the shoulder
-    const band = box(0.19, 0.06, 0.19, riderTrimMat, 0, 0, 0.2, 0, 0, 0, ua); styleParts.sleeves.push(band);   // sleeve band, rides the upper arm
-    const rb = box(0.17, 0.05, 0.17, reflect, 0, 0, 0.16, 0, 0, 0, fa); V.reflect.push(rb);                      // forearm band
+    V.shoulder.push(new THREE.Vector3(sx * 0.21 * KS, 0.53 * KS, 0.0));
+    const ua = limbKit(F.upper(K, 0.3).concat(F.elbow(K, 0.3, true)), 0.3, ub, 0.92), fa = limbKit(F.fore(K, 0.29).concat(F.elbow(K, 0.29, false)), 0.29, ub, 0.92);
+    V.arms.push(ua, fa); V.fpHide.push(ua);                                                              // upper arm goes with the shoulder
+    const band = grp(F.band(K, 0.07, 0.06, K.trim), ua); band.position.z = 0.2; styleParts.sleeves.push(band);   // sleeve band, rides the upper arm
+    const rb = grp(F.band(K, 0.064, 0.045), fa); rb.position.z = 0.17; V.reflect.push(rb);                    // forearm band
   }
-  styleParts.stripe = box(0.08, 0.36, 0.04, riderTrimMat, 0, 0.24, 0.135, 0, 0, 0, ub);
-  styleParts.back = box(0.3, 0.1, 0.03, riderTrimMat, 0, 0.3, -0.13, 0, 0, 0, ub);                        // back yoke
-  styleParts.chestPanel = box(0.32, 0.1, 0.03, riderTrimMat, 0, 0.3, 0.13, 0, 0, 0, ub);                  // chest yoke
-  const neck = cyl(0.06, 0.06, 0.1, M.glove, 0, 0.53, 0.02, 0, 0, 0, ub, 8); V.neck = neck;
-  const head = new THREE.Group(); head.position.set(0, 0.6, 0.03); ub.add(head); V.head = { g: head };
-  const helm = ball(0.19, M.helmet, 0, 0.06, 0, head, 1, 1.08, 1.1);
-  const chin = box(0.24, 0.12, 0.2, M.helmet, 0, -0.03, 0.1, 0.1, 0, 0, head);
-  const visor = box(0.28, 0.12, 0.1, M.visor, 0, 0.06, 0.16, 0.05, 0, 0, head);
-  const hstripe = box(0.06, 0.09, 0.34, riderTrimMat, 0, 0.22, 0.0, 0, 0, 0, head);
-  const beanie = ball(0.185, riderTrimMat, 0, 0.07, 0, head, 1, 0.82, 1.0);
-  const bobble = ball(0.06, riderTrimMat, 0, 0.23, 0, head);
-  const face = ball(0.165, M.skin, 0, 0.02, 0.02, head, 0.9, 1.0, 0.95);
-  const mask = ball(0.175, std(0x1a1f26, 0.9), 0, 0.02, 0.02, head, 0.95, 1.0, 1.0);
-  const goggles = box(0.29, 0.1, 0.11, M.visor, 0, 0.07, 0.15, 0.05, 0, 0, head);
-  const gogStrap = box(0.33, 0.06, 0.3, riderTrimMat, 0, 0.08, 0.0, 0, 0, 0, head);
-  V.heatVisor = box(0.29, 0.015, 0.02, heatMat, 0, 0.125, 0.2, 0.05, 0, 0, head);
-  V.head.helmet = [helm, chin, visor, hstripe];
-  V.head.beanie = [beanie, bobble, face, goggles, gogStrap];
-  V.head.mask = [beanie, bobble, mask, goggles, gogStrap];
-  V.head.heated = [helm, chin, visor, hstripe];
-  V.visor = visor; V.goggles = goggles;
-  riderHead = [helm, chin, visor, hstripe, neck];
-  V.headAll = [helm, chin, visor, hstripe, beanie, bobble, face, mask, goggles, gogStrap, V.heatVisor, neck];
+  const head = new THREE.Group(); head.position.set(0, 0.6 * KS, 0.01 * KS); ub.add(head); V.head = { g: head };
+  const hc = new THREE.Group(); hc.position.y = 0.1; kitG(head, KS).add(hc);
+  const HK = buildHeadKit(K, hc);
+  V.head.helmet = HK.helmet; V.head.beanie = HK.beanie; V.head.mask = HK.mask; V.head.heated = HK.helmet;
+  V.visor = HK.visor; V.goggles = HK.goggles;
+  V.heatVisor = TLXL.build([{ m: heatMat, g: TLXL.xf(TLXL.rbox(0.17, 0.008, 0.012, 0.003, 1), { y: 0.086, z: 0.127 }) }], hc)[0];
+  riderHead = [].concat(HK.all, [V.neck]);
+  V.headAll = HK.all.concat([V.neck, V.heatVisor]);
   // gloves are part of the bars, so they turn with them and the arms reach for them
   V.gloves = []; V.mitts = []; V.heatBand = []; V.wrist = []; V.hands = []; V.handRest = [];
-  const _XAX = new THREE.Vector3(1, 0, 0);
   for (const [i, sx] of [-1, 1].entries()) {
     const gp = V.grip[i], hand = new THREE.Group(); hand.position.copy(gp); barPivot.add(hand);
     // hand space: +x along the grip toward the machine's right, +y up, +z forward (a proper basis, so the
@@ -1946,22 +1935,10 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
     const hx = new THREE.Vector3(0.13, sx * 0.04, -sx * 0.04).normalize(), hz = new THREE.Vector3(0, 0, 1).cross(hx).cross(hx).negate().normalize(), hy = hz.clone().cross(hx);
     hand.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(hx, hy, hz));
     V.hands.push(hand); V.handRest.push({ p: hand.position.clone(), q: hand.quaternion.clone() });
-    // a closed fist: fingers curl over the top and round the front of the grip, palm behind it,
-    // thumb hooked over the inboard end, back of the hand rising to the wrist behind the bar
-    const fist = (k, g) => {
-      const wrap = new THREE.CylinderGeometry(0.05 * k, 0.05 * k, 0.1 * k, 14, 1, false, 4.4, Math.PI * 2 - 1.4);   // open behind/below where the palm meets the grip
-      wrap.rotateZ(Math.PI / 2); put(new THREE.Mesh(wrap, M.glove), 0, 0.002, 0.004, 0, 0, 0, g);
-      for (const fx of [-0.036, -0.012, 0.012, 0.036]) ball(0.02 * k, M.glove, fx * k, 0.035 * k, 0.036 * k, g, 1.05, 0.9, 1);   // knuckles
-      ball(0.05 * k, M.glove, 0, 0.012 * k, -0.03 * k, g, 1.0, 0.95, 0.8);                                           // palm heel behind the grip
-      const th = limbDyn(0.017 * k, 0.015 * k, M.glove, g);                                                           // thumb over the inboard end
-      th.userData.set(new THREE.Vector3(-sx * 0.045 * k, 0.03 * k, -0.035 * k), new THREE.Vector3(-sx * 0.05 * k, 0.048 * k, 0.03 * k));
-      box(0.085 * k, 0.05 * k, 0.07 * k, M.glove, 0, 0.034 * k, -0.06 * k, 0.5, 0, 0, g);                              // back of the hand
-      const cuff = new THREE.CylinderGeometry(0.052 * k, 0.047 * k, 0.07 * k, 12); cuff.rotateX(Math.PI / 2 - 0.35);
-      put(new THREE.Mesh(cuff, M.glove), 0, 0.042 * k, -0.1 * k, 0, 0, 0, g);                                         // gauntlet over the sleeve end
-    };
-    const g = new THREE.Group(); hand.add(g); V.gloves.push(g); fist(1, g);
-    const mt = new THREE.Group(); hand.add(mt); V.mitts.push(mt); fist(1.2, mt);
-    V.heatBand.push(box(0.11, 0.025, 0.03, heatMat, 0, 0.078, -0.1, 0.35, 0, 0, hand));
+    // a closed fist: fingers curl over the top and round the front of the grip, palm behind it, thumb hooked over the inboard end, gauntlet over the sleeve
+    const g = grp(F.hand(K, "fist", sx, 1), hand); V.gloves.push(g);
+    const mt = grp(F.hand(K, "mitt", sx, 1.2), hand); V.mitts.push(mt);
+    const hb = TLXL.build([{ m: heatMat, g: TLXL.xf(TLXL.rbox(0.11, 0.012, 0.03, 0.005, 1), { y: 0.082, z: -0.1, rx: 0.35 }) }], hand)[0]; V.heatBand.push(hb);
     hand.updateMatrix();                                                                                   // the wrist in barPivot space (hand.matrixWorld isn't built yet)
     V.wrist.push(new THREE.Vector3(0, 0.05, -0.13).applyMatrix4(hand.matrix));                              // where the forearm meets the glove cuff
   }
@@ -1969,26 +1946,29 @@ const ub = new THREE.Group(); rider.add(ub); V.ub = ub; ub.scale.setScalar(RIDER
   // as the fist: wrist behind (-z), fingers ahead (+z), palm facing -y, back of the hand +y, thumb on +x. Gloves have four
   // fingers; mitts keep them together in one rounded block. Shown only during a wipe; the fist is hidden while it is up.
   {
-    const hand = V.hands[1], flat = (k, mitt) => {
-      const g = new THREE.Group(); g.visible = false; hand.add(g);
-      box(0.092 * k, 0.034 * k, 0.1 * k, M.glove, 0, 0, -0.045 * k, 0, 0, 0, g);                                // palm
-      box(0.07 * k, 0.03 * k, 0.05 * k, M.glove, 0, 0.004 * k, -0.098 * k, -0.25, 0, 0, g);                      // heel of the hand, rolling into the wrist
-      if (mitt) { box(0.1 * k, 0.04 * k, 0.09 * k, M.glove, 0, 0, 0.045 * k, 0, 0, 0, g); ball(0.05 * k, M.glove, 0, 0, 0.09 * k, g, 1, 0.8, 0.7); }
-      else for (const [fx, len] of [[-0.033, 0.074], [-0.011, 0.088], [0.011, 0.082], [0.033, 0.066]]) {
-        box(0.021 * k, 0.026 * k, len * k, M.glove, fx * k, 0, (0.005 + len / 2) * k, 0, fx * 3, 0, g);          // finger, fanned a touch
-        ball(0.0125 * k, M.glove, fx * k * 1.05, 0, (0.005 + len) * k, g, 1, 0.95, 1);                           // fingertip
-      }
-      // thumb: a rounded two-joint digit that grows out of a pad on the side of the palm and angles forward alongside the index finger
-      ball(0.032 * k, M.glove, 0.044 * k, -0.004 * k, -0.07 * k, g, 1, 0.8, 1.15);                               // ball of the thumb, blends it into the palm
-      { const tp = [[0.052, -0.008, -0.07], [0.078, -0.008, -0.03], [0.083, -0.006, 0.014]].map(a => new THREE.Vector3(a[0] * k, a[1] * k, a[2] * k)),
-          t1 = limbDyn(0.02 * k, 0.017 * k, M.glove, g), t2 = limbDyn(0.017 * k, 0.014 * k, M.glove, g);
-        t1.userData.set(tp[0], tp[1]); t2.userData.set(tp[1], tp[2]); }
-      const cuff = new THREE.CylinderGeometry(0.052 * k, 0.047 * k, 0.07 * k, 12); cuff.rotateX(Math.PI / 2);
-      put(new THREE.Mesh(cuff, M.glove), 0, 0, -0.118 * k, 0, 0, 0, g);                                          // gauntlet over the sleeve end
-      return g;
-    };
+    const hand = V.hands[1], flat = (k, mitt) => { const g = grp(F.hand(K, mitt ? "openMitt" : "open", 1, k), hand); g.visible = false; return g; };
     V.wipeHand = { g: flat(1, false), m: flat(1.2, true) };
   }
+}
+// a posable limb from kit items: re-aimed with .set(a, b) like the old limbDyn. The kit geometry is built along +z at length L0 and
+// scaled in z to the span; rs shrinks it radially (the rider's arms live inside the scaled `ub`). Extra materials (panels) ride on the main mesh.
+function limbKit(items, L0, parent, rs) {
+  if (rs && rs !== 1) items = items.map(it => ({ m: it.m, g: TLXL.xf(it.g, { sx: rs, sy: rs, sz: 1 }) }));
+  const g = new THREE.Group(); parent.add(g);
+  const ms = TLXL.build(items, g), m = ms[0];
+  for (let i = 1; i < ms.length; i++) { g.remove(ms[i]); m.add(ms[i]); }
+  g.userData.mesh = m; g.userData.cap = new THREE.Group(); g.userData.joint = new THREE.Group();
+  g.userData.set = (a, b) => { g.position.copy(a); const len = aimZ(g, a, b) || 0.001; m.scale.z = len / L0; };
+  return g;
+}
+// every head kit, built once for a figure: groups named helmet / beanie / mask / goggles / face, in head-centre space (+z the face).
+// Returns the visibility lists per kit (what walkerLook and applyLoadout switch) and the visor / goggle lens meshes.
+function buildHeadKit(K, hc) {
+  const F = TLXL.fig, mk = (items, name) => { const g = new THREE.Group(); g.name = name; TLXL.build(items, g); g.visible = false; hc.add(g); return g; };
+  const hm = F.helmet(K), helmet = mk(hm.shell, "helmet"), visor = TLXL.build(hm.visor, helmet)[0]; visor.name = "visor";
+  const gg = F.goggles(K), goggles = mk(gg.frame, "goggles"), lens = TLXL.build(gg.lens, goggles)[0]; lens.name = "lens";
+  const faceBase = mk(F.liner(K), "faceBase"), face = mk(F.face(K), "face"), beanie = mk(F.beanie(K), "beanie"), mask = mk(F.balaclava(K), "mask");
+  return { helmet: [helmet, faceBase], beanie: [beanie, goggles, face], mask: [mask, goggles], visor, goggles: lens, all: [helmet, goggles, faceBase, face, beanie, mask] };
 }
 const WRIST_FIST = new THREE.Vector3(0, 0.05, -0.13), WRIST_OPEN = new THREE.Vector3(0, 0, -0.14);
 // two-bone IK: joint position for a chain root→joint→tip with lengths l1, l2, bent toward `pole`
@@ -2080,9 +2060,9 @@ function poseLegs(lift) {
     _pA.set(sx * RIDER.hipX, ud.seatTop + RIDER.legR + 0.005 + lift, hip.z + 0.06 - lift * 0.25); _pB.set(sx * (footX + 0.025), 0.53, footZ - 0.03);
     ik2(_pA, _pB, RIDER.thigh, RIDER.shin, _pP.copy(best.pole).multiply(_lq.set(sx, 1, 1)), _pJ);
     V.legs[i * 2].userData.set(_pA, _pJ); V.legs[i * 2 + 1].userData.set(_pJ, _pB);
-    V.kneePads[i].position.copy(_pJ).add(_pT.set(0, 0.02, 0.07)); aimZ(V.kneePads[i], _pJ, _pT.set(_pB.x, _pB.y - 0.4, _pB.z + 0.5));
+    V.kneePads[i].position.copy(_pJ); aimZ(V.kneePads[i], _pJ, _pB);
     V.reflect[i].position.copy(_pJ).lerp(_pB, 0.55); aimZ(V.reflect[i], V.reflect[i].position, _pB);
-    V.footPlain[i].position.set(sx * footX, 0.45, footZ); V.boots[i].position.set(sx * footX, 0.5, footZ - 0.01); V.bootCuff[i].position.set(sx * footX, 0.62, footZ - 0.04);
+    V.footPlain[i].position.set(sx * (footX + 0.025), 0.385, footZ - 0.03); V.boots[i].position.copy(V.footPlain[i].position); V.bootCuff[i].position.set(sx * (footX + 0.025), 0.612, footZ - 0.036);
   }
 }
 
@@ -2101,7 +2081,7 @@ function placeWipeHand(w) {
   head.updateWorldMatrix(true, false);
   // in first person the camera sits ~0.25 m ahead of the (hidden) helmet, so the hand is held out in front of the lens instead of at the visor
   const fp = V.headHid;
-  _wP.set(-WIPE.px / 1.2 * (fp ? 0.27 : 0.2), 0.06 + WIPE.py * 0.1, fp ? 0.46 : 0.25); head.localToWorld(_wP); barPivot.worldToLocal(_wP);
+  _wP.set(-WIPE.px / 1.2 * (fp ? 0.27 : 0.2), 0.105 + WIPE.py * 0.1, fp ? 0.46 : 0.17); head.localToWorld(_wP); barPivot.worldToLocal(_wP);
   _wZ.set(WIPE.lean, 1, 0).normalize(); _wY.set(0, 0, 1); _wX.crossVectors(_wY, _wZ).normalize(); _wY.crossVectors(_wZ, _wX);
   _wM.makeBasis(_wX, _wY, _wZ); _wQ.setFromRotationMatrix(_wM);
   head.getWorldQuaternion(_wQ2); _wQ.premultiply(_wQ2);
@@ -9503,7 +9483,7 @@ function applyLivery(sd) {
 }
 function applySettings() {
   const sd = paintSled(), L = applyLivery(sd), o = SET.paint[sd.id] || {};
-  if (jacketMat) { jacketMat.color.set(SET.jacket); riderTrimMat.color.set(SET.trim); pantsMat.color.set(SET.pants); }
+  if (jacketMat) { jacketMat.color.set(SET.jacket); riderTrimMat.color.set(SET.trim); pantsMat.color.set(SET.pants); if (TLXL.fig.K) TLXL.fig.K.beanie.color.set(SET.trim); }
   if (V.helmetMat) V.helmetMat.color.set(SET.helmet);
   const cb = $("canBtn"); if (cb) { cb.textContent = SET.canMatch ? "Jerry cans: match sled" : "Jerry cans: red"; cb.classList.toggle("on", SET.canMatch); }
   if (V.machines) for (const id in V.machines) for (const [k, list] of Object.entries(V.machines[id].userData.decal)) list.forEach(m => m.visible = SET.decal === k);
@@ -14816,55 +14796,34 @@ function xcPole(parent) {
   cyl(0.05, 0.05, 0.012, M.dark, 0, -1.16, 0, 0, 0, 0, g, 10);
   return g;
 }
-function makeFigure(m) {
-  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = [];
-  const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
-  box(0.44, 0.58, 0.27, m.jacket, 0, 0.3, 0, 0, 0, 0, torso);
-  box(0.46, 0.09, 0.285, m.trim, 0, 0.12, 0, 0, 0, 0, torso);
-  ball(0.12, m.skin, 0, 0.72, 0.01, torso);
-  ball(0.165, m.helmet, 0, 0.75, 0, torso, 1, 1, 1.08);
-  box(0.2, 0.07, 0.06, m.visor, 0, 0.74, 0.14, 0, 0, 0, torso);
-  for (const s of [-1, 1]) {
-    const a = new THREE.Group(); a.rotation.order = "YXZ"; a.position.set(s * 0.29, 0.52, 0); torso.add(a);
-    box(0.11, 0.28, 0.13, m.jacket, 0, -0.14, 0, 0, 0, 0, a);
-    const fa = new THREE.Group(); fa.position.y = -0.28; a.add(fa);                                  // forearm on an elbow: straight unless the figure wipes its visor
-    box(0.11, 0.22, 0.13, m.jacket, 0, -0.11, 0, 0, 0, 0, fa); box(0.12, 0.12, 0.14, m.glove, 0, -0.26, 0, 0, 0, 0, fa);
-    U.arms.push(a); U.fore.push(fa);
-    const l = new THREE.Group(); l.position.set(s * 0.11, 0.93, 0); g.add(l);
-    box(0.17, 0.82, 0.2, m.pants, 0, -0.42, 0, 0, 0, 0, l); box(0.19, 0.14, 0.34, m.boot, 0, -0.88, 0.06, 0, 0, 0, l);
-    U.legs.push(l);
-  }
-  return g;
-}
-// the player on foot: a plain, soft figure (pills and balls in the kit's flat colours), knees jointed so it can haul each boot up out of the snow
-const capsule = (r, len, mat, parent, y0 = 0) => {   // a capsule hanging down from y0: top cap centre at y0, bottom cap centre at y0 - len
-  const g = new THREE.Group(); g.position.y = y0; parent.add(g);
-  put(new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 16), mat), 0, -len / 2, 0, 0, 0, 0, g);
-  put(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat), 0, 0, 0, 0, 0, 0, g);
-  put(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat), 0, -len, 0, 0, 0, 0, g);
-  return g;
-};
+// every person comes from the one body kit (tlx-look.js TLXL.fig): the walker, the villagers, staff, drivers, rescue casualties and the crash body.
+// Skeleton as before (hip pivot 0.93, thigh 0.42, shin 0.43, shoulder +-0.22 / 0.53, arm 0.25 + 0.24); only the shapes changed. Hanging limbs are
+// kit limbs (built along +z) rotated to hang down; hands are built with their origin at the knuckle line and rotated to hang.
+function makeFigure(m) { return makeWalker(m); }
 function makeWalker(m) {
-  const g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = []; U.shins = []; U.ank = [];
+  const F = TLXL.fig, K = F.kitFor(m), g = new THREE.Group(), U = g.userData; U.arms = []; U.fore = []; U.legs = []; U.shins = []; U.ank = [];
+  const hang = items => items.map(it => ({ m: it.m, g: TLXL.xf(it.g, { rx: Math.PI / 2 }) })), seg = (items, parent) => { const s = new THREE.Group(); TLXL.build(hang(items), s); parent.add(s); return s; };
   const torso = new THREE.Group(); torso.position.y = 0.93; g.add(torso); U.torso = torso;
-  const body = capsule(0.2, 0.3, m.jacket, torso, 0.5); body.scale.set(1, 1, 0.84);                    // the parka: one rounded body
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.207, 0.207, 0.07, 16), m.trim), 0, -0.36, 0, 0, 0, 0, body);   // hem band
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.07, 16), m.trim), 0, 0.15, 0, 0, 0, 0, body);      // collar
-  const head = new THREE.Group(); head.position.set(0, 0.83, 0); torso.add(head); U.head = head;
-  ball(0.155, m.helmet, 0, 0, 0, head, 1, 1.02, 1.05);
-  ball(0.15, m.visor, 0, 0.015, 0.045, head, 1, 0.42, 0.85);                                                      // goggle band across the front
+  TLXL.build(F.torso(K), torso); TLXL.build(F.pelvis(K), torso); TLXL.build(F.neck(K), torso);
+  const head = new THREE.Group(); head.position.set(0, 0.6, 0.01); torso.add(head); U.head = head;
+  const hc = new THREE.Group(); hc.position.y = 0.1; head.add(hc); const HK = buildHeadKit(K, hc);
+  U.headKit = { helmet: HK.helmet, beanie: HK.beanie, mask: HK.mask }; U.headParts = HK;
+  for (const m2 of HK.helmet) m2.visible = true;                                                                // the default: the full-face helmet
   for (const s of [-1, 1]) {
-    const a = new THREE.Group(); a.rotation.order = "YXZ"; a.position.set(s * 0.25, 0.53, 0); torso.add(a);
-    capsule(0.068, 0.22, m.jacket, a);
+    const a = new THREE.Group(); a.rotation.order = "YXZ"; a.position.set(s * 0.21, 0.53, 0); torso.add(a);
+    a.userData.seg = seg(F.upper(K, 0.25).concat(F.elbow(K, 0.25, true)), a);
     const fa = new THREE.Group(); fa.position.y = -0.25; a.add(fa);
-    capsule(0.062, 0.17, m.jacket, fa); ball(0.078, m.glove, 0, -0.24, 0.01, fa, 0.9, 1.05, 1);                    // forearm, mitt
+    fa.userData.seg = seg(F.fore(K, 0.19).concat(F.elbow(K, 0.19, false)), fa);
+    const hd = new THREE.Group(); hd.position.y = -0.285; hd.matrixAutoUpdate = true;                           // knuckle line; palm centre lands on (0, -0.24, 0)
+    hd.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, -s), new THREE.Vector3(s, 0, 0), new THREE.Vector3(0, -1, 0)));
+    TLXL.build(F.hand(K, "relaxed", s, 1), hd); fa.add(hd); fa.userData.hand = hd;
     U.arms.push(a); U.fore.push(fa);
     const l = new THREE.Group(); l.position.set(s * 0.1, 0.93, 0); g.add(l);
-    capsule(0.098, 0.36, m.pants, l);
+    TLXL.build(hang(F.thigh(K, 0.45)), l);
     const sh = new THREE.Group(); sh.position.y = -0.42; l.add(sh);
-    capsule(0.088, 0.3, m.pants, sh);                                                                               // shin
-    const an = new THREE.Group(); an.position.y = -0.43; sh.add(an);                                                // the ankle: heel strike, roll, toe-off (hgPose)
-    ball(0.105, m.boot, 0, -0.01, 0.05, an, 0.95, 0.62, 1.45);                                                      // boot: sole 7.5 cm under the ankle
+    TLXL.build(hang(F.shin(K, 0.46).concat(F.kneePad(K, 0.46))), sh);                                           // shin with the gaiter and the knee panel
+    const an = new THREE.Group(); an.position.y = -0.43; sh.add(an);                                           // the ankle: heel strike, roll, toe-off (hgPose)
+    const bt = new THREE.Group(); bt.position.y = -0.075; an.add(bt); TLXL.build(F.boot(K, "pac", 0.075), bt);  // boot: sole 7.5 cm under the ankle
     U.legs.push(l); U.shins.push(sh); U.ank.push(an);
   }
   return g;
@@ -14885,13 +14844,8 @@ function buildWalker() {
   for (const dz of [-0.45, 0.45]) box(0.08, 0.15, 0.045, std(0x1c1f24, 0.8), -0.012, 0.01, dz, 0, 0, 0, R);   // straps
   xcLook();
   // the same head and pack the seated rider wears (GS.own.gear.head), so the figure that swings a leg over the seat is
-  // the one that then rides off: makeWalker's helmet and visor, or a beanie / balaclava with goggles (walkerLook)
-  const hd = U.head, kit = new THREE.Group(); kit.position.y = -0.035; kit.scale.setScalar(0.82); hd.add(kit);
-  const beanie = ball(0.185, riderTrimMat, 0, 0.07, 0, kit, 1, 0.82, 1.0), bobble = ball(0.06, riderTrimMat, 0, 0.23, 0, kit);
-  const face = ball(0.165, M.skin, 0, 0.02, 0.02, kit, 0.9, 1.0, 0.95), mask = ball(0.175, std(0x1a1f26, 0.9), 0, 0.02, 0.02, kit, 0.95, 1.0, 1.0);
-  const gog = box(0.29, 0.1, 0.11, M.visor, 0, 0.07, 0.15, 0.05, 0, 0, kit), strap = box(0.33, 0.06, 0.3, riderTrimMat, 0, 0.08, 0.0, 0, 0, 0, kit);
-  U.headKit = { helmet: [hd.children[0], hd.children[1]], beanie: [beanie, bobble, face, gog, strap], mask: [beanie, bobble, mask, gog, strap] };
-  const pk = std(0x2a3038, 0.9); box(0.22, 0.26, 0.1, pk, 0, 0.3, -0.2, 0, 0, 0, U.torso); box(0.24, 0.05, 0.11, pk, 0, 0.44, -0.2, 0, 0, 0, U.torso);   // the small pack
+  // the one that then rides off: the helmet, or a beanie / balaclava with goggles (makeWalker built them all; walkerLook shows one)
+  TLXL.build(TLXL.fig.pack(TLXL.fig.K), U.torso);                                                                  // the small pack
   walkerLook();
 }
 function walkerLook() {
@@ -15414,7 +15368,7 @@ function swgStep(h) {
     const hd = H[i], sd = i ? 1 : -1;
     hd.k += ((hd.grab ? SWG_ARM : 1) - hd.k) * (1 - Math.exp(-7 * h));
     const L = 0.49 * hd.k;
-    U.torso.localToWorld(_sgA.set(sd * 0.25, 0.53, 0));                        // the shoulder
+    U.torso.localToWorld(_sgA.set(sd * 0.21, 0.53, 0));                        // the shoulder
     if (hd.grab) {
       swgGrip(i, _sgB);
       if (hd.pin) { hd.p.copy(_sgB); hd.v.set(0, 0, 0); if (_sgA.distanceTo(_sgB) > L * 1.15) hd.pin = false; }
@@ -15459,8 +15413,8 @@ function swgPose() {
   }
   for (let i = 0; i < 2; i++) {
     const sd = i ? 1 : -1, hd = S.hand[i], k = hd.k, a = U.arms[i], fa = U.fore[i];
-    a.children[0].scale.y = k; fa.position.y = -0.25 * k; fa.children[0].scale.y = k; fa.children[1].position.y = -0.24 * k;
-    _sgA.set(sd * 0.25, 0.53, 0); U.torso.worldToLocal(_sgB.copy(hd.p));
+    a.userData.seg.scale.y = k; fa.position.y = -0.25 * k; fa.userData.seg.scale.y = k; fa.userData.hand.position.y = -0.285 * k;
+    _sgA.set(sd * 0.21, 0.53, 0); U.torso.worldToLocal(_sgB.copy(hd.p));
     ik2(_sgA, _sgB, 0.25 * k, 0.24 * k, _sgC.set(sd * 0.5, -0.5, -0.6), _sgJ);
     _sgD.copy(_sgJ).sub(_sgA).normalize(); _sgQ1.setFromUnitVectors(_sgDown, _sgD);
     _sgE.copy(_sgB).sub(_sgJ).normalize(); _sgQ2.setFromUnitVectors(_sgDown, _sgE);
@@ -15472,7 +15426,7 @@ function swgRigReset() {
   SWG.dirty = false; const g = FOOT.g; if (!g) return; const U = g.userData;
   for (let i = 0; i < 2; i++) {
     const a = U.arms[i], fa = U.fore[i];
-    a.children[0].scale.y = 1; fa.position.y = -0.25; fa.children[0].scale.y = 1; fa.children[1].position.y = -0.24;
+    a.userData.seg.scale.y = 1; fa.position.y = -0.25; fa.userData.seg.scale.y = 1; fa.userData.hand.position.y = -0.285;
     a.rotation.set(0, 0, 0); fa.rotation.set(0, 0, 0); U.legs[i].rotation.set(0, 0, 0); U.legs[i].position.set(i ? 0.1 : -0.1, 0.93, 0); U.shins[i].rotation.set(0, 0, 0); U.ank[i].rotation.set(0, 0, 0);
   }
   U.head.rotation.set(0, 0, 0); U.torso.rotation.set(0, 0, 0, "XYZ"); U.torso.position.y = 0.93; g.rotation.set(0, FOOT.yaw, 0, "YXZ");
@@ -18162,6 +18116,32 @@ const CATEGORIES = [
     { id: "tut", label: "Restart tutorial", sub: "On foot at the quay", type: "action", do: () => { TUT.stage = 0; TUT.a = null; TUT.b = null; GS.hour = 0; P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vy = P.vz = 0; TUT = TUT || {}; toast("Tutorial reset."); } },
   ]},
 ];
+// restored (v265): the v264 god-menu edit dropped these, and every frame threw ReferenceError: godTick is not defined
+function godGetActiveItems() {
+  return CATEGORIES[godCat]?.items || [];
+}
+function godTeleport(s) {
+  if (FISH) FISH.abort();
+  let x, z, yaw;
+  if (s === depot) { x = SPAWN.x; z = SPAWN.z; yaw = SPAWN.yaw; }
+  else {
+    const dx = depot.x - s.x, dz = depot.z - s.z, d = Math.hypot(dx, dz) || 1;
+    x = s.x + dx / d * 16; z = s.z + dz / d * 16; yaw = Math.atan2(-dx, -dz);
+  }
+  P.x = x; P.z = z; P.yaw = yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
+  recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.4; P.safe = { x, z, yaw };
+  camState.init = false; towSnap(); toast("Dropped at " + s.name + ".");
+}
+function godTick(dt) {
+  if (GOD.fuel) { GS.fuel = GS.cap; GS.outWarned = GS.lowWarned = false; }
+  if (GOD.warm) { GS.warmth = 100; GS.coldWarned = false; }
+  if (GOD.freeze) GS.hour -= dt / GAMEHOUR;
+}
+const godAny = () => GOD.fuel || GOD.warm || GOD.turbo || GOD.lowg || GOD.freeze;
+function godApply(id) {
+  if (id === "turbo") restat();
+  if (id === "lowg") G = GOD.lowg ? 5.2 : 32.4;
+}
 function godActivate() {
   const cat = CATEGORIES[godCat];
   if (!cat) return;

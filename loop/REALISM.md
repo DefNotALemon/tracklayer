@@ -13,7 +13,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 
 | # | Part | State |
 |---|---|---|
-| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | next |
+| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v264 (24 Nov 2026) |
 | R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | after R1 |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
@@ -104,6 +104,15 @@ pockets, cuffs with tabs, a hem with a drawcord, reflective piping that only ref
 with knee panels and a boot gaiter; a helmet with a visor, a peak and vents, or the beanie with goggles on a
 strap, or the balaclava, as `GS.own.gear.head` says; the pack. Fabric normal maps with weave and stitched seams;
 snow dusting on shoulders and boots when it has been snowing.
+
+#### R1 as built (24 Nov 2026, script v264)
+
+`tlx-look.js` (`TLXL`) offers, for the next slices:
+- Textures, cached by key, mipmapped, anisotropy from `TLXL.init(renderer)`: `TLXL.height(w,h)` height field with `.noise .weave .grain .bumps .seam .zip .ridge .panel .toNormal .toGray .toTone` (UV rectangles, v up); `TLXL.fabric(kind, {size, stamp, repeat, key})` for `shell fleece knit leather rubber plastic gloss skin lens` returns `{map, normalMap, roughnessMap}`; `TLXL.dressMat(mat, kind, opts)` puts them on a material and keeps its colour as the tint. Maps are neutral on purpose: recolouring a material still works. Use `size` 128 for small things, 256 for tiles, 512 only for an atlas with stamped seams.
+- Shapes: `TLXL.loft(sections, {axis, seg, uv, a0, a1, inflate, roundTop, roundBottom, cap})` (elliptical sections along y or z; an arc range makes a trim patch that follows the surface), `rbox`, `ell`, `lathe`, `tube`, `xf` (transform in place), `mergeGeo`, `merge(items)`, `build(items, parent)` (one mesh per material, always a plain BufferGeometry).
+- The figure kit `TLXL.fig`: `dress`, `kitFor(m)`, `torso pelvis thigh shin upper fore elbow kneePad band furCollar neck pack torsoPatch hand boot face liner helmet goggles beanie balaclava`. `makeWalker` / `makeFigure` / `buildHeadKit` / `limbKit` in tracklayer.js assemble them. Atlas layout for the jacket and trousers: torso `[0,.5,1,1]`, upper limb `[0,.25,.5,.5]`, lower limb `[.5,.25,1,.5]`.
+- Numbers (machine calm): walker 40 -> 36 draw calls, 9.5k -> 20.0k triangles; rider 45 -> 34 calls, 6.3k -> 17.0k; lighter build 30 calls, 7.1k; textures 90 ms at load. Skeleton unchanged except the shoulder joint, 0.25 -> 0.21 from the spine (readers updated).
+- Known remaining: walker arms hang straight in idle; fingers are blocks; beanie face is plain; rider arm reach (0.67 m) is longer than the walker's (0.49 m); the `icefish.js` angler is still the old box rig; everything outside the figure is untouched (R2 onward). Heated-glove band and heated visor strip keep their emissive LEDs on purpose (`userData.heater`).
 
 ### R2 to R8
 
