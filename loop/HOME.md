@@ -250,7 +250,7 @@ threshold); Reels has at least 8 new a day and at least 10 kinds in 20.
 ### Slices
 - [x] H2a, H2b (v272, v273): the first build (feed, 12 reel scenes, local chat). Its render path (`gramShot`), reel
       engine and cast pool, bus posts and tests are the base the remake is cut from.
-- [x] **H2R-a** (v274, tlx-gram v3) The remake's core: the director and moment table (`tlx-gramkinds.js`, `tlx-gramk-a/b/c.js`),
+- [x] **H2R-a** (v275, tlx-gram v3) The remake's core: the director and moment table (`tlx-gramkinds.js`, `tlx-gramk-a/b/c.js`),
       the light plan and the checks, the phone-column Local gram (`tlx-gramui.js`) with text posts and comments, 28 photo
       kinds across all seven families, the old Feed/Local chat/You tabs gone, two days of posts on a new game, Local keyed
       by `TLX.region()` (the whole land, one feed), recipes and reels carry a region id, and `gram_scroll.mjs` with its floor.
