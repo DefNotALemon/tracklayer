@@ -66,10 +66,10 @@ const DEFS = [
 ];
 // The router's own answer for this map, kept so a boot does not pay for it (the search takes seconds): each trail as its first point
 // then metre deltas. bakedRoute() checks every one against today's ground (on land, off buildings, grade) and falls back to routing it.
-// Regenerate: boot with TLXL.nobake = true set before init (or delete an entry), then TLXL.bakeJSON().
+// Regenerate: boot with TLXSK.nobake = true set before init (or delete an entry), then TLXSK.bakeJSON().
 // The router's own answer for this map, kept so a boot does not pay for it (the search takes seconds): each trail as its first point
 // then metre deltas. bakedRoute() checks every one against today's ground (on land, off buildings, grade) and falls back to routing it.
-// Regenerate: set TLXL.nobake = true before init (or delete an entry), then read TLXL.bakeJSON().
+// Regenerate: set TLXSK.nobake = true before init (or delete an entry), then read TLXSK.bakeJSON().
 const BAKED = {
   "lys": [-1021,-644,19,17,17,17,18,18,18,18,17,17,18,18,18,18,16,18,8,24,1,25,0,12,-4,-24,-15,-20,-6,15,0,25,0,25,0,25,0,25,0,25,0,25,0,25,-3,25,-15,20,-7,24,-2,25,-13,21,-18,18,-17,17,-18,18,-18,18,-18,17,-19,16,-24,5,-25,1,-25,0,-25,0,-25,0,-25,0,-25,0,-24,-4,-21,-14,-18,-17,-18,-18,-20,-15,-22,-11,-21,-13,-18,-17,-21,-13,-18,-17,10,-22,18,-18,19,-16,24,-5,25,0,25,0,25,0,25,0,25,0,25,-4,20,-14,18,-18,12,-21,2,-25,7,-23,12,-22,-1,-23,-14,-20,-18,-18,-22,-10,-25,-2,-25,0,-25,0,-25,-1,-13,-19,-1,-25,3,-24,13,-22,18,-18,17,-17,13,-21,-8,-21,-17,-18,9,9,18,17,23,8,25,2,25,0,25,0,25,0,25,-1,-2,-23,25,-1,24,0,14,2],
   "meh": [696,-3048,-18,17,-20,15,-22,11,-25,5,-25,-1,-24,-5,-24,-7,-24,-9,-23,-10,-22,-11,-21,-14,-19,-16,-19,-17,-17,-17,-18,-18,-17,-18,-17,-19,-16,-19,-14,-21,-11,-22,-9,-23,-5,-25,-1,-25,1,-25,5,-24,7,-24,11,-23,13,-21,17,-19,18,-16,21,-14,22,-12,23,-11,23,-8,25,-2,22,10,17,19,14,20,17,18,21,14,23,8,25,3,25,-2,24,-6,23,-8,23,-11,23,-10,24,-7,24,3,19,15,9,23,4,24,2,25,2,25,4,25,4,24,3,25,-1,25,-5,25,-10,22,-14,21,-15,20,-16,19,-17,19,-16,19,-16,20,-17,21],
@@ -81,7 +81,7 @@ const BAKED = {
 };
 let api = null, W = null, T = null;
 const X = { list: [], diag: {}, ready: false, ms: 0, hold: false, TR, DEFS, WORDS, COL, WCOL, err: "" };
-window.TLXL = X;
+window.TLXSK = X;
 const S = () => TLX.state("trails");
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };

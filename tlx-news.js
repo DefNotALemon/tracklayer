@@ -45,7 +45,7 @@ N.village = id => N.villages().find(v => v.id === id) || null;
 N.placeOf = (x, z) => {
   if (!api) return "";
   const W = api.world;
-  if (window.TLXL && TLXL.ready) { const t = TLXL.nearest(x, z, 40); if (t) return t.trail.name; }
+  if (window.TLXSK && TLXSK.ready) { const t = TLXSK.nearest(x, z, 40); if (t) return t.trail.name; }
   for (const L of W.LOOKOUTS || []) if (Math.hypot(L.x - x, L.z - z) < 220) return L.name;
   const vs = N.villages(); let best = null, bd = 1e12;
   for (const v of vs) { const d = Math.hypot(v.x - x, v.z - z); if (d < bd) { bd = d; best = v; } }
