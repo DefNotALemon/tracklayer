@@ -15,7 +15,8 @@ the gate and looks at the stills. Worktree `~/Documents/GitHub/tracklayer-raids`
 | Slice | What | State |
 |---|---|---|
 | A1 | Armed work: armed courier and guard shifts for the state and for companies, armed standing | landed (25 Nov 2026, `tlx-armed.js` v1, `a1_armed.mjs`) |
-| A2 | Tip-offs and the first raid: the grow barn, an armed crew, the cash, the Politi clock | not started |
+| A2a | The places and the people outside: seeded sites, the grow barn inside and out, the crew's suspicious routines, spotting one yourself, tips from standing, the map mark | next |
+| A2b | The raid itself: the crew fights, the cash, the Politi clock, getting clear | not started |
 | A3 | More places (meth lab, hjemmebrent still, smugglers' boathouse, pill press), your name gets out | not started |
 | A4 | Tools for the job: pistol, pump shotgun, body armour, a mask; crews that come looking for you | not started |
 | A5 | Played as a player: three raids start to finish, stills and feel, the nitpick round | not started |
@@ -91,6 +92,25 @@ the gate and looks at the stills. Worktree `~/Documents/GitHub/tracklayer-raids`
   only once you are clear.
 - The clock: the first unsuppressed shot calls it in; a HUD line counts the cruiser's real drive time; cruisers
   come through `TLXP`. Clear the area unseen = clean; seen = pursuit at high heat with an armed-robbery fine.
+- **Found by chance** (Lemon, 25 Nov, same day: "also make it so you can naturslly come across them, with sus people
+  outside doing sus thigs"). The places exist in the world whether or not anyone tipped you: a few are seeded per
+  week at real remote spots, and a tip only puts one of them on your map. Ride or walk past and you can spot one
+  yourself from what is going on outside: a lookout smoking by the door who watches you the whole way past, two men
+  carrying sealed tubs from a van, someone burning rubbish in a drum at night, a man on the phone who walks inside
+  when he sees you, a sled with its lights off idling at the gate, a dog on a chain, purple light under a blacked-out
+  window, a generator running where no one lives, fresh tracks to a "disused" shed. No marker and no prompt until you
+  have seen enough: looking at it for a few seconds from range (or through the scope) fills a quiet "something's off
+  here" read, and then it is marked on your map as a place you found, raidable with no tip and no qualification
+  (an unqualified player can stumble into one; the crew is no weaker for it). Come too close before that and the
+  lookout warns you off, then the crew comes out. Found places count toward your name the same as tipped ones.
+- Split (supervisor, 25 Nov): **A2a** = sites seeded in the world, the barn outside and inside, the crew living there with
+  its suspicious routines and the warn-off, the spot-it read and the found mark, tips and the Tips tab, Jobs row.
+  **A2b** = alert and fight, shootable crew, wounds, the money, the clock and the Politi, clean or seen, your name +1.
+- Carried over from A1 (supervisor's look at the stills): the walk-in figure runs in a deep crouch with both arms held
+  out in front like holding handlebars and its feet tucked up off the snow (`a1_prowler_strip.jpg`); guard posts are
+  plain boxes standing in open snow with no plant, depot or store beside them, and the van's wheels sit proud of the
+  snow; a kommune fuel store's contact is a nurse (pick a contact whose trade fits, or the duty desk); a tablet
+  notification covers the Work/Standing tabs.
 - Asserting scenario `a2_raid.mjs` plus stills of the barn by night, the crew's stride and fall strips, the room.
 
 ### A3. More places, and your name
