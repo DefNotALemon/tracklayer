@@ -234,6 +234,38 @@
   #settings button:focus-visible,#settings input:focus-visible,#settings button:focus{outline:2px solid var(--signal);outline-offset:2px}
   #settings .sw:focus{transform:scale(1.15)}
   #settings .hint b{color:var(--frost)}
+  #god{position:fixed;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;padding:18px;display:grid;gap:8px;background:rgba(13,24,34,.94);border-color:rgba(255,194,107,.4)}
+  #god .brand{color:#ffc26b}
+  #godList{display:grid;gap:5px}
+  #godList .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;width:100%;text-align:left;font:inherit;color:var(--frost);background:rgba(234,242,248,.05);border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer}
+  #godList .row.sel{border-color:#ffc26b;background:rgba(255,194,107,.12)}
+  #godList .row .main{display:grid;gap:1px;min-width:0}
+  #godList .row b{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:.03em}
+  #godList .row em{font-style:normal;font-size:13px;color:var(--slate)}
+  #godList .row .val{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.12em;color:var(--slate);border:1px solid var(--line);border-radius:3px;padding:2px 8px}
+  #godList .row.on .val{color:var(--ink);background:#ffc26b;border-color:#ffc26b}
+  /* GTA 5-style god menu layout: sidebar + list + search */
+  #god{display:grid;grid-template-columns:180px 1fr;min-width:min(720px,calc(100% - 32px));max-width:900px}
+  #god>.bhead,#god>.bfoot,#godSearchWrap{grid-column:1/-1}
+  #god>.bhead{order:-2}#godSearchWrap{order:-1}
+  #godSidebar{padding:0 10px 0 0;border-right:1px solid var(--line);overflow-y:auto}
+  #godSidebar .gcat{font:inherit;font-size:13px;font-weight:700;color:var(--slate);padding:8px 12px;cursor:pointer;border-radius:var(--r-md);transition:all .2s var(--ease);text-transform:uppercase;letter-spacing:.08em}
+  #godSidebar .gcat:hover{background:rgba(234,242,248,.06)}
+  #godSidebar .gcat.on{color:var(--signal);background:rgba(255,90,31,.12)}
+  #godList{padding:0 10px 0 14px;overflow-y:auto;max-height:55vh}
+  #godSearchWrap{position:relative;padding:8px 10px 4px;border-bottom:1px solid var(--line)}
+  #godSearch{font:inherit;font-size:13px;width:100%;box-sizing:border-box;padding:6px 10px;background:rgba(234,242,248,.04);border:1px solid var(--line);border-radius:var(--r-md);color:var(--frost);outline:none;transition:border-color .2s}
+  #godSearch:focus{border-color:var(--signal)}
+  #godSearch::placeholder{color:var(--slate);opacity:.6}
+  .godlist .row{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:7px 10px}
+  .godlist .row .gitem{display:flex;align-items:center;gap:8px}
+  .godlist .row .gicon{font-size:16px;opacity:.7;width:20px;text-align:center}
+  .godlist .row .glabel{font:inherit;font-size:14px;color:var(--frost)}
+  .godlist .row .gsub{font-size:12px;color:var(--slate)}
+  .godlist .row.sel{background:rgba(255,90,31,.12);border-color:rgba(255,90,31,.4)}
+  .godlist .row .val{font-size:12px;padding:2px 6px}
+  .godlist .row.on .val{color:var(--ink);background:#ffc26b}
+  .godlist .hide{display:none}
   #intFade{position:fixed;inset:0;z-index:5;background:#05070a;opacity:0;pointer-events:none;transition:opacity .3s linear}
   #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
   @keyframes fadein{from{opacity:0}}
@@ -1056,32 +1088,6 @@
   /* modals: border-box so max-height really is the viewport, and the panel scrolls inside it */
   #settings,#garage,#god{box-sizing:border-box;max-height:calc(100% - 24px)}
   @media (max-height:520px){#settings,#garage,#god{padding:12px;max-height:calc(100% - 12px)}}
-  /* the mod menu: a trainer panel docked to the left edge, the game running on behind it */
-  #god.mod{position:fixed;z-index:5;left:max(12px,env(safe-area-inset-left));top:12px;width:min(372px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;gap:8px;overflow:hidden;padding:14px;transform:none}
-  #god.mod .bhead{display:flex;align-items:center;gap:10px}
-  #god.mod .bhead .mt{flex:1;min-width:0}
-  #god.mod .btitle{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #god.mod .brand{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #god.mod .bcash{font-size:16px;white-space:nowrap}
-  #godSearch,#godAmt{font:inherit;font-size:14px;width:100%;box-sizing:border-box;padding:7px 10px;background:rgba(234,242,248,.05);border:1px solid var(--line);border-radius:var(--r-md);color:var(--frost);outline:none}
-  #godSearch:focus,#godAmt:focus{border-color:var(--signal)}
-  #godSearch::placeholder,#godAmt::placeholder{color:var(--slate);opacity:.7}
-  #god.mod #godList{display:grid;gap:3px;overflow-y:auto;min-height:0;flex:1 1 auto;padding-right:2px;align-content:start}
-  #god.mod #godList .row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;box-sizing:border-box;width:100%;text-align:left;font:inherit;color:var(--frost);padding:4px 10px;cursor:pointer;user-select:none;-webkit-user-select:none}
-  #god.mod #godList .row .main{display:grid;gap:0;min-width:0}
-  #god.mod #godList .row b{font-family:var(--display);font-weight:800;font-size:16px;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #god.mod #godList .row em{font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #god.mod #godList .row small{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #god.mod #godList .row .val{font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:.08em;color:var(--frost2);border:1px solid var(--line);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #god.mod #godList .row.on .val{color:#fff}
-  #god.mod #godList .row .val.adj{display:flex;align-items:center;gap:2px;padding:1px 2px}
-  #god.mod #godList .row .val.adj span{overflow:hidden;text-overflow:ellipsis}
-  #god.mod #godList .row .val.adj i{font-style:normal;padding:3px 6px;color:var(--slate)}
-  #god.mod #godList .row .val.adj i:hover{color:var(--signal)}
-  #god.mod #godList .row .chev{font-size:18px;color:var(--slate);line-height:1}
-  #god.mod #godList .mhead{font-weight:600;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);padding:8px 4px 2px}
-  #god.mod .bfoot{font-size:12px;line-height:1.4}
-  @media (max-height:520px){#god.mod{padding:10px;gap:5px;top:6px;max-height:calc(100% - 12px)}#god.mod .btitle{font-size:18px}#god.mod .bfoot{display:none}#god.mod #godList .row{padding:4px 8px}#god.mod #godList .row b{font-size:14px}}
   /* title panels: their own top edge is taken off the height, so they can't run off the bottom */
   .tpanel{--pt:calc(96px*var(--ts));top:var(--pt);max-height:calc(100% - var(--pt) - 14px)}
   .tpanel.confirm{--pt:calc(250px*var(--ts))}.tpanel.credits{--pt:calc(200px*var(--ts))}.tpanel.howto{--pt:calc(56px*var(--ts))}.tpanel.fresh{--pt:calc(300px*var(--ts))}
@@ -1191,18 +1197,18 @@
   <div class="bsec">Graphics</div>
   <div class="setrow"><button id="gfxBtn" class="sbtn">Graphics: auto</button><button id="fpsBtn" class="sbtn">Frame rate: hidden</button><button id="fsBtn" class="sbtn" hidden>Full screen</button><span class="hint" id="gfxHint">auto lowers the detail by itself until the frame rate holds steady</span></div>
   <div class="bsec">Controls</div>
-  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">Mod menu</button><button id="tutSkip" class="sbtn" hidden>Skip tutorial</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
+  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">God menu</button><button id="tutSkip" class="sbtn" hidden>Skip tutorial</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
   <div class="bsec" id="optSec" hidden>Options</div>
   <div id="optRows" hidden></div>
   <div class="bfoot"><b>Esc</b> closes. Pad: <b>D-pad</b> or stick to move, <b>A</b> to pick, <b>◀ ▶</b> on a slider, <b>B</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
 </div>
 
-<div class="panel mod" id="god" hidden>
-  <div class="bhead"><button id="godBack" class="xbtn" aria-label="Back" hidden>‹</button><div class="mt"><div class="brand" id="godCrumb">TRACKLAYER</div><div class="btitle" id="godTitle">Mod menu</div></div><div class="bcash" id="godCash">$0</div><button id="godClose" class="xbtn" aria-label="Close the mod menu">✕</button></div>
-  <input id="godSearch" placeholder="Search everything…" autocomplete="off" spellcheck="false" aria-label="Search the mod menu">
-  <div id="godAmtWrap" hidden><input id="godAmt" inputmode="numeric" placeholder="Type any amount, Enter adds it" autocomplete="off" aria-label="Cash amount"></div>
-  <div id="godList"></div>
-  <div class="bfoot" id="godFoot"></div>
+<div class="panel" id="god" hidden>
+  <div class="bhead"><div><div class="brand">TRACKLAYER · GOD MODE</div><div class="btitle" id="godTitle">Categories</div></div><button id="godClose" class="xbtn" aria-label="Close god menu">✕</button></div>
+  <div id="godSidebar" class="godsid"></div>
+  <div id="godList" class="godlist"></div>
+  <div id="godSearchWrap" class="godsearch"><input id="godSearch" placeholder="search… (⌘F)" /></div>
+  <div class="bfoot">Pad: <b>D-pad</b> or stick to navigate, <b>A</b> to pick, <b>B</b> to back. Keyboard: <b>Y</b> opens, <b>Esc</b> closes, <b>Tab</b> categories, <b>Enter</b> activate.</div>
 </div>
 
 <div id="srHint" hidden>Showroom · <b>hover</b> a row to try it on · <b>drag</b> to spin</div>
@@ -1242,7 +1248,7 @@
   <div class="mx"><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
   <div class="mx"><b>V</b>Cycle view · <b style="min-width:0">M</b> Map · <b style="min-width:0">J</b> Next job on the compass</div>
   <div><b>Esc</b>Settings · <b style="min-width:0">H</b> Hide</div>
-  <div class="mx"><b>Y</b>Mod menu</div>
+  <div class="mx"><b>Y</b>God menu</div>
 </div>
 
 <div class="hud panel" id="flip" hidden>STUCK? PRESS N</div>
@@ -1315,7 +1321,7 @@
 <script src="icefish.js?v=43"></script>
 <script src="tlx.js?v=2"></script>
 <script src="tlx-look.js?v=1"></script>
-<script src="tlx-vehicles.js?v=39"></script>
+<script src="tlx-vehicles.js?v=38"></script>
 <script src="tlx-boats.js?v=9"></script>
 <script src="tlx-seafish.js?v=2"></script>
 <script src="tlx-ferry.js?v=1"></script>

@@ -11,18 +11,6 @@
   Pushed 2026-11-24.
 # Builder progress log
 
-## 2026-11-24 23:10 — The mod menu (replaces the god menu) — 8e01d65
-Lemon: "I want a reimagined mod menu because I don't think you understood what I meant ... like every open world in game mod menu or creative menu where I can just spawn any sled to ride on, or any gun to pick up, or any amount of cash, or have any upgrade or sled on the go without spawning it, just switching actively." The v260/v264 sidebar was a list of cheats (several wrote to fields that don't exist); it is gone. Built in chat, directly (worktree tracklayer-modmenu).
-- A trainer panel docked left (`#god.mod`), the game running under it: `godOpen` is out of `noControl()`, `readInput` drops the arrow keys while it is up, the pad's D-pad / A / B go to `godPad` and the stick and triggers still drive. Pages are functions that build rows (`go` / `adj` / `page`); the search box filters all of them (`modFlat`).
-- Sleds: riding = the sled changes under you with its speed kept (23.7 -> 24.0 m/s in the test); on foot = it lands 2.8 m in front of you, optionally with you on the seat; at a truck's wheel = parked beside it. One sled exists, so a spawn moves yours. The sleigh comes with its nine reindeer.
-- Sled upgrades: all 85 part options and the 14 engines fit live, free (82 fitted in the test, 3 boosts refused by `boostWhy`); left / right cycles a slot.
-- Trucks & machines: real `TLXV` records flagged `mod: 1`, eight at most; new `TLXV.remove(uid)` clears them.
-- Weapons: three builds of the one rifle frame dropped as a pickup (loaded, 40 rounds, licence), parts swapped live, ammunition by the box.
-- Cash: presets or any typed amount; add, take, set, or drop as a bundle.
-- Rider, Cheats, Time & weather, Teleport (the walker now comes along when you teleport on foot), Career: the pre-v260 handlers, which were the working ones.
-- Test `mod_menu.mjs`: 70 asserts (keyboard, pad, search, click, 640x360, every sled, every part, pickups, trucks) and 4 stills. Gate: smoke, x1_save, mod_menu, x2_btn, x4_blademenu_break, x11_gunfix_break.
-- Not done: no touch button for the menu outside Settings, boats aren't spawnable, there is still only one rifle frame so "any gun" is builds of it, spawned trucks can't be deleted one by one.
-
 ## 2026-11-24 20:31 — R1 the figure (G8) — 43ddb83
 Rebuilt every human figure (walker, seated rider, SAR casualties and pillion, drivers, staff, crash body) from one body kit in the new tlx-look.js (TLXL: canvas PBR textures, loft/rbox/tube shape helpers, per-material merge, TLXL.fig body kit). Shaped torso, neck, tapered limbs, shell jacket with collar, zip, flap, pockets, panels, hem lip and cord, reflective piping (not emissive), bib trousers with knee panels and gaiter, gloves with thumbs that close round the bars, boots with sole, welt, heel, toe cap, laces, three head kits (helmet with visor, beanie with goggles, balaclava with goggles). Shoulder joint moved 0.25 -> 0.21 (readers in tracklayer.js and tlx-lights.js updated). Same rig arrays and contracts; headKit found by name now.
 Numbers: walker 40 -> 36 draw calls, 9.5k -> 20.0k triangles; rider 45 -> 34 calls, 6.3k -> 17.0k; lighter build 30 calls, 7.1k; textures about 90 ms at load (machine calm; 400 to 700 ms when the machine was at load average 40); walker 1.95 m -> 1.81 m in the kit (game draws it at the v263 scale 0.85). Town frame (noisy, traffic varies): about 934 -> 983 calls, 2.890M -> 2.898M triangles.

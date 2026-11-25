@@ -2092,14 +2092,6 @@ function ghost(uid, id, tint) {
   if (tint != null) { const m = mats().solid.clone(); m.color.setHex(tint); R.body.material = m; const dm = R.doorPivot.children[0]; if (dm) dm.material = m; const dm2 = R.doorPivot2.children[0]; if (dm2) dm2.material = m; R.tintMat = m; }
   GH.set(uid, R); return R;
 }
-/* The mod menu's "Clear spawned machines": take a parked truck out of the world and the save. Never the one you are in,
-   one that is out with a driver, or one with a rig, a trailer or a semitrailer on it. */
-function removeVeh(uid) {
-  const s = S(), i = s.owned.findIndex(r => r.uid === uid); if (i < 0) return false;
-  const r = s.owned[i], h = haulS();
-  if (s.cur === uid || r.out || KINDS[r.id] || rigOn() === uid || (h && h.on === uid) || xLoad(uid).kg > 0) return false;
-  dropRuntime(uid); LIVE.delete(uid); s.owned.splice(i, 1); api.save(); return true;
-}
 function dropGhost(uid) { uid = String(uid); const R = GH.get(uid); if (!R) return; GH.delete(uid); if (R.tintMat) R.tintMat.dispose(); dropRuntime(uid); }
 
 TLX.register({
@@ -2154,5 +2146,5 @@ TLX.register({
   },
   tick, save
 });
-window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addRoll: f => { ROLLS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), remove: removeVeh, setOut, outPose, ghost, dropGhost, ghosts: GH, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
+window.TLXV = { VEHICLES, addKind, addLoad: f => { LOADS.push(f); }, addUse, addHull: f => { HULLS.push(f); }, addGrip: f => { GRIPS.push(f); }, addRoll: f => { ROLLS.push(f); }, addMkt: x => { if (x && typeof x.owns === "function") MKTX.push(x); }, hullOf: R => xHull(R), onModel, runtimeOf: uid => { const r = rec(uid); return r && !KINDS[r.id] ? runtime(r) : null; }, nearGarage, pose: truckPose, kinds: KINDS, mkt: MKTV, buy, buyHaul, repair, repairCost, haulWear, swapTo: uid => swapTo(uid), setOut, outPose, ghost, dropGhost, ghosts: GH, state: S, rigOn, rigFoot, ballOf, tongueTip, HAUL, haul: () => haulS(), haulCoupler, haulTail, haulR: () => HR, deckAt, sledOnDeck, strapFoot, haulLocal, haulWorld, rt: () => { const c = curRec(); return c ? runtime(c) : null; } };   // for the playtests
 })();

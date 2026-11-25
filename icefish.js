@@ -329,6 +329,31 @@ function build() {
   const lampM = new T.MeshBasicMaterial({ color: 0xfff3d6 }); const lamp = new T.Mesh(new T.SphereGeometry(.035, 8, 6), lampM); lamp.position.set(0, .27, .17); headG.add(lamp);
   const blob = new T.Mesh(new T.CircleGeometry(.45, 20), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .18, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = .035; rider.add(blob);
+  // R1b: the angler wears the same body kit as everyone else (tlx-look.js): the old box rig stays as the skeleton (pivots, hand objects the rod
+  // follows) and its boxes are hidden. Falls back to the boxes if the kit is not there.
+  if (window.TLXL && TLXL.fig && TLXL.fig.K) {
+    const F = TLXL.fig, K = F.K, hang = its => its.map(it => ({ m: it.m, g: TLXL.xf(it.g, { rx: Math.PI / 2 }) })), add = (its, parent, o) => { const g = new T.Group(); if (o) { g.position.set(o.x || 0, o.y || 0, o.z || 0); if (o.s) g.scale.setScalar(o.s); } TLXL.build(its, g); parent.add(g); return g; };
+    for (const o of [thighL, thighR, kneeL, kneeR, armL, armR]) o.children.forEach(c => { if (c.isMesh) c.visible = false; });
+    for (const o of [torso, stripe, head, visor]) o.visible = false;
+    handL.visible = handR.visible = false;
+    for (const [i, th, kn] of [[0, thighL, kneeL], [1, thighR, kneeR]]) {
+      add(hang(F.thigh(K, 0.48)), th);
+      add(hang(F.shin(K, 0.395).concat(F.kneePad(K, 0.395))), kn);
+      add(F.boot(K, "pac", 0.075), kn, { y: -0.47 });
+    }
+    add(F.torso(K).concat(F.pelvis(K), F.pack(K)), upper, { s: 1.1 });
+    add(F.neck(K), upper, { s: 1.1 });
+    for (const [s, arm] of [[-1, armL], [1, armR]]) {
+      arm.position.x = s * 0.3;
+      add(hang(F.upper(K, 0.3, s).concat(F.elbow(K, 0.3, true, s))), arm);
+      const fa = new T.Group(); fa.position.y = -0.3; fa.rotation.x = -0.3; arm.add(fa);                       // a soft bend at the elbow
+      add(hang(F.fore(K, 0.24, s).concat(F.elbow(K, 0.24, false, s))), fa);
+      const hd = new T.Group(); hd.position.y = -0.3; hd.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(new T.Vector3(0, 0, -s), new T.Vector3(s, 0, 0), new T.Vector3(0, -1, 0))); fa.add(hd);
+      TLXL.build(F.hand(K, "relaxed", s, 1.1), hd);
+    }
+    const hm = F.helmet(K); const hc = add(hm.shell.concat(F.liner(K)), headG, { y: 0, s: 1.1 }); TLXL.build(hm.visor, hc);
+    lamp.position.set(0, 0.17, 0.13);
+  }
   G.main.add(rider);
   Object.assign(G, { rider, body, thighL, thighR, kneeL, kneeR, upper, armL, armR, handL, handR, headG, lamp });
   // the headlamp's pool of light on the ice: a soft additive decal, so no new light goes into the main scene (a new

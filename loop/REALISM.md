@@ -13,7 +13,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 
 | # | Part | State |
 |---|---|---|
-| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265 (24 Nov 2026) |
+| R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265, reworked v267 (24 Nov 2026) |
 | R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | after R1 |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
@@ -113,6 +113,18 @@ snow dusting on shoulders and boots when it has been snowing.
 - The figure kit `TLXL.fig`: `dress`, `kitFor(m)`, `torso pelvis thigh shin upper fore elbow kneePad band furCollar neck pack torsoPatch hand boot face liner helmet goggles beanie balaclava`. `makeWalker` / `makeFigure` / `buildHeadKit` / `limbKit` in tracklayer.js assemble them. Atlas layout for the jacket and trousers: torso `[0,.5,1,1]`, upper limb `[0,.25,.5,.5]`, lower limb `[.5,.25,1,.5]`.
 - Numbers (machine calm): walker 40 -> 36 draw calls, 9.5k -> 20.0k triangles; rider 45 -> 34 calls, 6.3k -> 17.0k; lighter build 30 calls, 7.1k; textures 90 ms at load. Skeleton unchanged except the shoulder joint, 0.25 -> 0.21 from the spine (readers updated).
 - Known remaining: walker arms hang straight in idle; fingers are blocks; beanie face is plain; rider arm reach (0.67 m) is longer than the walker's (0.49 m); the `icefish.js` angler is still the old box rig; everything outside the figure is untouched (R2 onward). Heated-glove band and heated visor strip keep their emissive LEDs on purpose (`userData.heater`).
+
+#### R1b as built (24 Nov 2026, script v267): what changed after the reviewer pass
+
+- `TLXL.smooth(table, n)` resamples a table of rows `[y, rx, rz, cz, n]` through a Catmull-Rom curve; `TLXL.loft` takes `mod(y, ringAngle)` (a radius multiplier: folds and bunching) and arc ranges must run low to high (`ar()` in the kit: a reversed range turns the patch inside out). `TLXL.fabric` takes `base` (map brightness): dark cloth uses 0.62 to 0.72 because the game's ACES grade lifts dark colours; cloth materials are roughness 1, metalness 0 or the low sun washes them grey from behind.
+- Folds: `fold(cy, w, amp, side, freq, spread)` and `mods(...)` in the kit; patches laid on a folded surface (flaps, panels) must use the same `mod` and as many sections as the body, or they sink into it and show as ragged patches.
+- Colour blocking: `TLXL.fig.sync()` derives the second-tone panels (`K.panel`, `K.pantsP`) and the beanie from `jacketMat`, `pantsMat` and `riderTrimMat`; `applySettings` calls it, so recolouring still drives everything. `r1_figure.mjs` asserts it with a red jacket.
+- Goggles use `K.gog` (gradient map, metal, sky cube, so dimmed at night by `updSledEnv`); cheek and nose flush are `K.blush` discs. Boots: `F.boot(K, kind, ankH)` upper `K.bootA` (pac) or `K.bootB` (arctic), black rand/toe cap `K.sole`, tongue `K.boot`.
+- Rider arms are the walker's arms at true size: `limbKit(items, L0*KS, ub, KS)`, `RIDER.upper = 0.25/RIDER_SCALE`, `RIDER.fore = 0.19/RIDER_SCALE`; the torso leans further to reach the bars and the elbow bends.
+- Draw calls: shared one material for dark trim, foam, metal and lace so a figure stays near 48 calls (walker) and 46 (rider); `K.eye` doubles as laces and buckles. Triangles 22.1k walker, 19.7k rider; lite build 10.4k / 8.9k.
+- `icefish.js` builds the angler from the kit (`TLXL.fig.K` must exist, else the old boxes show); the old box rig stays as the skeleton so the rod still follows `handR`.
+- Debug trick that found the hem poke-through: a `THREE.Raycaster` from the still camera through a pixel, listing hits with material colour and distance (a tie between two meshes is z-fighting or poke-through).
+- Known remaining: boots read as short and chunky; visor is opaque; slim side view; the pack is a box in profile; fingers are tubes; folds are low amplitude; the sled and everything else outside the figure is R2 onward.
 
 ### R2 to R8
 

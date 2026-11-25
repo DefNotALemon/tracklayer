@@ -3,12 +3,16 @@
 // textured, nothing emissive but the heated-glove/visor LEDs, the budget (draw calls, triangles), walker 1.76-1.84 m, one set of
 // jacket/pants materials for walker and rider, walking moves the walker, mounting ends seated.
 // Run: tools/playtest/run.sh tools/playtest/scenarios/r1_figure.mjs <outdir>     (R0=1: shoot only, skip the asserts)
-import { boot, ev, raw, shot, done, sleep, down, up, tap, errors } from "../lib.mjs";
+import { boot, ev, raw, shot, done, sleep, down, up, tap, errors, reload } from "../lib.mjs";
 const STILLS = !process.env.NOSTILLS, fails = [];
 const ok = (c, m) => { if (!c) { fails.push(m); console.log("FAIL " + m); } else console.log("  ok " + m); };
 await boot({ width: process.env.VW ? +process.env.VW : 1280, height: process.env.VH ? +process.env.VH : 720 });
+if (process.env.LOW) {   // the low preset is planted BEFORE the game boots, the way GFX reads it, so the figures are built in their lighter form
+  await raw(`localStorage.setItem("tracklayer.set.v1", JSON.stringify({ gfx: "low" })); true`); await reload();
+  const lo = await ev("JSON.stringify({ low: GFX.low, lite: TLXL.lite })"); console.log("preset", lo);
+  ok(JSON.parse(lo).low && JSON.parse(lo).lite, "low preset planted before boot: the lite figures are built");
+}
 await ev("tutSkip(); WX.at = () => 0; GS.storm = 0; GS.hour = Math.floor(GS.hour / 24) * 24 + 12 + 120 * 24; camState.init = false; true");
-if (process.env.LOW) await ev("GFX.low = true; true");
 await ev(`(() => { QG.on = false; renderer.setPixelRatio(${process.env.PR || 1.5}); renderer.setSize(innerWidth, innerHeight); return true; })()`);
 await sleep(2500);
 await ev(`(() => { if (!window.__camHk) { window.__camHk = 1; const rr = renderer.render.bind(renderer); renderer.render = (s, c) => { if (window.camOv && s === scene) window.camOv(c); if (window.preR && s === scene) window.preR(); rr(s, c); }; } return true; })()`);
@@ -29,7 +33,7 @@ const A = JSON.parse(await info(`JSON.stringify((() => {
   const bad = [], untex = [], glow = [];
   const walk = (root, tag) => root.traverse(o => { if (!o.isMesh || isGear(o)) return;
     const t = o.geometry.type; if (t === "BoxGeometry" || t === "CylinderGeometry" || t === "SphereGeometry" || t === "CapsuleGeometry") bad.push(tag + ":" + t + ":" + (o.name || ""));
-    const m = o.material; if (!(m.map || m.normalMap) && !m.userData.heater) untex.push(tag + ":" + (m.color ? m.color.getHexString() : "?"));
+    const m = o.material; if (!(m.map || m.normalMap) && !m.userData.heater && !m.userData.flush) untex.push(tag + ":" + (m.color ? m.color.getHexString() : "?"));
     if (m.emissive && m.emissive.getHex() !== 0 && !m.userData.heater) glow.push(tag + ":" + m.emissive.getHexString()); });
   walk(FOOT.g, "walker"); walk(V.rider, "rider");
   out.bad = bad; out.untex = [...new Set(untex)]; out.glow = glow;
@@ -79,15 +83,17 @@ await ev("FOOT.g.rotation.y = FOOT.yaw; true");
 // ---------------- stills: the walker ----------------
 if (STILLS) {
   await ev("GS.own.gear.head = 'helmet'; applyLoadout(); walkerLook(); true");
-  await orbit(WK, 0, 2.6, 1.3, 0.95); await snap("01_walker_front");
+  await ev("WX.at = () => 0; GS.storm = 0; true"); await orbit(WK, 0, 2.6, 1.3, 0.95); await snap("01_walker_front"); await orbit(WK, 3.14, 2.6, 1.3, 0.95); await snap("01b_walker_back_sun");
   await orbit(WK, 1.57, 2.6, 1.3, 0.95); await snap("02_walker_side");
   await orbit(WK, 3.14, 2.6, 1.3, 0.95); await snap("03_walker_back");
   await orbit(WK, 0.8, 2.6, 1.3, 0.95); await snap("04_walker_34");
-  await orbit(WK, 0.35, 0.9, 1.65, 1.62); await snap("05_walker_face_helmet");
+  await orbit(WK, 0.8, 4.0, 1.5, 0.9); await snap("04b_walker_34_4m");
+  await ev("camState.init = false; window.camOv = null; true"); await sleep(1800); await snap("04c_chase_onfoot");
+  await orbit(WK, 0.35, 0.8, 1.45, 1.4); await snap("05_walker_face_helmet");
   await orbit(WK, 0.5, 0.75, 0.95, 0.85); await snap("06_walker_glove");
   await orbit(WK, 0.6, 0.85, 0.35, 0.12); await snap("07_walker_boot");
   await orbit(WK, 0.4, 1.2, 1.45, 1.2); await snap("08_walker_torso");
-  for (const k of ["beanie", "mask"]) { await ev(`GS.own.gear.head = "${k}"; applyLoadout(); walkerLook(); true`); await orbit(WK, 0.35, 0.9, 1.65, 1.62); await snap("09_head_" + k); await orbit(WK, 1.4, 1.0, 1.65, 1.62); await snap("09_head_" + k + "_side"); }
+  for (const k of ["beanie", "mask"]) { await ev(`GS.own.gear.head = "${k}"; applyLoadout(); walkerLook(); true`); await orbit(WK, 0.35, 0.8, 1.45, 1.4); await snap("09_head_" + k); await orbit(WK, 1.4, 0.9, 1.45, 1.4); await snap("09_head_" + k + "_side"); }
   await ev(`GS.own.gear.head = "helmet"; applyLoadout(); walkerLook(); true`);
 }
 // walking: move + a mid-stride strip
@@ -140,6 +146,11 @@ if (STILLS) {
   await orbit(WK, 0.7, 2.6, 1.3, 0.95); await snap("30_night_lamp_front"); await orbit(WK, 2.4, 2.6, 1.3, 0.95); await snap("31_night_lamp_back");
   await ev("scene.remove(window.__lamp); window.preR = null; GS.hour = Math.floor(GS.hour / 24) * 24 + 12; WX.at = () => 0.9; GS.storm = 0; true"); await sleep(2500);
   await orbit(WK, 0.7, 2.6, 1.3, 0.95); await snap("32_overcast");
+}
+{   // colour blocking follows the player's colours: a red jacket gets dark red second-tone panels, and the jacket stays the source of colour
+  const r = JSON.parse(await ev(`JSON.stringify((() => { const old = SET.jacket; SET.jacket = "#c02020"; applySettings(); const K = TLXL.fig.K, o = { pr: K.panel.color.r, pb: K.panel.color.b, jr: jacketMat.color.r, jb: jacketMat.color.b, dark: K.panel.color.r < jacketMat.color.r, map: !!jacketMat.map };
+    SET.jacket = old; applySettings(); return o; })())`));
+  ok(r.pr > r.pb * 2 && r.dark && r.jr > r.jb * 2 && r.map, "the second-tone panels are derived from the jacket colour (a red jacket: dark red panels)");
 }
 console.log(fails.length ? "FAILS: " + fails.length : "all asserts ok");
 await done(fails.length ? 1 : 0);

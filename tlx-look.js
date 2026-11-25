@@ -128,11 +128,11 @@
   /* ---------------- fabrics ---------------- */
   // Maps are neutral (near white, near mid grey roughness): the material's colour tints them, so a recoloured jacket stays recoloured.
   TLXL.fabric = function (kind, o) {
-    o = o || {}; const size = o.size || (kind === "shell" ? 256 : 128), key = "fab:" + kind + ":" + size + ":" + (o.key || ""); if (cache[key]) return cache[key];
+    o = o || {}; const size = o.size || (kind === "shell" ? 256 : 128), key = "fab:" + kind + ":" + size + ":" + (o.key || "") + (o.base || ""); if (cache[key]) return cache[key];
     const t0 = performance.now(), H = TLXL.height(size), sz2 = size > 256 ? size >> 1 : size, R = TLXL.height(sz2), Tn = TLXL.height(sz2), S = size / 256, S2 = sz2 / 256, seed = (kind.length * 977 + size) | 0;
     let nk = 3, base = 0.9, amp = 0.16, rlo = 0.8, rhi = 1;
     switch (kind) {
-      case "shell": H.weave(Math.max(2, 3 * S), 0.1, 8).noise(14 * S, 0.22, seed).noise(5 * S, 0.08, seed + 1).grain(0.05, seed + 2); R.noise(10 * S2, 0.3, seed + 3); nk = 1.3; break;
+      case "shell": H.weave(2, 0.05, 0).noise(30 * S, 0.1, seed).grain(0.03, seed + 2); R.noise(10 * S2, 0.3, seed + 3); nk = 1.0; base = 0.86; amp = 0.04; break;
       case "fleece": H.grain(0.9, seed).noise(2 * S, 0.8, seed + 1).noise(6 * S, 0.4, seed + 2); R.noise(4 * S, 0.2, seed + 4); nk = 1.6; rlo = 0.92; rhi = 1; amp = 0.2; break;
       case "knit": {
         for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) { const p = 8 * S, cx = (x % p) / p, cy = ((y + (((x / p) | 0) & 1) * p * 0.5) % (p * 1.0)) / p; H.d[y * size + x] = Math.sin(PI * cx) * 0.6 + Math.sin(PI * cy) * 0.5; }
@@ -145,6 +145,7 @@
       case "lens": H.noise(40 * S, 0.05, seed); for (let i = 0; i < 26; i++) { const r = rng(seed + i), x = r(), y = r(); H.seam(x, y, clamp(x + (r() - 0.5) * 0.3, 0, 1), clamp(y + (r() - 0.5) * 0.3, 0, 1), { w: 0.8, depth: 0.15, stitch: 0 }); } R.noise(30, 0.2, seed + 3); nk = 1; rlo = 0.8; rhi = 1; break;
       default: H.grain(0.2, seed);
     }
+    if (o.base) base = o.base;
     if (o.stamp) o.stamp(H, R);
     if (o.cvs) { /* reserved */ }
     const to = Object.assign({ repeat: !o.stamp }, o), set = { normalMap: mkTex(H.toNormal(nk * (o.k || 1)), to), roughnessMap: mkTex(R.toGray(rlo, rhi), to), map: mkTex(Tn.noise(9 * S2, 0.6, seed + 11).grain(0.3, seed + 12).toTone(base, amp), Object.assign({ srgb: true }, to)) };
@@ -175,7 +176,8 @@
       const s = S[i];
       for (let j = 0; j < cols; j++) {
         const a = a0 + (a1 - a0) * j / seg, sn = Math.sin(a), cs = Math.cos(a), e = 2 / s.n;
-        const px = (s.rx + infl) * Math.sign(sn) * Math.pow(Math.abs(sn), e) + s.cx, pw = (s.rz + infl) * Math.sign(cs) * Math.pow(Math.abs(cs), e) + s.cz, p = (i * cols + j) * 3;
+        const mk = o.mod ? o.mod(s.y, a) : 1;       // o.mod(y, ringAngle) -> radius multiplier: folds and bunching in the cloth
+        const px = (s.rx + infl) * mk * Math.sign(sn) * Math.pow(Math.abs(sn), e) + s.cx, pw = (s.rz + infl) * mk * Math.sign(cs) * Math.pow(Math.abs(cs), e) + s.cz, p = (i * cols + j) * 3;
         if (axisZ) { pos[p] = px; pos[p + 1] = pw; pos[p + 2] = s.y; } else { pos[p] = px; pos[p + 1] = s.y; pos[p + 2] = pw; }
         uv[(i * cols + j) * 2] = uvr[0] + (uvr[2] - uvr[0]) * j / seg; uv[(i * cols + j) * 2 + 1] = uvr[1] + (uvr[3] - uvr[1]) * i / Math.max(1, rows - 1);
       }
@@ -205,8 +207,21 @@
     }
     return g;
   };
+  // smooth(table, n, o): resample a table of rows [y, rx, rz, cz, n?] into n sections with a Catmull-Rom curve through the rows.
+  TLXL.smooth = function (tab, n, o) {
+    o = o || {}; const m = tab.length, out = [];
+    const cr = (a, b, c, d, t) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+    for (let k = 0; k < n; k++) {
+      const u = k / (n - 1) * (m - 1), i = Math.min(m - 2, Math.floor(u)), t = u - i, r = [0, 1, 2, 3, 4].map(c => {
+        const f = j => { const q = tab[clamp(j, 0, m - 1)]; return q[c] === undefined ? (c === 4 ? 2 : 0) : q[c]; };
+        return c === 0 ? f(i) + (f(i + 1) - f(i)) * t : cr(f(i - 1), f(i), f(i + 1), f(i + 2), t);
+      });
+      out.push({ y: r[0], rx: Math.max(0.002, r[1]), rz: Math.max(0.002, r[2]), cz: r[3], n: r[4] || 2, cx: 0 });
+    }
+    return out;
+  };
   TLXL.rbox = function (w, h, d, r, seg) {
-    seg = seg || (TLXL.lite ? 2 : 3); r = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
+    seg = seg || ((TLXL.lite || Math.max(w, h, d) < 0.09) ? 1 : 2); r = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
     const g = new T.BoxGeometry(w, h, d, seg * 2, seg * 2, seg * 2), p = g.attributes.position, n = g.attributes.normal, hw = w / 2 - r, hh = h / 2 - r, hd = d / 2 - r;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i), ix = clamp(x, -hw, hw), iy = clamp(y, -hh, hh), iz = clamp(z, -hd, hd), dx = x - ix, dy = y - iy, dz = z - iz, l = Math.hypot(dx, dy, dz);
@@ -214,7 +229,7 @@
     }
     return g;
   };
-  TLXL.ell = function (rx, ry, rz, seg) { seg = seg || (TLXL.lite ? 8 : 12); const g = new T.SphereGeometry(1, seg, Math.max(5, seg * 0.7 | 0)); g.scale(rx, ry, rz); g.computeVertexNormals(); return g; };
+  TLXL.ell = function (rx, ry, rz, seg) { seg = seg || (TLXL.lite ? 6 : 8); const g = new T.SphereGeometry(1, seg, Math.max(4, seg * 0.7 | 0)); g.scale(rx, ry, rz); g.computeVertexNormals(); return g; };
   TLXL.lathe = function (profile, seg, uvr) {
     const g = new T.LatheGeometry(profile.map(p => new T.Vector2(p[0], p[1])), seg || (TLXL.lite ? 12 : 20)); g.computeVertexNormals();
     if (uvr) { const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, uvr[0] + (uvr[2] - uvr[0]) * u.getX(i), uvr[1] + (uvr[3] - uvr[1]) * u.getY(i)); }
@@ -224,7 +239,7 @@
     o = o || {}; const cur = new T.CatmullRomCurve3(pts.map(p => new T.Vector3(p[0], p[1], p[2])), false, "catmullrom", 0.3), n = o.n || Math.max(4, pts.length * 3);
     const g = new T.TubeGeometry(cur, n, r, o.seg || (TLXL.lite ? 5 : 7), false); g.computeVertexNormals();
     const caps = [], ends = [[0, 1], [1, 1]];
-    for (const [t] of ends) { const c = cur.getPoint(t), s = new T.SphereGeometry(r, 6, 4); s.translate(c.x, c.y, c.z); caps.push(s); }
+    for (const [t] of ends) { const c = cur.getPoint(t), s = new T.SphereGeometry(r, 5, 3); s.translate(c.x, c.y, c.z); caps.push(s); }
     return TLXL.mergeGeo([g].concat(caps));
   };
   TLXL.xf = function (g, o) {
@@ -257,17 +272,18 @@
 })();
 
 /* ---------------------------------------------------------------------------------------------------------
-   TLXL.fig: the human figure kit (slice R1). One body for every person: the walker, the seated rider, passengers, villagers,
+   TLXL.fig: the human figure kit (slices R1 and R1b). One body for every person: the walker, the seated rider, passengers, villagers,
    staff, drivers, anglers and the crash body. All geometry is built in WALKER space: metres, hip pivot at y 0 for the torso,
    +y up, +z the way the figure faces. Limbs are loft meshes along +z (hanging limbs are rotated by the assembler).
    Skeleton numbers the rigs depend on (do not change them here): hip pivot y 0.93, thigh 0.42, shin pivot to ankle 0.43, ankle
-   0.075 over the sole, shoulder (+-0.22, 0.53), upper arm 0.25, forearm to the grip point 0.24.
+   0.075 over the sole, shoulder (+-0.21, 0.53), upper arm 0.25, forearm to the grip point 0.24.
      TLXL.fig.dress(base, env)   textures + extra materials for the shared set {jacket, pants, trim, glove, skin, boot, helmet, visor}
-                                 returns K (also TLXL.fig.K); TLXL.fig.kitFor(m) does the same for a custom-colour figure
-     torso(K) pelvis(K) thigh(K,L) shin(K,L) upper(K,L) fore(K,L)      -> items for TLXL.build
+                                 returns K (also TLXL.fig.K); TLXL.fig.kitFor(m) does the same for a custom-colour figure;
+                                 TLXL.fig.sync() re-derives the second-tone panels from the jacket colour (call when it changes)
+     torso(K) pelvis(K) thigh(K,L) shin(K,L) upper(K,L,s) fore(K,L,s)    -> items for TLXL.build   (s = -1 / +1, the side)
      hand(K, kind, sx, k)        kind 'fist' (on a grip) | 'mitt' | 'open' (wipe) | 'relaxed' | 'relaxedMitt'
      boot(K, kind, ankH)         kind 'pac' | 'arctic', origin: sole under the ankle axis, +z toe
-     head(K, kit, o)             kit 'helmet' | 'beanie' | 'mask' -> {skin, shell, visor, ...} item lists, head-centre origin
+     helmet / goggles / beanie / balaclava / face / liner (K) head-centre origin items; pack(K); torsoPatch(K, kind)
    --------------------------------------------------------------------------------------------------------- */
 (function () {
   "use strict";
@@ -275,216 +291,337 @@
   const TLXL = window.TLXL, PI = Math.PI, TAU = PI * 2, F = TLXL.fig = {}, L = () => TLXL.lite;
   const R_T = [0, 0.5, 1, 1], R_UP = [0, 0.25, 0.5, 0.5], R_FO = [0.5, 0.25, 1, 0.5];
   const reg = (r, u, v) => [r[0] + (r[2] - r[0]) * u, r[1] + (r[3] - r[1]) * v];
-  const JY0 = -0.17, JY1 = 0.612, tv = y => 0.5 + 0.5 * Math.min(1, (y - JY0) / (JY1 - JY0));
+  const JY0 = -0.1, JY1 = 0.612, tv = y => 0.5 + 0.5 * Math.min(1, Math.max(0, (y - JY0) / (JY1 - JY0)));
   const PY0 = -0.2, PY1 = 0.1, pv = y => 0.5 + 0.5 * (y - PY0) / (PY1 - PY0);
   const S = (y, rx, rz, cz, n, cx) => ({ y, rx, rz, cz: cz || 0, n: n || 2, cx: cx || 0 });
+  const gauss = x => Math.exp(-x * x);
+  // a soft bunching of cloth: rings of folds around y = cy, strongest on the ring angle `side`, `spread` how far round it goes
+  const fold = (cy, w, amp, side, freq, spread) => (y, a) => 1 + amp * gauss((y - cy) / w) * (0.5 + 0.5 * Math.cos((y - cy) * freq)) * (spread === 0 ? 1 : Math.pow(Math.max(0, Math.cos(a - side)), spread || 1.5));
+  const mods = (...f) => (y, a) => { let m = 1; for (const g of f) m *= g(y, a); return m; };
+  const ar = (x, y) => ({ a0: Math.min(x, y), a1: Math.max(x, y) });      // an arc range always runs low to high (the other way round the loft is inside out)
   const ln = (H, a, b, o) => H.seam(a[0], a[1], b[0], b[1], o);
+  // a stitched seam with a second stitch line beside it (double needle), off = offset in UV
+  const ln2 = (H, a, b, o, off) => { ln(H, a, b, o); const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, ox = -dy / l * off, oy = dx / l * off; ln(H, [a[0] + ox, a[1] + oy], [b[0] + ox, b[1] + oy], { w: 0.8, depth: 0.45, stitch: 4 }); };
   function stampJacket(H) {
-    const z = 0.5;
-    H.zip(z, tv(0.6), z, tv(-0.165), { w: 2.2 }); H.seam(z + 0.024, tv(0.58), z + 0.024, tv(-0.16), { w: 1.4, depth: 0.7 }); H.ridge(z + 0.012, tv(0.58), z + 0.012, tv(-0.16), { w: 3, depth: 0.7 });
+    const z = 0.5, D = { w: 1.5, depth: 0.7, stitch: 0 };
+    H.zip(z, tv(0.6), z, tv(-0.085), { w: 2.2 }); ln2(H, [z + 0.03, tv(0.58)], [z + 0.03, tv(-0.085)], D, 0.006);        // zip, storm flap edge
     for (const s of [-1, 1]) {
-      ln(H, [z + s * 0.043, tv(0.31)], [z + s * 0.1, tv(0.355)], { w: 1.5, depth: 0.8, stitch: 0 }); ln(H, [z + s * 0.046, tv(0.3)], [z + s * 0.103, tv(0.345)], { w: 0.9, depth: 0.5 });   // chest pocket zip
-      ln(H, [z + s * 0.083, tv(0.1)], [z + s * 0.132, tv(-0.01)], { w: 1.5, depth: 0.8, stitch: 0 }); ln(H, [z + s * 0.095, tv(0.11)], [z + s * 0.145, tv(0.0)], { w: 0.9, depth: 0.5 });   // hand pocket
+      ln(H, [z + s * 0.043, tv(0.31)], [z + s * 0.1, tv(0.355)], { w: 1.5, depth: 0.8, stitch: 0 }); ln(H, [z + s * 0.046, tv(0.3)], [z + s * 0.103, tv(0.345)], { w: 0.9, depth: 0.5 });   // chest pocket welt
+      ln2(H, [z + s * 0.083, tv(0.1)], [z + s * 0.132, tv(-0.01)], { w: 1.5, depth: 0.8, stitch: 0 }, 0.007);   // hand pocket
     }
-    ln(H, [0.25, tv(-0.16)], [0.25, tv(0.47)], { w: 1.5, depth: 0.7 }); ln(H, [0.75, tv(-0.16)], [0.75, tv(0.47)], { w: 1.5, depth: 0.7 });
-    ln(H, [0.002, tv(-0.16)], [0.002, tv(0.5)], { w: 1.5, depth: 0.6 }); ln(H, [0.998, tv(-0.16)], [0.998, tv(0.5)], { w: 1.5, depth: 0.6 });
-    ln(H, [0, tv(0.45)], [1, tv(0.45)], { w: 1.4, depth: 0.7 }); ln(H, [0, tv(-0.125)], [1, tv(-0.125)], { w: 1.4, depth: 0.8 }); ln(H, [0, tv(-0.14)], [1, tv(-0.14)], { w: 0.9, depth: 0.5 });
-    // sleeves: a side seam each, an elbow seam, the cuff seam
-    for (const r of [R_UP, R_FO]) { ln(H, reg(r, 0.25, 0), reg(r, 0.25, 1), { w: 1.2, depth: 0.7 }); ln(H, reg(r, 0.75, 0), reg(r, 0.75, 1), { w: 1.2, depth: 0.7 }); }
-    ln(H, reg(R_UP, 0, 0.78), reg(R_UP, 1, 0.78), { w: 1.2, depth: 0.7 }); ln(H, reg(R_FO, 0, 0.9), reg(R_FO, 1, 0.9), { w: 1.4, depth: 0.8 }); ln(H, reg(R_FO, 0, 0.12), reg(R_FO, 1, 0.12), { w: 1.2, depth: 0.6 });
+    for (const x of [0.25, 0.75]) ln2(H, [x, tv(-0.085)], [x, tv(0.47)], D, 0.006);
+    ln(H, [0.002, tv(-0.085)], [0.002, tv(0.5)], D); ln(H, [0.998, tv(-0.085)], [0.998, tv(0.5)], D);
+    ln2(H, [0, tv(0.44)], [1, tv(0.44)], D, 0.006); ln2(H, [0, tv(-0.07)], [1, tv(-0.07)], { w: 1.4, depth: 0.8, stitch: 0 }, 0.006);
+    for (const r of [R_UP, R_FO]) { ln2(H, reg(r, 0.25, 0), reg(r, 0.25, 1), D, 0.02); ln2(H, reg(r, 0.75, 0), reg(r, 0.75, 1), D, 0.02); }
+    ln2(H, reg(R_UP, 0, 0.78), reg(R_UP, 1, 0.78), D, 0.02); ln2(H, reg(R_FO, 0, 0.9), reg(R_FO, 1, 0.9), D, 0.02); ln2(H, reg(R_FO, 0, 0.12), reg(R_FO, 1, 0.12), D, 0.02);
   }
   function stampPants(H) {
-    const z = 0.5;
-    ln(H, [0, pv(0.06)], [1, pv(0.06)], { w: 1.6, depth: 0.8 }); H.zip(z, pv(0.06), z, pv(-0.04), { w: 2 });
-    ln(H, [0.25, pv(-0.2)], [0.25, pv(0.08)], { w: 1.5, depth: 0.7 }); ln(H, [0.75, pv(-0.2)], [0.75, pv(0.08)], { w: 1.5, depth: 0.7 }); ln(H, [0.002, pv(-0.2)], [0.002, pv(0.08)], { w: 1.5, depth: 0.7 });
-    for (const s of [-1, 1]) ln(H, [z + s * 0.1, pv(0.06)], [z + s * 0.15, pv(-0.14)], { w: 1.4, depth: 0.7 });
-    for (const r of [R_UP, R_FO]) { ln(H, reg(r, 0.25, 0), reg(r, 0.25, 1), { w: 1.3, depth: 0.7 }); ln(H, reg(r, 0.75, 0), reg(r, 0.75, 1), { w: 1.3, depth: 0.7 }); }
+    const z = 0.5, D = { w: 1.5, depth: 0.7, stitch: 0 };
+    ln2(H, [0, pv(0.06)], [1, pv(0.06)], { w: 1.6, depth: 0.8, stitch: 0 }, 0.01); H.zip(z, pv(0.06), z, pv(-0.04), { w: 2 });
+    for (const x of [0.25, 0.75]) ln2(H, [x, pv(-0.2)], [x, pv(0.08)], D, 0.008); ln(H, [0.002, pv(-0.2)], [0.002, pv(0.08)], D);
+    for (const s of [-1, 1]) ln(H, [z + s * 0.1, pv(0.06)], [z + s * 0.15, pv(-0.14)], D);
+    for (const r of [R_UP, R_FO]) { ln2(H, reg(r, 0.25, 0), reg(r, 0.25, 1), D, 0.02); ln2(H, reg(r, 0.75, 0), reg(r, 0.75, 1), D, 0.02); }
     H.panel(...reg(R_UP, 0.56, 0.26), ...reg(R_UP, 0.74, 0.5), { w: 1.2, depth: 0.7 });        // cargo pocket on the outer thigh
-    ln(H, reg(R_FO, 0, 0.3), reg(R_FO, 1, 0.3), { w: 1.4, depth: 0.7 }); ln(H, reg(R_FO, 0, 0.9), reg(R_FO, 1, 0.9), { w: 1.4, depth: 0.8 });
+    ln2(H, reg(R_FO, 0, 0.3), reg(R_FO, 1, 0.3), D, 0.02); ln2(H, reg(R_FO, 0, 0.9), reg(R_FO, 1, 0.9), { w: 1.4, depth: 0.8, stitch: 0 }, 0.02);
   }
+  const grad = (stops, w, h, vertical) => { const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"), gr = vertical ? g.createLinearGradient(0, 0, 0, h) : g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); stops.forEach(s => gr.addColorStop(s[0], s[1])); g.fillStyle = gr; g.fillRect(0, 0, w, h); return c; };
   F.dress = function (b, env) {
     if (F.K) return F.K; const t0 = performance.now();
     const m = (c, r, mt, ex) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: r, metalness: mt || 0 }, ex || {}));
     const D = TLXL.dressMat, K = F.K = { jacket: b.jacket, pants: b.pants, trim: b.trim, glove: b.glove, skin: b.skin, boot: b.boot, helmet: b.helmet, visor: b.visor };
-    D(b.jacket, "shell", { size: 512, key: "jacket", stamp: stampJacket, ns: 0.9 }); D(b.pants, "shell", { size: 512, key: "pants", stamp: stampPants, ns: 0.9 });
-    D(b.trim, "shell"); D(b.glove, "shell", { ns: 1.2 }); D(b.skin, "skin"); D(b.boot, "leather");
-    D(b.helmet, "gloss"); D(b.visor, "lens");
+    // cloth is matt: roughness 1 and no metal, or the low sun washes a blue jacket out to grey from behind
+    for (const x of [b.jacket, b.pants, b.trim, b.glove]) { x.roughness = 1; x.metalness = 0; }
+    D(b.jacket, "shell", { size: 512, key: "jacket", stamp: stampJacket, ns: 0.8, base: 0.72 }); D(b.pants, "shell", { size: 512, key: "pants", stamp: stampPants, ns: 0.8, base: 0.62 });
+    D(b.trim, "shell"); D(b.glove, "shell", { ns: 1.0 }); D(b.skin, "skin"); D(b.boot, "leather");
+    D(b.helmet, "gloss", { ns: 0.4 }); D(b.visor, "lens", { ns: 0.12 });
     for (const x of [b.helmet, b.visor]) if (env) { x.envMap = env; x.envMapIntensity = x === b.visor ? 0.75 : 1.1; }
-    K.panel = D(m(0x232a31, 0.85), "shell", { ns: 1.2 }); K.dark = D(m(0x16191d, 0.68), "plastic");
+    K.panel = D(m(0x1a2a44, 1), "shell", { ns: 1.0 }); K.dark = D(m(0x16191d, 0.7), "plastic");
+    K.foam = D(m(0x1c1d20, 1), "fleece"); K.pantsP = D(m(0x1a1e24, 1), "shell", { ns: 1.0 });
     K.sole = D(m(0x0d0f11, 0.96), "rubber", { key: "tread", ns: 1.4, stamp: H => { for (let v = 0.04; v < 0.98; v += 0.06) { H.seam(0.0, v, 0.22, v, { w: 2, depth: 1.4, stitch: 0 }); H.seam(0.78, v, 1.0, v, { w: 2, depth: 1.4, stitch: 0 }); } H.seam(0.25, 0, 0.25, 1, { w: 1.5, depth: 1, stitch: 0 }); H.seam(0.75, 0, 0.75, 1, { w: 1.5, depth: 1, stitch: 0 }); } });
-    K.reflect = D(m(0xb4c0cb, 0.38, 0.4), "shell", { ns: 1.4 }); if (env) { K.reflect.envMap = env; K.reflect.envMapIntensity = 1.0; }
-    K.fur = D(m(0x8a7358, 1), "fleece"); K.pack = D(m(0x2a3038, 0.9), "shell", { ns: 1.3 });
-    K.beanie = D(m(b.trim.color.getHex(), 0.95), "knit", { ns: 1.4 }); K.mask = D(m(0x1a1f26, 0.95), "knit", { ns: 1.2 });
-    K.bootA = D(m(0x2a3038, 0.85), "leather"); K.eye = D(m(0xe8e8e2, 0.35), "skin"); K.feat = D(m(0x2a1c14, 0.6), "skin");
-    K.gog = D(m(0x3f6a8c, 0.06, 0.7), "lens"); if (env) { K.gog.envMap = env; K.gog.envMapIntensity = 0.9; }
-    K.strap = K.dark; TLXL.figMs = performance.now() - t0; return K;
+    K.reflect = D(m(0x98a3ad, 0.4, 0.3), "shell", { ns: 1.4 }); if (env) { K.reflect.envMap = env; K.reflect.envMapIntensity = 0.8; }
+    K.metal = D(m(0x9aa4ae, 0.35, 0.8), "plastic", { ns: 0.6 }); if (env) { K.metal.envMap = env; K.metal.envMapIntensity = 0.8; }
+    K.fur = D(m(0x8a7358, 1), "fleece"); K.pack = D(m(0x2e3a34, 1), "shell", { ns: 1.3 }); K.packL = D(m(0x1f2622, 1), "shell", { ns: 1.3 });
+    K.beanie = D(m(b.trim.color.getHex(), 1), "knit", { ns: 1.4 }); K.mask = D(m(0x1a1f26, 1), "knit", { ns: 1.2 });
+    K.bootA = D(m(0x4a443c, 0.85), "leather"); K.bootB = D(m(0x4d4136, 0.85), "leather"); K.eye = D(m(0xe8e8e2, 0.35), "skin"); K.feat = D(m(0x3a1c14, 0.6), "skin"); K.lip = D(m(0xa8584c, 0.55), "skin");
+    // one-piece goggle lens: dark amber at the top into blue, mirroring the sky cube (the cube is dimmed at night by updSledEnv, so it cannot glow)
+    const gm = new T.CanvasTexture(grad([[0, "#5a3410"], [0.45, "#3a3a44"], [1, "#143a64"]], 8, 64, true)); gm.tlSrgb = true; if (TLXL.srgb) gm.encoding = T.sRGBEncoding;
+    K.gog = m(0xffffff, 0.06, 0.8, { map: gm }); if (env) { K.gog.envMap = env; K.gog.envMapIntensity = 0.85; }
+    // a cold flush on the cheeks and nose tip: a soft transparent disc, nothing glows
+    const am = new T.CanvasTexture(grad([[0, "#fff"], [0.5, "#777"], [1, "#000"]], 32, 32, false));
+    K.blush = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, alphaMap: am, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); K.blush.userData.noShadow = true; K.blush.userData.flush = true;
+    K.strap = K.dark; F.sync(); TLXL.figMs = performance.now() - t0; return K;
+  };
+  // second-tone panels and the helmet / hat accents follow the player's colours (jacketMat, riderTrimMat)
+  F.sync = function (K) {
+    K = K || F.K; if (!K) return; const j = K.jacket.color, p = K.pants.color;
+    K.panel.color.setRGB(j.r * 0.4, j.g * 0.4, j.b * 0.42); K.pantsP.color.setRGB(p.r * 0.55, p.g * 0.55, p.b * 0.55); K.beanie.color.copy(K.trim.color);
+    K.blush.color.copy(K.skin.color).multiplyScalar(0.85); K.blush.color.r = Math.min(1, K.blush.color.r * 1.25);
   };
   F.kitFor = function (b) {                          // a figure with its own jacket/pants colours (rescue casualties, staff): own base, shared extras
     const K = Object.assign({}, F.K), D = TLXL.dressMat;
     for (const k of ["jacket", "pants", "trim", "glove", "skin", "boot", "helmet", "visor"]) if (b[k]) K[k] = b[k];
-    D(K.jacket, "shell", { size: 512, key: "jacket", stamp: stampJacket, ns: 0.9 }); D(K.pants, "shell", { size: 512, key: "pants", stamp: stampPants, ns: 0.9 }); D(K.trim, "shell"); D(K.glove, "shell", { ns: 1.2 });
-    D(K.skin, "skin"); D(K.boot, "leather"); D(K.helmet, "gloss"); D(K.visor, "lens");
-    for (const x of [K.helmet, K.visor]) if (F.K.helmet.envMap && !x.envMap) { x.envMap = F.K.helmet.envMap; x.envMapIntensity = 1.2; }
-    return K;
+    for (const x of [K.jacket, K.pants, K.trim, K.glove]) { x.roughness = 1; x.metalness = 0; }
+    D(K.jacket, "shell", { size: 512, key: "jacket", stamp: stampJacket, ns: 0.8, base: 0.72 }); D(K.pants, "shell", { size: 512, key: "pants", stamp: stampPants, ns: 0.8, base: 0.62 }); D(K.trim, "shell"); D(K.glove, "shell", { ns: 1.0 });
+    D(K.skin, "skin"); D(K.boot, "leather"); D(K.helmet, "gloss", { ns: 0.4 }); D(K.visor, "lens", { ns: 0.12 });
+    for (const x of [K.helmet, K.visor]) if (F.K.helmet.envMap && !x.envMap) { x.envMap = F.K.helmet.envMap; x.envMapIntensity = 1.0; }
+    K.panel = F.K.panel.clone(); K.pantsP = F.K.pantsP.clone(); K.beanie = F.K.beanie.clone(); K.blush = F.K.blush.clone(); K.blush.userData.noShadow = true;
+    F.sync(K); return K;
   };
 
-  /* ---------------- torso, pelvis, limbs ---------------- */
-  const torsoSecs = () => [S(-0.17, 0.196, 0.126), S(-0.12, 0.205, 0.134), S(-0.02, 0.195, 0.128), S(0.1, 0.188, 0.122), S(0.24, 0.212, 0.135, 0.004), S(0.37, 0.232, 0.145, 0.01),
-    S(0.46, 0.236, 0.132, 0.003, 2.3), S(0.52, 0.21, 0.114), S(0.565, 0.145, 0.098), S(0.595, 0.098, 0.085), S(0.612, 0.07, 0.074)];
-  const secRange = (y0, y1) => { const out = [], all = torsoSecs(), at = y => { for (let i = 1; i < all.length; i++) if (y <= all[i].y) { const a = all[i - 1], b = all[i], t = (y - a.y) / (b.y - a.y); return S(y, a.rx + (b.rx - a.rx) * t, a.rz + (b.rz - a.rz) * t, a.cz + (b.cz - a.cz) * t, 2); } return all[all.length - 1]; };
-    for (let i = 0; i <= 5; i++) out.push(at(y0 + (y1 - y0) * i / 5)); return out; };
+  /* ---------------- torso, pelvis ---------------- */
+  // the jacket body, y up from the hem (-0.085, a level band a hand's width below the belt) to the collar. Chest deeper than the waist, a blouse over the belt.
+  const TORSO_TAB = [[-0.1, 0.2, 0.147, 0], [-0.07, 0.212, 0.152, 0.002], [-0.02, 0.208, 0.15, 0.002], [0.05, 0.198, 0.144, 0.002], [0.13, 0.194, 0.142, 0.002], [0.24, 0.202, 0.15, 0.004], [0.35, 0.214, 0.162, 0.01], [0.43, 0.228, 0.158, 0.008, 2.3],
+    [0.485, 0.228, 0.14, 0.004, 2.4], [0.52, 0.2, 0.118, 0], [0.55, 0.15, 0.104, 0], [0.58, 0.108, 0.092, 0], [0.605, 0.076, 0.08, 0], [0.62, 0.062, 0.07, 0]];
+  let _tp = null;
+  const torsoSecs = () => (_tp && _tp.l === L()) ? _tp.s : (_tp = { l: L(), s: TLXL.smooth(TORSO_TAB, L() ? 14 : 26) }).s;
+  const secRange = (y0, y1, n) => { n = n || 6; const all = torsoSecs(), out = [], at = y => { for (let i = 1; i < all.length; i++) if (y <= all[i].y) { const a = all[i - 1], b = all[i], t = (y - a.y) / (b.y - a.y); return S(y, a.rx + (b.rx - a.rx) * t, a.rz + (b.rz - a.rz) * t, a.cz + (b.cz - a.cz) * t, 2); } return all[all.length - 1]; };
+    for (let i = 0; i <= n; i++) out.push(at(y0 + (y1 - y0) * i / n)); return out; };
+  const torsoMod = mods(fold(0.06, 0.07, 0.05, 0, 70, 0), fold(-0.05, 0.03, 0.03, 0, 80, 0), fold(0.4, 0.06, 0.02, 0, 60, 0));
   F.torso = function (K, o) {
-    o = o || {}; const it = [], uvT = R_T, lite = L();
-    it.push({ m: K.jacket, g: TLXL.loft(torsoSecs(), { uv: uvT, cap: "t", seg: lite ? 12 : 20 }) });
-    it.push({ m: K.jacket, g: TLXL.loft([S(-0.172, 0.198, 0.128), S(-0.16, 0.214, 0.142), S(-0.145, 0.217, 0.146), S(-0.12, 0.207, 0.137)], { uv: [0, 0.5, 1, 0.56], roundBottom: 0.01, seg: lite ? 12 : 20 }) });   // rolled hem lip
-    // stand collar: a double wall, rolled over at the top
-    it.push({ m: K.jacket, g: TLXL.loft([S(0.55, 0.108, 0.1, 0.0), S(0.6, 0.094, 0.09), S(0.655, 0.094, 0.092), S(0.668, 0.088, 0.086), S(0.655, 0.075, 0.072), S(0.6, 0.076, 0.072), S(0.56, 0.082, 0.078)], { uv: [0, 0.94, 1, 1], seg: lite ? 12 : 18 }) });
-    // second-tone shoulder panels (on the slope of the shoulder) and the yoke
-    for (const [a0, a1] of [[0.75, 1.75], [-1.75, -0.75]]) it.push({ m: K.panel, g: TLXL.loft(secRange(0.47, 0.585), { a0, a1, inflate: 0.004, uv: [0.5, 0.9, 0.9, 1], seg: 6 }) });
-    // reflective piping: a band round the chest and one over each shoulder seam. Reflects, never glows.
-    it.push({ m: K.reflect, g: TLXL.loft(secRange(0.208, 0.2155), { inflate: 0.003, uv: [0, 0.6, 1, 0.62], seg: lite ? 12 : 20 }) });
+    o = o || {}; const it = [], lite = L(), sg = lite ? 12 : 18, J = K.jacket;
+    it.push({ m: J, g: TLXL.loft(torsoSecs(), { uv: R_T, cap: "t", seg: sg, mod: torsoMod }) });
+    // rolled hem: a level band standing proud of the trousers, same height front, sides and back
+    it.push({ m: J, g: TLXL.loft([S(-0.112, 0.196, 0.15), S(-0.105, 0.22, 0.168), S(-0.09, 0.2285, 0.176), S(-0.066, 0.222, 0.168), S(-0.05, 0.214, 0.158)], { uv: [0, 0.42, 1, 0.5], roundBottom: 0.004, seg: sg }) });
+    // stand collar, a double wall rolled over at the top, a dark lining showing inside
+    it.push({ m: J, g: TLXL.loft([S(0.55, 0.115, 0.104), S(0.6, 0.1, 0.094), S(0.655, 0.1, 0.096), S(0.67, 0.094, 0.09), S(0.655, 0.08, 0.076), S(0.6, 0.08, 0.076), S(0.56, 0.086, 0.082)], { uv: [0, 0.94, 1, 1], seg: lite ? 12 : 18 }) });
+    it.push({ m: K.dark, g: TLXL.loft([S(0.6, 0.082, 0.078), S(0.64, 0.078, 0.074), S(0.665, 0.078, 0.074)], { seg: 10, uv: [0, 0, 1, 0.1] }) });
+    // colour blocking, keyed to the player's colours: dark yoke over the shoulders, side panels, accent piping
+    it.push({ m: K.panel, g: TLXL.loft(secRange(0.44, 0.585, 10), { mod: torsoMod, inflate: 0.004, uv: [0, 0.9, 1, 1], seg: sg, a0: -PI * 0.78, a1: PI * 0.78 }) });                               // front yoke
+    it.push({ m: K.panel, g: TLXL.loft(secRange(0.44, 0.585, 10), { mod: torsoMod, inflate: 0.004, uv: [0, 0.9, 1, 1], seg: lite ? 6 : 10, a0: PI * 0.78, a1: PI * 1.22 }) });                  // back yoke
+    for (const s of [-1, 1]) it.push({ m: K.panel, g: TLXL.loft(secRange(-0.06, 0.4, 24), { mod: torsoMod, inflate: 0.004, uv: [0.4, 0.2, 0.6, 0.8], seg: 4, a0: s * PI / 2 - 0.28, a1: s * PI / 2 + 0.28 }) });   // side panels
+    it.push({ m: K.trim, g: TLXL.loft(secRange(0.425, 0.44, 2), { mod: torsoMod, inflate: 0.0055, uv: [0, 0.6, 1, 0.62], seg: sg }) });                                                                 // accent piping under the yoke
+    it.push({ m: K.reflect, g: TLXL.loft(secRange(0.2, 0.208, 2), { mod: torsoMod, inflate: 0.0055, uv: [0, 0.6, 1, 0.62], seg: sg }) });                                                         // reflective band round the chest
+    // storm flap over the zip, chest pockets and hand-pocket welts with flaps
+    it.push({ m: J, g: TLXL.loft(secRange(-0.085, 0.585, 36), { mod: torsoMod, inflate: 0.008, uv: [0.5, 0.2, 0.56, 0.8], seg: 3, a0: 0.015, a1: 0.2 }) });
+    for (const s of [-1, 1]) {
+      it.push({ m: J, g: TLXL.loft(secRange(0.255, 0.34, 8), { mod: torsoMod, inflate: 0.006, uv: [0.52, 0.5, 0.56, 0.55], seg: 3, ...ar(s * 0.3, s * 0.56) }) });
+      it.push({ m: J, g: TLXL.loft(secRange(-0.03, 0.115, 14), { mod: torsoMod, inflate: 0.006, uv: [0.52, 0.5, 0.56, 0.55], seg: 3, ...ar(s * 0.52, s * 0.86) }) });
+      it.push({ m: K.dark, g: TLXL.loft(secRange(0.317, 0.327, 1), { mod: torsoMod, inflate: 0.0075, uv: [0, 0, 1, 1], seg: 2, ...ar(s * 0.33, s * 0.54) }) });
+    }
     if (!lite) {
-      it.push({ m: K.dark, g: TLXL.tube(Array.from({ length: 16 }, (_, i) => { const a = i / 16 * TAU; return [Math.sin(a) * 0.209, -0.118, Math.cos(a) * 0.137]; }).concat([[0, -0.118, 0.137]]), 0.0045, { n: 40, seg: 4 }) });   // hem drawcord
+      it.push({ m: K.dark, g: TLXL.tube(Array.from({ length: 17 }, (_, i) => { const a = i / 16 * TAU; return [Math.sin(a) * 0.222, -0.07, Math.cos(a) * 0.164]; }), 0.0045, { n: 24, seg: 3 }) });   // hem drawcord
       for (const s of [-1, 1]) {
-        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.014, 0.03, 0.012, 0.005), { x: s * 0.012, y: 0.585, z: 0.082 }) });   // zip pull + toggles
-        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.012, 0.02, 0.012, 0.004), { x: s * 0.06, y: -0.15, z: 0.128 }) });
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.014, 0.026, 0.009, 0.004), { x: s * 0.014, y: 0.57, z: 0.101 }) });                         // zip puller
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.012, 0.02, 0.012, 0.004), { x: s * 0.07, y: -0.1, z: 0.166, rx: 0.15 }) });                 // drawcord toggles
       }
+      it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.016, 0.07, 0.008, 0.003), { y: 0.5, z: 0.1, rx: 0.2 }) });
     }
     return it;
   };
   F.torsoPatch = function (K, kind) {               // the rider style stripes (SET.style): trim colour, hugging the jacket
-    const sc = kind === "stripe" ? secRange(-0.1, 0.36) : kind === "chest" ? secRange(0.26, 0.4) : secRange(0.24, 0.37);
+    const sc = kind === "stripe" ? secRange(-0.06, 0.4) : kind === "chest" ? secRange(0.26, 0.4) : secRange(0.24, 0.37);
     const a = kind === "stripe" ? [-0.18, 0.18] : kind === "chest" ? [-0.95, 0.95] : [PI - 0.95, PI + 0.95];
-    return [{ m: K.trim, g: TLXL.loft(sc, { a0: a[0], a1: a[1], inflate: 0.005, uv: [0.3, 0.55, 0.7, 0.9], seg: 8 }) }];
+    return [{ m: K.trim, g: TLXL.loft(sc, { mod: torsoMod, a0: a[0], a1: a[1], inflate: 0.0065, uv: [0.3, 0.55, 0.7, 0.9], seg: 8 }) }];
   };
+  // the small day pack: a shaped body with a lid, a front pocket, side compression straps with buckles, shoulder straps over the shoulders
   F.pack = function (K) {
-    const it = [];
-    it.push({ m: K.pack, g: TLXL.xf(TLXL.rbox(0.25, 0.3, 0.13, 0.045), { y: 0.27, z: -0.2 }) }); it.push({ m: K.pack, g: TLXL.xf(TLXL.rbox(0.27, 0.07, 0.14, 0.03), { y: 0.43, z: -0.2 }) });
-    it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.2, 0.02, 0.01, 0.006), { y: 0.36, z: -0.134 }) }); it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.03, 0.04, 0.012, 0.006), { y: 0.36, z: -0.136 }) });
-    if (!L()) for (const s of [-1, 1]) it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.025, 0.22, 0.01, 0.005), { x: s * 0.07, y: 0.24, z: -0.13 }) });
+    const it = [], lite = L(), P = K.pack, Z = -0.215;
+    it.push({ m: P, g: TLXL.loft([S(0.1, 0.1, 0.05, -0.012, 3), S(0.18, 0.125, 0.07, -0.004, 3), S(0.32, 0.128, 0.075, 0.002, 3), S(0.42, 0.115, 0.065, 0, 3)], { seg: lite ? 10 : 16, roundTop: 0.03, roundBottom: 0.03, uv: [0, 0, 2, 1], cap: false }) });
+    TLXL.xf(it[0].g, { z: Z });
+    it.push({ m: K.pack, g: TLXL.xf(TLXL.loft([S(0.4, 0.122, 0.074, 0.002, 3), S(0.45, 0.118, 0.07, 0.0, 3), S(0.48, 0.1, 0.055, -0.01, 3)], { seg: lite ? 10 : 14, roundTop: 0.016, roundBottom: 0.006, uv: [0, 0, 2, 1] }), { z: Z }) });   // lid
+    it.push({ m: K.pack, g: TLXL.xf(TLXL.rbox(0.19, 0.17, 0.05, 0.02), { y: 0.25, z: Z - 0.09 }) });                                                                     // rear pocket
+    it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.2, 0.012, 0.012, 0.004), { y: 0.405, z: Z - 0.077 }) });
+    if (!lite) {
+      for (const s of [-1, 1]) {
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.02, 0.03, 0.15, 0.006), { x: s * 0.132, y: 0.28, z: Z }) });                                                            // side compression straps
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.02, 0.03, 0.15, 0.006), { x: s * 0.126, y: 0.2, z: Z }) });
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.014, 0.022, 0.012, 0.003), { x: s * 0.142, y: 0.28, z: Z - 0.06 }) }); it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.014, 0.022, 0.012, 0.003), { x: s * 0.136, y: 0.2, z: Z - 0.06 }) });
+        it.push({ m: K.dark, g: TLXL.loft(secRange(0.2, 0.585, 10), { ...ar(s * 0.58, s * 0.76), inflate: 0.01, uv: [0.5, 0.9, 0.9, 1], seg: 2 }) });                       // shoulder straps, front
+        it.push({ m: K.dark, g: TLXL.loft(secRange(0.2, 0.585, 10), { ...ar(PI - s * 0.58, PI - s * 0.76), inflate: 0.01, uv: [0.5, 0.9, 0.9, 1], seg: 2 }) });                // and back
+        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.03, 0.018, 0.01, 0.003), { x: s * 0.1, y: 0.33, z: 0.172, rx: 0.35 }) });                                               // sternum clip
+      }
+      it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.19, 0.012, 0.01, 0.004), { y: 0.33, z: 0.171, rx: 0.3 }) });                                                              // sternum strap
+    }
     return it;
   };
   F.pelvis = function (K) {
-    return [{ m: K.pants, g: TLXL.loft([S(-0.2, 0.15, 0.11), S(-0.12, 0.19, 0.13, -0.008), S(-0.02, 0.195, 0.128, -0.006), S(0.08, 0.18, 0.12)], { uv: R_T.map((v, i) => i === 1 ? 0.5 : i === 3 ? 1 : v), roundTop: 0.03, seg: L() ? 12 : 20, cap: "b" }) }];
+    const it = [{ m: K.pants, g: TLXL.loft([S(-0.2, 0.15, 0.115), S(-0.12, 0.192, 0.135, -0.006), S(-0.04, 0.2, 0.138, -0.004), S(0.05, 0.19, 0.13), S(0.1, 0.17, 0.12)], { uv: R_T.map((v, i) => i === 1 ? 0.5 : i === 3 ? 1 : v), roundTop: 0.02, seg: L() ? 12 : 20, cap: "b" }) }];
+    it.push({ m: K.pantsP, g: TLXL.loft([S(-0.19, 0.17, 0.112), S(-0.14, 0.195, 0.132, -0.01), S(-0.1, 0.199, 0.137, -0.008)], { uv: [0, 0.5, 1, 0.55], seg: L() ? 6 : 10, a0: PI * 0.72, a1: PI * 1.28, inflate: 0.004 }) });      // seat panel
+    return it;
   };
-  // limbs: loft along +z from the joint end (t 0) to the far end (t L). rx = half width, rz = half depth (front is +y of the ring).
-  const limbSecs = (L0, tab, o) => tab.map(r => Object.assign(S(r[0] * L0, r[1], r[2], r[3] || 0), o || {}));
-  F.thigh = function (K, L0) { return [{ m: K.pants, g: TLXL.loft(limbSecs(L0, [[0, 0.1, 0.105], [0.12, 0.108, 0.115], [0.3, 0.1, 0.108], [0.5, 0.088, 0.095], [0.85, 0.078, 0.082], [1, 0.074, 0.076]]), { axis: "z", uv: R_UP, roundBottom: 0.07, roundTop: 0.04, seg: L() ? 10 : 16 }) }]; };
-  F.shin = function (K, L0) { return [{ m: K.pants, g: TLXL.loft(limbSecs(L0, [[0, 0.078, 0.082], [0.12, 0.084, 0.09], [0.3, 0.082, 0.092, -0.006], [0.55, 0.07, 0.076], [0.8, 0.06, 0.064], [0.9, 0.062, 0.066], [0.955, 0.088, 0.09], [1, 0.085, 0.087]]), { axis: "z", uv: R_FO, roundBottom: 0.05, cap: "t", seg: L() ? 10 : 16 }) }]; };
-  F.upper = function (K, L0) { return [{ m: K.jacket, g: TLXL.loft(limbSecs(L0, [[0, 0.064, 0.066], [0.1, 0.069, 0.071], [0.5, 0.062, 0.064], [0.9, 0.056, 0.058], [1, 0.054, 0.056]]), { axis: "z", uv: R_UP, roundBottom: 0.05, roundTop: 0.03, seg: L() ? 10 : 16 }) }]; };
-  F.fore = function (K, L0) { return [{ m: K.jacket, g: TLXL.loft(limbSecs(L0, [[0, 0.058, 0.06], [0.15, 0.063, 0.066], [0.5, 0.057, 0.059], [0.85, 0.052, 0.054], [1, 0.057, 0.058]]), { axis: "z", uv: R_FO, roundBottom: 0.04, cap: "t", seg: L() ? 10 : 16 }) }]; };
+
+  /* ---------------- limbs ---------------- */
+  // tab rows: [t along the limb (0..1.1), rx, rz, cz]; L0 the real length; f optional fold function; sections are smoothed
+  const limb = (tab, L0, o, uv, f) => TLXL.loft(TLXL.smooth(tab.map(r => [r[0] * L0, r[1], r[2], r[3] || 0]), L() ? 8 : 12), Object.assign({ axis: "z", uv, seg: L() ? 9 : 14, mod: f }, o));
+  F.thigh = function (K, L0) {
+    const f = mods(fold(L0 * 0.97, 0.05, 0.05, PI, 55, 1), fold(L0 * 0.06, 0.06, 0.04, 0, 50, 1));
+    return [{ m: K.pants, g: limb([[0, 0.08, 0.086], [0.1, 0.086, 0.094], [0.22, 0.098, 0.106], [0.4, 0.106, 0.114], [0.6, 0.098, 0.105], [0.85, 0.088, 0.094], [1, 0.086, 0.09]], L0, { roundBottom: 0.07, roundTop: 0.04 }, R_UP, f) }];
+  };
+  F.shin = function (K, L0) {                       // knee to ankle, the trouser gaiter flaring over the boot top 3.5 cm below the ankle
+    const f = mods(fold(L0 * 0.04, 0.05, 0.05, PI, 55, 1), fold(L0 * 1.0, 0.04, 0.03, 0, 80, 0));
+    return [{ m: K.pants, g: limb([[0, 0.086, 0.09], [0.1, 0.092, 0.1], [0.3, 0.088, 0.1, -0.008], [0.55, 0.08, 0.088], [0.8, 0.074, 0.078], [0.93, 0.076, 0.08], [1, 0.088, 0.092], [1.045, 0.093, 0.097]], L0, { roundBottom: 0.012, cap: "t" }, R_FO, f) }];
+  };
+  F.upper = function (K, L0, s) {
+    s = s || 1; const inner = -s * PI / 2, f = mods(fold(L0 * 0.86, 0.05, 0.05, 0, 55, 1), fold(L0 * 0.07, 0.04, 0.05, inner, 70, 2));
+    return [{ m: K.jacket, g: limb([[0, 0.074, 0.078], [0.07, 0.082, 0.086], [0.2, 0.076, 0.08], [0.5, 0.071, 0.074], [0.82, 0.068, 0.07], [1, 0.064, 0.066]], L0, { roundBottom: 0.07, roundTop: 0.03 }, R_UP, f) }];
+  };
+  F.fore = function (K, L0, s) {
+    s = s || 1; const f = mods(fold(L0 * 0.04, 0.045, 0.06, 0, 60, 1));
+    const it = [{ m: K.jacket, g: limb([[0, 0.066, 0.068], [0.15, 0.07, 0.073], [0.5, 0.062, 0.064], [0.85, 0.058, 0.06], [1, 0.063, 0.064]], L0, { roundBottom: 0.04, cap: "t" }, R_FO, f) }];
+    if (!L()) it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.014, 0.04, 0.052, 0.005), { x: s * 0.068, z: L0 * 0.8, y: 0.0 }) });             // cuff tab, velcro
+    return it;
+  };
   // second-tone elbow / knee patches and trim bands, built to ride on a limb (same axis, same L0)
-  F.elbow = function (K, L0, upper) { const f = upper ? [0.72, 1] : [0, 0.22], tab = upper ? [[0.72, 0.062, 0.064], [1, 0.058, 0.06]] : [[0, 0.058, 0.06], [0.22, 0.063, 0.066]];
-    return [{ m: K.panel, g: TLXL.loft(limbSecs(L0, tab), { axis: "z", a0: PI * 0.62, a1: PI * 1.38, inflate: 0.004, uv: upper ? R_UP : R_FO, seg: 6 }) }]; };
-  F.kneePad = function (K, L0) { return [{ m: K.panel, g: TLXL.loft(limbSecs(L0, [[0.02, 0.07, 0.08], [0.1, 0.082, 0.095], [0.2, 0.075, 0.09], [0.3, 0.06, 0.082]]), { axis: "z", a0: -1.0, a1: 1.0, inflate: 0.006, uv: R_FO, seg: 8, roundBottom: 0.02, roundTop: 0.02 }) }]; };
+  F.elbow = function (K, L0, upper, s) {
+    const tab = upper ? [[0.62, 0.07, 0.072], [0.82, 0.07, 0.072], [1, 0.066, 0.068]] : [[0, 0.07, 0.072], [0.15, 0.072, 0.075], [0.3, 0.066, 0.068]];
+    const it = [{ m: K.panel, g: limb(tab, L0, { a0: PI * 0.6, a1: PI * 1.4, inflate: 0.004, roundBottom: 0.0, uv: upper ? R_UP : R_FO, seg: 6 }, upper ? R_UP : R_FO) }];
+    if (upper) it.push({ m: K.panel, g: limb([[0.04, 0.084, 0.088], [0.12, 0.086, 0.09], [0.3, 0.079, 0.083]], L0, { a0: s * PI / 2 - 0.55, a1: s * PI / 2 + 0.55, inflate: 0.004, uv: R_UP, seg: 6 }, R_UP) });   // deltoid cap panel
+    else it.push({ m: K.trim, g: limb([[0.52, 0.062, 0.064], [0.56, 0.062, 0.064]], L0, { inflate: 0.004, uv: R_FO, seg: L() ? 10 : 16 }, R_FO) });
+    return it;
+  };
+  F.kneePad = function (K, L0) { return [{ m: K.panel, g: limb([[0.02, 0.09, 0.102], [0.1, 0.1, 0.114], [0.2, 0.094, 0.108], [0.33, 0.078, 0.098]], L0, { a0: -1.05, a1: 1.05, inflate: 0.006, roundBottom: 0.02, roundTop: 0.02, uv: R_FO, seg: 8 }, R_FO) }]; };
   F.band = function (K, r, w, mat) { return [{ m: mat || K.reflect, g: TLXL.xf(TLXL.lathe([[r, -w / 2], [r + 0.004, -w / 2 + 0.002], [r + 0.004, w / 2 - 0.002], [r, w / 2]], L() ? 12 : 18), { rx: PI / 2 }) }]; };   // ring round a z-axis limb
   F.furCollar = function (K) { return [{ m: K.fur, g: TLXL.loft([S(0.5, 0.13, 0.115), S(0.55, 0.15, 0.13), S(0.6, 0.145, 0.125), S(0.64, 0.12, 0.105), S(0.62, 0.1, 0.09)], { uv: [0, 0, 2, 1], seg: L() ? 12 : 18 }) }]; };
-  F.neck = function (K) { return [{ m: K.mask, g: TLXL.loft([S(0.53, 0.062, 0.066), S(0.6, 0.056, 0.06), S(0.66, 0.054, 0.06, 0.004)], { uv: [0, 0, 2, 1], cap: "t", seg: 10 }) }]; };
+  F.neck = function (K) { return [{ m: K.mask, g: TLXL.loft([S(0.53, 0.066, 0.07), S(0.6, 0.06, 0.064), S(0.67, 0.058, 0.064, 0.004)], { uv: [0, 0, 2, 1], cap: "t", seg: 10 }) }]; };
 
   /* ---------------- hands ---------------- */
   // hand frame: wrist at -z, fingers +z, the back of the hand +y, the thumb on -sx (+x for 'open'); the grip axis through the origin.
+  // Insulated gloves: a thick palm and back, a gauntlet that flares over the sleeve, fingers packed side by side, a thumb of its own.
   F.hand = function (K, kind, sx, k) {
     k = k || 1; sx = sx || 1; const M = K.glove, it = [], mitt = /itt/.test(kind), fist = kind === "fist" || kind === "mitt", rel = kind.indexOf("relaxed") === 0, lite = L();
-    const sec = (z, rx, rz, cz) => S(z * k, rx * k, rz * k, (cz || 0) * k), tb = (pts, r) => TLXL.tube(pts.map(p => [p[0] * k, p[1] * k, p[2] * k]), r * k, { n: 8, seg: lite ? 4 : 6 });
-    const palm = fist ? [sec(-0.105, 0.04, 0.022, 0.054), sec(-0.07, 0.046, 0.025, 0.038), sec(-0.035, 0.048, 0.024, 0.02)] : [sec(-0.115, 0.042, 0.02), sec(-0.07, 0.047, 0.024), sec(-0.02, 0.049, 0.021), sec(0.0, 0.047, 0.017)];
+    const sec = (z, rx, rz, cz) => S(z * k, rx * k, rz * k, (cz || 0) * k), tb = (pts, r) => TLXL.tube(pts.map(p => [p[0] * k, p[1] * k, p[2] * k]), r * k, { n: 5, seg: lite ? 4 : 5 });
+    const palm = fist ? [sec(-0.105, 0.042, 0.026, 0.054), sec(-0.07, 0.049, 0.029, 0.038), sec(-0.035, 0.05, 0.028, 0.02)] : [sec(-0.115, 0.044, 0.024), sec(-0.07, 0.05, 0.028), sec(-0.02, 0.052, 0.025), sec(0.0, 0.05, 0.02)];
     it.push({ m: M, g: TLXL.loft(palm, { axis: "z", roundBottom: 0.015 * k, roundTop: fist ? 0.01 : 0.012 * k, seg: lite ? 8 : 12 }) });
-    const gt = fist ? [sec(-0.175, 0.058, 0.056, 0.068), sec(-0.14, 0.066, 0.062, 0.06), sec(-0.1, 0.07, 0.06, 0.05), sec(-0.075, 0.06, 0.044, 0.04)] : [sec(-0.18, 0.058, 0.056), sec(-0.145, 0.066, 0.062), sec(-0.105, 0.07, 0.06), sec(-0.075, 0.06, 0.044)];
+    const gt = fist ? [sec(-0.15, 0.068, 0.066, 0.06), sec(-0.125, 0.074, 0.068, 0.058), sec(-0.095, 0.076, 0.066, 0.05), sec(-0.07, 0.064, 0.046, 0.04)] : [sec(-0.155, 0.068, 0.066), sec(-0.13, 0.074, 0.068), sec(-0.1, 0.076, 0.066), sec(-0.07, 0.064, 0.046)];
     it.push({ m: M, g: TLXL.loft(gt, { axis: "z", roundBottom: 0.01, seg: lite ? 8 : 14 }) });                                  // gauntlet over the sleeve
-    const lens = [0.082, 0.088, 0.078, 0.062], xs = [0.033, 0.011, -0.011, -0.033].map(x => -sx * x);
+    const lens = [0.082, 0.088, 0.078, 0.062], xs = [0.0345, 0.0115, -0.0115, -0.0345].map(x => -sx * x), fr = 0.0128;
     if (fist && !mitt) lens.forEach((len, i) => {
-      const rr = 0.036, a0 = -1.22, a1 = a0 + len * 1.35 / rr, pts = []; for (let j = 0; j <= 5; j++) { const a = a0 + (a1 - a0) * j / 5; pts.push([xs[i], rr * Math.cos(a), rr * Math.sin(a)]); }
-      it.push({ m: M, g: tb(pts, 0.0113) });
+      const rr = 0.038, a0 = -1.22, a1 = a0 + len * 1.35 / rr, pts = []; for (let j = 0; j <= 5; j++) { const a = a0 + (a1 - a0) * j / 5; pts.push([xs[i], rr * Math.cos(a), rr * Math.sin(a)]); }
+      it.push({ m: M, g: tb(pts, fr) });
     });
-    else if (fist) for (const x of [-0.021, 0.021]) { const rr = 0.04, pts = []; for (let j = 0; j <= 5; j++) { const a = -1.15 + j * 0.62; pts.push([x, rr * Math.cos(a), rr * Math.sin(a)]); } it.push({ m: M, g: tb(pts, 0.0245) }); }
-    else if (rel && !mitt) lens.forEach((len, i) => it.push({ m: M, g: tb([[xs[i], 0.002, 0], [xs[i], -0.006, len * 0.5], [xs[i], -0.024, len * 0.86], [xs[i], -0.046, len * 0.95]], 0.0115) }));
-    else if (rel) for (const x of [-0.021, 0.021]) it.push({ m: M, g: tb([[x, 0.002, 0], [x, -0.008, 0.045], [x, -0.03, 0.075], [x, -0.052, 0.078]], 0.0245) });
-    else if (!mitt) lens.forEach((len, i) => it.push({ m: M, g: tb([[xs[i] * 1.0, 0, 0], [xs[i] * 1.05, 0, len * 0.5], [xs[i] * 1.1, 0, len]], 0.0115) }));
-    else { it.push({ m: M, g: TLXL.loft([sec(0.0, 0.05, 0.018), sec(0.05, 0.052, 0.018), sec(0.1, 0.044, 0.016)], { axis: "z", roundTop: 0.02, seg: 10 }) }); }
-    if (kind.indexOf("open") === 0) it.push({ m: M, g: tb([[0.05, -0.008, -0.07], [0.078, -0.008, -0.03], [0.083, -0.006, 0.014]], 0.0185) });
-    else if (fist) it.push({ m: M, g: tb([[-sx * 0.04, 0.02, -0.05], [-sx * 0.049, 0.036, -0.01], [-sx * 0.05, 0.046, 0.03]], mitt ? 0.021 : 0.0175) });
-    else it.push({ m: M, g: tb([[-sx * 0.036, -0.004, -0.06], [-sx * 0.052, -0.012, -0.02], [-sx * 0.054, -0.024, 0.02]], mitt ? 0.021 : 0.0175) });
+    else if (fist) for (const x of [-0.023, 0.023]) { const rr = 0.04, pts = []; for (let j = 0; j <= 5; j++) { const a = -1.15 + j * 0.62; pts.push([x, rr * Math.cos(a), rr * Math.sin(a)]); } it.push({ m: M, g: tb(pts, 0.026) }); }
+    else if (rel && !mitt) lens.forEach((len, i) => it.push({ m: M, g: tb([[xs[i], 0.002, 0], [xs[i], -0.004, len * 0.4], [xs[i], -0.02, len * 0.75], [xs[i], -0.046, len * 0.9], [xs[i], -0.062, len * 0.78]], fr) }));
+    else if (rel) for (const x of [-0.023, 0.023]) it.push({ m: M, g: tb([[x, 0.002, 0], [x, -0.008, 0.045], [x, -0.03, 0.075], [x, -0.056, 0.074]], 0.026) });
+    else if (!mitt) lens.forEach((len, i) => it.push({ m: M, g: tb([[xs[i], 0, 0], [xs[i] * 1.05, 0, len * 0.5], [xs[i] * 1.1, 0, len]], fr) }));
+    else { it.push({ m: M, g: TLXL.loft([sec(0.0, 0.052, 0.02), sec(0.05, 0.054, 0.02), sec(0.1, 0.046, 0.018)], { axis: "z", roundTop: 0.02, seg: 10 }) }); }
+    if (kind.indexOf("open") === 0) it.push({ m: M, g: tb([[0.05, -0.008, -0.07], [0.078, -0.008, -0.03], [0.083, -0.006, 0.014]], 0.0195) });
+    else if (fist) it.push({ m: M, g: tb([[-sx * 0.04, 0.02, -0.05], [-sx * 0.049, 0.036, -0.01], [-sx * 0.05, 0.046, 0.03]], mitt ? 0.022 : 0.0185) });
+    else it.push({ m: M, g: tb([[-sx * 0.038, -0.004, -0.06], [-sx * 0.056, -0.012, -0.02], [-sx * 0.058, -0.026, 0.024]], mitt ? 0.022 : 0.0185) });
     return it;
   };
 
   /* ---------------- boots ---------------- */
+  // a snowmobile boot: lugged 3 cm sole with a heel step, a blunt toe box with a rubber rand, a laced tongue panel and a padded shaft to mid-calf
+  // (the trouser gaiter drapes over its top). origin: sole under the ankle axis, +z the toe; ankH = the ankle axis above the sole.
   F.boot = function (K, kind, ankH) {
-    const arc = kind === "arctic", up = arc ? K.bootA : K.boot, w = arc ? 1.1 : 1, wx = arc ? 1.0 : 0.88, it = [], lite = L(), sec = (z, rx, rz, cz) => S(z, rx * wx, rz * w, cz);
-    const foot = [sec(-0.105, 0.047, 0.045, 0.06), sec(-0.07, 0.06, 0.062, 0.066), sec(0.0, 0.062, 0.05, 0.062), sec(0.08, 0.058, 0.046, 0.06), sec(0.15, 0.054, 0.04, 0.054), sec(0.21, 0.04, 0.03, 0.047), sec(0.235, 0.022, 0.02, 0.042)];
-    foot.forEach(s => s.n = 2.6);
-    it.push({ m: up, g: TLXL.loft(foot, { axis: "z", seg: lite ? 10 : 16, roundBottom: 0.012, roundTop: 0.01 }) });
-    const top = ankH + (arc ? 0.1 : 0.045);
-    it.push({ m: up, g: TLXL.loft([S(0.05, 0.068 * wx, 0.082 * w, -0.004), S(ankH, 0.067 * wx, 0.077 * w, -0.006), S(top, 0.07 * wx, 0.079 * w, -0.006)], { uv: [0, 0, 1, 1], seg: lite ? 10 : 16, cap: "t" }) });
-    it.push({ m: K.sole, g: TLXL.loft([S(-0.108, 0.05 * w, 0.019, 0.019, 3), S(-0.08, 0.061 * w, 0.019, 0.019, 3), S(0.0, 0.064 * w, 0.019, 0.019, 3), S(0.12, 0.06 * w, 0.019, 0.019, 3), S(0.19, 0.054 * w, 0.019, 0.019, 3), S(0.232, 0.04 * w, 0.019, 0.019, 3)], { axis: "z", seg: lite ? 10 : 16, roundBottom: 0.012, roundTop: 0.012, uv: [0, 0, 1, 1] }) });
-    it.push({ m: K.sole, g: TLXL.xf(TLXL.rbox(0.1 * w, 0.034, 0.07, 0.012, 2), { y: 0.017, z: -0.07 }) });                                             // heel step
-    it.push({ m: K.sole, g: TLXL.loft(foot.slice(4).map(s => Object.assign({}, s)), { axis: "z", a0: -1.6, a1: 1.6, inflate: 0.005, seg: 8, roundTop: 0.01, uv: [0.3, 0, 0.7, 0.2] }) });      // toe cap
+    const arc = kind === "arctic", up = arc ? K.bootB : K.bootA, w = arc ? 1.1 : 1, wx = arc ? 1.0 : 0.94, it = [], lite = L(), sec = (z, rx, rz, cz) => S(z, rx * wx, rz * w, cz);
+    const foot = [sec(-0.108, 0.044, 0.042, 0.072), sec(-0.075, 0.058, 0.054, 0.082), sec(-0.02, 0.064, 0.05, 0.088), sec(0.05, 0.065, 0.042, 0.081), sec(0.12, 0.064, 0.038, 0.073), sec(0.185, 0.056, 0.036, 0.068), sec(0.225, 0.04, 0.033, 0.064), sec(0.248, 0.018, 0.026, 0.06)];
+    foot.forEach(s => s.n = 2.5);
+    it.push({ m: up, g: TLXL.loft(foot, { axis: "z", seg: lite ? 10 : 16, roundBottom: 0.01, roundTop: 0.012, uv: [0, 0.2, 1, 1] }) });
+    // sole: 3.8 cm at the heel, thinner under the arch, lugs from the stamped tread map
+    const so = (z, rx, h) => S(z, rx * w, h / 2, h / 2, 3);
+    it.push({ m: K.sole, g: TLXL.loft([so(-0.112, 0.048, 0.038), so(-0.085, 0.062, 0.038), so(-0.04, 0.066, 0.036), so(0.0, 0.066, 0.026), so(0.06, 0.068, 0.028), so(0.12, 0.068, 0.034), so(0.19, 0.06, 0.036), so(0.238, 0.04, 0.034)], { axis: "z", seg: lite ? 10 : 16, roundBottom: 0.014, roundTop: 0.016, uv: [0, 0, 1, 1] }) });
+    it.push({ m: K.sole, g: TLXL.loft(foot.slice(0, 7).map(s => Object.assign({}, s)), { axis: "z", a0: PI - 0.9, a1: PI + 0.9, inflate: 0.004, seg: 8, roundTop: 0.0, uv: [0.3, 0.1, 0.7, 0.3] }) });     // rubber rand round the lower foot
+    it.push({ m: K.sole, g: TLXL.loft(foot.slice(5).map(s => Object.assign({}, s)), { axis: "z", a0: -1.5, a1: 1.5, inflate: 0.004, seg: 8, roundTop: 0.012, uv: [0.3, 0.2, 0.7, 0.3] }) });    // toe cap
+    // shaft: from the foot up past the ankle axis to mid-calf
+    const top = ankH + (arc ? 0.115 : 0.04), y0 = 0.08, sh = [S(y0, 0.066 * wx, 0.082 * w, -0.012), S(ankH - 0.02, 0.067 * wx, 0.078 * w, -0.008), S(ankH + 0.03, 0.069 * wx, 0.078 * w, -0.004), S(top, 0.072 * wx, 0.081 * w, -0.002)];
+    it.push({ m: up, g: TLXL.loft(sh, { seg: lite ? 10 : 16, uv: [0, 0.4, 1, 1], cap: "t" }) });
+    it.push({ m: K.boot, g: TLXL.loft([S(top - 0.03, 0.074 * wx, 0.083 * w, -0.002), S(top - 0.012, 0.079 * wx, 0.089 * w, -0.002), S(top + 0.004, 0.077 * wx, 0.087 * w, -0.002)], { seg: lite ? 10 : 14, uv: [0, 0, 2, 1], roundTop: 0.006 }) });   // padded collar
+    // laced tongue panel up the instep and shaft, laces across it, a strap with a buckle round the shaft
+    const lace = foot.slice(1, 5).map(s => Object.assign({}, s));
+    it.push({ m: K.boot, g: TLXL.loft(lace, { axis: "z", a0: -0.5, a1: 0.5, inflate: 0.005, seg: 5, uv: [0.4, 0.5, 0.6, 0.7] }) });
+    it.push({ m: K.boot, g: TLXL.loft([S(0.1, 0.066 * wx, 0.082 * w, -0.012), S(ankH + 0.03, 0.069 * wx, 0.079 * w, -0.004), S(top - 0.01, 0.072 * wx, 0.082 * w, -0.002)], { a0: -0.5, a1: 0.5, inflate: 0.005, seg: 5, uv: [0.4, 0.5, 0.6, 0.7] }) });
     if (!lite) {
-      it.push({ m: K.dark, g: TLXL.loft(foot.slice(1, 4).map(s => Object.assign({}, s)), { axis: "z", a0: -0.42, a1: 0.42, inflate: 0.006, seg: 5, uv: [0.4, 0.2, 0.6, 0.4] }) });   // lace panel
-      for (let i = 0; i < 5; i++) { const z = -0.015 + i * 0.026; it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.07 * w, 0.005, 0.008, 0.002, 1), { y: 0.104 - Math.max(0, z) * 0.12 + 0.008, z, rx: -0.1 }) }); }
-      it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.04 * w, 0.03, 0.012, 0.005, 1), { y: ankH * 0.8, z: -0.082 }) });                                  // heel pull tab
+      for (let i = 0; i < 6; i++) { const t = i / 5, z = 0.11 - t * 0.14, yy = 0.118 - t * 0.0 + 0; if (z > -0.03) it.push({ m: K.eye, g: TLXL.xf(TLXL.rbox(0.062 * wx, 0.007, 0.007, 0.0025, 1), { y: 0.1 + (0.11 - z) * 0.1 - (z > 0.03 ? (z - 0.03) * 0.2 : 0), z, rx: -0.2 }) }); }
+      for (let i = 0; i < 3; i++) { const yy = ankH + 0.03 + i * 0.03; if (yy < top - 0.01) it.push({ m: K.eye, g: TLXL.xf(TLXL.rbox(0.062 * wx, 0.007, 0.007, 0.0025, 1), { y: yy, z: 0.078 * w - 0.005 }) }); }
+      it.push({ m: K.boot, g: TLXL.loft([S(ankH - 0.045, 0.0715 * wx, 0.083 * w, -0.008), S(ankH - 0.025, 0.0715 * wx, 0.083 * w, -0.008)], { seg: lite ? 10 : 14, uv: [0, 0, 1, 0.1] }) });          // strap round the shaft
+      it.push({ m: K.eye, g: TLXL.xf(TLXL.rbox(0.03, 0.026, 0.01, 0.003), { x: 0.0, y: ankH - 0.035, z: 0.078 * w + 0.001 }) });
+      it.push({ m: K.boot, g: TLXL.xf(TLXL.rbox(0.04 * wx, 0.034, 0.012, 0.005, 1), { y: ankH * 0.75 + 0.03, z: -0.092 * w, rx: 0.1 }) });                                                       // heel pull tab
     }
     return it;
   };
 
   /* ---------------- heads ---------------- */
   // head-centre origin, +z the way the face points. Crown at +0.115, chin at -0.118, face front about +0.105.
+  const nose = (K, it) => {
+    const E = TLXL.ell, X = TLXL.xf;
+    it.push({ m: K.skin, g: X(E(0.0075, 0.026, 0.017), { y: 0.006, z: 0.096, rx: 0.18 }) });                           // bridge
+    it.push({ m: K.skin, g: X(E(0.0105, 0.0095, 0.012), { y: -0.026, z: 0.106 }) });                                  // tip
+    for (const s of [-1, 1]) it.push({ m: K.skin, g: X(E(0.0065, 0.008, 0.008), { x: s * 0.0095, y: -0.03, z: 0.1 }) });  // wings
+    it.push({ m: K.blush, g: X(new T.CircleGeometry(0.0105, 10), { y: -0.027, z: 0.1175, rx: -0.2 }) });             // cold-red tip
+  };
   F.face = function (K, o) {
-    o = o || {}; const it = [], lite = L(), E = TLXL.ell;
-    it.push({ m: K.skin, g: TLXL.loft([S(-0.108, 0.018, 0.028, 0.062), S(-0.092, 0.042, 0.05, 0.05), S(-0.065, 0.062, 0.075, 0.028), S(-0.028, 0.074, 0.092, 0.008), S(0.01, 0.076, 0.096, 0), S(0.06, 0.075, 0.095, -0.003), S(0.095, 0.066, 0.086, -0.01), S(0.115, 0.04, 0.06, -0.012)], { roundTop: 0.018, seg: lite ? 12 : 20, uv: [0, 0, 1, 1] }) });
-    it.push({ m: K.skin, g: TLXL.xf(E(0.0135, 0.026, 0.03), { y: -0.026, z: 0.1, rx: 0.35 }) });                                   // nose
-    it.push({ m: K.skin, g: TLXL.xf(E(0.062, 0.013, 0.022), { y: 0.034, z: 0.083 }) });                                           // brow
-    for (const s of [-1, 1]) { it.push({ m: K.skin, g: TLXL.xf(E(0.022, 0.017, 0.024), { x: s * 0.05, y: -0.025, z: 0.068 }) }); it.push({ m: K.skin, g: TLXL.xf(E(0.008, 0.03, 0.02), { x: s * 0.077, y: -0.012, z: -0.006, rz: s * 0.12 }) }); }   // cheeks, ears
+    o = o || {}; const it = [], lite = L(), E = TLXL.ell, X = TLXL.xf;
+    it.push({ m: K.skin, g: TLXL.loft([S(-0.118, 0.016, 0.026, 0.06), S(-0.108, 0.034, 0.04, 0.052), S(-0.088, 0.054, 0.06, 0.036), S(-0.062, 0.066, 0.08, 0.02), S(-0.028, 0.075, 0.092, 0.006), S(0.01, 0.076, 0.096, 0), S(0.06, 0.075, 0.095, -0.003), S(0.095, 0.066, 0.086, -0.01), S(0.115, 0.04, 0.06, -0.012)], { roundTop: 0.018, seg: lite ? 10 : 16, uv: [0, 0, 1, 1] }) });
+    nose(K, it);
+    it.push({ m: K.skin, g: X(E(0.062, 0.013, 0.022), { y: 0.034, z: 0.083 }) });                                           // brow
+    it.push({ m: K.skin, g: X(E(0.027, 0.021, 0.022), { y: -0.094, z: 0.062 }) });                                          // chin
+    for (const s of [-1, 1]) {
+      it.push({ m: K.skin, g: X(E(0.023, 0.018, 0.024), { x: s * 0.05, y: -0.027, z: 0.068 }) });                             // cheeks
+      it.push({ m: K.skin, g: X(E(0.008, 0.03, 0.02), { x: s * 0.077, y: -0.012, z: -0.006, rz: s * 0.12 }) });             // ears
+      it.push({ m: K.blush, g: X(new T.CircleGeometry(0.02, 12), { x: s * 0.052, y: -0.03, z: 0.087, ry: s * 0.5, rx: -0.12 }) });    // cheek flush
+    }
     if (o.features !== false) {
       for (const s of [-1, 1]) {
-        it.push({ m: K.eye, g: TLXL.xf(E(0.0105, 0.0075, 0.008), { x: s * 0.032, y: 0.016, z: 0.087 }) }); it.push({ m: K.feat, g: TLXL.xf(E(0.0052, 0.0052, 0.004), { x: s * 0.032, y: 0.016, z: 0.0945 }) });
-        it.push({ m: K.feat, g: TLXL.xf(E(0.022, 0.004, 0.007), { x: s * 0.034, y: 0.037, z: 0.091, rz: s * -0.15 }) });
+        it.push({ m: K.eye, g: X(E(0.0105, 0.0075, 0.008), { x: s * 0.032, y: 0.016, z: 0.087 }) }); it.push({ m: K.feat, g: X(E(0.0052, 0.0052, 0.004), { x: s * 0.032, y: 0.016, z: 0.0945 }) });
+        it.push({ m: K.feat, g: X(E(0.022, 0.004, 0.007), { x: s * 0.034, y: 0.037, z: 0.091, rz: s * -0.15 }) });
       }
-      it.push({ m: K.feat, g: TLXL.tube([[-0.024, -0.063, 0.082], [0, -0.067, 0.092], [0.024, -0.063, 0.082]], 0.0042, { n: 6, seg: 4 }) });    // mouth line
+      it.push({ m: K.lip, g: X(E(0.021, 0.0055, 0.008), { y: -0.062, z: 0.088 }) });                                         // lips
+      it.push({ m: K.lip, g: X(E(0.018, 0.0065, 0.0085), { y: -0.0725, z: 0.0865 }) });
+      it.push({ m: K.feat, g: X(E(0.0185, 0.0014, 0.004), { y: -0.0672, z: 0.092 }) });
     }
     return it;
+  };
+  F.neckWarmer = function (K) {                       // a knit neck warmer under the chin, pulled up over it
+    return [{ m: K.mask, g: TLXL.loft([S(-0.19, 0.074, 0.084, -0.004), S(-0.15, 0.078, 0.09, 0.0), S(-0.115, 0.078, 0.095, 0.01), S(-0.092, 0.074, 0.098, 0.018), S(-0.082, 0.066, 0.09, 0.02)], { seg: L() ? 12 : 18, uv: [0, 0, 2, 1], roundTop: 0.006, mod: fold(-0.13, 0.03, 0.035, 0, 90, 0) }) }];
   };
   F.liner = function (K) {                           // the dark inside of a helmet: nothing of the face shows through the visor
     return [{ m: K.dark, g: TLXL.loft([S(-0.118, 0.018, 0.028, 0.062), S(-0.1, 0.04, 0.048, 0.05), S(-0.07, 0.06, 0.073, 0.028), S(-0.03, 0.072, 0.09, 0.008), S(0.01, 0.074, 0.094, 0), S(0.06, 0.073, 0.093, -0.003), S(0.095, 0.064, 0.084, -0.01), S(0.115, 0.04, 0.06, -0.012)], { roundTop: 0.018, seg: L() ? 10 : 14 }) }];
   };
+  const hs = (y, rx, rz, cz) => S(y, rx, rz, cz === undefined ? -0.014 : cz);
+  // full-face shell: crown, a band round the back and sides, chin bar and cheeks, an eye port with a curved tinted visor behind a rim, a peak, a vent, a dark neck roll
   F.helmet = function (K) {
-    const lite = L(), it = [], vis = [], sg = lite ? 12 : 18, pk = (y, rx, rz, cz) => S(y, rx, rz, cz);
-    const dome = [pk(-0.05, 0.099, 0.122, -0.012), pk(0.0, 0.104, 0.126, -0.014), pk(0.06, 0.1, 0.122, -0.012), pk(0.105, 0.082, 0.104, -0.01), pk(0.135, 0.052, 0.072, -0.008)];
-    it.push({ m: K.helmet, g: TLXL.loft(dome, { seg: sg, roundTop: 0.016, uv: [0, 0, 1, 1] }) });
-    it.push({ m: K.helmet, g: TLXL.loft([pk(-0.112, 0.07, 0.092, -0.014), pk(-0.085, 0.088, 0.112, -0.014), pk(-0.05, 0.099, 0.122, -0.012)], { seg: sg, a0: 0.55, a1: TAU - 0.55, uv: [0, 0, 1, 1] }) });          // cheeks and neck roll
-    it.push({ m: K.helmet, g: TLXL.loft([pk(-0.128, 0.04, 0.06, 0.082), pk(-0.105, 0.07, 0.092, 0.05), pk(-0.075, 0.088, 0.115, 0.012), pk(-0.045, 0.098, 0.124, -0.008)], { seg: 10, a0: -0.95, a1: 0.95, uv: [0, 0, 1, 1] }) });   // chin bar
-    it.push({ m: K.trim, g: TLXL.loft(dome.concat([pk(0.151, 0.02, 0.03, -0.006)]), { seg: 2, a0: -0.13, a1: 0.13, inflate: 0.004, uv: [0.2, 0, 0.8, 1] }) });
-    it.push({ m: K.trim, g: TLXL.loft(dome.concat([pk(0.151, 0.02, 0.03, -0.006)]), { seg: 2, a0: PI - 0.13, a1: PI + 0.13, inflate: 0.004, uv: [0.2, 0, 0.8, 1] }) });
-    vis.push({ m: K.visor, g: TLXL.loft([pk(-0.042, 0.1065, 0.1295, -0.014), pk(0.0, 0.1085, 0.1305, -0.014), pk(0.045, 0.1075, 0.1285, -0.013), pk(0.082, 0.1, 0.12, -0.012)], { seg: 12, a0: -1.2, a1: 1.2, uv: [0, 0, 1, 1] }) });
-    for (const y of [-0.052, 0.082]) it.push({ m: K.dark, g: TLXL.loft([pk(y - 0.007, 0.104, 0.1285, -0.014), pk(y + 0.007, 0.104, 0.1285, -0.014)], { seg: 10, a0: -1.3, a1: 1.3, inflate: 0.003, uv: [0, 0, 1, 0.1] }) });   // visor frame
-    it.push({ m: K.helmet, g: TLXL.xf(TLXL.rbox(0.15, 0.008, 0.06, 0.004), { y: 0.104, z: 0.108, rx: -0.22 }) });                                                                              // peak
+    const lite = L(), it = [], vis = [], sg = lite ? 14 : 22, H = K.helmet, E = 1.16, X = TLXL.xf;
+    const col = (y0, y1, n) => { const o = []; for (let i = 0; i <= n; i++) { const y = y0 + (y1 - y0) * i / n; o.push(hs(y, 0.105 - Math.max(0, y - 0.05) * 0.5 - Math.max(0, -0.05 - y) * 0.48, 0.128 - Math.max(0, y - 0.05) * 0.58 - Math.max(0, -0.05 - y) * 0.6)); } return o; };
+    it.push({ m: H, g: TLXL.loft(col(0.045, 0.1, 3).concat([hs(0.12, 0.074, 0.098), hs(0.138, 0.044, 0.066)]), { seg: sg, roundTop: 0.014, uv: [0, 0.5, 1, 1] }) });                                          // crown
+    it.push({ m: H, g: TLXL.loft(col(-0.036, 0.047, 3), { seg: sg, a0: E, a1: TAU - E, uv: [0, 0.3, 1, 0.5] }) });                                                                                 // band round the back and sides
+    it.push({ m: H, g: TLXL.loft(col(-0.118, -0.034, 3), { seg: sg, uv: [0, 0, 1, 0.3] }) });                                                                                                      // cheeks and lower shell
+    it.push({ m: H, g: TLXL.loft([hs(-0.134, 0.036, 0.05, 0.074), hs(-0.112, 0.064, 0.08, 0.05), hs(-0.082, 0.086, 0.108, 0.016), hs(-0.05, 0.1, 0.126, -0.004), hs(-0.034, 0.103, 0.13)], { seg: 12, a0: -1.0, a1: 1.0, inflate: 0.003, uv: [0, 0, 1, 0.3] }) });     // chin bar
+    it.push({ m: K.dark, g: TLXL.loft(col(-0.136, -0.092, 2), { seg: sg, inflate: 0.004, uv: [0, 0, 2, 0.1], a0: 0.9, a1: TAU - 0.9 }) });                                                         // neck roll, dark
+    // graphics in the trim colour: a crown stripe and a swoosh down each side
+    it.push({ m: K.trim, g: TLXL.loft(col(0.045, 0.1, 3).concat([hs(0.12, 0.074, 0.098), hs(0.138, 0.044, 0.066)]), { seg: 2, a0: -0.12, a1: 0.12, inflate: 0.004, roundTop: 0.014, uv: [0.2, 0, 0.8, 1] }) });
+    it.push({ m: K.trim, g: TLXL.loft(col(0.045, 0.1, 3).concat([hs(0.12, 0.074, 0.098), hs(0.138, 0.044, 0.066)]), { seg: 2, a0: PI - 0.12, a1: PI + 0.12, inflate: 0.004, roundTop: 0.014, uv: [0.2, 0, 0.8, 1] }) });
+    for (const s of [-1, 1]) it.push({ m: K.trim, g: TLXL.loft(col(0.0, 0.1, 4), { seg: 3, a0: s * PI / 2 - 0.2, a1: s * PI / 2 + 0.2, inflate: 0.004, uv: [0.2, 0.3, 0.4, 0.5] }) });
+    // eye port rim and the tinted curved visor behind it
+    it.push({ m: K.dark, g: TLXL.loft(col(0.043, 0.054, 1), { seg: 12, a0: -E - 0.06, a1: E + 0.06, inflate: 0.005, uv: [0, 0, 1, 0.1] }) });
+    it.push({ m: K.dark, g: TLXL.loft(col(-0.04, -0.03, 1), { seg: 12, a0: -E - 0.06, a1: E + 0.06, inflate: 0.005, uv: [0, 0, 1, 0.1] }) });
+    for (const s of [-1, 1]) it.push({ m: K.dark, g: TLXL.loft(col(-0.036, 0.047, 2), { seg: 2, a0: s * E - 0.05, a1: s * E + 0.05, inflate: 0.005, uv: [0, 0, 0.1, 1] }) });
+    vis.push({ m: K.visor, g: TLXL.loft(col(-0.036, 0.047, 3), { seg: 14, a0: -E - 0.03, a1: E + 0.03, inflate: 0.0035, uv: [0, 0, 1, 1] }) });
+    it.push({ m: H, g: TLXL.loft([hs(0.05, 0.108, 0.128), hs(0.062, 0.12, 0.158), hs(0.07, 0.118, 0.162), hs(0.066, 0.112, 0.15)], { seg: 10, a0: -1.05, a1: 1.05, uv: [0.2, 0.5, 0.8, 0.6] }) });                    // peak
+    it.push({ m: K.dark, g: TLXL.loft([hs(-0.1, 0.07, 0.092, 0.03), hs(-0.088, 0.078, 0.102, 0.02), hs(-0.078, 0.084, 0.11, 0.01)], { seg: 4, a0: -0.3, a1: 0.3, inflate: 0.005, uv: [0, 0, 1, 1] }) });     // chin-bar vent
     if (!lite) {
+      for (let i = 0; i < 4; i++) it.push({ m: K.helmet, g: X(TLXL.rbox(0.05, 0.003, 0.006, 0.0012, 1), { y: -0.088 - i * 0.006 + 0.006, z: 0.118 - i * 0.008 + 0.004, rx: 0.55 }) });
       for (const s of [-1, 1]) {
-        it.push({ m: K.dark, g: TLXL.xf(TLXL.ell(0.011, 0.011, 0.007), { x: s * 0.108, y: 0.02, z: 0.0 }) });                                                                                // visor pivot
-        for (let i = 0; i < 3; i++) it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.022, 0.004, 0.006, 0.0015, 1), { x: s * 0.03, y: -0.094 - i * 0.008, z: 0.1 - i * 0.016, rx: 0.5 }) });             // chin vents
-        it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.012, 0.006, 0.05, 0.003, 1), { x: s * 0.03, y: 0.14, z: 0.03, rx: 0.5 }) });
+        it.push({ m: K.dark, g: X(TLXL.ell(0.012, 0.012, 0.007), { x: s * 0.1, y: 0.006, z: 0.0 }) });                                                                                       // visor pivot
+        for (let i = 0; i < 2; i++) it.push({ m: K.dark, g: X(TLXL.rbox(0.012, 0.004, 0.05, 0.0015, 1), { x: s * (0.018 + i * 0.016), y: 0.132 - i * 0.004, z: 0.025, rx: 0.5 }) });          // crown vents
       }
-      it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.05, 0.008, 0.012, 0.003, 1), { y: -0.13, z: 0.07, rx: -0.4 }) });                                                                       // breath guard
+      it.push({ m: K.dark, g: X(TLXL.rbox(0.048, 0.016, 0.012, 0.004), { y: -0.125, z: 0.075, rx: -0.4 }) });                                                                       // breath guard
     }
     return { shell: it, visor: vis };
   };
-  F.goggles = function (K) {
-    const lite = L(), it = [], lens = [], p = (y, rx, rz, cz) => S(y, rx, rz, cz);
-    lens.push({ m: K.gog, g: TLXL.loft([p(-0.004, 0.0955, 0.1155, -0.011), p(0.026, 0.0975, 0.1185, -0.011), p(0.056, 0.0955, 0.1155, -0.011)], { seg: 12, a0: -1.0, a1: 1.0, uv: [0, 0, 1, 1] }) });
-    for (const y of [-0.01, 0.062]) it.push({ m: K.dark, g: TLXL.loft([p(y - 0.0055, 0.095, 0.1145, -0.011), p(y + 0.0055, 0.095, 0.1145, -0.011)], { seg: 10, a0: -1.1, a1: 1.1, inflate: 0.004, uv: [0, 0, 1, 0.1] }) });
-    for (const s of [-1, 1]) it.push({ m: K.dark, g: TLXL.loft([p(-0.0055, 0.095, 0.1145, -0.011), p(0.058, 0.095, 0.1145, -0.011)], { seg: 3, a0: s * 1.0 - 0.06, a1: s * 1.0 + 0.06, inflate: 0.004, uv: [0, 0, 0.1, 1] }) });
-    it.push({ m: K.dark, g: TLXL.loft([p(0.004, 0.098, 0.118, -0.011), p(0.05, 0.098, 0.118, -0.011)], { seg: lite ? 14 : 22, a0: 1.05, a1: TAU - 1.05, inflate: 0.004, uv: [0, 0, 1, 1] }) });   // strap round the head
-    it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.03, 0.026, 0.02, 0.008), { y: 0.0, z: 0.11 }) });                                                                                 // nose bridge
+  // goggles: a curved one-piece lens in a foam-backed frame with vents, on a wide strap round the hat. kit: 'beanie' or 'mask'
+  F.goggles = function (K, kit) {
+    const lite = L(), it = [], lens = [], mask = kit === "mask", r = mask ? 0 : 0.007, p = (y, rx, rz, cz) => S(y, rx + r, rz + r, cz === undefined ? -0.011 : cz), E = 1.15;
+    lens.push({ m: K.gog, g: TLXL.loft([p(-0.004, 0.113, 0.134), p(0.014, 0.117, 0.139), p(0.034, 0.118, 0.14), p(0.054, 0.114, 0.135)], { seg: 14, a0: -E + 0.06, a1: E - 0.06, uv: [0, 0, 1, 1] }) });
+    it.push({ m: K.foam, g: TLXL.loft([p(-0.02, 0.1, 0.12), p(0.0, 0.104, 0.126), p(0.044, 0.106, 0.128), p(0.07, 0.1, 0.12)], { seg: 14, a0: -E, a1: E, uv: [0, 0, 2, 1] }) });                      // foam backing
+    for (const y of [-0.012, 0.062]) it.push({ m: K.dark, g: TLXL.loft([p(y - 0.0065, 0.114, 0.136), p(y + 0.0065, 0.114, 0.136)], { seg: 14, a0: -E - 0.02, a1: E + 0.02, uv: [0, 0, 1, 0.1] }) });
+    for (const s of [-1, 1]) it.push({ m: K.dark, g: TLXL.loft([p(-0.012, 0.114, 0.136), p(0.03, 0.118, 0.14), p(0.062, 0.114, 0.136)], { seg: 3, a0: s * E - 0.06, a1: s * E + 0.06, uv: [0, 0, 0.1, 1] }) });
+    const sr = mask ? [0.087, 0.105] : [0.095, 0.115];
+    it.push({ m: K.dark, g: TLXL.loft([S(0.004, sr[0] + 0.004, sr[1] + 0.004, -0.012), S(0.056, sr[0] + 0.004, sr[1] + 0.004, -0.012)], { seg: lite ? 14 : 22, a0: E + 0.1, a1: TAU - E - 0.1, uv: [0, 0, 1, 1] }) });   // wide strap round the hat
+    it.push({ m: K.dark, g: TLXL.xf(TLXL.rbox(0.032, 0.03, 0.02, 0.008), { y: 0.012, z: 0.123 }) });                                                                   // nose cut-out and bridge
+    if (!lite) for (let i = -2; i <= 2; i++) { const a = i * 0.34; it.push({ m: K.foam, g: TLXL.xf(TLXL.rbox(0.018, 0.004, 0.006, 0.0015, 1), { x: Math.sin(a) * 0.12, y: 0.063, z: -0.011 + Math.cos(a) * 0.142, ry: a }) }); }   // vents
     return { frame: it, lens };
   };
   F.beanie = function (K) {
     const lite = L(), p = (y, rx, rz, cz) => S(y, rx, rz, cz), it = [];
-    it.push({ m: K.beanie, g: TLXL.loft([p(0.01, 0.089, 0.106, -0.012), p(0.026, 0.093, 0.11, -0.012), p(0.045, 0.09, 0.106, -0.012), p(0.08, 0.084, 0.101, -0.012), p(0.115, 0.07, 0.088, -0.012), p(0.135, 0.04, 0.056, -0.012)], { seg: lite ? 14 : 22, roundTop: 0.016, uv: [0, 0, 2, 2] }) });
+    it.push({ m: K.beanie, g: TLXL.loft([p(0.01, 0.091, 0.108, -0.012), p(0.026, 0.096, 0.113, -0.012), p(0.04, 0.094, 0.11, -0.012), p(0.045, 0.09, 0.106, -0.012), p(0.08, 0.085, 0.102, -0.012), p(0.115, 0.07, 0.088, -0.012), p(0.135, 0.04, 0.056, -0.012)], { seg: lite ? 14 : 22, roundTop: 0.016, uv: [0, 0, 2, 2] }) });
     it.push({ m: K.beanie, g: TLXL.xf(TLXL.ell(0.034, 0.03, 0.034), { y: 0.165, z: -0.012 }) });
     return it;
   };
   F.balaclava = function (K) {
     const lite = L(), p = (y, rx, rz, cz) => S(y, rx, rz, cz), it = [];
     it.push({ m: K.mask, g: TLXL.loft([p(-0.15, 0.06, 0.066, -0.01), p(-0.118, 0.052, 0.062, 0.03), p(-0.09, 0.068, 0.088, 0.03), p(-0.05, 0.08, 0.1, 0.006), p(0.01, 0.083, 0.102, -0.002), p(0.06, 0.081, 0.1, -0.004), p(0.095, 0.072, 0.09, -0.01), p(0.118, 0.045, 0.062, -0.012)], { seg: lite ? 14 : 22, roundTop: 0.02, uv: [0, 0, 2, 2] }) });
-    it.push({ m: K.mask, g: TLXL.xf(TLXL.ell(0.015, 0.026, 0.03), { y: -0.028, z: 0.1, rx: 0.35 }) });
+    it.push({ m: K.mask, g: TLXL.xf(TLXL.ell(0.011, 0.026, 0.026), { y: -0.026, z: 0.099, rx: 0.3 }) });
     return it;
   };
 })();
