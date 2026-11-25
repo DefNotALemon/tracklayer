@@ -1265,7 +1265,7 @@ function gDiag(sl, L, u, P, gait) {
     const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), sc2 = sl.sc, ank = (SKI.ank * sc2 + SKI.skiT) / sc2, hipT = 0.88;
     for (let i = 0; i < 2; i++) {
       const f = P.f[i], lz = ((f.x - P.x) * fx + (f.z - P.z) * fz) / sc2, dx = 0.015;
-      const need = hipT - Math.sqrt(Math.max(0.04, 0.8 * 0.8 - dx * dx - lz * lz)) - ank;                   // how high this ankle must be for the leg to reach the hip
+      const need = hipT - Math.sqrt(Math.max(0.04, 0.8 * 0.8 - dx * dx - lz * lz)) - ank - 0.05;                   // how high this ankle must be for the leg to reach the hip
       if (need > f.lift / sc2) { const e = Math.min(need, 0.17); f.lift = e * sc2 * 0.55; f.tip = -Math.asin(Math.min(0.3, e / 0.95)); }
     }
   }
