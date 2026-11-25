@@ -14,7 +14,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 | # | Part | State |
 |---|---|---|
 | R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265, reworked v267 (24 Nov 2026) |
-| R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | after R1 |
+| R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | next |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
 | R5 | Vehicles and props: trucks, cars, boats, trailers, crates, fuel pumps, quay | after R4 |
@@ -126,6 +126,47 @@ snow dusting on shoulders and boots when it has been snowing.
 - Debug trick that found the hem poke-through: a `THREE.Raycaster` from the still camera through a pixel, listing hits with material colour and distance (a tie between two meshes is z-fighting or poke-through).
 - Known remaining: boots read as short and chunky; visor is opaque; slim side view; the pack is a box in profile; fingers are tubes; folds are low amplitude; the sled and everything else outside the figure is R2 onward.
 
-### R2 to R8
+### R2. The sleds
+
+Ten machines in `SLEDS` (frontier 1970, woodsman 1979, ranger 1989, sprint 1994, summit 2004, trekker 2009,
+apex 2015, matriarch 2026, aurora 2029, santa 1823), each built by `buildMachine(sd)` from `sd.shape`
+(`hoodProfile`, `SEAT_PROFILES`, `SKI_PROFILES`), then dressed by `applyLoadout` with the 22 part categories in
+`PART_ORDER`, liveries, decals (`SET.decal`), wear (`WEAR.apply`), snow on the sled, and the dash tablet.
+
+What it looked like on 24 Nov (`base/a0_sheet.jpg` tiles 06 to 09): the Frontier's hood is an extruded yellow
+slab with a flat face, a white disc for a headlight and three black bars for vents; the skis are white box
+rails on a box spindle; the track is a black block with square notches; the tunnel and running boards are flat
+plates; the seat is a black box; the bars are a tube with a box each end; the windshield is a flat sheet. Each
+era must read as its era (a 1970 bubble-nose single headlight, a 1990s wedge, a 2015 mountain sled with a
+narrow sharp hood, a 2029 electric), and as a real manufactured machine.
+
+- **Hood and belly pan**: a lofted body with crowned sides, not an extrusion with flat flanks: section changes
+  along the length, a shut line between hood and pan, a headlight bucket with a reflector, a lens and a bezel,
+  louvred vents cut in (dark recess behind slats), a hood latch each side, a badge, livery stripes that follow
+  the shape, a bumper tube round the nose on its brackets.
+- **Windshield**: curved, tinted, with a thick edge and a rubber base trim; mirrors the sky cube.
+- **Bars and controls**: bent tube bars with a riser, grips with flanges, a throttle lever, a brake lever with a
+  master cylinder, a kill switch and tether post, bar pad on the sport sleds, a gauge pod (or the dash tablet
+  where it is today: keep the tablet rules in the skill).
+- **Seat**: a moulded vinyl cushion with stitched seams, a piped edge and a grab strap, on a seat base.
+- **Tunnel and boards**: sheet aluminium with rolled edges, rivet lines, punched traction holes or serrated edge
+  rails on the boards, a rear snow flap with a logo, a tail lamp with a lens, a rear bumper/grab bar tube.
+- **Track and rear suspension**: a real belt: lugs in a pattern on the outside (per track part: trail, paddle,
+  studded), drive windows, rails, bogie or idler wheels with hubs, a rear axle with idlers, shock and torsion
+  springs visible through the side. The track must still animate (find how it moves today).
+- **Front end**: skis with a real profile (keel, carbide runner, loop handle at the tip, a saddle and bolt),
+  spindles, and the front suspension of the era: leaf springs (1970s), struts, or A-arms with coil-over shocks.
+- **Engine bay glimpse / exhaust**: an exhaust outlet, a pull-start handle, a fuel cap, a coolant cap, cables.
+- **Materials** (extend `tlx-look.js`): gel-coat or moulded plastic hood paint with a clear sheen and edge chips,
+  brushed and cast aluminium, black textured plastic, vinyl with grain and stitching, rubber, tinted
+  polycarbonate, lens glass with a fluted pattern, reflector chrome, decal sheets drawn on a canvas.
+- **Every part option must still fit and show**: racks, tanks, cans, light bars, winch, hitch, guards, shields,
+  the xc ski rack, cargo. Check each `PART_ORDER` category on at least three machines of different sizes.
+- **Santa's Sled** is wood, brass, leather and paint: carved runners, a dash rail, upholstered bench, bells,
+  harness leather. It gets the same care.
+- The rider (R1) must still sit, grip the bars and plant boots on the boards on every machine: check
+  `references/sled-geometry.md` numbers still hold, and shoot the seated rider on all ten.
+
+### R3 to R8
 
 Written by the session before each is dispatched, from a fresh still audit of that subject.
