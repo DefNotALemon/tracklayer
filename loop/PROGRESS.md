@@ -11,6 +11,13 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-24 20:31 — R1 the figure (G8) — 43ddb83
+Rebuilt every human figure (walker, seated rider, SAR casualties and pillion, drivers, staff, crash body) from one body kit in the new tlx-look.js (TLXL: canvas PBR textures, loft/rbox/tube shape helpers, per-material merge, TLXL.fig body kit). Shaped torso, neck, tapered limbs, shell jacket with collar, zip, flap, pockets, panels, hem lip and cord, reflective piping (not emissive), bib trousers with knee panels and gaiter, gloves with thumbs that close round the bars, boots with sole, welt, heel, toe cap, laces, three head kits (helmet with visor, beanie with goggles, balaclava with goggles). Shoulder joint moved 0.25 -> 0.21 (readers in tracklayer.js and tlx-lights.js updated). Same rig arrays and contracts; headKit found by name now.
+Numbers: walker 40 -> 36 draw calls, 9.5k -> 20.0k triangles; rider 45 -> 34 calls, 6.3k -> 17.0k; lighter build 30 calls, 7.1k; textures about 90 ms at load (machine calm; 400 to 700 ms when the machine was at load average 40); walker 1.95 m -> 1.81 m in the kit (game draws it at the v263 scale 0.85). Town frame (noisy, traffic varies): about 934 -> 983 calls, 2.890M -> 2.898M triangles.
+Rounds: round 0 (before), rounds 1 to 6 with a critique list each (~/.hermes/cache/scratch/tlreal/r1/roundN.md), plus low preset, 640x360, crash, first person, gait and swing checks.
+Still not right: walker arms hang straight in idle, fingers are blocks, beanie face plain, rider reach longer than the walker's, the icefish.js angler still the old box rig, everything outside the figure unchanged.
+Also: origin's v264 God-menu commit (9a3ad5c) had deleted `let godOpen...`, godGetActiveItems, godTeleport, godTick, godAny and godApply, so the game threw a ReferenceError every frame and froze (smoke hung on origin/main). Restored them verbatim from 9a3ad5c^ in this commit so the figure could be gated.
+
 ## 2026-11-24 — Village house types (script v262)
 Lemon: houses were one design. KIT.house takes an optional KIT.HT type; KIT.village deals five types (blue/red/ochre/wood/white) by position hash so neighbours differ. Per-type pitch 27-41 deg, size range, paint-scheme canvas cladding, trim/roof paint, window pattern (two/four small/one big/tall), rough stone foundation (one merged mesh), porch, garage/shed, woodpile, flagstaff, shutters, 44 cm snow, varied chimneys. Town houses unchanged; layout, doors and rnd stream unchanged. Test xH_houses.mjs; gate smoke + x1_save + xH_houses pass.
 ## 2026-11-24 — Loading screen clean-up (script v261) — 8ee1d3b
