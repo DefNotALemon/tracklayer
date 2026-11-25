@@ -10,7 +10,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 | # | Part | State |
 |---|---|---|
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
-| H1 | Ski trail network (`tlx-trails.js`) | H1a, H1b done; H1c next |
+| H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c); H2a next |
 | H2 | Gram: feed, reels, local chat (`tlx-gram.js`) | design below, after H1 |
 | H3 | Radio Nordkinn with call-ins (`tlx-radio.js`) | design below, after H2 |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
@@ -149,7 +149,7 @@ good, and the løypelag pays you by how much they are used. The old grooming con
       state; an old save loads; the app's text under keyboard, pad and touch.
 - [x] **H1b** The skiers seen: figures, gaits, the trailhead start, tracks in the snow, the pool, headlamps, the
       share-the-trail behaviour and complaints, the hail. `h1_skiers.mjs` with gait strips.
-- [ ] **H1c** Lysløypa's lamps and bill, the gapahuk rest with a fire, the ski rescue call, the wing tiller's
+- [x] **H1c** (done, script v271) Lysløypa's lamps and bill, the gapahuk rest with a fire, the ski rescue call, the wing tiller's
       skating lane, weekend crowds, a Sunday "skidag" once a month (a crowd, a waffle table at the trailhead, a
       bonus if the trail is freshly set that morning).
 

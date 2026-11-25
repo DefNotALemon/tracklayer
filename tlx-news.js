@@ -156,6 +156,28 @@ const LINES = {
     wry: [v => `${v.trail} is ${v.word}. My knees are not.`, v => `The track is ${v.word}; the rest of me is a work in progress.`, v => `${v.word}. I would tell the løypelag, but they would only be pleased.`],
     earnest: [v => `The track is ${v.word} on ${v.trail}. Good to see someone keeping it.`, v => `${v.trail} is ${v.word} today, I would say a good ski.`, v => `${v.word}, I think. A steady pace suits it.`]
   },
+  // H1c: a family at home when someone has gone down on a trail, and the thanks after; the skidag notice and what came of it
+  worry: {
+    dry: [v => `${v.name} went out on ${v.trail} and has not rung. I do not like it.`, v => `Nothing from ${v.name}. ${v.trail}. I am putting my boots on.`],
+    warm: [v => `Please, if anyone is near ${v.trail}: ${v.name} has had a fall and I am so worried.`, v => `${v.name} is out on ${v.trail} and hurt. Anyone who can, please go. Thank you.`],
+    terse: [v => `${v.name}. ${v.trail}. A fall. Need someone.`, v => `${v.name} down on ${v.trail}. Help.`],
+    chatty: [v => `So ${v.name} went skiing on ${v.trail} this afternoon, and now the løypelag says there has been a fall, and I cannot stop looking at the phone. Is anyone out that way?`, v => `${v.name} is hurt on ${v.trail}! I told them about that stretch! Is anyone near?`],
+    wry: [v => `${v.name} has gone and fallen over on ${v.trail}. It is not funny. It is a little funny. Please go and get them.`, v => `${v.name} took ${v.trail} too fast again. Somebody with a sled, please.`],
+    earnest: [v => `${v.name} has been hurt on ${v.trail}. If you are near, please help.`, v => `We have heard that ${v.name} went down on ${v.trail}. Anyone out that way, thank you.`]
+  },
+  thanks: {
+    dry: [v => `Noted, with thanks: ${v.you} brought ${v.name} in from ${v.trail}.`, v => `${v.name} is home. Thank you, ${v.you}.`],
+    warm: [v => `Thank you, ${v.you}, for bringing ${v.name} in off ${v.trail}. We will not forget it.`, v => `${v.name} is warm and safe, and that is down to ${v.you}. Thank you from all of us.`],
+    terse: [v => `${v.name} home. Thanks, ${v.you}.`, v => `Thank you for ${v.name}, ${v.you}.`],
+    chatty: [v => `${v.you} went out to ${v.trail} and carried ${v.name} back on the sled, and I could cry, and there are waffles at ours on Sunday, I mean it!`, v => `${v.name} is in the kitchen with tea, thanks to ${v.you}. Thank you thank you.`],
+    wry: [v => `${v.name} has been returned by ${v.you}, undamaged except in dignity. Thank you.`, v => `The ski came off, the knee did not, and ${v.you} fetched ${v.name}. Thank you.`],
+    earnest: [v => `Thank you, ${v.you}, for bringing ${v.name} in from ${v.trail}.`, v => `${v.you} helped ${v.name} off ${v.trail}. We are grateful.`]
+  },
+  skidag: {
+    _: [v => `Skidag on ${v.trail} ${v.when}: waffles at the trailhead from ${v.from} to ${v.to}. Come and ski!`, v => `${v.trail} has its skidag ${v.when}, waffles from ${v.from}. Bring the family.`] },
+  skidagdone: {
+    _: [v => `Skidag on ${v.trail}: ${v.n} skiers came, the track was ${v.word}, and the waffles ran out by three.`, v => `${v.n} people on ${v.trail} for the skidag. The track was ${v.word}. Good day.`]
+  },
   groom: { _: [v => `${v.trail}: ${v.km} km set ${v.when}.`] },
   trail: { _: [v => `${v.trail} is ${v.word}.`] }
 };

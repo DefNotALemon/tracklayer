@@ -2825,6 +2825,8 @@ function bigHit(pct, why) {
 }
 // listeners for the groomer drag's pass (tlx-trails.js): f(x, z, heading (yaw, rad), width m), called beside groomStamp
 const GROOMX = [];
+const CALX = [];                           // H1c: fns (day index) -> a line for the Calendar, "" for none (tlx-trails.js: the skidag)
+const WARMX = [];                          // H1c: fns (x, z) -> 0..1, how much of a fire's warmth reaches that spot (tlx-trails.js: the gapahuk fires)
 // the groomer: a flat pan levels ruts and berms, the comb leaves it set hard
 function groomStamp(x, z, fx, fz, w) {
   const lx = fz, lz = -fx, hw = w / 2, R = hw + 0.4;
@@ -8387,6 +8389,8 @@ TABLET.register({
     let pn0 = null, pn1 = null; for (let D = D0; D < D0 + N; D++) if (pnAt(D)) { if (pn0 === null) pn0 = D; pn1 = D; }
     const today = c.D, pc = D => ((D - D0) / N * 100).toFixed(2) + "%";
     const fmtD = D => { const q = CAL.day(D); return `${q.d} ${MON3[q.m]}`; };
+    const calEv = D => { for (const f of CALX) { try { const r = f(D); if (r) return r; } catch (e) { } } return ""; };
+    const upcoming = []; for (let k = 0; k < 21; k++) { const e = calEv(today + k); if (e) upcoming.push(`<div class="tfr"><span>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : DOW3[CAL.day(today + k).dow] + " " + fmtD(today + k)}</span><b>${e}</b></div>`); }
     let strip = `<div class="tstrip">`;
     if (pn0 !== null) strip += `<div class="tsg pn" style="left:${pc(pn0)};width:calc(${pc(pn1 + 1)} - ${pc(pn0)})"><span>POLAR NIGHT</span></div>`;
     strip += `<div class="tsg ml" style="left:${pc(mD)};right:0"><span>MELT</span></div>`;
@@ -8398,7 +8402,8 @@ TABLET.register({
     let grid = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => `<div class="tcw">${d}</div>`).join("") + "<div></div>".repeat(lead);
     for (let d = 1; d <= days; d++) {
       const D = Math.round((Date.UTC(vm.y, vm.m, d) - CAL_EPOCH) / 864e5), inS = D >= D0 && D < D0 + N;
-      grid += `<div class="tcd${D === today ? " today" : ""}${D < today ? " past" : ""}${inS && pnAt(D) ? " pn" : ""}${inS && meltAt(D) ? " ml" : ""}${!inS ? " off" : ""}"><b>${d}</b>${inS && D >= today && D < today + 3 ? `<i class="fdot" title="Ferry calls"></i>` : ""}</div>`;
+      const ev = calEv(D);
+      grid += `<div class="tcd${D === today ? " today" : ""}${D < today ? " past" : ""}${inS && pnAt(D) ? " pn" : ""}${inS && meltAt(D) ? " ml" : ""}${!inS ? " off" : ""}"${ev ? ` title="${ev.replace(/"/g, "'")}"` : ""}><b>${d}</b>${inS && D >= today && D < today + 3 ? `<i class="fdot" title="Ferry calls"></i>` : ""}${ev ? `<i class="fdot" style="background:#ffb020;left:auto;right:4px;margin-left:0" title="${ev.replace(/"/g, "'")}"></i>` : ""}</div>`;
     }
     const canPrev = vm.m !== 10, canNext = vm.m !== 4;
     // the next sailings: the steamer's two calls a day, with what the forecast thinks of them
@@ -8418,7 +8423,7 @@ TABLET.register({
       ${strip}
       <div class="tcal2"><div><div class="tmh"><button type="button" class="tbtn ghost sm"${canPrev ? ' data-tf="cal:prev"' : " disabled"} id="calPrev">‹</button><b>${MONTHS[vm.m].toUpperCase()} ${vm.y}</b><button type="button" class="tbtn ghost sm"${canNext ? ' data-tf="cal:next"' : " disabled"} id="calNext">›</button></div><div class="tcg">${grid}</div>
         <div class="tleg">${chip("POLAR NIGHT", "polar")}${chip("MELT", "heavy")}<span class="bchip">• FERRY</span></div></div>
-      <div>${sec("Ferry days", "the coastal ferry at Kjøllefjord")}${sail.join("")}<p class="tnote2">The ferry calls twice a day: northbound sails 09:30, southbound 21:00. Storms can hold her up or cancel a call. Today's calls are posted at the quay; the rest is the forecast. Your mail goes out on her: hand the sack in at the quay before she sails.</p></div></div></div>`;
+      <div>${upcoming.length ? sec("On the Nordkinn", "coming up") + upcoming.join("") : ""}${sec("Ferry days", "the coastal ferry at Kjøllefjord")}${sail.join("")}<p class="tnote2">The ferry calls twice a day: northbound sails 09:30, southbound 21:00. Storms can hold her up or cancel a call. Today's calls are posted at the quay; the rest is the forecast. Your mail goes out on her: hand the sack in at the quay before she sails.</p></div></div></div>`;
     const step = d => { let m = vm.m + d, y = vm.y; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } this.view = { y, m }; TABLET.render(); };
     $("calPrev").addEventListener("click", () => canPrev && step(-1)); $("calNext").addEventListener("click", () => canNext && step(1));
   }
@@ -9186,7 +9191,7 @@ function loadSub(j, dist) {
 function jobsList() {
   const out = [];
   const c = SAR.cur;
-  if (c && !c.school && !c.res) { const t = sarTarget(c); out.push({ obj: c, kind: "sar", tgt: t, col: "#ff8a3a", title: `${SAR_KINDS[c.kind].name}: ${c.name}`, chips: chip("SEARCH & RESCUE", "due"), meta: `${sarStatus(c)} · ${sarClock(c)}`, pay: c.pay ? "~" + fmtCash(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : "", hud: () => sarHud(c, t) }); }
+  if (c && !c.school && !c.res) { const t = sarTarget(c); out.push({ obj: c, kind: "sar", tgt: t, col: "#ff8a3a", title: `${c.ski ? "Ski rescue" : SAR_KINDS[c.kind].name}: ${c.name}`, chips: chip("SEARCH & RESCUE", "due"), meta: `${sarStatus(c)} · ${sarClock(c)}`, pay: c.pay ? "~" + fmtCash(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : "", hud: () => sarHud(c, t) }); }
   const rj = GS.rescueJob, rjv = rj ? rjNearest(P.x, P.z) : null;
   if (rjv) { const n = RJ.vs.filter(v => !v.freed).length; out.push({ obj: rj, kind: "rescue", tgt: rjv.v, col: "#ff8a3a", title: `Recovery: ${rjv.v.name}`, chips: chip("DUE " + fmtTime(rj.due), "due"), meta: `${rjv.v.vk.who}${n > 1 ? ` + ${n - 1} more stuck` : ""}${winchDef() ? "" : " · no winch fitted"}`, pay: fmtCash(rj.pay * payMul()), hud: d => ({ title: `Recovery → ${rjv.v.name} (${rjv.v.vk.who})${n > 1 ? ` + ${n - 1} more` : ""}`, sub: `${fmtMi(d)} · $${Math.round(rj.pay * payMul())} · ${rj.due - GS.hour > 0 ? `clock runs out ${fmtTime(rj.due)}` : "out of time"}${rjv.v.gentle ? " · go gently" : ""}${winchDef() ? "" : " · NO WINCH FITTED"}` }) }); }
   const t = GS.tour;
@@ -14020,9 +14025,11 @@ function updGame(dt, spd) {
   const camping = !near && ST.camp > 0 && Math.hypot(P.vx, P.vz) < 0.8 && GS.warmth < ST.campCap;
   if (camping && !GS.camping && GS.warmth < ST.campCap - 8) toast(GS.own.parts.survival === "stove" ? "Stove's lit. Stay put and thaw out." : "Pouring a cup from the thermos. Stay put a minute.");
   GS.camping = camping;
+  let fireW = 0; if (!near && WARMX.length) { const fx = FOOT.on ? FOOT.x : P.x, fz = FOOT.on ? FOOT.z : P.z; for (let q = 0; q < WARMX.length; q++) fireW = Math.max(fireW, WARMX[q](fx, fz)); }   // H1c: a lit gapahuk fire
   const hospWarm = hospHere(P.x, P.z, 22) && !FOOT.on || hospHere(FOOT.x, FOOT.z, 22) && FOOT.on;
   const shoreS = VEH.cur && VEH.cur.shore ? VEH.cur.shore() : null;   // the boat tied up at a jetty (14.2b): its place's warmth, the quay's fuel
   if ((near || RE.here || hospWarm || shoreS) && !HELP.on) { GS.warmth = Math.min(100, GS.warmth + 12 * dt); GS.coldWarned = false; }
+  else if (fireW > 0.05) { GS.warmth = Math.min(Math.max(ST.campCap, 90), GS.warmth + Math.max(8, ST.camp * 2) * fireW * dt); if (GS.warmth > 40) GS.coldWarned = false; }   // by the fire: the stove's thaw, a little better, up to nearly full
   else if (camping) { GS.warmth = Math.min(ST.campCap, GS.warmth + ST.camp * (1 - 0.5 * GS.storm) * dt); if (GS.warmth > 40) GS.coldWarned = false; }
   else if (!near && !RE.here && !hospWarm && !shoreS) GS.warmth -= cold * dt * (FISH && FISH.on ? 0.45 : 1);   // sat still on a bucket out of the wind, with the thermos
   if (GS.warmth < 30 && !GS.coldWarned) { GS.coldWarned = true; toast("You're freezing. Get indoors: a village, a cabin, the quay.", "bad"); }
@@ -16778,6 +16785,8 @@ function sarOpen(c) {
     if (s.tracks) sarPlacePrints(s.tracks.pts);
     sarPrints(); SAR.glove.position.set(s.glove.x, surf(s.glove.x, s.glove.z) + 0.01, s.glove.z); SAR.glove.rotation.y = Math.random() * 6; SAR.glove.visible = true;
     f.fig.visible = true; f.lamp.visible = true;
+  } else if (c.kind === "rescue" && c.ski) {       // H1c: a skier down on a trail (tlx-trails.js): no sled, they lie where they fell
+    f.fig.visible = true; f.lamp.visible = false; f.sled.visible = false; f.col.visible = true;
   } else if (c.kind === "rescue") {
     f.fig.visible = true; f.lamp.visible = false; f.sled.visible = true;
     const gx = (groundAt(c.x + 3, c.z) - groundAt(c.x - 3, c.z)) / 6, gz = (groundAt(c.x, c.z + 3) - groundAt(c.x, c.z - 3)) / 6;
@@ -16854,6 +16863,7 @@ function sarRateNow(c) {
 }
 // a warm place you're stopped at: any site (cabin, village, home, the quay), the rescue base, or for school, the yard
 function sarWarmHere(c) {
+  if (c.ski) return Math.hypot(P.x - c.dest.x, P.z - c.dest.z) < 30;                     // H1c: a skier is carried back to the trailhead
   if (c.school) return atYard(SCHOOLS.rescue);
   if (c.hosp) return hospHere();
   if (c.kind === "tow") return !!GS.near && GS.near.type !== "shop";
@@ -16945,6 +16955,7 @@ function sarEnd(ok, why) {
 // take everything back out of the world
 function sarClear() {
   const c = SAR.cur;
+  if (c && c.onEnd && !c._ended) { c._ended = 1; try { c.onEnd(c.res === "pass", c); } catch (e) { console.error("sar onEnd", e); } }   // H1c: whoever raised the call hears how it ended
   if (c && c.rj && GS.rescueJob === c.rj) rescueAbort();
   if (c && c.rv) c.rv.towed = false;
   sarHideProps(); SAR.cur = null; SAR.coolT = gameClock;
@@ -16994,9 +17005,27 @@ function sarOffer(force) {
   SAR.ping = { c, n, x: cx.x, z: cx.z, t0: gameClock };
   return c;
 }
+// H1c: a call raised by another system (the ski rescue in tlx-trails.js). spec: { x, z, name, who, why, dest: {x, z, name}, T0, pay, ski, person, onEnd(ok), accepted }.
+// Same pipe as a dispatch call (the Rescue app's ping, Jobs row, compass, Map mark, the case clock) with the casualty and the place chosen by the caller.
+// accepted: true opens it without the ping (a reload that finds a call you had taken). Returns the case, or null if you are tied up.
+function sarCallIn(spec) {
+  if (sarBusy() || SAR.ping) return null;
+  const K = SAR_KINDS.rescue, from = { x: P.x, z: P.z }, out = Math.hypot(spec.x - from.x, spec.z - from.z), back = Math.hypot(spec.x - spec.dest.x, spec.z - spec.dest.z);
+  const c = { id: ++SAR.seq, kind: "rescue", ski: true, school: false, name: spec.name, who: spec.who || "skier", v: null, s: null, res: null, x: spec.x, z: spec.z, near: spec.near || nearestSiteName(spec.x, spec.z), dest: spec.dest, out, back, hosp: false, why: spec.why, person: spec.person, onEnd: spec.onEnd, onAccept: spec.onAccept, onMiss: spec.onMiss };
+  c.T0 = Math.round(spec.T0 || (out / 11 + K.work + K.back * back / 10) * K.slack * (1.12 - SAR.rep / 100 * 0.3));
+  c.pay = spec.pay || round5((K.base + 70 * out / 1000 + 30 * back / 1000) * (1 + SAR.rep / 125));
+  if (spec.accepted) { sarOpen(c); save(); TABLET.refresh("rescue"); return c; }
+  const n = TABLET.notify({ app: "rescue", kind: "alert", ttl: 45,
+    title: `CALLOUT · SKI RESCUE · ${(out / 1000).toFixed(1)} km ${sarCard(P.x, P.z, c.x, c.z)}`,
+    body: `${c.why} About ${fmtMS(c.T0)} of survival time. Carry them back to the ${c.dest.name}. ~${fmtCash(c.pay * payMul())}.`,
+    actions: [{ label: "ACCEPT", do: () => sarAccept(c) }, { label: "Decline", do: () => sarMiss(c, true) }],
+    onExpire: () => sarMiss(c, false) });
+  SAR.ping = { c, n, x: c.x, z: c.z, t0: gameClock };
+  return c;
+}
 function sarMiss(c, declined) {
   if (!SAR.ping || SAR.ping.c !== c) return;
-  SAR.ping = null; SAR.miss++; SAR.ign++; SAR.coolT = gameClock - 15;
+  SAR.ping = null; SAR.miss++; SAR.ign++; SAR.coolT = gameClock - 15; if (c.onMiss) c.onMiss(c, declined);
   if (SAR.miss >= 2) { SAR.rep = clamp(SAR.rep - 2, 0, 100); toast(`Dispatch: "That's ${SAR.miss} in a row from you." Another crew takes it. Reputation −2 (${Math.round(SAR.rep)}).`, "warn"); }
   else toast(declined ? "Declined. Another crew's taking it." : "No answer. Another crew's taking it.");
   save(); TABLET.refresh("rescue");
@@ -17005,7 +17034,7 @@ function sarAccept(c) {
   if (!SAR.ping || SAR.ping.c !== c) return;
   if (sarBusy()) { toast(GS.tour ? "Not with tourists on the back. Another crew's taking it." : "You're tied up. Another crew's taking it.", "warn"); SAR.ping = null; SAR.coolT = gameClock; return; }
   SAR.ping = null; SAR.miss = 0;
-  sarOpen(c);
+  sarOpen(c); if (c.onAccept) c.onAccept(c);
   toast(`Accepted. ${c.why}`, "warn");
   setTimeout(() => { if (SAR.cur === c) toast(c.kind === "search" ? "The search area and the pattern are on the Map. Follow the arrow round the legs, and watch for prints or anything they've dropped."
     : c.kind === "tow" ? "Park on the rim, Q off, walk the line out and hook on (E), tie back to a tree, hold SPACE to reel."
@@ -17059,7 +17088,7 @@ function sarTarget(c) {
   if (v.state === "stuck" || v.state === "rig") { const r = c.rv || (RJ.vs && RJ.vs[0]); return r ? { x: r.x, z: r.z } : { x: c.x, z: c.z }; }
   if (sarAboard(c)) {
     if (c.school) return { x: SCHOOLS.rescue.x, z: SCHOOLS.rescue.z + 6 };
-    if (c.hosp) return c.dest;
+    if (c.hosp || c.ski) return c.dest;
     if (gameClock - (c.dT || -9) > 1) { c.dT = gameClock; c.dest = (c.kind === "tow" ? sarCabin(P.x, P.z) : sarWarmest(P.x, P.z)).s; }
     return c.dest || depot;
   }
@@ -17081,7 +17110,7 @@ function sarStatus(c) {
 const sarClock = c => { const r = sarRateNow(c); return r < 0 ? "warming" : fmtMS(c.v.core / r) + " survival"; };
 function sarHud(c, tgt) {
   const d = Math.hypot(tgt.x - P.x, tgt.z - P.z), K = SAR_KINDS[c.kind];
-  return { title: `${K.name} → ${c.name} (${c.who})${c.v.state === "tow" ? " + their sled" : ""}`, sub: `${sarStatus(c)} · ${fmtMi(d)} · ${sarClock(c)}${c.pay ? " · ~$" + Math.round(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : ""}` };
+  return { title: `${c.ski ? "Ski rescue" : K.name} → ${c.name} (${c.who})${c.v.state === "tow" ? " + their sled" : ""}`, sub: `${sarStatus(c)} · ${fmtMi(d)} · ${sarClock(c)}${c.pay ? " · ~$" + Math.round(c.pay * (0.85 + 0.35 * c.v.core / 100) * payMul()) : ""}` };
 }
 // the Map's rescue layer and the minimaps: the search area (never the hiker), the casualty once known, a ping waiting
 function sarPts() {
@@ -17108,7 +17137,7 @@ function sarVisual(dt) {
   if (v.state === "rig") fig.visible = false;
   if (fig.visible) {
     const y = surf(v.x, v.z), U = fig.userData;
-    if (c.kind === "save" && (v.state === "waiting" || v.state === "loading")) {
+    if ((c.kind === "save" || c.ski) && (v.state === "waiting" || v.state === "loading")) {
       fig.position.set(v.x, y + 0.16, v.z); fig.rotation.set(-Math.PI / 2, v.yaw, 0, "YXZ"); poseFigure(fig, 0, 0, 0, dt);
       if (v.state === "loading" && v.loadT > 3.2) fig.visible = false;
     } else {
@@ -17731,7 +17760,7 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
-    groomx: GROOMX, crewAt: RANKS[1].at, gameHour: GAMEHOUR,
+    groomx: GROOMX, warmx: WARMX, calx: CALX, sarCall: (spec) => sarCallIn(spec), sarState: () => ({ cur: SAR.cur, ping: SAR.ping, busy: sarBusy() }), sarAccept: c => sarAccept(c), crewAt: RANKS[1].at, gameHour: GAMEHOUR,
     footx: footX(), jobx: jobX(), ridex: rideX(), rideUse: rideUseA(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules

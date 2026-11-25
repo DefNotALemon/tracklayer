@@ -87,6 +87,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), sstep = (a, b, v) => { c
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
 
 TLX.option({ id: "skicomplaints", name: "Ski trail complaints", hint: "Skiers complain when a sled comes past them fast and close, or runs into them. Three complaints on a trail in a week lose that trail's weekly bonus. Off = complaints are still counted and shown, but cost nothing.", sys: "trails" });
+TLX.option({ id: "skirescue", name: "Ski rescue calls", hint: "Now and then a skier on a trail you keep goes down hard or is caught out by the weather, and it comes in as a rescue call: carry them back to the trailhead on the sled. Their family worries on the village news, and thanks you by name after. Off = no such calls.", sys: "trails" });
 TLX.option({ id: "skitrails", name: "Ski trails", hint: "Named ski trails you can take on in the Løyper app: keep the track set with the groomer and the villagers ski it and the løypelag pays you by use every Monday. Off = no trails, no skiers, no pay (the old grooming contracts stay).", sys: "trails" });
 
 /* ---------------- the router ---------------- */
@@ -456,18 +457,21 @@ X.dbg = { relax, pack, bakedRoute, unpack, lineOk, BAKED, astar, cellPath, cellC
 /* ---------------- the track: state, words, wear ---------------- */
 const rnd = () => { const s = S(); let t = (s.rs = (s.rs + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const segNew = () => [0, 0, 0, 0, -1e6, 0];
-const trNew = t => ({ taken: 0, seg: Array.from({ length: t.nseg }, segNew), thaw: 0, day: { v: 0, km: 0, kw: 0 }, noon: "", wk: { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }, tot: { v: 0, km: 0, pay: 0 }, last: [], out: [], lw: "", lp: -99, gp: { n: 0, t: -99 }, cm: { wk: 0, tot: 0 } });
+const skdNew = () => ({ key: "", D: -1, ann: 0, fresh: -1, n: 0, done: 0, bonus: 0, who: [] });
+const trNew = t => ({ lamps: 1, lampH: 0, sdb: 0, skd: skdNew(), taken: 0, seg: Array.from({ length: t.nseg }, segNew), thaw: 0, day: { v: 0, km: 0, kw: 0 }, noon: "", wk: { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }, tot: { v: 0, km: 0, pay: 0 }, last: [], out: [], lw: "", lp: -99, gp: { n: 0, t: -99 }, cm: { wk: 0, tot: 0 } });
 const num = (v, d) => (Number.isFinite(+v) ? +v : d);
 // the saved state of each trail made to fit today's trails
 function adopt(t, o) {
   const b = trNew(t); if (!o || typeof o !== "object") return b;
   b.taken = o.taken ? 1 : 0;
+  b.lamps = o.lamps === undefined ? 1 : (o.lamps ? 1 : 0); b.lampH = clamp(num(o.lampH, 0), 0, 400); b.sdb = Math.round(clamp(num(o.sdb, 0), 0, 99999));
+  if (o.skd && typeof o.skd === "object") b.skd = { key: typeof o.skd.key === "string" ? o.skd.key : "", D: Math.round(num(o.skd.D, -1)), ann: o.skd.ann ? 1 : 0, fresh: Math.round(clamp(num(o.skd.fresh, -1), -1, 1)), n: Math.round(clamp(num(o.skd.n, 0), 0, 999)), done: o.skd.done ? 1 : 0, bonus: Math.round(clamp(num(o.skd.bonus, 0), 0, 99999)), who: Array.isArray(o.skd.who) ? o.skd.who.filter(q => typeof q === "string").slice(0, 40) : [] };
   if (Array.isArray(o.seg)) b.seg = b.seg.map((g, i) => { const a = o.seg[i]; return Array.isArray(a) ? [clamp(num(a[0], 0), 0, 1), clamp(num(a[1], 0), 0, 1), clamp(num(a[2], 0), 0, 60), clamp(num(a[3], 0), 0, 1), num(a[4], -1e6), a[5] ? 1 : 0] : g; });
   b.thaw = clamp(num(o.thaw, 0), 0, 99);
   for (const k of ["day", "wk", "tot"]) if (o[k] && typeof o[k] === "object") for (const f in b[k]) b[k][f] = num(o[k][f], b[k][f]);
   b.noon = typeof o.noon === "string" ? o.noon : ""; b.lw = typeof o.lw === "string" ? o.lw : ""; b.lp = num(o.lp, -99);
-  if (Array.isArray(o.last)) b.last = o.last.filter(q => q && typeof q === "object").slice(0, 3).map(q => ({ d: String(q.d || ""), pay: Math.round(num(q.pay, 0)), km: num(q.km, 0), v: Math.round(num(q.v, 0)), bonus: !!q.bonus, cm: Math.round(num(q.cm, 0)), nob: !!q.nob, under: Math.round(num(q.under, 0)), days: Math.round(num(q.days, 0)), back: !!q.back }));
-  if (Array.isArray(o.out)) b.out = o.out.filter(q => q && typeof q.p === "string" && Number.isFinite(q.t1)).slice(0, 24).map(q => ({ p: q.p, t0: num(q.t0, 0), t1: q.t1, km: num(q.km, 0), pc: num(q.pc, 0), f: typeof q.f === "string" ? q.f : "", wd: typeof q.wd === "string" ? q.wd : "", rs: num(q.rs, 0), g: typeof q.g === "string" ? q.g : q.p, k: num(q.k, 0) | 0, dl: num(q.dl, 0) }));
+  if (Array.isArray(o.last)) b.last = o.last.filter(q => q && typeof q === "object").slice(0, 3).map(q => ({ d: String(q.d || ""), pay: Math.round(num(q.pay, 0)), km: num(q.km, 0), v: Math.round(num(q.v, 0)), bonus: !!q.bonus, cm: Math.round(num(q.cm, 0)), nob: !!q.nob, under: Math.round(num(q.under, 0)), days: Math.round(num(q.days, 0)), back: !!q.back, lh: Math.round(num(q.lh, 0)), lc: Math.round(num(q.lc, 0)), sdb: Math.round(num(q.sdb, 0)) }));
+  if (Array.isArray(o.out)) b.out = o.out.filter(q => q && typeof q.p === "string" && Number.isFinite(q.t1)).slice(0, 24).map(q => ({ p: q.p, t0: num(q.t0, 0), t1: q.t1, km: num(q.km, 0), pc: num(q.pc, 0), f: typeof q.f === "string" ? q.f : "", wd: typeof q.wd === "string" ? q.wd : "", rs: num(q.rs, 0), g: typeof q.g === "string" ? q.g : q.p, k: num(q.k, 0) | 0, dl: num(q.dl, 0), sk: q.sk ? 1 : 0 }));
   if (o.cm && typeof o.cm === "object") b.cm = { wk: Math.round(clamp(num(o.cm.wk, 0), 0, 99)), tot: Math.round(clamp(num(o.cm.tot, 0), 0, 9999)) };
   if (o.gp && typeof o.gp === "object") b.gp = { n: Math.round(num(o.gp.n, 0)), t: num(o.gp.t, -99) };
   return b;
@@ -572,7 +576,7 @@ function groomPosts(H) {
 /* ---------------- who goes out ---------------- */
 const TRAIT = {};
 function trait(p) {
-  return TRAIT[p.id] || (TRAIT[p.id] = { cold: -24 + 12 * hash(p.id + "c"), wind: 0.35 + 0.25 * hash(p.id + "w"), tol: 0.3 + 0.3 * hash(p.id + "q"), habit: Math.floor(hash(p.id + "h") * 3), pace: clamp(11 - Math.abs(p.age - 30) * 0.07, 5.5, 11), fav: Math.floor(hash(p.id + "f") * 7) });
+  return TRAIT[p.id] || (TRAIT[p.id] = { cold: -24 + 12 * hash(p.id + "c"), wind: 0.35 + 0.25 * hash(p.id + "w"), tol: 0.3 + 0.3 * hash(p.id + "q"), habit: Math.floor(hash(p.id + "h") * 3), pace: clamp(11 - Math.abs(p.age - 30) * 0.07, 5.5, 11), fav: Math.floor(hash(p.id + "f") * 7), skate: hash(p.id + "k") < 0.34 && p.age < 65 });
 }
 const skiers = () => (TLXN.people || []).filter(p => p.interests.includes("ski"));
 // the sun's height (degrees) at game hour H, from the calendar's declination: skis go out while it is light enough to see the track (the sun
@@ -584,40 +588,47 @@ function lightHours(H) {
   if (!a) { a = []; const H0 = H - api.CAL.now(H).h; for (let h = 0; h < 24; h++) if (sunAt(H0 + h) >= -9) a.push(h); if (LIGHTS.size > 40) LIGHTS.clear(); LIGHTS.set(D, a); }
   return a;
 }
+// the share of a trail's length that is set wide (the wing tiller) and good enough to skate
+function wideShare(t) { let m = 0; for (let i = 0; i < t.nseg; i++) { const g = t.st.seg[i]; if (g[5] && sq(g) > 0.55) m += Math.min(TR.seg, t.len - i * TR.seg); } return m / t.len; }
+X.wideShare = wideShare;
 function outingsHour(H) {
   const cn = api.CAL.now(H), h = cn.h, we = cn.dow === 0 || cn.dow === 6, win = lightHours(H);
   const open = X.list.filter(t => t.st.taken);
   if (!open.length) return;
   for (const t of open) t.st.out = t.st.out.filter(o => o.t1 > H);
-  if (!win.includes(h)) return;                                                          // nobody skis in the dark
-  const morning = win.slice(0, 3), evening = win.slice(-3), wend = win.filter(q => q >= 9 && q <= 16);
+  const lightNow = win.includes(h), litOpen = open.filter(t => lampsLit(t, H));
+  if (!lightNow && !litOpen.length) return;                                              // nobody skis in the dark, unless a lit trail's lamps are on
+  const morning = win.slice(0, 3), evening = win.slice(-3), wend = win.filter(q => q >= 9 && q <= 16), eveLit = h >= 15 && h <= 21;
   const busy = new Set(); for (const t of open) for (const o of t.st.out) busy.add(o.p);
   for (const p of skiers()) {
     if (busy.has(p.id) || open.some(t => t.st.out.some(o => o.p === p.id && o.t1 > H))) continue;
-    const tr = trait(p), opts = open.filter(t => t.villages.includes(p.vid));
-    if (!opts.length) continue;
-    let base = 0.012 * OUT;
-    if (tr.habit === 0 && morning.includes(h)) base = 0.11 * OUT;
-    if (tr.habit === 1) { if (!we && evening.includes(h)) base = 0.12 * OUT; if (we && wend.includes(h)) base = 0.1 * OUT; }
-    if (tr.habit === 2 && we && wend.includes(h)) base = 0.16 * OUT;
+    const tr = trait(p); let opts = open.filter(t => t.villages.includes(p.vid));
+    if (!lightNow) opts = opts.filter(t => litOpen.includes(t));                         // after dark only the lit loop, and only in the evening
+    if (!opts.length || (!lightNow && !eveLit)) continue;
+    let base = (lightNow ? 0.012 : 0.03) * OUT;
+    const eve = lightNow ? evening.includes(h) : true;
+    if (tr.habit === 0 && lightNow && morning.includes(h)) base = 0.11 * OUT;
+    if (tr.habit === 1) { if (!we && eve) base = 0.12 * OUT; if (we && (!lightNow || wend.includes(h))) base = 0.1 * OUT; }
+    if (tr.habit === 2 && we && (!lightNow || wend.includes(h))) base = 0.16 * OUT;
     if (we && wend.includes(h)) base = Math.max(base, 0.07 * OUT);
+    if (we) base *= H1C.we;                                                              // a weekend day draws more people
     const m = opts[0].mid[0], w = api.WX.at(m.x, m.z, H), air = airAt(H, w);
     if (w > tr.wind || air < tr.cold) continue;
     const wts = []; let tot = 0, bestQ = 0;
     for (const t of opts) {
       const s = stat(t, H), q = s.q; if (q < tr.tol || s.word === "snowed under") { wts.push(0); continue; }
-      const ice = s.sh("icy") > 0.4 ? 0.5 : 1;
-      const wt = (t.kind === "loop" ? 1 : t.kind === "tur" ? (we ? 0.9 : 0.3) : 0.12) * (t.idx % 7 === tr.fav ? 2 : 1) * q * q * ice;
+      const ice = s.sh("icy") > 0.4 ? 0.5 : 1, ws = wideShare(t);
+      const wt = (t.kind === "loop" ? 1 : t.kind === "tur" ? (we ? 0.9 : 0.3) : 0.12) * (t.idx % 7 === tr.fav ? 2 : 1) * q * q * ice * (tr.skate ? 0.7 + (0.5 + H1C.skateW) * ws : 1 - 0.3 * ws);
       wts.push(wt); tot += wt; bestQ = Math.max(bestQ, q);
     }
     if (tot <= 0) continue;
     const qf = clamp((bestQ - tr.tol) / (0.95 - tr.tol), 0, 1);
     if (rnd() >= base * (0.3 + 0.7 * qf)) continue;
     let r = rnd() * tot, ti = 0; for (let i = 0; i < opts.length; i++) { r -= wts[i]; if (r <= 0) { ti = i; break; } }
-    goOut(opts[ti], p, tr, H, we, air);
+    goOut(opts[ti], p, tr, H, we, air, lightNow ? null : { until: H1C.lamp.to });
   }
 }
-function goOut(t, p, tr, H, we, air) {
+function goOut(t, p, tr, H, we, air, opt) {
   let km = t.kind === "loop" ? t.len * (rnd() < 0.3 ? 2 : 1) : t.kind === "tur" ? t.len : t.len * (0.35 + 0.5 * rnd());
   km = Math.min(km, tr.pace * 3500);
   const st = t.st, s = stat(t, H);
@@ -627,18 +638,22 @@ function goOut(t, p, tr, H, we, air) {
   // H1b: a group goes at the slowest one's pace and the shortest one's distance, so the figures seen are one party on one journey
   const pcOf = q => trait(q).pace * (q.age < 16 ? 0.8 : 1) / 3.6 * SKI.fast, pc = Math.min(...party.map(pcOf));
   km = Math.min(km, ...party.map(q => trait(q).pace * 3500));
+  if (opt && opt.until !== undefined) {                                                  // after dark on a lit trail: home before the lamps go off
+    const room = (opt.until - api.CAL.now(H).h) * HOURS() * pc * 0.8; if (room < 300) return false; km = Math.min(km, room);
+  }
   const k = Math.round(km / 100) / 10;
-  let f = "", wd = ""; for (let i = 0; i < t.nseg; i++) { const g = st.seg[i], q = segWord(g, H) === "not prepared" ? 0 : sq(g); f += Math.round(9 * clamp(q, 0, 1)); wd += g[5] && q > 0.55 ? "1" : "0"; }
+  let f = "", wd = ""; for (let i = 0; i < t.nseg; i++) { const g = st.seg[i], q = segWord(g, H) === "not prepared" ? 0 : sq(g); f += Math.round(9 * clamp(q, 0, 1)); wd += g[5] && q > 0.55 && tr.skate ? "1" : "0"; }
+  const ws = wideShare(t), skq = tr.skate && ws > 0.05 ? 1 : 0;                             // skaters take the wide lane and it pays a little more a skier-km
   const rs = t.kind === "tur" ? Math.round(38 + 24 * rnd()) : 0;
   const first = st.out.length;
   party.forEach((q, i) => {
-    st.out.push({ p: q.id, t0: H, t1: H + 1, km: k, pc: Math.round(pc * 100) / 100, f, wd, rs, g: p.id, k: i, dl: 0 });
-    st.day.v++; st.day.km += k; st.day.kw += k * (we ? TR.weekend : 1); st.tot.v++; st.tot.km += k;
+    st.out.push({ p: q.id, t0: H, t1: H + 1, km: k, pc: Math.round(pc * 100) / 100, f, wd, rs, g: p.id, k: i, dl: 0, sk: skq });
+    st.day.v++; st.day.km += k; st.day.kw += k * (we ? TR.weekend : 1) * (1 + (skq ? H1C.skateK * ws : 0)); st.tot.v++; st.tot.km += k;
   });
   const t1 = H + planOf(t, st.out[first]).T / HOURS(); for (let i = first; i < st.out.length; i++) st.out[i].t1 = t1;
   const frac = Math.min(1, k * 1000 / t.len); for (let i = 0; i < t.nseg; i++) if ((i + 0.5) * TR.seg <= frac * t.len + TR.seg) st.seg[i][0] = Math.max(0, st.seg[i][0] - TR.use * (st.seg[i][0] > 0 ? 1 : 0));
   const m = t.mid[Math.floor(rnd() * t.nseg)];
-  TLXN.post({ kind: "ski", who: p, x: m.x, z: m.z, place: t.name, text: TLXN.say(p, "ski", { km: k.toFixed(1), trail: t.name, word: s.word, cold: air < -10 ? "properly cold" : air < -4 ? "cold" : "mild", n: S().seq }) + (party.length > 1 ? ` With ${party.slice(1).map(q => q.first).join(" and ")}.` : ""), data: { trail: t.id, km: k, word: s.word, with: party.slice(1).map(q => q.id) } });
+  if (!(opt && opt.quiet)) TLXN.post({ kind: "ski", who: p, x: m.x, z: m.z, place: t.name, text: TLXN.say(p, "ski", { km: k.toFixed(1), trail: t.name, word: s.word, cold: air < -10 ? "properly cold" : air < -4 ? "cold" : "mild", n: S().seq }) + (party.length > 1 ? ` With ${party.slice(1).map(q => q.first).join(" and ")}.` : ""), data: { trail: t.id, km: k, word: s.word, with: party.slice(1).map(q => q.id) } });
   touch(t);
 }
 X.goOut = goOut; X.outingsHour = outingsHour; X.sunAt = sunAt; X.lightHours = lightHours;
@@ -672,8 +687,10 @@ function hourStep(H) {
     if (open) wearHour(t, H);
     if (api.CAL.now(H).h === 12) t.st.noon = open ? stat(t, H).word : "not prepared";
     trailPosts(t, H);
+    if (open && t.lit && t.st.lamps && lampWin(H - 0.5)) t.st.lampH++;                       // an hour the lamps burned: the power is on your bill
+    if (open) skdHour(t, H);
   }
-  if (open) outingsHour(H);
+  if (open) { outingsHour(H); rescueHour(H); }
   groomPosts(H);
 }
 // the hours since the last tick, one at a time (a long sleep: only the last stretch of it)
@@ -711,8 +728,8 @@ X.why = why;
 function take(id) {
   const t = X.list.find(q => q.id === id); if (!t || t.st.taken) return false;
   const w = why(t); if (w) { api.toast(w, "warn"); return false; }
-  const st = t.st; st.taken = 1; st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.noon = ""; st.lw = ""; st.out = [];
-  touch(t); api.toast(`${t.name} is yours to keep. Drag the groomer along it and the track is set; the villagers ski it while it is good.`, "good");
+  const st = t.st; st.taken = 1; st.lamps = 1; st.lampH = 0; st.sdb = 0; st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.noon = ""; st.lw = ""; st.out = [];
+  touch(t); api.toast(`${t.name} is yours to keep. Drag the groomer along it and the track is set; the villagers ski it while it is good.${t.lit ? ` Its lamps burn from dusk to ${H1C.lamp.to}:00 (${api.fmtCash(H1C.lamp.rate)} an hour on your bill); switch them off on its page in the Løyper app.` : ""}`, "good");
   repaint(); boards(); api.save(); api.TABLET.refresh("loyper"); return true;
 }
 // what a taken trail has earned so far this week (whole days counted, and the day in hand)
@@ -723,26 +740,28 @@ function weekPay(t, withBonus) {
 }
 function giveBack(id) {
   const t = X.list.find(q => q.id === id); if (!t || !t.st.taken) return false;
-  catchUp(); const st = t.st, p = weekPay(t, false), pay = Math.round(p.base);
-  if (pay > 0) { api.GS.cash += pay; st.tot.pay += pay; }
-  st.last.unshift({ d: "handed back " + api.CAL.now().label, pay, km: Math.round((st.wk.km + st.day.km) * 10) / 10, v: st.wk.v + st.day.v, bonus: false, cm: 0, nob: false, under: st.wk.under, days: st.wk.days, back: true }); st.last = st.last.slice(0, 3);
-  st.taken = 0; st.seg = st.seg.map(segNew); st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.out = []; st.cm.wk = 0; st.lw = ""; st.gp = { n: 0, t: -99 }; st.noon = "";
-  touch(t); api.toast(`${t.name} is handed back to the løypelag${pay ? `: the week so far, ${api.fmtCash(pay)}, is paid` : ""}.`, "good");
+  catchUp(); const st = t.st, p = weekPay(t, false), pay = Math.round(p.base), lc = t.lit ? lampCost(t) : 0, lh = Math.round(st.lampH || 0);
+  if (pay > 0) { api.GS.cash += pay; st.tot.pay += pay; } if (lc) api.GS.cash -= lc;
+  st.last.unshift({ d: "handed back " + api.CAL.now().label, pay, km: Math.round((st.wk.km + st.day.km) * 10) / 10, v: st.wk.v + st.day.v, bonus: false, cm: 0, nob: false, under: st.wk.under, days: st.wk.days, back: true, lh, lc, sdb: st.sdb || 0 }); st.last = st.last.slice(0, 3);
+  st.taken = 0; st.lampH = 0; st.sdb = 0; st.skd = skdNew(); st.seg = st.seg.map(segNew); st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.out = []; st.cm.wk = 0; st.lw = ""; st.gp = { n: 0, t: -99 }; st.noon = "";
+  touch(t); api.toast(`${t.name} is handed back to the løypelag${pay ? `: the week so far, ${api.fmtCash(pay)}, is paid` : ""}${lc ? `; the lamps' power, ${api.fmtCash(lc)}, is taken off it` : ""}.`, "good");
   repaint(); boards(); api.save(); api.TABLET.refresh("loyper"); return true;
 }
 function monday(week) {
   if (!X.ready || !S()) return;
-  catchUp(); const d = String(week && week.label || ""); let total = 0, km = 0, n = 0;
+  catchUp(); const d = String(week && week.label || ""); let total = 0, km = 0, n = 0, power = 0;
   for (const t of X.list) {
     const st = t.st; if (!st.taken) continue;
-    if (st.wk.days === 0 && st.wk.kw === 0 && st.day.kw === 0) continue;
+    const lc = t.lit ? lampCost(t) : 0, lh = Math.round(st.lampH || 0), sdb = st.sdb || 0;
+    if (st.wk.days === 0 && st.wk.kw === 0 && st.day.kw === 0 && !lc && !sdb) { st.lampH = 0; continue; }
     const p = weekPay(t, true), pay = Math.round(p.base + p.bonus);
     api.GS.cash += pay; st.tot.pay += pay; total += pay; km += st.wk.km; n++;
-    st.last.unshift({ d, pay, km: Math.round(st.wk.km * 10) / 10, v: st.wk.v, bonus: p.bonus > 0, cm: st.cm ? st.cm.wk : 0, nob: !p.calm, under: st.wk.under, days: st.wk.days, back: false }); st.last = st.last.slice(0, 3);
-    st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; if (st.cm) st.cm.wk = 0;
+    if (lc) { api.GS.cash -= lc; power += lc; }                                           // the lamps' power: its own line on the statement
+    st.last.unshift({ d, pay, km: Math.round(st.wk.km * 10) / 10, v: st.wk.v, bonus: p.bonus > 0, cm: st.cm ? st.cm.wk : 0, nob: !p.calm, under: st.wk.under, days: st.wk.days, back: false, lh, lc, sdb }); st.last = st.last.slice(0, 3);
+    st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; if (st.cm) st.cm.wk = 0; st.lampH = 0; st.sdb = 0;
   }
-  if (n) { api.save(); api.TABLET.refresh("loyper"); setTimeout(() => { try { api.TABLET.notify({ app: "loyper", kind: "good", title: `Løypelaget · week to ${d}`, body: `Ski trails: ${api.fmtCash(total)} for ${km.toFixed(0)} skier-km`, ttl: 8 }); } catch (e) { } }, 1500); }
-  return total;
+  if (n) { api.save(); api.TABLET.refresh("loyper"); setTimeout(() => { try { api.TABLET.notify({ app: "loyper", kind: "good", title: `Løypelaget · week to ${d}`, body: `Ski trails: ${api.fmtCash(total)} for ${km.toFixed(0)} skier-km${power ? `, power for the lamps −${api.fmtCash(power)}` : ""}`, ttl: 8 }); } catch (e) { } }, 1500); }
+  return total - power;
 }
 X.take = take; X.giveBack = giveBack; X.weekPay = weekPay; X.hitchOk = hitchOk;
 
@@ -805,7 +824,7 @@ function furnY() {
   }
   for (const g of FU.gaps) { e.set(0, g.yaw, 0); q.setFromEuler(e); p.set(g.x, snowY(g.x, g.z) - 0.1, g.z); m.compose(p, q, sc); g.mesh.setMatrixAt(g.i, m); g.mesh.instanceMatrix.needsUpdate = true; }
   for (const b of FU.boards) { b.frame.setMatrixAt(b.i, (() => { e.set(0, b.yaw, 0); q.setFromEuler(e); p.set(b.x, snowY(b.x, b.z) - 0.1, b.z); return m.compose(p, q, sc); })()); b.frame.instanceMatrix.needsUpdate = true; b.face.position.set(b.x + Math.sin(b.yaw) * 0.07, snowY(b.x, b.z) + 1.65, b.z + Math.cos(b.yaw) * 0.07); }
-  FU.melt = api.MELT ? api.MELT.k : 0; FU.h = Math.floor(api.GS.hour);
+  lampY(); FU.melt = api.MELT ? api.MELT.k : 0; FU.h = Math.floor(api.GS.hour);
 }
 function instanced(geo, list, name) {
   const mesh = new T.InstancedMesh(geo, lam(), Math.max(1, list.length)); mesh.count = list.length; mesh.frustumCulled = false; mesh.name = name; api.scene.add(mesh); FU.meshes.push(mesh); return mesh;
@@ -874,12 +893,13 @@ function buildFurniture() {
       FU.gaps.push({ t, x: b.x, z: b.z, yaw, mesh: gm, i }); FU.n.gaps++;
     });
   }
-  furnY(); boards();
+  furnY(); boards(); buildLampVisuals();
 }
 const fmtClock = H => { const c = api.CAL.now(H); return c.label + " " + c.time; };
 function boardDraw(b) {
   const t = b.t, g = b.cv.getContext("2d"), s = stat(t), open = isOpen(), word = !open ? "closed" : s.word;
-  const key = [word, t.st.taken, Math.floor(api.GS.hour / 2)].join("|"); if (key === b.key) return; b.key = key;
+  const sk = t.st.skd, skn = t.st.taken && sk && sk.D >= 0 && skdSoon(t, api.GS.hour) ? skdLabel(sk.D) : "";
+  const key = [word, t.st.taken, Math.floor(api.GS.hour / 2), skn, t.lit && t.st.taken ? t.st.lamps : 2].join("|"); if (key === b.key) return; b.key = key;
   g.fillStyle = "#efe8d2"; g.fillRect(0, 0, 512, 400);
   g.fillStyle = t.col; g.fillRect(0, 0, 512, 64); g.fillStyle = "#14181c"; g.font = "bold 36px sans-serif"; g.textBaseline = "middle"; g.fillText(t.name, 16, 34, 480);
   g.fillStyle = "#222"; g.font = "bold 26px sans-serif"; g.fillText(`${(t.len / 1000).toFixed(1)} km · ${t.kind === "loop" ? "loop" : t.kind === "tur" ? "out and back" : "one way"}${t.lit ? " · lit" : ""}`, 16, 92);
@@ -890,6 +910,8 @@ function boardDraw(b) {
   g.fillStyle = "#dfe6d6"; g.fillRect(324, 72, bw + 4, bh + 4); g.strokeStyle = t.col === "#18c2b2" ? "#0b8077" : t.col; g.lineWidth = 3; g.beginPath(); t.pts.forEach(([x, z], i) => { const px = ox + (x - x0) * sc, pz = oz + (z - z0) * sc; if (i) g.lineTo(px, pz); else g.moveTo(px, pz); }); g.stroke();
   g.fillStyle = "#c01818"; g.beginPath(); g.arc(ox + (t.pts[0][0] - x0) * sc, oz + (t.pts[0][1] - z0) * sc, 5, 0, 6.283); g.fill();
   g.fillStyle = "#555"; g.font = "18px sans-serif"; g.fillText(`steepest ${Math.round(t.grade * 100)}% · ${t.nseg} stretches of 50 m`, 16, 150, 300); g.fillText("Nordkinn Løypelag", 16, 176);
+  if (skn) { g.fillStyle = "#b01818"; g.font = "bold 22px sans-serif"; g.fillText(`SKIDAG ${skn} ${H1C.skd.from}-${H1C.skd.to} · waffles`, 16, 202, 480); }
+  else if (t.lit && t.st.taken) { g.fillStyle = "#555"; g.font = "18px sans-serif"; g.fillText(t.st.lamps ? `Lamps on from dusk to ${H1C.lamp.to}:00` : "Lamps off", 16, 202, 300); }
   // the slate
   g.fillStyle = "#3a2f24"; g.fillRect(10, 214, 492, 176); g.fillStyle = "#20272d"; g.fillRect(18, 222, 476, 160);
   g.fillStyle = "#e9eef2"; g.textBaseline = "alphabetic"; g.font = "bold 20px sans-serif"; g.fillText("TRACK TODAY", 32, 254);
@@ -906,6 +928,9 @@ X.boards = boards;
 const LICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20c4-1 7-1 10-4s4-6 8-9"/><path d="M3 15c3-1 5-1 7-3"/><circle cx="17" cy="5" r="1.6"/><path d="M12 9l3 1 2 3M9 11l-2 1"/></svg>';
 let SEL = null;
 X.back = () => { SEL = null; };
+// the Calendar's mark on a day: a skidag that has been announced (or is done)
+function calEvent(D) { if (!X.ready || !TLX.on("skitrails")) return ""; for (const t of X.list) { const sk = t.st && t.st.taken && t.st.skd; if (sk && sk.D === D && (sk.ann || sk.done)) return `Skidag on ${t.name}, ${H1C.skd.from}:00 to ${H1C.skd.to}:00`; } return ""; }
+X.calEvent = calEvent;
 const wchip = w => { const U = api.ui; return U.chip(w.toUpperCase(), goodish(w) ? "ok" : w === "snowed under" ? "due" : w === "not prepared" ? "" : "heavy"); };
 function strip(t) {
   const H = api.GS.hour, seen = {};
@@ -939,18 +964,38 @@ function appRender(el) {
     const s = stat(t), st = t.st, w = why(t), wp = st.taken ? weekPay(t, false) : null, out = outNow(t);
     h += U.tabCard({ tf: "ly:back", title: "All trails", act: "lyb:", actLabel: "BACK" });
     h += U.tabCard({ tf: "ly:" + t.id, title: t.name, chips: (st.taken ? U.chip("YOURS", "ok") : "") + wchip(open ? s.word : "not prepared") + (open ? "" : U.chip("CLOSED", "due")),
-      meta: `${(t.len / 1000).toFixed(1)} km ${kindName(t)} · ${U.esc(t.vil.name)}${t.villages.length > 1 ? " to " + U.esc(TLXN.village(t.villages[1]).name) : ""} · steepest ${Math.round(t.grade * 100)}%${t.lit ? " · lamp posts (not lit yet)" : ""}`,
+      meta: `${(t.len / 1000).toFixed(1)} km ${kindName(t)} · ${U.esc(t.vil.name)}${t.villages.length > 1 ? " to " + U.esc(TLXN.village(t.villages[1]).name) : ""} · steepest ${Math.round(t.grade * 100)}%${t.lit ? ` · lamp posts, ${t.st.taken && t.st.lamps ? "lamps on" : "lamps off"}` : ""}`,
       note: strip(t) + (st.taken ? `<div style="margin-top:6px">${s.bad ? `${s.bad} of ${t.nseg} stretches under good: ${(s.badM / 1000).toFixed(1)} km to set.` : "Every stretch is good."}</div>` : `<div style="margin-top:6px">Nobody keeps this trail, so it is not prepared and nobody skis it.</div>`),
       warn: st.taken ? "" : w, act: (st.taken ? "lyh:" : "lyt:") + t.id, actLabel: st.taken ? "HAND BACK" : "TAKE ON", blocked: !st.taken && !!w });
     if (st.taken) {
       h += U.tabCard({ tf: "ly:use", title: "Use", meta: `On it now: ${out.length ? U.esc(out.join(", ")) : "nobody"}`, note: `Visits today ${st.day.v} · this week ${st.wk.v + st.day.v} (${(st.wk.km + st.day.km).toFixed(1)} skier-km) · paid so far ${cash(st.tot.pay)} · this week so far ${cash(wp.base)}${wp.bonus ? " + bonus" : ""}`, warn: (st.cm && st.cm.wk) ? `${st.cm.wk} complaint${st.cm.wk > 1 ? "s" : ""} from skiers this week${st.cm.wk >= 3 ? (TLX.on("skicomplaints") ? ": the bonus is gone" : " (counted, not penalised)") : " (three lose the bonus)"}. Slow down near skiers.` : "" });
     }
-    if (st.last.length) h += U.sec("Statements", "") + `<div class="tsml2">${st.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>${q.v} visits · ${q.km.toFixed(1)} skier-km · +${cash(q.pay)}${q.bonus ? " · no day under good: bonus" : ""}${q.cm ? ` · ${q.cm} complaint${q.cm > 1 ? "s" : ""}${q.nob ? ", bonus lost" : ""}` : ""}${q.under ? ` · ${q.under} day${q.under > 1 ? "s" : ""} snowed under, not paid` : ""}${q.back ? " · handed back" : ""}</span></div>`).join("")}</div>`;
+    if (st.taken) {
+      const H = api.GS.hour, cash2 = v => api.fmtCash(Math.round(v * 100) / 100);
+      if (t.lit) {
+        const lit = lampsLit(t, H);
+        h += U.tabCard({ tf: "ly:lamps", title: "Lamps", chips: (st.lamps ? U.chip(lit ? "LIT NOW" : "ON", "ok") : U.chip("OFF", "")),
+          meta: `Lit from dusk to ${H1C.lamp.to}:00 while the lamps are on: the villagers ski Lysløypa in the evening, after dark. Off, the evenings go quiet.`,
+          note: `The power is your bill: ${cash2(H1C.lamp.rate)} an hour while they burn, charged on Monday as its own line. This week so far ${Math.round(st.lampH || 0)} h lit, ${api.fmtCash(lampCost(t))}.`, act: "lyl:" + t.id, actLabel: st.lamps ? "SWITCH LAMPS OFF" : "SWITCH LAMPS ON" });
+      }
+      const ws = wideShare(t), wm = Math.round(ws * t.len / 10) * 10;
+      h += U.tabCard({ tf: "ly:lane", title: "Skating lane", chips: ws > 0.05 ? U.chip("SKATERS", "ok") : "", meta: wm ? `${wm} m of ${t.len >= 1000 ? (t.len / 1000).toFixed(1) + " km" : t.len + " m"} is set wide with the wing tiller: skaters come for it, and the løypelag pays ${Math.round(H1C.skateK * 100)}% more per skier-km on it.` : `Set it with the wing tiller (a wide pass) and skaters come for the lane. The løypelag pays ${Math.round(H1C.skateK * 100)}% more per skier-km on it.`, note: "Weekends draw more people than weekdays." });
+      const sk = st.skd;
+      if (t.kind === "loop" && sk && sk.D >= 0 && (sk.ann || sk.done)) {
+        const dd = sk.D - api.CAL.now(H).day, lab = skdLabel(sk.D);
+        h += U.tabCard({ tf: "ly:skidag", title: "Skidag", chips: sk.done ? U.chip("DONE", "ok") : U.chip(dd === 0 ? "TODAY" : dd > 0 ? "IN " + dd + " DAYS" : "PAST", dd <= 3 ? "due" : ""),
+          meta: sk.done ? `${lab}: ${sk.n} skiers came. ${sk.fresh === 1 ? `The track was freshly set at nine: bonus ${api.fmtCash(sk.bonus)}.` : "The track was not freshly set at nine: no bonus."}` : `${lab}, ${H1C.skd.from}:00 to ${H1C.skd.to}:00: a crowd, and waffles at the trailhead.`,
+          note: sk.done ? "" : `Have the whole trail freshly set by 09:00 that morning and the løypelag pays a bonus (about ${api.fmtCash(Math.round((H1C.skd.base + H1C.skd.perKm * t.len / 1000) / 5) * 5)}). Nothing extra if not.` });
+      }
+      const rc = S().rescue; if (rc && rc.trail === t.id) { const pp = TLXN.person(rc.p); h += U.tabCard({ tf: "ly:rescue", title: "A skier is down", chips: U.chip("RESCUE", "due"), meta: `${pp ? pp.first + " " + pp.last : "A skier"} has gone down on this trail. The call is in the Rescue app and the Jobs app: carry them back to the trailhead on the sled.` }); }
+    }
+    if (st.last.length) h += U.sec("Statements", "") + `<div class="tsml2">${st.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>${q.v} visits · ${q.km.toFixed(1)} skier-km · +${cash(q.pay)}${q.bonus ? " · no day under good: bonus" : ""}${q.cm ? ` · ${q.cm} complaint${q.cm > 1 ? "s" : ""}${q.nob ? ", bonus lost" : ""}` : ""}${q.under ? ` · ${q.under} day${q.under > 1 ? "s" : ""} snowed under, not paid` : ""}${q.back ? " · handed back" : ""}</span></div>${q.lc ? `<div class="tsm2 tprow"><b>${U.esc(q.d)} · lamps</b><span>${q.lh} h lit · −${cash(q.lc)}</span></div>` : ""}${q.sdb ? `<div class="tsm2 tprow"><b>${U.esc(q.d)} · skidag</b><span>+${cash(q.sdb)}</span></div>` : ""}`).join("")}</div>`;
   }
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='lyo:']")) b.addEventListener("click", () => { SEL = b.dataset.act.slice(4); api.TABLET.refresh("loyper"); });
   for (const b of el.querySelectorAll("[data-act='lyb:']")) b.addEventListener("click", () => { SEL = null; api.TABLET.refresh("loyper"); });
   for (const b of el.querySelectorAll("[data-act^='lyt:']")) b.addEventListener("click", () => take(b.dataset.act.slice(4)));
+  for (const b of el.querySelectorAll("[data-act^='lyl:']")) b.addEventListener("click", () => lampSwitch(b.dataset.act.slice(4)));
   for (const b of el.querySelectorAll("[data-act^='lyh:']")) b.addEventListener("click", () => giveBack(b.dataset.act.slice(4)));
 }
 const crewCard = {
@@ -1087,16 +1132,16 @@ function buildPlan(t, o) {
   const blocks = []; let T = 0;
   const add = (b, dur) => { b.a = T; T += dur; b.b = T; blocks.push(b); return b; };
   add({ k: "stand", mode: "prep", x: 0, z: 0 }, SKI.prep);
-  const gap = t.kind === "tur" && o.rs > 0 && (o.k || 0) === 0 && !t.st.out.some(q => q !== o && q.g === o.g && q.t0 === o.t0) ? (FU.gaps.find(g => g.t === t) || null) : null;
+  const gap = t.kind === "tur" && o.rs > 0 && (o.k || 0) === 0 ? (FU.gaps.find(g => g.t === t) || null) : null;                // a party rests too (H1c): each at a place of their own, restSpot
   if (kind === "lap" && gap) {
     // out to the gapahuk, a spur off the trail to the bench, a rest, and back onto the trail past it
     const sFar = t.cum[t.farI], uA = Math.max(30, sFar - 16), uC = Math.min(D - 30, sFar + 16), cs = Math.cos(gap.yaw), sn = Math.sin(gap.yaw), lw = (lx, lz) => [gap.x + lx * cs + lz * sn, gap.z - lx * sn + lz * cs];
     const l1 = mk(0, uA, { r0: 14, r1: 0 }); add({ k: "leg", leg: l1 }, l1.T);
     const e1 = ppL(l1, l1.D, {}), Bp = lw(BENCH.x, BENCH.z), d1 = Math.hypot(Bp[0] - e1.x, Bp[1] - e1.z) * 1.15;
-    const sIn = buildLeg(hermite([e1.x, e1.z], [e1.tx * d1, e1.tz * d1], Bp, [-sn * d1, -cs * d1]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 0, r1: 14 }); add({ k: "leg", leg: sIn, spur: 1 }, sIn.T);
+    const sIn = buildLeg(hermite([e1.x, e1.z], [e1.tx * d1, e1.tz * d1], Bp, [-sn * d1, -cs * d1]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 0, r1: 14 }); add({ k: "leg", leg: sIn, spur: 1, gap }, sIn.T);
     add({ k: "bench", gap, rs: o.rs }, BENCH.fixed + o.rs);
     const l2 = mk(uC, D, { r0: 0, r1: 14 }), e2 = ppL(l2, 0, {}), d2 = Math.hypot(Bp[0] - e2.x, Bp[1] - e2.z) * 1.15;
-    const sOut = buildLeg(hermite(Bp, [sn * d2, cs * d2], [e2.x, e2.z], [e2.tx * d2, e2.tz * d2]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 12, r1: 0 }); add({ k: "leg", leg: sOut, spur: 1 }, sOut.T);
+    const sOut = buildLeg(hermite(Bp, [sn * d2, cs * d2], [e2.x, e2.z], [e2.tx * d2, e2.tz * d2]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 12, r1: 0 }); add({ k: "leg", leg: sOut, spur: 2, gap }, sOut.T);
     add({ k: "leg", leg: l2 }, l2.T);
   } else if (kind === "lap") { const l = mk(0, D, { r0: 14, r1: 14 }); add({ k: "leg", leg: l }, l.T); }
   else {
@@ -1108,10 +1153,10 @@ function buildPlan(t, o) {
 }
 
 /* ---- the body: P is a pose in world terms (root, feet, hands, pole tips); rig() turns it into joint angles ---- */
-const newP = () => ({ x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
+const newP = () => ({ ed: 0, x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
 function lerpP(A, B, w, o) {
   const m = (a, b) => a + (b - a) * w, ma = (a, b) => a + wrapA(b - a) * w;
-  o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head);
+  o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head); o.ed = B.ed;
   for (let i = 0; i < 2; i++) {
     const a = A.f[i], b = B.f[i], c = o.f[i]; c.x = m(a.x, b.x); c.z = m(a.z, b.z); c.yaw = ma(a.yaw, b.yaw); c.lift = m(a.lift, b.lift); c.tip = m(a.tip, b.tip); c.ski = b.ski; c.sx = b.sx; c.sz = b.sz; c.syaw = b.syaw; c.sv = b.sv;
     for (const k of ["x", "y", "z"]) { o.h[i][k] = m(A.h[i][k], B.h[i][k]); o.p[i][k] = m(A.p[i][k], B.p[i][k]); }
@@ -1125,9 +1170,9 @@ const _lb = { hx: 0, hz: 0, kn: 0, sh: 0 };
 // A knee bends forward (elbowBack false); an elbow so that the forearm swings up and forward (true).
 function limb(l1, l2, dx, dy, dz, elbowBack, o) {
   const dyp = Math.hypot(dx, dy), D = clamp(Math.hypot(dyp, dz), 0.15, (l1 + l2) * 0.9995);
-  const ft = Math.atan2(dz, dyp), al = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1));
+  const ft = Math.atan2(dz, dy < 0 ? -dyp : dyp), al = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1));
   o.kn = Math.PI - Math.acos(clamp((l1 * l1 + l2 * l2 - D * D) / (2 * l1 * l2), -1, 1));
-  o.hz = Math.atan2(dx, dy); o.hx = elbowBack ? -(ft - al) : -(ft + al); o.sh = elbowBack ? ft - al + o.kn : ft + al - o.kn;
+  o.hz = Math.atan2(dx, Math.abs(dy)); o.hx = elbowBack ? -(ft - al) : -(ft + al); o.sh = elbowBack ? ft - al + o.kn : ft + al - o.kn;
   return o;
 }
 let UPV = null, PV = null;
@@ -1156,8 +1201,8 @@ function rig(sl, P) {
   for (let i = 0; i < 2; i++) {
     const sd = i ? 1 : -1, h = P.h[i], wx = h.x - P.x, wz = h.z - P.z, lx = (wx * cy - wz * sy) / sc, lz = (wx * sy + wz * cy) / sc, ly = (h.y - g0) / sc - (hip - 0.93);
     const vx = lx - sd * 0.21, vy = ly - (0.93 + 0.53 * cp), vz = lz - 0.53 * sp, ty = vy * cp + vz * sp, tz = -vy * sp + vz * cp;
-    limb(0.25, 0.24, vx, -ty, tz, true, _lb);
-    U.arms[i].rotation.set(_lb.hx, 0, _lb.hz); U.fore[i].rotation.x = -_lb.kn;
+    limb(0.25, 0.24, vx, -ty, tz, !P.ed, _lb);                                         // the elbow bends up and back, except in the tuck (P.ed): there the torso lies nearly flat and the elbow hangs down in front of the knee
+    U.arms[i].rotation.set(_lb.hx, 0, _lb.hz); U.fore[i].rotation.x = P.ed ? _lb.kn : -_lb.kn;
     sl.reach[i] = Math.hypot(vx, ty, tz) - 0.49;
     const p = P.p[i], pm = sl.poles[i], dx = h.x - p.x, dy = h.y - p.y, dz = h.z - p.z, len = Math.hypot(dx, dy, dz) || 1;
     pm.visible = true; pm.position.set(p.x, p.y, p.z); pm.scale.set(ks, len / SKI.Lp, ks); PV.set(dx / len, dy / len, dz / len); pm.quaternion.setFromUnitVectors(UPV, PV);
@@ -1182,7 +1227,7 @@ function setPole(sl, P, j, L, u, ph, off, freq, S0, kp, rel0, hzA, hzB, latT, la
   }
   const q = (fr - kp) / (1 - kp), e = ease(q), uRel = uAtPhi(L, kc, (n + off + kp) / freq), hz = hzB + (hzA - hzB) * e;
   const thR = Math.asin(clamp((uT0 - (uRel + hzB)) / Le, -0.95, 0.95)), thE = Math.asin(clamp((rel0 - hzA) / Le, -0.95, 0.95));
-  const th = thR + (thE - thR) * e - 0.9 * Math.sin(Math.PI * q);
+  const th = thR + (thE - thR) * e - sl._sw * Math.sin(Math.PI * q);
   ppL(L, u + hz, _s1); h.x = _s1.x + _s1.tz * latH; h.z = _s1.z - _s1.tx * latH;
   const hyR = Le * Math.cos(thR), hyE = Le * Math.cos(thE); let hy = W.surf(h.x, h.z) + hyR + (hyE - hyR) * e, ty = hy - Le * Math.cos(th);
   onPath(L, u + hz + Le * Math.sin(th), latT, _s2); p.x = _s2.x; p.z = _s2.z;
@@ -1191,14 +1236,15 @@ function setPole(sl, P, j, L, u, ph, off, freq, S0, kp, rel0, hzA, hzB, latT, la
   return -1;
 }
 function gDiag(sl, L, u, P, gait) {
-  const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), her = gait === G_HERRING, ska = gait === G_SKATE;
-  const b = her ? 0.5 : clamp((ska ? 0.62 : 0.58) * k / S0, 0.12, 0.5), latF = (ska ? 0.2 : her ? 0.2 : 0.115) * k, splay = ska ? 0.3 : her ? 0.42 : 0;
+  const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), her = gait === G_HERRING, ska = gait === G_SKATE, cls = !her && !ska;
+  const b = her ? 0.5 : clamp((ska ? 0.62 : 0.5) * k / S0, 0.12, 0.5), latF = (ska ? 0.2 : her ? 0.2 : 0.115) * k, splay = ska ? 0.3 : her ? 0.42 : 0;
   for (let i = 0; i < 2; i++) {
     const sd = sg(i), off = i * 0.5, x = ph - off, n = Math.floor(x), fr = x - n, u0 = uAtPhi(L, kc, n + off), uP0 = u0 + 0.5 * b * sAt(L, kc, u0);
     let uf = uP0, lift = 0, tip = 0;
+    if (cls && fr < b) { const z = sstep(0.5, 1, fr / b); lift = 0.045 * k * z; tip = -0.12 * z; }              // classic: the heel peels off at the end of the kick, the tail lifts a little
     if (fr >= b) {                                                                       // after the kick: a quick swing forward (the ski just off the snow), then a glide ON the snow at the body's own speed
       const q = (fr - b) / (1 - b), u1 = uAtPhi(L, kc, n + 1 + off), uP1 = u1 + 0.5 * b * sAt(L, kc, u1), qs = 0.4, fg = (1 - qs) * (1 - b); let x;
-      if (q < qs) { const s = q / qs, s2 = s * s, s3 = s2 * s; x = (1 - fg) * (3 * s2 - 2 * s3) + (1 - b) * qs * (s3 - s2); lift = 0.05 * Math.sin(Math.PI * s) * k; tip = 0.1 * Math.sin(Math.PI * s); }
+      if (q < qs) { const s = q / qs, s2 = s * s, s3 = s2 * s; x = (1 - fg) * (3 * s2 - 2 * s3) + (1 - b) * qs * (s3 - s2); const kk0 = cls ? 1 - ease(Math.min(1, s * 2)) : 0; lift = 0.05 * Math.sin(Math.PI * s) * k + 0.045 * k * kk0; tip = 0.1 * Math.sin(Math.PI * s) - 0.12 * kk0; }
       else x = (1 - fg) + fg * (q - qs) / (1 - qs);
       uf = uP0 + (uP1 - uP0) * x;
     }
@@ -1206,32 +1252,37 @@ function gDiag(sl, L, u, P, gait) {
     if (X.dbgF) X.dbgF[i] = { ph, S0, b, n, fr, u0, uP0, uf, u };
   }
   const lat = ska ? -0.07 * k * Math.sin(2 * Math.PI * ph) : 0;
-  rootAt(P, L, u, lat);
-  const freq = ska ? 2 : 1, cyc = S0 / freq, kp = clamp((ska ? 0.9 : 1.45) * k / cyc, 0.3, 0.62);
+  rootAt(P, L, u + (cls ? 0.17 * k : 0), lat);                                           // classic: the hip rides over the gliding foot, the kicking foot trails behind it
+  sl._sw = cls ? 0.3 : 0.9;                                                              // how far the trailing pole swings back in the recovery (a classic pole stays angled down)
+  const freq = ska ? 2 : 1, cyc = S0 / freq, kp = clamp((ska ? 0.9 : her ? 1.45 : 1.0) * k / cyc, 0.3, 0.62);
   for (let j = 0; j < 2; j++) {
     const sd = sg(j), off = ska ? 0 : (1 - j) * 0.5 - 0.05;
-    setPole(sl, P, j, L, u, ph, off, freq, S0, kp, (ska ? 0.75 : her ? 0.35 : 0.9) * k, 0.45 * k, -0.1 * k, sd * (ska ? 0.5 : her ? 0.55 : 0.34) * k, sd * 0.25 * k);
+    setPole(sl, P, j, L, u, ph, off, freq, S0, kp, (ska ? 0.75 : her ? 0.35 : 0.11) * k, (cls ? 0.59 : 0.45) * k, (cls ? -0.03 : -0.1) * k, sd * (ska ? 0.5 : her ? 0.55 : 0.34) * k, sd * 0.25 * k);
   }
-  P.pitch = ska ? 0.42 + 0.08 * Math.cos(4 * Math.PI * ph) : her ? 0.5 : 0.3 + 0.05 * Math.cos(4 * Math.PI * ph); P.twist = ska ? 0 : 0.07 * Math.cos(2 * Math.PI * ph) * (her ? 0.5 : 1);
+  if (!her) for (let j = 0; j < 2; j++) P.h[j].y = Math.min(P.h[j].y, W.surf(P.x, P.z) + (ska ? 1.42 : 1.3) * sl.sc);                // a classic hand never goes above the head
+  P.pitch = ska ? 0.42 + 0.08 * Math.cos(4 * Math.PI * ph) : her ? 0.5 : 0.21 + 0.03 * Math.cos(4 * Math.PI * ph); P.twist = ska ? 0 : 0.07 * Math.cos(2 * Math.PI * ph) * (her ? 0.5 : 1);
   P.roll = ska ? -lat / k * 0.8 : 0; P.hip = ska ? 0.8 : her ? 0.82 : 0.87; P.head = 0;
 }
 function gDpole(sl, L, u, P) {
   const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), kp = clamp(1.3 * k / S0, 0.3, 0.5);
   for (let i = 0; i < 2; i++) setFoot(P, i, L, u + sg(i) * 0.05 * k, sg(i) * 0.115 * k, 0, 0, 0);
   rootAt(P, L, u, 0);
-  let crunch = 0;
+  let crunch = 0; sl._sw = 0.9;
   for (let j = 0; j < 2; j++) { const w = setPole(sl, P, j, L, u, ph, 0, 1, S0, kp, 0.85 * k, 0.55 * k, -0.35 * k, sg(j) * 0.36 * k, sg(j) * 0.24 * k); if (w >= 0) crunch = Math.sin(Math.PI * w); }
   P.pitch = 0.2 + 0.75 * crunch; P.hip = 0.88 - 0.16 * crunch; P.twist = 0; P.roll = 0; P.head = 0.1 * crunch;
 }
 function gTuck(sl, L, u, P) {
-  const k = sl.k, sc = sl.sc;
-  for (let i = 0; i < 2; i++) setFoot(P, i, L, u + sg(i) * 0.04 * k, sg(i) * 0.12 * k, 0, 0, 0);
+  // the downhill tuck: knees bent about 90 degrees with the hips back behind the boots, the back low and forward nearly along the thighs, the head up,
+  // elbows in front of the knees, both hands together in front of the chin, and both poles clamped under the arms pointing straight back and a little up. Still.
+  const k = sl.k, sc = sl.sc, Lp = SKI.Lp * sc / 0.88;
+  for (let i = 0; i < 2; i++) setFoot(P, i, L, u + 0.27 * k, sg(i) * 0.12 * k, 0, 0, 0);
   rootAt(P, L, u, 0);
+  ppL(L, u, _s1); const tx = _s1.tx, tz = _s1.tz, cs = Math.cos(0.2);
   for (let j = 0; j < 2; j++) {
-    const h = P.h[j], p = P.p[j]; onPath(L, u + 0.72 * sc, sg(j) * 0.16 * k, _s2); h.x = _s2.x; h.z = _s2.z; h.y = W.surf(h.x, h.z) + 0.66 * sc;
-    ppL(L, u, _s1); const Lp = SKI.Lp * sc / 0.88; p.x = h.x - _s1.tx * Lp * 0.95; p.z = h.z - _s1.tz * Lp * 0.95; p.y = h.y - Lp * 0.3;
+    const h = P.h[j], p = P.p[j]; onPath(L, u + 0.74 * k, sg(j) * 0.07 * k, _s2); h.x = _s2.x; h.z = _s2.z; h.y = W.surf(P.x, P.z) + 0.57 * sc;
+    p.x = h.x - tx * Lp * 0.96 * cs + tz * sg(j) * 0.2 * sc; p.z = h.z - tz * Lp * 0.96 * cs - tx * sg(j) * 0.2 * sc; p.y = h.y + Lp * 0.96 * Math.sin(0.2);
   }
-  P.pitch = 1.05; P.hip = 0.6; P.twist = 0; P.roll = 0; P.head = 0.6;
+  P.pitch = 1.22; P.hip = 0.57; P.twist = 0; P.roll = 0; P.head = 0.62; P.ed = 1;
 }
 // standing on the skis at a point, poles planted at the sides; bend 0..1 leans down to the bindings (the skis-on moment, and off again)
 function gStand(sl, P, x, z, yaw, bend, t) {
@@ -1256,14 +1307,22 @@ function gStand(sl, P, x, z, yaw, bend, t) {
 const _pa = newP(), _pb = newP();
 const bump = (s, a, b, c, d) => sstep(a, b, s) * (1 - sstep(c, d, s));
 function poseLeg(sl, B, tau, P, gaitOv) {
-  const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL - sl.lag * (B.back ? 0 : 1) * (sl.pl.kind === "lap" ? 1 : 0), uc = clamp(u, 0, L.D); lIdx(L, uc);
+  P.ed = 0;
+  const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL - sl.lag * lagF(B, uL) * (sl.pl.kind === "lap" ? 1 : 0), uc = clamp(u, 0, L.D); lIdx(L, uc);
   const i = _li, gait = gaitOv === undefined ? L.gait[i] : gaitOv;
   sl.u = u; sl.v = lerpA(L.v, i, _lf); sl.gait = gait;
   if (gait === G_DPOLE) gDpole(sl, L, u, P); else if (gait === G_TUCK) gTuck(sl, L, u, P); else gDiag(sl, L, u, P, gait);
   if (sl.lat) { ppL(L, uc, _s1); const dx = _s1.tz * sl.lat * (B.flip ? -1 : 1), dz = -_s1.tx * sl.lat * (B.flip ? -1 : 1); shiftP(P, dx, dz); }
+  if (B.spur && B.gap && sl.pl.kind === "lap") {                                          // on the spur each one drifts to their own place at the bench or by the fire
+    const sp = restSpot(sl), dxl = sp.x - BENCH.x, dzl = sp.z - BENCH.z;
+    if (dxl || dzl) { const e = ease(clamp(uL / L.D, 0, 1)), w = B.spur === 1 ? e : 1 - e, cs = Math.cos(B.gap.yaw), sn = Math.sin(B.gap.yaw); shiftP(P, (dxl * cs + dzl * sn) * w, (-dxl * sn + dzl * cs) * w); }
+  }
 }
+// a party closes up on the way in to the gapahuk and spreads out again on the way off it: the lag to the leader runs down over the spur
+const lagF = (B, u) => B.spur === 1 ? 1 - ease(clamp(u / B.leg.D, 0, 1)) : B.spur === 2 ? ease(clamp(u / B.leg.D, 0, 1)) : 1;
 function shiftP(P, dx, dz) { P.x += dx; P.z += dz; for (let i = 0; i < 2; i++) { P.f[i].x += dx; P.f[i].z += dz; P.h[i].x += dx; P.h[i].z += dz; P.p[i].x += dx; P.p[i].z += dz; } }
 function poseBlock(sl, bi, tau, P) {
+  P.ed = 0;
   const pl = sl.pl, B = pl.blocks[bi], t = gameClockNow();
   if (B.k === "leg") {
     poseLeg(sl, B, tau, P);
@@ -1288,9 +1347,10 @@ function poseSlot(sl, tau, P) {
   if (bi > 0 && tau - B.a < 0.5) { const w = ease((tau - B.a) / 0.5), keep = [sl.u, sl.v, sl.gait]; poseBlock(sl, bi - 1, pl.blocks[bi - 1].b - 1e-3, _pb); lerpP(_pb, P, w, P); sl.u = keep[0]; sl.v = keep[1]; sl.gait = keep[2]; }
 }
 // a star turn on the spot: six small steps, feet and skis swung round together about the middle (cx, cz), from heading th0 through half a circle
-function starTurn(sl, P, cx, cz, th0, s) {
+function starTurn(sl, P, cx, cz, th0, s, rot) {
+  rot = rot === undefined ? Math.PI : rot;
   const k = sl.k, sc = sl.sc, Lp = SKI.Lp * sc / 0.88, ys = [0, 0], lifts = [0, 0];
-  for (let st = 0; st < 6; st++) { const i = st & 1, t0 = 0.2 + st * 0.42, q = clamp((s - t0) / 0.36, 0, 1), tgt = (Math.floor(st / 2) + 1) * Math.PI / 3, from = Math.floor(st / 2) * Math.PI / 3; if (q >= 1) ys[i] = tgt; else if (q > 0) { ys[i] = from + (tgt - from) * ease(q); lifts[i] = 0.07 * Math.sin(Math.PI * q) * k; } }
+  for (let st = 0; st < 6; st++) { const i = st & 1, t0 = 0.2 + st * 0.42, q = clamp((s - t0) / 0.36, 0, 1), tgt = (Math.floor(st / 2) + 1) * rot / 3, from = Math.floor(st / 2) * rot / 3; if (q >= 1) ys[i] = tgt; else if (q > 0) { ys[i] = from + (tgt - from) * ease(q); lifts[i] = 0.07 * Math.sin(Math.PI * q) * k; } }
   for (let i = 0; i < 2; i++) { const f = P.f[i], y = th0 + ys[i], sd = sg(i); f.x = cx + Math.cos(y) * sd * 0.14 * k; f.z = cz - Math.sin(y) * sd * 0.14 * k; f.yaw = y; f.lift = lifts[i]; f.tip = 0; f.ski = 1; f.sv = 0; }
   const by = th0 + Math.atan2(Math.sin(ys[0]) + Math.sin(ys[1]), Math.cos(ys[0]) + Math.cos(ys[1]));
   P.x = cx; P.z = cz; P.yaw = by; penHands(sl, P, cx, cz, by, 0.16, 9);
@@ -1315,20 +1375,21 @@ function poseTurn(sl, B, tau, P) {
 // the rest on the gapahuk's bench: a star turn at the spot in front of it (skis stay under the feet to here), backing out of the skis a step at a time,
 // sitting down, the rest, up again, stepping back into the skis and on. Skis are left where they were stepped out of.
 function poseBench(sl, B, tau, P) {
+  const rsp = restSpot(sl), bx = rsp.x; if (!rsp.sit) { poseStandBy(sl, B, tau, P, rsp); return; }
   const s = tau - B.a, k = sl.k, sc = sl.sc, g = B.gap, psi = g.yaw, cs = Math.cos(psi), sn = Math.sin(psi), R = B.rs, lat = 0.14 * k;
   const A0 = 3.0, A1 = 5.4, A2 = 6.8, A3 = 6.8 + R, A4 = 8.2 + R, A5 = 10.6 + R;
   const lx = (x, z, o) => { o.x = g.x + x * cs + z * sn; o.z = g.z - x * sn + z * cs; return o; };
   sl.u = 0; sl.v = 0; sl.gait = -1;
-  if (s < A0) { const c = lx(BENCH.x, BENCH.z, {}); starTurn(sl, P, c.x, c.z, psi + Math.PI, s); return; }
+  if (s < A0) { const c = lx(bx, BENCH.z, {}); starTurn(sl, P, c.x, c.z, psi + Math.PI, s); return; }
   const steps = [[0, A0, 1.05, 0.45], [1, A0 + 0.6, 1.05, 0.25], [0, A0 + 1.2, 0.45, -0.05], [1, A0 + 1.8, 0.25, -0.05], [1, A4, -0.05, 0.25], [0, A4 + 0.6, -0.05, 0.45], [1, A4 + 1.2, 0.25, 1.05], [0, A4 + 1.8, 0.45, 1.05]];
   const z = [BENCH.z, BENCH.z], lift = [0, 0], offAt = [A0, A0 + 0.6], onAt = [A5, A4 + 1.8];
   for (const [i, t0, a, b] of steps) if (s >= t0) { const q = clamp((s - t0) / 0.6, 0, 1); z[i] = a + (b - a) * ease(q); if (q < 1) lift[i] = 0.1 * Math.sin(Math.PI * q) * k; }
   for (let i = 0; i < 2; i++) {
-    const f = P.f[i], sd = sg(i); lx(BENCH.x + sd * lat, z[i], f); f.yaw = psi; f.lift = lift[i]; f.tip = 0;
-    const off = s >= offAt[i] && s < onAt[i]; f.ski = off ? 0 : 1; f.sv = off ? 1 : 0; if (off) { lx(BENCH.x + sd * lat, BENCH.z, _bw); f.sx = _bw.x; f.sz = _bw.z; f.syaw = psi; }
+    const f = P.f[i], sd = sg(i); lx(bx + sd * lat, z[i], f); f.yaw = psi; f.lift = lift[i]; f.tip = 0;
+    const off = s >= offAt[i] && s < onAt[i]; f.ski = off ? 0 : 1; f.sv = off ? 1 : 0; if (off) { lx(bx + sd * lat, BENCH.z, _bw); f.sx = _bw.x; f.sz = _bw.z; f.syaw = psi; }
   }
   const sit = sstep(A1, A2, s) * (1 - sstep(A3, A4, s)), zr = (z[0] + z[1]) / 2 * (1 - sit) + (-0.52) * sit;
-  lx(BENCH.x, zr, P); P.yaw = psi; const g0 = W.surf(P.x, P.z), seatTop = W.surf(g.x, g.z) + 0.45, hipSeat = (seatTop - g0) / sc + 0.17;
+  lx(bx, zr, P); P.yaw = psi; const g0 = W.surf(P.x, P.z), seatTop = W.surf(g.x, g.z) + 0.45, hipSeat = (seatTop - g0) / sc + 0.17;
   P.hip = 0.88 + (hipSeat - 0.88) * sit; P.pitch = 0.14 - 0.2 * sit; P.twist = 0.14 * Math.sin(s * 0.8) * sit; P.roll = 0; P.head = 0;
   penHands(sl, P, P.x, P.z, psi, 0.35 - 0.1 * sit, 0.5);
 }
@@ -1571,11 +1632,457 @@ function groove(sl) {
   }
 }
 
+/* ================= H1c: lamps and the power bill, fires at the gapahuks, a skier down, weekends and the skating lane, the skidag =================
+   LAMPS. Lysløypa's posts carry lamps (built in H1a); they are LIT from dusk to 22:00 while the trail is taken on and its lamps are switched on in the
+   Løyper app (st.lamps, on at take-on). Lit = the trail's own clock (lampWin: 12:00 to 22:00 with the sun below the horizon), so the bookkeeping, the
+   bill and the lamps you see all read the same. Cheap on a phone: no real light per post. One InstancedMesh of emissive lamp heads, one of additive
+   warm pools on the snow under them and one Points of halos for the whole trail: three draw calls, only while lit. The power is the player's bill
+   (H1C.lamp.rate $ per lit hour, st.lampH counted hour by hour, charged on Monday as its own statement line). A lit trail is skied after dark
+   (outingsHour lifts the darkness limit for it); unlit, the evening goes quiet.
+   FIRES. A skier or a party resting on the gapahuk's bench lights the fire ring (a few seconds after they sit), it burns the whole rest and a while
+   after they leave (H1C.fire.burn game hours), then dies. What is lit is read off the booked journeys (bookkeeping), so it is the same for anyone
+   who looks. A pool of fire kits (1 on a phone, 2 on desktop) is lent to the nearest burning ones: flames (flickering additive sprites), a big halo
+   that scales with the distance so it shows from far in the dark, smoke, a warm pool on the snow and a glow on the lean-to's back wall. The player
+   can light it too (the use control by the ring) and it warms like a stove (api.warmx -> updGame's warmth): not a new stat. Parties rest as well:
+   up to three on the bench, children and the rest standing round the fire (restSpot), each at a place of their own so nobody clips.
+   SKI RESCUE. Now and then a skier on a trail you keep goes down hard (likelier on an icy descent) or is caught out when the weather turns: the real
+   person from the roll, at the point of the trail they had reached. It raises a call through the SAR path (api.sarCall: the Rescue app's ping, the Jobs
+   row, the compass, the Map mark, the case clock), the casualty lies on the trail by their skis, you carry them back to the trailhead on the sled.
+   Their family posts worry to the news bus, a finished rescue posts thanks by name. Saved (s.rescue) so a reload re-raises it. Option skirescue.
+   WEEKENDS AND THE LANE. Weekend hours draw H1C.we times the people. Segments set with the wing tiller (wide) draw the skaters (a skater is a third
+   of the roll) and pay H1C.skateK more per skier-km on them.
+   SKIDAG. One Sunday a month per kept loop (the 2nd or 3rd), announced three days ahead on the bus, the trailhead board, the Løyper app and the
+   Calendar. On the day: from 11:00 to 15:00 a crowd (H1C.skd.n parties an hour), a waffle table with a pot and two villagers at the trailhead, and
+   a bonus if the whole trail was freshly set at 09:00 that morning. At 16:00 a post says who came and how the track was. */
+const H1C = {
+  lamp: { rate: 0.75, from: 12, to: 22, r: 7 },
+  we: 1.7, skateK: 0.35, skateW: 1.2,
+  fire: { burn: 0.4, reach: 5.5, own: 1.0, kits: { low: 1, high: 2 }, see: 2600, lit: 0.1 },
+  rescue: { p: 0.012, cool: 30, accept: 45 },
+  skd: { from: 11, to: 15, n: 6, base: 60, perKm: 40, ann: 3 }
+};
+X.H1C = H1C; X.rcMul = 1;
+const wrapPi = a => a - Math.round(a / 6.283185307) * 6.283185307;
+
+/* ---- lamps: when ---- */
+const lampWin = H => { const c = api.CAL.now(H); return c.h >= H1C.lamp.from && c.h < H1C.lamp.to && sunAt(H) < 0; };
+function lampsLit(t, H) { if (H === undefined) H = api.GS.hour; return !!(t.lit && t.st && t.st.taken && t.st.lamps && isOpen() && lampWin(H)); }
+X.lampsLit = lampsLit; X.lampWin = lampWin;
+function lampSwitch(id, on) {
+  const t = X.list.find(q => q.id === id); if (!t || !t.lit || !t.st.taken) return false;
+  t.st.lamps = on === undefined ? (t.st.lamps ? 0 : 1) : (on ? 1 : 0); touch(t);
+  api.toast(`${t.name}: the lamps are ${t.st.lamps ? `on from dusk to ${H1C.lamp.to}:00. The power is your bill: ${api.fmtCash(H1C.lamp.rate)} an hour while they burn` : "off. Nobody skis it after dark"}.`, t.st.lamps ? "info" : "warn");
+  api.save(); api.TABLET.refresh("loyper"); return true;
+}
+X.lampSwitch = lampSwitch;
+const lampCost = t => Math.round((t.st.lampH || 0) * H1C.lamp.rate);
+
+/* ---- lamps: what you see ---- */
+const LV = { list: [], tex: null };
+function poolTex() {
+  if (LV.tex) return LV.tex; const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d"), r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  r.addColorStop(0, "rgba(255,226,160,1)"); r.addColorStop(0.35, "rgba(255,200,120,.55)"); r.addColorStop(0.7, "rgba(255,180,90,.16)"); r.addColorStop(1, "rgba(255,170,80,0)"); g.fillStyle = r; g.fillRect(0, 0, 128, 128);
+  return (LV.tex = new T.CanvasTexture(c));
+}
+// a warm pool that lies on the snow (it follows the ground: rings of vertices, colour fading to black at the rim so the additive blend fades out), n of them in ONE geometry
+const PR = { rings: 6, segs: 14 }, POOLV = 1 + PR.rings * PR.segs;
+function poolGeo(n, col) {
+  const pos = new Float32Array(n * POOLV * 3), cl = new Float32Array(n * POOLV * 3), idx = [];
+  for (let k = 0; k < n; k++) {
+    const b = k * POOLV;
+    for (let v = 0; v < POOLV; v++) { const ring = v === 0 ? 0 : 1 + Math.floor((v - 1) / PR.segs), f = Math.pow(1 - ring / PR.rings, 1.7); cl[(b + v) * 3] = col[0] * f; cl[(b + v) * 3 + 1] = col[1] * f; cl[(b + v) * 3 + 2] = col[2] * f; }
+    for (let sg = 0; sg < PR.segs; sg++) { const a = 1 + sg, c = 1 + (sg + 1) % PR.segs; idx.push(b, b + a, b + c); for (let r = 1; r < PR.rings; r++) { const a0 = b + 1 + (r - 1) * PR.segs, a1 = b + 1 + r * PR.segs; idx.push(a0 + sg, a1 + sg, a0 + (sg + 1) % PR.segs, a0 + (sg + 1) % PR.segs, a1 + sg, a1 + (sg + 1) % PR.segs); } }
+  }
+  const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(pos, 3)); g.setAttribute("color", new T.BufferAttribute(cl, 3)); g.setIndex(idx); return g;
+}
+function poolFit(g, k, cx, cz, R, lift) {
+  const pos = g.attributes.position.array, b = k * POOLV * 3; let y = snowY(cx, cz) + lift;
+  pos[b] = cx; pos[b + 1] = y; pos[b + 2] = cz;
+  for (let r = 1; r <= PR.rings; r++) for (let sg = 0; sg < PR.segs; sg++) { const a = sg / PR.segs * 6.283185, x = cx + Math.cos(a) * R * r / PR.rings, z = cz + Math.sin(a) * R * r / PR.rings, i = b + (1 + (r - 1) * PR.segs + sg) * 3; pos[i] = x; pos[i + 1] = snowY(x, z) + lift; pos[i + 2] = z; }
+  g.attributes.position.needsUpdate = true;
+}
+function buildLampVisuals() {
+  LV.list = [];
+  for (const g of FU.lamps) {
+    const t = X.list.find(q => q.id === g.trail), n = g.list.length; if (!t || !n) continue;
+    const heads = new T.InstancedMesh(new T.BoxGeometry(0.5, 0.1, 0.27), new T.MeshBasicMaterial({ color: 0xfff1c4 }), n); heads.frustumCulled = false; heads.name = "lamp heads " + t.id; heads.visible = false;
+    const pools = new T.Mesh(poolGeo(n, [1, 0.78, 0.46]), new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false })); pools.frustumCulled = false; pools.name = "lamp pools " + t.id; pools.visible = false;
+    pools.material.polygonOffset = true; pools.material.polygonOffsetFactor = -2; pools.material.polygonOffsetUnits = -2;
+    const hg = new T.BufferGeometry(); hg.setAttribute("position", new T.Float32BufferAttribute(new Float32Array(n * 3), 3));
+    const halo = new T.Points(hg, new T.PointsMaterial({ size: 7, map: lampTex(), color: 0xffe0a0, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true })); halo.frustumCulled = false; halo.name = "lamp halos " + t.id; halo.visible = false;
+    for (const m of [heads, pools, halo]) { api.scene.add(m); FU.meshes.push(m); }
+    LV.list.push({ t, g, heads, pools, halo, k: 0 });
+  }
+  lampY();
+}
+let _lM = null, _lQ = null, _lE = null, _lP = null, _lS = null;
+function lampY() {
+  if (!LV.list.length) return;
+  if (!_lM) { _lM = new T.Matrix4(); _lQ = new T.Quaternion(); _lE = new T.Euler(); _lP = new T.Vector3(); _lS = new T.Vector3(1, 1, 1); }
+  for (const e of LV.list) {
+    const L = e.g.list, pos = e.halo.geometry.attributes.position.array;
+    for (let i = 0; i < L.length; i++) {
+      const x = L[i][0], z = L[i][1], yaw = L[i][2], hx = x + Math.cos(yaw) * 0.82, hz = z - Math.sin(yaw) * 0.82, gy = snowY(x, z);
+      _lE.set(0, yaw, 0); _lQ.setFromEuler(_lE); _lS.set(1, 1, 1); _lP.set(hx, gy + 4.4, hz); _lM.compose(_lP, _lQ, _lS); e.heads.setMatrixAt(i, _lM);
+      poolFit(e.pools.geometry, i, hx, hz, H1C.lamp.r, 0.07);
+      pos[i * 3] = hx; pos[i * 3 + 1] = gy + 4.35; pos[i * 3 + 2] = hz;
+    }
+    e.heads.instanceMatrix.needsUpdate = true; e.halo.geometry.attributes.position.needsUpdate = true;
+  }
+}
+function lampTick(dt) {
+  if (!LV.list.length) return;
+  const night = 1 - api.dayFactor();
+  for (const e of LV.list) {
+    const on = lampsLit(e.t) ? 1 : 0; e.k += clamp(on - e.k, -dt * 0.8, dt * 0.8);
+    const vis = e.k > 0.01;
+    e.heads.visible = vis; e.pools.visible = vis && night > 0.03; e.halo.visible = vis && night > 0.03;
+    if (vis) { e.pools.material.opacity = 0.8 * e.k * clamp(night * 1.3, 0, 1); e.halo.material.opacity = 0.9 * e.k * clamp(night * 1.3, 0, 1); }
+  }
+}
+X.LV = LV;
+
+/* ---- fires: the state of each gapahuk's fire (read off the booked journeys), the warmth, the player lighting one ---- */
+const fireAt = (g, o) => { o = o || _fp; const cs = Math.cos(g.yaw), sn = Math.sin(g.yaw); o.x = g.x + 2.6 * sn; o.z = g.z + 2.6 * cs; return o; };
+const _fp = { x: 0, z: 0 };
+const lw = (g, lx, lz, o) => { const cs = Math.cos(g.yaw), sn = Math.sin(g.yaw); o.x = g.x + lx * cs + lz * sn; o.z = g.z - lx * sn + lz * cs; return o; };
+// the burn of one gapahuk at game hour H: 0..1
+function fireOf(g, H) {
+  const t = g.t; let fi = 0;
+  if (t.st && t.st.out.length) for (const o of t.st.out) {
+    if (o.g !== o.p) continue;                                                           // the leader's record carries the journey
+    if (o.t1 < H - H1C.fire.burn - 0.1 || o.t0 > H) continue;
+    const pl = planOf(t, o), bi = pl.blocks.findIndex(b => b.k === "bench"); if (bi < 0) continue;
+    const a = X.hourAtBlock(t, o, bi, 0) + 0.07 / 2, b = X.hourAtBlock(t, o, bi, 1);        // lit a few seconds after they sit down
+    if (H < a) continue;
+    fi = Math.max(fi, H <= b ? Math.min(1, (H - a) / 0.05) : Math.max(0, 1 - (H - b) / H1C.fire.burn));
+  }
+  if (g.pl !== undefined && g.pl > -1e8) fi = Math.max(fi, H <= g.pl ? Math.min(1, (H - g.pl0) / 0.05) : Math.max(0, 1 - (H - g.pl) / H1C.fire.burn));
+  return fi;
+}
+X.fireOf = fireOf;
+function fireWarm(x, z) {
+  let k = 0; if (!X.ready) return 0;
+  for (const g of FU.gaps) { if (!(g.fi > 0.12)) continue; const f = fireAt(g), d = Math.hypot(x - f.x, z - f.z); if (d < H1C.fire.reach) k = Math.max(k, (1 - d / H1C.fire.reach) * Math.min(1, g.fi * 1.4)); }
+  return k;
+}
+X.fireWarm = fireWarm;
+function fireNear(x, z, r) { let best = null, bd = r; for (const g of FU.gaps) { const f = fireAt(g), d = Math.hypot(x - f.x, z - f.z); if (d < bd) { bd = d; best = g; } } return best; }
+function lightFire(g) {
+  const H = api.GS.hour; if (g.fi > 0.3) { api.toast("The fire is burning already: warm yourself.", "info"); return false; }
+  g.pl0 = H; g.pl = H + H1C.fire.own; g.fi = 0.05;
+  api.toast(`You light the fire at ${g.t.name}'s gapahuk. Stand by it and warm up.`, "good"); return true;
+}
+X.lightFire = lightFire;
+const FIREX = {
+  use() {
+    const F = api.FOOT; if (!F.on || api.busy() || (api.INT && api.INT.on) || (api.MNT && api.MNT.on) || (api.DMT && api.DMT.on) || !X.ready) return null;
+    const g = fireNear(F.x, F.z, 4.2); if (!g || g.fi > 0.3) return null;
+    return { label: "LIGHT FIRE", hint: () => kh("use", "light the fire"), act: () => lightFire(g) };
+  }
+};
+const FIRERIDE = {
+  use() {
+    if (!X.ready || api.FOOT.on || api.busy() || (api.INT && api.INT.on)) return null; const v = vehicleNow(); if (!v || v.sp > 1.2) return null;
+    const g = fireNear(v.x, v.z, 6); if (!g || g.fi > 0.3) return null; return { label: "LIGHT FIRE", act: () => lightFire(g) };
+  }
+};
+const fireRideLine = () => { if (!X.ready || api.FOOT.on) return ""; const v = vehicleNow(); if (!v || v.sp > 1.2) return ""; const g = fireNear(v.x, v.z, 6); return g && g.fi <= 0.3 ? kh("use", "light the fire") : ""; };
+X.FIREX = FIREX; X.FIRERIDE = FIRERIDE; X.fireRideLine = fireRideLine;
+
+/* ---- fires: what you see (a pool of kits lent to the nearest burning ones) ---- */
+const FK = { kits: [], tex: null, smoke: null, scanT: 0, act: [], n: 0 };
+function flameTex() {
+  if (FK.tex) return FK.tex; const c = document.createElement("canvas"); c.width = 64; c.height = 128; const g = c.getContext("2d");
+  const r = g.createRadialGradient(32, 92, 2, 32, 84, 58); r.addColorStop(0, "rgba(255,246,200,1)"); r.addColorStop(0.25, "rgba(255,190,80,.9)"); r.addColorStop(0.6, "rgba(255,110,30,.4)"); r.addColorStop(1, "rgba(255,70,10,0)");
+  g.fillStyle = r; g.beginPath(); g.moveTo(32, 2); g.bezierCurveTo(56, 52, 62, 82, 32, 126); g.bezierCurveTo(2, 82, 8, 52, 32, 2); g.fill();
+  return (FK.tex = new T.CanvasTexture(c));
+}
+function smokeTex() {
+  if (FK.smoke) return FK.smoke; const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, "rgba(200,200,205,.8)"); r.addColorStop(0.6, "rgba(160,160,168,.35)"); r.addColorStop(1, "rgba(140,140,150,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  return (FK.smoke = new T.CanvasTexture(c));
+}
+function makeKit() {
+  const grp = new T.Group(); grp.visible = false; api.scene.add(grp);
+  const spr = (map, color, add, fog) => { const s = new T.Sprite(new T.SpriteMaterial({ map, color, transparent: true, depthWrite: false, blending: add ? T.AdditiveBlending : T.NormalBlending, fog: !!fog })); grp.add(s); return s; };
+  const kit = { grp, g: null, flames: [0, 1, 2].map(() => spr(flameTex(), 0xff9a38, true, false)), halo: spr(lampTex(), 0xff9a40, true, false), smoke: [0, 1, 2, 3, 4].map(() => spr(smokeTex(), 0xffffff, false, true)) };
+  kit.pool = new T.Mesh(poolGeo(1, [1, 0.5, 0.2]), new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false })); kit.pool.frustumCulled = false; kit.pool.material.polygonOffset = true; kit.pool.material.polygonOffsetFactor = -2; kit.pool.visible = false; api.scene.add(kit.pool);
+  kit.wall = new T.Mesh(new T.PlaneGeometry(3.3, 2.0), new T.MeshBasicMaterial({ map: poolTex(), color: 0xff8030, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide })); grp.add(kit.wall);
+  FK.kits.push(kit); return kit;
+}
+function fireScan() {
+  const V = viewer(), H = api.GS.hour, want = api.GFX && api.GFX.low ? H1C.fire.kits.low : H1C.fire.kits.high; FK.act.length = 0;
+  for (const g of FU.gaps) {
+    const f = fireAt(g), d = Math.hypot(f.x - V.x, f.z - V.z); g.d = d;
+    g.fi = d < H1C.fire.see + 1500 ? fireOf(g, H) : 0;
+    if (g.fi > 0.02 && d < H1C.fire.see) FK.act.push(g);
+  }
+  FK.act.sort((a, b) => a.d - b.d); if (FK.act.length > want) FK.act.length = want;
+  for (const k of FK.kits) k.g = null;
+  for (const g of FK.act) { let k = FK.kits.find(q => q.g === null && q.last === g) || FK.kits.find(q => q.g === null); if (!k && FK.kits.length < want) k = makeKit(); if (k) { k.g = g; k.last = g; } }
+}
+function fireTick(dt) {
+  if (!X.ready || !FU.gaps.length) return;
+  FK.scanT -= dt; if (FK.scanT <= 0) { FK.scanT = 0.25; fireScan(); }
+  const t = api.now(), night = 1 - api.dayFactor(), V = viewer();
+  for (const k of FK.kits) {
+    const g = k.g; if (!g || !(g.fi > 0.02)) { k.grp.visible = false; k.pool.visible = false; continue; }
+    const f = fireAt(g), gy = snowY(f.x, f.z), fi = g.fi; k.grp.visible = true; k.grp.position.set(f.x, gy, f.z);
+    const flick = 0.8 + 0.2 * Math.sin(t * 13 + g.x) + 0.1 * Math.sin(t * 7.3 + 1.7);
+    for (let i = 0; i < 3; i++) {
+      const s = k.flames[i], sy = (0.5 + 0.55 * Math.abs(Math.sin(t * (8 + i * 2.3) + i * 2.1))) * (0.35 + 0.65 * fi), sx = (0.34 + 0.12 * Math.sin(t * (10 + i) + i)) * (0.4 + 0.6 * fi);
+      s.scale.set(sx, sy * 1.5, 1); s.position.set((i - 1) * 0.2 + 0.06 * Math.sin(t * 6 + i), 0.32 + sy * 0.62, (i - 1) * 0.06); s.material.opacity = Math.min(1, 0.4 + fi) * flick;
+    }
+    const d = Math.hypot(f.x - V.x, f.z - V.z), hs = clamp(d * 0.011, 3.2, 28);
+    k.halo.position.set(0, 1.0, 0); k.halo.scale.set(hs, hs, 1); k.halo.material.opacity = fi * (0.18 + 0.7 * night) * (0.9 + 0.1 * flick) * (d < 40 ? 0.45 + d / 80 : 1);
+    for (let j = 0; j < 5; j++) {
+      const p = ((t * 0.16 + j / 5) % 1), s = k.smoke[j];
+      s.position.set(p * p * 3.2 + Math.sin(t + j) * 0.2, 0.9 + p * 6.2, p * 1.1); const sc = 0.6 + p * 2.8; s.scale.set(sc, sc, 1);
+      s.material.opacity = 0.34 * (1 - p) * Math.min(1, fi * 1.6) * (0.35 + 0.65 * (1 - night * 0.7)); const w = 0.5 + 0.5 * night * (1 - p); s.material.color.setRGB(0.55 + 0.45 * w, 0.52 + 0.3 * w, 0.52 + 0.1 * w);
+    }
+    if (k.poolAt !== g || (FU.h !== k.poolH)) { k.poolAt = g; k.poolH = FU.h; poolFit(k.pool.geometry, 0, f.x, f.z, 9, 0.09); }
+    k.pool.visible = true; k.pool.material.opacity = 0.9 * fi * flick * clamp(0.25 + night, 0, 1);
+    lw(g, 0, -1.0, _fp); k.wall.position.set(_fp.x - f.x, snowY(_fp.x, _fp.z) - gy + 0.98, _fp.z - f.z); k.wall.rotation.y = g.yaw; k.wall.material.opacity = 0.62 * fi * flick * clamp(0.2 + night, 0, 1);
+  }
+}
+X.FK = FK; X.fireScan = fireScan;
+
+/* ---- parties at the gapahuk: where each one sits or stands ---- */
+const SEAT_X = [-1.0, -0.2, 0.6], STAND = [[-1.3, 2.2], [1.3, 2.2], [-1.5, 2.4], [1.4, 3.4], [-1.6, 3.5], [0.1, 4.2]];
+const _rs = { sit: true, x: BENCH.x, z: BENCH.z };
+function restSpot(sl) {
+  const k = sl.mk || 0, p = sl.who, kid = !!p && p.age < 11;
+  if (k < 3 && !(kid && k > 0)) { _rs.sit = true; _rs.x = SEAT_X[k]; _rs.z = BENCH.z; return _rs; }
+  const s = STAND[k % STAND.length]; _rs.sit = false; _rs.x = s[0]; _rs.z = s[1]; return _rs;
+}
+// standing by the fire: the star turn to face it, the wait (a little sway, the hands held toward the flames), the star turn back to face the way out
+function poseStandBy(sl, B, tau, P, sp) {
+  const s = tau - B.a, g = B.gap, psi = g.yaw, dur = B.b - B.a, A0 = 3.0, Y = psi + Math.atan2(-sp.x, 2.6 - sp.z), th0 = psi + Math.PI;
+  const c = lw(g, sp.x, sp.z, _bw); sl.u = 0; sl.v = 0; sl.gait = -1;
+  if (s < A0) { starTurn(sl, P, c.x, c.z, th0, s, wrapPi(Y - th0)); return; }
+  if (s > dur - A0) { starTurn(sl, P, c.x, c.z, Y, s - (dur - A0), wrapPi(psi - Y)); return; }
+  gStand(sl, P, c.x, c.z, Y, 0, gameClockNow()); const k = sl.k, sn = Math.sin(Y), cs = Math.cos(Y), sc = sl.sc;
+  for (let j = 0; j < 2; j++) { const sd = sg(j), h = P.h[j], p = P.p[j]; h.x = c.x + cs * sd * 0.2 * k + sn * 0.42 * k; h.z = c.z - sn * sd * 0.2 * k + cs * 0.42 * k; h.y = W.surf(c.x, c.z) + 1.0 * sc; p.x = h.x - sn * 0.1 + cs * sd * 0.05; p.z = h.z - cs * 0.1 - sn * sd * 0.05; p.y = h.y - 1.15 * (sc / 0.88) + 0.0; if (p.y < W.surf(p.x, p.z)) p.y = W.surf(p.x, p.z) + 0.02; }
+  P.pitch = 0.1 + 0.02 * Math.sin(gameClockNow() * 1.3 + sl.i); P.hip = 0.9;
+}
+
+/* ---- the ski rescue ---- */
+const _wa = { x: 0, z: 0, tx: 0, tz: 1, ok: false };
+// where the leader of an outing is at game hour H, with the way they are heading: on a trail leg (not a spur, a rest or the board), else not ok
+function whereAt(t, o, H) {
+  const pl = planOf(t, o), tau = (H - o.t0) * HOURS() - (o.dl || 0); _wa.ok = false; if (tau < 0 || tau > pl.T) return _wa;
+  let bi = 0; while (bi < pl.nb - 1 && tau >= pl.blocks[bi].b) bi++; const B = pl.blocks[bi]; if (B.k !== "leg" || B.spur) return _wa;
+  const L = B.leg, u = clamp(uAtTau(L, tau - B.a), 0, L.D), q = ppL(L, u, _wa); _wa.ok = true; return _wa;
+}
+function rescueWeight(t, o, H) {
+  const q = whereAt(t, o, H); if (!q.ok) return 0;
+  const near = X.nearest(q.x, q.z, 20); if (!near || near.trail !== t) return 0;
+  const down = (W.groundAt(q.x - q.tx * 12, q.z - q.tz * 12) - W.groundAt(q.x + q.tx * 12, q.z + q.tz * 12)) / 24;
+  const g = t.st.seg[near.seg], w = api.WX.at(q.x, q.z, H);
+  return 1 + (down > 0.045 ? 3 : 0) + (g[1] > 0.35 ? 2.5 : 0) + (w > 0.4 ? 2 : 0);
+}
+function rescueRaise(t, o, H, how) {
+  const s = S(), q = whereAt(t, o, H); if (!q.ok) return false;
+  const x = q.x, z = q.z, near = X.nearest(x, z, 25), seg = near ? near.seg : 0, grp = [];
+  for (const r of t.st.out) if (r.t0 === o.t0 && (r.g || r.p) === (o.g || o.p)) grp.push(r);
+  const who = TLXN.person(grp[Math.floor(rnd() * grp.length)].p) || TLXN.person(o.p); if (!who) return false;
+  const g = t.st.seg[seg], w = api.WX.at(x, z, H), icy = g[1] > 0.35;
+  const kind = how || (w > 0.4 ? "caught" : "fall"), dst = Math.round(Math.hypot(x - t.pts[0][0], z - t.pts[0][1]));
+  const why = kind === "caught" ? `${who.first} ${who.last} was caught out by the weather on ${t.name}: lost the track in the blowing snow, stopped, and is shaking.`
+    : `${who.first} ${who.last} went down hard on ${t.name}${icy ? " on the ice" : ""} and cannot get up: a bad knee and cold already. Skis and poles lie where they fell.`;
+  const dest = { x: t.pts[0][0], z: t.pts[0][1], name: t.name + " trailhead" };
+  const rec = { p: who.id, trail: t.id, x, z, seg, kind, t0: H, acc: 0, why, o: grp.length };
+  const c = api.sarCall({ x, z, name: who.first, who: "skier", why, dest, person: who.id, near: t.name,
+    onAccept: () => { if (s.rescue === rec) { rec.acc = 1; api.save(); } }, onMiss: () => rescueMissed(rec), onEnd: ok => rescueEnded(rec, ok) });
+  if (!c) return false;
+  s.rescue = rec; s.rcH = H; X.rescueCase = c;
+  for (const r of grp) { const i = t.st.out.indexOf(r); if (i >= 0) t.st.out.splice(i, 1); }       // they are not skiing any more
+  TLXN.post({ kind: "rescue", who, x, z, place: t.name, text: `${who.first} ${who.last} ${kind === "caught" ? "was caught out by the weather" : "went down hard"} on ${t.name}; a call has gone out.`, data: { trail: t.id, what: "call", kind, p: who.id } });
+  let fam = TLXN.family(who).filter(m => m && m.id !== who.id && !grp.some(r => r.p === m.id) && m.age > 13);
+  if (!fam.length) fam = TLXN.peopleIn(who.vid).filter(m => m.id !== who.id && !grp.some(r => r.p === m.id) && m.age > 20 && m.home !== who.home);   // nobody at home: a neighbour who heard
+  if (fam.length) { const m = fam[Math.floor(rnd() * fam.length)]; TLXN.post({ kind: "rescue", who: m, x: m.x, z: m.z, place: m.village, text: TLXN.say(m, "worry", { name: who.first, trail: t.name, n: s.seq }), data: { trail: t.id, what: "worry", about: who.id } }); }
+  touch(t); api.save(); return true;
+}
+function rescueMissed(rec) {
+  const s = S(); if (s.rescue !== rec) return; s.rescue = null;
+  const t = X.list.find(q => q.id === rec.trail), who = TLXN.person(rec.p);
+  TLXN.post({ kind: "rescue", who, x: rec.x, z: rec.z, place: t ? t.name : "", text: `${who ? who.first : "A skier"} was taken off ${t ? t.name : "the trail"} by another crew.`, data: { trail: rec.trail, what: "other" } }); api.save();
+}
+function rescueEnded(rec, ok) {
+  const s = S(); if (s.rescue !== rec) return; s.rescue = null; X.rescueCase = null;
+  const t = X.list.find(q => q.id === rec.trail), who = TLXN.person(rec.p); if (!who) return;
+  const you = "the trail keeper";
+  if (ok) {
+    TLXN.post({ kind: "rescue", who, x: rec.x, z: rec.z, place: t ? t.name : "", text: TLXN.say(who, "thanks", { name: who.first, trail: t ? t.name : "the trail", you, n: s.seq }), data: { trail: rec.trail, what: "thanks", p: who.id, by: "you" } });
+    const fam = TLXN.family(who).filter(m => m && m.id !== who.id && m.age > 13);
+    if (fam.length) { const m = fam[0]; TLXN.post({ kind: "rescue", who: m, x: m.x, z: m.z, place: m.village, text: TLXN.say(m, "thanks", { name: who.first, trail: t ? t.name : "the trail", you, n: s.seq + 1 }), data: { trail: rec.trail, what: "thanks", p: m.id, by: "you" } }); }
+    if (t) { t.st.cm.wk = Math.max(0, t.st.cm.wk - 1); touch(t); }
+  } else TLXN.post({ kind: "rescue", who, x: rec.x, z: rec.z, place: t ? t.name : "", text: `${who.first} ${who.last} was lifted off ${t ? t.name : "the trail"} by the helicopter from Banak.`, data: { trail: rec.trail, what: "lifted", p: who.id } });
+  api.save();
+}
+function rescueHour(H) {
+  const s = S(); if (!TLX.on("skirescue") || s.rescue || H - s.rcH < H1C.rescue.cool) return;
+  if (api.sarState().busy) return;
+  for (const t of X.list) {
+    if (!t.st.taken) continue;
+    for (const o of t.st.out) {
+      if (o.g !== o.p || H < o.t0 + 0.08 || H > o.t1 - 0.05) continue;
+      const w = rescueWeight(t, o, H); if (w <= 0) continue;
+      if (rnd() < H1C.rescue.p * w * X.rcMul && rescueRaise(t, o, H)) return;
+    }
+  }
+}
+// a forced call for scenarios and the mod menu: someone is booked on the trail now and goes down at once
+X.rescueForce = (id, how) => {
+  const t = X.list.find(q => q.id === id); if (!t || !t.st.taken || !TLX.on("skirescue")) return null;
+  const H = api.GS.hour; let o = t.st.out.find(r => r.g === r.p && H > r.t0 + 0.08 && H < r.t1 - 0.05 && whereAt(t, r, H).ok);
+  if (!o) return null; return rescueRaise(t, o, H, how) ? S().rescue : null;
+};
+// a reload finds a call that was open: it is raised again where it was
+let rcT = 0;
+function rescueResume(dt) {
+  const s = S(); if (!s.rescue || !api.started()) return; rcT -= dt; if (rcT > 0) return; rcT = 1;
+  const rec = s.rescue, st = api.sarState();
+  if (st.cur && st.cur.person === rec.p) { X.rescueCase = st.cur; return; }
+  if (st.cur || st.ping || st.busy) return;
+  const t = X.list.find(q => q.id === rec.trail), who = TLXN.person(rec.p);
+  if (!t || !who || !TLX.on("skirescue")) { s.rescue = null; return; }
+  const dest = { x: t.pts[0][0], z: t.pts[0][1], name: t.name + " trailhead" };
+  const c = api.sarCall({ x: rec.x, z: rec.z, name: who.first, who: "skier", why: rec.why, dest, person: who.id, near: t.name, accepted: !!rec.acc,
+    onAccept: () => { rec.acc = 1; api.save(); }, onMiss: () => rescueMissed(rec), onEnd: ok => rescueEnded(rec, ok) });
+  if (c) X.rescueCase = c;
+}
+// the casualty's skis and poles where they fell
+const CAS = { skis: [], poles: [], on: false };
+function casTick() {
+  const st = api.sarState(), c = st.cur, show = !!c && c.ski && !c.res && c.v && c.v.state === "waiting";
+  if (!show) { if (CAS.on) { for (const m of CAS.skis.concat(CAS.poles)) m.visible = false; CAS.on = false; } return; }
+  if (!CAS.skis.length) {
+    const m = new T.MeshLambertMaterial({ vertexColors: true, color: 0xd9622b });
+    for (let i = 0; i < 2; i++) { const s = new T.Mesh(skiGeo(), m); s.frustumCulled = false; api.scene.add(s); CAS.skis.push(s); const p = new T.Mesh(poleGeo(), _poleM || (_poleM = new T.MeshLambertMaterial({ vertexColors: true }))); p.frustumCulled = false; api.scene.add(p); CAS.poles.push(p); }
+  }
+  if (!CAS.on) {
+    CAS.on = true; const x = c.x, z = c.z;
+    CAS.skis.forEach((s, i) => { const sx = x + Math.cos(c.v.yaw) * (i ? 1.0 : -0.8) + Math.sin(c.v.yaw) * 0.5 * i, sz = z - Math.sin(c.v.yaw) * (i ? 1.0 : -0.8) + Math.cos(c.v.yaw) * 0.5 * i; s.position.set(sx, W.surf(sx, sz) + 0.02, sz); s.rotation.set(0, c.v.yaw + (i ? 2.2 : 0.7), 0); s.visible = true; });
+    CAS.poles.forEach((p, i) => { const sx = x - Math.cos(c.v.yaw) * (1.3 + i * 0.35), sz = z + Math.sin(c.v.yaw) * (1.3 + i * 0.35); p.position.set(sx, W.surf(sx, sz) + 0.03, sz); p.rotation.set(-Math.PI / 2 + 0.05, c.v.yaw + i * 0.4, 0, "YXZ"); p.visible = true; });
+  }
+}
+X.CAS = CAS;
+
+/* ---- the skidag ---- */
+const DOW_N = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+// the day index of the Sunday this loop's skidag falls on in the month of day D: the 2nd or the 3rd
+function skdSunday(t, D) {
+  const c = api.CAL.day(D), D0 = D - (c.d - 1); let n = 0; const want = 1 + Math.floor(hash(t.id + "skd" + c.y + "-" + c.m) * 2) + 1;
+  for (let d = 0; d < 31; d++) { const q = api.CAL.day(D0 + d); if (q.m !== c.m) break; if (q.dow === 0 && ++n === want) return D0 + d; }
+  return -1;
+}
+const skdLabel = D => api.CAL.now(D * 24 - api.CAL.off + 12).label;                       // "Sun 14 Nov"
+const skdOn = (t, H) => { const sk = t.st && t.st.skd; if (!sk || sk.D < 0) return false; const cn = api.CAL.now(H); return cn.day === sk.D && cn.h >= H1C.skd.from - 1 && cn.h < H1C.skd.to + 1; };
+const skdSoon = (t, H) => { const sk = t.st && t.st.skd; if (!sk || sk.D < 0 || sk.done) return false; const d = api.CAL.now(H).day; return d >= sk.D - H1C.skd.ann && d <= sk.D; };
+X.skdOn = skdOn; X.skdSoon = skdSoon; X.skdLabel = skdLabel;
+function skdHour(t, H) {
+  if (t.kind !== "loop") return; const st = t.st, sk = st.skd, cn = api.CAL.now(H), key = cn.y + "-" + cn.m;
+  if (sk.key !== key) {                                                                    // a new month: this month's Sunday, if it is still ahead
+    const D = skdSunday(t, cn.day); sk.key = key; sk.D = D >= cn.day + 1 ? D : -1; sk.ann = 0; sk.fresh = -1; sk.n = 0; sk.done = 0; sk.bonus = 0; sk.who = [];
+  }
+  if (sk.D < 0) return;
+  if (!sk.ann && cn.day >= sk.D - H1C.skd.ann && cn.day < sk.D && cn.h >= 7) {
+    sk.ann = 1; const org = TLXN.peopleIn(t.villages[0]).filter(p => p.age > 25 && p.age < 70)[Math.floor(hash(t.id + sk.D) * 5) % Math.max(1, TLXN.peopleIn(t.villages[0]).filter(p => p.age > 25 && p.age < 70).length)] || null;
+    const when = skdLabel(sk.D);
+    TLXN.post({ kind: "skidag", who: org, x: t.pts[0][0], z: t.pts[0][1], place: t.name, text: TLXN.say(org, "skidag", { trail: t.name, when: "on " + when, from: H1C.skd.from + ":00", to: H1C.skd.to + ":00", n: sk.D }), data: { trail: t.id, what: "announce", D: sk.D, label: when } });
+    api.toast(`${t.name}: skidag on ${when}, ${H1C.skd.from}:00 to ${H1C.skd.to}:00. Waffles at the trailhead. Have the whole track freshly set by 09:00 and the løypelag pays a bonus.`, "info");
+    boards(); api.TABLET.refresh("loyper"); api.TABLET.refresh("calendar");
+  }
+  if (cn.day !== sk.D) return;
+  if (cn.h === 9 && sk.fresh < 0) {                                                        // was the whole trail freshly set at nine?
+    const s = stat(t, H); sk.fresh = s.n["freshly set"] >= t.len - 1 ? 1 : 0;
+    api.toast(sk.fresh ? `Skidag today on ${t.name}: the whole track is freshly set. The løypelag will pay a bonus.` : `Skidag today on ${t.name}, but the track is ${s.word}${s.bad ? `: ${(s.badM / 1000).toFixed(1)} km are not good` : ""}: it was not freshly set at nine, so no bonus.`, sk.fresh ? "good" : "warn");
+  }
+  if (cn.h >= H1C.skd.from && cn.h < H1C.skd.to && isOpen()) skdCrowd(t, H);
+  if (cn.h === H1C.skd.to + 1 && !sk.done) {
+    sk.done = 1; const s = stat(t, H), km = t.len / 1000;
+    let bonus = 0; if (sk.fresh === 1) { bonus = Math.round((H1C.skd.base + H1C.skd.perKm * km) / 5) * 5; api.GS.cash += Math.round(bonus * api.payMul()); st.sdb = (st.sdb || 0) + Math.round(bonus * api.payMul()); st.tot.pay += Math.round(bonus * api.payMul()); sk.bonus = Math.round(bonus * api.payMul()); }
+    const org = sk.who && sk.who[0] ? TLXN.person(sk.who[0]) : null;
+    TLXN.post({ kind: "skidag", who: org, x: t.pts[0][0], z: t.pts[0][1], place: t.name, text: TLXN.say(org, "skidagdone", { trail: t.name, n: sk.n, word: sk.fresh === 1 ? "freshly set" : s.word }) + (bonus ? " The løypelag paid a bonus." : " The track was not freshly set at nine."), data: { trail: t.id, what: "done", n: sk.n, fresh: sk.fresh, bonus: sk.bonus, word: s.word, came: (sk.who || []).slice(0, 12) } });
+    if (sk.bonus) api.toast(`Skidag on ${t.name}: ${sk.n} skiers came and the track was freshly set. The løypelag pays a bonus of ${api.fmtCash(sk.bonus)}.`, "good");
+    else api.toast(`Skidag on ${t.name}: ${sk.n} skiers came. The track was not freshly set at nine, so there is no bonus.`, "info");
+    api.save(); api.TABLET.refresh("loyper"); api.TABLET.refresh("calendar");
+  }
+}
+// the crowd: H1C.skd.n parties set out from the trailhead this hour, villagers of any age
+function skdCrowd(t, H) {
+  const sk = t.st.skd, busy = new Set(); for (const q of X.list) for (const o of q.st.out) if (o.t1 > H) busy.add(o.p);
+  const pool = TLXN.people.filter(p => (p.vid === t.villages[0] || t.villages.includes(p.vid)) && p.age >= 6 && p.age < 85 && !busy.has(p.id));
+  const air = airAt(H, api.WX.at(t.mid[0].x, t.mid[0].z, H));
+  for (let i = 0, made = 0; i < pool.length * 3 && made < H1C.skd.n; i++) {
+    const p = pool[Math.floor(rnd() * pool.length)]; if (busy.has(p.id) || p.age < 14) continue;
+    const before = t.st.out.length; goOut(t, p, trait(p), H, true, air, { quiet: made > 1, crowd: 1 }); made++;
+    for (let k = before; k < t.st.out.length; k++) { busy.add(t.st.out[k].p); sk.n++; if (sk.who.length < 40) sk.who.push(t.st.out[k].p); }
+  }
+}
+// the table at the trailhead: a waffle table with the pot, two villagers; an InstancedMesh of tables (one per loop) and a few pooled figures
+const SKP = { tables: null, ob: [], pos: [], figs: [], ready: false, on: [] };
+function skdBuild() {
+  if (SKP.ready) return; SKP.ready = true;
+  const wood = C(0x8a6a42), woodD = C(0x5c4630), cloth = C(0xf2efe6), red = C(0xc8322a), steel = C(0x9aa3ad), dark = C(0x2a2d33), waffle = C(0xd9a860), stone = C(0x777b80);
+  const geo = mergeGeo([{ g: new T.BoxGeometry(1.9, 0.06, 0.8), m: M4(0, 0.86, 0), c: wood }, { g: new T.BoxGeometry(1.96, 0.02, 0.86), m: M4(0, 0.895, 0), c: cloth }, { g: new T.BoxGeometry(1.96, 0.3, 0.02), m: M4(0, 0.74, 0.43), c: red },
+    { g: new T.BoxGeometry(0.08, 0.84, 0.08), m: M4(-0.88, 0.42, -0.34), c: woodD }, { g: new T.BoxGeometry(0.08, 0.84, 0.08), m: M4(0.88, 0.42, -0.34), c: woodD }, { g: new T.BoxGeometry(0.08, 0.84, 0.08), m: M4(-0.88, 0.42, 0.34), c: woodD }, { g: new T.BoxGeometry(0.08, 0.84, 0.08), m: M4(0.88, 0.42, 0.34), c: woodD },
+    { g: new T.CylinderGeometry(0.2, 0.2, 0.3, 14), m: M4(-0.5, 1.06, 0), c: steel }, { g: new T.CylinderGeometry(0.21, 0.21, 0.03, 14), m: M4(-0.5, 1.22, 0), c: dark }, { g: new T.BoxGeometry(0.3, 0.04, 0.04), m: M4(-0.5, 1.2, 0), c: dark },
+    { g: new T.CylinderGeometry(0.15, 0.15, 0.1, 10), m: M4(0.1, 0.96, 0.05), c: C(0xf0f0f0) }, { g: new T.CylinderGeometry(0.13, 0.13, 0.14, 10), m: M4(0.1, 1.06, 0.05), c: waffle }, { g: new T.CylinderGeometry(0.15, 0.15, 0.1, 10), m: M4(0.6, 0.96, -0.1), c: C(0xf0f0f0) }, { g: new T.CylinderGeometry(0.13, 0.13, 0.1, 10), m: M4(0.6, 1.04, -0.1), c: waffle },
+    { g: new T.CylinderGeometry(0.06, 0.06, 0.26, 8), m: M4(0.95 - 0.2, 1.05, -0.2), c: red },
+    { g: new T.BoxGeometry(0.06, 1.7, 0.06), m: M4(-0.95, 1.7, -0.4), c: woodD }, { g: new T.BoxGeometry(0.06, 1.7, 0.06), m: M4(0.95, 1.7, -0.4), c: woodD }, { g: new T.BoxGeometry(2.0, 0.5, 0.05), m: M4(0, 2.35, -0.4), c: red }, { g: new T.BoxGeometry(1.8, 0.3, 0.06), m: M4(0, 2.35, -0.38), c: cloth }]);
+  const n = Math.max(1, X.list.filter(q => q.kind === "loop").length); SKP.tables = new T.InstancedMesh(geo, lam(), n); SKP.tables.frustumCulled = false; SKP.tables.count = 0; SKP.tables.name = "skidag tables"; api.scene.add(SKP.tables); FU.meshes.push(SKP.tables);
+  let i = 0;
+  for (const t of X.list) {
+    if (t.kind !== "loop") continue;
+    const a = at(t, 4), nx = a.tz, nz = -a.tx, b = FU.boards.find(q => q.t === t); const side = b ? -Math.sign((b.x - a.x) * nx + (b.z - a.z) * nz) || 1 : 1;
+    let best = null; outer: for (const sd of [side, -side]) for (const off of [6.5, 8.5, 11]) for (const al of [-2, 2, 6]) { const x = a.x + nx * off * sd + a.tx * al, z = a.z + nz * off * sd + a.tz * al; if (free(x, z, 1.6)) { best = { x, z, sd }; break outer; } }
+    const b0 = best || { x: a.x + nx * side * 7, z: a.z + nz * side * 7, sd: side }, yaw = Math.atan2(-nx * b0.sd, -nz * b0.sd);       // the front of the table faces the trail
+    const cs = Math.cos(yaw), sn = Math.sin(yaw), obs = [];
+    for (const u of [-0.7, 0, 0.7]) { const o = { x: b0.x + cs * u, z: b0.z - sn * u, r: 0.001, top: 1e9, fu: 1, skd: 1 }; W.addOb(o); obs.push(o); }
+    SKP.pos.push({ t, x: b0.x, z: b0.z, yaw, i, obs, idx: i, on: false, villagers: null }); i++;
+  }
+}
+function skdProps(dt) {
+  if (!X.ready) return; const H = api.GS.hour, V = viewer(); let any = false;
+  for (const t of X.list) if (t.st && t.st.taken && t.st.skd && t.st.skd.D >= 0 && !t.st.skd.done) { any = true; break; }
+  if (!any && !SKP.ready) return; skdBuild(); if (!SKP.tables) return;
+  if (!_lM) { _lM = new T.Matrix4(); _lQ = new T.Quaternion(); _lE = new T.Euler(); _lP = new T.Vector3(); _lS = new T.Vector3(1, 1, 1); }
+  const m = _lM, q = _lQ, e = _lE, p = _lP, sc = _lS; sc.set(1, 1, 1);
+  let n = 0, nf = 0; const want = api.GFX && api.GFX.low ? 2 : 4;
+  for (const s of SKP.pos) {
+    const t = s.t, on = !!(t.st && t.st.taken && skdOn(t, H) && api.CAL.now(H).h >= H1C.skd.from - 1 && api.CAL.now(H).h < H1C.skd.to + 1 && isOpen());
+    if (on !== s.on) { s.on = on; for (const o of s.obs) o.r = on ? 0.9 : 0.001; }
+    if (on) { e.set(0, s.yaw, 0); q.setFromEuler(e); p.set(s.x, snowY(s.x, s.z) - 0.04, s.z); m.compose(p, q, sc); SKP.tables.setMatrixAt(n++, m); }
+    s.near = on && Math.hypot(s.x - V.x, s.z - V.z) < 420;
+  }
+  SKP.tables.count = n; SKP.tables.instanceMatrix.needsUpdate = true; SKP.tables.visible = n > 0;
+  for (const s of SKP.pos) if (s.near && nf < want) {                                       // two villagers behind the table, from the roll, until a pooled figure runs out
+    for (let k = 0; k < 2 && nf < want; k++) {
+      const f = skdFig(nf++), t = s.t, pool = TLXN.peopleIn(t.villages[0]).filter(p => p.age > 18 && p.age < 75), who = pool[(Math.floor(hash(t.id + s.t.st.skd.D + k) * 997) + k * 7) % Math.max(1, pool.length)];
+      f.who = who || null; const sn = Math.sin(s.yaw), cs = Math.cos(s.yaw), ux = (k ? 0.55 : -0.5);
+      const fx = s.x - sn * 0.9 + cs * ux, fz = s.z - cs * 0.9 - sn * ux; f.g.position.set(fx, W.surf(fx, fz), fz); f.g.rotation.y = s.yaw; f.g.visible = true; f.use = s;
+      if (who) { f.mats.jacket.color.setHex(JACKETS[Math.floor(hash(who.id + "j") * JACKETS.length)]); f.mats.pants.color.setHex(PANTS_C[Math.floor(hash(who.id + "p") * PANTS_C.length)]); f.mats.trim.color.setHex(TRIM_C[Math.floor(hash(who.id + "t") * TRIM_C.length)]); }
+      const U = f.g.userData, tt = api.now(); U.arms[0].rotation.x = -0.9; U.arms[1].rotation.x = -0.7 + 0.12 * Math.sin(tt * 2.2 + k); U.fore[0].rotation.x = -0.9; U.fore[1].rotation.x = -1.0; U.head.rotation.y = 0.2 * Math.sin(tt * 0.7 + k * 2); U.torso.rotation.set(0.04, 0, 0); f.g.position.y += 0;
+    }
+  }
+  for (let i = nf; i < SKP.figs.length; i++) SKP.figs[i].g.visible = false;
+}
+function skdFig(i) {
+  if (SKP.figs[i]) return SKP.figs[i];
+  const std = api.mesh.std, mats = { jacket: std(0xc8322a, 0.85, 0), pants: std(0x20262e, 0.9, 0), trim: std(0xe0a030, 0.7, 0) }, g = api.newWalker(mats); g.visible = false; api.scene.add(g); g.scale.setScalar(0.88);
+  const U = g.userData; for (const n in U.headKit) for (const m of U.headKit[n]) m.visible = false; for (const m of U.headKit.beanie) m.visible = true;
+  return (SKP.figs[i] = { g, mats, who: null });
+}
+X.SKP = SKP; X.skdBuild = skdBuild; X.skdProps = skdProps;
+
 /* ---------------- the system ---------------- */
 let hooked = false;
 TLX.register({
   id: "trails", v: 1,
-  state0: () => ({ h: -1, rs: 4242, dd: -1, tr: {} }),
+  state0: () => ({ h: -1, rs: 4242, dd: -1, tr: {}, rescue: null, rcH: -99 }),
   migrate: st => st,
   init(a) {
     api = a; W = a.world; T = a.THREE; X.ready = false; X.err = "";
@@ -1585,6 +2092,7 @@ TLX.register({
       const s = S(); if (!s.tr || typeof s.tr !== "object") s.tr = {};
       for (const t of X.list) { t.st = s.tr[t.id] = adopt(t, s.tr[t.id]); t.ver = 0; t.dirty = false; exposure(t); }
       for (const k of Object.keys(s.tr)) if (!X.list.some(t => t.id === k)) delete s.tr[k];
+      if (s.rescue && (typeof s.rescue !== "object" || typeof s.rescue.p !== "string" || !Number.isFinite(s.rescue.x) || !Number.isFinite(s.rescue.z))) s.rescue = null; if (!Number.isFinite(s.rcH)) s.rcH = -99;
       if (!Number.isFinite(s.h)) s.h = -1; if (!Number.isFinite(s.rs)) s.rs = 4242; if (!Number.isFinite(s.dd)) s.dd = -1;
       X.ready = true; COV.clear(); hinted = {};
       X.furnErr = ""; try { FU.poles = []; FU.lamps = []; FU.boards = []; FU.gaps = []; FU.meshes = []; FU.n = { poles: 0, lamps: 0, boards: 0, gaps: 0, solid: 0, trees: 0 }; buildFurniture(); } catch (e) { X.furnErr = String(e); console.error("TLX trails furniture", e); }
@@ -1597,6 +2105,7 @@ TLX.register({
         a.TABLET.addLayer("marks", () => X.ready && TLX.on("skitrails") ? X.list.map(t => ({ x: t.pts[0][0], z: t.pts[0][1], name: (t.name + (isOpen() ? "" : " (closed)")).toUpperCase(), col: t.col, glyph: "S" })) : []);
         a.appx("crew").push(crewCard);
         a.footx.push(HAILX); a.rideUse.push(HAILRIDE); a.ridex.push(hailRideLine);
+        a.footx.push(FIREX); a.rideUse.push(FIRERIDE); a.ridex.push(fireRideLine); a.warmx.push(fireWarm); a.calx.push(calEvent);
         a.TABLET.register({ id: "loyper", name: "Løyper", icon: LICON, order: 5.6, live: 6, hidden: () => !X.ready || !TLX.on("skitrails"),
           badge: () => (X.ready && X.list.some(t => t.st.taken && isOpen() && stat(t).bad) ? "!" : ""), render: appRender });
       }
@@ -1609,6 +2118,7 @@ TLX.register({
     if (!X.hold) catchUp();
     ridden(dt);
     try { skiTick(dt); } catch (e) { if (!SKS.err) console.error("TLX trails skiers", e); SKS.err = String(e && e.stack || e); }
+    try { lampTick(dt); fireTick(dt); rescueResume(dt); casTick(); skdProps(dt); } catch (e) { if (!X.h1cErr) console.error("TLX trails H1c", e); X.h1cErr = String(e && e.stack || e); }
     if (FU.boards.length && (Math.floor(api.GS.hour) !== FU.h || Math.abs((api.MELT ? api.MELT.k : 0) - FU.melt) > 0.04)) { furnY(); boards(); if (X.list.some(t => t.dirty)) repaint(); for (const t of X.list) t.dirty = false; }
   },
   monday,
