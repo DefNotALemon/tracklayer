@@ -41,7 +41,7 @@ the garage has claimed for you and stop there to load it; ride it to the drop-of
 normal delivery pay and the tutorial ends. The card names buttons for whatever you last touched: keyboard,
 an Xbox, PlayStation or Nintendo pad, or touch. If you lose the package (the fjord, a blackout, a reload) it waits at
 the pickup again. **Settings → Controls → Skip tutorial** (press twice) ends it and parks your sled beside you;
-the god menu has **Restart tutorial**. Saves from before the tutorial skip it.
+the mod menu (Career) has **Restart tutorial**. Saves from before the tutorial skip it.
 
 **Rejoining.** When you come back to a game you've already started, about one launch in three drops you in mid-ride:
 you're already on the sled, rolling along the road out of the depot, with one quick local parcel loaded and on the
@@ -55,7 +55,7 @@ of the time you start at the depot as usual. New games never do this.
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - In first person, looking down far enough that your own hood or dash tablet fills the centre of the view makes the rider stand up on the footrests (same pose as climbing a steep face) to see over it, and sit back down when you look up again. Dipping to the tablet doesn't trigger it, and it never lifts the nose or pulls the chase camera up (those stay slope-only).
 - Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
-  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor (with a rifle: a tap wipes, a hold opens the gun wheel) · **D-pad down** bandage (or calls the rescue sled while you're in the water or out of fuel; a fresh wound still gets the bandage first, press again to call) · **L3** horn (or E's fish / shop / sell) · **R3** camera · **A** on foot: rifle up / slung · **D-pad right** weather · **Y** god menu (sidebar categories: Vehicles, Stats, Gear, World, Teleport, Misc — Tab switches categories, arrows navigate items, Enter activates, search filters)
+  **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor (with a rifle: a tap wipes, a hold opens the gun wheel) · **D-pad down** bandage (or calls the rescue sled while you're in the water or out of fuel; a fresh wound still gets the bandage first, press again to call) · **L3** horn (or E's fish / shop / sell) · **R3** camera · **A** on foot: rifle up / slung · **D-pad right** weather · **Y** mod menu (below)
 - Phones and tablets get their own touch controls, a different set for riding and for walking:
   - **Left thumb:** a stick appears wherever your thumb lands in the lower left. On the sled it steers. On foot it
     walks: push up to walk, down to step back, sideways to turn on the spot, out to the rim to jog (the ring turns
@@ -160,6 +160,19 @@ The screen sits in the world's light: it goes through the same tone curve and fo
 cast from the sky (warm at sunset, blue in polar night, green under a strong aurora) and turns itself down in the
 dark. It rides on a short stalk off the hood, on the rider's side of the steering column; the column rakes forward
 into the hood, clear of it, so from the seat you see the column stand on the hood, not on the tablet.
+
+## The mod menu
+
+**Y** (or **`**) on a keyboard, **Y** on a pad, or **Settings > Mod menu**: a trainer panel on the left edge of the screen, the way open-world mod menus work. The game doesn't stop behind it: **W A S D** (or the stick and triggers) still drive, so things change under you as you ride. The arrow keys / D-pad move through it, **Enter** / **A** picks, **left / right** changes a value or steps back, **Backspace** / **B** goes back a page, and the box at the top searches every row of every page at once (**/** jumps to it).
+
+- **Sleds**: any of the ten, at once. Riding, the machine under you becomes that sled and keeps its speed. On foot, it lands in front of you with a full tank, and with **Put me straight on it** you're on the seat. Driving a truck, it parks beside you. There is one sled in the world, so a spawn moves yours. Santa's Sled comes with all nine reindeer.
+- **Sled upgrades**: every option of every part slot and every engine, fitted where you are, free: no price, sled generation, licence or garage. Left / right on a slot swaps to the next option live; Enter lists them with their numbers. What can't physically go together still can't (a turbo kit on an engine with a factory turbo, an engine in the battery sled). A rig that needs the heavy receiver gets it.
+- **Trucks & machines**: drops a pickup, the lorry, the plow truck or any other wheeled machine in front of you with a full tank. They're real vehicles and stay in the save; **Clear spawned machines** takes away the ones you aren't using. Eight at a time.
+- **Weapons**: three builds of the rifle (hunting, brush carbine, long-range) dropped as a pickup you walk or ride into: loaded, 40 rounds, licence included. Every barrel, stock, grip, magazine and sight swaps live on the rifle you have; ammunition by the box.
+- **Cash**: step the amount through the presets or type any number, then add it, take it away, set your cash to exactly that, or drop it on the snow as a bundle to pick up.
+- **Rider** (clothing and layers, warmth), **Cheats** (infinite fuel, turbo, low gravity, never cold, freeze the clock, full tank, sled as new), **Time & weather** (time of day, skips, dates, call a storm or clear the sky), **Teleport** (every place, your Map marker, 500 m ahead; on foot your machine comes with you) and **Career** (deliveries and rank, licences, fresh jobs, new Bytteboden listings, a rescue callout, the tutorial).
+
+It stays shut during a driving lesson, and closes when the tablet, the garage or Settings opens.
 
 ## Apps and licences
 

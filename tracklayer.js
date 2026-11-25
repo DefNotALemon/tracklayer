@@ -1269,10 +1269,10 @@ const V = {};   // swappable parts, machines and rider kit, toggled by the garag
 const SR = { on: false, a: 0, drag: false, lx: 0 };           // garage / settings showroom camera
 const PV = { sled: null, cat: null, slot: null, id: null };   // what the mouse is trying on
 function showroomOn() { return GS.garageOpen || !document.getElementById("settings").hidden; }
-let godOpen = false, godCat = 0, godItem = 0, padGodA = false, padGodB = false;   // the god menu's state (declared up here: v264 dropped it and every frame threw)
-// nobody's hands are on the controls: garage, settings or the god menu are up, or the rider is dead.
+let godOpen = false, padGodA = false, padGodB = false;   // the mod menu's state (declared up here: the input code reads it long before the menu's own block runs)
+// nobody's hands are on the controls: garage or settings are up, or the rider is dead. (Not the mod menu: you ride on under it.)
 // Riding (or coasting) through a menu like this used to keep whatever thr/brk was held when it opened.
-function noControl() { return GS.garageOpen || godOpen || !document.getElementById("settings").hidden || GS.dead; }
+function noControl() { return GS.garageOpen || !document.getElementById("settings").hidden || GS.dead; }
 addEventListener("pointerdown", e => { if (SR.on && e.target.tagName === "CANVAS") { SR.drag = true; SR.lx = e.clientX; } });
 addEventListener("pointermove", e => { if (SR.drag) { SR.a -= (e.clientX - SR.lx) * 0.008; SR.lx = e.clientX; } });
 addEventListener("pointerup", () => { SR.drag = false; });
@@ -2690,8 +2690,9 @@ function touchCanvasUp(e) {
 }
 function cycleView() { camMode = (camMode + 1) % VIEWS.length; camState.init = false; toast(VIEWS[camMode].n + " view"); }
 function readInput(dt) {
-  let thr = (keys.has("KeyW") || keys.has("ArrowUp")) ? 1 : 0, brk = (keys.has("KeyS") || keys.has("ArrowDown")) ? 1 : 0;
-  let st = ((keys.has("KeyD") || keys.has("ArrowRight")) ? 1 : 0) - ((keys.has("KeyA") || keys.has("ArrowLeft")) ? 1 : 0);
+  const arw = c => !godOpen && keys.has(c);                               // the mod menu takes the arrows; W A S D still drive under it
+  let thr = (keys.has("KeyW") || arw("ArrowUp")) ? 1 : 0, brk = (keys.has("KeyS") || arw("ArrowDown")) ? 1 : 0;
+  let st = ((keys.has("KeyD") || arw("ArrowRight")) ? 1 : 0) - ((keys.has("KeyA") || arw("ArrowLeft")) ? 1 : 0);
   let lean = (keys.has("ShiftLeft") || keys.has("ShiftRight")) ? 1 : 0, analog = null, wh = (keys.has("ControlLeft") || keys.has("ControlRight")) ? 1 : 0;
   if (TC.on) { thr = Math.max(thr, TC.thr, TC.sthr); brk = Math.max(brk, TC.brk, TC.sbrk); if (TC.lean || TC.slean) lean = 1; if (TC.wh) wh = 1; if (TC.active) analog = TC.steer; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -2743,7 +2744,7 @@ function readInput(dt) {
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
-    if (godOpen) { godPad(gp, dt); analog = null; }
+    if (godOpen) godPad(gp, dt);                                            // the mod menu reads the D-pad, A and B; the stick and triggers still drive
     if (!started && TT.on) titlePad(gp, dt);
     if (started && !godOpen) TABLET.pad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
@@ -2756,7 +2757,7 @@ function readInput(dt) {
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
-  if (!started || noControl()) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu (garage, settings, god) or dead
+  if (!started || noControl()) { thr = brk = st = lean = wh = 0; analog = null; }   // no riding off from a menu (garage, settings) or dead
   FOOT.fwd = 0; FOOT.turn = 0; FOOT.jog = 0;
   if (FOOT.on && typeof MNT !== "undefined" && MNT.on) MNT.want = Math.max(Math.abs(thr - brk), Math.abs(analog !== null ? analog : st));   // pushing a direction during the walk to the sled calls the climb off
   if (FOOT.on && ((typeof MNT !== "undefined" && MNT.on) || (typeof DMT !== "undefined" && DMT.on))) { thr = brk = lean = wh = 0; st = 0; analog = null; }   // and none of it reaches the sled while you're half on it
@@ -3670,7 +3671,7 @@ const GB_REV_TOP = 3.6, GB_STILL = 0.8;                         // reverse tops 
 function gbReset() { GB.dir = 1; }
 // a crash (see the health-centre block): the sled carries on riderless, nobody on the controls, while the body flies
 function physStep(dt) {
-  if (noControl()) { P.vx = P.vy = P.vz = 0; P.yr = 0; return; }   // garage/settings/god menu up, or dead: hands off, sled stops dead instead of coasting on whatever was held
+  if (noControl()) { P.vx = P.vy = P.vz = 0; P.yr = 0; return; }   // garage/settings up, or dead: hands off, sled stops dead instead of coasting on whatever was held
   if (VEH.cur) { P.scr = 0; VEH.cur.core(dt); if (towLive()) towStep(dt); return; }   // in a vehicle: its own physics drives P (and pulls the rig if it's on this one)
   if (!CRASH.on) { if (CRASH.cool > 0) CRASH.cool -= dt; physCore(dt); return; }
   const th = input.thr, br = input.brk, st = input.steer, ln = input.lean, wh = input.wheelie;
@@ -10154,7 +10155,7 @@ function restat() { ST = stats(); if (VEH.cur) VEH.cur.restat(ST); if (GOD.turbo
    tutorial count as done (99). While stage < 2 the sled is parked hidden on the forecourt (tutHidden: no climbing
    on, no locator pin, no bump), and the "where am I" site check reads the walker. The job lives in GS.claims /
    GS.load like any parcel (flag tut); those aren't saved, so tutTick re-posts it after a reload or a blackout.
-   Settings > Controls > Skip tutorial (press twice) ends it and leaves the sled beside you. God menu: Restart tutorial.
+   Settings > Controls > Skip tutorial (press twice) ends it and leaves the sled beside you. Mod menu > Career: Restart tutorial.
    Button names on the card come from the device you last touched (keyboard, Xbox / PlayStation / Nintendo pad, touch). */
 var TUT = { stage: 99, a: null, b: null, key: "", ttl: "", doneT: 0, park: null, padA: false, skipT: 0 };
 function tutHidden() { return !!TUT && TUT.stage < 2; }
@@ -10188,6 +10189,7 @@ const BTN = {
   gun: { kbm: "R", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "GUN" },   // tlx-gunwheel.js: HOLD to open the quick-customize wheel (a pad tap still wipes the visor)
   wmove: { kbm: "1-6", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
+  mod: { kbm: "Y", xbox: "Y", ps: "△", nin: "X", touch: "MOD MENU" },   // the mod menu (on touch: the button in Settings)
   rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
@@ -14424,8 +14426,8 @@ function titleActivate(i) {
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
 }
-const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "God menu"]];
-const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage, or back on the tablet"], ["D-pad up", "Dash tablet (d-pad + A inside it)"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Right stick", "Look around (springs back)"], ["D-pad right", "Weather, on the tablet"], ["Y", "God menu"]];
+const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "Mod menu"]];
+const TT_PAD = [["RT / LT", "Throttle, brake"], ["Left stick", "Steer"], ["RB", "Lean"], ["A", "Hop"], ["X", "Wheelie"], ["B", "Garage, or back on the tablet"], ["D-pad up", "Dash tablet (d-pad + A inside it)"], ["L3", "Horn"], ["Menu", "Settings"], ["View", "Reset the sled"], ["D-pad left", "Wipe visor frost"], ["R3", "Camera"], ["Right stick", "Look around (springs back)"], ["D-pad right", "Weather, on the tablet"], ["Y", "Mod menu"]];
 function titlePanel(kind) {
   const p = $("tPanel"), x = `<button type="button" class="tx" data-a="back" aria-label="Close">✕</button>`;
   let h = "", label = "";
@@ -18073,231 +18075,506 @@ function frame(t) {
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
-/* ---------------- god menu (gamepad Y, or the ` key) ---------------- */
+/* ---------------- the mod menu (Y or ` on a keyboard, Y on a pad, Settings > Mod menu) ----------------
+   A trainer in the open-world style: a panel docked to the left edge, the game running behind it. You keep riding
+   while it is up (W A S D or the stick and triggers still drive; the arrows / D-pad belong to the menu), so a sled, a
+   part or an engine swaps under you at speed.
+     Sleds        any machine, right now. Riding: it changes under you and keeps its speed. On foot: it lands in front
+                  of you (and, with "Put me straight on it", you're on it). There is one sled in the world, so a spawn
+                  moves yours; trucks are real extra vehicles.
+     Sled upgrades  every part of every slot and every engine, fitted live with no cost, tier, licence or garage.
+     Trucks & machines  drops a truck in front of you (a parked record in tlx-vehicles.js, flagged mod: 1 so
+                  "Clear spawned" can take them away again).
+     Weapons      rifle builds dropped as a pickup you walk into, the rifle's parts swapped live, ammunition.
+     Cash         any amount: step through the presets or type one; add, take, set, or drop it as a pickup.
+     Rider, Cheats, Time & weather, Teleport, Career: the old god menu's switches, sorted.
+   Pages are functions that build their rows fresh each time they are drawn, so a row always shows the live value.
+   A row: { label, sub, val, on, go() (pick), adj(d) (left / right), page() (a sub-menu), head (a caption) }.
+   The search box filters every row of every page at once. Pickups (MOD.drops) are session-only; everything the menu
+   grants is the game's own state and saves with it. GOD (the five toggles) is declared near the top with godOpen. */
 const GOD_DATES = [[10, 1, "1 Nov"], [10, 20, "20 Nov"], [11, 21, "21 Dec (midwinter)"], [0, 21, "21 Jan"], [1, 15, "15 Feb"], [2, 20, "20 Mar"], [3, 25, "25 Apr"], [4, 31, "31 May (summer skip)"]];
-let godDate = 0, godTp = 0;
-// GTA 5-style structured god menu: categories (sidebar) → items (list)
-// GOD is already declared globally at line 4268: { fuel, warm, turbo, lowg, freeze }
-// G is already a scalar at line 2684: let G = 32.4 (gravity constant)
-const CATEGORIES = [
-  { id: "vehicles", label: "Vehicles", icon: "🚗", items: [
-    { id: "fuel", label: "Infinite fuel", sub: "Never empty", type: "toggle" },
-    { id: "turbo", label: "Turbo engine", sub: "Power ×2.2", type: "toggle" },
-    { id: "lowg", label: "Low gravity", sub: "Moon jumps", type: "toggle" },
-    { id: "reset", label: "Reset sled", sub: "Current vehicle", type: "action", do: () => { resetSled(); toast("Sled reset."); } },
-    { id: "unlock_sleds", label: "Unlock all sleds", sub: "Every machine", type: "action", do: () => { SLEDS.forEach(s => { if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id); }); restat(); toast("All sleds unlocked."); } },
-    { id: "summon", label: "Summon vehicle", sub: "At current position", type: "action", do: () => { const s = SLEDS[0]; if (SLEDS.length) { const id = SLEDS[Math.min(3, SLEDS.length-1)].id; if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(id)) GS.own.sleds.push(id); VEH.cur = SLEDS.find(x => x.id === id); if (VEH.cur) { VEH.cur.pos.set(P.x, P.z, P.yaw); VEH.cur.yr = P.yr; applyLoadout(); toast(`Summoned ${s.id}.`); } } } },
-  ]},
-  { id: "stats", label: "Player Stats", icon: "🧍", items: [
-    { id: "warm", label: "Never cold", sub: "Warmth maxed", type: "toggle" },
-    { id: "cash", label: "+$1,000", sub: "Cash", type: "action", do: () => { GS.cash += 1000; toast("+$1,000."); } },
-    { id: "rank", label: "+5 deliveries", sub: "Rank up", type: "action", do: () => { GS.delivered = (GS.delivered || 0) + 5; TABLET.refresh(); toast("+5 deliveries."); } },
-    { id: "warmth", label: "Set warmth", sub: "0–100", type: "slider", min: 0, max: 100, step: 5 },
-    { id: "cash2", label: "Set cash", sub: "Exact amount", type: "slider", min: 0, max: 999999, step: 100 },
-    { id: "wound", label: "Take a pot-shot", sub: "Test bleed + bandage", type: "action", do: () => { GS.wound = (GS.wound || 0) + 1; GS.bleed = (GS.bleed || 0) + 0.005; toast("Bled! Apply bandage."); } },
-  ]},
-  { id: "gear", label: "Loadout / Gear", icon: "🎒", items: [
-    { id: "unlock_all", label: "Unlock every sled, part & kit", sub: "Full garage", type: "action", do: () => { SLEDS.forEach(s => { if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id); }); if (!GS.own.parts) GS.own.parts = {}; SLEDS.forEach(s => { if (s.parts) s.parts.forEach(p => { if (!GS.own.parts[p.id]) GS.own.parts[p.id] = true; }); }); applyLoadout(); toast("Everything unlocked."); } },
-    { id: "unlock_parts", label: "Unlock all parts", sub: "Every slot, every option", type: "action", do: () => { SLEDS.forEach(s => { if (s.parts) s.parts.forEach(p => { if (!GS.own.parts) GS.own.parts = {}; if (!GS.own.parts[p.id]) GS.own.parts[p.id] = true; }); }); restat(); toast("All parts unlocked."); } },
-    { id: "unlock_gear", label: "Unlock all gear", sub: "Clothing layers + extras", type: "action", do: () => { GS.own.gear = GS.own.gear || {}; GS.gearList.forEach(g => { GS.own.gear[g.id] = true; }); toast("All gear unlocked."); } },
-    { id: "clear_load", label: "Clear current load", sub: "Sled bed empty", type: "action", do: () => { if (VEH.cur && VEH.cur.load) { VEH.cur.load = []; toast("Load cleared."); } else { toast("No load to clear."); } } },
-  ]},
-  { id: "world", label: "World Editing", icon: "🌍", items: [
-    { id: "freeze", label: "Freeze the clock", sub: "Time stands still", type: "toggle" },
-    { id: "time", label: "Skip 3 hours", sub: "Jump ahead", type: "action", do: () => { GS.hour += 3; GS.hour = Math.min(GS.hour, 23.999); toast("Skipped 3 hours."); } },
-    { id: "day", label: "Skip a day", sub: "24 hours", type: "action", do: () => { GS.day = (GS.day || 1) + 1; toast("Skipped a day."); } },
-    { id: "date", label: "Jump to date", sub: "Calendar picker", type: "select", data: GOD_DATES, dataKey: 2, current: 0 },
-    { id: "storm", label: "Weather control", sub: "Call / hold clear", type: "action", do: () => { GS.storm = (GS.storm || 0) >= 0.5 ? 0 : 1; toast(GS.storm ? "Storm coming!" : "Sky cleared."); } },
-  ]},
-  { id: "teleport", label: "Teleport", icon: "📍", items: [
-    { id: "tp", label: "Travel to site", sub: "Click to move", type: "select", data: SITES, dataKey: "name", current: 0 },
-    { id: "tp_home", label: "Teleport to home depot", sub: "Quay", type: "action", do: () => { godTeleport(depot); } },
-    { id: "tp_near", label: "Teleport forward 500 m", sub: "Along your heading", type: "action", do: () => { const dx = -Math.sin(P.yaw), dz = -Math.cos(P.yaw); P.x += dx * 500; P.z += dz * 500; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0; P.y = surf(P.x, P.z) + 0.4; P.safe = { x: P.x, z: P.z, yaw: P.yaw }; camState.init = false; towSnap(); toast("Dropped 500m ahead."); } },
-  ]},
-  { id: "misc", label: "Misc / Systems", icon: "⚙️", items: [
-    { id: "jobs", label: "Fresh jobs in Parcels", sub: "Rebuild board", type: "action", do: () => { GS.jobs = GS.jobs || []; GS.jobs = []; TABLET.refresh(); toast("Jobs board refreshed."); } },
-    { id: "mkt", label: "Bytteboden: new listings", sub: "Reshuffle marketplace", type: "action", do: () => { GS.mkt = []; if (GS.mktList) GS.mktList.forEach(m => GS.mkt.push({ ...m })); TABLET.refresh(); toast("Market refreshed."); } },
-    { id: "lic", label: "Grant both licences", sub: "Freight + rescue", type: "action", do: () => { GS.lic = (GS.lic || {}); GS.lic.freight = true; GS.lic.rescue = true; TABLET.refresh(); toast("Both licences granted."); } },
-    { id: "sar", label: "Rescue callout now", sub: "On duty, licensed", type: "action", do: () => { if (SAR.cur) { SAR.cur = null; toast("Cancelled previous call."); } SAR.cur = { res: false, hosp: false, state: "akja", t: Date.now() }; toast("SAR callout active!"); } },
-    { id: "tut", label: "Restart tutorial", sub: "On foot at the quay", type: "action", do: () => { TUT.stage = 0; TUT.a = null; TUT.b = null; GS.hour = 0; P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vy = P.vz = 0; TUT = TUT || {}; toast("Tutorial reset."); } },
-  ]},
+const MOD_AMTS = [100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 10000000];
+const MOD_BUILDS = [
+  { name: "Hunting rifle", sub: "As it leaves the shop: walnut, iron sights, 3 rounds", parts: {} },
+  { name: "Brush carbine", sub: "18\" barrel, synthetic stock, red dot, 5 rounds", parts: { barrel: "carb18", stock: "synth", grip: "rubber", magazine: "det5", sight: "red1" } },
+  { name: "Long-range rifle", sub: "24\" heavy barrel, bipod, 3-9x scope, 10 rounds", parts: { barrel: "heavy24", stock: "adjust", grip: "bipod", magazine: "det10", sight: "scope39" } }
 ];
-// restored (v265): the v264 god-menu edit dropped these, and every frame threw ReferenceError: godTick is not defined
-function godGetActiveItems() {
-  return CATEGORIES[godCat]?.items || [];
+const MOD = { stack: [], sel: 0, q: "", rows: [], amt: 10000, seat: true, date: 0, drops: [], nav: 0, navT: 0, hudT: 0, dev: "" };
+const modWho = () => FOOT.on ? { x: FOOT.x, z: FOOT.z, yaw: FOOT.yaw } : { x: P.x, z: P.z, yaw: P.yaw };
+const modBusy = () => INT.on ? "Step outside first." : CRASH.on ? "Not in the middle of a crash." : (MNT.on || DMT.on) ? "Not while you're climbing on or off." : (FISH && FISH.on) ? "Pack up the fishing first." : "";
+// a clear spot `dist` metres in front of the player (then fanning out to the sides, then behind)
+function modSpot(dist, r) {
+  const w = modWho();
+  for (const k of [1, 1.5, 0.7]) for (const a of [0, 0.5, -0.5, 1, -1, 1.6, -1.6, 2.4, -2.4, Math.PI]) {
+    const x = w.x + Math.sin(w.yaw + a) * dist * k, z = w.z + Math.cos(w.yaw + a) * dist * k;
+    if (isSea(x, z) || isWater(x, z) || obNear(x, z, r)) continue;
+    return { x, z, yaw: w.yaw };
+  }
+  return { x: w.x + Math.sin(w.yaw) * dist, z: w.z + Math.cos(w.yaw) * dist, yaw: w.yaw };
+}
+function modPlaceSled(sp) {
+  P.x = sp.x; P.z = sp.z; P.yaw = sp.yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.sink = 0; P.wet = false; P.stuckT = 0;
+  P.y = surf(sp.x, sp.z) + 0.3; P.safe = { x: sp.x, z: sp.z, yaw: sp.yaw }; BOG.on = false; BOG.acc = 0; towSnap();
+}
+/* any sled, now: under you if you're riding (speed kept), in front of you if you're on foot, beside the truck if you're driving one */
+function modSled(id) {
+  const s = SLEDS.find(x => x.id === id), why = modBusy(); if (!s) return;
+  if (why) { toast(why, "warn"); return; }
+  if (tutHidden()) tutSkip();
+  if (!GS.own.sleds.includes(id)) GS.own.sleds.push(id);
+  if (s.team) { const st = santaSt(); for (const [k] of SANTA_TEAM) if (!st.found.includes(k)) st.found.push(k); }
+  const vs = window.TLXV && TLXV.state(), strapped = !!(VEH.strapped && VEH.strapped());
+  if (!FOOT.on && VEH.cur) {                                              // at the wheel of a truck or a boat: the sled is the parked one
+    GS.own.sled = id; checkBoost(); restat();
+    if (vs && vs.sled && !strapped) { const sp = modSpot(5, 1.3); vs.sled.x = sp.x; vs.sled.z = sp.z; vs.sled.yaw = sp.yaw; vs.sled.y = undefined; vs.sled.safe = null; vs.sled.fuel = SLEDS.find(x => x.id === id).fuel; }
+    toast(`${s.name}: parked ${strapped ? "on the trailer" : "beside you"}.`, "good");
+  } else if (!FOOT.on) {                                                  // riding: it changes under you
+    GS.own.sled = id; checkBoost(); restat(); GS.fuel = GS.cap;
+    toast(`Now riding the ${s.name}.`, "good");
+  } else {                                                                // on foot: it lands in front of you
+    if (strapped) { toast("Your sled is strapped to the trailer: unstrap it first.", "warn"); return; }
+    if (vs && vs.cur != null) TLXV.swapTo(null);
+    if (typeof WN !== "undefined" && WN.state === "hooked") wnStow(false);
+    GS.own.sled = id; checkBoost(); restat(); GS.fuel = GS.cap;
+    modPlaceSled(modSpot(3, 1.3));
+    if (MOD.seat) { FOOT.on = false; FOOT.dig = false; FOOT.crouch = 0; if (FOOT.g) FOOT.g.visible = false; camState.init = false; camState.yaw = P.yaw; }
+    toast(MOD.seat ? `${s.name}: you're on it.` : `${s.name}: in front of you. ${keyHint("mount", "get on")}.`, "good");
+  }
+  applyLoadout(); TABLET.refresh(); save();
+}
+/* any part of any slot, fitted where you stand: no price, tier, licence or garage (the garage's own rules about what
+   can physically bolt to what still hold: a boost the engine can't take, a rig the receiver can't pull) */
+function modFit(cat, id, quiet) {
+  const o = partDef(cat, id), own = GS.own;
+  if (cat === "boost") { const bw = boostWhy(sledDef(), id); if (bw) { if (!quiet) toast(bw, "warn"); return false; } }
+  if (cat === "hitch" && id !== "none") {
+    if (VEH.strapped && VEH.strapped()) { if (!quiet) toast("The sled is strapped to the trailer: unstrap it first.", "warn"); return false; }
+    if (!recvOk(id)) { own.parts.recv = "heavy"; own.partsOwned[ownKey("recv", "heavy")] = true; }
+  }
+  if (cat === "recv" && !recvOk(own.parts.hitch, { parts: Object.assign({}, own.parts, { recv: id }) })) own.parts.hitch = "none";
+  own.partsOwned[ownKey(cat, id)] = true; own.parts[cat] = id; restat();
+  if (cat === "hitch" || cat === "recv" || cat === "rack") towSnap();
+  if (GS.garageOpen) renderGarage(); save();
+  if (!quiet) toast(`Fitted: ${o.name}.`, "good");
+  return true;
+}
+function modCycle(cat, d) {
+  const L = PARTS[cat].options, n = L.length; let i = L.findIndex(o => o.id === GS.own.parts[cat]); if (i < 0) i = 0;
+  for (let k = 0; k < n; k++) { i = (i + d + n) % n; if (modFit(cat, L[i].id, true)) return; }
+}
+function modEngine(eid) {
+  const sd = sledDef();
+  if (isElectric(sd)) { toast(sd.team ? `The ${sd.name} is pulled by reindeer: nothing to swap.` : `The ${sd.name} runs on its battery pack: no engine goes in it.`, "warn"); return; }
+  const d = engDef(eid);
+  if (!d || eid === STOCK_ENGINE[sd.id]) delete GS.own.engines[sd.id];
+  else GS.own.engines[sd.id] = { eid, base: d.power, cond: 1, pwr: d.power, hrs: 0, from: "the mod menu", seller: "", wear: { s: 1, a: 0 } };
+  checkBoost(); restat(); if (GS.garageOpen) renderGarage(); save();
+  toast(`${engineOf(sd).name} is in the ${sd.name}.`, "good");
+}
+function modUnlockAll() {
+  for (const s of SLEDS) if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id);
+  { const st = santaSt(); for (const [k] of SANTA_TEAM) if (!st.found.includes(k)) st.found.push(k); }
+  for (const cat of PART_ORDER) for (const o of PARTS[cat].options) GS.own.partsOwned[ownKey(cat, o.id)] = true;
+  for (const slot of GEAR_ORDER) for (const o of GEAR[slot].options) GS.own.gearOwned[ownKey(slot, o.id)] = true;
+  if (GS.garageOpen) renderGarage(); save(); toast("Every sled, part and piece of kit is yours.", "good");
+}
+/* a truck, dropped in front of you: a real parked vehicle (tlx-vehicles.js), yours to drive and kept in the save */
+function modVeh(id) {
+  const d = window.TLXV && TLXV.VEHICLES.find(v => v.id === id), s = d && TLXV.state(), why = modBusy(); if (!s) return;
+  if (why) { toast(why, "warn"); return; }
+  if (tutHidden()) tutSkip();
+  if (s.owned.filter(r => r.mod).length >= 8) { toast("Eight spawned machines is the limit: clear them first.", "warn"); return; }
+  const half = (d.len || 5) / 2, sp = modSpot(half + 4.5, half + 0.6);
+  s.owned.push({ uid: "v" + (++s.seq), id: d.id, x: sp.x, z: sp.z, yaw: sp.yaw, fuel: d.fuel, cond: 100, load: [], mod: 1 });
+  save(); toast(`${d.name}: in front of you, full tank.`, "good");
+}
+function modVehClear() {
+  const s = window.TLXV && TLXV.state(); if (!s) return;
+  let n = 0, kept = 0;
+  for (const r of s.owned.filter(r => r.mod)) { if (TLXV.remove(r.uid)) n++; else kept++; }
+  toast(n || kept ? `${n} spawned ${n === 1 ? "machine" : "machines"} cleared${kept ? `, ${kept} still in use` : ""}.` : "Nothing spawned to clear.");
+}
+/* the rifle (tlx-guns.js): one frame so far, so "any gun" is any build of it */
+function modGun() {
+  const G = window.TLXGUN, s = G && G.state(); if (!s) return null;
+  if (!s.owned.length) s.owned.push(G.newGun(G.FRAMES[0].id));
+  if (!(s.cur >= 0)) s.cur = 0;
+  s.licence = true; return G.gun();
+}
+function modGunPart(slot, id) {
+  const G = window.TLXGUN, g = modGun(); if (!g || !G.PARTS[slot] || !G.PARTS[slot].some(o => o.id === id)) return false;
+  G.state().parts[slot + ":" + id] = 1; return G.fit(slot, id, true) !== false;
+}
+function modAmmo(id, n) {
+  const G = window.TLXGUN, s = G && G.state(); if (!s) return 0;
+  n = Math.max(0, Math.min(n, G.AMMO.max - G.pkTotal())); if (!n) return 0;
+  if (id === G.AMMOS[0].id) s.ammo = (s.ammo || 0) + n; else { if (!s.alt || typeof s.alt !== "object") s.alt = {}; s.alt[id] = (s.alt[id] || 0) + n; }
+  return n;
+}
+function modGunBuild(b) {
+  const G = window.TLXGUN, g = modGun(); if (!g) return;
+  for (const slot of G.SLOTS) modGunPart(slot, b.parts[slot] || G.PARTS[slot][0].id);
+  g.rounds = G.stats(g).cap; modAmmo(g.ammo, 40); save();
+}
+/* pickups: a thing turning over a ring on the snow, taken by walking or riding into it */
+function modDrop(kind, data) {
+  const why = modBusy(); if (why) { toast(why, "warn"); return; }
+  const sp = modSpot(FOOT.on ? 2.4 : 5, 0.5), g = new THREE.Group(), it = new THREE.Group(); g.add(it);
+  const col = kind === "gun" ? 0xffc26b : 0x7cf2a0;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 6, 30), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, fog: true }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.08; g.add(ring);
+  if (kind === "gun") {
+    const wood = std(0x6b4423, 0.7, 0), steel = std(0x23272c, 0.4, 0.7), p = data.parts || {};
+    box(0.05, 0.12, 0.42, p.stock && p.stock !== "walnut" ? steel : wood, 0, -0.02, -0.36, -0.1, 0, 0, it);
+    box(0.05, 0.075, 0.34, steel, 0, 0.02, -0.02, 0, 0, 0, it);
+    box(0.04, 0.05, 0.3, p.stock && p.stock !== "walnut" ? steel : wood, 0, 0, 0.26, 0, 0, 0, it);
+    const bl = p.barrel === "carb18" ? 0.46 : p.barrel === "heavy24" ? 0.66 : 0.58;
+    cyl(p.barrel === "heavy24" ? 0.017 : 0.012, p.barrel === "heavy24" ? 0.017 : 0.012, bl, steel, 0, 0.035, 0.14 + bl / 2, Math.PI / 2, 0, 0, it, 8);
+    if (p.sight === "scope39") cyl(0.024, 0.024, 0.3, steel, 0, 0.1, 0, Math.PI / 2, 0, 0, it, 10);
+    else if (p.sight === "red1") box(0.035, 0.045, 0.07, steel, 0, 0.085, 0, 0, 0, 0, it);
+    if (p.magazine && p.magazine !== "int3") box(0.035, p.magazine === "det10" ? 0.14 : 0.07, 0.07, steel, 0, -0.07, 0.02, 0, 0, 0, it);
+    if (p.grip === "bipod") { box(0.012, 0.2, 0.012, steel, 0.05, -0.1, 0.36, 0, 0, -0.3, it); box(0.012, 0.2, 0.012, steel, -0.05, -0.1, 0.36, 0, 0, 0.3, it); }
+    it.rotation.z = 0.25;
+  } else {
+    const note = std(0x3f9a5b, 0.8, 0), band = std(0xf2ecd8, 0.8, 0), n = clamp(Math.ceil(Math.log10(Math.max(10, data.amt)) - 1), 1, 6);
+    for (let i = 0; i < n; i++) { box(0.3, 0.07, 0.15, note, (i % 2 ? 0.02 : -0.02), i * 0.075 - n * 0.037, 0, 0, i * 0.5, 0, it); box(0.06, 0.074, 0.154, band, (i % 2 ? 0.02 : -0.02), i * 0.075 - n * 0.037, 0, 0, i * 0.5, 0, it); }
+  }
+  g.position.set(sp.x, surf(sp.x, sp.z), sp.z); it.position.y = 0.95; scene.add(g);
+  MOD.drops.push({ kind, data, x: sp.x, z: sp.z, g, it, t: 0 });
+  while (MOD.drops.length > 12) modDropGone(MOD.drops.shift());
+}
+function modDropGone(d) { scene.remove(d.g); d.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+function modDropTake(d) {
+  if (d.kind === "cash") { GS.cash += d.data.amt; toast(`Picked up ${fmtCash(d.data.amt)}.`, "good"); }
+  else if (window.TLXGUN) { modGunBuild(d.data); toast(`Picked up: ${d.data.name.toLowerCase()}, loaded, with 40 rounds. ${keyHint("rifle", "shoulder it on foot")}.`, "good"); }
+  save(); if (godOpen) renderGod();
+}
+function modDropTick(dt) {
+  if (!MOD.drops.length) return;
+  const w = modWho();
+  for (let i = MOD.drops.length - 1; i >= 0; i--) {
+    const d = MOD.drops[i]; d.t += dt;
+    d.g.position.y = surf(d.x, d.z); d.it.rotation.y += dt * 1.7; d.it.position.y = 0.95 + Math.sin(d.t * 2.2) * 0.07;
+    if (d.t > 0.6 && !INT.on && !CRASH.on && Math.hypot(w.x - d.x, w.z - d.z) < 1.7) { MOD.drops.splice(i, 1); modDropGone(d); modDropTake(d); }
+  }
+}
+function modCash(v) { GS.cash = Math.max(0, Math.round(v)); save(); if (GS.garageOpen) renderGarage(); TABLET.refresh(); }
+function modAmtStep(d) {
+  let i = MOD_AMTS.findIndex(a => a >= MOD.amt); if (i < 0) i = MOD_AMTS.length - 1;
+  if (MOD_AMTS[i] !== MOD.amt && d > 0) i--;
+  MOD.amt = MOD_AMTS[clamp(i + d, 0, MOD_AMTS.length - 1)];
+}
+function modKit(slot, d) {
+  const L = GEAR[slot].options; let i = L.findIndex(o => o.id === GS.own.gear[slot]); i = (Math.max(0, i) + d + L.length) % L.length;
+  GS.own.gearOwned[ownKey(slot, L[i].id)] = true; GS.own.gear[slot] = L[i].id; restat(); save();
+}
+function modLayer(slot, d) {
+  const s = window.TLXG && TLXG.state(), L = s && TLXG.LAYERS[slot]; if (!L) return;
+  let i = L.findIndex(o => o.id === s[slot]); i = (Math.max(0, i) + d + L.length) % L.length;
+  s.own[slot + ":" + L[i].id] = 1; s[slot] = L[i].id; restat(); save();
+}
+function modHour(h) { const now = ((GS.hour % 24) + 24) % 24; GS.hour += ((h - now + 24) % 24) || 24; toast(`It's ${fmtTime(GS.hour)}.`); }
+function modWeather(v) {
+  if (v) { WX.force = { v: 1, until: GS.hour + 3 }; toast("Storm called in for three hours.", "warn"); }
+  else { WX.force = { v: 0, until: GS.hour + 4 }; toast("Sky's clearing for a few hours."); }
+}
+// move the player (and the machine they're on or beside) to a spot
+function modTp(x, z, yaw, name) {
+  const why = modBusy(); if (why) { toast(why, "warn"); return; }
+  if (isSea(x, z) || isWater(x, z)) { toast("That's open water.", "warn"); return; }
+  if (FISH) FISH.abort();
+  P.x = x; P.z = z; P.yaw = yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0; BOG.on = false; BOG.acc = 0;
+  recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.4; P.safe = { x, z, yaw };
+  if (FOOT.on) { FOOT.x = x + Math.cos(yaw) * 1.8; FOOT.z = z - Math.sin(yaw) * 1.8; FOOT.y = surf(FOOT.x, FOOT.z); FOOT.yaw = yaw; }
+  camState.init = false; towSnap(); toast("Dropped at " + name + ".");
 }
 function godTeleport(s) {
-  if (FISH) FISH.abort();
-  let x, z, yaw;
-  if (s === depot) { x = SPAWN.x; z = SPAWN.z; yaw = SPAWN.yaw; }
-  else {
-    const dx = depot.x - s.x, dz = depot.z - s.z, d = Math.hypot(dx, dz) || 1;
-    x = s.x + dx / d * 16; z = s.z + dz / d * 16; yaw = Math.atan2(-dx, -dz);
-  }
-  P.x = x; P.z = z; P.yaw = yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
-  recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.4; P.safe = { x, z, yaw };
-  camState.init = false; towSnap(); toast("Dropped at " + s.name + ".");
+  if (s === depot) { modTp(SPAWN.x, SPAWN.z, SPAWN.yaw, s.name); return; }
+  const dx = depot.x - s.x, dz = depot.z - s.z, d = Math.hypot(dx, dz) || 1;
+  modTp(s.x + dx / d * 16, s.z + dz / d * 16, Math.atan2(-dx, -dz), s.name);
 }
 function godTick(dt) {
   if (GOD.fuel) { GS.fuel = GS.cap; GS.outWarned = GS.lowWarned = false; }
   if (GOD.warm) { GS.warmth = 100; GS.coldWarned = false; }
   if (GOD.freeze) GS.hour -= dt / GAMEHOUR;
+  modDropTick(dt);
+  if (!godOpen) return;
+  if (TABLET.open || GS.garageOpen || !$("settings").hidden) { toggleGod(false); return; }
+  MOD.hudT -= dt; if (MOD.hudT <= 0) { MOD.hudT = 0.4; modHead(); }
 }
 const godAny = () => GOD.fuel || GOD.warm || GOD.turbo || GOD.lowg || GOD.freeze;
 function godApply(id) {
   if (id === "turbo") restat();
   if (id === "lowg") G = GOD.lowg ? 5.2 : 32.4;
 }
-function godActivate() {
-  const cat = CATEGORIES[godCat];
-  if (!cat) return;
-  const it = cat.items[godItem];
-  if (!it) return;
-  if (it.type === "toggle") {
-    GOD[it.id] = !GOD[it.id];
-    godApply(it.id);
-    toast(`${it.label}: ${GOD[it.id] ? "ON" : "OFF"}`, GOD[it.id] ? "good" : undefined);
-  } else if (it.type === "action") {
-    if (it.do) { it.do(); } else { toast("Not implemented: " + it.label); }
-  } else if (it.type === "select") {
-    if (it.data) {
-      if (it.current == null) it.current = 0;
-      // When activating (Enter/Y), apply the current selection.
-      // When navigating (arrows), godMove cycles without applying.
-      const sel = it.data[it.current];
-      if (it.id === "tp" && sel) { godTeleport(sel); }
-      else if (it.id === "date") {
-        const parts = it.data[it.current].split('/');
-        const day = parseInt(parts[0]) || 1, month = parseInt(parts[1]) || 1;
-        const totalDays = (month - 1) * 30 + day;
-        if (CAL) { CAL.off = totalDays; GS.day = day; GS.month = month; }
-        toast(`Set to ${it.data[it.current]}.`);
-      } else {
-        toast(it.label + ": " + it.data[it.current]);
-      }
+function modToggle(id, label) { GOD[id] = !GOD[id]; godApply(id); toast(`${label}: ${GOD[id] ? "on" : "off"}`, GOD[id] ? "good" : undefined); }
+
+/* ---- the pages ---- */
+const modTog = (id, label, sub) => ({ label, sub, val: GOD[id] ? "ON" : "OFF", on: GOD[id], go: () => modToggle(id, label) });
+function modRoot() {
+  const rows = [
+    { label: "Sleds", sub: "Ride any machine, now", val: sledDef().name, page: modSledsPage },
+    { label: "Sled upgrades", sub: "Any part or engine, fitted as you ride", page: modUpgPage }
+  ];
+  if (window.TLXV) rows.push({ label: "Trucks & machines", sub: "Drop one in front of you", page: modVehPage });
+  if (window.TLXGUN) rows.push({ label: "Weapons", sub: "Rifle builds, parts, ammunition", page: modGunPage });
+  rows.push(
+    { label: "Cash", sub: "Any amount", val: fmtCash(GS.cash), page: modCashPage },
+    { label: "Rider", sub: "Clothing, warmth", page: modRiderPage },
+    { label: "Cheats", sub: "Fuel, power, gravity", val: godAny() ? "ACTIVE" : "", on: godAny(), page: modCheatPage },
+    { label: "Time & weather", sub: CAL.now().label + " · " + fmtTime(GS.hour), page: modWorldPage },
+    { label: "Teleport", sub: "Any place on the map", page: modTpPage },
+    { label: "Career", sub: "Rank, licences, jobs, tutorial", page: modCareerPage });
+  return { title: "Mod menu", rows };
+}
+function modSledsPage() {
+  const riding = !FOOT.on && !VEH.cur;
+  const rows = [{ label: "Put me straight on it", sub: "When a sled lands in front of you on foot", val: MOD.seat ? "ON" : "OFF", on: MOD.seat, go: () => { MOD.seat = !MOD.seat; } }];
+  for (const s of SLEDS) {
+    const cur = GS.own.sled === s.id;
+    rows.push({ label: s.name, sub: s.year + " · " + s.era.split(/ [—-] |: /)[0], val: cur && riding ? "RIDING" : riding ? "SWITCH" : cur ? "BRING HERE" : "SPAWN", on: cur, go: () => modSled(s.id) });
+  }
+  rows.push({ label: "Reset sled", sub: "Upright, on its last safe spot", go: () => resetSled() });
+  return { title: "Sleds", rows };
+}
+function modUpgPage() {
+  const sd = sledDef(), rows = [{ head: true, label: "On the " + sd.name }];
+  rows.push({ label: "Engine", val: engineOf(sd).name, page: modEnginePage });
+  for (const cat of PART_ORDER) rows.push({ label: PARTS[cat].label, val: partDef(cat, GS.own.parts[cat]).name, adj: d => modCycle(cat, d), page: () => modPartPage(cat) });
+  rows.push({ label: "Back to stock parts", sub: "Strip every slot to what it came with", go: () => { const p0 = OWN0().parts; for (const cat of PART_ORDER) GS.own.parts[cat] = p0[cat]; restat(); towSnap(); save(); toast("Stock parts all round."); } },
+    { label: "Own everything in the garage", sub: "Every sled, part and piece of kit", go: modUnlockAll });
+  return { title: "Sled upgrades", rows };
+}
+function modPartPage(cat) {
+  return { title: PARTS[cat].label, rows: PARTS[cat].options.map(o => {
+    const on = GS.own.parts[cat] === o.id;
+    return { label: o.name, sub: statLine(o) || o.note || "", val: on ? "FITTED" : "", on, go: () => modFit(cat, o.id) };
+  }) };
+}
+function modEnginePage() {
+  const sd = sledDef(), eng = engineOf(sd), s0 = engDef(STOCK_ENGINE[sd.id]);
+  const rows = [{ label: s0 ? "Stock: " + s0.name : eng.name, sub: "What the " + sd.name + " came with", val: eng.stock ? "FITTED" : "", on: eng.stock, go: () => modEngine(null) }];
+  for (const e of ENGINES) { if (s0 && e.id === s0.id) continue; const on = !eng.stock && eng.def === e; rows.push({ label: e.name, sub: Math.round(e.power * 100) + "% power" + (e.turbo ? " · factory turbo" : ""), val: on ? "FITTED" : "", on, go: () => modEngine(e.id) }); }
+  return { title: "Engine", rows };
+}
+function modVehPage() {
+  const rows = [], s = TLXV.state(), n = s ? s.owned.filter(r => r.mod).length : 0;
+  for (const d of TLXV.VEHICLES) { if (TLXV.kinds[d.id] || (d.opt && !TLX.on(d.opt))) continue; rows.push({ label: d.name, sub: d.kind + " · " + d.year, val: "SPAWN", go: () => modVeh(d.id) }); }
+  rows.push({ label: "Clear spawned machines", sub: "Not the one you're in", val: n ? String(n) : "", go: modVehClear },
+    { label: "Fill the tank", sub: "Of what you're riding or driving", go: () => { GS.fuel = GS.cap; GS.outWarned = GS.lowWarned = false; toast("Full tank."); } });
+  return { title: "Trucks & machines", rows };
+}
+function modGunPage() {
+  const G = TLXGUN, s = G.state(), g = G.gun(), rows = [{ head: true, label: "Drop one, walk into it" }];
+  for (const b of MOD_BUILDS) rows.push({ label: b.name, sub: b.sub, val: "DROP", go: () => modDrop("gun", b) });
+  rows.push({ head: true, label: g ? "Your rifle" : "No rifle yet" });
+  if (!g) rows.push({ label: "Give me the rifle now", sub: "Loaded, with 40 rounds and the licence", go: () => { modGunBuild(MOD_BUILDS[0]); toast("The rifle's on your back.", "good"); } });
+  else for (const slot of G.SLOTS) {
+    const L = G.PARTS[slot], cur = L.find(o => o.id === g.parts[slot]) || L[0];
+    rows.push({ label: slot[0].toUpperCase() + slot.slice(1), val: cur.name, adj: d => { const i = (L.indexOf(cur) + d + L.length) % L.length; modGunPart(slot, L[i].id); save(); } });
+  }
+  rows.push({ head: true, label: `Ammunition · ${G.pkTotal()} of ${G.AMMO.max} in the pack` });
+  for (const a of G.AMMOS) rows.push({ label: "+20 " + a.short, val: String(G.pk(a.id)), go: () => { modGun(); const n = modAmmo(a.id, 20); save(); toast(n ? `${n} ${a.short} rounds in the pack.` : "The pack's full.", n ? "good" : "warn"); } });
+  rows.push({ label: "Empty the pack", go: () => { if (s) { s.ammo = 0; s.alt = {}; save(); } } },
+    { label: "Hunter's licence", val: s && s.licence ? "HELD" : "NONE", on: !!(s && s.licence), go: () => { if (s) { s.licence = !s.licence; save(); } } });
+  return { title: "Weapons", rows };
+}
+function modCashPage() {
+  const a = fmtCash(MOD.amt);
+  return { title: "Cash", input: true, rows: [
+    { label: "Amount", sub: "Step it, or type any number below", val: a, adj: d => { modAmtStep(d); } },
+    { label: "Add " + a, go: () => { modCash(GS.cash + MOD.amt); toast("+" + a + ".", "good"); } },
+    { label: "Take " + a + " away", go: () => { modCash(GS.cash - MOD.amt); toast("−" + a + "."); } },
+    { label: "Set my cash to exactly " + a, go: () => { modCash(MOD.amt); toast("Cash: " + a + "."); } },
+    { label: "Drop " + a + " on the ground", sub: "A bundle to pick up", val: "DROP", go: () => modDrop("cash", { amt: MOD.amt }) },
+    { label: "Empty my pockets", sub: "Cash to $0", go: () => { modCash(0); toast("Broke."); } }
+  ] };
+}
+function modRiderPage() {
+  const rows = [modTog("warm", "Never cold", "Warmth held at full"), { label: "Warm up now", val: Math.round(GS.warmth) + "%", go: () => { GS.warmth = 100; GS.coldWarned = false; } }, { head: true, label: "Wearing" }];
+  for (const slot of GEAR_ORDER) rows.push({ label: GEAR[slot].label, val: gearDef(slot, GS.own.gear[slot]).name, adj: d => modKit(slot, d) });
+  if (window.TLXG && TLXG.state()) for (const slot of ["base", "mid"]) { const L = TLXG.LAYERS[slot], s = TLXG.state(), cur = L.find(o => o.id === s[slot]) || L[0]; rows.push({ label: slot === "base" ? "Base layer" : "Mid layer", val: cur.name, adj: d => modLayer(slot, d) }); }
+  if (TLX.wounds) rows.push({ head: true, label: "Testing" }, { label: "Take a pot-shot", sub: "An open wound, to try a bandage", go: () => TLX.wounds.hit() });
+  return { title: "Rider", rows };
+}
+function modCheatPage() {
+  return { title: "Cheats", rows: [
+    modTog("fuel", "Infinite fuel", "The tank never drops"), modTog("turbo", "Turbo engine", "Power ×2.2"), modTog("lowg", "Low gravity", "Moon jumps"),
+    modTog("warm", "Never cold", "Warmth held at full"), modTog("freeze", "Freeze the clock", "Time stands still"),
+    { label: "Fill the tank", go: () => { GS.fuel = GS.cap; GS.outWarned = GS.lowWarned = false; toast("Full tank."); } },
+    { label: "Good as new", sub: "This sled back to factory condition", go: () => { const k = "sled:" + GS.own.sled; delete GS.own.cond[k]; delete GS.own.wear[k]; restat(); save(); toast("Like the day it left the crate.", "good"); } },
+    { label: "Reset sled", sub: "Upright, on its last safe spot", go: () => resetSled() }
+  ] };
+}
+function modWorldPage() {
+  const forced = WX.force && GS.hour < WX.force.until;
+  const rows = [{ head: true, label: CAL.now().label + " · " + fmtTime(GS.hour) }];
+  for (const [h, nm] of [[8, "Morning, 08:00"], [12, "Midday, 12:00"], [17, "Evening, 17:00"], [0, "Midnight, 00:00"]]) rows.push({ label: nm, go: () => modHour(h) });
+  rows.push({ label: "Skip an hour", go: () => { GS.hour += 1; } }, { label: "Skip 3 hours", go: () => { GS.hour += 3; } }, { label: "Skip a day", go: () => { GS.hour += 24; } },
+    { label: "Jump to date", sub: "Pick with left / right, then go", val: GOD_DATES[MOD.date][2], adj: d => { MOD.date = (MOD.date + d + GOD_DATES.length) % GOD_DATES.length; }, go: () => { const g = GOD_DATES[MOD.date]; CAL.jumpTo(g[0], g[1]); toast(`It's ${CAL.now().long}.`); } },
+    modTog("freeze", "Freeze the clock", "Time stands still"),
+    { head: true, label: "Weather: " + (forced ? (WX.force.v ? "storm called in" : "held clear") : GS.stormPhase === "storm" ? "storm" : "clear") },
+    { label: "Call a storm in", sub: "Three hours of it", go: () => modWeather(1) }, { label: "Clear the sky", sub: "Held clear for four hours", go: () => modWeather(0) });
+  return { title: "Time & weather", rows };
+}
+function modTpPage() {
+  const rows = [{ label: "500 m ahead", sub: "Along the way you're facing", go: () => { const w = modWho(); modTp(w.x + Math.sin(w.yaw) * 500, w.z + Math.cos(w.yaw) * 500, w.yaw, "500 m on"); } }];
+  if (WP.x !== null) rows.push({ label: "Map marker", sub: "The yellow marker you dropped on the Map", go: () => modTp(WP.x, WP.z, modWho().yaw, "your marker") });
+  for (const s of SITES) if (s.x !== undefined && s.name) rows.push({ label: s.name, sub: s === depot ? "Home depot" : fmtMi(Math.hypot(s.x - modWho().x, s.z - modWho().z)), go: () => godTeleport(s) });
+  return { title: "Teleport", rows };
+}
+function modCareerPage() {
+  const rows = [
+    { label: "+5 deliveries", val: rankOf(GS.delivered).name + " · " + GS.delivered, go: () => {
+      const before = rankOf(GS.delivered); GS.delivered += 5; const after = rankOf(GS.delivered);
+      if (after !== before) toast(`Rank up: ${after.name}. ${after.opens || ""}`, "good");
+      if (GS.contracts) makeContracts(depot); save();
+    } },
+    { label: "Grant both licences", sub: "Freight and Rescue, and their apps", val: licensed("freight") && licensed("rescue") ? "HELD" : "", on: licensed("freight") && licensed("rescue"), go: () => { GS.apps.freight = GS.apps.rescue = GS.apps.realestate = 1; GS.signed.freight = GS.signed.rescue = true; GS.lic.freight = GS.lic.rescue = true; GS.own.partsOwned[ownKey("hitch", "akja")] = true; GS.contracts = null; TABLET.refresh(); save(); toast("Freight and Rescue licences granted, and the rescue toboggan."); } },
+    { label: "Fresh jobs", sub: "Parcels, Freight and Trail Crew", go: () => { makeJobs(depot); makeContracts(depot); TABLET.refresh(); toast("New work posted in Parcels, Freight and Trail Crew."); } },
+    { label: "Bytteboden: new listings", sub: "Reshuffle the marketplace", go: () => { GS.mkt.list = []; mktReseed(CAL.abs()); TABLET.refresh("market"); save(); toast("Bytteboden: a fresh batch of listings."); } },
+    { label: "Rescue callout now", sub: "On duty, licensed", go: () => { if (!licensed("rescue")) { toast("Grant the licences first.", "warn"); return; } if (SAR.cur || SAR.ping) { toast("Already on one.", "warn"); return; } SAR.duty = true; if (!sarOffer()) toast("No spot found for a callout here.", "warn"); } }
+  ];
+  if (TUT.stage < 99) rows.push({ label: "Skip the tutorial", go: () => tutSkip() });
+  rows.push({ label: "Restart tutorial", sub: "On foot at the quay, sled back in the garage", go: () => { toggleGod(false); tutRestart(); } });
+  return { title: "Career", rows };
+}
+
+/* ---- the panel ---- */
+const modEsc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// every row of every page, for the search box
+function modFlat() {
+  const out = [];
+  const walk = (fn, path, depth) => {
+    let pg; try { pg = fn(); } catch (e) { console.error(e); return; }
+    for (const r of pg.rows) {
+      if (r.head) continue;
+      if (r.page && depth < 3) walk(r.page, path.concat(r.label), depth + 1);
+      if (!r.page || r.adj) out.push(Object.assign({}, r, { page: null, path: path.join(" › ") }));
     }
-  } else if (it.type === "slider") {
-    if (it.id === "warmth") { GS.warmth = Math.min(it.max, Math.max(it.min, GS.warmth + it.step)); toast(`Warmth: ${GS.warmth}`); }
-    else if (it.id === "cash2") { GS.cash = Math.min(it.max, GS.cash + it.step); toast(`Cash: $${GS.cash}`); }
-  }
-  renderGod();
+  };
+  walk(modRoot, [], 0); return out;
 }
-function godMove(d) {
-  const cat = CATEGORIES[godCat];
-  const items = cat ? cat.items : [];
-  // If on a select item, cycle its data
-  if (cat && items[godItem] && items[godItem].type === "select" && items[godItem].data) {
-    const si = items[godItem];
-    si.current = (si.current + d + si.data.length) % si.data.length;
-    renderGod();
-    return;
+function modPage() {
+  if (MOD.q) {
+    const words = MOD.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = modFlat().filter(r => { const t = (r.path + " " + r.label + " " + (r.sub || "") + " " + (r.val || "")).toLowerCase(); return words.every(w => t.includes(w)); }).slice(0, 60);
+    return { title: "Search", rows: rows.length ? rows : [{ head: true, label: "Nothing matches “" + MOD.q + "”" }] };
   }
-  godItem = (godItem + d + (items.length || 1)) % (items.length || 1);
-  renderGod();
+  const top = MOD.stack[MOD.stack.length - 1];
+  let pg; try { pg = top.fn(); } catch (e) { console.error(e); pg = { title: "Mod menu", rows: [{ head: true, label: "This page failed to open." }] }; }
+  return pg;
 }
-function godSetCategory(c) {
-  godCat = c;
-  godItem = 0;
-  renderGod();
+function modHead() {
+  const c = $("godCash"); if (c) { const t = fmtCash(GS.cash); if (c.textContent !== t) c.textContent = t; }
+  const dev = INP.dev + ":" + INP.pad; if (dev !== MOD.dev) { MOD.dev = dev; modFoot(); }
+}
+function modFoot() {
+  const f = $("godFoot"); if (!f) return;
+  if (INP.dev === "touch") f.innerHTML = "<b>Tap</b> a row to use it, <b>◀ ▶</b> to change a value, <b>‹</b> to go back.";
+  else if (INP.dev === "pad") f.innerHTML = `<b>D-pad</b> move · <b>${modEsc(btn("pick"))}</b> pick · <b>◀ ▶</b> change · <b>${modEsc(btn("wclose"))}</b> back · <b>${modEsc(btn("mod"))}</b> close. The stick and triggers still drive.`;
+  else f.innerHTML = `<b>↑ ↓</b> move · <b>Enter</b> pick · <b>← →</b> change · <b>Backspace</b> back · <b>/</b> search · <b>${modEsc(btn("mod"))}</b> close. <b>${modEsc(btn("gas"))} / ${modEsc(btn("brake"))}</b> and <b>${modEsc(btn("steer"))}</b> still drive.`;
+}
+function modMark() {
+  const box = $("godList");
+  for (let i = 0; i < box.children.length; i++) box.children[i].classList.toggle("sel", i === MOD.sel);
+  if (box.children[MOD.sel]) box.children[MOD.sel].scrollIntoView({ block: "nearest" });
 }
 function renderGod() {
-  const sidebar = $("godSidebar");
-  const box = $("godList");
-  sidebar.innerHTML = "";
-  box.innerHTML = "";
-  // Render sidebar categories
-  CATEGORIES.forEach((cat, i) => {
-    const d = document.createElement("div");
-    d.className = "gcat" + (i === godCat ? " on" : "");
-    d.innerHTML = `${cat.icon} ${cat.label}`;
-    d.addEventListener("click", () => { godSetCategory(i); });
-    sidebar.appendChild(d);
+  if (!godOpen) return;
+  const pg = modPage(), rows = MOD.rows = pg.rows, box = $("godList");
+  if (!rows.length) rows.push({ head: true, label: "Nothing here." });
+  MOD.sel = clamp(MOD.sel, 0, rows.length - 1);
+  if (rows[MOD.sel].head) { let i = rows.findIndex((r, k) => k > MOD.sel && !r.head); if (i < 0) i = rows.findIndex(r => !r.head); if (i >= 0) MOD.sel = i; }
+  $("godTitle").textContent = pg.title;
+  $("godCrumb").textContent = MOD.q ? "ALL PAGES" : MOD.stack.length > 1 ? MOD.stack.slice(0, -1).map(s => s.title).join(" › ").toUpperCase() : "TRACKLAYER";
+  $("godBack").hidden = !MOD.q && MOD.stack.length < 2;
+  $("godAmtWrap").hidden = !pg.input;
+  box.textContent = "";
+  rows.forEach((r, i) => {
+    if (r.head) { const h = document.createElement("div"); h.className = "mhead"; h.textContent = r.label; box.appendChild(h); return; }
+    const b = document.createElement("div"); b.setAttribute("role", "button");
+    b.className = "row" + (i === MOD.sel ? " sel" : "") + (r.on ? " on" : "");
+    const val = r.adj ? `<span class="val adj"><i data-d="-1">◀</i><span>${modEsc(r.val)}</span><i data-d="1">▶</i></span>` : r.val ? `<span class="val">${modEsc(r.val)}</span>` : "";
+    b.innerHTML = `<span class="main">${r.path ? `<small>${modEsc(r.path)}</small>` : ""}<b>${modEsc(r.label)}</b>${r.sub ? `<em>${modEsc(r.sub)}</em>` : ""}</span>${val}${r.page ? `<span class="chev">›</span>` : ""}`;
+    b.addEventListener("click", e => { MOD.sel = i; const d = e.target && e.target.dataset ? +e.target.dataset.d : 0; if (d && r.adj) { r.adj(d); renderGod(); } else modGo(); });
+    b.addEventListener("mousemove", () => { if (MOD.sel !== i) { MOD.sel = i; modMark(); } });
+    box.appendChild(b);
   });
-  // Render items for active category
-  const cat = CATEGORIES[godCat];
-  if (!cat) return;
-  cat.items.forEach((it, i) => {
-    const row = document.createElement("div");
-    row.className = "row" + (i === godItem ? " sel" : "");
-    let val = "";
-    if (it.type === "toggle") val = GOD[it.id] ? "ON" : "OFF";
-    else if (it.type === "action") val = "ACT";
-    else if (it.type === "select" && it.data) {
-      const idx = it.current || 0;
-      val = it.data[idx][it.dataKey];
-    } else if (it.type === "slider") {
-      val = it.id === "warmth" ? GS.warmth : GS.cash;
-    }
-    row.innerHTML = `<span class="gitem"><span class="gicon">${it.icon || (it.type === "toggle" ? (GOD[it.id] ? "✓" : "○") : it.type === "action" ? "⚡" : it.type === "select" ? "📌" : "⏱")}</span><span class="glabel">${it.label}</span>${it.sub ? `<span class="gsub">${it.sub}</span>` : ""}</span><span class="val">${val}</span>`;
-    row.addEventListener("click", () => { godItem = i; godActivate(); });
-    row.addEventListener("mouseenter", () => { if (godItem !== i) { godItem = i; renderGod(); } });
-    box.appendChild(row);
-  });
-  // Scroll selected item into view
-  const rows = box.children;
-  if (rows[godItem]) rows[godItem].scrollIntoView({ block: "nearest" });
+  modMark(); modHead();
+}
+function modMove(d) {
+  const n = MOD.rows.length; if (!n) return;
+  let i = MOD.sel; for (let k = 0; k < n; k++) { i = (i + d + n) % n; if (!MOD.rows[i].head) break; }
+  MOD.sel = i; modMark();
+}
+function modGo() {
+  const r = MOD.rows[MOD.sel]; if (!r || r.head) return;
+  if (r.page) { MOD.stack[MOD.stack.length - 1].sel = MOD.sel; MOD.stack.push({ fn: r.page, title: r.label, sel: 0 }); MOD.sel = 0; }
+  else if (r.go) r.go();
+  else if (r.adj) r.adj(1);
+  renderGod();
+}
+function modSide(d) {
+  const r = MOD.rows[MOD.sel];
+  if (r && r.adj) { r.adj(d); renderGod(); }
+  else if (d > 0) modGo(); else modBack();
+}
+function modBack() {
+  if (MOD.q) { MOD.q = ""; $("godSearch").value = ""; MOD.sel = MOD.stack[MOD.stack.length - 1].sel || 0; renderGod(); return; }
+  if (MOD.stack.length > 1) { MOD.stack.pop(); MOD.sel = MOD.stack[MOD.stack.length - 1].sel || 0; renderGod(); return; }
+  toggleGod(false);
 }
 function toggleGod(force) {
-  godOpen = force !== undefined ? force : !godOpen;
-  $("god").hidden = !godOpen;
-  if (godOpen) { TABLET.close(true); godCat = 0; godItem = 0; renderGod(); }
+  const want = force !== undefined ? !!force : !godOpen;
+  if (want && !godOpen) {
+    if (GS.dead) return;
+    if (SCHOOL.on) { toast("Finish the lesson first: the school's sled isn't yours to mod.", "warn"); return; }
+  }
+  godOpen = want; $("god").hidden = !godOpen;
+  if (godOpen) { TABLET.close(true); MOD.stack = [{ fn: modRoot, title: "Mod menu", sel: 0 }]; MOD.sel = 0; MOD.q = ""; $("godSearch").value = ""; MOD.dev = ""; renderGod(); }
+  else { const a = document.activeElement; if (a && a.blur && $("god").contains(a)) a.blur(); }
 }
+// the pad: the D-pad and two face buttons belong to the menu, the stick and triggers still drive
 function godPad(gp, dt) {
   const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
-  const ay = gp.axes[1] || 0, ax = gp.axes[0] || 0;
-  // Horizontal stick/DPAD: navigate within current category
-  const horz = b(13) || ay > 0.6 ? 1 : b(12) || ay < -0.6 ? -1 : b(15) || ax > 0.6 ? 1 : b(14) || ax < -0.6 ? -1 : 0;
-  // Vertical navigation: up = back to sidebar, down = next category
-  const vert = b(9) || (gp.axes[4] || 0) > 0.6 ? 1 : b(8) || (gp.axes[4] || 0) < -0.6 ? -1 : 0;
-  if (horz !== 0) {
-    godMove(horz);
-  } else if (vert !== 0) {
-    // Back = close god menu, Next category = switch sidebar
-    if (vert < 0 && godItem > 0) godMove(-1);
-    else if (vert > 0) {
-      const nextCat = (godCat + 1) % CATEGORIES.length;
-      godSetCategory(nextCat);
-    } else {
-      // On first item + back, close
-      if (godItem === 0) { toggleGod(false); return; }
-      godMove(-1);
-    }
+  const nav = b(12) ? -1 : b(13) ? 1 : b(14) ? -2 : b(15) ? 2 : 0;
+  MOD.navT -= dt;
+  if (nav !== MOD.nav || (nav && MOD.navT <= 0)) {
+    if (nav === -1 || nav === 1) modMove(nav); else if (nav) modSide(nav / 2);
+    MOD.navT = nav === MOD.nav ? 0.11 : 0.36;
   }
-  if (b(0) && !padGodA) { godActivate(); padGodA = true; }
-  if (!b(0)) padGodA = false;
-  if (b(1)) { toggleGod(false); }
+  MOD.nav = nav;
+  const a = b(0); if (a && !padGodA) modGo(); padGodA = a;
+  const bb = b(1); if (bb && !padGodB) modBack(); padGodB = bb;
 }
-$("godClose").addEventListener("click", () => toggleGod(false));
-$("godSearch").addEventListener("input", (e) => {
-  const q = e.target.value.toLowerCase().trim();
-  const rows = $("godList").children;
-  for (let i = 0; i < rows.length; i++) {
-    const text = rows[i].textContent.toLowerCase();
-    rows[i].classList.toggle("hide", q && !text.includes(q));
-  }
-  // Show/hide categories based on whether they have matching items
-  const cats = $("godSidebar").children;
-  for (let c = 0; c < cats.length; c++) {
-    let hasMatch = false;
-    const catItems = CATEGORIES[c].items;
-    for (let i = 0; i < catItems.length; i++) {
-      if (!q || catItems[i].label.toLowerCase().includes(q) || (catItems[i].sub && catItems[i].sub.toLowerCase().includes(q))) {
-        hasMatch = true; break;
-      }
-    }
-    cats[c].style.opacity = hasMatch || !q ? 1 : 0.3;
-  }
-});
+$("godClose").addEventListener("click", e => { e.currentTarget.blur(); toggleGod(false); });
+$("godBack").addEventListener("click", e => { e.currentTarget.blur(); modBack(); });
+$("godSearch").addEventListener("input", e => { MOD.q = e.target.value.trim(); MOD.sel = 0; renderGod(); });
+$("godAmt").addEventListener("input", e => { const v = Math.round(+String(e.target.value).replace(/[^0-9.]/g, "")); if (v > 0 && isFinite(v)) { MOD.amt = Math.min(v, 1e12); renderGod(); } });
+for (const id of ["godSearch", "godAmt"]) {
+  // typing must not ride the sled, open the tablet or close the menu: keys stop here, bar the ones that work the list
+  $(id).addEventListener("keydown", e => {
+    e.stopPropagation();
+    if (e.code === "Escape") { e.preventDefault(); if (id === "godSearch" && MOD.q) modBack(); e.target.blur(); }
+    else if (e.code === "ArrowDown" || e.code === "ArrowUp") { e.preventDefault(); modMove(e.code === "ArrowDown" ? 1 : -1); }
+    else if (e.code === "Enter" || e.code === "NumpadEnter") { e.preventDefault(); if (id === "godAmt") { e.target.value = ""; e.target.blur(); MOD.sel = 1; renderGod(); modGo(); } else modGo(); }
+  });
+  $(id).addEventListener("keyup", e => e.stopPropagation());
+}
 addEventListener("keydown", e => {
-  if (!started || e.repeat) return;
-  if (e.code === "KeyY" || e.code === "Backquote") { toggleGod(); return; }
-  if (!godOpen) return;
-  if (e.code === "PageUp" || e.code === "BracketLeft") godSetCategory(Math.max(0, godCat - 1));
-  if (e.code === "PageDown" || e.code === "BracketRight") godSetCategory(Math.min(CATEGORIES.length - 1, godCat + 1));
-  if (e.code === "Tab") { e.preventDefault(); godSetCategory((godCat + 1) % CATEGORIES.length); }
-  if (e.code === "ArrowLeft") godMove(-1);
-  if (e.code === "ArrowRight") godMove(1);
-  if (e.code === "Enter") godActivate();
+  if (!started) return;
+  if (!e.repeat && (e.code === "KeyY" || e.code === "Backquote")) { toggleGod(); return; }
+  if (!godOpen || TABLET.open) return;
+  const c = e.code;
+  if (c === "ArrowUp") modMove(-1);
+  else if (c === "ArrowDown") modMove(1);
+  else if (c === "ArrowLeft") modSide(-1);
+  else if (c === "ArrowRight") modSide(1);
+  else if (e.repeat) return;
+  else if (c === "Enter" || c === "NumpadEnter") modGo();
+  else if (c === "Backspace") { e.preventDefault(); modBack(); }
+  else if (c === "Slash") { e.preventDefault(); $("godSearch").focus(); }
 });
 
 function boot() {
