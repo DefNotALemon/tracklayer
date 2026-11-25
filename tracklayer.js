@@ -1357,6 +1357,8 @@ V.seatMat = M.vinyl; V.helmetMat = M.helmet; V.visorMat = M.visor;
 const put = (m, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody) => {
   m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; parent.add(m); return m;
 };
+// sled is 10% smaller (v263): player visually shrinks to 85%, sled to 90%
+sledBody.scale.setScalar(0.9);
 const box = (w, h, d, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody) =>
   put(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat), x, y, z, rx, ry, rz, parent);
 const cyl = (rt, rb, h, mat, x, y, z, rx = 0, ry = 0, rz = 0, parent = sledBody, seg = 12) =>
@@ -14869,7 +14871,7 @@ function makeWalker(m) {
 }
 function buildWalker() {
   FOOT.g = makeWalker({ jacket: jacketMat, pants: pantsMat, trim: riderTrimMat, helmet: M.helmet, visor: M.visor, glove: M.glove, boot: M.boot });
-  FOOT.g.visible = false; scene.add(FOOT.g);
+  FOOT.g.visible = false; scene.add(FOOT.g); FOOT.g.scale.setScalar(0.85);    // smaller player (v263)
   const U = FOOT.g.userData; U.skis = []; U.poles = []; U.shoes = [];
   for (let i = 0; i < 2; i++) {
     const sh = shoeMesh(U.ank[i], -0.075); sh.visible = false; U.shoes.push(sh);
