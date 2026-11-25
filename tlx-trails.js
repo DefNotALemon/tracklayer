@@ -1154,12 +1154,12 @@ function buildPlan(t, o) {
 }
 
 /* ---- the body: P is a pose in world terms (root, feet, hands, pole tips); rig() turns it into joint angles ---- */
-const newP = () => ({ ed: 0, x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), pw: 0, q: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
+const newP = () => ({ ed: 0, x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, heel: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), pw: 0, q: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
 function lerpP(A, B, w, o) {
   const m = (a, b) => a + (b - a) * w, ma = (a, b) => a + wrapA(b - a) * w;
   o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head); o.ed = B.ed; o.pw = m(A.pw, B.pw);
   for (let i = 0; i < 2; i++) {
-    const a = A.f[i], b = B.f[i], c = o.f[i]; c.x = m(a.x, b.x); c.z = m(a.z, b.z); c.yaw = ma(a.yaw, b.yaw); c.lift = m(a.lift, b.lift); c.tip = m(a.tip, b.tip); c.ski = b.ski; c.sx = b.sx; c.sz = b.sz; c.syaw = b.syaw; c.sv = b.sv;
+    const a = A.f[i], b = B.f[i], c = o.f[i]; c.x = m(a.x, b.x); c.z = m(a.z, b.z); c.yaw = ma(a.yaw, b.yaw); c.lift = m(a.lift, b.lift); c.tip = m(a.tip, b.tip); c.heel = m(a.heel || 0, b.heel || 0); c.ski = b.ski; c.sx = b.sx; c.sz = b.sz; c.syaw = b.syaw; c.sv = b.sv;
     for (const k of ["x", "y", "z"]) { o.h[i][k] = m(A.h[i][k], B.h[i][k]); o.p[i][k] = m(A.p[i][k], B.p[i][k]); o.q[i][k] = m(A.q[i][k], B.q[i][k]); }
   }
   return o;
@@ -1182,7 +1182,7 @@ function rig(sl, P) {
   const Lr = 0.85 * 0.97; let lim = 9; const fy = sl._fy, fl = sl._fl;
   for (let i = 0; i < 2; i++) {
     const f = P.f[i], sd = i ? 1 : -1, wx = f.x - P.x, wz = f.z - P.z, lx = (wx * cy - wz * sy) / sc, lz = (wx * sy + wz * cy) / sc;
-    fy[i] = W.surf(f.x, f.z) + f.lift; fl[i * 2] = lx; fl[i * 2 + 1] = lz;
+    fy[i] = W.surf(f.x, f.z) + f.lift + (f.heel || 0); fl[i * 2] = lx; fl[i * 2 + 1] = lz;
     const ay = (fy[i] - g0) / sc + ank, dx = lx - sd * 0.1;
     lim = Math.min(lim, ay + Math.sqrt(Math.max(0.04, Lr * Lr - dx * dx - lz * lz)));
   }
@@ -1195,7 +1195,7 @@ function rig(sl, P) {
     const sx = f.ski ? f.x : f.sx, sz = f.ski ? f.z : f.sz, syw = f.ski ? f.yaw : f.syaw, sk = sl.skis[i];
     const fx = Math.sin(syw), fz = Math.cos(syw), th = Math.atan2(W.surf(sx + fx * 0.9, sz + fz * 0.9) - W.surf(sx - fx * 0.7, sz - fz * 0.7), 1.6);
     if (f.ski || f.sv) { sk.visible = true; sk.position.set(sx, W.surf(sx, sz) + (f.ski ? f.lift : 0) + 0.012, sz); sk.rotation.set(-(th + (f.ski ? f.tip : 0)), syw, 0, "YXZ"); sk.scale.setScalar(ks); } else sk.visible = false;
-    U.ank[i].rotation.x = _lb.sh - (f.ski ? th + f.tip : 0);
+    U.ank[i].rotation.x = _lb.sh - (f.ski ? th + f.tip : 0) + (f.heel ? HEEL_SGN * Math.asin(Math.min(0.55, f.heel / (0.3 * sc))) : 0);
   }
   U.torso.rotation.set(P.pitch, P.twist, P.roll, "XYZ"); U.head.rotation.x = -P.pitch * 0.75 + P.head; U.head.rotation.y = -P.twist * 0.7;
   const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
@@ -1213,7 +1213,8 @@ function rig(sl, P) {
 const _s1 = { x: 0, z: 0, tx: 0, tz: 1 }, _s2 = { x: 0, z: 0, tx: 0, tz: 1 };
 const sg = (i) => i ? 1 : -1;
 function onPath(L, u, lat, o) { ppL(L, u, _s1); o.x = _s1.x + _s1.tz * lat; o.z = _s1.z - _s1.tx * lat; o.yaw = Math.atan2(_s1.tx, _s1.tz); return o; }
-function setFoot(P, i, L, uf, lat, lift, yawOff, tip) { const f = P.f[i]; onPath(L, uf, lat, f); f.yaw += yawOff; f.lift = lift; f.tip = tip || 0; f.ski = 1; f.sv = 0; }
+const HEEL_SGN = -1;
+function setFoot(P, i, L, uf, lat, lift, yawOff, tip) { const f = P.f[i]; onPath(L, uf, lat, f); f.yaw += yawOff; f.lift = lift; f.tip = tip || 0; f.heel = 0; f.ski = 1; f.sv = 0; }
 function rootAt(P, L, u, lat) { onPath(L, u, lat, P); ppL(L, u + 1.6, _s2); P.yaw = Math.atan2(_s2.x - _s1.x + (_s2.tx * 0), _s2.z - _s1.z); }
 // a pole: planted for kp of its cycle (tip fixed in the snow, the hand driven past it), then swung forward trailing, tip lifted, and flicked
 // ahead to land where the next plant is. Returns the fraction of the plant, or -1 in the swing.
@@ -1265,8 +1266,8 @@ function gDiag(sl, L, u, P, gait) {
     const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), sc2 = sl.sc, ank = (SKI.ank * sc2 + SKI.skiT) / sc2, hipT = 0.88;
     for (let i = 0; i < 2; i++) {
       const f = P.f[i], lz = ((f.x - P.x) * fx + (f.z - P.z) * fz) / sc2, dx = 0.015;
-      const need = hipT - Math.sqrt(Math.max(0.04, 0.8 * 0.8 - dx * dx - lz * lz)) - ank - 0.05;                   // how high this ankle must be for the leg to reach the hip
-      if (need > f.lift / sc2) { const e = Math.min(need, 0.17); f.lift = e * sc2 * 0.55; f.tip = -Math.asin(Math.min(0.3, e / 0.95)); }
+      const need = hipT - Math.sqrt(Math.max(0.04, 0.8 * 0.8 - dx * dx - lz * lz)) - ank;                   // how high this ankle must be for the leg to reach the hip
+      if (need > f.lift / sc2) f.heel = Math.min(need, 0.17) * sc2;
     }
   }
   if (!her) for (let j = 0; j < 2; j++) P.h[j].y = Math.min(P.h[j].y, W.surf(P.x, P.z) + (ska ? 1.42 : 1.3) * sl.sc);                // a classic hand never goes above the head
@@ -1317,7 +1318,7 @@ function gStand(sl, P, x, z, yaw, bend, t) {
 const _pa = newP(), _pb = newP();
 const bump = (s, a, b, c, d) => sstep(a, b, s) * (1 - sstep(c, d, s));
 function poseLeg(sl, B, tau, P, gaitOv) {
-  P.ed = 0; P.pw = 0;
+  P.ed = 0; P.pw = 0; P.f[0].heel = P.f[1].heel = 0;
   const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL + (sl.pl.kind === "lap" ? -sl.lag * lagF(B, uL) : B.flip ? sl.lag : -sl.lag), uc = clamp(u, 0, L.D); lIdx(L, uc);
   const i = _li, gait = gaitOv === undefined ? L.gait[i] : gaitOv;
   sl.u = u; sl.v = lerpA(L.v, i, _lf); sl.gait = gait;
@@ -1332,7 +1333,7 @@ function poseLeg(sl, B, tau, P, gaitOv) {
 const lagF = (B, u) => B.spur === 1 ? 1 - ease(clamp(u / B.leg.D, 0, 1)) : B.spur === 2 ? ease(clamp(u / B.leg.D, 0, 1)) : 1;
 function shiftP(P, dx, dz) { P.x += dx; P.z += dz; for (let i = 0; i < 2; i++) { P.f[i].x += dx; P.f[i].z += dz; P.h[i].x += dx; P.h[i].z += dz; P.p[i].x += dx; P.p[i].z += dz; } }
 function poseBlock(sl, bi, tau, P) {
-  P.ed = 0; P.pw = 0;
+  P.ed = 0; P.pw = 0; P.f[0].heel = P.f[1].heel = 0;
   const pl = sl.pl, B = pl.blocks[bi], t = gameClockNow();
   if (B.k === "leg") {
     poseLeg(sl, B, tau, P);

@@ -278,6 +278,7 @@ const likesOf = (post, p) => { const b = 3 + Math.round((p ? TLXN.peopleIn(p.vid
 /* ---------------- the post store ---------------- */
 function addPost(o) {
   const s = S(), rc = o.rc || null; if (!rc) return null;
+  if (s.posts.slice(-20).some(q => q.cap === o.cap)) o.cap = o.cap + " (" + calAt(o.t === undefined ? api.GS.hour : o.t).time + ")";                // never the same line twice in a screen of the feed
   const p = o.who && o.who !== "you" ? who(o.who) : null;
   const post = { id: ++s.seq, t: r2(o.t === undefined ? api.GS.hour : o.t), who: o.who || null, vid: o.vid || (p ? p.vid : null), place: o.place || "", sj: o.sj, cap: o.cap, rc, ev: o.ev || 0, n: o.n || 0 };
   if (o.wish) post.wish = 1; if (o.chip) post.chip = o.chip; if (o.you) post.you = 1;
