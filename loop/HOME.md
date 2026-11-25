@@ -9,8 +9,8 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 
 | # | Part | State |
 |---|---|---|
-| H0 | The news bus (`tlx-news.js`) | not started (built with H1a) |
-| H1 | Ski trail network (`tlx-trails.js`) | H1a next |
+| H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
+| H1 | Ski trail network (`tlx-trails.js`) | H1a done; H1b next |
 | H2 | Gram: feed, reels, local chat (`tlx-gram.js`) | design below, after H1 |
 | H3 | Radio Nordkinn with call-ins (`tlx-radio.js`) | design below, after H2 |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
@@ -43,10 +43,21 @@ nothing without it.
 
 - `TLXN.post({ kind, who, place, x, z, text, data })` stamps `t = GS.hour` and an id, keeps the newest 240, saved.
 - `TLXN.since(t)`, `TLXN.near(x, z, r, sinceT)`, `TLXN.on(fn)` (a listener called on each post).
-- `who` is a villager record from `TLXN.people`: a seeded roll of about 60 named people (first name, surname,
-  age, home village, handle for Gram, two or three interests out of ski / sled / fish / birds / photos / dogs /
-  racing / gossip, a voice line style). Reuse the names the game already has where a person exists (the plow's
-  households, staff, the NPC riders) so one person is one person everywhere. `"you"` is the player.
+- `who` is a person from `TLXN.people`, and people come in **families that live in real houses** (Lemon, 24 Nov:
+  "plenty of different lively towns around the world, with plenty of different families joined in houses"). The
+  roll is built per place from its actual lit houses (`KIT.doors` and each village's own houses): every house is a
+  household (`TLXN.homes`: door position, village, surname, members), and a household is a family of one to six:
+  a couple, children with ages, a grandparent, a lodger, someone living alone. Each person has a first name, age,
+  role in the family, handle for Gram, two or three interests out of ski / sled / fish / birds / photos / dogs /
+  racing / gossip, and a voice line style; relatives share a surname and talk about each other ("my brother set
+  that trail"). Every town and village has its own roll and its own character (a fishing village, a herders'
+  village, the town with the school and the hotel): different surnames, trades and interests, so each feels like
+  a different place. Seeded, so a house holds the same family in every game; saved only where it changes. Reuse
+  the names the game already has where a person exists (the plow's households, staff, landlords, car owners, the
+  NPC riders) so one person is one person everywhere and lives at one door. `"you"` is the player.
+  `TLXN.homeOf(person)`, `TLXN.family(person)`, `TLXN.peopleIn(village)`.
+- The same rule holds for every land added later (the county, Greenland, the Front): a new place brings its own
+  towns, houses and families through the same roll, never a nameless crowd.
 - `place` is the nearest named thing (village, trail, road, lake, peak): `TLXN.placeOf(x, z)`.
 - Kinds start with: `ski`, `groom`, `trail`, `road`, `storm`, `wildlife`, `job`, `rescue`, `crash`, `race`.
   A kind nobody reads yet costs nothing. Existing systems get a one-line post where it is cheap and safe (a road
@@ -128,7 +139,7 @@ good, and the løypelag pays you by how much they are used. The old grooming con
   your grooming pass posts `groom`; a trail going bad posts `trail`. H2 and H3 are built from these.
 
 ### Slices
-- [ ] **H1a** The trails, the track and the app, plus H0. `tlx-news.js` (the bus and the roll of people, with
+- [x] **H1a** The trails, the track and the app, plus H0. `tlx-news.js` (the bus and the roll of people, with
       posts from the trails only), `tlx-trails.js`: the routes, furniture, the `groomx` hook, `set` / wear /
       refreeze, the Løyper app (pages, TAKE ON / HAND BACK, strip), Map lines and pins, Jobs rows, save. No skiers
       yet: use is bookkeeping (the hourly roll of who went out), so Monday pay and statements already work.

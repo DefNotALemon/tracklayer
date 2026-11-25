@@ -2994,6 +2994,8 @@ function bigHit(pct, why) {
     toast(`${why} ${w.cargo}: ${Math.round(w.cond)}% condition.${w.cond < 30 ? " Nobody will sign for that." : ""}`, w.cond < 30 ? "bad" : "warn");
   }
 }
+// listeners for the groomer drag's pass (tlx-trails.js): f(x, z, heading (yaw, rad), width m), called beside groomStamp
+const GROOMX = [];
 // the groomer: a flat pan levels ruts and berms, the comb leaves it set hard
 function groomStamp(x, z, fx, fz, w) {
   const lx = fz, lz = -fx, hw = w / 2, R = hw + 0.4;
@@ -3117,6 +3119,7 @@ function towStep(dt) {
     if (isGroomer(kind)) {
       GROUGH = 1 - condOf("hitch:" + kind);
       groomStamp(tx, tz, fx, fz, W);
+      for (let q = 0; q < GROOMX.length; q++) GROOMX[q](tx, tz, yaw, W);
       if (GS.groomJob) groomProgress(tx, tz, W);
     } else {
       const o = hw * 0.8;
@@ -9325,10 +9328,12 @@ TABLET.register({
     h += sec("Grooming", "lines out from the quay"); h += gr.n ? gr.h : `<p class="tnote2">No lines posted right now.</p>`;
     const rc = conList(c => c.rescue || (c.locked && /recovery/i.test(c.locked)));
     if (rc.n) { h += sec("Volunteer recovery", "stuck riders, no licence needed"); h += rc.h; }
+    for (const s of appX("crew")) try { h += s.html() || ""; } catch (e) { }   // expansion sections (H1a: the Løyper card, tlx-trails.js)
     el.innerHTML = `<div class="tapp">${h}</div>`;
     // conList resets miniDest per call, so collect the rescue sites again before the minis draw
     TABLET.miniDest = {}; for (const c of GS.contracts || []) if (c.rescue) TABLET.miniDest[c.dest.id] = c.dest;
     conBind(el);
+    for (const s of appX("crew")) try { s.bind && s.bind(el); } catch (e) { }
   }
 });
 
@@ -17870,7 +17875,7 @@ function initExpansion() {
     THREE, scene, renderer, camera, GS, P, FOOT, CAL, WX, SEASON, MELT, TABLET, GFX, INT, SET, keys,
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, blackout, hospHere, tutDone: () => TUT.stage >= 99,
-    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, dropOb, addYard, addLane, yardAt,
+    world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, LOOKOUTS, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, dropOb, addYard, addLane, yardAt,
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
       laneRoute, townStreetNear, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },
@@ -17891,6 +17896,7 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
+    groomx: GROOMX, crewAt: RANKS[1].at,
     footx: footX(), jobx: jobX(), ridex: rideX(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
