@@ -18124,70 +18124,44 @@ const CATEGORIES = [
     { id: "fuel", label: "Infinite fuel", sub: "Never empty", type: "toggle" },
     { id: "turbo", label: "Turbo engine", sub: "Power ×2.2", type: "toggle" },
     { id: "lowg", label: "Low gravity", sub: "Moon jumps", type: "toggle" },
-    { id: "reset", label: "Reset sled", sub: "Current vehicle", type: "action" },
-    { id: "unlock_sleds", label: "Unlock all sleds", sub: "Every machine", type: "action" },
-    { id: "summon", label: "Summon vehicle", sub: "At current position", type: "action" },
+    { id: "reset", label: "Reset sled", sub: "Current vehicle", type: "action", do: () => { resetSled(); toast("Sled reset."); } },
+    { id: "unlock_sleds", label: "Unlock all sleds", sub: "Every machine", type: "action", do: () => { SLEDS.forEach(s => { if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id); }); restat(); toast("All sleds unlocked."); } },
+    { id: "summon", label: "Summon vehicle", sub: "At current position", type: "action", do: () => { const s = SLEDS[0]; if (SLEDS.length) { const id = SLEDS[Math.min(3, SLEDS.length-1)].id; if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(id)) GS.own.sleds.push(id); VEH.cur = SLEDS.find(x => x.id === id); if (VEH.cur) { VEH.cur.pos.set(P.x, P.z, P.yaw); VEH.cur.yr = P.yr; applyLoadout(); toast(`Summoned ${s.id}.`); } } } },
   ]},
   { id: "stats", label: "Player Stats", icon: "🧍", items: [
     { id: "warm", label: "Never cold", sub: "Warmth maxed", type: "toggle" },
-    { id: "cash", label: "+$1,000", sub: "Cash", type: "action" },
-    { id: "rank", label: "+5 deliveries", sub: "Rank up", type: "action" },
+    { id: "cash", label: "+$1,000", sub: "Cash", type: "action", do: () => { GS.cash += 1000; toast("+$1,000."); } },
+    { id: "rank", label: "+5 deliveries", sub: "Rank up", type: "action", do: () => { GS.delivered = (GS.delivered || 0) + 5; TABLET.refresh(); toast("+5 deliveries."); } },
     { id: "warmth", label: "Set warmth", sub: "0–100", type: "slider", min: 0, max: 100, step: 5 },
     { id: "cash2", label: "Set cash", sub: "Exact amount", type: "slider", min: 0, max: 999999, step: 100 },
-    { id: "wound", label: "Take a pot-shot", sub: "Test bleed + bandage", type: "action" },
+    { id: "wound", label: "Take a pot-shot", sub: "Test bleed + bandage", type: "action", do: () => { GS.wound = (GS.wound || 0) + 1; GS.bleed = (GS.bleed || 0) + 0.005; toast("Bled! Apply bandage."); } },
   ]},
   { id: "gear", label: "Loadout / Gear", icon: "🎒", items: [
-    { id: "unlock_all", label: "Unlock every sled, part & kit", sub: "Full garage", type: "action" },
-    { id: "unlock_parts", label: "Unlock all parts", sub: "Every slot, every option", type: "action" },
-    { id: "unlock_gear", label: "Unlock all gear", sub: "Clothing layers + extras", type: "action" },
-    { id: "clear_load", label: "Clear current load", sub: "Sled bed empty", type: "action" },
+    { id: "unlock_all", label: "Unlock every sled, part & kit", sub: "Full garage", type: "action", do: () => { SLEDS.forEach(s => { if (!GS.own.sleds) GS.own.sleds = []; if (!GS.own.sleds.includes(s.id)) GS.own.sleds.push(s.id); }); if (!GS.own.parts) GS.own.parts = {}; SLEDS.forEach(s => { if (s.parts) s.parts.forEach(p => { if (!GS.own.parts[p.id]) GS.own.parts[p.id] = true; }); }); applyLoadout(); toast("Everything unlocked."); } },
+    { id: "unlock_parts", label: "Unlock all parts", sub: "Every slot, every option", type: "action", do: () => { SLEDS.forEach(s => { if (s.parts) s.parts.forEach(p => { if (!GS.own.parts) GS.own.parts = {}; if (!GS.own.parts[p.id]) GS.own.parts[p.id] = true; }); }); restat(); toast("All parts unlocked."); } },
+    { id: "unlock_gear", label: "Unlock all gear", sub: "Clothing layers + extras", type: "action", do: () => { GS.own.gear = GS.own.gear || {}; GS.gearList.forEach(g => { GS.own.gear[g.id] = true; }); toast("All gear unlocked."); } },
+    { id: "clear_load", label: "Clear current load", sub: "Sled bed empty", type: "action", do: () => { if (VEH.cur && VEH.cur.load) { VEH.cur.load = []; toast("Load cleared."); } else { toast("No load to clear."); } } },
   ]},
   { id: "world", label: "World Editing", icon: "🌍", items: [
     { id: "freeze", label: "Freeze the clock", sub: "Time stands still", type: "toggle" },
-    { id: "time", label: "Skip 3 hours", sub: "Jump ahead", type: "action" },
-    { id: "day", label: "Skip a day", sub: "24 hours", type: "action" },
-    { id: "date", label: "Jump to date", sub: "Calendar picker", type: "select", data: GOD_DATES, dataKey: 2 },
-    { id: "storm", label: "Weather control", sub: "Call / hold clear", type: "action" },
+    { id: "time", label: "Skip 3 hours", sub: "Jump ahead", type: "action", do: () => { GS.hour += 3; GS.hour = Math.min(GS.hour, 23.999); toast("Skipped 3 hours."); } },
+    { id: "day", label: "Skip a day", sub: "24 hours", type: "action", do: () => { GS.day = (GS.day || 1) + 1; toast("Skipped a day."); } },
+    { id: "date", label: "Jump to date", sub: "Calendar picker", type: "select", data: GOD_DATES, dataKey: 2, current: 0 },
+    { id: "storm", label: "Weather control", sub: "Call / hold clear", type: "action", do: () => { GS.storm = (GS.storm || 0) >= 0.5 ? 0 : 1; toast(GS.storm ? "Storm coming!" : "Sky cleared."); } },
   ]},
   { id: "teleport", label: "Teleport", icon: "📍", items: [
-    { id: "tp", label: "Travel to site", sub: "Click to move", type: "select", data: SITES, dataKey: "name" },
-    { id: "tp_home", label: "Teleport to home depot", sub: "Quay", type: "action" },
-    { id: "tp_near", label: "Teleport forward 500 m", sub: "Along your heading", type: "action" },
+    { id: "tp", label: "Travel to site", sub: "Click to move", type: "select", data: SITES, dataKey: "name", current: 0 },
+    { id: "tp_home", label: "Teleport to home depot", sub: "Quay", type: "action", do: () => { godTeleport(depot); } },
+    { id: "tp_near", label: "Teleport forward 500 m", sub: "Along your heading", type: "action", do: () => { const dx = -Math.sin(P.yaw), dz = -Math.cos(P.yaw); P.x += dx * 500; P.z += dz * 500; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0; P.y = surf(P.x, P.z) + 0.4; P.safe = { x: P.x, z: P.z, yaw: P.yaw }; camState.init = false; towSnap(); toast("Dropped 500m ahead."); } },
   ]},
   { id: "misc", label: "Misc / Systems", icon: "⚙️", items: [
-    { id: "jobs", label: "Fresh jobs in Parcels", sub: "Rebuild board", type: "action" },
-    { id: "mkt", label: "Bytteboden: new listings", sub: "Reshuffle marketplace", type: "action" },
-    { id: "lic", label: "Grant both licences", sub: "Freight + rescue", type: "action" },
-    { id: "sar", label: "Rescue callout now", sub: "On duty, licensed", type: "action" },
-    { id: "tut", label: "Restart tutorial", sub: "On foot at the quay", type: "action" },
+    { id: "jobs", label: "Fresh jobs in Parcels", sub: "Rebuild board", type: "action", do: () => { GS.jobs = GS.jobs || []; GS.jobs = []; TABLET.refresh(); toast("Jobs board refreshed."); } },
+    { id: "mkt", label: "Bytteboden: new listings", sub: "Reshuffle marketplace", type: "action", do: () => { GS.mkt = []; if (GS.mktList) GS.mktList.forEach(m => GS.mkt.push({ ...m })); TABLET.refresh(); toast("Market refreshed."); } },
+    { id: "lic", label: "Grant both licences", sub: "Freight + rescue", type: "action", do: () => { GS.lic = (GS.lic || {}); GS.lic.freight = true; GS.lic.rescue = true; TABLET.refresh(); toast("Both licences granted."); } },
+    { id: "sar", label: "Rescue callout now", sub: "On duty, licensed", type: "action", do: () => { if (SAR.cur) { SAR.cur = null; toast("Cancelled previous call."); } SAR.cur = { res: false, hosp: false, state: "akja", t: Date.now() }; toast("SAR callout active!"); } },
+    { id: "tut", label: "Restart tutorial", sub: "On foot at the quay", type: "action", do: () => { TUT.stage = 0; TUT.a = null; TUT.b = null; GS.hour = 0; P.x = SPAWN.x; P.z = SPAWN.z; P.yaw = SPAWN.yaw; P.vx = P.vy = P.vz = 0; TUT = TUT || {}; toast("Tutorial reset."); } },
   ]},
 ];
-let godOpen = false, godCat = 0, godItem = 0, padGodA = false, padGodB = false;
-function godGetActiveItems() {
-  return CATEGORIES[godCat]?.items || [];
-}
-function godTeleport(s) {
-  if (FISH) FISH.abort();
-  let x, z, yaw;
-  if (s === depot) { x = SPAWN.x; z = SPAWN.z; yaw = SPAWN.yaw; }
-  else {
-    const dx = depot.x - s.x, dz = depot.z - s.z, d = Math.hypot(dx, dz) || 1;
-    x = s.x + dx / d * 16; z = s.z + dz / d * 16; yaw = Math.atan2(-dx, -dz);
-  }
-  P.x = x; P.z = z; P.yaw = yaw; P.vx = P.vy = P.vz = 0; P.yr = 0; P.pitch = P.roll = 0; P.stuckT = 0;
-  recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.4; P.safe = { x, z, yaw };
-  camState.init = false; towSnap(); toast("Dropped at " + s.name + ".");
-}
-function godTick(dt) {
-  if (GOD.fuel) { GS.fuel = GS.cap; GS.outWarned = GS.lowWarned = false; }
-  if (GOD.warm) { GS.warmth = 100; GS.coldWarned = false; }
-  if (GOD.freeze) GS.hour -= dt / GAMEHOUR;
-}
-const godAny = () => GOD.fuel || GOD.warm || GOD.turbo || GOD.lowg || GOD.freeze;
-function godApply(id) {
-  if (id === "turbo") restat();
-  if (id === "lowg") G = GOD.lowg ? 5.2 : 32.4;
-}
 function godActivate() {
   const cat = CATEGORIES[godCat];
   if (!cat) return;
@@ -18198,12 +18172,23 @@ function godActivate() {
     godApply(it.id);
     toast(`${it.label}: ${GOD[it.id] ? "ON" : "OFF"}`, GOD[it.id] ? "good" : undefined);
   } else if (it.type === "action") {
-    it.do();
+    if (it.do) { it.do(); } else { toast("Not implemented: " + it.label); }
   } else if (it.type === "select") {
     if (it.data) {
-      const idx = it.current || 0;
-      it.current = (idx + 1) % it.data.length;
-      toast(it.label + ": " + it.data[it.current][it.dataKey]);
+      if (it.current == null) it.current = 0;
+      // When activating (Enter/Y), apply the current selection.
+      // When navigating (arrows), godMove cycles without applying.
+      const sel = it.data[it.current];
+      if (it.id === "tp" && sel) { godTeleport(sel); }
+      else if (it.id === "date") {
+        const parts = it.data[it.current].split('/');
+        const day = parseInt(parts[0]) || 1, month = parseInt(parts[1]) || 1;
+        const totalDays = (month - 1) * 30 + day;
+        if (CAL) { CAL.off = totalDays; GS.day = day; GS.month = month; }
+        toast(`Set to ${it.data[it.current]}.`);
+      } else {
+        toast(it.label + ": " + it.data[it.current]);
+      }
     }
   } else if (it.type === "slider") {
     if (it.id === "warmth") { GS.warmth = Math.min(it.max, Math.max(it.min, GS.warmth + it.step)); toast(`Warmth: ${GS.warmth}`); }
