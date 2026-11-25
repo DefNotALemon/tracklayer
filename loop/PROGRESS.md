@@ -11,6 +11,12 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-24 22:52 — R1b the figure, second pass (G4-style, G8) — 8af0862
+Reviewer pass on R1. Bulkier suit with soft folds (elbows, knees, waist, gaiters), level rolled jacket hem, two-tone colour blocking derived from the player's colours (yoke, side, elbow, deltoid, knee and seat panels, trim piping), storm flap, pocket flaps, double-stitch seams, lugged snowmobile boots, shaped pack with straps, one-piece gradient goggles, neck warmer, nose, lips and cold flush, full-face helmet with port, rim, tinted visor, peak, vent and dark neck roll, cloth that stays blue in sun. Rider arms are the walker's arms. The icefish.js angler uses the kit. Thigh tops no longer poke through the hem.
+Numbers: walker 48 calls, 22.1k triangles; rider 46 calls, 19.7k; lite build 10.4k / 8.9k (R1: 36 calls / 20.0k and 34 / 17.0k); look kit textures 52 to 80 ms at load when calm.
+Rounds: 5 shoot-and-critique rounds plus low preset (planted before boot) at 640x360, mount swing on open ground, angler stills; lists in ~/.hermes/cache/scratch/tlreal/r1b/roundN.md.
+Still not right: boots chunky and short-looking, visor opaque, slim side view, pack a box in profile, fingers are tubes, folds low amplitude.
+
 ## 2026-11-24 20:31 — R1 the figure (G8) — 43ddb83
 Rebuilt every human figure (walker, seated rider, SAR casualties and pillion, drivers, staff, crash body) from one body kit in the new tlx-look.js (TLXL: canvas PBR textures, loft/rbox/tube shape helpers, per-material merge, TLXL.fig body kit). Shaped torso, neck, tapered limbs, shell jacket with collar, zip, flap, pockets, panels, hem lip and cord, reflective piping (not emissive), bib trousers with knee panels and gaiter, gloves with thumbs that close round the bars, boots with sole, welt, heel, toe cap, laces, three head kits (helmet with visor, beanie with goggles, balaclava with goggles). Shoulder joint moved 0.25 -> 0.21 (readers in tracklayer.js and tlx-lights.js updated). Same rig arrays and contracts; headKit found by name now.
 Numbers: walker 40 -> 36 draw calls, 9.5k -> 20.0k triangles; rider 45 -> 34 calls, 6.3k -> 17.0k; lighter build 30 calls, 7.1k; textures about 90 ms at load (machine calm; 400 to 700 ms when the machine was at load average 40); walker 1.95 m -> 1.81 m in the kit (game draws it at the v263 scale 0.85). Town frame (noisy, traffic varies): about 934 -> 983 calls, 2.890M -> 2.898M triangles.
