@@ -286,7 +286,7 @@ if (!NOSTILLS) await section("stills", async () => {
   const fs = await import("fs"); for (const [id, sj, real, u] of urls) fs.writeFileSync(`${process.env.OUT || "."}/gram_pic_${sj}_${id}_${real ? "real" : "paint"}.jpg`, Buffer.from(u.split(",")[1], "base64"));
   // Local in two villages
   await ev(`TLXGR.setTab("local"); true`); await sleep(600); await shot("gram_local_kjollefjord", 90);
-  await ev(`const v = TLXN.village("mehamn"); P.x = v.x + 20; P.z = v.z + 20; recenter(P.x, P.z, true); TLXGR.setTab("local"); true`); await sleep(800); await shot("gram_local_mehamn", 90);
+  await ev(`const v = TLXN.village("mehamn"); P.x = FOOT.x = v.x + 20; P.z = FOOT.z = v.z + 20; recenter(P.x, P.z, true); TLXGR.setTab("feed"); TLXGR.setTab("local"); true`); await sleep(800); await shot("gram_local_mehamn", 90);
   await ev(`TLX.api.TABLET.close(true); FOOT.on = false; TLXGR.fpsOk = null; true`);
 });
 

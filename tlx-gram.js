@@ -118,12 +118,12 @@ const WRAP = {
 const WRAPE = { dry: ["", "", " Noted."], warm: ["", " Take care.", ""], terse: [""], chatty: ["", " Honestly!", ""], wry: ["", " As one does.", ""], earnest: ["", " Be careful out there.", ""] };
 const NOR = { peak: [" Nydelig.", " Fy flate.", " Utsikt!"], storm: [" Uff.", " Fy søren."], day: [" Kos.", " Heia!"], aur: [" Nordlys!"], catch: [" Skikkelig fin fisk."], kids: [" Heia, heia!"] };
 function say(p, bases, vars, nor, ev) {
-  const v = (p && p.voice) || "warm", w = ev ? { pre: [""], post: WRAPE[v] || [""] } : (WRAP[v] || WRAP.warm), f = s => String(s).replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m);
+  const v = (p && p.voice) || "warm", w = ev === 2 ? { pre: [""], post: [""] } : ev ? { pre: [""], post: WRAPE[v] || [""] } : (WRAP[v] || WRAP.warm), f = s => String(s).replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m);
   if (v === "terse") return f(bases[0]).replace(/[!]+/g, ".");
   let t = f(pick(bases)); const pre = pick(w.pre), post = pick(w.post);
   t = pre + t + post;
   if (nor && rnd() < 0.22 && (v === "warm" || v === "chatty" || v === "dry" || v === "earnest")) t += pick(nor);
-  return t.replace(/\.\./g, ".").replace(/\s+/g, " ").trim();
+  t = t.replace(/\.\./g, ".").replace(/\s+/g, " ").trim(); return /[.!?]$/.test(t) ? t : t + ".";
 }
 const fishes = ["cod", "haddock", "saithe", "halibut", "wolffish", "redfish"], lakeFish = ["char", "grayling", "trout", "pike"];
 const wordOfStorm = s => s > 0.8 ? "a full gale" : s > 0.55 ? "a proper blow" : "a stiff wind and snow";
@@ -322,7 +322,7 @@ function postAmbient(H, p) {
   const recent = posts().slice(-20).map(q => q.cap); let cap = ""; for (let tryN = 0; tryN < 9; tryN++) { cap = say(p, sub.bases, vars, sub.nor); if (!recent.includes(cap)) break; if (tryN === 8) cap += ` (${calAt(H).time})`; }
   s.last[p.id] = H;
   const post = addPost({ who: p.id, t: H, vid: p.vid, place: key === "peak" || key === "sledsummit" ? vars.look : key === "wishlake" ? "a lake near " + p.village : p.village, sj: key, cap, rc, chip: sub.chip, wish: !!sub.wish, n: +vars.n });
-  if (post && rnd() < 0.4) chatPost(p.vid, p.id, say(p, sub.chat, vars, null, true), "amb", H);
+  if (post && rnd() < 0.4) chatPost(p.vid, p.id, say(p, sub.chat, vars, null, 2), "amb", H);
   return post;
 }
 function genHour(H) {
@@ -377,9 +377,13 @@ function chatPost(vid, pid, text, tag, H, re, quiet) {
 function banter(vid, m, pid, H, quiet) {
   const p = pid && pid !== "you" ? who(pid) : null, ppl = TLXN.peopleIn(vid).filter(q => q.age > 11 && (!p || q.id !== p.id)); if (!ppl.length) return;
   const fam = p ? TLXN.family(p).filter(q => q && q.id !== p.id && q.age > 11) : [], c = fam.length && rnd() < 0.6 ? pick(fam) : pick(ppl);
-  const kin = p ? kinWord(c, p) : "", tag = m[4];
-  const bank = kin ? [`${kin} is at it again.`, `That's ${kin} for you.`, `Did ${kin} wear a hat?`, `${kin}, supper is at six.`] : tag === "road" || tag === "storm" || tag === "ferry" ? ["Thanks for the heads-up.", "Good to know before I head out.", "Same here, mind yourselves.", "Ugh. Thanks."] : tag === "wildlife" ? ["Mind the kids near the road.", "Saw it too from the shop window.", "Is it still there?"] : ["Nice.", "Wish I had been out.", "Saw that, good one.", "Ha. Yes."];
-  chatPost(vid, c.id, say(c, bank, {}, null, true), "re", H, m[0], quiet);
+  const kin = p ? kinWord(c, p) : "", tag = m[4], K = kin ? kin.charAt(0).toUpperCase() + kin.slice(1) : "";
+  const childSays = /^(mamma|pappa|bestemor|bestefar)$/.test(kin), parentSays = /^(my boy|my girl|the little one|my daughter|my son)$/.test(kin);
+  const bank = childSays ? [`${K}, will you be home for supper?`, `${K}! Take me with you next time.`, `${K}, you said four o'clock.`]
+    : parentSays ? [`${K}, supper is at six.`, `That's ${kin} for you, always out.`, `Did ${kin} wear a hat?`]
+    : kin ? [`That's ${kin} for you.`, `Did ${kin} wear a hat?`, `${K} is at it again.`]
+    : tag === "road" || tag === "storm" || tag === "ferry" ? ["Thanks for the heads-up.", "Good to know before I head out.", "Same here, mind yourselves.", "Ugh. Thanks."] : tag === "wildlife" ? ["Mind the kids near the road.", "Saw it too from the shop window.", "Is it still there?"] : ["Nice.", "Wish I had been out.", "Saw that, good one.", "Ha. Yes."];
+  chatPost(vid, c.id, say(c, bank, {}, null, 2), "re", H, m[0], quiet);
 }
 function onBus(ev, quiet) {
   try {
