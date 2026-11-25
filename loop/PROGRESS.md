@@ -1,4 +1,6 @@
 
+- **v264** — God menu fix: 20 action items now have working do: handlers (reset, unlock all, summon, $1000, +rank, wound, unlock parts/gear, clear load, skip 3h/day, date picker, weather, teleport, jobs, market, licences, SAR, tutorial). Select items (site travel, date picker) now actually apply their selection. Player 85%, sled 90%.
+
 - **v263** — Player/sled scale: player figure 85% (0.85×) on makeWalker, sled 90% (0.9×) on sledBody.
   World feels larger and more imposing. No gameplay/collision changes — visual only.
   Tracklayer.js:1357 (sledBody.scale), Tracklayer.js:14872 (FOOT.g.scale).
