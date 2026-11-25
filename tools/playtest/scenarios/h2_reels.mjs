@@ -4,7 +4,7 @@
 //   C  subject coverage measured from projected bounds: wildlife >= 33% of the frame, portraits >= 38%
 //   D  Local chat: strictly oldest to newest in every village, day separators (Today / Yesterday / weekday) in order, correct relative times, no line template more than twice in any 30 messages, >= 6 voice styles
 //   E  reels: every built type plans, renders non-blank frames that change over time, loops, hides its cast when the tab closes, leaves the main view byte-identical
-//   F  nothing renders with the tablet closed or on another tab; one reel at a time; the next is planned only when scrolled to
+//   F  nothing renders with the tablet closed or on another tab; one reel at a time; the next is prepared ahead (planned, cast built, compiled) but only drawn when scrolled to; like and comments sheet on the reel
 //   G  frame cost per reel frame (recorded and under the stated budget on the high preset), resolution, draw calls
 //   H  navigation under keyboard, pad (d-pad, right stick) and touch (swipe, button)
 //   I  reload keeps reels and seen-state; a save without reels loads; junk state does not throw
@@ -56,6 +56,31 @@ await section("E every built reel type: plans, renders, moves, loops", async () 
   ok((await J(`Object.keys(TLXRL.types).length`)) >= 8, "at least 8 reel types are built: " + (await ev(`Object.keys(TLXRL.types).join(", ")`)));
 });
 
+await section("E3 every moment clip: staged from the moment table, frames non-blank and moving, under the draw-call budget", async () => {
+  await ev(`TLXGR.fpsOk = true; TLXRL.force = "real"; TLXGR.forceW = true; TLXGR.hold = true; true`);
+  const NEW = ["summitselfie", "kidgrin", "cornice", "hilltail", "herdroad", "foxquay", "snowball", "sledgebank", "wheelie", "roofslide", "bonfire", "digout"];
+  ok(await J(`${JSON.stringify(NEW)}.every(k => TLXRL.types[k] && TLXRL.types[k].moment)`), "the moment clips are registered reel types: " + NEW.join(", "));
+  let worst = 0; const missing = [];
+  for (const ty of NEW) {
+    const r = await J(`(() => { const R = TLXRL, day = Math.floor(GS.hour / 24) * 24; let rec = null; const ppl = TLXN.people.filter(q => q.age > 6 && q.age < 85);
+      for (const hr of [11.5, 12.5, 13.5, 15.5, 19.5, 21.5]) { for (let k = 0; k < 24 && !rec; k++) { try { rec = R.genOne(day + hr, ppl[(k * 11 + Math.round(hr * 3)) % ppl.length], "${ty}"); } catch (e) { return { err: String(e) }; } } if (rec) break; }
+      if (!rec) return { none: 1 }; const Sc = R.plan(rec); if (!Sc) return { plan: false };
+      const px = t => { const cv = R.shotAt(rec, t); if (!cv) return null; const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, o = []; for (let i = 0; i < d.length; i += 64) o.push((d[i] + d[i + 1] + d[i + 2]) / 3); return o; };
+      const seq = {}, calls = [], ms = []; R._sa = null; for (let t = 0; t <= Sc.dur - 0.1; t += 0.1) { const k = Math.round(t * 10) / 10, t0 = performance.now(); const p = px(k); ms.push(performance.now() - t0); calls.push(R.calls[R.calls.length - 1]); if (Math.abs(k * 1 - Math.round(k)) < 0.01 || Math.abs(k - Sc.dur * 0.5) < 0.06) seq[k.toFixed(1)] = p; }
+      const stat = a => { let s = 0, s2 = 0; for (const v of a) { s += v; s2 += v * v; } const m = s / a.length; return { m, sd: Math.sqrt(Math.max(0, s2 / a.length - m * m)) }; }, ks = Object.keys(seq).filter(k => seq[k]), dd = [];
+      for (let i = 0; i + 1 < ks.length; i++) { let d = 0; const a = seq[ks[i]], b = seq[ks[i + 1]]; for (let j = 0; j < a.length; j++) d += Math.abs(a[j] - b[j]); dd.push(d / a.length); }
+      const sm = ms.slice().sort((a, b) => a - b); return { id: rec.id, dur: Sc.dur, st: stat(seq[ks[Math.floor(ks.length / 2)]]), dd, calls: Math.max(...calls), med: sm[sm.length >> 1], err: R.err, cap: rec.cap, w: rec.w, lit: !!Sc.lit }; })()`);
+    if (r.none) { missing.push(ty); continue; }
+    if (r.err && typeof r.err === "string" && r.plan === undefined) { ok(false, ty + ": " + r.err); continue; }
+    console.log(`   ${ty}: dur ${r.dur}s, sd ${r.st.sd.toFixed(1)}, motion ${Math.min(...r.dd).toFixed(1)}..${Math.max(...r.dd).toFixed(1)}, draw calls max ${r.calls}, median frame ${r.med.toFixed(1)} ms`);
+    ok(r.plan !== false && r.st.sd > 6, ty + ": plans and draws non-blank frames (sd " + (r.st ? r.st.sd.toFixed(1) : "-") + ")"); ok(Math.max(...r.dd) > 2.5 && Math.min(...r.dd) > 0.2, ty + ": the clip moves (frame difference " + Math.min(...r.dd).toFixed(2) + " to " + Math.max(...r.dd).toFixed(2) + ")");
+    ok(r.calls < 900, ty + ": draw calls per frame under 900 (" + r.calls + ")"); ok(r.med < 25, ty + ": median frame under 25 ms on high (" + r.med.toFixed(1) + ")"); ok(r.lit, ty + ": takes the photos' light plan"); worst = Math.max(worst, r.calls);
+  }
+  ok(missing.length <= 1, "a place and a moment was found for the clips (missing: " + (missing.join(",") || "none") + ")");
+  console.log("   worst draw calls across the moment clips: " + worst);
+  await ev(`TLXGR.forceW = false; TLXGR.hold = false; true`);
+});
+
 await section("E2 loop, cast hidden, the main view byte-identical", async () => {
   const rec = REC.stormride || Object.values(REC)[0]; await ev(`window.__rec = ${JSON.stringify(rec)}; TLX.api.TABLET.close(true); true`);
   const snap = `(() => { const r = renderer, f = scene.fog, v = new THREE.Vector4(), sc = new THREE.Vector4(), sz = new THREE.Vector2(); r.getViewport(v); r.getScissor(sc); r.getSize(sz); return JSON.stringify({ cp: camera.position.toArray(), cq: camera.quaternion.toArray(), fov: camera.fov, asp: camera.aspect, fog: [f.color.r, f.color.g, f.color.b, f.density], sunI: sun.intensity, sunC: sun.color.toArray(), sunP: sun.position.toArray(), pr: r.getPixelRatio(), vp: v.toArray(), sc: sc.toArray(), sct: r.getScissorTest(), rt: r.getRenderTarget() === null, ex: r.toneMappingExposure, sh: r.shadowMap.needsUpdate, hour: GS.hour, storm: GS.storm, belt: TLXL.sled.beltU.value, skyU: [sky.material.uniforms.uFog.value.r, sky.material.uniforms.uFog.value.g, sky.material.uniforms.uFog.value.b], skyP: sky.position.toArray(), size: sz.toArray() }); })()`;
@@ -87,10 +112,17 @@ await section("F what renders when", async () => {
   const r1 = await J(`({ playing: !!TLXRL.play, id: TLXRL.play && TLXRL.play.rec.id, cur: TLXRL.current().id, renders: TLXRL.renders, live: TLXRL.live, planned: TLXRL.planned || 0 })`);
   ok(r1.playing && r1.id === r1.cur && r1.renders > nf, `on the Reels tab with the tablet up the current reel plays and renders (${r1.renders - nf} frames in 2.5 s)`);
   ok(r1.live === 1, "one reel at a time: " + r1.live);
-  ok(r1.planned - pl0 === 1, `only the current reel was planned and built (${r1.planned - pl0}); the next waits until it is scrolled to`);
+  ok(r1.planned - pl0 === 1, `only the current reel was planned and built (${r1.planned - pl0}); the next is prepared ahead and only drawn once scrolled to`);
+  ok(await J(`!!(TLXRL.next && TLXRL.next.Sc && TLXRL.next.id === TLXRL.list()[TLXRL.cur + 1].id)`), "the next reel is prepared ahead while this one plays (planned, cast built, materials compiled)");
+  const lk = await J(`(() => { const rec = TLXRL.current(), q = () => document.querySelector("#tabS [data-rlk]"), a = rec.lk; q().click(); const b = rec.lk, m = rec.my; q().click(); return [a, b, m, rec.lk, rec.my]; })()`);
+  ok(lk[1] === lk[0] + 1 && lk[2] === 1 && lk[3] === lk[0] && lk[4] === 0, `a like on the reel counts and toggles back (${lk.join(",")})`);
+  await ev(`document.querySelector("#tabS [data-rlcm]").click(); true`); await sleep(400);
+  ok(await J(`!!document.querySelector("#tabS .gsheet") && TLXGR.view.sheet < 0 && !!TLXRL.play`), "the comments sheet opens over the reel, which goes on playing beneath it");
+  await ev(`document.getElementById("gsClose").click(); true`); await sleep(300); ok(await J(`!document.querySelector("#tabS .gsheet") && !TLXGR.view.sheet`), "and closes");
   await ev(`TLXRL.go(1); true`); await sleep(1500);
   const r2 = await J(`({ id: TLXRL.play && TLXRL.play.rec.id, cur: TLXRL.current().id, planned: TLXRL.planned || 0, max: TLXRL.maxLive })`);
   ok(r2.id === r2.cur && r2.id !== r1.id && r2.planned - r1.planned === 1 && r2.max <= 1, `scrolling to the next plans exactly that one and stops the last (live max ${r2.max})`);
+  ok(await J(`(TLXRL.usedNext || 0) >= 1`), "scrolling to it played from the prepared plan");
   // away to another tab: stops and hides
   await ev(`TLXGR.setTab("local"); true`); await sleep(600); const n1 = await J(`TLXRL.renders + TLXRL.painted`); await sleep(1500);
   ok((await J(`!TLXRL.play`)) && (await J(`TLXRL.renders + TLXRL.painted`)) === n1, "leaving the Reels tab stops the clip and the rendering");

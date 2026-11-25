@@ -53,7 +53,7 @@ R.types.summit = {
   plan(rec, E) {
     const cx = rec.x, cz = rec.z, cy = surf(cx, cz) + 1.7, tb = skyTable(cx, cz, cy, 64), a0 = rec.a, arc = 1.35, a1 = a0 + arc, fov = 64, th = Math.tan(fov * Math.PI / 360), rng = mulb(rec.sd);
     const px = cx + dirX(a1 - 0.07) * 3.7, pz = cz + dirZ(a1 - 0.07) * 3.7, sx = cx + dirX(a1 + 0.2) * 6.2, sz = cz + dirZ(a1 + 0.2) * 6.2, syaw = yawOf(dirX(a1 + 2.6), dirZ(a1 + 2.6)), pyaw = yawOf(cx - px, cz - pz);
-    const off = A().sunEl; const dur = 7.5; const row = 0.64;
+    const off = A().sunEl; const dur = 7.5; const row = 0.74;
     return {
       dur, need: { sled: 1, walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.3,
       frame(t, E) {
@@ -97,7 +97,7 @@ R.types.stormride = {
   },
   plan(rec, E) {
     const r = mulb(rec.sd), yaw = rec.a, v = 11 + r() * 2.5;
-    const PP = { x0: rec.x, z0: rec.z, yaw, fx: Math.sin(yaw), fz: Math.cos(yaw), lx: Math.cos(yaw), lz: -Math.sin(yaw), v: [v, v + 0.3, v - 0.2, v + 0.1], gap: [0, 10 + r() * 3, 18 + r() * 3, -10.5 - r() * 1.5], lat: [0, -1.9, 1.7, 3.2], amp: [1.1, 1.0, 1.3, 1.0], fr: [0.7, 0.8, 0.65, 0.75], ph: [r() * 6, r() * 6, r() * 6, r() * 6] };
+    const PP = { x0: rec.x, z0: rec.z, yaw, fx: Math.sin(yaw), fz: Math.cos(yaw), lx: Math.cos(yaw), lz: -Math.sin(yaw), v: [v, v + 0.3, v - 0.2, v + 0.1], gap: [0, 6.5 + r() * 2, 12.5 + r() * 2, -9 - r() * 1.5], lat: [0, -1.9, 1.7, 3.2], amp: [1.1, 1.0, 1.3, 1.0], fr: [0.7, 0.8, 0.65, 0.75], ph: [r() * 6, r() * 6, r() * 6, r() * 6] };
     const night = clamp(E.nightAt(rec.h) * 0.8 + 0.28, 0, 1), dur = 7.5, o = { x: 0, z: 0, yaw: 0, speed: 0, turn: 0 }, o3 = { x: 0, z: 0, yaw: 0, speed: 0, turn: 0 }, wind = [-7, -1.2, 3.5];
     const specs = [1, 2, 3, 0].map(i => roostSpec(PP, i, pathPos, 0.3));
     return {
@@ -192,11 +192,16 @@ function racePlan(rec, E, mode) {
     dur, need: { sled: 3, walker: all.length }, hour: rec.h, storm: rec.s, vig: 0.34,
     setup(E) {
       const T = A().THREE; ropeObj = E.extraOf("rope", () => { const g = new T.LineSegments(new T.BufferGeometry(), new T.LineBasicMaterial({ color: 0xd8302a })); g.frustumCulled = false; g.geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(3 * 2 * 40), 3)); return g; });
+      E.extraOf("lanemarks", () => { const gg = new T.Group(), strip = (pts, w, col, op) => { const pos = [], idx = []; for (let i = 0; i < pts.length; i++) { const a = pts[i]; pos.push(a[0][0], a[0][1], a[0][2], a[1][0], a[1][1], a[1][2]); if (i) idx.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2 - 1, i * 2 + 1, i * 2); } const geo = new T.BufferGeometry(); geo.setAttribute("position", new T.BufferAttribute(new Float32Array(pos), 3)); geo.setIndex(idx); const m = new T.Mesh(geo, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: op, side: T.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: true })); m.frustumCulled = false; m.renderOrder = 3; gg.add(m); };
+        const q = { x: 0, z: 0, yaw: 0 }, rib = (u0, u1, o, w, step) => { const pts = []; for (let u = u0; u <= u1 + 1e-6; u += step) { const row = []; for (const dw of [-w / 2, w / 2]) { laneAt(G, u, o + dw, q); row.push([q.x, surf(q.x, q.z) + 0.05, q.z]); } pts.push(row); } return pts; };
+        for (const o of [-3.75, -1.25, 1.25, 3.75]) strip(rib(-6, 72, o, 0.16, 3), 0.16, 0x1d3f78, 0.8);          // four lines make three lanes, one sled to a lane
+        strip(rib(-0.2, 0.2, 0, 8.4, 0.2).map(r => r), 0, 0xf2f4f8, 0.95); strip(rib(-0.6, -0.2, 0, 8.4, 0.2), 0, 0x2a2a30, 0.85);      // the start line (white, the dark line behind it)
+        gg.traverse(o => { o.frustumCulled = false; }); return gg; });
       const pos = ropeObj.m.geometry.attributes.position.array; let k = 0, prev = null; for (let u = -12; u <= 52; u += 2) { laneAt(G, u, LN - 0.9, oc); const x = oc.x, z = oc.z, y = surf(x, z) + 0.95; if (prev) { pos[k++] = prev[0]; pos[k++] = prev[1]; pos[k++] = prev[2]; pos[k++] = x; pos[k++] = y; pos[k++] = z; } prev = [x, y, z]; }
       ropeObj.m.geometry.setDrawRange(0, k / 3); ropeObj.m.geometry.attributes.position.needsUpdate = true;
     },
     frame(t, E) {
-      E.extraOf("rope", null);
+      E.extraOf("rope", null); E.extraOf("lanemarks", null);
       for (let i = 0; i < 3; i++) { const s = pose(i, t), v = sledV(G, i, t), a = E.sleds[i]; E.placeSled(a, o.x, o.z, o.yaw, v, 0, v > 1, { lean: 0.05 + 0.2 * clamp(v / 25, 0, 1) }); E.sledLights(a, false, false, 0); E.emitter(roosts[i]); a.ph += 0; }
       E.belt = sledS(G, 0, t) * 1.0;
       for (let j = 0; j < all.length; j++) { const q = all[j], w = E.walkers[j]; laneAt(G, q[0], q[1], oc); const yaw = Math.atan2(G.L.x + Math.cos(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.x, G.L.z + Math.sin(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.z) + (q[2] - 0.5) * 0.3;
@@ -207,7 +212,10 @@ function racePlan(rec, E, mode) {
       laneAt(G, uT, 0, o2); const crowdU = mode === "watch" ? camU - 1 : -3; laneAt(G, crowdU, LN + 1.0, oc);
       const tx = lerp(o2.x, oc.x, back), tz = lerp(o2.z, oc.z, back), ty = lerp(surf(o2.x, o2.z) + 0.9, surf(oc.x, oc.z) + 1.5, back);
       const sh = shake(t, mode === "watch" ? 1.2 : 0.7);
-      E.look(ex, ey + sh[1], ez, tx + sh[0] * 20, ty, tz, mode === "watch" ? 62 : 68, 0);
+      if (mode === "watch") E.look(ex, ey + sh[1], ez, tx + sh[0] * 20, ty, tz, 62, 0);
+      else {                                                                                               // the start: behind the line, low, looking down the three lanes with the crowd at the rope on the right; the roost from the launch rolls over the lens, then clears to the sleds running away down their lanes
+        laneAt(G, -5.5, 3.2, oc); const sx = oc.x, sz = oc.z, sy = surf(sx, sz) + 1.15, au = clamp(lerp(15, sLead * 0.5 + 6, ease((t - 1.6) / 2.4)), 12, 44); laneAt(G, au, 3.6, o2); E.look(sx, sy + sh[1], sz, o2.x + sh[0] * 20, surf(o2.x, o2.z) + 0.8, o2.z, 66, 0);
+      }
     },
     post(g, t, w, h) { }
   };
@@ -269,7 +277,8 @@ R.types.waterskip = {
         const back = 8.0, cx = Q.x - fx * back + nx * side * 3.4, cz = Q.z - fz * back + nz * side * 3.4, cy = Math.max(surf(cx, cz), W().wlvAt(cx, cz) || 0, 0) + 1.6; let tx, tz, ty;
         if (sink && t > 3.8) { const k = ease((t - 3.8) / 1.0); tx = lerp(Q.x + fx * 3, bx, k); tz = lerp(Q.z + fz * 3, bz, k); ty = lerp((wl0 || 0) + 0.7, surf(bx, bz) + 1.1, k); }
         else { tx = Q.x + fx * 3.5; tz = Q.z + fz * 3.5; ty = (Q.inW ? (wl0 || 0) : surf(Q.x, Q.z)) + 0.7; }
-        E.look(cx, cy + shake(t, 1)[1], cz, tx, ty, tz, 66, 0.0);
+        let cx2 = cx, cy2 = cy, cz2 = cz, fv = 66; if (sink && t > 3.9) { const k = ease((t - 3.9) / 1.3), px = bx + nx * side * 2.3 - fx * 2.0, pz = bz + nz * side * 2.3 - fz * 2.0; cx2 = lerp(cx, px, k); cz2 = lerp(cz, pz, k); cy2 = lerp(cy, Math.max(surf(px, pz) + 1.3, surf(bx, bz) + 1.45), k); fv = lerp(66, 48, k); }       // the clip ends close on the wet rider on the bank
+        E.look(cx2, cy2 + shake(t, 1)[1], cz2, tx, ty, tz, fv, 0.0);
       }
     };
   },
@@ -400,16 +409,23 @@ function skiffMesh() {
   const bw = new T.Mesh(new T.BoxGeometry(0.1, 0.9, 1.6), hull); bw.position.set(0, 0.2, 2.9); bw.rotation.set(0.55, 0, 0); g.add(bw);
   return g;
 }
-function gullMesh() {
-  const T = A().THREE, g = new T.Group(), white = new T.MeshLambertMaterial({ color: 0xf2f4f6, side: T.DoubleSide }), grey = new T.MeshLambertMaterial({ color: 0x8c96a0, side: T.DoubleSide });
-  const body = new T.Mesh(new T.SphereGeometry(0.16, 8, 6), white); body.scale.set(0.8, 0.7, 1.9); g.add(body); const head = new T.Mesh(new T.SphereGeometry(0.075, 8, 6), white); head.position.set(0, 0.04, 0.34); g.add(head); const beak = new T.Mesh(new T.ConeGeometry(0.025, 0.12, 6), new T.MeshLambertMaterial({ color: 0xe8b030 })); beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.03, 0.44); g.add(beak);
-  for (const s of [-1, 1]) { const p = new T.Group(); g.add(p); const w = new T.Mesh(new T.PlaneGeometry(0.62, 0.2), grey); w.rotation.x = Math.PI / 2; w.position.x = s * 0.31; p.add(w); g.userData["w" + (s > 0 ? "R" : "L")] = p; p.userData.s = s; }
+function gullMesh() {                                                                                      // a real gull: body, head with a yellow bill and red spot, a fan tail, and wings of two segments (arm and hand) that flap with the hand lagging the arm
+  const T = A().THREE, g = new T.Group(), white = new T.MeshLambertMaterial({ color: 0xf3f5f7, side: T.DoubleSide }), grey = new T.MeshLambertMaterial({ color: 0x9aa4ae, side: T.DoubleSide }), tip = new T.MeshLambertMaterial({ color: 0x23272c, side: T.DoubleSide }), yel = new T.MeshLambertMaterial({ color: 0xe8b030 });
+  const body = new T.Mesh(new T.SphereGeometry(0.14, 10, 8), white); body.scale.set(0.78, 0.72, 2.1); g.add(body); const chest = new T.Mesh(new T.SphereGeometry(0.1, 8, 6), white); chest.position.set(0, -0.005, 0.2); g.add(chest);
+  const head = new T.Mesh(new T.SphereGeometry(0.065, 10, 8), white); head.position.set(0, 0.07, 0.34); g.add(head); const bill = new T.Mesh(new T.ConeGeometry(0.02, 0.12, 6), yel); bill.rotation.x = Math.PI / 2 + 0.08; bill.position.set(0, 0.058, 0.43); g.add(bill); const eye = new T.Mesh(new T.SphereGeometry(0.011, 6, 5), tip); eye.position.set(0.04, 0.085, 0.385); g.add(eye); const eye2 = eye.clone(); eye2.position.x = -0.04; g.add(eye2);
+  const tail = new T.Mesh(new T.CircleGeometry(0.1, 8, 0, Math.PI), white); tail.rotation.x = -Math.PI / 2 + 0.1; tail.rotation.z = Math.PI; tail.position.set(0, 0.02, -0.28); g.add(tail);
+  const wingShape = (len, w0, w1, sw) => { const sh = new T.Shape(); sh.moveTo(0, -w0 / 2); sh.lineTo(len, -w1 / 2 - sw); sh.lineTo(len, w1 / 2 - sw); sh.lineTo(0, w0 / 2); sh.closePath(); const geo = new T.ShapeGeometry(sh); geo.rotateX(Math.PI / 2); return geo; };
+  for (const s of [-1, 1]) {
+    const p = new T.Group(); p.position.set(s * 0.07, 0.05, 0.08); g.add(p); const inner = new T.Mesh(wingShape(0.3, 0.22, 0.17, 0.0), white); if (s < 0) inner.scale.x = -1; p.add(inner);
+    const o = new T.Group(); o.position.set(s * 0.3, 0, 0); p.add(o); const outer = new T.Mesh(wingShape(0.3, 0.17, 0.05, 0.06), grey); if (s < 0) outer.scale.x = -1; o.add(outer); const tp = new T.Mesh(wingShape(0.09, 0.07, 0.03, 0.03), tip); tp.position.x = s * 0.21; if (s < 0) tp.scale.x = -1; tp.position.y = 0.0006; o.add(tp);
+    g.userData["w" + (s > 0 ? "R" : "L")] = p; g.userData["o" + (s > 0 ? "R" : "L")] = o; p.userData.s = s;
+  }
   return g;
 }
 R.hooks = R.hooks || {};                                                                                     // R.hooks.sea(t, E, ctx): H4's whales and seabirds hang here
 R.types.sea = {
   chip: "SEA", dur: 7, need: {}, pk: "sea", pspeed: 14,
-  weight: c => c.coast && c.el > -4 && (c.int.fish ? 3 : 0) + (c.int.birds ? 2 : 0) + (c.int.photos ? 1.5 : 0) + 0.3 > 0.3 && c.storm < 0.6 ? (c.int.fish ? 3 : 0) + (c.int.birds ? 2 : 0) + (c.int.photos ? 1.5 : 0) + 0.3 : 0,
+  weight: () => 0,      // dropped from the feed (v277): a skiff's bow and gulls over an empty sea was the one reel the strips showed as dull; the type stays so saved reels still play
   fit: p => p.interests.includes("fish") || p.interests.includes("birds") || p.interests.includes("photos"),
   anchor(c, rng) {
     const cs = c.coast; if (!cs) return null; const dir = H().seaDir(cs.x, cs.z); if (dir === null) return null;
@@ -428,7 +444,7 @@ R.types.sea = {
         boat.on = true; gulls.on = true; const ph = t / per * TAU, heave = sw * 0.5 * Math.sin(ph), pitch = 0.07 * Math.sin(ph + 0.9) * (0.6 + sw * 2), roll = 0.045 * Math.sin(ph * 0.73 + 1.2);
         const bx = rec.x + fx * sp * t, bz = rec.z + fz * sp * t, by = (W().wlvAt(bx, bz) || 0) + 0.25 + heave;
         boat.m.position.set(bx, by, bz); boat.m.rotation.set(-pitch, yaw, roll, "YXZ");
-        for (let i = 0; i < 6; i++) { const q = gp[i], m = gulls.m.children[i], a = q.w * t + q.ph, gx = bx + fx * q.oz + Math.cos(a) * q.r + (-fz) * q.ox * 0.3, gz = bz + fz * q.oz + Math.sin(a) * q.r + fx * q.ox * 0.3, gy = by + q.h + 0.6 * Math.sin(t * 0.7 + q.ph); m.position.set(gx, gy, gz); const dx = -Math.sin(a) * q.w * q.r, dz = Math.cos(a) * q.w * q.r; m.rotation.set(0, Math.atan2(dx, dz), -0.35 * Math.sign(q.w), "YXZ"); const f = Math.sin(t * q.fl * TAU + q.ph) * 0.55; m.userData.wR.rotation.z = -f; m.userData.wL.rotation.z = f; }
+        for (let i = 0; i < 6; i++) { const q = gp[i], m = gulls.m.children[i], a = q.w * t + q.ph, gx = bx + fx * q.oz + Math.cos(a) * q.r + (-fz) * q.ox * 0.3, gz = bz + fz * q.oz + Math.sin(a) * q.r + fx * q.ox * 0.3, gy = by + q.h + 0.6 * Math.sin(t * 0.7 + q.ph); m.position.set(gx, gy, gz); const dx = -Math.sin(a) * q.w * q.r, dz = Math.cos(a) * q.w * q.r; m.rotation.set(0, Math.atan2(dx, dz), -0.35 * Math.sign(q.w), "YXZ"); const ph = t * q.fl * TAU + q.ph, f = Math.sin(ph) * 0.62, f2 = Math.sin(ph - 0.9) * 0.5; m.userData.wR.rotation.z = -f; m.userData.wL.rotation.z = f; m.userData.oR.rotation.z = -f2 * 1.1; m.userData.oL.rotation.z = f2 * 1.1; }
         if (R.hooks.sea) R.hooks.sea(t, E, { bx, bz, by, yaw });
         const sh = shake(t, 0.5); boat.m.updateMatrixWorld(true); E.v2.set(0, 1.55, 0.7); boat.m.localToWorld(E.v2); const ex = E.v2.x, ey = E.v2.y, ez = E.v2.z, pan = Math.sin(t * 0.45) * 0.22, tx = ex + Math.sin(yaw + pan) * 40, tz = ez + Math.cos(yaw + pan) * 40;
         E.look(ex, ey + sh[1], ez, tx, ey - 1.5 + 0.8 * Math.sin(t * 0.5), tz, 64, roll * 0.8);

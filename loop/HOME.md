@@ -11,7 +11,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 |---|---|---|
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
 | H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c, plus the H2a posture fixes) |
-| H2 | Gram (`tlx-gram.js`) | remade (Lemon, 25 Nov): H2R-a landed (director, 28 photo kinds, phone-column Local + Reels shell, scroll test); H2R-b next (Reels on the same moments) |
+| H2 | Gram (`tlx-gram.js`) | remade (Lemon, 25 Nov): H2R-a landed (director, 28 photo kinds, phone-column Local + Reels shell, scroll test); H2R-b landed v277 (12 moment clips + the old scenes = 23 reel kinds, draw calls max 434, reels floor in gram_scroll); H2R-c next (switched-off kinds, text cards, polish) |
 | I1-I10 | Indoors and Senses update: walk-in places, a word with anybody, furnishing, radio stations with sound, haptics, camera, field guide, Paths, save slots, summer on foot | designed 25 Nov; I1 after the Gram remake |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
 | H5 | The outdoors life (avalanches, sea ice, snow shelters, ghosts, dog team, camera) | outline |
@@ -257,7 +257,7 @@ threshold); Reels has at least 8 new a day and at least 10 kinds in 20.
       Left for H2R-c: eight kinds are built but switched off (`TLXGK.offs`: kicksled, skisoutside, snowlantern, woodpile,
       digout, doorwall, gloveonpost, bonfire) because their prop or framing is not good enough yet; the "about you" kind
       (crashseen) exists but has weight 0 until the player's own posts are asked for again; text cards are still flat.
-- [ ] **H2R-b** Reels gram on the same moments: full-height player, every starred kind as a clip (at least 20), the
+- [x] **H2R-b** (v277) Reels gram on the same moments: full-height player, every starred kind as a clip (at least 20), the
       rhythm, and the scroll test for reels.
 - [ ] **H2R-c** The rest of the catalogue, the nitpick rounds from the scroll sheets, low-preset and phone look.
 

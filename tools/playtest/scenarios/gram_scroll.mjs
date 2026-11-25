@@ -1,12 +1,12 @@
 // How cool is Gram to scroll. Plays ordinary days through the director at a named date, then scrolls Local (the whole land, one feed) and Reels as a player would, on the real UI,
 // writes every screen as a still, builds contact sheets, prints the numbers and asserts the floor from loop/HOME.md ("Testing how cool it is"). Exit 1 under the floor.
-//   GRAM_DATE=polarnight|sunreturn|spring (default polarnight)   GRAM_DAYS=3   GRAM_N=30 (Local posts scrolled)   GRAM_R=8 (reels)   OUT=dir for the stills
+//   GRAM_DATE=polarnight|sunreturn|spring (default polarnight)   GRAM_DAYS=3   GRAM_N=30 (Local posts scrolled)   GRAM_R=20 (reels)   OUT=dir for the stills
 import { boot, ev, sleep, done, send, tap, OUT } from "../lib.mjs";
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
-const DATE = process.env.GRAM_DATE || "polarnight", DAYS = +(process.env.GRAM_DAYS || 3), N = +(process.env.GRAM_N || 30), NR = +(process.env.GRAM_R || 8);
+const DATE = process.env.GRAM_DATE || "polarnight", DAYS = +(process.env.GRAM_DAYS || 3), N = +(process.env.GRAM_N || 30), NR = +(process.env.GRAM_R || 20);
 const DAY0 = { polarnight: 40, sunreturn: 85, spring: 165 }[DATE]; if (DAY0 === undefined) throw new Error("GRAM_DATE: polarnight|sunreturn|spring");
 await boot({ width: 1280, height: 720 });
 await ev(`tutSkip(); crashCancel(); FOOT.on = false; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); true`); await sleep(1500);
@@ -52,13 +52,39 @@ const real = photos.filter(s => s.done === "real").length; ok(real >= photos.len
 const cost = await J(`TLXGR.renderMs`); const avg = cost.length ? Math.round(cost.reduce((a, b) => a + b, 0) / cost.length) : 0;
 console.log(`metrics: kinds ${kindsN}, families ${fams.size}, text posts ${n - photos.length}, painted ${photos.length - real}, mean sub ${Math.round(photos.reduce((a, s) => a + (s.mean || 0), 0) / Math.max(1, photos.length))}, mean contrast ${Math.round(photos.reduce((a, s) => a + (s.contrast || 0), 0) / Math.max(1, photos.length))}, render ms avg ${avg} max ${Math.max(0, ...cost)}`);
 console.log("run:", shown.map(s => `${s.idx}:${s.k}@${s.vid}`).join(" "));
-// Reels
-await ev(`TLXRL.force = "real"; TLXGR.setTab("reels"); true`); await sleep(2500);
+// Reels: scrolled as a player would (Down key), the live screen of each reel captured, then six frames across each clip (contact strips) with the numbers behind the floor
+await ev(`TLXRL.force = "real"; TLXGR.setTab("reels"); TLXRL.cur = 0; true`); await sleep(2500);
 const rn = Math.min(NR, await J(`TLXRL.list().length`)); const rk = [];
-for (let i = 0; i < rn; i++) { await sleep(2400); await clip(`reel_${String(i).padStart(2, "0")}_a`); rk.push(await J(`(() => { const r = TLXRL.current(); return { ty: r.ty, rg: r.rg, cap: r.cap }; })()`)); await sleep(1200); await clip(`reel_${String(i).padStart(2, "0")}_b`); await tap("ArrowDown"); await sleep(1200); }
-ok(rn >= NR, `Reels has ${rn} to scroll (asked ${NR})`); console.log("reels:", rk.map(r => `${r.ty}@${r.rg}`).join(" "));
+for (let i = 0; i < rn; i++) {
+  await sleep(1500); await clip(`reel_${String(i).padStart(2, "0")}_a`);
+  rk.push(await J(`(() => { const r = TLXRL.current(); return { ty: r.ty, rg: r.rg, cap: r.cap, id: r.id, t: r.t, id2: TLXRL.cur }; })()`));
+  await tap("ArrowDown"); for (let k = 0; k < 40; k++) { if ((await J(`TLXRL.cur`)) === i + 1) break; if (k === 20) await tap("ArrowDown"); await sleep(100); }
+}
+ok(rn >= NR, `Reels has ${rn} to scroll (asked ${NR})`);
+console.log("reels:", rk.map(r => `${r.ty}`).join(" "));
 ok(rk.every(r => r.rg === "nordkinn"), "every reel carries its land (nordkinn)");
+const kinds20 = new Set(rk.slice(0, 20).map(r => r.ty)).size; ok(rn < 20 || kinds20 >= 10, `kinds in the first 20 reels: ${kinds20} (floor 10)`);
+let rrep = 0; for (let i = 0; i < rk.length; i++) for (let j = Math.max(0, i - 4); j < i; j++) if (rk[j].ty === rk[i].ty) rrep++; ok(rrep === 0, `no reel kind within 4 reels: ${rrep} repeats`);
+const days = await J(`(() => { const o = {}; for (const r of TLXRL.log) { const d = Math.floor(r.t / 24); if (d >= ${DAY0}) o[d] = (o[d] || 0) + 1; } return o; })()`);
+const full = Object.entries(days).filter(([d]) => d < DAY0 + DAYS).map(([, n]) => n); ok(full.length >= DAYS && full.every(n => n >= 8) && full.every(n => n <= 16), `new reels per played game day: ${JSON.stringify(full)} (floor 8, about 8-12, a few more on a weekend or after a storm)`);
+const rcaps = rk.map(r => r.cap); ok(new Set(rcaps).size === rcaps.length, "no reel caption twice in the scroll");
+// the contact strips: 6 frames across each clip, 0.1 s apart so the motion is continuous, with luminance and the change between frames
+const strips = [];
+for (let i = 0; i < Math.min(rn, NR); i++) {
+  const r = await J(`(() => { const R = TLXRL, rec = R.list()[${i}]; R._sa = null; const Sc = R.plan(rec); const n = 6, step = 0.1, marks = []; for (let i = 0; i < n; i++) marks.push(Math.round(i / (n - 1) * (Sc.dur - step) / step) * step);
+    const out = { ty: rec.ty, dur: Sc.dur, frames: [], lum: [], calls: 0, ms: [], sig: [] }; let k = 0; const th = document.createElement("canvas"); th.width = 32; th.height = 40; const tg = th.getContext("2d", { willReadFrequently: true });
+    for (let t = 0; t < Sc.dur - 1e-6 && k < n; t += step) { const t0 = performance.now(), cv = R.shotAt(rec, t); out.ms.push(performance.now() - t0); out.calls = Math.max(out.calls, R.calls[R.calls.length - 1]); if (cv && Math.abs(t - marks[k]) < step / 2) { out.frames.push(cv.toDataURL("image/jpeg", 0.88)); tg.drawImage(cv, 0, 0, 32, 40); const d = tg.getImageData(0, 0, 32, 40).data, L = []; for (let q = 0; q < 1280; q++) L.push(0.2126 * d[q * 4] + 0.7152 * d[q * 4 + 1] + 0.0722 * d[q * 4 + 2]); const so = L.slice().sort((a, b) => a - b); out.lum.push([L.reduce((a, b) => a + b, 0) / 1280, so[1216] - so[64]]); out.sig.push(L.filter((_, q) => q % 8 === 0)); k++; } }
+    return out; })()`);
+  r.frames.forEach((u, k) => fs.writeFileSync(`${OUT}/reelstrip_${String(i).padStart(2, "0")}_${r.ty}_f${k}.jpg`, Buffer.from(u.split(",")[1], "base64"))); strips.push(r);
+}
+const murky = strips.map(r => ({ ty: r.ty, bad: r.lum.filter(l => l[0] < 34 || l[1] < 24).length })).filter(r => r.bad > 1);
+ok(murky.length === 0, `no murky reel (at most one frame of six under the luminance floor): ${murky.map(r => r.ty + ":" + r.bad).join(" ") || "none"}`);
+const still = strips.map(r => { let mx = 0, mn = 1e9; for (let k = 1; k < r.sig.length; k++) { let d = 0; for (let q = 0; q < r.sig[k].length; q++) d += Math.abs(r.sig[k][q] - r.sig[k - 1][q]); d /= r.sig[k].length; mx = Math.max(mx, d); mn = Math.min(mn, d); } return { ty: r.ty, mx, mn }; }).filter(r => r.mx < 2.5);
+ok(still.length === 0, `frames change over time in every reel: ${still.map(r => r.ty + ":" + r.mx.toFixed(1)).join(" ") || "none static"}`);
+const over = strips.filter(r => r.calls >= 900); ok(over.length === 0, `draw calls per reel frame under 900: ${over.map(r => r.ty + ":" + r.calls).join(" ") || "all under"} (max ${Math.max(...strips.map(r => r.calls))})`);
+const msAll = strips.flatMap(r => r.ms).sort((a, b) => a - b); const med = msAll[msAll.length >> 1] || 0; ok(med < 25, `median reel frame ${med.toFixed(1)} ms on high (floor 25)`);
+console.log("reel strips:", strips.map(r => `${r.ty}[calls ${r.calls}, lum ${r.lum.map(l => Math.round(l[0])).join("/")}]`).join(" "));
 console.log("errors:", await ev("TLXGR.err || ''"), "|", await ev("(TLXRL.err || '')"));
-for (const pre of ["local", "reel"]) try { console.log(execFileSync(process.env.PYTHON || "/usr/bin/python3", [new URL("../gramsheet.py", import.meta.url).pathname, OUT, pre, pre === "local" ? "6" : "8", pre === "local" ? "18" : "16"]).toString().trim()); } catch (e) { console.log("sheet failed", String(e).slice(0, 200)); }
+for (const pre of ["local", "reel", "reelstrip"]) try { console.log(execFileSync(process.env.PYTHON || "/usr/bin/python3", [new URL("../gramsheet.py", import.meta.url).pathname, OUT, pre, pre === "local" ? "6" : pre === "reel" ? "8" : "6", pre === "local" ? "18" : pre === "reel" ? "16" : "30"]).toString().trim()); } catch (e) { console.log("sheet failed", String(e).slice(0, 200)); }
 console.log(fails ? `GRAM SCROLL: ${fails} below the floor` : "GRAM SCROLL: floor passed");
 await done(fails ? 1 : 0);

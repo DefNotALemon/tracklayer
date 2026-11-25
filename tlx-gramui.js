@@ -105,7 +105,7 @@ function openSheet(id) {
   const d = document.createElement("div"); d.className = "gsheet"; d.innerHTML = `<div class="gshh"><span>${esc(per ? "@" + per.handle : "")} · ${p.cm.length} comments</span><button type="button" class="tml" data-tf="gs:close" id="gsClose">Close</button></div><div class="gshl" id="gShl"><div class="gcap" style="margin:4px 0 8px;-webkit-line-clamp:unset">${esc(p.cap)}</div>${cms}</div>`;
   col.appendChild(d); d.querySelector("#gsClose").addEventListener("click", closeSheet); api.TABLET.focus = "gs:close"; api.TABLET.paintFocus(false);
 }
-function closeSheet() { const d = document.querySelector("#tabS .gsheet"); if (d) d.remove(); const id = G.view.sheet; G.view.sheet = 0; if (id) api.TABLET.focus = "gc:" + id; api.TABLET.paintFocus(false); }
+function closeSheet() { const d = document.querySelector("#tabS .gsheet"); if (d) d.remove(); const id = G.view.sheet; G.view.sheet = 0; if (id > 0) api.TABLET.focus = "gc:" + id; else if (id < 0) api.TABLET.focus = "rl:v"; api.TABLET.paintFocus(false); }
 UI.openSheet = openSheet; UI.closeSheet = closeSheet;
 UI.scrollTo = (i, smooth) => { const sn = UI.sn; if (!sn || !document.body.contains(sn)) return false; const L = UI.cur || []; i = clamp(i, 0, L.length - 1); UI.tgt = smooth === false ? undefined : i; UI.tgtT = performance.now(); sn.scrollTo({ top: i * sn.clientHeight, behavior: smooth === false ? "auto" : "smooth" }); return true; };
 UI.go = n => { const L = UI.cur || [], i = clamp(G.view.cur + n, 0, L.length - 1); if (i === G.view.cur) return false; UI.scrollTo(i); setCur(i); return true; };

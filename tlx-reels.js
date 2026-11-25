@@ -114,7 +114,10 @@ function buildSled(i) {
   cyl(0.022, 0.026, 0.5, dark, 0, C.barY - 0.22, C.barZ + 0.075, -0.33, 0, 0, body, 8); cyl(0.015, 0.015, 0.74, dark, 0, C.barY, C.barZ, 0, 0, Math.PI / 2, body, 8);
   for (const sx of [-1, 1]) cyl(0.021, 0.021, 0.13, rubber, sx * 0.325, C.barY, C.barZ, 0, 0, Math.PI / 2, body, 8);
   const mk = (col, sz, y, z, x) => { const s = new T.Sprite(new T.SpriteMaterial({ map: tex().glow, color: col, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false })); s.position.set(x || 0, y, z); s.scale.set(sz, sz, 1); s.visible = false; body.add(s); return s; };
-  const head = mk(0xfff1c0, 1.4, 0.86, 1.25), tails = [mk(0xff2a1a, 0.34, 0.7, C.zBack - 0.5 - 0.0, -0.18), mk(0xff2a1a, 0.34, 0.7, C.zBack - 0.5, 0.18)];
+  const head = mk(0xfff1c0, 1.4, 0.86, 1.25);
+  // tail lamps are RED: a small lit red lens with a soft red halo drawn normally (an additive white-hot sprite washes out to pink in snow and fog)
+  const lens = new T.MeshBasicMaterial({ color: 0xff1208, fog: false }), halo = new T.SpriteMaterial({ map: tex().soft, color: 0xff1608, transparent: true, depthWrite: false, fog: false, opacity: 0.85 });
+  const tails = [-0.18, 0.18].map(x => { const gp = new T.Group(); const lz = new T.Mesh(new T.BoxGeometry(0.16, 0.09, 0.04), lens); gp.add(lz); const hs = new T.Sprite(halo); hs.scale.set(0.95, 0.95, 1); gp.add(hs); gp.position.set(x, 0.7, C.zBack - 0.5); gp.visible = false; body.add(gp); return gp; });
   const cg = new T.ConeGeometry(2.6, 16, 18, 1, true); cg.translate(0, -7.5, 0); cg.rotateX(-Math.PI / 2);
   const cone = new T.Mesh(cg, new T.MeshBasicMaterial({ map: tex().beam, color: 0xfff0c8, transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, fog: false, opacity: 0.0 }));
   cone.position.set(0, 0.9, 1.3); cone.rotation.x = 0.06; cone.visible = false; body.add(cone);
@@ -198,21 +201,41 @@ E.ext = (o) => { o.on = true; return o; };
 let _stamp = 0;
 function pre(bw, bh) {  if (E.lit) E.lit(bw, bh);                                                                                  // inside the shot: the spray's scale for this viewport, its colour from the sky's fog
   const k = bh / (2 * Math.tan(E.cam.fov * Math.PI / 360)), f = A.scene.fog, c = f && f.color ? f.color : null; if (E.fogD && f) f.density = E.fogD;
-  for (const P of [E.fx, E.fl]) { P.u.uScale.value = k; if (c) { const dl = A.dayFactor(); P.u.uCol.value.setRGB(lerp(c.r, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.g, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.b, 1, 0.4) * (0.52 + 0.42 * dl)); } }
+  for (const P of [E.fx, E.fl]) { P.u.uScale.value = k; if (c) { const dl = A.dayFactor(); P.u.uCol.value.setRGB(lerp(c.r, 1, 0.72) * (0.66 + 0.36 * dl), lerp(c.g, 1, 0.72) * (0.68 + 0.36 * dl), lerp(c.b, 1, 0.72) * (0.74 + 0.34 * dl)); } }
 }
+// Draw-call budget: a village in the frame is hundreds of small meshes (shutters, panes, trims) that cover a pixel or two of a 270x480 clip. Each frame the meshes whose projected radius is under
+// R.cullPx pixels (from their live world matrix) are hidden for the shot and put back after it; the list of candidates is rebuilt every few seconds. Nothing near or large is touched, and the main view never sees it.
+const CU = { list: [], t: -99, n: 0, hid: 0 };
+function cullList() {
+  const now = performance.now(); if (now - CU.t < 3500 && CU.list.length) return CU.list; CU.t = now; const L = [], v = T ? null : null;
+  scene.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.visible || o.userData.rlKeep) return; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingSphere || !(g.boundingSphere.radius > 0)) return; L.push(o); });
+  CU.list = L; CU.n = L.length; return L;
+}
+function cullSmall(k) {
+  const L = cullList(), c = E.cam.position, out = [], thr = (R.cullPx === undefined ? 2.6 : R.cullPx) / k, e = new Array(3); if (!(thr > 0)) return out;
+  for (let i = 0; i < L.length; i++) {
+    const o = L[i]; if (!o.visible) continue; const m = o.matrixWorld.elements, dx = m[12] - c.x, dy = m[13] - c.y, dz = m[14] - c.z, d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 4) continue;
+    const sx = Math.hypot(m[0], m[1], m[2]), sy = Math.hypot(m[4], m[5], m[6]), sz = Math.hypot(m[8], m[9], m[10]), r = o.geometry.boundingSphere.radius * Math.max(sx, sy, sz);
+    if (r < thr * d) { o.visible = false; out.push(o); }
+  }
+  CU.hid = out.length; return out;
+}
+R.cull = CU;
 // the world's own animals near the camera are hidden for the frame: the picture is staged (a pinned shot of a real fox would otherwise show it twice, the real one white beside the posed one)
 function hideWild() { const out = [], c = E.cam.position; for (const G of A.wild.groups()) for (const q of G.m || []) { const g = q && q.g; if (g && g.visible && Math.hypot(g.position.x - c.x, g.position.z - c.z) < 120) { g.visible = false; out.push(g); } } return out; }
 function renderAt(Sc, t, cv, g) {
   const t0 = performance.now(); engInit();
   E.dt = E.tPrev >= 0 && t >= E.tPrev && t - E.tPrev < 0.3 ? t - E.tPrev : 0; E.reset = E.tPrev < 0 || t < E.tPrev || t - E.tPrev >= 0.3; E.tPrev = t; E.t = t;
   E.clearFx(); const belt0 = window.TLXL && TLXL.sled && TLXL.sled.beltU ? TLXL.sled.beltU.value : null;
+  if (!E.marks || !Sc.lit) E.marks = []; if (!Sc.lit) E.faces = [];
   E.fogD = Sc.fog || 0; Sc.frame(t, E);
+  if (Sc._rec && Sc._arm !== false && window.TLXGR && TLXGR.litPlan) TLXGR.litPlan(Sc, Sc._rec, Sc._rec.lb || 1, !Sc.lit);                 // a clip takes the photos' light plan, an old scene only the sky's dressing
   if (belt0 !== null) TLXL.sled.beltU.value = E.belt;
   fxUpdate(t); actorsShow(true);
   const c0 = A.renderer.info.render.calls; let ok = false, hid = null;
-  try { hid = hideWild(); } catch (e) { }
+  try { hid = hideWild(); } catch (e) { } let hc = null; try { hc = cullSmall(cv.height / (2 * Math.tan(E.cam.fov * Math.PI / 360))); } catch (e) { }
   try { ok = A.gram.shot({ cam: E.cam, hour: Sc.hour, storm: Sc.storm, w: cv.width, h: cv.height, ctx: g, noShadow: true, pre }); }
-  finally { if (hid) for (const g of hid) g.visible = true; actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
+  finally { if (hc) for (const o of hc) o.visible = true; if (hid) for (const g of hid) g.visible = true; actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
   E.reset = false; R.calls.push(A.renderer.info.render.calls); if (R.calls.length > 60) R.calls.shift();
   if (ok) { if (Sc.post) Sc.post(g, t, cv.width, cv.height, E); vignette(g, cv.width, cv.height, Sc); }
   const ms = performance.now() - t0; R.ms.push(ms); if (R.ms.length > 90) R.ms.shift(); R.renders++;
@@ -268,7 +291,8 @@ function sane(gs) {
   const num = Number.isFinite; let r = gs.reels; if (!r || typeof r !== "object" || Array.isArray(r)) r = gs.reels = { seq: 0, list: [] };
   if (!Array.isArray(r.list)) r.list = []; if (!num(r.seq)) r.seq = 0;
   r.list = r.list.filter(q => q && typeof q === "object" && num(q.id) && num(q.t) && typeof q.ty === "string" && R.types[q.ty] && num(q.x) && num(q.z) && num(q.h) && typeof q.cap === "string").slice(-CAPN);
-  for (const q of r.list) { if (!num(q.a)) q.a = 0; if (!num(q.sd)) q.sd = 1; if (!num(q.s)) q.s = 0; if (!Array.isArray(q.cm)) q.cm = []; q.cm = q.cm.filter(c => Array.isArray(c) && typeof c[1] === "string").slice(0, 4); if (!num(q.lk)) q.lk = 3; q.place = String(q.place || ""); q.sn = q.sn ? 1 : 0; if (q.k !== undefined && typeof q.k !== "string" && !num(q.k)) delete q.k; }
+  for (const q of r.list) { if (!num(q.a)) q.a = 0; if (!num(q.sd)) q.sd = 1; if (!num(q.s)) q.s = 0; if (!Array.isArray(q.cm)) q.cm = []; q.cm = q.cm.filter(c => Array.isArray(c) && typeof c[1] === "string").slice(0, 4); if (!num(q.lk)) q.lk = 3; q.place = String(q.place || ""); q.sn = q.sn ? 1 : 0; q.my = q.my ? 1 : 0; if (!Array.isArray(q.w)) q.w = []; q.w = q.w.filter(x => typeof x === "string").slice(0, 6); if (!num(q.v)) q.v = 0; if (q.lb !== undefined && !num(q.lb)) delete q.lb; if (q.k !== undefined && typeof q.k !== "string" && !num(q.k)) delete q.k; }
+  if (!r.mem || typeof r.mem !== "object" || Array.isArray(r.mem)) r.mem = { kinds: [], n: {} }; if (!Array.isArray(r.mem.kinds)) r.mem.kinds = []; r.mem.kinds = r.mem.kinds.filter(x => typeof x === "string").slice(-12); if (!r.mem.n || typeof r.mem.n !== "object" || Array.isArray(r.mem.n)) r.mem.n = {}; for (const k of Object.keys(r.mem.n)) if (!num(r.mem.n[k])) delete r.mem.n[k];
   r.seq = Math.max(r.seq, ...r.list.map(q => q.id), 0); return r;
 }
 R.sane = sane;
@@ -280,9 +304,10 @@ function add(o) {
   const s = S(), ty = R.types[o.ty]; if (!s || !ty) return null;
   const p = o.who && o.who !== "you" ? Hh.who(o.who) : null;
   const rec = { id: ++s.seq, t: Math.round((o.t === undefined ? A.GS.hour : o.t) * 100) / 100, who: o.who || null, vid: o.vid || (p ? p.vid : null), place: o.place || "", ty: o.ty, sd: o.sd || 1, rg: o.rg || (window.TLX ? TLX.region() : "nordkinn"), x: Math.round(o.x * 10) / 10, z: Math.round(o.z * 10) / 10, a: Math.round((o.a || 0) * 100) / 100, h: Math.round(o.h * 100) / 100, s: Math.round(clamp(o.s || 0, 0, 1) * 100) / 100, cap: o.cap, sn: 0 };
-  if (o.k !== undefined) rec.k = o.k; if (o.ev) rec.ev = o.ev;
+  if (o.k !== undefined) rec.k = o.k; if (o.ev) rec.ev = o.ev; if (Array.isArray(o.w)) rec.w = o.w.slice(0, 6); if (o.v) rec.v = o.v; if (o.lb) rec.lb = o.lb; if (o.lid) rec.lid = o.lid;
   rec.cm = o.cm || (p ? Hh.comments({ place: rec.place, n: 0 }, p, "reel") : []); rec.lk = Math.round(Hh.likesOf({ id: rec.id + 5000, cm: rec.cm }, p) * 1.4);
   s.list.push(rec); if (s.list.length > CAPN) s.list.splice(0, s.list.length - CAPN);
+  { const m = mem(); m.kinds.push(rec.ty); if (m.kinds.length > 12) m.kinds.shift(); m.n[rec.ty] = (m.n[rec.ty] || 0) + 1; }
   R.last = rec; R.log.push({ id: rec.id, ty: rec.ty, who: rec.who, t: rec.t, cap: rec.cap }); if (R.log.length > 300) R.log.splice(0, 100);
   if (R.active() && R.cur > 0) R.cur++;                                                                  // a new reel on top does not move the one you are watching
   if (G.view.tab === "reels" && A.TABLET.open && A.TABLET.app === "gram") A.TABLET.refresh("gram");
@@ -291,29 +316,76 @@ function add(o) {
 R.log = []; R.add = add;
 
 /* ---------------- planning and the generator ---------------- */
-const planOf = rec => { const ty = R.types[rec.ty]; if (!ty) return null; try { engInit(); E.prepare(ty.need); const Sc = ty.plan(rec, E); return Sc; } catch (e) { console.error("TLX reel plan", e); R.err = String(e && e.stack || e); return null; } };
+const planOf = rec => { const ty = R.types[rec.ty]; if (!ty) return null; try { engInit(); E.prepare(ty.need); const Sc = ty.plan(rec, E); if (Sc) Sc._rec = rec; return Sc; } catch (e) { console.error("TLX reel plan", e); R.err = String(e && e.stack || e); return null; } };
 R.plan = planOf;
-// a reel for this person at this hour, of the type that fits (weights by interests and conditions), at a place that passes the type's own composition check
+// the reel director's memory (the same idea as Local's): no kind twice within 4 reels, kinds not yet seen are preferred, and about 8 to 12 new reels a game day (more at a weekend and after a storm)
+const mem = () => { const r = S(); if (!r.mem || typeof r.mem !== "object") r.mem = { kinds: [], n: {} }; if (!Array.isArray(r.mem.kinds)) r.mem.kinds = []; if (!r.mem.n || typeof r.mem.n !== "object") r.mem.n = {}; return r.mem; };
+R.mem = mem;
+const dayOf = H => Math.floor(H / 24);
+function dayTarget(H) {
+  const cal = G.calAt ? G.calAt(H) : { dow: 1 }, d = dayOf(H); let n = 8 + (hashS("rd" + d) % 5); if (cal.dow === 0 || cal.dow === 6) n += 3;
+  const st = S().storm || (TLX.state("gram") && TLX.state("gram").storm); if (st && st.endT !== undefined && H - st.endT < 14 && H >= st.endT) n += 2; return n;
+}
+R.dayTarget = dayTarget;
+const countDay = H => list().filter(q => dayOf(q.t) === dayOf(H)).length;
+// is this moment worth posting as a clip: non-murky at three times through the clip (on a small test render, re-lit once), never a blank or a black frame
+function verifyReel(rec, ty) {
+  if (A.GFX.low || (G && G.noLum)) return { ok: true, lb: 1 };
+  const Sc = planOf(rec); if (!Sc) return { ok: false, why: "no plan" }; if (Sc.setup) Sc.setup(E);
+  const cv = document.createElement("canvas"); cv.width = 54; cv.height = 96; const g = cv.getContext("2d"), r0 = R.renders, ms0 = R.ms.length, c0 = R.calls.length; let lb = 1, why = "";
+  try {
+    for (let tr = 0; tr < 2; tr++) {
+      Sc._rec.lb = lb; let bad = false; E.tPrev = -1;
+      for (const f of [0.28, 0.6, 0.86]) { E.tPrev = -1; if (!renderAt(Sc, Sc.dur * f, cv, g)) return { ok: true, lb: 1, skip: 1 }; const m = G.measure(cv, E); if (m.mean < 38 || m.contrast < 26 || m.mean > (tr ? 215 : 160)) { bad = true; why = Math.round(m.mean) + "/" + Math.round(m.contrast); } }
+      if (!bad) return { ok: true, lb };
+      lb = 1.7;
+    }
+    return { ok: false, why };
+  } finally { R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
+}
+R.verifyReel = verifyReel;
+// a reel for this person at this hour, of the type that fits (weights by interests, conditions, and the memory), at a place that passes the type's own check
 function genOne(H, p, only) {
-  const c = Hh.ctxFor(p, H), keys = only ? [only] : Object.keys(R.types), ws = keys.map(k => R.types[k].fit && !R.types[k].fit(p) ? 0 : Math.max(0, (R.types[k].weight(c) || 0)));
-  const tot = ws.reduce((a, b) => a + b, 0); if (tot <= 0) return null;
-  for (let tr = 0; tr < 4; tr++) {
+  const c = Hh.ctxFor(p, H), keys = only ? [only] : Object.keys(R.types), m = mem(), force = only && G.forceW;
+  const ws = keys.map(k => { const ty = R.types[k]; if (!ty) return 0; if (!only && ty.fit && !ty.fit(p)) return 0; let w = force ? 1 : Math.max(0, (ty.weight(c) || 0)); if (!only && w > 0) { if (m.kinds.slice(-4).includes(k)) return 0; w *= m.n[k] ? 1 / (1 + 0.35 * m.n[k]) : 1.7; } return w; });
+  let tot = ws.reduce((a, b) => a + b, 0); if (tot <= 0) return null;
+  for (let tr = 0; tr < 6; tr++) {
     let r = Hh.rnd() * tot, ki = 0; for (let i = 0; i < ws.length; i++) { r -= ws[i]; if (r <= 0) { ki = i; break; } }
-    const key = keys[ki], ty = R.types[key], sd = 1 + Math.floor(Hh.rnd() * 2147483000), an = ty.anchor(c, mulb(sd));
-    if (!an) { ws[ki] = 0; if (ws.reduce((a, b) => a + b, 0) <= 0) return null; continue; }
-    const vars = Hh.varsFor(key, c, p), rec0 = { ty: key, sd, x: an.x, z: an.z, a: an.a || 0, k: an.k, h: an.h !== undefined ? an.h : H, s: an.s !== undefined ? an.s : c.storm, id: 0, t: H };
+    const key = keys[ki], ty = R.types[key], sd = 1 + Math.floor(Hh.rnd() * 2147483000); let an = null; try { an = ty.anchor(c, mulb(sd)); } catch (e) { console.error("TLX reel anchor", key, e); R.err = String(e && e.stack || e); }
+    if (!an) { ws[ki] = 0; tot = ws.reduce((a, b) => a + b, 0); if (tot <= 0) return null; continue; }
+    const rec0 = { ty: key, sd, x: an.x, z: an.z, a: an.a || 0, k: an.k, w: an.w || [p.id], v: an.v === undefined ? 0 : an.v, h: an.h !== undefined ? an.h : H, s: an.s !== undefined ? an.s : c.storm, id: 0, t: H };
     if (ty.check) { const sc = planOf(Object.assign({ id: 1 }, rec0)); if (!sc || (ty.check(sc, rec0) === false)) continue; }
-    const recent = list().slice(-12).map(q => q.cap); let cap = ""; for (let k2 = 0; k2 < 8; k2++) { cap = Hh.flavor(p, ty.cap(c, vars, mulb(sd + k2)), true); if (!recent.includes(cap)) break; }
-    return add({ who: p.id, t: H, vid: p.vid, place: an.place || p.village, ty: key, sd, x: an.x, z: an.z, a: an.a, k: an.k, h: rec0.h, s: rec0.s, cap, ev: an.ev });
+    const chk = verifyReel(Object.assign({ id: 1 }, rec0), ty); if (!chk.ok) { R.rejected = (R.rejected || 0) + 1; (R.rejLog = R.rejLog || []).push(key + ": " + chk.why); if (R.rejLog.length > 40) R.rejLog.shift(); ws[ki] *= 0.4; tot = ws.reduce((a, b) => a + b, 0); continue; }
+    const cap = capOf(ty, key, c, p, rec0, an, sd);
+    return add({ who: p.id, t: H, vid: p.vid, place: an.place || p.village, ty: key, sd, x: an.x, z: an.z, a: an.a, k: an.k, w: rec0.w, v: rec0.v, h: rec0.h, s: rec0.s, cap, ev: an.ev, lb: chk.lb !== 1 ? chk.lb : 0 });
   }
   return null;
 }
+function capOf(ty, key, c, p, rec0, an, sd) {
+  const recent = list().slice(-12).map(q => q.cap); let cap = "";
+  for (let k2 = 0; k2 < 8; k2++) {
+    if (ty.row && Array.isArray(ty.row.cap) && G.capReel) cap = G.capReel(ty.row, key, c, p, rec0, an);
+    else { const vars = Hh.varsFor(key, c, p); vars.place = an.place || vars.place; cap = Hh.flavor(p, ty.cap(c, vars, mulb(sd + k2)), true); }
+    if (!recent.includes(cap)) break;
+  }
+  return cap;
+}
 R.genOne = genOne;
-// each game hour: now and then somebody posts a reel
+// each game hour: toward the day's target (8 to 12), more in the waking hours, fewer in the small ones
 function genHour(H) {
-  const el = A.sunEl(((H % 24) + 24) % 24), day = el > -10, n = Hh.rnd() < (day ? 0.5 : 0.3) ? 1 : 0;
+  const need = dayTarget(H) - countDay(H), hrs = Math.max(1, 24 - (((H % 24) + 24) % 24)), hr = Math.floor(((H % 24) + 24) % 24), act = [0.2, 0.15, 0.1, 0.1, 0.2, 0.4, 0.7, 1, 1.2, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.2, 1, 0.8, 0.5, 0.3][hr];
+  const pr = clamp(need / hrs * 1.5 * act, 0, 0.97); let n = Hh.rnd() < pr ? 1 : 0; if (need > hrs * 1.2 && Hh.rnd() < 0.5) n++;
   for (let i = 0; i < n; i++) { const p = Hh.pickPerson(H); if (p) { try { genOne(H, p); } catch (e) { console.error("TLX reel gen", e); R.err = String(e && e.stack || e); } } }
 }
+// a reel of the moment a photo just showed: the same people, place, hour and light, the clip of the same scene (the director offers it for every kind that has a clip)
+R.fromMoment = (rec, p, c, an, row) => {
+  try {
+    const ty = R.types[rec.k]; if (!ty || !ty.moment || Hh.rnd() > 0.5) return null; const m = mem(); if (m.kinds.slice(-4).includes(rec.k)) return null; if (countDay(rec.h) >= dayTarget(rec.h) + 2) return null;
+    const r0 = Object.assign({ ty: rec.k, id: 1, t: rec.h }, rec), chk = verifyReel(r0, ty); if (!chk.ok) return null;
+    const cap = capOf(ty, rec.k, c, p, rec, an || { place: rec.place }, rec.sd);
+    return add({ who: p.id, t: rec.h + 0.05, vid: p.vid, place: (an && an.place) || p.village, ty: rec.k, sd: rec.sd, x: rec.x, z: rec.z, a: rec.a, w: rec.w, v: rec.v, h: rec.h, s: rec.s, cap, lb: chk.lb !== 1 ? chk.lb : 0, lid: 1 });
+  } catch (e) { console.error("TLX reel from moment", e); R.err = String(e && e.stack || e); return null; }
+};
 R.genHour = genHour;
 // the bus: a storm sets the sled people out, a herd draws a camera, a night ski, a plowed road, the polar night's first dark
 function fromBus(ev, b) {
@@ -336,11 +408,23 @@ const tabOpen = () => A.TABLET.open && A.TABLET.app === "gram" && G.view.tab ===
 R.active = () => !!R.play;
 R.wantPlay = tabOpen;
 R.current = () => { const L = R.list(); return L[clamp(R.cur, 0, Math.max(0, L.length - 1))] || null; };
+// the next reel is prepared while this one plays: planned, its cast built, its materials compiled by a few tiny frames drawn out of sight (the first frames of a new figure or prop draw nothing), so scrolling to it plays at once
+function prefetch() {
+  const L = R.list(), nx = L[R.cur + 1]; if (!nx || (R.next && R.next.id === nx.id)) return;
+  const keep = { tPrev: E.tPrev, reset: E.reset }, r0 = R.renders, ms0 = R.ms.length, c0 = R.calls.length;
+  try {
+    const Sc = planOf(nx); R.next = { id: nx.id, Sc: Sc || null }; if (!Sc) return; R.prefetched = (R.prefetched || 0) + 1;
+    if (Sc.setup) Sc.setup(E); const cv = document.createElement("canvas"); cv.width = 27; cv.height = 48; const g = cv.getContext("2d"); for (let i = 0; i < 3; i++) { E.tPrev = -1; renderAt(Sc, Sc.dur * (0.2 + 0.2 * i), cv, g); }
+  } catch (e) { console.error("TLX reel prefetch", e); R.next = { id: nx.id, Sc: null }; }
+  finally { R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
+}
+R.prefetch = prefetch;
 function stop() { if (R.play) { R.play = null; } actorsShow(false); E.tPrev = -1; R.live = 0; }
 R.stop = stop;
 function start(rec) {
   stop(); if (!rec) return false; R.live = 1; R.planned = (R.planned || 0) + 1; R.maxLive = Math.max(R.maxLive, R.live);
-  const Sc = planOf(rec); if (!Sc) { R.play = { rec, Sc: null, fail: true, t0: performance.now(), last: 0 }; return false; }
+  let Sc = null; if (R.next && R.next.id === rec.id && R.next.Sc) { Sc = R.next.Sc; R.next = null; R.usedNext = (R.usedNext || 0) + 1; } else Sc = planOf(rec);
+  if (!Sc) { R.play = { rec, Sc: null, fail: true, t0: performance.now(), last: 0 }; return false; }
   try { E.prepare(Sc.need); if (Sc.setup) Sc.setup(E); } catch (e) { console.error("TLX reel setup", e); R.err = String(e && e.stack || e); R.play = { rec, Sc: null, fail: true, t0: performance.now(), last: 0 }; return false; }
   R.play = { rec, Sc, t0: performance.now(), last: 0, frames: 0, t: 0 }; E.tPrev = -1; R.cv = null;
   if (!rec.sn) { rec.sn = 1; }
@@ -368,6 +452,7 @@ R.tick = dt => {
   if (now - P.last < 1000 / fps - 2) return;
   if (G.fpsOk === false && !R.force) return;
   R.frameNow();
+  if (P.frames >= 2 && !R.paintedNow()) prefetch();
   if (R.lastKind === "real") { const c = cost(); if (R.ms.length >= 20) { if (c > 34) R.slow = (R.slow || 0) + 0.08; else if (c > 18) R.slow = Math.max(R.slow || 0, 1); else R.slow = Math.max(0, (R.slow || 0) - 0.02); } }
 };
 R.go = n => {                                                                                              // next (+1: older) and previous (-1) reel
@@ -384,25 +469,40 @@ function renderTab(el, ui) {
   R.cur = clamp(R.cur, 0, L.length - 1); const rec = L[R.cur], ty = R.types[rec.ty], p = rec.who === "you" ? null : Hh.who(rec.who), handle = p ? "@" + p.handle : "@nordkinn", D = DIM();
   const bh = H - ui.tabsH, bw = Math.min(el.clientWidth || 360, Math.floor(bh * 9 / 16));
   const cms = rec.cm.slice(0, 2).map(([pid, t]) => { const c = Hh.who(pid); return `<div class="gcm"><b>${esc(c ? c.first : "?")}</b> ${esc(t)}</div>`; }).join("");
-  el.innerHTML = `<div class="gcol" style="height:${H}px">${ui.tabs}<div class="rlbox" style="height:${bh}px"><button type="button" class="rlv" data-tf="rl:v" data-rlv="1" style="width:${bw}px;height:${bh}px" aria-label="Reel ${R.cur + 1} of ${L.length}"><canvas id="rlCv" width="${D[0]}" height="${D[1]}"></canvas>
+  el.innerHTML = `<div class="gcol" style="height:${H}px">${ui.tabs}<div class="rlbox" style="height:${bh}px"><div class="rlv" role="button" tabindex="0" data-tf="rl:v" data-rlv="1" style="width:${bw}px;height:${bh}px" aria-label="Reel ${R.cur + 1} of ${L.length}"><canvas id="rlCv" width="${D[0]}" height="${D[1]}"></canvas>
     <span class="rlc">${R.cur + 1} / ${L.length}</span><span class="rlland">${esc(R.landName(rec.rg))}</span>
     <div class="rlov rlt"><div class="gph">${ui.avatar(p)}<div class="gwho"><b>${esc(handle)}<i class="gchip">${esc(ty.chip)}</i></b><span>${esc(rec.place || "")} · ${ui.ago(rec.t)}</span></div></div></div>
-    <div class="rlov rlb"><div class="gcap">${esc(rec.cap)}</div><div class="gmeta">${rec.lk || 0} likes${rec.cm.length ? " · " + rec.cm.length + " comment" + (rec.cm.length > 1 ? "s" : "") : ""}</div>${cms}</div></button></div></div>`;
+    <div class="rlside"><button type="button" class="rlbtn${rec.my ? " on" : ""}" data-tf="rl:lk" data-rlk="1" aria-label="Like"><i>${rec.my ? "♥" : "♡"}</i><b>${rec.lk || 0}</b></button><button type="button" class="rlbtn" data-tf="rl:cm" data-rlcm="1" aria-label="Comments"><i>💬</i><b>${rec.cm.length}</b></button></div>
+    <div class="rlov rlb"><div class="gcap"><b>${esc(p ? p.first : "Nordkinn")}</b> ${esc(rec.cap)}</div>${cms}</div></div></div></div>`;
   const v = el.querySelector(".rlv"); if (v) {
-    let y0 = null, x0 = 0; v.addEventListener("pointerdown", e => { y0 = e.clientY; x0 = e.clientX; });
+    let y0 = null, x0 = 0; v.addEventListener("pointerdown", e => { if (e.target.closest && e.target.closest(".rlbtn")) { y0 = null; return; } y0 = e.clientY; x0 = e.clientX; });
     v.addEventListener("pointerup", e => { if (y0 === null) return; const dy = e.clientY - y0, dx = e.clientX - x0; y0 = null; if (Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx) * 1.2) R.go(dy < 0 ? 1 : -1); });
     v.addEventListener("wheel", e => { e.preventDefault(); if (!R.wheelT || performance.now() - R.wheelT > 350) { R.wheelT = performance.now(); R.go(e.deltaY > 0 ? 1 : -1); } }, { passive: false });
+    v.addEventListener("click", e => { if (e.target.closest && e.target.closest(".rlbtn")) return; G.view.reelHold = !G.view.reelHold; v.classList.toggle("hold", !!G.view.reelHold); });
+    const lk = v.querySelector("[data-rlk]"); if (lk) lk.addEventListener("click", e => { e.stopPropagation(); R.like(rec); const b = v.querySelector("[data-rlk]"); b.classList.toggle("on", !!rec.my); b.firstChild.textContent = rec.my ? "♥" : "♡"; b.lastChild.textContent = rec.lk || 0; });
+    const cb = v.querySelector("[data-rlcm]"); if (cb) cb.addEventListener("click", e => { e.stopPropagation(); openSheet(rec); });
   }
   const s = S(); if (s) rec.sn = 1;
+  if (G.view.sheet < 0 && -G.view.sheet === rec.id) openSheet(rec);
 }
+R.like = rec => { rec.my = rec.my ? 0 : 1; rec.lk = Math.max(0, (rec.lk || 0) + (rec.my ? 1 : -1)); return rec.my; };
+// the comments sheet over the reel (the same sheet as Local's), the clip playing on beneath it
+function openSheet(rec) {
+  const col = document.querySelector("#tabS .gcol"); if (!col) return; const old = col.querySelector(".gsheet"); if (old) old.remove(); G.view.sheet = -rec.id; const per = rec.who === "you" ? null : Hh.who(rec.who);
+  const av = c => { const ini = c ? ((c.first || "?")[0] + ((c.last || "")[0] || "")).toUpperCase() : "?", hue = c ? Math.floor(Hh.hash01("av" + c.id) * 360) : 200; return `<span class="gav" style="background:hsl(${hue},48%,40%)">${esc(ini)}</span>`; };
+  const cms = rec.cm.map(([pid, t]) => { const c = Hh.who(pid); return `<div class="gmsg">${av(c)}<div class="gmb"><b>${esc(c ? c.first + " " + (c.last || "") : "?")}</b><p>${esc(t)}</p></div></div>`; }).join("") || `<div class="gempty">No comments yet.</div>`;
+  const d = document.createElement("div"); d.className = "gsheet"; d.innerHTML = `<div class="gshh"><span>${esc(per ? "@" + per.handle : "")} · ${rec.cm.length} comments</span><button type="button" class="tml" data-tf="gs:close" id="gsClose">Close</button></div><div class="gshl" id="gShl"><div class="gcap" style="margin:4px 0 8px;-webkit-line-clamp:unset">${esc(rec.cap)}</div>${cms}</div>`;
+  col.appendChild(d); const cl = d.querySelector("#gsClose"); const close = () => { d.remove(); G.view.sheet = 0; A.TABLET.focus = "rl:v"; A.TABLET.paintFocus(false); }; cl.addEventListener("click", close); A.TABLET.focus = "gs:close"; A.TABLET.paintFocus(false);
+}
+R.openSheet = openSheet;
 R.renderTab = renderTab;
-R.css = `#tabS .rlbox{display:flex;justify-content:center;background:#04080e}#tabS .rlv{position:relative;display:block;padding:0;border:0;background:#06101a;cursor:pointer;touch-action:none;overflow:hidden}#tabS .rlv.tfoc{outline:2px solid var(--bandline);outline-offset:-2px}
+R.css = `#tabS .rlbox{display:flex;justify-content:center;background:#04080e}#tabS .rlv{position:relative;display:block;padding:0;border:0;background:#06101a;cursor:pointer;touch-action:none;overflow:hidden}#tabS .rlv.tfoc{outline:2px solid var(--bandline);outline-offset:-2px}#tabS .rlv.hold:after{content:"⏸";position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:34px;opacity:.7;color:#fff;text-shadow:0 1px 4px #000}#tabS .rlside{position:absolute;right:6px;bottom:96px;display:flex;flex-direction:column;gap:10px;align-items:center}#tabS .rlbtn{display:flex;flex-direction:column;align-items:center;border:0;background:rgba(0,0,0,.35);color:#fff;border-radius:99px;padding:6px 7px;cursor:pointer;font:inherit;text-shadow:0 1px 3px #000}#tabS .rlbtn i{font-style:normal;font-size:20px;line-height:1}#tabS .rlbtn b{font-size:11px}#tabS .rlbtn.on i{color:#ff5a6a}#tabS .rlbtn.tfoc{outline:2px solid var(--bandline)}
 #tabS .rlv canvas{display:block;width:100%;height:100%;object-fit:cover}#tabS .rlc{position:absolute;right:8px;top:8px;font-size:11px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.55);color:#dfe9f2}#tabS .rlland{position:absolute;right:8px;top:30px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:rgba(20,60,90,.7);color:#bfe2ff}
 #tabS .rlov{position:absolute;left:0;right:0;text-align:left;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}#tabS .rlt{top:0;padding:8px 10px 24px;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0))}#tabS .rlb{bottom:0;padding:26px 10px 10px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.7))}#tabS .rlb .gcap{font-size:13px;line-height:1.3}#tabS .rlb .gmeta,#tabS .rlb .gcm{font-size:11px;opacity:.9}#tabS .rlov .gwho span{color:#d8e6f2}`;
 // keyboard, d-pad and the right stick all arrive as TABLET.move(dx, dy): on the reel, up and down are previous and next; anywhere else the tablet moves its cursor as always
 function hookMove() {
   const TB = A.TABLET; if (TB.__reelMove) return; const mv = TB.move; TB.__reelMove = true;
-  TB.move = function (dx, dy) { try { if (tabOpen() && this.focus === "rl:v" && dy) { const n = R.list().length; if (dy > 0 && R.cur < n - 1) { R.go(1); this.focus = "rl:v"; return; } if (dy < 0 && R.cur > 0) { R.go(-1); this.focus = "rl:v"; return; } } } catch (e) { console.error("TLX reel nav", e); } return mv.call(this, dx, dy); };
+  TB.move = function (dx, dy) { try { if (tabOpen() && G.view.sheet < 0) return mv.call(this, dx, dy); if (tabOpen() && this.focus === "rl:v" && dy) { const n = R.list().length; if (dy > 0 && R.cur < n - 1) { R.go(1); this.focus = "rl:v"; return; } if (dy < 0 && R.cur > 0) { R.go(-1); this.focus = "rl:v"; return; } } } catch (e) { console.error("TLX reel nav", e); } return mv.call(this, dx, dy); };
 }
 R.init = (api, gram, helpers) => {
   A = api; W = api.world; T = api.THREE; G = gram; Hh = helpers; R.H = helpers; R.A = api; scene = api.scene; R.ready = false; R.err = ""; R.play = null; R.cur = 0; R.slow = 0;

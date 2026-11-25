@@ -346,8 +346,9 @@ G.capFor = capFor;
 const tv3 = () => G._tv || (G._tv = [new T.Vector3(), new T.Vector3(), new T.Vector3()]);
 // The phone's way of seeing a dark scene, with the lights the game already has: the key light swung round to the camera's side (a fill on the face), the sky fill and the exposure lifted.
 // Nothing is added to the scene (no shader recompiles); gramShot's updSky puts intensity, colour, sky fill and exposure back, litOff the key light's place.
-function litPlan(Sc, rec, boost) {
+function litPlan(Sc, rec, boost, skyOnly) {
   const R = window.TLXRL, E = R.E, L = api.gram.lights; if (!L) return;
+  if (skyOnly) { E.lit = () => skyDress(E, rec, elAt(rec.h), Sc.storm !== undefined ? Sc.storm : rec.s || 0); E.litOff = () => { E.lit = null; E.litOff = null; }; return; }
   const el = elAt(rec.h), night = clamp((3 - el) / 14, 0, 1), P = Sc.light || {}, b = boost || 1;
   const fill = (P.fill !== undefined ? P.fill : 0.25 + 1.25 * night) * b, expo = (P.exp !== undefined ? P.exp : 0.7 * night) * (b > 1 ? 1.3 : 1), up = (P.hemi !== undefined ? P.hemi : 0.6 * night) * b, warm = P.warm || 0, swing = P.swing !== undefined ? P.swing : clamp(night * 2.5, 0, 1);
   let sp = null, st = null;
@@ -524,11 +525,14 @@ function makeOne(t, vid, opt) {
     s.last[p.id] = t; s.day[p.id] = calAt(t).day; for (const q of rec.w) if (q !== "you") s.day[q] = calAt(t).day;
     const post = addPost({ k: key, who: p.id, t, vid: p.vid, place: vars.place, cap, rc: rec, cm: [], lb: chk.lb !== 1 ? chk.lb : 0, pin: opt.pin ? opt.pinSrc || "pin" : 0, ev: opt.ev || 0, you: opt.you ? 1 : 0, wide: row.wide ? 1 : 0 });
     post.cm = makeComments(rec, row, p, vars); post.lk = likesOf(post, p); G.lastM = chk.m || null; post.sh = r2(chk.h || 0); post.lm = chk.m ? Math.round(chk.m.sub) : 0;
+    if (!opt.noReel && window.TLXRL && TLXRL.fromMoment) TLXRL.fromMoment(rec, p, c, an, row);                // the clip of the same moment, when the director takes it up
     return post;
   }
   return null;
 }
 G.makeOne = makeOne;
+// a reel's caption: the same per-kind lines as the photo's, filled from the moment (who, where, how much)
+G.capReel = (row, key, c, p, rec, an) => { const base = varsFor(key, c, p), pics = (rec.w || []).map(who).filter(Boolean); const v = Object.assign(base, { _H: rec.h, place: (an && an.place) || p.village, first: p.first, pic: pics.map(q => q.first).join(" and ") || p.first, pic1: pics[0] ? pics[0].first : p.first, pic2: pics[1] ? pics[1].first : "", fam: TLXN.homeOf(p) ? TLXN.homeOf(p).surname : "", hr: hourWord(calAt(rec.h).h) }); if (row.vars) Object.assign(v, row.vars(c, rec, an || {}, p)); return capFor(row, p, v); };
 function genHour(H) {
   const rate = rateAt(H), n = Math.floor(rate + rnd()); let made = 0;
   for (let i = 0; i < n; i++) {
