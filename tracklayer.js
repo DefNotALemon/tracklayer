@@ -17752,14 +17752,14 @@ function gramShot(o) {
   const r = renderer, pr = r.getPixelRatio(), cv = r.domElement, k = Math.min(1, (cv.width - 1) / o.w, (cv.height - 1) / o.h);   // a small buffer (the frame governor's low pixel ratio) renders smaller and is scaled up
   const W_ = Math.max(8, Math.floor(o.w * k / pr)), H_ = Math.max(8, Math.floor(o.h * k / pr)), bw = Math.round(W_ * pr), bh = Math.round(H_ * pr); if (bw > cv.width || bh > cv.height) return false;
   const h0 = GS.hour, s0 = GS.storm, skyP = sky.position.clone(), starP = stars.position.clone(), rt0 = r.getRenderTarget(), vp = new THREE.Vector4(), sc = new THREE.Vector4(), st0 = r.getScissorTest();
-  r.getViewport(vp); r.getScissor(sc); let ok = false;
+  r.getViewport(vp); r.getScissor(sc); let ok = false; const nu0 = r.shadowMap.needsUpdate;
   try {
     GS.hour = o.hour; GS.storm = o.storm; updSky(); sky.position.copy(o.cam.position); stars.position.copy(o.cam.position);
-    r.setRenderTarget(null); r.setViewport(0, 0, W_, H_); r.setScissor(0, 0, W_, H_); r.setScissorTest(true); r.clear(); r.render(scene, o.cam);
+    r.setRenderTarget(null); r.setViewport(0, 0, W_, H_); r.setScissor(0, 0, W_, H_); r.setScissorTest(true); r.clear(); if (o.noShadow) r.shadowMap.needsUpdate = false; if (o.pre) o.pre(bw, bh); r.render(scene, o.cam);
     o.ctx.drawImage(cv, 0, cv.height - bh, bw, bh, 0, 0, o.w, o.h); ok = true;
   } finally {
     r.setRenderTarget(rt0); r.setViewport(vp); r.setScissor(sc); r.setScissorTest(st0);
-    GS.hour = h0; GS.storm = s0; updSky(); sky.position.copy(skyP); stars.position.copy(starP); r.shadowMap.needsUpdate = true;
+    GS.hour = h0; GS.storm = s0; updSky(); sky.position.copy(skyP); stars.position.copy(starP); r.shadowMap.needsUpdate = o.noShadow ? nu0 : true;       /* a reel frame never uses up (or asks for) the main view's shadow pass */
   }
   return ok;
 }

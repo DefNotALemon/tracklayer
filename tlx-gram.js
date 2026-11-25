@@ -20,7 +20,7 @@
 "use strict";
 const CAP = 120, CHAT = 60, BACKLOG = 20;
 let api = null, W = null, T = null;
-const G = { ready: false, err: "", view: { tab: "feed", post: null }, genLog: [], renders: 0, renderMs: [], painted: 0, fpsOk: null, cache: new Map(), busy: false, shots: 0, notes: 0, last: null };
+const G = { framing: { tries: 0, ok: 0, rejected: 0, dropped: 0, why: [] }, ready: false, err: "", view: { tab: "feed", post: null }, genLog: [], renders: 0, renderMs: [], painted: 0, fpsOk: null, cache: new Map(), busy: false, shots: 0, notes: 0, last: null };
 window.TLXGR = G;
 const S = () => TLX.state("gram");
 TLX.option({ id: "gramnotes", name: "Gram notifications", hint: "Gram pings the tablet now and then (at most one a day) for something big: a road you opened, a rescue, a storm. Off = no pings; the feed still fills.", sys: "gram" });
@@ -178,7 +178,7 @@ const SUBJ_KEYS = Object.keys(SUBJ);
 
 /* ---------------- the recipe for each subject ---------------- */
 function lightWord(c) { return c.el < -3 ? "Blue hour" : c.el < 1 ? "Sunrise" : "Low sun"; }
-function recipeFor(key, c) {
+function recipeRaw(key, c) {
   const p = c.p, v = c.vil, H = c.H, st = c.storm, o = { h: H, s: st };
   const eye = 1.7;
   if (key === "peak" || key === "sledsummit") {
@@ -218,7 +218,7 @@ function recipeFor(key, c) {
   if (key === "coffee" || key === "aurora" || key === "snowdepth") {
     const spot = openSpot(p.x, p.z, 3); if (!spot) return null;
     if (key === "snowdepth") return aimAt(spot[0], spot[1], 0.9, p.x, p.z, 1.2, Object.assign(o, { f: 52 }));
-    let yaw = key === "aurora" ? -Math.PI / 2 : (seaDir(spot[0], spot[1]) ?? yawTo(spot[0], spot[1], v.x, v.z) + Math.PI);
+    let yaw = key === "aurora" ? -Math.PI / 2 + (c.tr ? (c.tr % 2 ? 1 : -1) * 0.4 * Math.ceil(c.tr / 2) : 0) : (seaDir(spot[0], spot[1]) ?? yawTo(spot[0], spot[1], v.x, v.z) + Math.PI);
     if (key === "coffee") { let ok = false; for (let k = 0; k < 9 && !ok; k++) { const y2 = yaw + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.55; if (clearAhead(spot[0], spot[1], y2, 30)) { yaw = y2; ok = true; } } if (!ok) return null; }
     return look(spot[0], spot[1], key === "coffee" ? 1.25 : 1.6, yaw, key === "aurora" ? 0.5 : -0.01, 300, Object.assign(o, { f: key === "aurora" ? 70 : 58 }));
   }
@@ -240,6 +240,93 @@ function recipeFor(key, c) {
   }
   return null;
 }
+
+
+/* ---------------- composition: every picture type has a rule, and a viewpoint is checked (by height sampling and projection, no rendering) before it is accepted ----------------
+   Views: the horizon in the upper or lower third, and something in the foreground (the poster, a pole, a cabin, a tree, a sled) or strong relief; never flat empty snow, never a hillside filling the frame.
+   Wildlife: the animal at least ~35% of the frame height. Portraits (a person, a skier, a kid on a sled): the figure at least ~40%. A sled: at least ~28%. A crowd: the tallest figure 22%.
+   A viewpoint that fails is re-picked (a few tries); the lens is tightened first (a longer lens costs nothing), then the camera comes closer. */
+const PH = { w: 1.55, k: 1.5, s: 1.3, "q:reindeer": 1.5, "q:moose": 2.3, "q:fox": 0.55, "q:hare": 0.4 };
+const CAT = key => key === "reindeerlens" || key === "wildlife" ? "wild" : key === "wishlake" ? "crowd" : key === "sledsummit" || key === "wishskip" || key === "wishstorm" || key === "crash" ? "sled" : key === "kidssled" || key === "catch" || key === "skitrail" || key === "groomtrail" || key === "rescue" ? "person" : key === "peak" ? "peak" : key === "sunrise" || key === "aurora" || key === "sky" ? "sky" : key === "fjordblow" || key === "storm" || key === "ferry" ? "sea" : key === "coffee" || key === "snowdepth" ? "house" : "any";
+const NEED = { wild: 0.36, person: 0.41, sled: 0.28, crowd: 0.22 };
+let _tv = null;
+function tv() { return _tv || (_tv = [new T.Vector3(), new T.Vector3(), new T.Vector3()]); }
+function propCover(rc, cam, pr) {
+  const V = tv(), [k, x, z] = pr, y = surf(x, z), h = PH[k] || 1.3; V[0].set(x, y, z).project(cam); V[1].set(x, y + h, z).project(cam);
+  return { h: Math.abs(V[1].y - V[0].y) / 2, cx: (V[0].x + V[1].x) / 2, ok: V[0].z < 1 && V[1].z < 1 };
+}
+function skyline(rc, cam, aspect) {
+  const V = tv(), cx = rc.c[0], cz = rc.c[1], cy = surf(cx, cz) + rc.c[2]; cam.getWorldDirection(V[2]); const ha = Math.atan2(V[2].z, V[2].x), th = Math.tan(rc.f * Math.PI / 360) * aspect, rows = [], n = 7; let nearHill = false;
+  for (let i = 0; i < n; i++) {
+    const u = -0.85 + 1.7 * i / (n - 1), az = ha + Math.atan(u * th), dx = Math.cos(az), dz = Math.sin(az); let mx = -9, hd = 0;
+    for (let d = 20; d <= 7000; d *= 1.18) { const e = (surf(cx + dx * d, cz + dz * d) - cy) / d; if (e > mx) { mx = e; hd = d; } }
+    const ang = Math.atan(mx); V[0].set(cx + dx * 2000 * Math.cos(ang), cy + 2000 * Math.sin(ang), cz + dz * 2000 * Math.cos(ang)).project(cam); rows.push((1 - V[0].y) / 2);
+    if (i === 3 && hd < 90 && mx > 0.12) nearHill = true;
+  }
+  const sorted = rows.slice().sort((a, b) => a - b); return { rows, row: sorted[3], spread: sorted[n - 1] - sorted[0], nearHill };
+}
+function foreground(rc, cam, aspect) {
+  const cx = rc.c[0], cz = rc.c[1], ax = rc.a[0] - cx, az = rc.a[1] - cz, L = Math.hypot(ax, az) || 1, dx = ax / L, dz = az / L; let mn = 1e9, mxh = -1e9, ob = false, near = false;
+  for (let d = 3; d <= 30; d += 3) { const x = cx + dx * d, z = cz + dz * d, h = surf(x, z); mn = Math.min(mn, h); mxh = Math.max(mxh, h); if (d <= 18 && W.obNear(x, z, 2.2 + d * 0.12)) ob = true; }
+  for (const pr of rc.p || []) if (Math.hypot(pr[1] - cx, pr[2] - cz) < 18) near = true;
+  return { relief: mxh - mn, ob, near, any: ob || near || mxh - mn > 1.2 };
+}
+// the horizon row (0 top, 1 bottom) a view wants, by what it is of: the sky leads the sunrise and the aurora, the land leads a view with a poster in it
+function horizonWant(key, rc) { const c = CAT(key); return c === "sky" ? 0.7 : c === "sea" ? 0.36 : c === "peak" ? (rc.p && rc.p.length ? 0.33 : 0.36) : c === "house" ? 0.34 : 0.35; }
+// move the aim up or down so the skyline sits on the wanted row (the photographer tilts the camera)
+function reframeHorizon(rc, key) {
+  const cam = shotCam(rc, 100, 100), sk = skyline(rc, cam, 1); if (!(sk.row === sk.row)) return false;
+  const cx = rc.c[0], cz = rc.c[1], cy = surf(cx, cz) + rc.c[2], ax = rc.a[0], az = rc.a[1], D = Math.hypot(ax - cx, az - cz) || 1, th = Math.tan(rc.f * Math.PI / 360), want = horizonWant(key, rc);
+  const V = tv(); V[0].set(cx + Math.cos(0) * 0, cy, cz); // the skyline's world elevation = the pitch that puts it on row 0.5, plus what the row difference is
+  cam.getWorldDirection(V[1]); const pitch = Math.asin(clamp(V[1].y, -1, 1)), ndc = 1 - 2 * sk.row, angH = pitch + Math.atan(ndc * th), p2 = angH - Math.atan((1 - 2 * want) * th);
+  rc.a[2] = r1(Math.max(-30, Math.min(400, cy + Math.tan(clamp(p2, -1.0, 1.2)) * D - surf(ax, az)))); return true;
+}
+function frameStats(rc, aspect = 1) {
+  const cam = shotCam(rc, 100 * aspect, 100), st = { cat: "" }; st.sub = { wild: 0, person: 0, sled: 0, crowd: 0 }; st.ctr = 0;
+  for (const pr of rc.p || []) { const k = pr[0], cv = propCover(rc, cam, pr), cat = k.slice(0, 2) === "q:" ? "wild" : k === "s" ? "sled" : "person"; if (cv.ok && Math.abs(cv.cx) < 0.8 && cv.h > st.sub[cat]) st.sub[cat] = cv.h; }
+  st.sub.crowd = Math.max(st.sub.person, 0); st.sk = skyline(rc, cam, aspect); st.fg = foreground(rc, cam, aspect); return st;
+}
+// does this recipe frame its subject? { ok, why, st }
+function frameCheck(rc, key) {
+  const cat = CAT(key), st = frameStats(rc), why = []; if (!rc || rc.pt) return { ok: true, why, st };
+  const props = rc.p || [], hasW = props.some(q => q[0].slice(0, 2) === "q:"), hasP = props.some(q => q[0] === "w" || q[0] === "k"), hasS = props.some(q => q[0] === "s");
+  if (cat === "wild" || hasW) { if (st.sub.wild < NEED.wild) why.push("animal " + Math.round(st.sub.wild * 100) + "% of the frame"); }
+  else if (cat === "crowd") { if (st.sub.person < NEED.crowd) why.push("crowd " + Math.round(st.sub.person * 100) + "%"); }
+  else if (cat === "sled" || (hasS && cat !== "person" && !hasP)) { if (st.sub.sled < NEED.sled) why.push("sled " + Math.round(st.sub.sled * 100) + "%"); }
+  else if (cat === "person" || (cat === "peak" && hasP)) { if (st.sub.person < NEED.person) why.push("figure " + Math.round(st.sub.person * 100) + "%"); }
+  const view = cat === "peak" || cat === "sky" || cat === "sea" || cat === "house" || cat === "any";
+  const subject = (cat === "wild" || hasW || hasP || hasS);
+  if (view || !subject) {
+    const r = st.sk.row; if (!(r === r)) why.push("no horizon");
+    else if (st.sk.nearHill || r < 0.1) why.push("a hillside fills the frame");
+    else if (cat !== "sea" && !((r > 0.14 && r < 0.4) || (r > 0.6 && r < 0.88))) why.push("horizon at row " + r.toFixed(2));
+    if (!subject && cat !== "sea" && !st.fg.any && st.sk.spread < 0.12) why.push("flat empty snow");
+  }
+  return { ok: why.length === 0, why, st };
+}
+// tighten the lens, then come closer, until the subject covers what its type needs
+function fitSubjects(rc, key) {
+  const cat = CAT(key), props = rc.p || []; if (!props.length || rc.pt) return rc;
+  const wild = props.some(q => q[0].slice(0, 2) === "q:"), want = wild ? NEED.wild + 0.04 : cat === "crowd" ? NEED.crowd + 0.03 : cat === "sled" ? NEED.sled + 0.03 : NEED.person + 0.03;
+  for (let it = 0; it < 7; it++) {
+    const cam = shotCam(rc, 100, 100); let best = 0; for (const pr of props) { const k = pr[0]; if ((wild ? k.slice(0, 2) === "q:" : cat === "sled" ? k === "s" : (k === "w" || k === "k")) && true) { const cv = propCover(rc, cam, pr); if (cv.ok && Math.abs(cv.cx) < 1.5) best = Math.max(best, cv.h); } }
+    if (best <= 0.02 || best >= want) return rc;
+    if (rc.f > 30.5) { const ratio = want / best, f2 = 2 * Math.atan(Math.tan(rc.f * Math.PI / 360) / ratio) * 180 / Math.PI; rc.f = r1(Math.max(30, f2)); continue; }
+    const k = clamp(best / want, 0.3, 0.97), tx = rc.a[0], tz = rc.a[1], nx = tx + (rc.c[0] - tx) * k, nz = tz + (rc.c[1] - tz) * k; if (!openOk(nx, nz, 0.8) && !rc.q) return rc; rc.c[0] = r1(nx); rc.c[1] = r1(nz);
+  }
+  return rc;
+}
+function recipeFor(key, c) {
+  let last = null;
+  for (let tr = 0; tr < 6; tr++) {
+    c.tr = tr; let rc = null; try { rc = recipeRaw(key, c); } catch (e) { console.error("TLX gram recipe", e); G.err = String(e && e.stack || e); }
+    if (!rc) continue; if (rc.pt) return rc; rc = fitSubjects(rc, key);
+    const cat = CAT(key); if (cat === "peak" || cat === "sky" || cat === "sea" || cat === "house" || cat === "any") { try { reframeHorizon(rc, key); } catch (e) { } }
+    const fc = frameCheck(rc, key); G.framing.tries++; if (fc.ok) { G.framing.ok++; if (tr) G.framing.rejected += tr; return rc; } last = fc; G.framing.why.push(key + ": " + fc.why.join("; ")); if (G.framing.why.length > 60) G.framing.why.shift();
+  }
+  G.framing.dropped++; return null;
+}
+G.frameCheck = frameCheck; G.frameStats = frameStats; G.fitSubjects = fitSubjects; G.reframeHorizon = reframeHorizon; G.recipeRaw = recipeRaw; G.cat = CAT;
 
 /* ---------------- people, relatives and comments ---------------- */
 const kinWord = (c, p) => {                                                                          // how commenter c would name poster p
@@ -322,12 +409,110 @@ function postAmbient(H, p) {
   const recent = posts().slice(-20).map(q => q.cap); let cap = ""; for (let tryN = 0; tryN < 9; tryN++) { cap = say(p, sub.bases, vars, sub.nor); if (!recent.includes(cap)) break; if (tryN === 8) cap += ` (${calAt(H).time})`; }
   s.last[p.id] = H;
   const post = addPost({ who: p.id, t: H, vid: p.vid, place: key === "peak" || key === "sledsummit" ? vars.look : key === "wishlake" ? "a lake near " + p.village : p.village, sj: key, cap, rc, chip: sub.chip, wish: !!sub.wish, n: +vars.n });
-  if (post && rnd() < 0.4) chatPost(p.vid, p.id, say(p, sub.chat, vars, null, 2), "amb", H);
+  if (post && rnd() < 0.4) { const pool = sub.chat.map(t => ["", t]), L = pickLine(pool, "amb_" + key, p, p.vid, vars); chatPost(p.vid, p.id, L.t, "amb", H, 0, false, L.id); }
   return post;
 }
+function reelHour(H) { if (window.TLXRL && TLXRL.ready) TLXRL.genHour(H); }
 function genHour(H) {
   const el = elAt(H), day = el > -10, n = day ? 2 + Math.floor(rnd() * 3) : (rnd() < 0.7 ? 1 : 0);
   for (let i = 0; i < n; i++) { const p = pickPerson(H); if (p) { try { postAmbient(H, p); } catch (e) { console.error("TLX gram ambient", e); G.err = String(e && e.stack || e); } } }
+}
+
+
+/* ---------------- how people talk in the Local chat ----------------
+   Events come out as a person saying it, not as a notice: first person, short, a reaction, a question, a tease, now and then an emoji. Every kind of event has a pool of lines in
+   different registers (d dry, w warm, t terse, c chatty, y wry, e earnest); the speaker's own voice picks first, a child writes like a child (lower case, "lol"), and a line that
+   was used in the last 30 messages of that village is not used again if another will do (never more than twice). Each message carries its line's id (m[6]) so a test can count. */
+const TK = {
+  ski: [["w", "Just skied {trail}, {km} km, and the track was {word}! ❄️"], ["c", "ok so {trail} this morning, {km} km, {word} track, {cold} out, I am STARVING now 😅"], ["d", "{trail}. {km} km. The track's {word}. I've had worse."], ["t", "{trail}, {km} km. {word}."], ["y", "Did {km} km on {trail}. My knees have filed a complaint 🙃"], ["e", "Out on {trail} for {km} km. Track was {word}, the air {cold}. Good to be out."], ["wc", "{km} km on {trail} and I only fell over once 😄"], ["c", "anyone want to ski {trail} tomorrow? did {km} km today, {word} track!!"], ["dy", "{trail} was {word} this morning. Don't tell everyone, I like the quiet."], ["we", "Skiing {trail} at the moment. {cold} but so pretty."]],
+  groom: [["wc", "{a} has been over {trail} with the groomer, it's lovely now! 🙌"], ["d", "went up {trail} this morning, somebody had set it. {a}, I assume. Noted, and appreciated."], ["t", "{a}, was that you on {trail}? lovely tracks"], ["ey", "Somebody set {trail} before I was up. It was {a}. Takk, whoever's reading this."], ["wc", "new corduroy on {trail} thanks to {a} ⛷️ who's coming?"]],
+  trail: [["dt", "{trail} is {word} right now. Skip it today."], ["wc", "{trail} is {word} at the moment, maybe wait a day? 🥲"], ["ey", "Heads up, {trail} is {word}. Somebody should set it."], ["c", "has anyone been on {trail}? it's {word}. i walked part of it, not fun"], ["y", "{trail} is {word}. The løypelag will hear about it."]],
+  shut: [["dt", "drove out to {road}, turned round. drifts over the whole thing. not today"], ["wc", "{road} is closed, just watched the barrier go across 😬"], ["e", "My brother just called from {road}, they have shut it. Tell your people to wait for the plow, please."], ["c", "okay so {road} is CLOSED. i was literally about to drive. anyone seen a plow?"], ["y", "{road} closed. Good thing I wanted a quiet day anyway 😌"], ["wt", "{road} is shut again, so we are staying in. soup on, who is coming over? 🍲"]],
+  open: [["wc", "plow just went past our window, {road} is open again 🙌"], ["d", "so they finally got {road} open. only took all morning"], ["t", "plow went by. {road} is open. finally"], ["ce", "{road} open again!! i just saw the first car go through, tell your cousins"], ["y", "the plow came and I will now pretend I was not worried about {road} 😅"], ["we", "heard the plow come through, so {road} should be fine now. drive slow and wave at the driver 🚜"]],
+  convoy: [["dt", "Convoy for {road} leaves {at}. I'll be in the queue."], ["wc", "convoy on {road} at {at}, who's driving? we can share 🚗"], ["e", "The convoy on {road} goes at {at}. Please be there early."], ["cy", "{road} convoy {at}. last time I waited forty minutes, so I'm bringing a thermos ☕"]],
+  convoyrun: [["dt", "Convoy's on {road} now. Fingers crossed."], ["wc", "The convoy just left for {road}! Safe trip everyone 🙏"], ["ce", "convoy is rolling on {road}, I can see the lights from the kitchen"]],
+  plow: [["wc", "{a} has cleared {road} 🙌 Takk!"], ["d", "was out at six and {a} had already been along {road}. fine work"], ["ce", "ok {a} just opened {road} for us, you absolute legend"], ["ey", "Thank you {a}. {road} is open and it matters."], ["t", "{a}!! thank you for {road} 🙏"]],
+  stormstart: [["dt", "Wind's picking up from the {from}. Bringing the boat in."], ["wc", "storm coming in from the {from}! I'm filling the woodbox 🪵"], ["e", "A storm is on its way from the {from}. Check on your neighbours."], ["c", "you can hear it already, from the {from}. i'm not going anywhere today"], ["y", "Storm from the {from}. Good time to learn knitting 🧶"], ["wt", "Storm from the {from}. Stay in."]],
+  stormend: [["wc", "storm's through! {cm} cm in the yard, and my shovel is crying 😩"], ["d", "{ms} m/s in the gusts, they say. {cm} cm out the door. the shed door is still on, barely"], ["c", "okay that was something. {ms} m/s in the gusts and {cm} cm outside the door!!"], ["e", "That is over, thank goodness. {ms} m/s at the worst and {cm} cm outside. Could someone check Mormor's roof for me?"], ["t", "well. {cm} cm. my back hurts already"], ["y", "{cm} cm. I will be shovelling until spring ⛏️"]],
+  ferry: [["dt", "No {dir} ferry today. The mail can wait."], ["wc", "ferry's cancelled for the weather, {dir}. coffee at the quay instead? ☕"], ["e", "The {dir} ferry is cancelled. Please let your visitors know."], ["cy", "no {dir} boat AGAIN. i have parcels on it. of course."]],
+  ferrylate: [["d", "The {dir} ferry is {delay} h late. Of course."], ["wc", "{dir} ferry is {delay} h late, I'm having another coffee 😅"], ["e", "{dir} ferry running {delay} h late. Plan accordingly."], ["t", "Ferry {delay} h late."]],
+  wild_reindeer: [["wc", "reindeer on the road by {place}, go slow! 🦌"], ["d", "The herd is back at {place}. The road is theirs."], ["e", "Reindeer near {place}. Please drive carefully and keep the dogs in."], ["c", "OKAY the whole herd is by {place} again, the kids are at the window and i cannot get them away"], ["t", "Reindeer at {place}. Slow down."], ["y", "Reindeer at {place}, blocking traffic like they own the place. They do."]],
+  wild_moose: [["wc", "a moose by {place}, in someone's yard I think 😮"], ["d", "Moose near {place}. Big one."], ["e", "A moose is near {place}. Keep your distance, especially with a calf."], ["cy", "there is a MOOSE in the garden at {place} and I am fully inside the house"]],
+  wild_fox: [["wy", "That fox is at the bins by {place} again. It knows the schedule."], ["c", "fox at {place}!! so fluffy, so guilty 🦊"], ["dt", "Fox at {place}."], ["we", "A fox at {place}, perfectly white. Lovely."]],
+  wild_other: [["wd", "Saw a {kind} near {place}. Thought you would want to know."], ["ce", "ok there is a {kind} near {place}, don't ask me what it is doing"], ["t", "{kind}, {place}."]],
+  rescuedone: [["wc", "{a} brought the stranded rider in safe! Thank you 🙏"], ["e", "{a} got the rider home. Thank you. That's how we do it here."], ["d", "Rescue done by {a}. Well done."], ["c", "did you hear?? {a} went out and fetched that rider. what a day"]],
+  rescuecall: [["e", "Rescue call out on {trail}. Anyone close, please check in."], ["dt", "Call out on {trail}. Someone's down."], ["wc", "heard on the scanner, someone's in trouble on {trail}. anyone near? 🙏"]],
+  rescuelift: [["we", "Helicopter just went over, they've taken someone off {trail}. Hope they're ok."], ["dt", "Helicopter from Banak. {trail}."], ["cy", "the helicopter just went right over the roof, taking someone off {trail}, I hope they're all right"]],
+  rescueother: [["ew", "Another crew took someone off {trail}. Good to know they're ok."], ["dt", "Somebody's been taken off {trail} already, so no need to go out."]],
+  bog: [["wc", "{a} sat down in a drift outside {place}, anyone got a rope? 😅"], ["yd", "Saw {a}'s sled sunk in the drift at {place}. Somebody go and laugh, then help."], ["ce", "{a} is stuck in the snow outside {place} and I am watching from the window with tea 🍵"]],
+  crash: [["we", "{a} came off hard near {place}. Hope you're in one piece."], ["cy", "heard {a} went over the bars at {place}, hope everything is still attached 😬"], ["dt", "Big crash near {place}: {a}. Check on them."]],
+  firstlight: [["wc", "THE SUN. It came over the fell at noon. I stood in the road like a fool ☀️"], ["e", "I saw the sun over the fell today and I may have cried a little. We made it through, all of us."], ["cy", "sun!! actual sun!! the whole street was out looking at it 😭"], ["dt", "sun's back. about time, I was starting to talk to the fridge"]],
+  polarnight: [["dt", "No sun today. Polar night's here."], ["wc", "polar night starts today, time for candles and cardamom buns 🕯️"], ["ey", "The sun did not come up. Light the lamps, check on the old ones."]],
+  job: [["wc", "{a} groomed the trail to {place}, it's a pleasure to ski! ⛷️"], ["d", "New trail to {place} from {a}. Appreciated."], ["ce", "{a} did the trail to {place}. thank you!!"]],
+  complaint_hit: [["wc", "someone ran into me on {trail}. On a SKI TRAIL. I filed a complaint 😤"], ["dy", "A sled ran into me on {trail}. The løypelag will hear about it."], ["e", "I was hit by a sled on {trail}. Please slow down near skiers."]],
+  complaint_fast: [["dc", "sled came past me way too fast on {trail}. I've told the løypelag."], ["wy", "{trail} is for skis and quiet. A sled just went by at full throttle 🙄"], ["e", "Please slow down for skiers on {trail}. It's a shared track."]],
+  skidag: [["wc", "skidag on {trail} {when}, {sf} to {st}. waffles! bring your kids 🥞"], ["e", "Skidag at {trail} {when}, {sf} to {st}. Everyone welcome."], ["dt", "Skidag: {trail}, {when}, {sf}-{st}."]],
+  skidagdone: [["wc", "skidag done: {n} came, the track was {word}. Thank you all! 🥞"], ["e", "Skidag finished. {n} of us. Thank you for coming."], ["dy", "{n} people, one waffle iron. I am going to lie down."]]
+};
+const RP = {
+  road: [["w", "Thanks for telling us! 🙏"], ["c", "wait, is it open all the way to the bridge?"], ["d", "Good to know before I head out."], ["y", "Just when I'd made peace with staying home 😅"], ["e", "Thank you. I'll tell my mother, she's driving later."], ["t", "Ok. Thanks."], ["w", "Anyone going that way? I need a lift to the shop."], ["c", "ugh ok. thanks. i'll take the long way"]],
+  storm: [["w", "Stay safe everyone 🙏"], ["c", "is it that bad already?? the boat's still out"], ["d", "Staying in. The woodbox is full."], ["y", "Cancel everything, bring cake."], ["e", "I'll check on the neighbours when it eases."], ["t", "Got it. Staying in."], ["w", "anyone need anything from the shop first?"], ["c", "hahaha my roof is already making sounds"]],
+  ferry: [["d", "Mail can wait."], ["w", "Thanks. I'll skip the quay."], ["c", "wait, so the parcel isn't coming at all?"], ["y", "Tomorrow, maybe. The ferry is an optimist."], ["t", "Ok."], ["e", "Hope it sails tomorrow."]],
+  wildlife: [["w", "Is it still there? The kids want to see! 🦌"], ["c", "i'm at the window right now, they are HUGE"], ["d", "I'll go slow on the road."], ["y", "Tell it the shop closes at six."], ["t", "Seen it. Mind the road."], ["e", "Thanks. I'll keep the dog in."]],
+  ski: [["w", "Is the track any good? ⛷️"], ["c", "I'm going this evening!! save me a bit of snow"], ["d", "Nice. I was going to say it's too cold."], ["y", "Do you want a medal or a hot drink?"], ["t", "Nice one."], ["e", "Well done. I need to get out more."]],
+  rescue: [["w", "Is everyone ok?? 🙏"], ["c", "wait what happened? someone tell me"], ["e", "I can bring blankets if needed."], ["d", "Hope it ends well."], ["t", "Thinking of them."]],
+  crash: [["w", "Are you ok?? 😮"], ["c", "I can come with a rope and a camera"], ["d", "Mind the ice there."], ["y", "Style points: ten. Landing points: not so many."], ["e", "I hope it isn't serious."]],
+  sky: [["w", "Standing in the road with you ☀️"], ["c", "my whole family is on the porch!!"], ["d", "Noted. Back to work."], ["e", "Good to see it again."]],
+  thanks: [["w", "Takk, {a}!"], ["c", "{a}, you absolute legend"], ["d", "Well done, {a}."], ["e", "Thank you, {a}. It matters."], ["y", "Praise to {a}, who has not been asked and did it anyway."], ["t", "Thanks {a}."]],
+  other: [["w", "Sounds good! 🙂"], ["c", "ha, yes, I was just saying"], ["d", "Right."], ["y", "As one does."], ["t", "Ok."], ["e", "Thanks for telling us."]]
+};
+const ANS2 = [["w", "Yes, all the way! 😊"], ["c", "haha yes!! I saw it myself"], ["d", "Yes. Probably."], ["y", "As far as I know, and I know everything."], ["t", "Yes."], ["e", "As far as I could tell, yes."], ["w", "not sure, I'm only passing, but I'll look"], ["c", "I'll let you know in an hour 🙃"]];
+const EMO = { w: ["😊", "🙂", "❄️", "☀️", "🙌"], c: ["😅", "😂", "🙈", "👀", "😮"], y: ["🙃", "😌"], e: [], d: [], t: [] };
+const vk = p => ({ dry: "d", warm: "w", terse: "t", chatty: "c", wry: "y", earnest: "e" }[p && p.voice] || "w");
+// make a line sound like the person: the child's lower case, the warm one's emoji
+function flavor(p, t, tplv) {
+  t = String(t).replace(/\s+/g, " ").trim(); if (!p) return t; const v = vk(p);
+  if (p.age < 14) { t = t.charAt(0).toLowerCase() + t.slice(1); t = t.replace(/[.]+$/, "").replace(/!+/g, "!!"); if (rnd() < 0.5) t += pick([" lol", " omg", " haha"]); return t; }
+  if (!/[\u{1F300}-\u{1FAFF}]/u.test(t) && EMO[v].length && rnd() < (v === "w" ? 0.35 : v === "c" ? 0.45 : 0.15)) t += " " + pick(EMO[v]);
+  if (v === "t") t = t.replace(/!+/g, ".").replace(/[\u{1F300}-\u{1FAFF}]/gu, "").trim();
+  if (!/[.!?]$|[\u{1F300}-\u{1FAFF}]$|\?$/u.test(t) && !/lol$|omg$|haha$/.test(t)) t += ".";
+  return t;
+}
+// the ids of the last 30 messages' lines in a village (m[6])
+const recentT = (vid, t) => { let a = S().chat[vid] || [], c = {}; if (t === undefined) a = a.slice(-30); else { let i = a.length; while (i > 0 && a[i - 1][1] > t) i--; a = a.slice(Math.max(0, i - 15), i + 15); }       // the 30 messages around where this one will sit (a late-told event goes back in time)
+   for (const m of a) if (m[6]) c[m[6]] = (c[m[6]] || 0) + 1; return c; };
+// pick a line from a pool for a speaker: their voice first, a line seen once in the last 30 only if nothing fresh is left, never a third time
+function pickLine(pool, key, p, vid, vars) {
+  const v = vk(p), rec = recentT(vid, vars && vars.__t), items = pool.map((e, i) => ({ e, id: key + ":" + i, n: rec[key + ":" + i] || 0, own: e[0].includes(v) }));
+  let c = items.filter(q => q.n === 0 && q.own); if (!c.length) c = items.filter(q => q.n === 0); if (!c.length) c = items.filter(q => q.n === 1); if (!c.length) c = items.slice().sort((a, b) => a.n - b.n).slice(0, 1);
+  const q = pick(c), t = q.e[1].replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] !== undefined ? vars[k] : m); return { t: flavor(p, t), id: q.id };
+}
+const hasKin = (c, p) => c && p && c.home === p.home;
+// what an event sounds like in a chat, by who says it: -> { t, id } or null (then the bulletin is used)
+function talkLine(ev, b, sayer) {
+  const d = ev.data || {}, k = ev.kind, you = ev.who === "you", pl = ev.place || (TLXN.village(b.vid) || {}).name || "the village", a = "@" + PEN, txt = ev.text || "";
+  const V = { __t: ev.t, place: pl, trail: pl, road: pl, a, km: d.km !== undefined ? (+d.km).toFixed(1) : "", word: d.word || "good", cold: /properly cold/.test(txt) ? "properly cold" : /\bcold\b/.test(txt) ? "cold" : "mild", n: d.n || "", dir: d.dir || "", delay: d.delay || "", ms: d.ms || "", cm: d.cm || "", kind: d.kind || "animal", from: (txt.match(/from the (\w+)/) || [0, "north"])[1], at: (txt.match(/(\d{1,2}:\d{2})/) || [0, "later"])[1], when: d.label || "soon", sf: "", st: "" };
+  let pool = null, key = k;
+  if (k === "ski") { pool = TK.ski; V.km = (+d.km || 5).toFixed(1); }
+  else if (k === "groom") { pool = TK.groom; }
+  else if (k === "trail") { pool = TK.trail; }
+  else if (k === "road") { if (d.sys === "plow") { pool = TK.plow; key = "plow"; } else if (d.what === "shut") { pool = TK.shut; key = "shut"; } else if (d.what === "open") { pool = TK.open; key = "open"; } else if (d.what === "convoy") { pool = /leaves/.test(txt) ? TK.convoy : TK.convoyrun; key = /leaves/.test(txt) ? "convoy" : "convoyrun"; } }
+  else if (k === "storm") { pool = d.what === "end" ? TK.stormend : TK.stormstart; key = d.what === "end" ? "stormend" : "stormstart"; }
+  else if (k === "ferry") { pool = d.what === "cancelled" ? TK.ferry : TK.ferrylate; key = d.what === "cancelled" ? "ferry" : "ferrylate"; }
+  else if (k === "wildlife") { const kd = d.kind === "reindeer" || d.kind === "moose" || d.kind === "fox" ? d.kind : "other"; pool = TK["wild_" + kd]; key = "wild_" + kd; }
+  else if (k === "rescue") { const w = d.what; if (w === "done" && you) { pool = TK.rescuedone; key = "rescuedone"; } else if (w === "call") { pool = TK.rescuecall; key = "rescuecall"; } else if (w === "lifted") { pool = TK.rescuelift; key = "rescuelift"; } else if (w === "other") { pool = TK.rescueother; key = "rescueother"; } }
+  else if (k === "crash") { pool = d.what === "bog" ? TK.bog : TK.crash; key = d.what === "bog" ? "bog" : "crash"; }
+  else if (k === "sky") { pool = d.what === "firstlight" ? TK.firstlight : TK.polarnight; key = d.what === "firstlight" ? "firstlight" : "polarnight"; }
+  else if (k === "job") { pool = TK.job; }
+  else if (k === "complaint") { pool = d.how === "hit" ? TK.complaint_hit : TK.complaint_fast; key = d.how === "hit" ? "complaint_hit" : "complaint_fast"; }
+  else if (k === "skidag") { if (d.what === "announce") { pool = TK.skidag; key = "skidag"; const m = txt.match(/(\d{1,2}:00)[^]*?(\d{1,2}:00)/); V.sf = m ? m[1] : "10:00"; V.st = m ? m[2] : "14:00"; } else { pool = TK.skidagdone; key = "skidagdone"; } }
+  if (!pool) return null; const sp = sayer || (ev.who && ev.who !== "you" ? who(ev.who) : null);
+  return pickLine(pool, key, sp, b.vid, V);
+}
+// someone answers a chat line: a relative teases, a neighbour reacts, now and then the first one answers back
+function replyLine(m, sayerId, vid, tagKey, c) {
+  const rp = tagKey === "road" || tagKey === "storm" || tagKey === "ferry" || tagKey === "wildlife" || tagKey === "ski" || tagKey === "rescue" || tagKey === "crash" || tagKey === "sky" ? tagKey : tagKey === "groom" || tagKey === "trail" || tagKey === "job" || tagKey === "plow" ? "ski" : "other";
+  return pickLine(RP[rp], "re_" + rp, c, vid, { a: "@" + PEN });
 }
 
 /* ---------------- the bus: events become posts and chat ---------------- */
@@ -367,11 +552,13 @@ function busLines(ev) {                                                         
 }
 let _chatCnt = 0;
 function chatPush(vid, m, quiet) {
-  const s = S(); if (!s.chat[vid]) s.chat[vid] = []; const a = s.chat[vid]; a.push(m); if (a.length > CHAT) a.splice(0, a.length - CHAT);
+  const s = S(); if (!s.chat[vid]) s.chat[vid] = []; const a = s.chat[vid];
+  let i = a.length; while (i > 0 && a[i - 1][1] > m[1]) i--; a.splice(i, 0, m);                        // oldest to newest: a late-told event goes where it belongs
+  if (a.length > CHAT) a.splice(0, a.length - CHAT);
   if (!quiet && G.view.tab === "local" && api.TABLET.open && api.TABLET.app === "gram" && vid === localVid()) api.TABLET.refresh("gram");
 }
-function chatPost(vid, pid, text, tag, H, re, quiet) {
-  const s = S(), m = [++s.cseq, r2(H === undefined ? api.GS.hour : H), pid, String(text).slice(0, 300), tag || "", re || 0]; chatPush(vid, m, quiet); return m;
+function chatPost(vid, pid, text, tag, H, re, quiet, tpl) {
+  const s = S(), now = api.GS.hour, t = Math.min(H === undefined ? now : H, now), m = [++s.cseq, r2(t), pid, String(text).slice(0, 300), tag || "", re || 0, tpl || ""]; chatPush(vid, m, quiet); return m;
 }
 // a neighbour or relative answers a chat line (family teasing first)
 function banter(vid, m, pid, H, quiet) {
@@ -379,27 +566,33 @@ function banter(vid, m, pid, H, quiet) {
   const fam = p ? TLXN.family(p).filter(q => q && q.id !== p.id && q.age > 11) : [], c = fam.length && rnd() < 0.6 ? pick(fam) : pick(ppl);
   const kin = p ? kinWord(c, p) : "", tag = m[4], K = kin ? kin.charAt(0).toUpperCase() + kin.slice(1) : "";
   const childSays = /^(mamma|pappa|bestemor|bestefar)$/.test(kin), parentSays = /^(my boy|my girl|the little one|my daughter|my son)$/.test(kin);
-  const bank = childSays ? [`${K}, will you be home for supper?`, `${K}! Take me with you next time.`, `${K}, you said four o'clock.`]
-    : parentSays ? [`${K}, supper is at six.`, `That's ${kin} for you, always out.`, `Did ${kin} wear a hat?`]
-    : kin ? [`That's ${kin} for you.`, `Did ${kin} wear a hat?`, `${K} is at it again.`]
-    : tag === "road" || tag === "storm" || tag === "ferry" ? ["Thanks for the heads-up.", "Good to know before I head out.", "Same here, mind yourselves.", "Ugh. Thanks."] : tag === "wildlife" ? ["Mind the kids near the road.", "Saw it too from the shop window.", "Is it still there?"] : ["Nice.", "Wish I had been out.", "Saw that, good one.", "Ha. Yes."];
-  chatPost(vid, c.id, say(c, bank, {}, null, 2), "re", H, m[0], quiet);
+  let L;
+  if (kin && rnd() < 0.7) {
+    const pool = childSays ? [["", `${K}, will you be home for supper? 🍲`], ["", `${K}!! take me with you next time`], ["", `${K}, you said four o'clock`], ["", `${K} I told you so`]]
+      : parentSays ? [["", `${K}, supper is at six. Wear the hat!`], ["", `Did ${kin} take the warm gloves? Of course not.`], ["", `${K} never listens, bless them 😄`], ["", `That's ${kin} for you, always out in it`]]
+      : [["", `That's ${kin} for you 😄`], ["", `Did ${kin} wear a hat?`], ["", `${K} is at it again`], ["", `Tell ${kin} the kettle's on`]];
+    L = pickLine(pool, "kin_" + (childSays ? "c" : parentSays ? "p" : "o") + hashS(kin) % 9, c, vid, {});
+  } else L = replyLine(m, pid, vid, tag === "amb" ? "other" : tag, c);
+  const r = chatPost(vid, c.id, L.t, "re", H, m[0], quiet, L.id);
+  if (p && rnd() < 0.3 && p.id !== c.id) { const A = pickLine(ANS2, "ans2", p, vid, {}); chatPost(vid, p.id, A.t, "re", H, r[0], quiet, A.id); }          // the first one answers back
 }
 function onBus(ev, quiet) {
   try {
     const s = S(); if (!s || !ev) return; if (ev.id <= s.busId && !quiet) return; s.busId = Math.max(s.busId, ev.id);
     const b = busLines(ev); if (!b) return;
+    if (!quiet && window.TLXRL && TLXRL.ready) TLXRL.fromBus(ev, b);
     const pid = ev.who && ev.who !== "you" ? ev.who : (b.w ? b.w.id : null), vids = b.wide ? TLXN.villages().map(v => v.id) : [b.vid];
     // chat: the event in the voice of whoever said it; in each village a peninsula wide event reaches
     let first = null;
     for (const vid of vids) {
-      const sayer = b.wide ? (witness(vid) || b.w) : (b.w || witness(vid)), m = chatPost(vid, sayer ? sayer.id : null, b.text, b.k, ev.t, 0, quiet);
+      const sayer = b.wide ? (witness(vid) || b.w) : (b.w || witness(vid)), tl = talkLine(Object.assign({}, ev, { place: ev.place }), Object.assign({}, b, { vid }), sayer), m = chatPost(vid, sayer ? sayer.id : null, tl ? tl.t : b.text, b.k, ev.t, 0, quiet, tl ? tl.id : "");
       if (!first) first = m; if (!b.wide || vid === b.vid) { if (rnd() < (b.wide ? 0.5 : 0.8)) banter(vid, m, sayer ? sayer.id : null, ev.t, quiet); }
     }
     // feed: not every event is a picture; the ones about you and the rare ones always are
     const prob = ev.kind === "ski" ? 0.3 : ev.kind === "groom" || ev.kind === "trail" ? 0.4 : ev.kind === "rescue" && ev.data && ev.data.what === "worry" ? 0 : 1;
     if (prob >= 1 || G.always || rnd() < prob) {
-      const rc = recipeForEvent(ev, b); if (rc) {
+      let rc = recipeForEvent(ev, b); if (!rc && (ev.who === "you" || (ev.data && ev.data.by === "you"))) { const px = Number.isFinite(ev.x) ? ev.x : api.P.x, pz = Number.isFinite(ev.z) ? ev.z : api.P.z; rc = rcMake([px, pz, 1.6], [px, pz + 3, 1], { h: ev.t, s: 0, pt: paintKind({ rc: {}, sj: b.sj }) }); }
+      if (rc) {
         const poster = b.w || witness(b.vid), pp = ev.who === "you" ? poster : (ev.who ? who(ev.who) : poster);
         const post = addPost({ who: pp ? pp.id : null, t: ev.t, vid: b.vid, place: ev.place || (TLXN.village(b.vid) || {}).name, sj: b.sj, cap: b.text, rc, chip: b.chip, ev: ev.id, you: ev.who === "you" || (ev.data && ev.data.by === "you") ? 1 : 0, n: 0 });
         if (post && !quiet && NOTABLE[ev.kind] && post.you) notify(post);
@@ -413,7 +606,18 @@ function notify(post) {
 }
 
 // the camera for an event's picture
+const evKey = sj => ({ wildlife: "wildlife", skitrail: "skitrail", groomtrail: "skitrail", rescue: "skitrail", crash: "crash", storm: "fjordblow", ferry: "fjordblow", light: "sunrise" })[sj] || "any";
+G.keyOf = post => SUBJ[post.sj] ? post.sj : evKey(post.sj);
 function recipeForEvent(ev, b) {
+  const key = evKey(b.sj);
+  for (let tr = 0; tr < 6; tr++) {
+    let rc = null; try { rc = recipeEventRaw(ev, b); } catch (e) { console.error("TLX gram recipe", e); G.err = String(e && e.stack || e); } if (!rc) continue; if (rc.pt) return rc; rc = fitSubjects(rc, key);
+    if (CAT(key) !== "person" && CAT(key) !== "wild" && CAT(key) !== "sled") { try { reframeHorizon(rc, key); } catch (e) { } }
+    const fc = frameCheck(rc, key); G.framing.tries++; if (fc.ok) { G.framing.ok++; G.framing.rejected += tr; return rc; } G.framing.why.push(key + ": " + fc.why.join("; "));
+  }
+  G.framing.dropped++; return null;
+}
+function recipeEventRaw(ev, b) {
   const H = ev.t, d = ev.data || {}, o = { h: H, s: stormAt(ev.x === null ? 0 : ev.x, ev.z === null ? 0 : ev.z, H) }, vid = b.vid, v = TLXN.village(vid) || nearestVil(0, 0);
   const x = ev.x, z = ev.z, has = x !== null && x !== undefined && Number.isFinite(x);
   const k = ev.kind;
@@ -503,7 +707,7 @@ function pendingTick() {
 }
 
 /* ---------------- pictures: render queue, cache, painted fallback ---------------- */
-const dims = () => api.GFX.low || api.GFX.mobile ? [256, 320] : [384, 480];
+const dims = () => api.GFX.low || api.GFX.mobile ? [288, 288] : [448, 448];
 const cacheCap = () => api.GFX.low || api.GFX.mobile ? 10 : 24;
 function paintKind(post) {
   const rc = post.rc; if (rc.pt) return rc.pt; const sj = post.sj;
@@ -620,7 +824,10 @@ const CSS = `#tabS .gtabs{display:flex;gap:6px;margin:0 0 10px}#tabS .gtabs .tml
 #tabS .gpost.tfoc{outline:none;border-color:var(--bandline);background-color:var(--band)}
 #tabS .gph{display:flex;align-items:center;gap:9px;margin-bottom:8px}#tabS .gav{flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 #tabS .gwho{min-width:0;flex:1}#tabS .gwho b{display:block;font-size:14px}#tabS .gwho span{display:block;font-size:12px;color:var(--frost2)}
-#tabS .gpic{display:block;width:100%;max-width:340px;height:auto;aspect-ratio:4/5;margin:0 auto;border-radius:10px;background:#0c1620}
+#tabS .gpic{display:block;width:100%;height:auto;aspect-ratio:1/1;margin:0 auto;border-radius:10px;background:#0c1620}#tabS .gfeed{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}#tabS .gfeed .gpost{margin:0}
+#tabS .gopen{display:grid;grid-template-columns:minmax(0,min(58%,430px)) minmax(0,1fr);gap:14px;align-items:start;margin-top:8px}#tabS .gopen .gpost{margin:0}#tabS .gopen .gtxt{min-width:0}#tabS .gopen .gcap{font-size:15px}
+@media (max-width:760px){#tabS .gopen{grid-template-columns:1fr}}
+#tabS .gday{text-align:center;margin:10px 0 8px;font-size:11px;letter-spacing:.08em;color:var(--frost2);text-transform:uppercase}#tabS .gday span{padding:2px 10px;border:1px solid var(--rule);border-radius:99px;background:rgba(234,242,248,.04)}
 #tabS .gcap{margin:8px 0 4px;font-size:14px;line-height:1.35}#tabS .gmeta{font-size:12px;color:var(--frost2)}#tabS .gcm{font-size:13px;margin:3px 0;color:var(--frost2)}#tabS .gcm b{color:inherit}
 #tabS .gchip{display:inline-block;font-size:10px;letter-spacing:.06em;padding:2px 6px;border-radius:99px;border:1px solid var(--rule);margin-left:6px;color:var(--frost2)}
 #tabS .gmsg{display:flex;gap:8px;margin:0 0 8px}#tabS .gmsg .gav{width:26px;height:26px;font-size:10px}#tabS .gmb{min-width:0;flex:1}#tabS .gmb b{font-size:12px}#tabS .gmb i{font-style:normal;color:var(--frost2);font-size:11px;margin-left:6px}
@@ -636,7 +843,7 @@ function ago(t) {
   const D = Math.floor(d / 24); return D < 2 ? "yesterday" : D + " d ago";
 }
 G.ago = ago;
-const tabsHTML = tab => `<div class="gtabs">${[["feed", "Feed"], ["reels", "Reels"], ["local", "Local"], ["you", "You"]].map(([id, n]) => `<button type="button" class="tml${tab === id ? " on" : ""}" data-tf="gt:${id}" data-gt="${id}">${n}${id === "feed" && unseen() ? ` <b>${unseen()}</b>` : ""}</button>`).join("")}</div>`;
+const tabsHTML = tab => `<div class="gtabs">${[["feed", "Feed"], ["reels", "Reels"], ["local", "Local"], ["you", "You"]].map(([id, n]) => `<button type="button" class="tml${tab === id ? " on" : ""}" data-tf="gt:${id}" data-gt="${id}">${n}${id === "feed" && unseen() ? ` <b>${unseen()}</b>` : ""}${id === "reels" && window.TLXRL && TLXRL.unseen() ? ` <b>${TLXRL.unseen()}</b>` : ""}</button>`).join("")}</div>`;
 function postHead(post) {
   const p = post.who === "you" ? YOU : who(post.who), handle = p ? "@" + p.handle : "@nordkinn";
   return `<div class="gph">${avatar(p)}<div class="gwho"><b>${esc(handle)}${post.chip ? `<i class="gchip">${esc(post.chip)}</i>` : ""}</b><span>${esc(post.place || "")} · ${ago(post.t)}</span></div></div>`;
@@ -651,25 +858,33 @@ function renderFeed(el) {
   const cur = G.view.post && posts().find(q => q.id === G.view.post);
   if (cur) {
     const cms = cur.cm.map(([pid, t]) => { const c = who(pid), kin = c && who(cur.who) ? kinWord(c, who(cur.who)) : ""; return `<div class="gmsg">${avatar(c)}<div class="gmb"><b>${esc(c ? c.first + " " + (c.last || "") : "?")}</b>${kin ? `<i>${esc(kin.replace(/^my |^our /, ""))}</i>` : ""}<p>${esc(t)}</p></div></div>`; }).join("");
-    h += tabsHTML("feed") + `<button type="button" class="tml" data-tf="gb" data-gb="1">‹ Feed</button><div class="gpost" style="cursor:default;margin-top:8px">${postHead(cur)}<canvas class="gpic" data-gp="${cur.id}" width="${dims()[0]}" height="${dims()[1]}"></canvas><div class="gcap">${esc(cur.cap)}</div><div class="gmeta">${likes(cur)}${cur.wish ? " · a still: this is not in the game yet" : ""}${cur.you ? " · about you" : ""}</div></div>${cms ? `<div style="margin-top:8px">${cms}</div>` : `<p class="tnote2">No comments yet.</p>`}`;
+    h += tabsHTML("feed") + `<button type="button" class="tml" data-tf="gb" data-gb="1">‹ Feed</button><div class="gopen"><canvas class="gpic" data-gp="${cur.id}" width="${dims()[0]}" height="${dims()[1]}"></canvas><div class="gtxt">${postHead(cur)}<div class="gcap">${esc(cur.cap)}</div><div class="gmeta">${likes(cur)}${cur.wish ? " · a still: this is not in the game yet" : ""}${cur.you ? " · about you" : ""}</div>${cms ? `<div style="margin-top:8px">${cms}</div>` : `<p class="tnote2">No comments yet.</p>`}</div></div>`;
   } else {
     h += api.ui.tabHead("GRAM · NORDKINN", "Feed", "") + tabsHTML("feed");
-    h += ps.length ? ps.map(feedCard).join("") : `<p class="tnote2">Nobody has posted yet. Give the morning a minute.</p>`;
+    h += ps.length ? `<div class="gfeed">${ps.map(feedCard).join("")}</div>` : `<p class="tnote2">Nobody has posted yet. Give the morning a minute.</p>`;
   }
   el.innerHTML = `<div class="tapp">${h}</div>`;
 }
 function renderReels(el) {
-  el.innerHTML = `<div class="tapp">${api.ui.tabHead("GRAM · NORDKINN", "Reels", "")}${tabsHTML("reels")}${api.ui.tabCard({ title: "Reels are coming", chips: api.ui.chip("SOON", "due"), meta: "Short loops that play as you scroll, made of the real place.", note: "Planned: the view turning on a peak · riders racing on a lake and the crowd at the rope · a sled skipping open water · two sleds in a whiteout with only tail lamps · a reindeer licking the lens from a snow hole · a skier's tuck down Lysløypa at night · a whale's fluke off the skiff · the plow throwing a white wall · the aurora over the lighthouse." })}</div>`;
+  if (window.TLXRL && TLXRL.ready) { TLXRL.renderTab(el, { head: api.ui.tabHead("GRAM · NORDKINN", "Reels", ""), tabs: tabsHTML("reels"), avatar, ago }); return; }
+  el.innerHTML = `<div class="tapp">${api.ui.tabHead("GRAM · NORDKINN", "Reels", "")}${tabsHTML("reels")}<p class="tnote2">Reels are not available.</p></div>`;
 }
 function renderYou(el) {
   el.innerHTML = `<div class="tapp">${api.ui.tabHead("GRAM · NORDKINN", "You", "")}${tabsHTML("you")}<div class="gph" style="margin:6px 0 12px">${avatar(YOU)}<div class="gwho"><b>@${PEN}</b><span>${esc(calAt(api.GS.hour).long || "")}</span></div></div>${api.ui.tabCard({ title: "Followers", meta: "0 followers · 0 posts" })}${api.ui.tabCard({ title: "Post from the trail", chips: api.ui.chip("COMING", "due"), meta: "Take the shot you are looking at and share it. Villagers will like it and comment on what is in it." })}<p class="tnote2">Posts about you already show in the Feed and in Local: a trail you set, a road you opened, a rescue.</p></div>`;
 }
+const DAYN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function dayLabel(t) {                                                                                    // the separator above a day's messages: Today, Yesterday, then the weekday (and the date past a week)
+  const now = calAt(api.GS.hour), c = calAt(t), d = now.day - c.day; if (d <= 0) return "Today"; if (d === 1) return "Yesterday"; return d < 7 ? DAYN[((c.dow % 7) + 7) % 7] : c.label;
+}
+G.dayLabel = dayLabel;
+function chatAgo(t) { const d = api.GS.hour - t; if (d < 0.02) return "now"; if (d < 1) return Math.max(1, Math.round(d * 60)) + " min ago"; if (d < 24) return Math.round(d) + " h ago"; const D = Math.max(1, calAt(api.GS.hour).day - calAt(t).day); return D < 2 ? "yesterday" : D + " days ago"; }
+G.chatAgo = chatAgo;
 function renderLocal(el) {
-  const s = S(), vid = localVid(), v = TLXN.village(vid), msgs = (s.chat[vid] || []), H = api.GS.hour;
-  let h = api.ui.tabHead("GRAM · LOCAL", esc(v ? v.name : "Local"), `${onlineN(vid, H)} online`) + tabsHTML("local");
+  const s = S(), vid = localVid(), v = TLXN.village(vid), msgs = (s.chat[vid] || []).slice().sort((x, y) => x[1] - y[1] || x[0] - y[0]), H = api.GS.hour;
+  let h = api.ui.tabHead("GRAM · LOCAL", esc(v ? v.name : "Local"), `${onlineN(vid, H)} online`) + tabsHTML("local"), lastD = null;
   h += `<div class="gchat">` + (msgs.length ? msgs.map(m => {
-    const p = m[2] === "you" ? YOU : who(m[2]), re = m[5] ? msgs.find(q => q[0] === m[5]) : null, rp = re ? (re[2] === "you" ? YOU : who(re[2])) : null;
-    return `<div class="gmsg${m[2] === "you" ? " you" : ""}">${avatar(p)}<div class="gmb"><b>${esc(p ? (p.id === "you" ? "You" : p.first) : "Nordkinn")}</b><i>${ago(m[1])}</i>${rp ? `<div class="gre">↩ ${esc(rp.first || "you")}</div>` : ""}<p>${esc(m[3])}</p></div></div>`;
+    const p = m[2] === "you" ? YOU : who(m[2]), re = m[5] ? msgs.find(q => q[0] === m[5]) : null, rp = re ? (re[2] === "you" ? YOU : who(re[2])) : null, dl = dayLabel(m[1]), sep = dl !== lastD ? `<div class="gday" data-day="${esc(dl)}"><span>${esc(dl)}</span></div>` : ""; lastD = dl;
+    return sep + `<div class="gmsg${m[2] === "you" ? " you" : ""}">${avatar(p)}<div class="gmb"><b>${esc(p ? (p.id === "you" ? "You" : p.first) : "Nordkinn")}</b><i>${chatAgo(m[1])}</i>${rp ? `<div class="gre">↩ ${esc(rp.first || "you")}</div>` : ""}<p>${esc(m[3])}</p></div></div>`;
   }).join("") : `<p class="tnote2">${esc(v ? v.name : "The village")} is quiet. Nothing to report yet.</p>`) + `</div>`;
   h += `<div class="grep">` + replyOptions().map((t, i) => `<button type="button" class="tbtn ghost" data-tf="gr:${i}" data-gr="${i}">${esc(t)}</button>`).join("") + `</div>`;
   el.innerHTML = `<div class="tapp">${h}</div>`;
@@ -677,13 +892,17 @@ function renderLocal(el) {
 function render(el) {
   const s = S(); if (s && posts().length && G.view.tab === "feed") s.seen = Math.max(s.seen, ...posts().map(q => q.id));
   const tab = G.view.tab; if (tab === "reels") renderReels(el); else if (tab === "local") renderLocal(el); else if (tab === "you") renderYou(el); else renderFeed(el);
-  for (const b of el.querySelectorAll("[data-gt]")) b.addEventListener("click", () => { G.view.tab = b.dataset.gt; G.view.post = null; if (G.view.tab === "local") G.scrollEnd = true; api.TABLET.refresh("gram"); });
+  for (const b of el.querySelectorAll("[data-gt]")) b.addEventListener("click", () => { if (window.TLXRL && b.dataset.gt !== "reels") TLXRL.stop(); G.view.tab = b.dataset.gt; G.view.post = null; if (G.view.tab === "local") G.scrollEnd = true; api.TABLET.refresh("gram"); });
   for (const b of el.querySelectorAll("button[data-gp]")) b.addEventListener("click", () => { G.view.post = +b.dataset.gp; el.scrollTop = 0; api.TABLET.refresh("gram"); });
   for (const b of el.querySelectorAll("[data-gb]")) b.addEventListener("click", () => { G.view.post = null; api.TABLET.refresh("gram"); });
   for (const b of el.querySelectorAll("[data-gr]")) b.addEventListener("click", () => { sendReply(+b.dataset.gr); G.scrollEnd = true; });
+  const op = el.querySelector(".gopen > .gpic"); if (op && el.clientHeight > 100) {                      // an opened post's picture is no taller than the screen it sits on, so its caption and likes show beside it
+    const rr = el.getBoundingClientRect(), k = rr.height / el.clientHeight || 1, top = (op.getBoundingClientRect().top - rr.top) / k + el.scrollTop; op.style.maxWidth = Math.max(180, Math.floor(el.clientHeight - top - 10)) + "px";
+  }
   blit(el); if (G.scrollEnd) { G.scrollEnd = false; el.scrollTop = el.scrollHeight; }
 }
-G.setTab = (tab, post) => { G.view.tab = tab; G.view.post = post || null; if (api.TABLET.open && api.TABLET.app === "gram") api.TABLET.refresh("gram"); };
+G.setTab = (tab, post) => { if (window.TLXRL && tab !== "reels") TLXRL.stop(); G.view.tab = tab; G.view.post = post || null; if (api.TABLET.open && api.TABLET.app === "gram") api.TABLET.refresh("gram"); };
+G.ctxFor = ctxFor; G.varsFor = varsFor; G.pickPerson = pickPerson; G.rnd = rnd; G.pickLine = pickLine; G.talkLine = talkLine;
 G.reply = sendReply; G.replies = replyOptions; G.chat = vid => (S().chat[vid] || []).slice(); G.posts = posts; G.unseen = unseen; G.genHour = genHour; G.watch = watch; G.busLines = busLines; G.onBus = ev => onBus(ev); G.recipeFor = recipeFor; G.pendingTick = pendingTick; G.shotCam = shotCam; G.paintPic = paintPic; G.kinWord = kinWord; G.renderTick = renderTick; G.addPost = addPost; G.chatPost = chatPost;
 
 /* ---------------- the system ---------------- */
@@ -694,14 +913,15 @@ function sane(s) {
   s.posts = s.posts.filter(p => p && typeof p === "object" && num(p.id) && num(p.t) && typeof p.cap === "string" && p.rc && typeof p.rc === "object" && arr(p.rc.c, 3) && arr(p.rc.a, 2) && num(p.rc.f) && num(p.rc.h)).slice(-CAP);
   for (const p of s.posts) { if (!Array.isArray(p.cm)) p.cm = []; p.cm = p.cm.filter(c => Array.isArray(c) && typeof c[1] === "string").slice(0, 4); if (!num(p.lk)) p.lk = 3; if (!num(p.rc.s)) p.rc.s = 0; if (p.rc.p && !Array.isArray(p.rc.p)) delete p.rc.p; p.sj = String(p.sj || "scene"); p.place = String(p.place || ""); }
   if (!s.chat || typeof s.chat !== "object" || Array.isArray(s.chat)) s.chat = {};
-  for (const k of Object.keys(s.chat)) { const a = s.chat[k]; s.chat[k] = Array.isArray(a) ? a.filter(m => Array.isArray(m) && m.length >= 4 && num(m[0]) && num(m[1]) && typeof m[3] === "string").slice(-CHAT) : []; }
+  for (const k of Object.keys(s.chat)) { const a = s.chat[k]; s.chat[k] = Array.isArray(a) ? a.filter(m => Array.isArray(m) && m.length >= 4 && num(m[0]) && num(m[1]) && typeof m[3] === "string").map(m => { if (typeof m[6] !== "string") m[6] = ""; return m; }).sort((x, y) => x[1] - y[1] || x[0] - y[0]).slice(-CHAT) : []; }
   for (const k of ["seq", "seen", "cseq", "busId", "genH", "noteD", "rs"]) if (!num(s[k])) s[k] = k === "genH" || k === "noteD" ? -9 : k === "rs" ? 4242 : 0;
   s.seq = Math.max(s.seq, ...s.posts.map(p => p.id)); s.cseq = Math.max(s.cseq, ...Object.values(s.chat).flat().map(m => m[0]), 0);
+  if (window.TLXRL && TLXRL.sane) TLXRL.sane(s); else if (!s.reels) s.reels = { seq: 0, list: [] };
   if (!s.last || typeof s.last !== "object") s.last = {}; if (!s.storm || typeof s.storm !== "object") s.storm = { on: 0, peak: 0, t0: 0, cm: 0 }; if (!s.road || typeof s.road !== "object") s.road = {};
 }
 TLX.register({
   id: "gram", v: 1,
-  state0: () => ({ seq: 0, posts: [], seen: 0, chat: {}, cseq: 0, busId: 0, genH: -9, noteD: -9, rs: (Math.random() * 2147483647) | 0, last: {}, storm: { on: 0, peak: 0, t0: 0, cm: 0 }, road: {} }),
+  state0: () => ({ seq: 0, posts: [], seen: 0, chat: {}, cseq: 0, busId: 0, genH: -9, noteD: -9, rs: (Math.random() * 2147483647) | 0, last: {}, storm: { on: 0, peak: 0, t0: 0, cm: 0 }, road: {}, reels: { seq: 0, list: [] } }),
   migrate: st => st,
   init(a) {
     api = a; W = a.world; T = a.THREE; G.ready = false; G.err = ""; G.cache.clear(); G.view = { tab: "feed", post: null }; G.pending = [];
@@ -722,6 +942,7 @@ TLX.register({
         a.TABLET.register({ id: "gram", name: "Gram", icon: ICON, order: 5.7, hidden: () => !G.ready, badge: () => unseen() || "", render, onOpen() { G.view.post = null; if (G.view.tab === "local") G.scrollEnd = true; }, onBack() { if (G.view.post) { G.view.post = null; api.TABLET.refresh("gram"); return true; } return false; } });
       }
       G.ready = true;
+      if (window.TLXRL) TLXRL.init(a, G, { who, comments, likesOf, ctxFor, varsFor, rnd, pick, pickPerson, flavor: (p, t) => flavor(p, t), surf, openOk, openSpot, nearestVil, lookoutFor, coastOf, lakeNear, slopeOf, hash01, hashS, calAt, elAt, stormAt, sunAz, snowy, yawTo, esc, seaDir });
     } catch (e) { G.err = String(e && e.stack || e); console.error("TLX gram", e); }
   },
   tick(dt) {
@@ -730,10 +951,10 @@ TLX.register({
       const H = api.GS.hour, h = Math.floor(H);
       if (h !== lastH && G.hold) lastH = h;
       if (h !== lastH) {
-        if (h > lastH && h - lastH <= 6) for (let k = lastH + 1; k <= h; k++) { watch(k); genHour(k + 0.4); } else if (h > lastH) { watch(h); genHour(h + 0.4); }
+        if (h > lastH && h - lastH <= 6) for (let k = lastH + 1; k <= h; k++) { watch(k); genHour(k + 0.4); reelHour(k + 0.45); } else if (h > lastH) { watch(h); genHour(h + 0.4); reelHour(h + 0.45); }
         lastH = h; S().genH = h;
       }
-      pendingTick(); renderTick(dt);
+      pendingTick(); renderTick(dt); if (window.TLXRL) TLXRL.tick(dt);
     } catch (e) { if (!G.tickErr) console.error("TLX gram tick", e); G.tickErr = String(e && e.stack || e); }
   }
 });

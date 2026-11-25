@@ -11,7 +11,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 |---|---|---|
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
 | H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c, plus the H2a posture fixes) |
-| H2 | Gram: feed, reels, local chat (`tlx-gram.js`) | H2a built (feed with real renders, ambient generator, bus posts, Local chat); H2b reels next |
+| H2 | Gram: feed, reels, local chat (`tlx-gram.js`) | H2a and H2b built (feed, Reels, Local chat); H2c own posts next |
 | H3 | Radio Nordkinn with call-ins (`tlx-radio.js`) | design below, after H2 |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
 | H5 | The outdoors life (avalanches, sea ice, snow shelters, ghosts, dog team, camera) | outline |
@@ -184,7 +184,7 @@ A tablet app in the style of a photo and reels app, for the Nordkinn only. Three
 Slices: H2a feed + render recipes + local chat from the bus; H2b reels; H2c your own posts, likes, followers.
 
 - [x] **H2a** (script v272) the feed with render recipes and real off-screen pictures, the ambient generator, bus posts from the game's systems, the Local chat. `h2_gram.mjs`.
-- [ ] **H2b** reels (a recipe with a camera path and actors, played live at low resolution while on screen).
+- [x] **H2b** (script v273) the Reels tab: twelve reel types (summit pan, lake drag race, at the rope, water skip and its sinking twin, storm ride, reindeer at the snow hole, night ski, plow wall, aurora over the lighthouse, skiff at sea, kids sledging, powder turn), each a recipe planned into a scene script and drawn live at 270x480 through `gramShot`; `tlx-reels.js`, `tlx-reelscenes.js`; plus the H2a fixes (feed layout, composition rule, Local chat order and voice). `h2_reels.mjs`.
 - [ ] **H2c** your own posts (the shutter, captions, likes, followers).
 
 ## H3. Radio Nordkinn (`tlx-radio.js`, id `radio`)
@@ -236,6 +236,7 @@ Slices: H2a feed + render recipes + local chat from the bus; H2b reels; H2c your
 
 - Water skipping a sled across open water. Lake drag races with a crowd. Riding in a group with friends through a
   storm. A reindeer coming up to you in a snow hole. Peak-bagging with a summit view. Add a line when a reel adds one.
+- Night skiing under the lamps with a headtorch. Standing at a rope to watch a race. A plow's wall of snow at the road edge. A sled carving a deep powder turn below a ridge. The lighthouse beam under the aurora. A skiff in swell (whales come with H4: `TLXRL.hooks.sea` is the hook). Kids' sledging banks in the villages.
 
 ## Decisions (defaults are built until Lemon says otherwise)
 

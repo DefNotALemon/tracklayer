@@ -1526,6 +1526,23 @@ X.shotPose = o => {
   const P = sl.P; P.ed = 0; P.pw = 0; gStand(sl, P, o.x, o.z, o.yaw || 0, 0, 0); rig(sl, P); return sl.g;
 };
 X.shotDone = () => { if (!SHOT) return; SHOT.g.visible = false; for (const m of SHOT.skis) m.visible = false; for (const m of SHOT.poles) m.visible = false; SHOT.lamp.visible = false; };
+// a skier running a trail for a reel (Gram H2b): the trail's own plan (its gaits, the tuck on the downhills) posed at a time along it. shotRun picks the person and the trail and says
+// where the tucks are; shotRunAt(tau) poses the one figure at second tau of the plan (the caller hides it with shotDone).
+X.shotRun = o => {
+  if (!X.ready || !o) return null; const t = X.list.find(q => q.id === o.trail); if (!t) return null;
+  if (!UPV) { UPV = new T.Vector3(0, 1, 0); PV = new T.Vector3(); }
+  if (!SHOT) { SHOT = makeSlot(SL.length); const i = SL.indexOf(SHOT); if (i >= 0) SL.splice(i, 1); }
+  const sl = SHOT, p = TLXN.person(o.p) || { id: String(o.p || "x"), age: 30 }, kid = p.age < 16;
+  sl.who = p; sl.mk = 0; sl.vis = false; sl.kc = kid ? 0 : 1; sl.sc = kid ? clamp(0.5 + 0.026 * p.age, 0.62, 0.86) : 0.86 + 0.06 * hash(p.id + "s"); sl.k = sl.sc / 0.88;
+  sl.mats.jacket.color.setHex(JACKETS[Math.floor(hash(p.id + "j") * JACKETS.length)]); sl.mats.pants.color.setHex(PANTS_C[Math.floor(hash(p.id + "p") * PANTS_C.length)]); sl.mats.trim.color.setHex(TRIM_C[Math.floor(hash(p.id + "t") * TRIM_C.length)]);
+  sl.skiMat.color.setHex(JACKETS[Math.floor(hash(p.id + "k") * JACKETS.length)]);
+  sl.g.scale.setScalar(sl.sc); sl.pk.visible = true; sl.lampOn = !!o.lamp; sl.hist = 0; sl.as = null; sl.tw = 1; sl.stag = 0; sl.pt = null;
+  const lo = { t0: 0, k: 0, p: p.id, km: o.km || Math.max(1, t.len / 1000), pc: o.pc || 5, f: "", wd: "", rs: 0 };
+  sl.pl = planOf(t, lo); sl.o = lo; sl.t = t; sl.bi = 0; sl.u = 0; sl.v = 0; sl.gait = 0;
+  const runs = []; sl.pl.blocks.forEach((B, bi) => { if (B.k !== "leg" || B.spur) return; const L = B.leg; let s0 = 0; while (s0 < L.n) { let e = s0; while (e + 1 < L.n && L.gait[e + 1] === L.gait[s0]) e++; runs.push({ bi, gait: GAITS[L.gait[s0]], tau0: B.a + tauAt(L, L.u[s0]), tau1: B.a + tauAt(L, L.u[e]), u0: L.u[s0], u1: L.u[e] }); s0 = e + 1; } });
+  return { g: sl.g, T: sl.pl.T, runs };
+};
+X.shotRunAt = tau => { const sl = SHOT; if (!sl || !sl.pl) return null; poseSlot(sl, tau, sl.P); rig(sl, sl.P); sl.lamp.visible = !!sl.lampOn; sl.g.visible = true; return sl.P; };
 X.pp = (L, u) => { const q = ppL(L, clamp(u, 0, L.D), {}); return q; }; X.uAtTau = uAtTau; X.hide = hideSlot; X.solidBody = solidBody; X.slots = SL; X.planOf = planOf; X.SKI = SKI; X.SKS = SKS; X.rescan = rescan;
 X.hourAtU = (t, o, bi, u) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + tauAt(B.leg, u)) + (o.dl || 0)) / HOURS(); };
 X.hourAtBlock = (t, o, bi, f) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + f * (B.b - B.a)) + (o.dl || 0)) / HOURS(); };
