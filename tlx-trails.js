@@ -74,8 +74,8 @@ const BAKED = {
   "lys": [-1021,-644,19,17,17,17,18,18,18,18,17,17,18,18,18,18,16,18,8,24,1,25,0,12,-4,-24,-15,-20,-6,15,0,25,0,25,0,25,0,25,0,25,0,25,0,25,-3,25,-15,20,-7,24,-2,25,-13,21,-18,18,-17,17,-18,18,-18,18,-18,17,-19,16,-24,5,-25,1,-25,0,-25,0,-25,0,-25,0,-25,0,-24,-4,-21,-14,-18,-17,-18,-18,-20,-15,-22,-11,-21,-13,-18,-17,-21,-13,-18,-17,10,-22,18,-18,19,-16,24,-5,25,0,25,0,25,0,25,0,25,0,25,-4,20,-14,18,-18,12,-21,2,-25,7,-23,12,-22,-1,-23,-14,-20,-18,-18,-22,-10,-25,-2,-25,0,-25,0,-25,-1,-13,-19,-1,-25,3,-24,13,-22,18,-18,17,-17,13,-21,-8,-21,-17,-18,9,9,18,17,23,8,25,2,25,0,25,0,25,0,25,-1,-2,-23,25,-1,24,0,14,2],
   "meh": [696,-3048,-18,17,-20,15,-22,11,-25,5,-25,-1,-24,-5,-24,-7,-24,-9,-23,-10,-22,-11,-21,-14,-19,-16,-19,-17,-17,-17,-18,-18,-17,-18,-17,-19,-16,-19,-14,-21,-11,-22,-9,-23,-5,-25,-1,-25,1,-25,5,-24,7,-24,11,-23,13,-21,17,-19,18,-16,21,-14,22,-12,23,-11,23,-8,25,-2,22,10,17,19,14,20,17,18,21,14,23,8,25,3,25,-2,24,-6,23,-8,23,-11,23,-10,24,-7,24,3,19,15,9,23,4,24,2,25,2,25,4,25,4,24,3,25,-1,25,-5,25,-10,22,-14,21,-15,20,-16,19,-17,19,-16,19,-16,20,-17,21],
   "ifj": [-2472,3547,23,-10,24,-4,25,-3,25,-1,25,-1,25,1,25,2,24,6,23,11,20,14,18,17,17,19,15,19,13,22,11,23,8,23,5,25,1,25,0,25,-1,25,-2,25,-5,24,-7,24,-12,22,-16,19,-20,15,-22,11,-24,6,-25,0,-24,-7,-19,-16,-12,-22,-7,-24,-3,-25,-2,-24,-2,-25,-4,-25,-6,-24,-10,-23,-14,-20,-19,-17,-21,-12,-23,-11,-23,-10,-20,-15,-13,-20,0,-25,11,-22,18,-17],
-  "san": [-996,-771,-18,-18,-18,-17,-20,-14,-25,-1,-25,-1,-24,-6,-19,-17,-17,-17,-18,-18,-18,-18,-17,-17,-18,-18,-18,-18,-14,-19,-6,-25,0,-25,-5,-24,-12,-22,-7,-23,-1,-25,3,-25,10,-21,9,-22,-15,-14,-20,-15,15,-16,18,-17,2,-22,-22,10,-17,-14,18,-16,11,-21,17,-18,18,-18,18,-18,17,-17,18,-18,18,-18,18,-18,17,-17,18,-18,18,-18,17,-17,18,-18,18,-18,17,-17,18,-18,18,-18,17,-18,11,-21,3,-25,8,-23,17,-18,17,-18,17,-18,13,-22,18,-16,25,-1,25,-2,22,-11,22,-11,25,-1,25,0,25,0,25,0,25,0,25,0,25,0,25,1,23,8,18,17,20,16,23,7,25,1,24,4,22,11,18,18,17,17,18,18,18,18,17,17,18,18,19,17,20,-1,19,-16,19,-17,24,-4,25,0,25,0,25,0,25,0,25,2,19,15,18,17,21,14,25,2,25,0,25,0,24,-6,20,-14,25,-5,25,0,24,4,22,12,23,8,25,1,24,-3,22,-11,22,-10,25,-2,23,-9,22,-11,24,-4,25,1,24,7,19,15,18,17,23,10,22,12,22,12,25,1,25,1,24,7,16,5,13,-21,20,-14,25,-3,23,-8,18,-17,3,-25,2,-25,18,-18,24,-6,24,2,22,12,18,18,17,17,18,18,18,18,17,17,18,18,18,18,17,18,14,19,5,25,0,25,5,24,15,20,18,17,21,10,23,-7,14,-19,4,-21,0,25,-18,18,-22,7,-25,0,-20,-10,-18,-18,-18,-18,-17,-17,-21,-12,-22,6,-18,18,-17,17,-22,9,-21,-9,-19,-16,-25,0,-25,0,-25,0,-24,2,-17,17,-18,-6,-20,-13,-23,-5,-17,-17,-18,12,-10,21,-8,6,-18,-18,-17,-17,-22,-7,-25,0,-25,0,-25,0,-25,0,-25,0,-25,0,-25,0,-21,-11,-18,-10,-17,17,-24,4,-19,14,-18,18,-17,17,-18,-16,-8,-22,-10,-21,-17,-13,-18,18,-23,5,-25,0,-25,0,-20,13,-17,17,-18,18,-18,-14,-21,-9,-25,0,-25,0,-21,8,-18,18,-18,18,-17,17,-14,20,-4,23,-18,18,-23,3,-25,0,-25,0,-25,0,-25,0,-19,14,-11,21,10,15,25,0,22,7,18,18,0,25,-17,17,-22,8,-25,0,-21,-10,-19,-15,-25,0,-25,0,-24,3,-17,17,-18,18,-18,18,-18,18,-17,17,-18,18,-16,18,2,25,17,17,23,6,-4,12,-19,13,-24,-5,-17,-17,-18,-18,-18,-18,-17,-17,-25,0,-18,18,-22,7,-25,0,-25,0,-25,0,-21,11,-14,19,0,25,0,25,0,25,0,25,-3,17,-18,-18,-4,-23,0,-25,-14,8,-17,17,-18,18,-18,18,-8,-5,-13,-12,-3,-9,13,-16,-25,0,-25,0,-24,-2,-21,-19,-14,-16,-13,-20,0,-25,-5,-23,-18,-18,-17,-17,-10,2,-8,21,-18,17,-25,1,-18,18,-17,17,-18,18,-18,18,-3,23,0,25,14,19,18,18,18,18,17,17,-6,8,-1,10,18,18,17,17,23,5,25,0,25,0,20,13,18,18,19,19],
-  "stj": [-671,-696,0,-25,-18,-18,3,-17,19,-15,24,-3,18,-18,23,-4,19,13,18,18,18,18,24,1,18,-16,0,-18,-16,-19,2,-20,17,17,18,-6,20,-13,25,0,25,0,23,-5,17,-17,18,12,21,10,6,8,-16,17,23,1,-17,17,8,7,-1,11,-9,14,25,0,20,5,-5,20,-25,0,-16,4,17,17,-16,4,9,14,2,11,-9,7,17,17,-23,1,-25,0,16,17,-2,18,-12,15,25,0,20,2,-18,18,-18,18,-12,20,5,12,18,-18,24,-2,-13,16,-9,21,8,5,18,-17,25,0,23,1,-18,18,10,6,-2,11,-8,14,25,0,25,0,25,0,23,4,18,18,23,3,25,0,19,-14,21,-11,8,7,-18,18,25,0,0,25,17,17,-6,8,-1,10,15,19,-3,18,-17,-17,-5,14,-13,-7,-20,-12,-25,0,-11,6,18,18,1,24,-16,-14,-22,-9,-3,11,16,16,0,25,-2,25,-17,17,-6,-11,-12,4,-18,8,-17,-17,-18,12,-21,10,-25,0,-25,0,-25,0,-25,0,-25,0,-22,8,-17,17,0,25,0,25,18,18,7,22,0,25,-11,21,-14,19,0,25,0,25,-3,23,-18,18,-18,18,-5,17,18,18,-16,18,1,17,13,16,-20,2,18,18,-7,17,-18,18,-18,18,-17,17,2,10,25,0,5,8,-16,17,25,-1,18,-18,17,-17,18,-18,18,-18,17,-17,18,-18,18,-18,0,-24,0,-25,17,16,18,18,19,15,18,-3,-17,-17,13,-5,20,13,18,6,17,-17,18,-18,18,0,17,17,18,18,18,18,17,17,18,18,24,3,19,15,17,17,18,18,18,18,22,7,25,0,25,0,0,10,-11,15,25,0,25,0,24,3,18,18,-15,4,7,13,21,12,25,0,22,6,18,18,1,24,-17,19,-21,8,-3,-9,13,-16,-25,0,-25,0,-24,-2,-18,-18,13,13,22,7,25,0,25,0,0,10,-11,15,24,-2,18,-19,4,-23,-13,-19,-21,-12,-25,0,-22,-6,-18,-18,22,-1,-14,-16,-22,-9,-25,0,-25,0,-3,-9,13,-16,-25,0,-25,0,-24,-2,-17,-17,-18,-18,-18,-18,-17,-17,-24,-3,-19,-15,-18,-18,-18,-18,-17,-17,-18,-18,-18,-10,-17,17,-24,4,-25,0,-25,0,9,14,2,11,-23,-7,-17,-17,-18,-18,-8,6,0,25,-10,21,-17,17,-18,18,-18,18,-20,12,-22,5,-18,18,-24,2,-25,0,13,-16,17,-17,18,-18,18,-18,-5,-17,-8,-14,15,-4,-18,-18,10,-12,5,-23,-18,-18,17,-17,18,-18,15,-19,0,-25,0,-25,3,-24,17,-17,5,-24,0,-25,-13,-19,-12,-20,0,-25,6,-23,18,-18,24,-1,25,0,25,0,25,0,25,0,25,0,25,0,25,0,18,-16,9,-22,9,-21,14,-18,-16,-19,10,-4,20,12,13,7,-5,-24,-17,-17,18,-3,25,0,19,15,10,-1,8,-6,17,17,0,-25,-18,-18,8,-7,-1,-11,-14,-19,-5,-20,-17,-3,18,-18,-15,-4,-20,14,-20,11,-25,0,-22,-6,-18,-18,-25,-1,-25,0,-25,0,-25,0,16,-17,-5,-8,-3,-9,13,-16,-25,0,-24,2,-18,18,-5,-13,12,-19,6,-13,-23,5,-18,18,-2,-20,15,-18,18,-18,16,-17,-25,0,-23,-1,18,-18,-5,-17,-9,-14,25,0,16,-4,-18,-18,17,-3,-9,-14,-1,-11,8,-7,-18,-18,24,0,25,0,1,-24,-24,-1,-25,0,16,-17,-6,-8,-1,-10,11,-15,-18,-3,17,-17,-13,-5,-25,0,-25,0,-25,0,-25,0,-25,0,-20,13,-18,6,-17,-17,-2,21,-23,2,-18,16,-18,0,-18,-16,-24,1,-18,18,-23,6,-20,12,-9,17,18,18,3,28],
+  "san": [-996,-771,-20,-13,-21,-14,-21,-12,-23,-10,-22,-10,-17,-17,-13,-21,-14,-20,-13,-21,-14,-20,-13,-21,-14,-20,-12,-21,-11,-22,-12,-22,-11,-21,-11,-22,-12,-22,-11,-21,-11,-21,11,-22,12,-21,12,-21,12,-22,13,-21,12,-21,12,-21,12,-22,13,-21,12,-21,13,-21,12,-21,13,-21,12,-21,14,-20,16,-19,16,-18,16,-19,16,-18,16,-19,16,-18,16,-19,16,-18,17,-19,16,-18,16,-18,16,-19,17,-18,18,-16,20,-15,20,-13,22,-11,23,-9,23,-8,24,-6,24,-2,25,-1,24,2,24,3,25,4,24,4,24,4,24,4,24,4,24,7,23,7,24,7,23,6,24,7,23,7,24,6,24,7,23,7,24,6,24,6,23,7,24,6,24,6,23,6,24,6,24,6,24,6,23,6,24,6,24,6,24,6,23,6,24,4,24,-2,25,-2,24,0,25,0,24,0,25,-1,24,0,25,0,24,0,25,-1,24,0,25,0,24,0,25,-1,24,0,25,0,24,-1,25,0,24,0,25,0,24,-4,23,-8,23,-7,24,-8,23,-8,23,-8,23,-8,23,-8,23,-8,23,-9,22,-2,20,13,17,18,18,17,17,17,17,18,18,17,17,17,17,18,18,17,17,17,18,17,17,18,17,17,18,17,17,17,23,9,9,-16,1,18,-20,-1,-25,-1,-24,-2,-24,-1,-25,-1,-24,-2,-25,-1,-24,-1,-25,-1,-24,-1,-25,-1,-24,-1,-25,-1,-24,-1,-25,0,-24,-1,-25,-1,-24,-1,-25,0,-24,-2,-22,4,-24,-5,-24,0,-25,0,-24,1,-25,0,-24,0,-25,1,-24,0,-25,0,-24,1,-25,1,-24,0,-25,1,-24,1,-25,1,-24,1,-25,1,-24,1,-24,1,-25,2,-24,1,-25,1,-24,2,-25,1,-24,2,-25,1,-23,6,-21,13,-20,13,-21,13,-21,13,-20,13,-21,13,-21,13,-20,14,-21,13,-21,13,-16,18,-15,19,-16,19,-20,12,-22,11,-22,10,-23,10,-19,15,-18,16,-18,17,-18,16,-18,17,-18,17,-18,16,-18,17,-20,8,-21,-13,-22,-10,-23,-1,-23,9,-23,8,-23,9,-23,8,-23,9,-23,6,-11,21,-11,22,-17,16,-24,4,-25,2,-24,-1,-25,-4,-24,-3,-24,-4,-22,-6,-19,-14,-23,-10,-22,-10,-23,-9,-24,-2,-20,14,-11,21,-9,23,-5,24,-4,22,14,20,13,21,13,21,13,20,21,12,22,11,22,11,21,13,20,14,9,6],
+  "stj": [-671,-696,17,-19,17,-19,17,-19,21,-7,24,6,25,6,25,2,6,-23,4,-24,15,-15,25,-4,25,-2,25,1,25,1,26,1,25,0,11,9,6,18,0,25,13,12,12,14,-18,18,-9,23,-1,25,-3,19,-23,7,8,23,17,19,5,13,-15,20,-13,21,-2,16,22,-11,13,3,11,13,25,5,13,4,-8,18,-4,23,21,4,25,3,25,3,26,3,25,3,25,4,25,0,25,-3,11,18,10,23,9,23,7,25,2,15,-15,-7,-17,0,-23,-10,-12,15,-2,25,-14,-3,-22,-12,-7,22,-15,20,-16,20,-21,14,-22,11,-24,8,-25,4,-25,2,-25,2,-26,1,-22,7,-18,16,-12,22,6,24,5,25,2,25,-7,24,-5,25,-6,24,-5,25,-6,25,-5,24,-6,25,-4,25,-15,20,0,24,0,26,1,25,3,25,19,-7,23,-11,20,-15,16,-20,16,-19,18,-18,0,-25,18,19,19,15,25,6,24,6,25,7,23,9,24,9,23,9,24,9,23,10,23,11,23,10,23,10,24,11,23,10,23,10,22,12,25,1,-7,22,18,4,25,6,21,13,23,12,22,12,21,13,12,20,4,25,-5,19,-20,-4,-23,-12,-21,-11,22,12,23,12,24,6,17,-19,-15,-18,-15,-20,-20,-15,-21,-14,-17,-19,-22,-13,-24,-5,-24,-2,8,-21,-20,-3,-25,-3,-22,-12,-23,-11,-23,-11,-23,-11,-22,-11,-23,-10,-23,-11,-23,-10,-24,-10,-23,-10,-23,-10,-25,-5,-25,-4,-25,-3,-19,-14,-18,-18,-11,14,-9,22,-18,18,-16,19,-20,15,-25,5,-24,4,-8,-20,1,-25,4,-25,3,-22,6,-27,6,-25,6,-25,6,-24,6,-25,6,-24,5,-25,6,-25,6,-24,0,-25,-4,-25,-3,-25,10,-20,25,-3,25,-6,24,-5,25,-4,25,-4,25,-6,22,-12,23,-11,20,-14,18,-18,21,-15,-14,-19,20,2,22,12,-7,-25,4,-15,25,0,23,9,22,5,3,-8,-5,-24,-7,-25,-11,-22,-11,-23,-23,0,-25,3,-25,-4,-25,-3,-25,-4,-25,-3,-25,-3,-26,-2,-3,-11,4,-25,1,-12,-25,5,-24,5,-7,-17,7,-19,-23,7,-14,12,4,-24,17,-18,17,-19,-5,-10,-25,-4,3,-24,6,-19,25,-6,0,-24,2,-25,8,-22,4,-19,-24,-9,4,-24,-2,-24,7,-19,-25,3,-26,-1,-25,1,-25,0,-25,0,-26,1,-25,1,-16,11,-24,8,-23,8,-24,10,-23,11,-17,17,-16,20,-16,20,-8,10],
   "ska": [3329,654,18,-18,7,-22,10,-20,19,-15,25,0,25,0,24,-3,18,-18,23,-4,25,0,19,13,18,18,18,18,1,24,0,25,0,25,0,25,0,25,0,25,0,25,-16,18,-9,22,0,25,0,25,0,25,0,25,-9,21,-18,18,-17,17,-18,-6,-18,-18,-17,-17,-3,18,-15,-11,-2,-2,17,18,-1,23,-17,-17,-18,-18,-18,-18,-17,-17,-18,-18,-18,-18,-17,-17,-18,-18,2,2,17,17,18,18,18,18,17,17,18,18,18,18,17,17,17,16,0,-25,0,-25,-1,-25,-18,-18,-6,-22,-11,-20,-18,-18,-18,-18,-17,-17,-11,-21,0,-25,0,-25,0,-25,-7,-22,-18,-18],
   "fje": [704,-3046,18,17,24,7,25,1,25,0,25,0,25,0,25,0,25,0,25,0,25,0,25,2,22,12,18,18,17,17,18,18,18,18,17,17,18,18,18,18,18,17,19,15,25,5,25,0,24,5,20,14,18,18,17,18,15,20,11,22,12,22,7,23,1,25,0,25,0,25,1,24,12,22,10,22,2,25,0,25,1,25,9,23,17,19,16,19,-7,23,6,22,17,18,22,12,24,4,25,1,23,7,18,17,0,24,-14,21,-7,24,0,25,2,24,13,21,18,18,19,15,25,3,24,5,19,15,18,18,18,18,17,17,18,18,18,18,17,17,18,18,18,18,17,17,18,18,18,18,17,18,14,20,4,25,6,23,15,20,18,18,17,17,18,18,18,18,17,17,18,18,18,18,17,18,11,22,3,24,8,23,17,19,17,17,18,18,18,18,15,19,6,24,0,25,0,25,0,25,4,25,14,19,23,8,25,1,25,0,25,0,25,1,21,12,19,18,17,17,17,19,11,22,11,22,17,18,18,18,18,18,17,18,15,19,8,24,15,19,17,18,13,21,8,23,12,21,5,25,1,25,6,23,15,20,17,18,18,18,21,13,24,5,25,0,24,6,20,15,17,17,18,18,15,20,4,24,0,25,0,25,4,25,15,19,18,18,18,18,17,17,18,18,18,18,17,17,19,17,24,7,24,3,21,13,13,22,9,22,12,22,3,24,0,25,0,25,1,25,7,23,18,17,23,10,20,14,18,18,17,17,18,18,18,18,17,17,18,18,17,18,6,23,-11,21,-17,19,-16,19,-4,24,0,25,3,25,15,19,18,18,18,18,17,17,18,18,18,18,19,16,25,2,25,0,25,0,25,0,25,0,25,0,25,0,25,0,24,3,16,18,-6,24,7,21,17,18,18,18,17,18,5,24,0,25,-14,20,-17,18,-18,18,-17,17,-18,18,-18,18,-17,17,-18,18,-18,18,-17,17,-18,18,-17,18,1,15,24,6,-13,20,-4,25,0,21],
 };
@@ -86,6 +86,7 @@ const S = () => TLX.state("trails");
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
 
+TLX.option({ id: "skicomplaints", name: "Ski trail complaints", hint: "Skiers complain when a sled comes past them fast and close, or runs into them. Three complaints on a trail in a week lose that trail's weekly bonus. Off = complaints are still counted and shown, but cost nothing.", sys: "trails" });
 TLX.option({ id: "skitrails", name: "Ski trails", hint: "Named ski trails you can take on in the Løyper app: keep the track set with the groomer and the villagers ski it and the løypelag pays you by use every Monday. Off = no trails, no skiers, no pay (the old grooming contracts stay).", sys: "trails" });
 
 /* ---------------- the router ---------------- */
@@ -106,6 +107,7 @@ function cellCost(i, j) {
   else {
     const sl = W.slopeAt(x, z, 8); if (sl > 0.9) c = Inf; else if (sl > 0.3) c += (sl - 0.3) * 10;
     if (c < Inf) for (const o of W.obstaclesNear(x, z, 22)) {
+      if (o.fu) continue;
       const d = Math.hypot(o.x - x, o.z - z);
       if (o.tree !== undefined) { if (d < 4.5) c += 0.6; }
       else if (o.log) { if (d < 3) c += 0.4; }
@@ -199,12 +201,12 @@ function gradeOf(p, win = 50) {
   return mx;
 }
 // a smoothed line must stay on land, off the buildings, and no steeper than the cells were
-function lineOk(p) {
+function lineOk(p, why) {
   for (let k = 0; k < p.length; k++) {
     const [x, z] = p[k];
-    if (k && (bad((x + p[k - 1][0]) / 2, (z + p[k - 1][1]) / 2))) return false;
-    if (bad(x, z)) return false;
-    for (const o of W.obstaclesNear(x, z, 9)) { if (o.tree !== undefined || o.log) continue; if (o.top === undefined || o.top > 0.3) if (Math.hypot(o.x - x, o.z - z) < (o.r || 0.5) + (o.box ? 5 : 3)) return false; }
+    if (k && (bad((x + p[k - 1][0]) / 2, (z + p[k - 1][1]) / 2))) { if (why) why.r = `point ${k} (${Math.round(x)}, ${Math.round(z)}): the sea or a lake between it and the last`; return false; }
+    if (bad(x, z)) { if (why) why.r = `point ${k} (${Math.round(x)}, ${Math.round(z)}): the sea or a lake`; return false; }
+    for (const o of W.obstaclesNear(x, z, 9)) { if (o.tree !== undefined || o.log || o.fu) continue; if (o.top === undefined || o.top > 0.3) if (Math.hypot(o.x - x, o.z - z) < (o.r || 0.5) + (o.box ? 5 : 3)) { if (why) why.r = `point ${k} (${Math.round(x)}, ${Math.round(z)}): ${o.rock ? "a boulder" : o.box ? "a building" : "an obstacle"} at ${Math.round(o.x)}, ${Math.round(o.z)}`; return false; } }
   }
   return true;
 }
@@ -215,7 +217,7 @@ function nudge(p, closed) {
     for (let k = 0; k < p.length; k++) {
       const [x, z] = p[k];
       for (const o of W.obstaclesNear(x, z, 9)) {
-        if (o.tree !== undefined || o.log || !(o.top === undefined || o.top > 0.3)) continue;
+        if (o.tree !== undefined || o.log || o.fu || o.fld || !(o.top === undefined || o.top > 0.3)) continue;
         const need = (o.r || 0.5) + (o.box ? 6 : 4), dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz);
         if (d < need) { const u = d < 1e-3 ? 1 : 0, nx = d < 1e-3 ? 1 : dx / d, nz = d < 1e-3 ? 0 : dz / d; p[k] = [o.x + nx * (need + 0.3 + u), o.z + nz * (need + 0.3)]; moved = true; break; }
       }
@@ -247,6 +249,61 @@ function smooth(cells, closed) {
   }
   return nudge(p, closed);
 }
+// H1b: a long baked line eased into long curves (the two long turløyper contoured cliffs in stair-steps: the cells avoid steep ground
+// one square at a time). Every point moves toward the weighted middle of its four neighbours, but a move is kept only if the point
+// stays on land and off the buildings and no 50 m stretch through it climbs past the limit (so the line never cuts a cliff corner),
+// and no step leaves 7 to 45 m; the result is laid out again at 25 m and rounded to metres (a baked line is checked again on load). The trailhead (and a loop's closing point) never move. This is how BAKED san / stj were made:
+// X.dbg.relax(unpack(BAKED.san), true) -> pack(). The turn per step: X.turns(line).
+function relax(p, closed, o = {}) {
+  const lim = o.lim || TR.gradeMax - 0.015, its = o.its || 200, lam = o.lam || 0.5;
+  const q = p.map(a => a.slice()); if (closed) q.pop();
+  const n = q.length, H = q.map(a => W.groundAt(a[0], a[1]));
+  const ix = i => closed ? (i % n + n) % n : i, has = i => closed || (i >= 0 && i < n);
+  const worst = i => {                                                               // the steepest 50 m stretch within 5 steps of point i
+    const idx = []; for (let k = -5; k <= 5; k++) if (has(i + k)) idx.push(ix(i + k));
+    const c = [0]; for (let k = 1; k < idx.length; k++) c.push(c[k - 1] + Math.hypot(q[idx[k]][0] - q[idx[k - 1]][0], q[idx[k]][1] - q[idx[k - 1]][1]));
+    let w = 0; for (let a = 0; a < idx.length; a++) for (let b = a + 1; b < idx.length; b++) { const d = c[b] - c[a]; if (d >= 44 && d <= 80) w = Math.max(w, Math.abs(H[idx[b]] - H[idx[a]]) / d); if (d > 80) break; }
+    return w;
+  };
+  const clear = (x, z, m = 0) => {
+    if (bad(x, z)) return false;
+    if (m) for (const L of W.LAKES) if (Math.hypot(L.x - x, L.z - z) < L.r + 25 + m * 3) return false;
+    for (const ob of W.obstaclesNear(x, z, 9)) { if (ob.tree !== undefined || ob.log || ob.fu || (o.ignore && o.ignore(ob))) continue; if (ob.top === undefined || ob.top > 0.3) if (Math.hypot(ob.x - x, ob.z - z) < (ob.r || 0.5) + (ob.box ? 5 : 3) + m) return false; }   // o.ignore: the boulder field is laid after the trails are checked at boot
+    return true;
+  };
+  for (let it = 0; it < its; it++) {
+    let moved = 0;
+    for (let i = closed ? 1 : 2; i < (closed ? n : n - 2); i++) {
+      const a = q[ix(i - 2)], b = q[ix(i - 1)], c = q[ix(i + 1)], d = q[ix(i + 2)], cur = q[i];
+      const nx = cur[0] + lam * ((a[0] + 4 * b[0] + 4 * c[0] + d[0]) / 10 - cur[0]), nz = cur[1] + lam * ((a[1] + 4 * b[1] + 4 * c[1] + d[1]) / 10 - cur[1]);
+      if (Math.hypot(nx - cur[0], nz - cur[1]) < 0.02) continue;
+      const l1 = Math.hypot(nx - b[0], nz - b[1]), l2 = Math.hypot(nx - c[0], nz - c[1]);
+      let why = l1 < 7 || l2 < 7 || l1 > 45 || l2 > 45 ? "len" : !clear(nx, nz, 1.5) || [0.2, 0.4, 0.6, 0.8].some(u => !clear(nx + (b[0] - nx) * u, nz + (b[1] - nz) * u, 1.5) || !clear(nx + (c[0] - nx) * u, nz + (c[1] - nz) * u, 1.5)) ? "clear" : "";
+      if (!why) {
+        const w0 = worst(i), sx = cur[0], sz = cur[1], sh = H[i]; q[i][0] = nx; q[i][1] = nz; H[i] = W.groundAt(nx, nz);
+        if (worst(i) > Math.max(lim, w0)) { q[i][0] = sx; q[i][1] = sz; H[i] = sh; why = "grade"; }
+      }
+      if (why) { if (o.stats) o.stats[why] = (o.stats[why] || 0) + 1; } else moved++;
+    }
+    if (o.stats) o.stats.pass = it + 1;
+    if (!moved) break;
+  }
+  // laid out again, whole metres, at the step (24 to 26 m, 0.1 apart) that leaves the steepest 50 m stretch the gentlest: on a cliff the
+  // line's height at a point moves a metre with a metre's shift, so one spacing is luckier than another
+  const base = q.map(a => a.slice()); if (closed) base.push(base[0].slice());
+  let best = null;
+  for (let st = 24; st <= 26.001; st += 0.1) {
+    let r = resample(base, st); if (closed) r[r.length - 1] = r[0].slice();
+    r = nudge(r, closed).map((a, k, l) => [Math.round(closed && k === l.length - 1 ? l[0][0] : a[0]), Math.round(closed && k === l.length - 1 ? l[0][1] : a[1])]);   // (a node that landed beside a boulder is eased out to its edge)
+    let cl = true; for (let k = 0; k < r.length && cl; k++) cl = clear(r[k][0], r[k][1]) && (!k || !bad((r[k][0] + r[k - 1][0]) / 2, (r[k][1] + r[k - 1][1]) / 2));
+    const g = gradeOf(r) + (cl ? 0 : 1); if (!best || g < best.g) best = { r, g, st, cl };
+  }
+  if (o.stats) { o.stats.clearOk = best.cl; o.stats.bad = best.r.map((a, k) => [k, a, clear(a[0], a[1])]).filter(a => !a[2]).slice(0, 5).map(a => a[0] + "@" + a[1]); }
+  if (o.stats) { o.stats.step = best.st; o.stats.grade = best.g; }
+  return best.r;
+}
+// the turn at each interior point, degrees
+X.turns = p => { const o = []; for (let i = 1; i < p.length - 1; i++) { const a1 = Math.atan2(p[i][1] - p[i - 1][1], p[i][0] - p[i - 1][0]), a2 = Math.atan2(p[i + 1][1] - p[i][1], p[i + 1][0] - p[i][0]); o.push(Math.abs(((a2 - a1 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) * 180 / Math.PI); } return o; };
 const cellPath = (a, b, o) => astar(a, b, o) || astar(a, b, Object.assign({}, o, { pad: 40 }));
 // a loop of about `len` m that starts at `start` (a cell): a ring through the start, tried at a dozen headings and three sizes
 function loopRoute(start, len, avoidFrom) {
@@ -335,8 +392,10 @@ const pack = p => { const o = [Math.round(p[0][0]), Math.round(p[0][1])]; let x 
 function bakedRoute(def) {
   const a = BAKED[def.id]; if (!Array.isArray(a) || a.length < 8) return null;
   const line = unpack(a), c = cum(line), g = gradeOf(line);
-  if (!lineOk(line) || g > TR.gradeMax + 0.003) return null;
-  if (def.kind !== "fjell" && Math.hypot(line[0][0] - line[line.length - 1][0], line[0][1] - line[line.length - 1][1]) > 0.5) return null;
+  X.bakeWhy = X.bakeWhy || {};
+  const w = {}; if (!lineOk(line, w)) { X.bakeWhy[def.id] = w.r; return null; }
+  if (g > TR.gradeMax + 0.003) { X.bakeWhy[def.id] = "grade " + g.toFixed(3); return null; }
+  if (def.kind !== "fjell" && Math.hypot(line[0][0] - line[line.length - 1][0], line[0][1] - line[line.length - 1][1]) > 0.5) { X.bakeWhy[def.id] = "does not close"; return null; }
   return { line, L: c[c.length - 1], g, gk: -1 };
 }
 X.bakeJSON = () => JSON.stringify(Object.fromEntries(X.list.map(t => [t.id, pack(t.pts)])));
@@ -349,11 +408,12 @@ function buildTrails() {
       const vil = TLXN.village(def.from); if (!vil) continue;
       let r = X.nobake ? null : bakedRoute(def), how = "baked";
       if (!r) { r = routeDef(def, vil); how = "routed"; }
-      X.diag[def.id] = how + " " + Math.round(performance.now() - t0) + " ms";
+      X.diag[def.id] = how + " " + Math.round(performance.now() - t0) + " ms" + (how === "routed" && X.bakeWhy && X.bakeWhy[def.id] ? " (baked line refused: " + X.bakeWhy[def.id] + ")" : "");
       if (!r) { console.warn("tlx-trails: no route for " + def.id); X.diag[def.id] += " NO ROUTE"; continue; }
       const pts = r.line, c = cum(pts), len = c[c.length - 1], nseg = Math.max(1, Math.ceil(len / TR.seg));
       let farI = 0, fd = 0; for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[0][0], pts[i][1] - pts[0][1]); if (d > fd) { fd = d; farI = i; } }
       const t = Object.assign({}, def, { vil, pts, cum: c, len, nseg, grade: r.g, closed: def.kind !== "fjell", far: def.kind === "tur" ? pts[farI] : null, farI, how, villages: [def.from].concat(def.kind === "fjell" ? [def.to] : []), idx: X.list.length });
+      t.bb = [Math.min(...pts.map(q => q[0])), Math.min(...pts.map(q => q[1])), Math.max(...pts.map(q => q[0])), Math.max(...pts.map(q => q[1]))];
       t.mid = []; for (let i = 0; i < nseg; i++) t.mid.push(at(t, Math.min(len, i * TR.seg + Math.min(TR.seg, len - i * TR.seg) / 2)));
       X.list.push(t);
     } catch (e) { console.error("tlx-trails: " + def.id, e); }
@@ -392,11 +452,11 @@ X.nearest = (x, z, r = 12) => {
   return best;
 };
 
-X.dbg = { bakedRoute, unpack, lineOk, BAKED, astar, cellPath, cellCost, nearestOk, smooth, gradeOf, loopRoute, turRoute, lineRoute, trailheads, cum, ci, cx, build: () => buildTrails() };
+X.dbg = { relax, pack, bakedRoute, unpack, lineOk, BAKED, astar, cellPath, cellCost, nearestOk, smooth, gradeOf, loopRoute, turRoute, lineRoute, trailheads, cum, ci, cx, build: () => buildTrails() };
 /* ---------------- the track: state, words, wear ---------------- */
 const rnd = () => { const s = S(); let t = (s.rs = (s.rs + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 const segNew = () => [0, 0, 0, 0, -1e6, 0];
-const trNew = t => ({ taken: 0, seg: Array.from({ length: t.nseg }, segNew), thaw: 0, day: { v: 0, km: 0, kw: 0 }, noon: "", wk: { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }, tot: { v: 0, km: 0, pay: 0 }, last: [], out: [], lw: "", lp: -99, gp: { n: 0, t: -99 } });
+const trNew = t => ({ taken: 0, seg: Array.from({ length: t.nseg }, segNew), thaw: 0, day: { v: 0, km: 0, kw: 0 }, noon: "", wk: { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }, tot: { v: 0, km: 0, pay: 0 }, last: [], out: [], lw: "", lp: -99, gp: { n: 0, t: -99 }, cm: { wk: 0, tot: 0 } });
 const num = (v, d) => (Number.isFinite(+v) ? +v : d);
 // the saved state of each trail made to fit today's trails
 function adopt(t, o) {
@@ -406,8 +466,9 @@ function adopt(t, o) {
   b.thaw = clamp(num(o.thaw, 0), 0, 99);
   for (const k of ["day", "wk", "tot"]) if (o[k] && typeof o[k] === "object") for (const f in b[k]) b[k][f] = num(o[k][f], b[k][f]);
   b.noon = typeof o.noon === "string" ? o.noon : ""; b.lw = typeof o.lw === "string" ? o.lw : ""; b.lp = num(o.lp, -99);
-  if (Array.isArray(o.last)) b.last = o.last.filter(q => q && typeof q === "object").slice(0, 3).map(q => ({ d: String(q.d || ""), pay: Math.round(num(q.pay, 0)), km: num(q.km, 0), v: Math.round(num(q.v, 0)), bonus: !!q.bonus, under: Math.round(num(q.under, 0)), days: Math.round(num(q.days, 0)), back: !!q.back }));
-  if (Array.isArray(o.out)) b.out = o.out.filter(q => q && typeof q.p === "string" && Number.isFinite(q.t1)).slice(0, 12).map(q => ({ p: q.p, t0: num(q.t0, 0), t1: q.t1, km: num(q.km, 0) }));
+  if (Array.isArray(o.last)) b.last = o.last.filter(q => q && typeof q === "object").slice(0, 3).map(q => ({ d: String(q.d || ""), pay: Math.round(num(q.pay, 0)), km: num(q.km, 0), v: Math.round(num(q.v, 0)), bonus: !!q.bonus, cm: Math.round(num(q.cm, 0)), nob: !!q.nob, under: Math.round(num(q.under, 0)), days: Math.round(num(q.days, 0)), back: !!q.back }));
+  if (Array.isArray(o.out)) b.out = o.out.filter(q => q && typeof q.p === "string" && Number.isFinite(q.t1)).slice(0, 24).map(q => ({ p: q.p, t0: num(q.t0, 0), t1: q.t1, km: num(q.km, 0), pc: num(q.pc, 0), f: typeof q.f === "string" ? q.f : "", wd: typeof q.wd === "string" ? q.wd : "", rs: num(q.rs, 0), g: typeof q.g === "string" ? q.g : q.p, k: num(q.k, 0) | 0, dl: num(q.dl, 0) }));
+  if (o.cm && typeof o.cm === "object") b.cm = { wk: Math.round(clamp(num(o.cm.wk, 0), 0, 99)), tot: Math.round(clamp(num(o.cm.tot, 0), 0, 9999)) };
   if (o.gp && typeof o.gp === "object") b.gp = { n: Math.round(num(o.gp.n, 0)), t: num(o.gp.t, -99) };
   return b;
 }
@@ -557,17 +618,24 @@ function outingsHour(H) {
   }
 }
 function goOut(t, p, tr, H, we, air) {
-  let km = t.kind === "loop" ? t.len * (rnd() < 0.3 ? 2 : 1) : t.kind === "tur" ? t.len * (0.6 + 0.4 * rnd()) : t.len * (0.35 + 0.5 * rnd());
+  let km = t.kind === "loop" ? t.len * (rnd() < 0.3 ? 2 : 1) : t.kind === "tur" ? t.len : t.len * (0.35 + 0.5 * rnd());
   km = Math.min(km, tr.pace * 3500);
-  const k = Math.round(km / 100) / 10, st = t.st, s = stat(t, H);
+  const st = t.st, s = stat(t, H);
   const party = [p];                                                                     // a family goes out together now and then
   const busy = new Set(); for (const q of X.list) for (const o of q.st.out) if (o.t1 > H) busy.add(o.p);
   for (const q of TLXN.family(p)) if (q.id !== p.id && q.age > 4 && q.age < 80 && (q.interests.includes("ski") || q.age < 16) && !busy.has(q.id) && rnd() < 0.4) party.push(q);
-  for (const q of party) {
-    const kk = q === p ? k : Math.min(k, Math.round(trait(q).pace * 3.5 * 10) / 10);
-    st.out.push({ p: q.id, t0: H, t1: H + kk / trait(q).pace, km: kk });
-    st.day.v++; st.day.km += kk; st.day.kw += kk * (we ? TR.weekend : 1); st.tot.v++; st.tot.km += kk;
-  }
+  // H1b: a group goes at the slowest one's pace and the shortest one's distance, so the figures seen are one party on one journey
+  const pcOf = q => trait(q).pace * (q.age < 16 ? 0.8 : 1) / 3.6 * SKI.fast, pc = Math.min(...party.map(pcOf));
+  km = Math.min(km, ...party.map(q => trait(q).pace * 3500));
+  const k = Math.round(km / 100) / 10;
+  let f = "", wd = ""; for (let i = 0; i < t.nseg; i++) { const g = st.seg[i], q = segWord(g, H) === "not prepared" ? 0 : sq(g); f += Math.round(9 * clamp(q, 0, 1)); wd += g[5] && q > 0.55 ? "1" : "0"; }
+  const rs = t.kind === "tur" ? Math.round(38 + 24 * rnd()) : 0;
+  const first = st.out.length;
+  party.forEach((q, i) => {
+    st.out.push({ p: q.id, t0: H, t1: H + 1, km: k, pc: Math.round(pc * 100) / 100, f, wd, rs, g: p.id, k: i, dl: 0 });
+    st.day.v++; st.day.km += k; st.day.kw += k * (we ? TR.weekend : 1); st.tot.v++; st.tot.km += k;
+  });
+  const t1 = H + planOf(t, st.out[first]).T / HOURS(); for (let i = first; i < st.out.length; i++) st.out[i].t1 = t1;
   const frac = Math.min(1, k * 1000 / t.len); for (let i = 0; i < t.nseg; i++) if ((i + 0.5) * TR.seg <= frac * t.len + TR.seg) st.seg[i][0] = Math.max(0, st.seg[i][0] - TR.use * (st.seg[i][0] > 0 ? 1 : 0));
   const m = t.mid[Math.floor(rnd() * t.nseg)];
   TLXN.post({ kind: "ski", who: p, x: m.x, z: m.z, place: t.name, text: TLXN.say(p, "ski", { km: k.toFixed(1), trail: t.name, word: s.word, cold: air < -10 ? "properly cold" : air < -4 ? "cold" : "mild", n: S().seq }) + (party.length > 1 ? ` With ${party.slice(1).map(q => q.first).join(" and ")}.` : ""), data: { trail: t.id, km: k, word: s.word, with: party.slice(1).map(q => q.id) } });
@@ -650,15 +718,15 @@ function take(id) {
 // what a taken trail has earned so far this week (whole days counted, and the day in hand)
 function weekPay(t, withBonus) {
   const st = t.st, dead = st.noon === "snowed under", kw = st.wk.kw + (dead ? 0 : st.day.kw), base = kw * TR.rate * api.payMul();
-  const days = st.wk.days + 1, bonus = withBonus && st.wk.days >= 6 && !st.wk.low && st.wk.under === 0 && goodish(st.noon || stat(t).word) ? base * TR.bonus : 0;
-  return { base, bonus, kw, days };
+  const days = st.wk.days + 1, calm = !(TLX.on("skicomplaints") && st.cm && st.cm.wk >= 3), bonus = withBonus && calm && st.wk.days >= 6 && !st.wk.low && st.wk.under === 0 && goodish(st.noon || stat(t).word) ? base * TR.bonus : 0;
+  return { base, bonus, kw, days, calm };
 }
 function giveBack(id) {
   const t = X.list.find(q => q.id === id); if (!t || !t.st.taken) return false;
   catchUp(); const st = t.st, p = weekPay(t, false), pay = Math.round(p.base);
   if (pay > 0) { api.GS.cash += pay; st.tot.pay += pay; }
-  st.last.unshift({ d: "handed back " + api.CAL.now().label, pay, km: Math.round((st.wk.km + st.day.km) * 10) / 10, v: st.wk.v + st.day.v, bonus: false, under: st.wk.under, days: st.wk.days, back: true }); st.last = st.last.slice(0, 3);
-  st.taken = 0; st.seg = st.seg.map(segNew); st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.out = []; st.lw = ""; st.gp = { n: 0, t: -99 }; st.noon = "";
+  st.last.unshift({ d: "handed back " + api.CAL.now().label, pay, km: Math.round((st.wk.km + st.day.km) * 10) / 10, v: st.wk.v + st.day.v, bonus: false, cm: 0, nob: false, under: st.wk.under, days: st.wk.days, back: true }); st.last = st.last.slice(0, 3);
+  st.taken = 0; st.seg = st.seg.map(segNew); st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; st.day = { v: 0, km: 0, kw: 0 }; st.out = []; st.cm.wk = 0; st.lw = ""; st.gp = { n: 0, t: -99 }; st.noon = "";
   touch(t); api.toast(`${t.name} is handed back to the løypelag${pay ? `: the week so far, ${api.fmtCash(pay)}, is paid` : ""}.`, "good");
   repaint(); boards(); api.save(); api.TABLET.refresh("loyper"); return true;
 }
@@ -670,8 +738,8 @@ function monday(week) {
     if (st.wk.days === 0 && st.wk.kw === 0 && st.day.kw === 0) continue;
     const p = weekPay(t, true), pay = Math.round(p.base + p.bonus);
     api.GS.cash += pay; st.tot.pay += pay; total += pay; km += st.wk.km; n++;
-    st.last.unshift({ d, pay, km: Math.round(st.wk.km * 10) / 10, v: st.wk.v, bonus: p.bonus > 0, under: st.wk.under, days: st.wk.days, back: false }); st.last = st.last.slice(0, 3);
-    st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 };
+    st.last.unshift({ d, pay, km: Math.round(st.wk.km * 10) / 10, v: st.wk.v, bonus: p.bonus > 0, cm: st.cm ? st.cm.wk : 0, nob: !p.calm, under: st.wk.under, days: st.wk.days, back: false }); st.last = st.last.slice(0, 3);
+    st.wk = { v: 0, km: 0, kw: 0, days: 0, low: 0, under: 0 }; if (st.cm) st.cm.wk = 0;
   }
   if (n) { api.save(); api.TABLET.refresh("loyper"); setTimeout(() => { try { api.TABLET.notify({ app: "loyper", kind: "good", title: `Løypelaget · week to ${d}`, body: `Ski trails: ${api.fmtCash(total)} for ${km.toFixed(0)} skier-km`, ttl: 8 }); } catch (e) { } }, 1500); }
   return total;
@@ -742,7 +810,7 @@ function furnY() {
 function instanced(geo, list, name) {
   const mesh = new T.InstancedMesh(geo, lam(), Math.max(1, list.length)); mesh.count = list.length; mesh.frustumCulled = false; mesh.name = name; api.scene.add(mesh); FU.meshes.push(mesh); return mesh;
 }
-const solid = (x, z, r) => { W.addOb({ x, z, r, top: 1e9 }); FU.n.solid++; };
+const solid = (x, z, r) => { W.addOb({ x, z, r, top: 1e9, fu: 1 }); FU.n.solid++; };   // fu: trail furniture (the router and the smoothing ignore it)
 const free = (x, z, r) => { if (bad(x, z)) return false; for (const o of W.obstaclesNear(x, z, r + 3)) { if (o.tree !== undefined || o.log) continue; if (Math.hypot(o.x - x, o.z - z) < (o.r || 0.5) + r) return false; } return true; };
 function buildFurniture() {
   const dark = C(0x2c3239), wood = C(0x8a6a42), woodD = C(0x5c4630), white = C(0xf0eee0), steel = C(0x8d99a6), stone = C(0x777b80), ash = C(0x1b1b1d);
@@ -875,9 +943,9 @@ function appRender(el) {
       note: strip(t) + (st.taken ? `<div style="margin-top:6px">${s.bad ? `${s.bad} of ${t.nseg} stretches under good: ${(s.badM / 1000).toFixed(1)} km to set.` : "Every stretch is good."}</div>` : `<div style="margin-top:6px">Nobody keeps this trail, so it is not prepared and nobody skis it.</div>`),
       warn: st.taken ? "" : w, act: (st.taken ? "lyh:" : "lyt:") + t.id, actLabel: st.taken ? "HAND BACK" : "TAKE ON", blocked: !st.taken && !!w });
     if (st.taken) {
-      h += U.tabCard({ tf: "ly:use", title: "Use", meta: `On it now: ${out.length ? U.esc(out.join(", ")) : "nobody"}`, note: `Visits today ${st.day.v} · this week ${st.wk.v + st.day.v} (${(st.wk.km + st.day.km).toFixed(1)} skier-km) · paid so far ${cash(st.tot.pay)} · this week so far ${cash(wp.base)}${wp.bonus ? " + bonus" : ""}` });
+      h += U.tabCard({ tf: "ly:use", title: "Use", meta: `On it now: ${out.length ? U.esc(out.join(", ")) : "nobody"}`, note: `Visits today ${st.day.v} · this week ${st.wk.v + st.day.v} (${(st.wk.km + st.day.km).toFixed(1)} skier-km) · paid so far ${cash(st.tot.pay)} · this week so far ${cash(wp.base)}${wp.bonus ? " + bonus" : ""}`, warn: (st.cm && st.cm.wk) ? `${st.cm.wk} complaint${st.cm.wk > 1 ? "s" : ""} from skiers this week${st.cm.wk >= 3 ? (TLX.on("skicomplaints") ? ": the bonus is gone" : " (counted, not penalised)") : " (three lose the bonus)"}. Slow down near skiers.` : "" });
     }
-    if (st.last.length) h += U.sec("Statements", "") + `<div class="tsml2">${st.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>${q.v} visits · ${q.km.toFixed(1)} skier-km · +${cash(q.pay)}${q.bonus ? " · no day under good: bonus" : ""}${q.under ? ` · ${q.under} day${q.under > 1 ? "s" : ""} snowed under, not paid` : ""}${q.back ? " · handed back" : ""}</span></div>`).join("")}</div>`;
+    if (st.last.length) h += U.sec("Statements", "") + `<div class="tsml2">${st.last.map(q => `<div class="tsm2 tprow"><b>${U.esc(q.d)}</b><span>${q.v} visits · ${q.km.toFixed(1)} skier-km · +${cash(q.pay)}${q.bonus ? " · no day under good: bonus" : ""}${q.cm ? ` · ${q.cm} complaint${q.cm > 1 ? "s" : ""}${q.nob ? ", bonus lost" : ""}` : ""}${q.under ? ` · ${q.under} day${q.under > 1 ? "s" : ""} snowed under, not paid` : ""}${q.back ? " · handed back" : ""}</span></div>`).join("")}</div>`;
   }
   el.innerHTML = `<div class="tapp">${h}</div>`;
   for (const b of el.querySelectorAll("[data-act^='lyo:']")) b.addEventListener("click", () => { SEL = b.dataset.act.slice(4); api.TABLET.refresh("loyper"); });
@@ -893,6 +961,615 @@ const crewCard = {
   },
   bind(el) { for (const b of el.querySelectorAll("[data-act='lyc:']")) b.addEventListener("click", () => api.TABLET.go("loyper")); }
 };
+
+/* ================= H1b: the skiers seen =================
+   Every booked outing (a record in a trail's st.out: person, start hour t0, km, and since H1b the pace, the track state when
+   they set out, a rest, a delay) is also a JOURNEY that is a pure function of the game clock: where on the trail they are, how
+   fast, which gait, whether they are at the board putting skis on, on the gapahuk's bench, or done. Out of sight that journey is
+   only the hours the bookkeeping counts; within SKI.see m of you the same journey is drawn, so who, which trail and how far along
+   agree by construction, and looking at them changes nothing that is paid.
+   A journey is built once per outing (planOf): legs of path sampled every 2 m with a speed (the pace, the track's state, the grade),
+   a gait (diagonal stride, skating on a wide stretch, herringbone up a steep climb, a tuck down one, double-poling on a fast
+   flat) and a stride phase, so the figure's feet are placed from the path and not from its root: a planted ski stays where it
+   landed and the body goes over it. rig() poses the shared body kit from those targets by two-bone IK. */
+const SKI = { see: 480, drop: 560, pool: { low: 4, high: 8 }, fast: 1.85, ds: 2, lead: 2.3, prep: 6.5, fin: 5.5, Lp: 1.22, hip: 0.9, ank: 0.075, skiT: 0.03 };
+const HOURS = () => api.gameHour || 50;
+const frac = v => v - Math.floor(v);
+const ease = q => q * q * (3 - 2 * q);
+const G_CLASSIC = 0, G_HERRING = 1, G_SKATE = 2, G_DPOLE = 3, G_TUCK = 4, GAITS = ["classic", "herringbone", "skate", "double-pole", "tuck"];
+const strideOf = (v, g) => g === G_HERRING ? 0.8 + 0.22 * v : g === G_SKATE ? 2.3 + 0.5 * v : g === G_DPOLE ? 3.0 + 0.45 * v : g === G_TUCK ? 6 : clamp(1.15 + 0.42 * v, 1.4, 3.3);
+/* ---- a leg of a journey: a polyline sampled every ds m with speed, gait and stride phase ---- */
+function buildLeg(pts, o) {
+  const n = pts.length, ds = SKI.ds, L = { n, x: new Float32Array(n), z: new Float32Array(n), u: new Float32Array(n), h: new Float32Array(n), gr: new Float32Array(n), q: new Float32Array(n), v: new Float32Array(n), tau: new Float32Array(n), gait: new Uint8Array(n), phi: [new Float32Array(n), new Float32Array(n)], S: [new Float32Array(n), new Float32Array(n)] };
+  for (let i = 0; i < n; i++) { L.x[i] = pts[i][0]; L.z[i] = pts[i][1]; L.u[i] = i ? L.u[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) : 0; L.h[i] = W.groundAt(pts[i][0], pts[i][1]); L.q[i] = o.q ? o.q(i, pts[i]) : 0.8; }
+  const pc = o.pc, wide = o.wide || (() => false);
+  for (let i = 0; i < n; i++) { const a = Math.max(0, i - 4), b = Math.min(n - 1, i + 4); L.gr[i] = b > a ? (L.h[b] - L.h[a]) / (L.u[b] - L.u[a]) : 0; }
+  const raw = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const q = L.q[i], g = L.gr[i];
+    raw[i] = g > 0.075 ? G_HERRING : g < -0.065 ? G_TUCK : (wide(i) && q > 0.55) ? G_SKATE : (Math.abs(g) < 0.035 && pc * q > 3.7 && q > 0.5) ? G_DPOLE : G_CLASSIC;
+  }
+  for (let pass = 0; pass < 3; pass++) {                                                // a gait is held for at least 28 m
+    let s = 0; while (s < n) { let e = s; while (e + 1 < n && raw[e + 1] === raw[s]) e++; if (e - s + 1 < 14) { const fill = s > 0 ? raw[s - 1] : e + 1 < n ? raw[e + 1] : raw[s]; for (let i = s; i <= e; i++) raw[i] = fill; } s = e + 1; }
+  }
+  L.gait.set(raw); L.prevG = new Uint8Array(n).fill(255); L.runU = new Float32Array(n);
+  { let s = 0; while (s < n) { let e = s; while (e + 1 < n && raw[e + 1] === raw[s]) e++; for (let i = s; i <= e; i++) { L.runU[i] = L.u[s]; L.prevG[i] = s > 0 ? raw[s - 1] : 255; } s = e + 1; } }
+  const v = L.v;
+  for (let i = 0; i < n; i++) {
+    const q = L.q[i], g = L.gr[i];
+    let s = pc * (0.45 + 0.55 * q) * (g > 0 ? clamp(1 - 5.2 * g, 0.28, 1) : clamp(1 - 9 * g, 1, 1.9));
+    if (L.gait[i] === G_HERRING) s = Math.min(s, 1.35); else if (L.gait[i] === G_SKATE) s *= 1.08; else if (L.gait[i] === G_TUCK) s = Math.min(s, 8.5);
+    v[i] = s;
+  }
+  for (let pass = 0; pass < 3; pass++) { const c = Float32Array.from(v); for (let i = 0; i < n; i++) { let a = 0, m = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < n) { a += c[j]; m++; } } v[i] = a / m; } }
+  const D = L.u[n - 1], r0 = o.r0 === undefined ? 14 : o.r0, r1 = o.r1 === undefined ? 14 : o.r1;
+  for (let i = 0; i < n; i++) {
+    let f = 1; if (r0 > 0) f *= 0.22 + 0.78 * sstep(0, r0, L.u[i]); if (r1 > 0) f *= 0.22 + 0.78 * sstep(0, r1, D - L.u[i]);
+    v[i] = Math.max(0.35, v[i] * f);
+  }
+  for (let i = 1; i < n; i++) L.tau[i] = L.tau[i - 1] + (L.u[i] - L.u[i - 1]) / ((v[i] + v[i - 1]) / 2);
+  for (let kc = 0; kc < 2; kc++) {
+    const kk = kc ? 1 : 0.72;
+    for (let i = 0; i < n; i++) L.S[kc][i] = strideOf(v[i], L.gait[i]) * kk;
+    L.phi[kc][0] = o.phi0 || 0;
+    for (let i = 1; i < n; i++) L.phi[kc][i] = L.phi[kc][i - 1] + (L.u[i] - L.u[i - 1]) / ((L.S[kc][i] + L.S[kc][i - 1]) / 2);
+  }
+  L.D = D; L.T = L.tau[n - 1]; L.kind = "leg";
+  return L;
+}
+// the index at path coordinate u (and the fraction into that step)
+let _li = 0, _lf = 0;
+function lIdx(L, u) {
+  const n = L.n; if (u <= 0) { _li = 0; _lf = 0; return; } if (u >= L.D) { _li = n - 2; _lf = 1; return; }
+  let a = Math.min(n - 2, Math.floor(u / SKI.ds)); while (a > 0 && L.u[a] > u) a--; while (a < n - 2 && L.u[a + 1] < u) a++;
+  _li = a; _lf = (u - L.u[a]) / (L.u[a + 1] - L.u[a] || 1);
+}
+const lerpA = (A, i, f) => A[i] + (A[i + 1] - A[i]) * f;
+function vAt(L, u) { lIdx(L, u); return lerpA(L.v, _li, _lf); }
+function sAt(L, kc, u) { lIdx(L, u); return lerpA(L.S[kc], _li, _lf); }
+function tauAt(L, u) { lIdx(L, u); return lerpA(L.tau, _li, _lf); }
+function phiAt(L, kc, u) { if (u < 0) return L.phi[kc][0] + u / L.S[kc][0]; if (u > L.D) return L.phi[kc][L.n - 1] + (u - L.D) / L.S[kc][L.n - 1]; lIdx(L, u); return lerpA(L.phi[kc], _li, _lf); }
+function uAtTau(L, tau) {
+  if (tau <= 0) return tau * L.v[0]; if (tau >= L.T) return L.D + (tau - L.T) * L.v[L.n - 1];
+  let a = 0, b = L.n - 1; while (b - a > 1) { const m = (a + b) >> 1; if (L.tau[m] <= tau) a = m; else b = m; }
+  return L.u[a] + (L.u[b] - L.u[a]) * (tau - L.tau[a]) / (L.tau[b] - L.tau[a] || 1);
+}
+function uAtPhi(L, kc, ph) {
+  const P = L.phi[kc], n = L.n; if (ph <= P[0]) return (ph - P[0]) * L.S[kc][0]; if (ph >= P[n - 1]) return L.D + (ph - P[n - 1]) * L.S[kc][n - 1];
+  let a = 0, b = n - 1; while (b - a > 1) { const m = (a + b) >> 1; if (P[m] <= ph) a = m; else b = m; }
+  return L.u[a] + (L.u[b] - L.u[a]) * (ph - P[a]) / (P[b] - P[a] || 1);
+}
+// the point and heading at path coordinate u (beyond either end the line carries on straight)
+const _pp = { x: 0, z: 0, tx: 0, tz: 1 };
+function ppL(L, u, o) {
+  o = o || _pp; const n = L.n;
+  if (u <= 0) { const a = 0, dx = L.x[1] - L.x[0], dz = L.z[1] - L.z[0], m = Math.hypot(dx, dz) || 1; o.tx = dx / m; o.tz = dz / m; o.x = L.x[a] + o.tx * u; o.z = L.z[a] + o.tz * u; return o; }
+  if (u >= L.D) { const dx = L.x[n - 1] - L.x[n - 2], dz = L.z[n - 1] - L.z[n - 2], m = Math.hypot(dx, dz) || 1; o.tx = dx / m; o.tz = dz / m; o.x = L.x[n - 1] + o.tx * (u - L.D); o.z = L.z[n - 1] + o.tz * (u - L.D); return o; }
+  lIdx(L, u); const i = _li, f = _lf, dx = L.x[i + 1] - L.x[i], dz = L.z[i + 1] - L.z[i], m = Math.hypot(dx, dz) || 1;
+  o.x = L.x[i] + dx * f; o.z = L.z[i] + dz * f; o.tx = dx / m; o.tz = dz / m; return o;
+}
+/* ---- the journey of one outing: blocks in time (seconds from the start, minus delays) ---- */
+const PLANS = new Map();
+function locate(t, s) {                                                                 // the point and heading s m along trail t
+  const c = t.cum; let a = 0, b = c.length - 1; s = clamp(s, 0, t.len);
+  while (b - a > 1) { const m = (a + b) >> 1; if (c[m] <= s) a = m; else b = m; }
+  const p = t.pts[a], q = t.pts[b], L = c[b] - c[a] || 1, u = (s - c[a]) / L;
+  return [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
+}
+const digit = (str, i, d) => { if (typeof str !== "string" || i >= str.length) return d; const c = str.charCodeAt(i) - 48; return c >= 0 && c <= 9 ? c : d; };
+function arcPts(t, o, s0, s1, kind, D) {                                                // samples from path coordinate s0 to s1 (kind lap: arc = u mod len; ob: out then back)
+  const ds = SKI.ds, n = Math.max(2, Math.ceil((s1 - s0) / ds) + 1), pts = [];
+  for (let i = 0; i < n; i++) {
+    const u = Math.min(s1, s0 + i * ds); let s;
+    if (kind === "lap") s = u % t.len; else s = u <= D / 2 ? u : D - u;
+    pts.push(locate(t, kind === "lap" && u > 0 && s === 0 ? t.len : s));
+  }
+  return pts;
+}
+const BENCH = { x: -1.0, z: 1.05, fixed: 11.2 };                                       // where a skier stops in front of the bench (the gapahuk's own frame, +z is its open side), and the seconds the sit takes besides the rest
+function hermite(P0, T0, P1, T1) {
+  const raw = []; for (let i = 0; i <= 48; i++) { const q = i / 48, q2 = q * q, q3 = q2 * q; raw.push([(2 * q3 - 3 * q2 + 1) * P0[0] + (q3 - 2 * q2 + q) * T0[0] + (-2 * q3 + 3 * q2) * P1[0] + (q3 - q2) * T1[0], (2 * q3 - 3 * q2 + 1) * P0[1] + (q3 - 2 * q2 + q) * T0[1] + (-2 * q3 + 3 * q2) * P1[1] + (q3 - q2) * T1[1]]); }
+  return resample(raw, SKI.ds);
+}
+function planOf(t, o) {
+  const key = t.id + "|" + o.t0 + "|" + (o.g || o.p); let pl = PLANS.get(key); if (pl) return pl;
+  pl = buildPlan(t, o); if (PLANS.size > 80) PLANS.clear(); PLANS.set(key, pl); return pl;
+}
+function buildPlan(t, o) {
+  const km = o.km * 1000, pc = o.pc || 4;
+  const lap = t.kind === "tur" || (t.kind === "loop" && km >= t.len * 0.85);
+  const D = lap ? (t.kind === "tur" ? t.len : Math.max(1, Math.round(km / t.len)) * t.len) : Math.max(300, km);
+  const kind = lap ? "lap" : "ob";
+  const segAt = (u) => { const s = kind === "lap" ? u % t.len : u <= D / 2 ? u : D - u; return Math.min(t.nseg - 1, Math.floor(s / TR.seg)); };
+  const q = (i, p, u0) => { const d = digit(o.f, segAt(u0 + i * SKI.ds), 8); return d <= 0 ? 0.05 : 0.12 + 0.88 * d / 9; };
+  const wide = (i, u0) => digit(o.wd, segAt(u0 + i * SKI.ds), 0) === 1;
+  const mk = (s0, s1, extra) => { const pts = arcPts(t, o, s0, s1, kind, D); return buildLeg(pts, Object.assign({ pc, q: (i, p) => q(i, p, s0), wide: i => wide(i, s0) }, extra || {})); };
+  const blocks = []; let T = 0;
+  const add = (b, dur) => { b.a = T; T += dur; b.b = T; blocks.push(b); return b; };
+  add({ k: "stand", mode: "prep", x: 0, z: 0 }, SKI.prep);
+  const gap = t.kind === "tur" && o.rs > 0 && (o.k || 0) === 0 && !t.st.out.some(q => q !== o && q.g === o.g && q.t0 === o.t0) ? (FU.gaps.find(g => g.t === t) || null) : null;
+  if (kind === "lap" && gap) {
+    // out to the gapahuk, a spur off the trail to the bench, a rest, and back onto the trail past it
+    const sFar = t.cum[t.farI], uA = Math.max(30, sFar - 16), uC = Math.min(D - 30, sFar + 16), cs = Math.cos(gap.yaw), sn = Math.sin(gap.yaw), lw = (lx, lz) => [gap.x + lx * cs + lz * sn, gap.z - lx * sn + lz * cs];
+    const l1 = mk(0, uA, { r0: 14, r1: 0 }); add({ k: "leg", leg: l1 }, l1.T);
+    const e1 = ppL(l1, l1.D, {}), Bp = lw(BENCH.x, BENCH.z), d1 = Math.hypot(Bp[0] - e1.x, Bp[1] - e1.z) * 1.15;
+    const sIn = buildLeg(hermite([e1.x, e1.z], [e1.tx * d1, e1.tz * d1], Bp, [-sn * d1, -cs * d1]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 0, r1: 14 }); add({ k: "leg", leg: sIn, spur: 1 }, sIn.T);
+    add({ k: "bench", gap, rs: o.rs }, BENCH.fixed + o.rs);
+    const l2 = mk(uC, D, { r0: 0, r1: 14 }), e2 = ppL(l2, 0, {}), d2 = Math.hypot(Bp[0] - e2.x, Bp[1] - e2.z) * 1.15;
+    const sOut = buildLeg(hermite(Bp, [sn * d2, cs * d2], [e2.x, e2.z], [e2.tx * d2, e2.tz * d2]), { pc: Math.min(pc, 3.2), q: () => 0.8, r0: 12, r1: 0 }); add({ k: "leg", leg: sOut, spur: 1 }, sOut.T);
+    add({ k: "leg", leg: l2 }, l2.T);
+  } else if (kind === "lap") { const l = mk(0, D, { r0: 14, r1: 14 }); add({ k: "leg", leg: l }, l.T); }
+  else {
+    const h = D / 2, l1 = mk(0, h, { r0: 14, r1: 18 }), l2 = mk(h, D, { r0: 18, r1: 14 });
+    add({ k: "leg", leg: l1 }, l1.T); add({ k: "turn", leg: l1 }, 3.0); add({ k: "leg", leg: l2, flip: true }, l2.T);
+  }
+  add({ k: "stand", mode: "fin" }, SKI.fin);
+  return { t, o, kind, D, blocks, T, nb: blocks.length };
+}
+
+/* ---- the body: P is a pose in world terms (root, feet, hands, pole tips); rig() turns it into joint angles ---- */
+const newP = () => ({ x: 0, z: 0, yaw: 0, hip: 0.88, pitch: 0.1, twist: 0, roll: 0, head: 0, f: [0, 1].map(() => ({ x: 0, z: 0, yaw: 0, lift: 0, tip: 0, ski: 1, sx: 0, sz: 0, syaw: 0, sv: 0 })), h: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })), p: [0, 1].map(() => ({ x: 0, y: 0, z: 0 })) });
+function lerpP(A, B, w, o) {
+  const m = (a, b) => a + (b - a) * w, ma = (a, b) => a + wrapA(b - a) * w;
+  o.x = m(A.x, B.x); o.z = m(A.z, B.z); o.yaw = ma(A.yaw, B.yaw); o.hip = m(A.hip, B.hip); o.pitch = m(A.pitch, B.pitch); o.twist = m(A.twist, B.twist); o.roll = m(A.roll, B.roll); o.head = m(A.head, B.head);
+  for (let i = 0; i < 2; i++) {
+    const a = A.f[i], b = B.f[i], c = o.f[i]; c.x = m(a.x, b.x); c.z = m(a.z, b.z); c.yaw = ma(a.yaw, b.yaw); c.lift = m(a.lift, b.lift); c.tip = m(a.tip, b.tip); c.ski = b.ski; c.sx = b.sx; c.sz = b.sz; c.syaw = b.syaw; c.sv = b.sv;
+    for (const k of ["x", "y", "z"]) { o.h[i][k] = m(A.h[i][k], B.h[i][k]); o.p[i][k] = m(A.p[i][k], B.p[i][k]); }
+  }
+  return o;
+}
+function copyP(A, o) { return lerpP(A, A, 0, o); }
+const wrapA = a => a - Math.round(a / 6.28319) * 6.28319;
+const _lb = { hx: 0, hz: 0, kn: 0, sh: 0 };
+// two-bone limb from its root to a target (dx sideways, dy DROP, dz ahead): upper pitch / roll, bend, and the lower segment's absolute angle ahead.
+// A knee bends forward (elbowBack false); an elbow so that the forearm swings up and forward (true).
+function limb(l1, l2, dx, dy, dz, elbowBack, o) {
+  const dyp = Math.hypot(dx, dy), D = clamp(Math.hypot(dyp, dz), 0.15, (l1 + l2) * 0.9995);
+  const ft = Math.atan2(dz, dyp), al = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1));
+  o.kn = Math.PI - Math.acos(clamp((l1 * l1 + l2 * l2 - D * D) / (2 * l1 * l2), -1, 1));
+  o.hz = Math.atan2(dx, dy); o.hx = elbowBack ? -(ft - al) : -(ft + al); o.sh = elbowBack ? ft - al + o.kn : ft + al - o.kn;
+  return o;
+}
+let UPV = null, PV = null;
+function rig(sl, P) {
+  const g = sl.g, U = g.userData, sc = sl.sc, cy = Math.cos(P.yaw), sy = Math.sin(P.yaw), g0 = W.surf(P.x, P.z), ank = (SKI.ank * sc + SKI.skiT) / sc, ks = sc >= 0.8 ? 1 : 0.85;
+  const Lr = 0.85 * 0.97; let lim = 9; const fy = sl._fy, fl = sl._fl;
+  for (let i = 0; i < 2; i++) {
+    const f = P.f[i], sd = i ? 1 : -1, wx = f.x - P.x, wz = f.z - P.z, lx = (wx * cy - wz * sy) / sc, lz = (wx * sy + wz * cy) / sc;
+    fy[i] = W.surf(f.x, f.z) + f.lift; fl[i * 2] = lx; fl[i * 2 + 1] = lz;
+    const ay = (fy[i] - g0) / sc + ank, dx = lx - sd * 0.1;
+    lim = Math.min(lim, ay + Math.sqrt(Math.max(0.04, Lr * Lr - dx * dx - lz * lz)));
+  }
+  const hip = Math.min(P.hip, lim); sl.hipNow = hip; sl.hipLim = lim;
+  g.position.set(P.x, g0 + (hip - 0.93) * sc, P.z); g.rotation.set(0, P.yaw, 0, "YXZ");
+  for (let i = 0; i < 2; i++) {
+    const f = P.f[i], sd = i ? 1 : -1, ay = (fy[i] - g0) / sc + ank;
+    limb(0.42, 0.43, fl[i * 2] - sd * 0.1, hip - ay, fl[i * 2 + 1], false, _lb);
+    U.legs[i].rotation.set(_lb.hx, clamp(wrapA(f.yaw - P.yaw), -0.8, 0.8), _lb.hz); U.shins[i].rotation.x = _lb.kn;
+    const sx = f.ski ? f.x : f.sx, sz = f.ski ? f.z : f.sz, syw = f.ski ? f.yaw : f.syaw, sk = sl.skis[i];
+    const fx = Math.sin(syw), fz = Math.cos(syw), th = Math.atan2(W.surf(sx + fx * 0.9, sz + fz * 0.9) - W.surf(sx - fx * 0.7, sz - fz * 0.7), 1.6);
+    if (f.ski || f.sv) { sk.visible = true; sk.position.set(sx, W.surf(sx, sz) + (f.ski ? f.lift : 0) + 0.012, sz); sk.rotation.set(-(th + (f.ski ? f.tip : 0)), syw, 0, "YXZ"); sk.scale.setScalar(ks); } else sk.visible = false;
+    U.ank[i].rotation.x = _lb.sh - (f.ski ? th + f.tip : 0);
+  }
+  U.torso.rotation.set(P.pitch, P.twist, P.roll, "XYZ"); U.head.rotation.x = -P.pitch * 0.75 + P.head; U.head.rotation.y = -P.twist * 0.7;
+  const cp = Math.cos(P.pitch), sp = Math.sin(P.pitch);
+  for (let i = 0; i < 2; i++) {
+    const sd = i ? 1 : -1, h = P.h[i], wx = h.x - P.x, wz = h.z - P.z, lx = (wx * cy - wz * sy) / sc, lz = (wx * sy + wz * cy) / sc, ly = (h.y - g0) / sc - (hip - 0.93);
+    const vx = lx - sd * 0.21, vy = ly - (0.93 + 0.53 * cp), vz = lz - 0.53 * sp, ty = vy * cp + vz * sp, tz = -vy * sp + vz * cp;
+    limb(0.25, 0.24, vx, -ty, tz, true, _lb);
+    U.arms[i].rotation.set(_lb.hx, 0, _lb.hz); U.fore[i].rotation.x = -_lb.kn;
+    sl.reach[i] = Math.hypot(vx, ty, tz) - 0.49;
+    const p = P.p[i], pm = sl.poles[i], dx = h.x - p.x, dy = h.y - p.y, dz = h.z - p.z, len = Math.hypot(dx, dy, dz) || 1;
+    pm.visible = true; pm.position.set(p.x, p.y, p.z); pm.scale.set(ks, len / SKI.Lp, ks); PV.set(dx / len, dy / len, dz / len); pm.quaternion.setFromUnitVectors(UPV, PV);
+  }
+}
+/* ---- gaits: each fills P from the journey (leg L, body at path coordinate u) ---- */
+const _s1 = { x: 0, z: 0, tx: 0, tz: 1 }, _s2 = { x: 0, z: 0, tx: 0, tz: 1 };
+const sg = (i) => i ? 1 : -1;
+function onPath(L, u, lat, o) { ppL(L, u, _s1); o.x = _s1.x + _s1.tz * lat; o.z = _s1.z - _s1.tx * lat; o.yaw = Math.atan2(_s1.tx, _s1.tz); return o; }
+function setFoot(P, i, L, uf, lat, lift, yawOff, tip) { const f = P.f[i]; onPath(L, uf, lat, f); f.yaw += yawOff; f.lift = lift; f.tip = tip || 0; f.ski = 1; f.sv = 0; }
+function rootAt(P, L, u, lat) { onPath(L, u, lat, P); ppL(L, u + 1.6, _s2); P.yaw = Math.atan2(_s2.x - _s1.x + (_s2.tx * 0), _s2.z - _s1.z); }
+// a pole: planted for kp of its cycle (tip fixed in the snow, the hand driven past it), then swung forward trailing, tip lifted, and flicked
+// ahead to land where the next plant is. Returns the fraction of the plant, or -1 in the swing.
+function setPole(sl, P, j, L, u, ph, off, freq, S0, kp, rel0, hzA, hzB, latT, latH) {
+  const kc = sl.kc, x = ph * freq - off, n = Math.floor(x), fr = x - n, Lp = SKI.Lp * sl.sc / 0.88, dLat = latT - latH, Le = Math.sqrt(Lp * Lp - dLat * dLat);
+  const p = P.p[j], h = P.h[j], uT0 = uAtPhi(L, kc, (n + off) / freq) + rel0;
+  if (fr < kp) {
+    onPath(L, uT0, latT, _s2); p.x = _s2.x; p.z = _s2.z; p.y = W.surf(p.x, p.z);
+    const hz = hzA + (hzB - hzA) * ease(fr / kp); ppL(L, u + hz, _s1); h.x = _s1.x + _s1.tz * latH; h.z = _s1.z - _s1.tx * latH;
+    const dh = Math.min(Lp * 0.985, Math.hypot(p.x - h.x, p.z - h.z)); h.y = p.y + Math.sqrt(Lp * Lp - dh * dh);
+    return fr / kp;
+  }
+  const q = (fr - kp) / (1 - kp), e = ease(q), uRel = uAtPhi(L, kc, (n + off + kp) / freq), hz = hzB + (hzA - hzB) * e;
+  const thR = Math.asin(clamp((uT0 - (uRel + hzB)) / Le, -0.95, 0.95)), thE = Math.asin(clamp((rel0 - hzA) / Le, -0.95, 0.95));
+  const th = thR + (thE - thR) * e - 0.9 * Math.sin(Math.PI * q);
+  ppL(L, u + hz, _s1); h.x = _s1.x + _s1.tz * latH; h.z = _s1.z - _s1.tx * latH;
+  const hyR = Le * Math.cos(thR), hyE = Le * Math.cos(thE); let hy = W.surf(h.x, h.z) + hyR + (hyE - hyR) * e, ty = hy - Le * Math.cos(th);
+  onPath(L, u + hz + Le * Math.sin(th), latT, _s2); p.x = _s2.x; p.z = _s2.z;
+  const sf = W.surf(p.x, p.z) + 0.03; if (ty < sf) { ty = sf; hy = ty + Le * Math.cos(th); }
+  p.y = ty; h.y = hy;
+  return -1;
+}
+function gDiag(sl, L, u, P, gait) {
+  const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), her = gait === G_HERRING, ska = gait === G_SKATE;
+  const b = her ? 0.5 : clamp((ska ? 0.62 : 0.58) * k / S0, 0.12, 0.5), latF = (ska ? 0.2 : her ? 0.2 : 0.115) * k, splay = ska ? 0.3 : her ? 0.42 : 0;
+  for (let i = 0; i < 2; i++) {
+    const sd = sg(i), off = i * 0.5, x = ph - off, n = Math.floor(x), fr = x - n, u0 = uAtPhi(L, kc, n + off), uP0 = u0 + 0.5 * b * sAt(L, kc, u0);
+    let uf = uP0, lift = 0, tip = 0;
+    if (fr >= b) {                                                                       // after the kick: a quick swing forward (the ski just off the snow), then a glide ON the snow at the body's own speed
+      const q = (fr - b) / (1 - b), u1 = uAtPhi(L, kc, n + 1 + off), uP1 = u1 + 0.5 * b * sAt(L, kc, u1), qs = 0.4, fg = (1 - qs) * (1 - b); let x;
+      if (q < qs) { const s = q / qs, s2 = s * s, s3 = s2 * s; x = (1 - fg) * (3 * s2 - 2 * s3) + (1 - b) * qs * (s3 - s2); lift = 0.05 * Math.sin(Math.PI * s) * k; tip = 0.1 * Math.sin(Math.PI * s); }
+      else x = (1 - fg) + fg * (q - qs) / (1 - qs);
+      uf = uP0 + (uP1 - uP0) * x;
+    }
+    setFoot(P, i, L, uf, sd * latF, lift, sd * splay, tip);
+    if (X.dbgF) X.dbgF[i] = { ph, S0, b, n, fr, u0, uP0, uf, u };
+  }
+  const lat = ska ? -0.07 * k * Math.sin(2 * Math.PI * ph) : 0;
+  rootAt(P, L, u, lat);
+  const freq = ska ? 2 : 1, cyc = S0 / freq, kp = clamp((ska ? 0.9 : 1.45) * k / cyc, 0.3, 0.62);
+  for (let j = 0; j < 2; j++) {
+    const sd = sg(j), off = ska ? 0 : (1 - j) * 0.5 - 0.05;
+    setPole(sl, P, j, L, u, ph, off, freq, S0, kp, (ska ? 0.75 : her ? 0.35 : 0.9) * k, 0.45 * k, -0.1 * k, sd * (ska ? 0.5 : her ? 0.55 : 0.34) * k, sd * 0.25 * k);
+  }
+  P.pitch = ska ? 0.42 + 0.08 * Math.cos(4 * Math.PI * ph) : her ? 0.5 : 0.3 + 0.05 * Math.cos(4 * Math.PI * ph); P.twist = ska ? 0 : 0.07 * Math.cos(2 * Math.PI * ph) * (her ? 0.5 : 1);
+  P.roll = ska ? -lat / k * 0.8 : 0; P.hip = ska ? 0.8 : her ? 0.82 : 0.87; P.head = 0;
+}
+function gDpole(sl, L, u, P) {
+  const kc = sl.kc, k = sl.k, S0 = sAt(L, kc, u), ph = phiAt(L, kc, u), kp = clamp(1.3 * k / S0, 0.3, 0.5);
+  for (let i = 0; i < 2; i++) setFoot(P, i, L, u + sg(i) * 0.05 * k, sg(i) * 0.115 * k, 0, 0, 0);
+  rootAt(P, L, u, 0);
+  let crunch = 0;
+  for (let j = 0; j < 2; j++) { const w = setPole(sl, P, j, L, u, ph, 0, 1, S0, kp, 0.85 * k, 0.55 * k, -0.35 * k, sg(j) * 0.36 * k, sg(j) * 0.24 * k); if (w >= 0) crunch = Math.sin(Math.PI * w); }
+  P.pitch = 0.2 + 0.75 * crunch; P.hip = 0.88 - 0.16 * crunch; P.twist = 0; P.roll = 0; P.head = 0.1 * crunch;
+}
+function gTuck(sl, L, u, P) {
+  const k = sl.k, sc = sl.sc;
+  for (let i = 0; i < 2; i++) setFoot(P, i, L, u + sg(i) * 0.04 * k, sg(i) * 0.12 * k, 0, 0, 0);
+  rootAt(P, L, u, 0);
+  for (let j = 0; j < 2; j++) {
+    const h = P.h[j], p = P.p[j]; onPath(L, u + 0.72 * sc, sg(j) * 0.16 * k, _s2); h.x = _s2.x; h.z = _s2.z; h.y = W.surf(h.x, h.z) + 0.66 * sc;
+    ppL(L, u, _s1); const Lp = SKI.Lp * sc / 0.88; p.x = h.x - _s1.tx * Lp * 0.95; p.z = h.z - _s1.tz * Lp * 0.95; p.y = h.y - Lp * 0.3;
+  }
+  P.pitch = 1.05; P.hip = 0.6; P.twist = 0; P.roll = 0; P.head = 0.6;
+}
+// standing on the skis at a point, poles planted at the sides; bend 0..1 leans down to the bindings (the skis-on moment, and off again)
+function gStand(sl, P, x, z, yaw, bend, t) {
+  const k = sl.k, sc = sl.sc, sn = Math.sin(yaw), cs = Math.cos(yaw), Lp = SKI.Lp * sc / 0.88;
+  P.x = x; P.z = z; P.yaw = yaw;
+  for (let i = 0; i < 2; i++) { const f = P.f[i], sd = sg(i); f.x = x + cs * sd * 0.14 * k; f.z = z - sn * sd * 0.14 * k; f.yaw = yaw; f.lift = 0; f.tip = 0; f.ski = 1; f.sv = 0; }
+  for (let j = 0; j < 2; j++) {
+    const sd = sg(j), h = P.h[j], p = P.p[j], fx = P.f[j];
+    // planted: tip ahead and out, the hand over it; bent: the hand at the boot, the pole trailing back along the snow
+    const tx = x + sn * 0.3 * k + cs * sd * 0.42 * k, tz = z + cs * 0.3 * k - sn * sd * 0.42 * k, ty = W.surf(tx, tz);
+    const hy = ty + Math.sqrt(Lp * Lp - 0.0884 * k * k), hx = tx - sn * 0.28 * k - cs * sd * 0.1 * k, hz = tz - cs * 0.28 * k + sn * sd * 0.1 * k;
+    const bx = fx.x + sn * 0.05, bz = fx.z + cs * 0.05, by = W.surf(bx, bz) + 0.2 * sc;
+    h.x = hx + (bx - hx) * bend; h.y = hy + (by - hy) * bend; h.z = hz + (bz - hz) * bend;
+    const ex = h.x - sn * Lp * 0.97, ez = h.z - cs * Lp * 0.97, ey = W.surf(ex, ez);
+    const wp = 1 - ease(clamp(bend * 1.6, 0, 1));
+    p.x = tx + (ex - tx) * (1 - wp); p.z = tz + (ez - tz) * (1 - wp); p.y = ty + (ey - ty) * (1 - wp) + 0.02;
+  }
+  P.pitch = 0.12 + 1.05 * bend + 0.012 * Math.sin(t * 2.1); P.hip = 0.9 - 0.2 * bend; P.twist = 0; P.roll = 0; P.head = 0.5 * bend;
+}
+
+/* ---- the journey as a pose: which block of it the clock is in, and the gait inside it ---- */
+const _pa = newP(), _pb = newP();
+const bump = (s, a, b, c, d) => sstep(a, b, s) * (1 - sstep(c, d, s));
+function poseLeg(sl, B, tau, P, gaitOv) {
+  const L = B.leg, uL = uAtTau(L, tau - B.a), u = uL - sl.lag * (B.back ? 0 : 1) * (sl.pl.kind === "lap" ? 1 : 0), uc = clamp(u, 0, L.D); lIdx(L, uc);
+  const i = _li, gait = gaitOv === undefined ? L.gait[i] : gaitOv;
+  sl.u = u; sl.v = lerpA(L.v, i, _lf); sl.gait = gait;
+  if (gait === G_DPOLE) gDpole(sl, L, u, P); else if (gait === G_TUCK) gTuck(sl, L, u, P); else gDiag(sl, L, u, P, gait);
+  if (sl.lat) { ppL(L, uc, _s1); const dx = _s1.tz * sl.lat * (B.flip ? -1 : 1), dz = -_s1.tx * sl.lat * (B.flip ? -1 : 1); shiftP(P, dx, dz); }
+}
+function shiftP(P, dx, dz) { P.x += dx; P.z += dz; for (let i = 0; i < 2; i++) { P.f[i].x += dx; P.f[i].z += dz; P.h[i].x += dx; P.h[i].z += dz; P.p[i].x += dx; P.p[i].z += dz; } }
+function poseBlock(sl, bi, tau, P) {
+  const pl = sl.pl, B = pl.blocks[bi], t = gameClockNow();
+  if (B.k === "leg") {
+    poseLeg(sl, B, tau, P);
+    // a new gait is eased in over about half a second (the feet cannot jump: the blend is short and at the speed of the stride)
+    const L = B.leg, uc = clamp(sl.u, 0, L.D); lIdx(L, uc); const i = _li, pg = L.prevG[i], run = L.runU[i];
+    if (pg !== 255 && uc - run < Math.max(1.2, sl.v * 0.5)) { const w = ease(clamp((uc - run) / Math.max(1.2, sl.v * 0.5), 0, 1)); const keepG = sl.gait; poseLeg(sl, B, tau, _pa, pg); sl.gait = keepG; const keepV = sl.v; lerpP(_pa, P, w, P); sl.v = keepV; }
+  } else if (B.k === "stand") {
+    const L = B.mode === "prep" ? pl.blocks.find(b => b.k === "leg").leg : pl.blocks[pl.nb - 2].leg, at = B.mode === "prep" ? 0 : L.D, s = (tau - B.a) / (B.b - B.a);
+    const lag = pl.kind === "lap" ? sl.lag : 0; ppL(L, at - lag, _s1); const yaw = Math.atan2(_s1.tx, _s1.tz);
+    let x = _s1.x, z = _s1.z; if (sl.lat) { const sgn = (B.mode === "fin" && pl.kind !== "lap") ? -1 : 1; x += _s1.tz * sl.lat * sgn; z -= _s1.tx * sl.lat * sgn; }
+    gStand(sl, P, x, z, yaw + (B.mode === "fin" && pl.kind !== "lap" ? 0 : 0), B.mode === "prep" ? bump(s, 0.12, 0.3, 0.68, 0.88) : bump(s, 0.15, 0.35, 0.7, 0.9), t);
+    sl.u = at - lag; sl.v = 0; sl.gait = -1;
+  } else if (B.k === "turn") poseTurn(sl, B, tau, P);
+  else if (B.k === "bench") poseBench(sl, B, tau, P);
+}
+let _clk = 0; const gameClockNow = () => api.now ? api.now() : _clk;
+function poseSlot(sl, tau, P) {
+  const pl = sl.pl; let bi = 0; while (bi < pl.nb - 1 && tau >= pl.blocks[bi].b) bi++;
+  tau = clamp(tau, 0, pl.T); const B = pl.blocks[bi]; sl.bi = bi; sl.blk = B.k === "stand" ? B.mode : B.k;
+  poseBlock(sl, bi, tau, P);
+  // the first moments of a block are blended from the end of the one before it
+  if (bi > 0 && tau - B.a < 0.5) { const w = ease((tau - B.a) / 0.5), keep = [sl.u, sl.v, sl.gait]; poseBlock(sl, bi - 1, pl.blocks[bi - 1].b - 1e-3, _pb); lerpP(_pb, P, w, P); sl.u = keep[0]; sl.v = keep[1]; sl.gait = keep[2]; }
+}
+// a star turn on the spot: six small steps, feet and skis swung round together about the middle (cx, cz), from heading th0 through half a circle
+function starTurn(sl, P, cx, cz, th0, s) {
+  const k = sl.k, sc = sl.sc, Lp = SKI.Lp * sc / 0.88, ys = [0, 0], lifts = [0, 0];
+  for (let st = 0; st < 6; st++) { const i = st & 1, t0 = 0.2 + st * 0.42, q = clamp((s - t0) / 0.36, 0, 1), tgt = (Math.floor(st / 2) + 1) * Math.PI / 3, from = Math.floor(st / 2) * Math.PI / 3; if (q >= 1) ys[i] = tgt; else if (q > 0) { ys[i] = from + (tgt - from) * ease(q); lifts[i] = 0.07 * Math.sin(Math.PI * q) * k; } }
+  for (let i = 0; i < 2; i++) { const f = P.f[i], y = th0 + ys[i], sd = sg(i); f.x = cx + Math.cos(y) * sd * 0.14 * k; f.z = cz - Math.sin(y) * sd * 0.14 * k; f.yaw = y; f.lift = lifts[i]; f.tip = 0; f.ski = 1; f.sv = 0; }
+  const by = th0 + Math.atan2(Math.sin(ys[0]) + Math.sin(ys[1]), Math.cos(ys[0]) + Math.cos(ys[1]));
+  P.x = cx; P.z = cz; P.yaw = by; penHands(sl, P, cx, cz, by, 0.16, 9);
+  P.pitch = 0.18; P.hip = 0.88; P.twist = 0; P.roll = 0; P.head = 0;
+}
+// hands at the sides ahead of the root, a pole in each trailing back onto the snow (tip dragging): the poles of a skier turning, stepping, sitting
+function penHands(sl, P, rx, rz, yaw, ahead, ang) {
+  const k = sl.k, sc = sl.sc, Lp = SKI.Lp * sc / 0.88, sn = Math.sin(yaw), cs = Math.cos(yaw);
+  for (let j = 0; j < 2; j++) {
+    const sd = sg(j), h = P.h[j], p = P.p[j], hx = rx + cs * sd * 0.28 * k + sn * ahead * k, hz = rz - sn * sd * 0.28 * k + cs * ahead * k;
+    const tx = hx - sn * Lp * 0.96, tz = hz - cs * Lp * 0.96;
+    if (ang > 2) { h.x = hx; h.z = hz; h.y = W.surf(hx, hz) + 0.92 * sc; p.x = tx; p.z = tz; p.y = W.surf(tx, tz) + 0.03; }
+    else {                                                                              // leaning forward onto the snow ahead
+      const px = hx + sn * Lp * Math.sin(ang), pz = hz + cs * Lp * Math.sin(ang); p.x = px; p.z = pz; p.y = W.surf(px, pz); h.x = hx; h.z = hz; h.y = p.y + Lp * Math.cos(ang);
+    }
+  }
+}
+function poseTurn(sl, B, tau, P) {
+  const L = B.leg; ppL(L, L.D, _s1); const th0 = Math.atan2(_s1.tx, _s1.tz); let cx = _s1.x, cz = _s1.z; if (sl.lat) { cx += _s1.tz * sl.lat; cz -= _s1.tx * sl.lat; }
+  starTurn(sl, P, cx, cz, th0, tau - B.a); sl.u = L.D; sl.v = 0; sl.gait = -1;
+}
+// the rest on the gapahuk's bench: a star turn at the spot in front of it (skis stay under the feet to here), backing out of the skis a step at a time,
+// sitting down, the rest, up again, stepping back into the skis and on. Skis are left where they were stepped out of.
+function poseBench(sl, B, tau, P) {
+  const s = tau - B.a, k = sl.k, sc = sl.sc, g = B.gap, psi = g.yaw, cs = Math.cos(psi), sn = Math.sin(psi), R = B.rs, lat = 0.14 * k;
+  const A0 = 3.0, A1 = 5.4, A2 = 6.8, A3 = 6.8 + R, A4 = 8.2 + R, A5 = 10.6 + R;
+  const lx = (x, z, o) => { o.x = g.x + x * cs + z * sn; o.z = g.z - x * sn + z * cs; return o; };
+  sl.u = 0; sl.v = 0; sl.gait = -1;
+  if (s < A0) { const c = lx(BENCH.x, BENCH.z, {}); starTurn(sl, P, c.x, c.z, psi + Math.PI, s); return; }
+  const steps = [[0, A0, 1.05, 0.45], [1, A0 + 0.6, 1.05, 0.25], [0, A0 + 1.2, 0.45, -0.05], [1, A0 + 1.8, 0.25, -0.05], [1, A4, -0.05, 0.25], [0, A4 + 0.6, -0.05, 0.45], [1, A4 + 1.2, 0.25, 1.05], [0, A4 + 1.8, 0.45, 1.05]];
+  const z = [BENCH.z, BENCH.z], lift = [0, 0], offAt = [A0, A0 + 0.6], onAt = [A5, A4 + 1.8];
+  for (const [i, t0, a, b] of steps) if (s >= t0) { const q = clamp((s - t0) / 0.6, 0, 1); z[i] = a + (b - a) * ease(q); if (q < 1) lift[i] = 0.1 * Math.sin(Math.PI * q) * k; }
+  for (let i = 0; i < 2; i++) {
+    const f = P.f[i], sd = sg(i); lx(BENCH.x + sd * lat, z[i], f); f.yaw = psi; f.lift = lift[i]; f.tip = 0;
+    const off = s >= offAt[i] && s < onAt[i]; f.ski = off ? 0 : 1; f.sv = off ? 1 : 0; if (off) { lx(BENCH.x + sd * lat, BENCH.z, _bw); f.sx = _bw.x; f.sz = _bw.z; f.syaw = psi; }
+  }
+  const sit = sstep(A1, A2, s) * (1 - sstep(A3, A4, s)), zr = (z[0] + z[1]) / 2 * (1 - sit) + (-0.52) * sit;
+  lx(BENCH.x, zr, P); P.yaw = psi; const g0 = W.surf(P.x, P.z), seatTop = W.surf(g.x, g.z) + 0.45, hipSeat = (seatTop - g0) / sc + 0.17;
+  P.hip = 0.88 + (hipSeat - 0.88) * sit; P.pitch = 0.14 - 0.2 * sit; P.twist = 0.14 * Math.sin(s * 0.8) * sit; P.roll = 0; P.head = 0;
+  penHands(sl, P, P.x, P.z, psi, 0.35 - 0.1 * sit, 0.5);
+}
+const _bw = { x: 0, z: 0 };
+
+/* ---- the pool: figures made once, lent to whoever is nearest ---- */
+const JACKETS = [0xc8322a, 0x2a6fb8, 0xe0a030, 0x2f8f5a, 0x7a3fa0, 0xd9622b, 0x1f9ba8, 0xb83a7a, 0x4a5a6a, 0xcfd24a, 0x9a2a2a, 0x3a8ad0];
+const PANTS_C = [0x1f232a, 0x2a3140, 0x3a2f28, 0x22302a, 0x14161a, 0x33384a];
+const TRIM_C = [0xe8e4da, 0xd8b23a, 0x2a2f36, 0xc8322a, 0x2a6fb8];
+const SL = []; let scanT = 0, _lampTex = null, _skiG = null, _poleG = null, _poleM = null; const SKS = { n: 0, err: "", ms: 0 };
+function skiGeo() { return _skiG || (_skiG = mergeGeo([{ g: new T.BoxGeometry(0.062, 0.018, 1.72), m: M4(0, 0, 0.12), c: C(0xffffff) }, { g: new T.BoxGeometry(0.06, 0.016, 0.24), m: M4(0, 0.03, 1.07, -0.42, 0, 0), c: C(0xffffff) }, { g: new T.BoxGeometry(0.07, 0.03, 0.14), m: M4(0, 0.012, 0.02), c: C(0x20232a) }])); }
+function poleGeo() { return _poleG || (_poleG = mergeGeo([{ g: new T.CylinderGeometry(0.011, 0.008, SKI.Lp, 6), m: M4(0, SKI.Lp / 2, 0), c: C(0x2a2f36) }, { g: new T.CylinderGeometry(0.05, 0.05, 0.012, 10), m: M4(0, 0.07, 0), c: C(0x15171b) }, { g: new T.CylinderGeometry(0.02, 0.02, 0.13, 8), m: M4(0, SKI.Lp - 0.05, 0), c: C(0xc8c8c8) }])); }
+function lampTex() {
+  if (_lampTex) return _lampTex; const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, "rgba(255,250,225,1)"); r.addColorStop(0.18, "rgba(255,240,190,.85)"); r.addColorStop(0.5, "rgba(255,225,150,.25)"); r.addColorStop(1, "rgba(255,220,140,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  return (_lampTex = new T.CanvasTexture(c));
+}
+function makeSlot(i) {
+  const std = api.mesh.std, mats = { jacket: std(0xc8322a, 0.85, 0), pants: std(0x20262e, 0.9, 0), trim: std(0xe0a030, 0.7, 0) };
+  const g = api.newWalker(mats); g.visible = false; api.scene.add(g); const U = g.userData;
+  for (const n in U.headKit) for (const m of U.headKit[n]) m.visible = false; for (const m of U.headKit.beanie) m.visible = true;
+  const pk = new T.Group(); TLXL.build(TLXL.fig.pack(TLXL.fig.K), pk); U.torso.add(pk); pk.visible = false;
+  const skiMat = new T.MeshLambertMaterial({ vertexColors: true, color: 0xc8322a }); _poleM = _poleM || new T.MeshLambertMaterial({ vertexColors: true });
+  const mesh = (geo, mat) => { const m = new T.Mesh(geo, mat); m.visible = false; m.frustumCulled = false; api.scene.add(m); return m; };
+  const lamp = new T.Sprite(new T.SpriteMaterial({ map: lampTex(), color: 0xfff2c8, transparent: true, depthWrite: false, blending: T.AdditiveBlending })); lamp.position.set(0, 0.2, 0.12); lamp.scale.set(0.42, 0.42, 1); lamp.visible = false; U.head.add(lamp);
+  const sl = { i, g, U, mats, skiMat, pk, lamp, skis: [mesh(skiGeo(), skiMat), mesh(skiGeo(), skiMat)], poles: [mesh(poleGeo(), _poleM), mesh(poleGeo(), _poleM)], P: newP(), _fy: [0, 0], _fl: [0, 0, 0, 0], reach: [0, 0], vis: false, o: null, t: null, pl: null, key: "", sc: 0.88, k: 1, kc: 1, lag: 0, lat: 0, u: 0, v: 0, gait: -1, blk: "", hipNow: 0.9, hipLim: 0.9 };
+  g.frustumCulled = true; SL.push(sl); return sl;
+}
+function hideSlot(sl) { sl.vis = false; sl.g.visible = false; sl.o = null; sl.key = ""; for (const m of sl.skis) m.visible = false; for (const m of sl.poles) m.visible = false; sl.lamp.visible = false; }
+function bindSlot(sl, t, o, pl, key) {
+  const p = TLXN.person(o.p) || { id: o.p, age: 30 }, k = o.k || 0, kid = p.age < 16;
+  sl.t = t; sl.o = o; sl.pl = pl; sl.key = key; sl.who = p; sl.mk = k; sl.kc = kid ? 0 : 1; sl.sc = kid ? clamp(0.5 + 0.026 * p.age, 0.62, 0.86) : 0.86 + 0.06 * hash(p.id + "s"); sl.k = sl.sc / 0.88;
+  sl.lag = pl.kind === "lap" ? k * SKI.lead : 0; sl.lat = pl.kind === "lap" ? 0 : ((k + 1) >> 1) * 1.1 * (k & 1 ? 1 : -1);
+  sl.mats.jacket.color.setHex(JACKETS[Math.floor(hash(p.id + "j") * JACKETS.length)]); sl.mats.pants.color.setHex(PANTS_C[Math.floor(hash(p.id + "p") * PANTS_C.length)]); sl.mats.trim.color.setHex(TRIM_C[Math.floor(hash(p.id + "t") * TRIM_C.length)]);
+  sl.skiMat.color.setHex(JACKETS[Math.floor(hash(p.id + "k") * JACKETS.length)]);
+  sl.g.scale.setScalar(sl.sc); sl.pk.visible = t.kind !== "loop"; sl.vis = true; sl.g.visible = true; sl.hist = 0;
+  sl.as = null; sl.tw = 1; sl.stag = 0; sl.pt = null; sl.cmH = -99; sl.noAside = false; sl.talk = 0; sl.hit = 0;                  // nothing of the last skier to use this slot carries over
+}
+function viewer() { const F = api.FOOT; return F.on ? F : api.P; }
+// where the head of a group is, roughly, for choosing who to draw
+function whereLead(pl, tau, o) {
+  tau = clamp(tau, 0, pl.T); let bi = 0; while (bi < pl.nb - 1 && tau >= pl.blocks[bi].b) bi++; const B = pl.blocks[bi];
+  let L = B.leg, u = 0;
+  if (B.k === "bench") { _s1.x = B.gap.x; _s1.z = B.gap.z; return _s1; }
+  if (B.k === "leg") u = uAtTau(L, tau - B.a); else if (B.k === "turn") u = L.D; else { L = B.mode === "prep" ? pl.blocks[1].leg : pl.blocks[pl.nb - 2].leg; u = B.mode === "prep" ? 0 : L.D; }
+  ppL(L, clamp(u, 0, L.D), _s1); return _s1;
+}
+const leaderOf = (t, o) => { if (!o.g || o.g === o.p) return o; for (const q of t.st.out) if (q.p === o.g && q.t0 === o.t0) return q; return o; };
+function rescan() {
+  const V = viewer(), H = api.GS.hour, cand = [], want = api.GFX && api.GFX.low ? SKI.pool.low : SKI.pool.high;
+  for (const t of X.list) {
+    if (!t.st || !t.st.out.length || !t.bb) continue;
+    if (V.x < t.bb[0] - SKI.drop || V.x > t.bb[2] + SKI.drop || V.z < t.bb[1] - SKI.drop || V.z > t.bb[3] + SKI.drop) continue;
+    for (const o of t.st.out) {
+      if (H < o.t0 || H > o.t1 + 0.1) continue;
+      const lead = leaderOf(t, o), pl = planOf(t, lead), tau = (H - o.t0) * HOURS() - (o.dl || 0);
+      if (tau > pl.T + 1.2) continue;
+      const w = whereLead(pl, tau, o), d = Math.hypot(w.x - V.x, w.z - V.z), key = t.id + "|" + o.t0 + "|" + o.p, cur = SL.find(s => s.vis && s.key === key);
+      if (d < (cur ? SKI.drop : SKI.see)) cand.push({ t, o, pl, d, key });
+    }
+  }
+  cand.sort((a, b) => a.d - b.d); const keep = cand.slice(0, want), keys = new Set(keep.map(c => c.key));
+  for (const sl of SL) if (sl.vis && !keys.has(sl.key)) hideSlot(sl);
+  for (const c of keep) {
+    if (SL.some(s => s.vis && s.key === c.key)) continue;
+    let sl = SL.find(s => !s.vis); if (!sl && SL.length < want) sl = makeSlot(SL.length); if (!sl) break;
+    bindSlot(sl, c.t, c.o, c.pl, c.key);
+  }
+}
+const _lampOn = () => api.dayFactor() < 0.5;
+function updSlot(sl, H, dt) {
+  const o = sl.o, tau = (H - o.t0) * HOURS() - (o.dl || 0);
+  if (tau > sl.pl.T + 1.2) { hideSlot(sl); return; }
+  if (dt > 0 && TLX.on("skitrails")) react(sl, dt, sl.P);
+  const tau2 = (H - o.t0) * HOURS() - (o.dl || 0);
+  poseSlot(sl, Math.max(0, tau2), sl.P);
+  if (sl.as && sl.as.Pa && sl.as.ph >= 1) asidePose(sl, sl.P); else if (sl.as && sl.as.ph === 0) { /* slowing: the plan pose, clock easing */ }
+  if (sl.stag > 0) staggerPose(sl, sl.P);
+  rig(sl, sl.P);
+  sl.lamp.visible = _lampOn(); sl.x = sl.P.x; sl.z = sl.P.z; sl.hist++;
+  if (dt > 0) { groove(sl); solidBody(sl); }
+}
+function skiTick(dt) {
+  if (!X.ready || !api.started()) return;
+  _clk += dt; scanT -= dt;
+  const on = isOpen() && !(api.INT && api.INT.on) && !api.tutHidden();
+  if (!on) { for (const sl of SL) if (sl.vis) hideSlot(sl); return; }
+  if (!UPV) { UPV = new T.Vector3(0, 1, 0); PV = new T.Vector3(); }
+  const t0 = performance.now();
+  if (scanT <= 0) { scanT = 0.25; rescan(); }
+  const H = api.GS.hour; let n = 0;
+  for (const sl of SL) if (sl.vis) { updSlot(sl, H, dt); n++; }
+  SKS.n = n; SKS.ms = performance.now() - t0;
+}
+X.skiers = () => SL.filter(s => s.vis).map(s => ({ i: s.i, p: s.o.p, trail: s.t.id, k: s.mk, x: s.P.x, z: s.P.z, u: s.u, v: s.v, gait: GAITS[s.gait] || "", blk: s.blk, bi: s.bi, as: s.as ? s.as.ph : -1, stag: s.stag || 0, tw: s.tw === undefined ? 1 : s.tw, kind: s.pl.kind, tau: (api.GS.hour - s.o.t0) * HOURS() - (s.o.dl || 0), sc: s.sc }));
+X.poseAll = H => { if (!UPV) { UPV = new T.Vector3(0, 1, 0); PV = new T.Vector3(); } for (const sl of SL) if (sl.vis) updSlot(sl, H, 0); };
+X.pp = (L, u) => { const q = ppL(L, clamp(u, 0, L.D), {}); return q; }; X.uAtTau = uAtTau; X.hide = hideSlot; X.solidBody = solidBody; X.slots = SL; X.planOf = planOf; X.SKI = SKI; X.SKS = SKS; X.rescan = rescan;
+X.hourAtU = (t, o, bi, u) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + tauAt(B.leg, u)) + (o.dl || 0)) / HOURS(); };
+X.hourAtBlock = (t, o, bi, f) => { const pl = planOf(t, leaderOf(t, o)), B = pl.blocks[bi]; return o.t0 + ((B.a + f * (B.b - B.a)) + (o.dl || 0)) / HOURS(); };
+X.gaitRuns = (t, o) => { const pl = planOf(t, leaderOf(t, o)), out = []; pl.blocks.forEach((B, bi) => { if (B.k !== "leg") return; const L = B.leg; let s = 0; while (s < L.n) { let e = s; while (e + 1 < L.n && L.gait[e + 1] === L.gait[s]) e++; out.push({ bi, gait: GAITS[L.gait[s]], u0: L.u[s], u1: L.u[e], i0: s, i1: e, wide: 0 }); s = e + 1; } }); return out; };
+
+/* ---- sharing the trail: hearing a sled, stepping aside, a pole raised, a startle and a complaint, a solid body, a word in passing ---- */
+const SHARE = { hear: 120, tca: 13, lane: 7, on: 8, side: 2.4, decel: 1.3, stepT: 0.75, close: 4.2, fast: 5.5, slow: 3.8, giveUp: 28, bodyR: 0.6, cmEvery: 10 };
+const sideOf = (sl, x, z) => { const o = sl.P, nx = Math.cos(o.yaw), nz = -Math.sin(o.yaw); return (x - o.x) * nx + (z - o.z) * nz >= 0 ? -1 : 1; };   // the side of the skier away from a point
+function vehicleNow() {
+  if (api.FOOT.on) return null; const P = api.P, sp = Math.hypot(P.vx || 0, P.vz || 0); return { x: P.x, z: P.z, vx: P.vx || 0, vz: P.vz || 0, sp };
+}
+const kh = (a, w) => api.INP.dev === "touch" ? "tap " + api.btn(a) : api.btn(a) + ": " + w;
+function groupOf(sl) { const t = sl.t, o = sl.o, out = [], g = o.g || o.p; for (const q of t.st.out) if (q.t0 === o.t0 && (q.g || q.p) === g) out.push(q); return out; }
+const handler = sl => { for (const s of SL) if (s.vis && s !== sl && s.t === sl.t && s.o.t0 === sl.o.t0 && (s.o.g || s.o.p) === (sl.o.g || sl.o.p) && s.mk < sl.mk) return false; return true; };
+function addDelay(sl, dt) { if (!handler(sl)) return; for (const q of groupOf(sl)) { q.dl = (q.dl || 0) + dt; q.t1 += dt / HOURS(); } }
+// a complaint to the løypelag: counted on the trail (and posted to the news bus); three in a week takes the trail's bonus (option skicomplaints)
+function complain(sl, kind) {
+  const t = sl.t, st = t.st, H = api.GS.hour; if (!st.cm) st.cm = { wk: 0, tot: 0 };
+  if (H - (sl.cmH === undefined ? -99 : sl.cmH) < SHARE.cmEvery / HOURS()) return false; sl.cmH = H;
+  const n = kind === "hit" ? 2 : 1, p = sl.who; (X.cmLog || (X.cmLog = [])).push([kind, p.id, +api.GS.hour.toFixed(3), Math.round(Math.hypot(api.P.vx || 0, api.P.vz || 0) * 10) / 10]); if (X.cmLog.length > 30) X.cmLog.shift(); st.cm.wk += n; st.cm.tot += n; sl.stag = 0.0001;
+  const say = kind === "hit" ? ["Watch where you are going!", "You ran into me!", "Hey! That is a ski trail, not a road!"] : ["Slow down, this is a ski trail!", "Plenty of room, plenty of time, friend!", "Easy! There are people skiing here."];
+  const line = say[Math.floor(hash(p.id + st.cm.tot) * say.length)];
+  TLXN.post({ kind: "complaint", who: p, x: sl.P.x, z: sl.P.z, place: t.name, text: `${p.first} complained to the løypelag about a ${kind === "hit" ? "sled that ran into them" : "sled that came past too fast"} on ${t.name}.`, data: { trail: t.id, how: kind, wk: st.cm.wk } });
+  api.toast(`${p.first}: “${line}” (${st.cm.wk} complaint${st.cm.wk > 1 ? "s" : ""} on ${t.name} this week${TLX.on("skicomplaints") ? "" : "; counted, not penalised"})`, "warn");
+  t.ver++; return true;
+}
+// per frame, for a skier you can see: what the vehicle is doing near them
+function react(sl, dt, P) {
+  const v = vehicleNow(), H = api.GS.hour;
+  // the clock of a skier who is waiting stands still; the delay is added to the booking so the figure and the bookkeeping stay one journey
+  if (sl.tw === undefined) { sl.tw = 1; sl.as = null; }
+  let want = 1;
+  const d = v ? Math.hypot(v.x - sl.x, v.z - sl.z) : 99;
+  if (v && !sl.as && sl.blk === "leg") {
+    const rx = sl.x - v.x, rz = sl.z - v.z, sp2 = v.sp * v.sp;
+    if (v.sp > 2 && sp2 > 0) { const tca = (rx * v.vx + rz * v.vz) / sp2, mx = rx - v.vx * tca, mz = rz - v.vz * tca, dmin = Math.hypot(mx, mz);
+      if (tca > 0 && tca < SHARE.tca && dmin < SHARE.lane && d < clamp(v.sp * 9 + 40, 50, SHARE.hear) && sl.hist > 20 && !sl.noAside) { sl.as = { ph: 0, t: 0, side: sideOf(sl, v.x + v.vx * Math.max(0, tca), v.z + v.vz * Math.max(0, tca)), Pa: null, wait: 0, wave: 0 }; }
+    }
+  }
+  const as = sl.as;
+  if (as) {
+    as.t += dt;
+    if (as.ph === 0) { want = 0; if (sl.tw < 0.02) { as.ph = 1; as.t = 0; as.Pa = copyP(sl.P, newP()); sl.tw = 0; } }       // slowing to a stop
+    else if (as.ph === 1) { want = 0; if (as.t >= SHARE.stepT * 6 + 0.2) { as.ph = 2; as.t = 0; } }                         // stepping off the line
+    else if (as.ph === 2) {                                                                                                // waiting while it goes by
+      want = 0; const rel = v ? (sl.x - v.x) * v.vx + (sl.z - v.z) * v.vz : 1, gone = !v || (rel < 0 && d > 5) || v.sp < 0.4;                                    // it has gone by (it is now behind them), or it stopped
+      if (v && v.sp < SHARE.slow && d < 10 && as.wave <= 0 && !as.waved) { as.wave = 1.6; as.waved = 1; }
+      if (as.wave > 0) as.wave -= dt;
+      if ((gone && as.t > 1.2) || as.t > SHARE.giveUp || (v && v.sp < 0.6 && d > 14 && as.t > 4)) { as.ph = 3; as.t = 0; }
+    } else if (as.ph === 3) { want = 0; if (as.t >= SHARE.stepT * 6 + 0.2) { sl.as = null; want = 1; sl.resume = 0; } }
+  }
+  // the clock: eases to a stop in about SHARE.decel s and back up again
+  const rate = want ? 1 / 1.1 : 1 / SHARE.decel; sl.tw += clamp(want - sl.tw, -rate * dt, rate * dt);
+  if (sl.tw < 0.999) addDelay(sl, dt * (1 - sl.tw));
+  // a fast, close pass is a complaint; running into a skier is the worst
+  if (v && v.sp > SHARE.fast && d < SHARE.close && TLX.on("skitrails")) complain(sl, "fast");
+  if (sl.stag > 0) { sl.stag += dt; if (sl.stag > 1.6) sl.stag = 0; }
+}
+// the pose of a skier who has stepped aside: the plan's pose when they stopped, shifted off the line a step at a time
+const _as = newP();
+function asidePose(sl, P) {
+  const as = sl.as, Pa = as.Pa, k = sl.k, nx = Math.cos(Pa.yaw), nz = -Math.sin(Pa.yaw), total = SHARE.side * as.side;
+  let a0 = 0, a1 = 0;                                                                                        // each foot's share of the sideways distance, stepped three times
+  const prog = (t, off) => { const q = clamp((t - off) / SHARE.stepT, 0, 1); return ease(q); };
+  const st = as.ph === 1 ? as.t : as.ph === 3 ? (SHARE.stepT * 6 - as.t) : 99;
+  for (let n = 0; n < 3; n++) { a0 += prog(st, n * 2 * SHARE.stepT); a1 += prog(st, n * 2 * SHARE.stepT + SHARE.stepT); }
+  a0 = clamp(a0 / 3, 0, 1) * total; a1 = clamp(a1 / 3, 0, 1) * total; if (as.ph === 2) a0 = a1 = total;
+  copyP(Pa, P);
+  const lift = (t, off) => { const q = clamp((t - off) / SHARE.stepT, 0, 1); return q > 0 && q < 1 ? 0.09 * Math.sin(Math.PI * q) * k : 0; };
+  let l0 = 0, l1 = 0; for (let n = 0; n < 3; n++) { l0 = Math.max(l0, lift(st, n * 2 * SHARE.stepT)); l1 = Math.max(l1, lift(st, n * 2 * SHARE.stepT + SHARE.stepT)); }
+  const fa = [a0, a1], fl = [l0, l1];
+  for (let i = 0; i < 2; i++) { P.f[i].x = Pa.f[i].x + nx * fa[i]; P.f[i].z = Pa.f[i].z + nz * fa[i]; P.f[i].lift = fl[i] + Pa.f[i].lift * Math.max(0, 1 - (as.ph === 1 ? as.t * 3 : 1) ); P.f[i].tip = Pa.f[i].tip * Math.max(0, 1 - as.t * 3); }
+  const am = (a0 + a1) / 2; P.x = Pa.x + nx * am; P.z = Pa.z + nz * am; P.yaw = Pa.yaw; P.hip = 0.88; P.pitch = 0.14; P.twist = 0; P.roll = 0; P.head = 0;
+  penHands(sl, P, P.x, P.z, P.yaw, 0.3, 0.5);
+  if (as.wave > 0) {                                                                                         // a pole lifted to the one who goes by
+    const w = Math.sin(Math.PI * clamp(1 - as.wave / 1.6, 0, 1)), sc = sl.sc, h = P.h[1], p = P.p[1], sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
+    h.x = P.x + cs * 0.3 * k + sn * 0.2 * k; h.z = P.z - sn * 0.3 * k + cs * 0.2 * k; h.y = W.surf(P.x, P.z) + (1.0 + 0.55 * w) * sc;
+    p.x = h.x + sn * 0.25 + Math.sin(gameClockNow() * 9) * 0.1 * w * cs; p.z = h.z + cs * 0.25 - Math.sin(gameClockNow() * 9) * 0.1 * w * sn; p.y = h.y + 1.1 * (sc / 0.88) * 0.9 - 0.0; P.head = -0.1 * w;
+  }
+}
+// a startle: both poles flung out, the body jerked back and rocking for a second and a half
+function staggerPose(sl, P) {
+  const s = sl.stag, k = sl.k, w = Math.sin(Math.PI * clamp(s / 1.6, 0, 1)), sc = sl.sc, sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
+  P.pitch -= 0.35 * w; P.roll += 0.22 * Math.sin(s * 11) * w; P.twist += 0.3 * Math.sin(s * 8) * w; P.head -= 0.2 * w;
+  for (let j = 0; j < 2; j++) { const sd = sg(j), h = P.h[j]; h.x += cs * sd * 0.35 * w * k; h.z -= sn * sd * 0.35 * w * k; h.y += 0.35 * w * sc; const p = P.p[j]; p.x += cs * sd * 0.5 * w; p.z -= sn * sd * 0.5 * w; p.y += 0.25 * w; }
+}
+// solid: a sled that reaches a skier stops against them, as against a walker, and it is the worst complaint
+function solidBody(sl) {
+  const V = api.FOOT.on ? null : api.P, F = api.FOOT;
+  if (V && TLX.on("skitrails")) {
+    const fx = Math.sin(V.yaw), fz = Math.cos(V.yaw);
+    for (const [off, r] of [[1.15, 0.62], [-0.7, 0.7]]) {
+      const cx = V.x + fx * off, cz = V.z + fz * off, dx = cx - sl.x, dz = cz - sl.z, d = Math.hypot(dx, dz), rr = r + SHARE.bodyR;
+      if (d < rr && d > 1e-4) { const nx = dx / d, nz = dz / d, vn = (V.vx || 0) * nx + (V.vz || 0) * nz; V.x += nx * (rr - d + 0.02); V.z += nz * (rr - d + 0.02); if (vn < 0) { V.vx -= vn * nx * 1.0; V.vz -= vn * nz * 1.0; const sp = Math.hypot(V.vx, V.vz); if (sp > 0) { V.vx *= 0.35; V.vz *= 0.35; } if (-vn > 0.8) complain(sl, "hit"); } sl.hit = 1; }
+    }
+  } else if (F.on) {
+    const dx = F.x - sl.x, dz = F.z - sl.z, d = Math.hypot(dx, dz), rr = 0.35 + SHARE.bodyR; if (d < rr && d > 1e-4) { F.x += dx / d * (rr - d); F.z += dz / d * (rr - d); }
+  }
+}
+/* ---- a word with a skier: the use control on foot beside them, or stopped beside them ---- */
+function nearSkier(r) {
+  const V = viewer(); let best = null, bd = r;
+  for (const sl of SL) { if (!sl.vis || !sl.P) continue; const d = Math.hypot(sl.x - V.x, sl.z - V.z); if (d < bd) { bd = d; best = sl; } }
+  return best;
+}
+const FAMILYSAY = ["{n} is out here somewhere too.", "My {r} {n} is on the trail as well.", "{n} went out before me."];
+function hailLine(sl) {
+  const t = sl.t, p = sl.who, st = t.st, s = stat(t), H = api.GS.hour, W0 = s.word;
+  const hn = (api.GS.hour * 7) | 0;
+  const base = TLXN.say(p, "hail", { trail: t.name, word: W0, n: hn, km: (t.len / 1000).toFixed(1) });
+  // a family member out on the same trail
+  let fam = ""; for (const q of TLXN.family(p)) if (q.id !== p.id && st.out.some(o => o.p === q.id && o.t1 > H)) { fam = FAMILYSAY[hn % FAMILYSAY.length].replace("{n}", q.first).replace("{r}", q.role.replace(/ .*/, "")); break; }
+  // something seen, from the news bus
+  let sight = ""; const L = TLXN.near(sl.x, sl.z, 6000, H - 40).filter(q => !/^(ski|groom|trail|complaint)$/.test(q.kind) && q.text); if (L.length) sight = "Heard: " + L[L.length - 1].text;
+  return (base + (fam ? " " + fam : "") + (sight && hn % 2 ? " " + sight : "")).trim();
+}
+function hail(sl) {
+  const line = hailLine(sl), p = sl.who; api.toast(`${p.first} ${p.last}: “${line}”`, "good"); sl.talk = 3; sl.hails = (sl.hails || 0) + 1; X.lastHail = { p: p.id, line, trail: sl.t.id };
+  return true;
+}
+const HAILX = {
+  use() {
+    const F = api.FOOT; if (!F.on || api.busy() || (api.INT && api.INT.on) || (api.MNT && api.MNT.on) || (api.DMT && api.DMT.on) || !X.ready) return null;
+    const sl = nearSkier(6); if (!sl) return null; const me = sl.who.first;
+    return { label: "HAIL", hint: () => kh("use", `hail ${me}`), act: () => hail(sl) };
+  }
+};
+const HAILRIDE = {
+  use() {
+    if (!X.ready || api.FOOT.on || api.busy() || (api.INT && api.INT.on)) return null; const v = vehicleNow(); if (!v || v.sp > 1.2) return null;
+    const sl = nearSkier(7); if (!sl) return null; return { label: "HAIL", act: () => hail(sl) };
+  }
+};
+const hailRideLine = () => { if (!X.ready || api.FOOT.on) return ""; const v = vehicleNow(); if (!v || v.sp > 1.2) return ""; const sl = nearSkier(7); return sl ? kh("use", `hail ${sl.who.first}`) : ""; };
+X.hail = hail; X.hailLine = hailLine; X.nearSkier = nearSkier; X.HAILX = HAILX; X.HAILRIDE = HAILRIDE; X.complain = complain; X.SHARE = SHARE; X.react = react;
+/* ---- ski tracks: each ski that moves on the snow presses a groove behind it (a gliding ski a line, a planted one a dab; skating's V comes of the skis' own angles) ---- */
+function groove(sl) {
+  const P = sl.P; if (!sl.pt) sl.pt = [[1e9, 0], [1e9, 0]];
+  for (let i = 0; i < 2; i++) {
+    const f = P.f[i]; if (!f.ski || f.lift > 0.015) continue;
+    const x = f.x, z = f.z, d = Math.hypot(x - sl.pt[i][0], z - sl.pt[i][1]); if (d < 0.32) continue;
+    sl.pt[i][0] = x; sl.pt[i][1] = z; const fx = Math.sin(f.yaw), fz = Math.cos(f.yaw);
+    W.pressSnow(x - fx * 0.45, z - fz * 0.45, 0.1, 0.42); W.markTrail(x, z, true); SKS.grooves = (SKS.grooves || 0) + 1;
+  }
+}
 
 /* ---------------- the system ---------------- */
 let hooked = false;
@@ -919,6 +1596,7 @@ TLX.register({
         if (window.TLXR) { const old = TLXR.legend; TLXR.legend = () => (old ? old() : "") + legend(); }
         a.TABLET.addLayer("marks", () => X.ready && TLX.on("skitrails") ? X.list.map(t => ({ x: t.pts[0][0], z: t.pts[0][1], name: (t.name + (isOpen() ? "" : " (closed)")).toUpperCase(), col: t.col, glyph: "S" })) : []);
         a.appx("crew").push(crewCard);
+        a.footx.push(HAILX); a.rideUse.push(HAILRIDE); a.ridex.push(hailRideLine);
         a.TABLET.register({ id: "loyper", name: "Løyper", icon: LICON, order: 5.6, live: 6, hidden: () => !X.ready || !TLX.on("skitrails"),
           badge: () => (X.ready && X.list.some(t => t.st.taken && isOpen() && stat(t).bad) ? "!" : ""), render: appRender });
       }
@@ -930,6 +1608,7 @@ TLX.register({
     if (!X.ready || !api.started()) return;
     if (!X.hold) catchUp();
     ridden(dt);
+    try { skiTick(dt); } catch (e) { if (!SKS.err) console.error("TLX trails skiers", e); SKS.err = String(e && e.stack || e); }
     if (FU.boards.length && (Math.floor(api.GS.hour) !== FU.h || Math.abs((api.MELT ? api.MELT.k : 0) - FU.melt) > 0.04)) { furnY(); boards(); if (X.list.some(t => t.dirty)) repaint(); for (const t of X.list) t.dirty = false; }
   },
   monday,

@@ -2405,7 +2405,7 @@ function updTouch() {
     $("tcStickCap").textContent = foot ? "WALK · RIM TO JOG" : "STEER";
   }
   // the GARAGE / fishing pill hides while the tablet is open: on a phone it sat on the tablet card's text (report 0104 #3)
-  const lbl = TABLET.open ? null : GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && !vehUse() && FISH.ctxLabel()) || (!foot && VEH.cur && VEH.cur.useLabel && VEH.cur.useLabel()) || null;
+  const lbl = TABLET.open ? null : GS.near === garageSite ? "GARAGE" : (FISH && !FISH.blocking() && !vehUse() && FISH.ctxLabel()) || (!foot && VEH.cur && VEH.cur.useLabel && VEH.cur.useLabel()) || (!foot && (rideUseX() || {}).label) || null;
   const e = show("tcE", !!lbl); if (lbl) text(e, lbl);
   TC.use = c.use; TC.x = c.x;
   const near = VEH.cur ? VEH.cur.nearMount() : Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < (FOOT.ski ? 6 : 3.0);   // the vehicle you left (sled or pickup) decides how close is close
@@ -2579,7 +2579,7 @@ function readInput(dt) {
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open && !(TLX.gunwheel && TLX.gunwheel.claimsDpadLeft())) wipeVisor(); padWipe = dl;   // rifle owners: a tap wipes on release, a hold opens the gun wheel (tlx-gunwheel.js)   // D-pad left wipes the visor
     const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
-    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
@@ -3264,7 +3264,7 @@ function buildRockField() {
   };
   const list = [], tryPut = (x, z, s) => {
     if (!ok(x, z) || obNear(x, z, 3 + 1.2 * s)) return false;
-    list.push([x, z, s]); addOb({ x, z, r: 0.95 * s, top: rockY(x, z, s) + 0.66 * s, rock: true }); return true;
+    list.push([x, z, s]); addOb({ x, z, r: 0.95 * s, top: rockY(x, z, s) + 0.66 * s, rock: true, fld: 1 }); return true;   // fld: laid after the expansion systems have booted (tlx-trails.js checks its baked lines without them)
   };
   // clusters (boulder fields, a moraine tumble) then lone erratics; more on the slopes and the higher fell
   for (let n = 0; n < 900000 && list.length < 24000; n++) {
@@ -9269,7 +9269,7 @@ function gameKey(e) {
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
   if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; footAction(); return; }
-  if (e.code === "KeyE") { if (!e.repeat && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
+  if (e.code === "KeyE") { if (!e.repeat && !rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
   if (e.code === "KeyJ") { jobCycle(); return; }                          // J: point the compass at the next job you've taken on (then back to auto)
@@ -15766,6 +15766,11 @@ function appX(id) { const m = appX.m || (appX.m = {}); return m[id] || (m[id] = 
 // the text or "" (the first that answers wins; the base game's own riding hints come before it)
 function rideX() { return rideX.a || (rideX.a = []); }
 function rideXHint() { for (const f of rideX()) { let h = ""; try { h = f(); } catch (e) { h = ""; } if (h) return h; } return ""; }
+// expansion systems' use control while riding or driving (H1b: hail a skier you have stopped beside): rideUseA() holds { use() -> null | { label, act } };
+// the first that answers takes the press (E, a pad's L3) and names the touch pill. Mirror of footX() for the seat.
+function rideUseA() { return rideUseA.a || (rideUseA.a = []); }
+function rideUseX() { if (!started || FOOT.on || BOG.on || GS.dead || GS.garageOpen || (typeof HELP !== "undefined" && HELP.on)) return null; for (const p of rideUseA()) { let r = null; try { r = p.use(); } catch (e) { r = null; } if (r && r.label) return r; } return null; }
+function rideUseTry() { const r = rideUseX(); if (!r) return false; r.act(); return true; }
 function footXUse() { if (!FOOT.on || BOG.on || GS.dead || GS.garageOpen || tutHidden() || (FISH && FISH.ctxLabel && FISH.ctxLabel())) return null; for (const p of footX()) { const r = p.use(); if (r && r.label) return r; } return null; }   // the tackle shop / fish buyer take E first (gameKey), so they win here too
 function footXDig() { for (const p of footX()) if (p.digging && p.digging()) return true; return false; }
 // E on foot: hook, unhook, or start digging
@@ -17726,8 +17731,8 @@ function initExpansion() {
     mesh: { box, cyl, ball, std },
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
-    groomx: GROOMX, crewAt: RANKS[1].at,
-    footx: footX(), jobx: jobX(), ridex: rideX(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
+    groomx: GROOMX, crewAt: RANKS[1].at, gameHour: GAMEHOUR,
+    footx: footX(), jobx: jobX(), ridex: rideX(), rideUse: rideUseA(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules
     tow: TOW, HITCH, towLive, recvOk: rig => recvOk(rig), recvNeed: rig => recvNeed(rig), hitchBack: () => hitchBack(GS.own.parts.rack), hitchStats: () => partDef("hitch", GS.own.parts.hitch).stats || {}, sarPatientKg, keyHint,

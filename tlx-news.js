@@ -148,6 +148,14 @@ const LINES = {
     wry: [v => `${v.km} km on ${v.trail}. The track is ${v.word}; the knees are not.`, v => `Skied ${v.trail} for my health. Health was not consulted. Track: ${v.word}.`, v => `${v.trail}: ${v.word}. I have decided to call that a good day.`],
     earnest: [v => `Skied ${v.km} km on ${v.trail}. The track is ${v.word}. Good to be out.`, v => `${v.trail} today. ${v.word} track, ${v.km} km, steady pace.`, v => `Out on ${v.trail}, ${v.km} km. Track ${v.word}. I felt it in my legs in a good way.`]
   },
+  hail: {
+    dry: [v => `${v.trail}? ${v.word}. I have no complaints. Yet.`, v => `It is ${v.word}. That is all I will say.`, v => `Track is ${v.word}. Mind the poles.`],
+    warm: [v => `Hei! The track on ${v.trail} is ${v.word} today, lovely to be out.`, v => `Good morning! ${v.trail} is ${v.word}. Thank you for the grooming!`, v => `Such a nice track, ${v.word}. Do come and ski it sometime.`],
+    terse: [v => `${v.word}.`, v => `${v.trail}. ${v.word}. Fine.`, v => `Track's ${v.word}.`],
+    chatty: [v => `Oh hello! Well, ${v.trail} is ${v.word}, I would say, and it is ${v.km} km all round, and I have been out since breakfast.`, v => `Track is ${v.word}! You know, I always say ${v.trail} is the best of them, ${v.km} km of it.`, v => `Hei hei! ${v.word}, ${v.word}, ${v.word}. Did I say ${v.word}?`],
+    wry: [v => `${v.trail} is ${v.word}. My knees are not.`, v => `The track is ${v.word}; the rest of me is a work in progress.`, v => `${v.word}. I would tell the løypelag, but they would only be pleased.`],
+    earnest: [v => `The track is ${v.word} on ${v.trail}. Good to see someone keeping it.`, v => `${v.trail} is ${v.word} today, I would say a good ski.`, v => `${v.word}, I think. A steady pace suits it.`]
+  },
   groom: { _: [v => `${v.trail}: ${v.km} km set ${v.when}.`] },
   trail: { _: [v => `${v.trail} is ${v.word}.`] }
 };
