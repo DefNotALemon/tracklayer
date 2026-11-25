@@ -1,3 +1,12 @@
+
+- **v263** — Player/sled scale: player figure 85% (0.85×) on makeWalker, sled 90% (0.9×) on sledBody.
+  World feels larger and more imposing. No gameplay/collision changes — visual only.
+  Tracklayer.js:1357 (sledBody.scale), Tracklayer.js:14872 (FOOT.g.scale).
+  Commit dc2b82a. Pushed 2026-11-24.
+- **v262** — 5 house types (blue, red-with-shed, ochre-with-porch, wood-with-garage, tall white).
+  Each has unique pitch, snow depth, stone foundation, shutters, woodpile, flagstaff,
+  attached structures. Gate passes. Scenario xH_houses.mjs. Commit e6e1ae1.
+  Pushed 2026-11-24.
 # Builder progress log
 
 ## 2026-11-24 — Village house types (script v262)
