@@ -234,11 +234,13 @@ await section("H the ski rescue call", async () => {
   await ev(`INP.dev = "kbm"; FOOT.on = false; true`);
   // carry them to the trailhead on the sled: stop beside them, they climb on, ride to the trailhead
   const cash0 = await J(`GS.cash`), resc0 = await J(`GS.rescues`);
-  await ev(`P.x = ${rec.x} + 3; P.z = ${rec.z}; P.vx = P.vz = 0; P.y = surf(P.x, P.z) + 0.05; true`); await sleep(2600);
-  const boarded = await J(`SAR.cur.v.state`); ok(boarded === "pillion", "stopped beside them they climb on behind you (" + boarded + ")");
+  await ev(`P.x = ${rec.x} + 3; P.z = ${rec.z}; P.vx = P.vz = 0; P.y = surf(P.x, P.z) + 0.05; true`);
+  for (let i = 0; i < 25 && (await J(`SAR.cur ? SAR.cur.v.state : "none"`)) === "waiting"; i++) await sleep(500);
+  const boarded = await J(`SAR.cur ? SAR.cur.v.state : "none"`); ok(boarded === "pillion", "stopped beside them they climb on behind you (" + boarded + ")");
   const dest = await J(`SAR.cur.dest`);
   ok(/Lysløypa trailhead/.test(dest.name), "the destination is the trailhead: " + dest.name);
-  await ev(`P.x = ${dest.x} + 6; P.z = ${dest.z}; P.vx = P.vz = 0; P.y = surf(P.x, P.z) + 0.05; true`); await sleep(2600);
+  await ev(`P.x = ${dest.x} + 6; P.z = ${dest.z}; P.vx = P.vz = 0; P.y = surf(P.x, P.z) + 0.05; true`);
+  for (let i = 0; i < 25 && (await J(`!!TLX.api.sarState().cur`)); i++) { await ev(`P.x = ${dest.x} + 6; P.z = ${dest.z}; P.vx = P.vz = 0; true`); await sleep(500); }
   const fin = await J(`({ cash: GS.cash, res: GS.rescues, cur: !!TLX.api.sarState().cur, rescue: TLX.state("trails").rescue })`);
   console.log("  ", JSON.stringify(fin), "paid", fin.cash - cash0);
   ok(fin.cash > cash0 + 100 && fin.res === resc0 + 1 && !fin.cur && fin.rescue === null, `carrying them to the trailhead completes it and pays ($${fin.cash - cash0})`);
