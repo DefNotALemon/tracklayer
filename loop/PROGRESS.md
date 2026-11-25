@@ -1,4 +1,12 @@
-# Builder progress log## 2026-11-24 18:24 — God menu: GTA 5-style sidebar overhaul (script v260) (G4/G6) — e57d152
+# Builder progress log
+
+## 2026-11-24 — Loading screen clean-up (script v261) — 8ee1d3b
+Lemon: loading in from the website showed other menus and flashing points.
+- Cause: e57d152 landed a botched merge in index.html: the `<div class="panel" id="god" hidden>` opening tag was deleted (god menu header, search box and help text painted behind the loading/title screens, and `$("god")` was null), the `tlx-seasons.js` script tag was deleted (Four Seasons never loaded on the site), and conflict-marker lines were printed as page text. All restored/removed.
+- Title: no dust over the loading screen (`TT.mode === "boot"`; the page paints only now and then while the world builds, so crystals jumped), low-sun glints (flashing crosses) removed for good.
+- God menu grid: header, search and foot span both columns; categories left, items right.
+- Checked with a CDP screencast of the load, stills of the menu and god menu; gate smoke + x1_save pass.
+## 2026-11-24 18:24 — God menu: GTA 5-style sidebar overhaul (script v260) (G4/G6) — e57d152
 GTA 5-style god menu replaces the old flat 22-item list with a sidebar-navigation system:
 - 6 categories: Vehicles (fuel, turbo, low-g, reset, unlock, summon), Stats (warmth, cash, rank, set warmth/cash, wounds), Gear (unlock all/sleds/parts/gear, clear load), World (freeze clock, skip 3h, skip day, jump date, weather), Teleport (site travel, depot, forward 500m), Misc (jobs, marketplace, licences, rescue callout, tutorial).
 - Sidebar (left panel): clickable category tabs with icons. Switch with Tab (keyboard) or D-pad (gamepad).
