@@ -46,7 +46,7 @@ const A = JSON.parse(await info(`JSON.stringify((() => {
   const sv = U.torso.rotation.x; walkB(FOOT.g); out.h = (b.max.y - b.min.y) / FOOT.g.scale.y; out.gameScale = FOOT.g.scale.y; out.hmin = b.min.y - gy;
   out.sameJacket = (() => { let w = false, r = false; FOOT.g.traverse(o => { if (o.isMesh && o.material === jacketMat) w = true; }); V.rider.traverse(o => { if (o.isMesh && o.material === jacketMat) r = true; }); return w && r; })();
   out.samePants = (() => { let w = false, r = false; FOOT.g.traverse(o => { if (o.isMesh && o.material === pantsMat) w = true; }); V.rider.traverse(o => { if (o.isMesh && o.material === pantsMat) r = true; }); return w && r; })();
-  out.ms = window.TLXL ? { look: +TLXL.ms.toFixed(1), fig: +(TLXL.figMs || 0).toFixed(1), log: TLXL.log } : { look: 0, fig: 0 };
+  out.ms = window.TLXL ? { look: +(TLXL.ms - ((TLXL.sled && TLXL.sled.texMs) || 0)).toFixed(1), sled: +((TLXL.sled && TLXL.sled.texMs) || 0).toFixed(1), fig: +(TLXL.figMs || 0).toFixed(1), log: TLXL.log } : { look: 0, fig: 0 };
   return out; })())`));
 console.log(JSON.stringify(A));
 if (!process.env.R0) {

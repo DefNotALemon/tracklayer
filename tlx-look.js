@@ -143,6 +143,12 @@
       case "gloss": H.bumps(Math.round(500 * S * S), 3 * S, 0.22, seed).noise(30 * S, 0.12, seed + 1); R.bumps(Math.round(120 * S * S), 3, 0.5, seed + 2).noise(20, 0.2, seed + 3); nk = 0.8; rlo = 0.55; rhi = 1; base = 0.96; amp = 0.05; break;
       case "skin": H.bumps(Math.round(1400 * S * S), 1.6 * S, 0.5, seed).noise(10 * S, 0.3, seed + 1).grain(0.06, seed + 2); R.noise(12 * S, 0.2, seed + 3); nk = 1.1; rlo = 0.7; rhi = 0.9; base = 0.94; amp = 0.1; break;
       case "lens": H.noise(40 * S, 0.05, seed); for (let i = 0; i < 26; i++) { const r = rng(seed + i), x = r(), y = r(); H.seam(x, y, clamp(x + (r() - 0.5) * 0.3, 0, 1), clamp(y + (r() - 0.5) * 0.3, 0, 1), { w: 0.8, depth: 0.15, stitch: 0 }); } R.noise(30, 0.2, seed + 3); nk = 1; rlo = 0.8; rhi = 1; break;
+      // R2 (sleds): metals, belts, wood, vinyl
+      case "brushed": { const g = rng(seed); let v = 0; for (let y = 0; y < size; y++) { v = v * 0.55 + g() * 0.45; for (let x = 0; x < size; x++) H.d[y * size + x] = v; } H.grain(0.1, seed + 1).noise(14 * S, 0.1, seed + 2); for (let y = 0; y < sz2; y++) { const q = g(); for (let x = 0; x < sz2; x++) R.d[y * sz2 + x] = q; } nk = 0.9; rlo = 0.3; rhi = 0.58; base = 0.9; amp = 0.1; break; }
+      case "cast": H.bumps(Math.round(900 * S * S), 1.8 * S, 0.35, seed).grain(0.3, seed + 1).noise(6 * S, 0.4, seed + 2); R.noise(5, 0.3, seed + 3); nk = 1.5; rlo = 0.5; rhi = 0.9; base = 0.84; amp = 0.14; break;
+      case "tread": H.weave(3, 0.2, 0).grain(0.4, seed).noise(4 * S, 0.5, seed + 1); R.noise(6, 0.2, seed + 9); nk = 2.2; rlo = 0.9; rhi = 1; base = 0.78; amp = 0.1; break;
+      case "wood": { const g = rng(seed); for (let y = 0; y < size; y++) { const f = Math.sin(y / size * 46 + Math.sin(y * 0.11) * 2.2) * 0.5 + 0.5 + (g() - 0.5) * 0.25; for (let x = 0; x < size; x++) H.d[y * size + x] = f + 0.18 * Math.sin(x / size * 9 + y * 0.013); } H.grain(0.06, seed + 1); R.noise(9, 0.3, seed + 3); nk = 1.3; rlo = 0.5; rhi = 0.8; base = 0.78; amp = 0.2; break; }
+      case "vinyl": H.bumps(Math.round(700 * S * S), 1.6 * S, 0.3, seed).grain(0.05, seed + 2).noise(16 * S, 0.15, seed + 1); R.noise(10 * S, 0.3, seed + 3); nk = 1.3; rlo = 0.42; rhi = 0.7; base = 0.8; amp = 0.15; break;
       default: H.grain(0.2, seed);
     }
     if (o.base) base = o.base;
@@ -624,4 +630,542 @@
     it.push({ m: K.mask, g: TLXL.xf(TLXL.ell(0.011, 0.026, 0.026), { y: -0.026, z: 0.099, rx: 0.3 }) });
     return it;
   };
+})();
+
+/* ---------------------------------------------------------------------------------------------------------
+   TLXL.sled: the sled kit (slice R2). Everything a machine is made of, as geometry items {g, m} for TLXL.build (one mesh per
+   material). The game (buildMachine in tracklayer.js) passes each machine's SHAPE numbers and the live livery materials; nothing
+   here owns state except the shared material set.
+     S.mats(ctx)                   the shared material set S.M (paint materials come from ctx and are dressed here)
+     S.hood(shape, H, HB, ctx)     lofted hood + belly pan + shut line + stripes + nose lamp bucket + vents + latches + badge
+                                   -> { items, decal: {stripe, wide, flash: [geometry]}, topAt, frontZ, sideX, info }
+     S.chassis(shape, ctx, ud)     tunnel, running boards, rolled edges, snow flap, tail lamp, bumper, bogies, rack, spoiler, exhaust
+     S.seat(profile, zr, w, kind)  moulded vinyl cushion with stitched seams, piping, grab strap
+     S.ski(kind, sw)               items for one ski pivot: swept ski, keel, carbide, loop handle, saddle, spindle, bolts
+     S.front(shape, ctx, yPeak)    front suspension of the machine's era in sled space (leaf radius rods or A-arms + coil-overs)
+     S.track(ctx)                  the belt (path shader: lugs move with the animation), lugs by kind, wheels, skid frame
+     S.bars(), S.shield(), S.pod(kind), S.column()   the shared steering parts
+     S.rod S.bolt S.spring S.sweep S.plate S.orient   small builders (see below)
+   --------------------------------------------------------------------------------------------------------- */
+(function () {
+  "use strict";
+  const T = window.THREE, TLXL = window.TLXL; if (!T || !TLXL) return;
+  const S = TLXL.sled = { ms: 0, M: null }, PI = Math.PI, TAU = PI * 2, L = () => TLXL.lite;
+  const clamp = (x, a, b) => x < a ? a : x > b ? b : x, lerp = (a, b, t) => a + (b - a) * t, sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const cvs = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h || w; return c; };
+  const V3 = (x, y, z) => new T.Vector3(x, y, z);
+  const mkTex = (c, srgb, repeat) => { const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = repeat === false ? T.ClampToEdgeWrapping : T.RepeatWrapping; t.anisotropy = TLXL.aniso; t.generateMipmaps = true; t.minFilter = T.LinearMipmapLinearFilter; t.tlSrgb = srgb !== false; if (srgb !== false && TLXL.srgb) t.encoding = T.sRGBEncoding; return t; };
+
+  /* ---------------- small builders ---------------- */
+  const UP = V3(0, 1, 0);
+  // rotate a geometry built along +y so +y points along n, then move it to p
+  S.orient = (g, p, n) => { g.applyMatrix4(new T.Matrix4().makeRotationFromQuaternion(new T.Quaternion().setFromUnitVectors(UP, V3(n[0], n[1], n[2]).normalize()))); g.translate(p[0], p[1], p[2]); return g; };
+  // a round rod from a to b (capped)
+  S.rod = (a, b, r, seg) => { const d = V3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), len = d.length(), g = new T.CylinderGeometry(r, r, len, seg || (L() ? 6 : 9), 1); g.translate(0, len / 2, 0); return S.orient(g, a, [d.x, d.y, d.z]); };
+  S.taper = (a, b, r0, r1, seg) => { const d = V3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), len = d.length(), g = new T.CylinderGeometry(r1, r0, len, seg || (L() ? 6 : 9), 1); g.translate(0, len / 2, 0); return S.orient(g, a, [d.x, d.y, d.z]); };
+  // a hex bolt head sitting on a surface at p with outward normal n
+  S.bolt = (p, n, r) => S.orient(new T.CylinderGeometry(r, r, r * 0.9, 6), [p[0] + n[0] * r * 0.4, p[1] + n[1] * r * 0.4, p[2] + n[2] * r * 0.4], n);
+  // world-aligned UVs in metres (k tiles per metre) so a map keeps its scale on a box of any size
+  S.uvm = (g, k) => { const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv; for (let i = 0; i < P.count; i++) { const ax = Math.abs(N.getX(i)), ay = Math.abs(N.getY(i)), az = Math.abs(N.getZ(i)); let u, v; if (ay >= ax && ay >= az) { u = P.getX(i); v = P.getZ(i); } else if (ax >= az) { u = P.getZ(i); v = P.getY(i); } else { u = P.getX(i); v = P.getY(i); } U.setXY(i, u * k, v * k); } return g; };
+  S.plate = (w, h, d, r, k) => S.uvm(TLXL.rbox(w, h, d, r), k || 4);
+  const at = (g, x, y, z, rx, ry, rz) => TLXL.xf(g, { x, y, z, rx, ry, rz });
+  // tube along a path with an extra seg count (TLXL.tube already closes the ends)
+  const tb = (pts, r, seg) => TLXL.tube(pts, r, { seg: seg || (L() ? 5 : 7) });
+  // a coil spring between a and b: a helix of wire r_w, coil radius r
+  S.spring = (a, b, r, turns, wire) => { const pts = [], n = Math.max(8, turns * (L() ? 7 : 11)); for (let i = 0; i <= n; i++) { const t = i / n, ang = t * turns * TAU; pts.push(V3(Math.cos(ang) * r, t, Math.sin(ang) * r)); }
+    const g = new T.TubeGeometry(new T.CatmullRomCurve3(pts), n * 2, wire || 0.007, 5, false); g.computeVertexNormals(); const d = V3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), len = d.length(); g.scale(1, len, 1); return S.orient(g, a, [d.x, d.y, d.z]); };
+  // a swept ribbon: path [[z, y]] (side view, dense), half width wFn(u), half thickness tFn(u), superellipse exponent n; off = offset along the path normal
+  S.sweep = (path, wFn, tFn, o) => { o = o || {}; const m = path.length, K = o.K || (L() ? 8 : 12), e = 2 / (o.n || 4), cols = K + 1, pos = new Float32Array(m * cols * 3), uv = new Float32Array(m * cols * 2), idx = [];
+    for (let i = 0; i < m; i++) { const a = path[Math.max(0, i - 1)], b = path[Math.min(m - 1, i + 1)], dz = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dz, dy) || 1, nz = -dy / l, ny = dz / l, u = i / (m - 1), w = wFn(u), h = tFn(u), off = o.off || 0, cx = o.cx || 0;
+      for (let j = 0; j <= K; j++) { const an = -PI + TAU * j / K, sn = Math.sin(an), cs = Math.cos(an), x = w * Math.sign(sn) * Math.pow(Math.abs(sn), e) + cx, hh = h * Math.sign(cs) * Math.pow(Math.abs(cs), e) + off, p = (i * cols + j) * 3;
+        pos[p] = x; pos[p + 1] = path[i][1] + ny * hh; pos[p + 2] = path[i][0] + nz * hh; uv[(i * cols + j) * 2] = j / K; uv[(i * cols + j) * 2 + 1] = u * (o.len || 1); } }
+    for (let i = 0; i < m - 1; i++) for (let j = 0; j < K; j++) { const a = i * cols + j, b = a + 1, c = a + cols, d = c + 1; idx.push(a, c, b, b, c, d); }
+    const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(pos, 3)); g.setAttribute("uv", new T.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+
+  /* ---------------- textures drawn for the sleds ---------------- */
+  const lensCanvas = (core, mid, edge) => {      // headlight lens seen head on: a hot bulb, reflector rings, a dark rim
+    const c = cvs(128), g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 2, 64, 64, 62);
+    gr.addColorStop(0, core); gr.addColorStop(0.16, core); gr.addColorStop(0.26, mid); gr.addColorStop(0.7, edge); gr.addColorStop(1, "#3a352a"); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = "rgba(40,36,24,0.35)"; g.lineWidth = 1.2; for (let r = 18; r < 62; r += 9) { g.beginPath(); g.arc(64, 64, r, 0, TAU); g.stroke(); }
+    for (let a = 0; a < 16; a++) { g.beginPath(); g.moveTo(64 + Math.cos(a * TAU / 16) * 14, 64 + Math.sin(a * TAU / 16) * 14); g.lineTo(64 + Math.cos(a * TAU / 16) * 60, 64 + Math.sin(a * TAU / 16) * 60); g.stroke(); }
+    return c; };
+  const dialCanvas = (kind) => {                 // a gauge face: ticks, numerals, a needle
+    const c = cvs(128), g = c.getContext("2d"); g.fillStyle = "#101418"; g.fillRect(0, 0, 128, 128); g.translate(64, 64);
+    g.strokeStyle = "#e8e4d8"; g.fillStyle = "#e8e4d8"; g.lineWidth = 2;
+    for (let i = 0; i <= 10; i++) { const a = PI * 0.75 + i / 10 * PI * 1.5, r0 = i % 5 === 0 ? 44 : 50; g.beginPath(); g.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); g.lineTo(Math.cos(a) * 56, Math.sin(a) * 56); g.stroke(); }
+    g.font = "bold 11px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; for (let i = 0; i <= 5; i++) { const a = PI * 0.75 + i / 5 * PI * 1.5; g.fillText(String(kind === "rpm" ? i : i * 20), Math.cos(a) * 34, Math.sin(a) * 34); }
+    g.fillStyle = "#e8742a"; g.save(); g.rotate(PI * 0.75 + (kind === "rpm" ? 0.3 : 0.14) * PI * 1.5); g.beginPath(); g.moveTo(-6, -1.5); g.lineTo(46, -0.8); g.lineTo(46, 0.8); g.lineTo(-6, 1.5); g.fill(); g.restore();
+    g.fillStyle = "#222"; g.beginPath(); g.arc(0, 0, 6, 0, TAU); g.fill(); return c; };
+  const screenCanvas = () => { const c = cvs(128, 64), g = c.getContext("2d"); g.fillStyle = "#0b1118"; g.fillRect(0, 0, 128, 64);
+    g.fillStyle = "#3a8fc0"; for (let i = 0; i < 18; i++) g.fillRect(8 + i * 5.4, 40 - Math.min(30, i * 1.6 + 4), 3.6, Math.min(30, i * 1.6 + 4)); g.fillStyle = "#d8e6ee"; g.font = "bold 14px sans-serif"; g.fillText("0", 10, 14); g.fillStyle = "#e8742a"; g.fillRect(8, 50, 40, 4); return c; };
+  const holesCanvas = () => {                    // punched traction holes in sheet aluminium: alpha 0 in the holes
+    const c = cvs(128), g = c.getContext("2d"); g.fillStyle = "#c9d0d7"; g.fillRect(0, 0, 128, 128); g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000";
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.beginPath(); g.ellipse(16 + x * 32 + (y & 1) * 16, 16 + y * 32, 9, 5.5, 0, 0, TAU); g.fill(); } return c; };
+  const beltCanvas = () => {                     // inside and outside of the belt: drive windows, reinforcement ribs, wear
+    const c = cvs(64, 128), g = c.getContext("2d"); g.fillStyle = "#2a2e33"; g.fillRect(0, 0, 64, 128);
+    g.fillStyle = "#34393f"; for (let i = 0; i < 4; i++) g.fillRect(0, i * 32 + 4, 64, 3);
+    g.fillStyle = "#14171a"; for (const x of [10, 54]) g.fillRect(x - 4, 0, 8, 128);                 // the guide-clip rows
+    g.fillStyle = "#0a0c0e"; for (const x of [20, 44]) for (let i = 0; i < 4; i++) g.fillRect(x - 5, i * 32 + 8, 10, 14);   // drive windows
+    return c; };
+  const decalCanvas = (text) => { const c = cvs(256, 64), g = c.getContext("2d"); g.clearRect(0, 0, 256, 64); g.fillStyle = "#fff"; g.font = "italic bold 34px Arial Narrow, Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text.toUpperCase(), 128, 34, 240);
+    g.fillRect(14, 54, 228, 3); return c; };
+  S.decalCanvas = decalCanvas;
+  const gradCanvas = (a, b) => { const c = cvs(8, 64), g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 8, 64); return c; };
+
+  /* ---------------- materials ---------------- */
+  S.mats = function (ctx) {
+    if (S.M) return S.M; const t0 = performance.now(), ms0 = TLXL.ms, M = S.M = {}, env = ctx.env;
+    const mat = (color, r, m, kind, o, extra) => { const x = new T.MeshStandardMaterial(Object.assign({ color, roughness: r, metalness: m }, extra || {})); if (kind) TLXL.dressMat(x, kind, o); if (env && m > 0.3) { x.envMap = env; x.envMapIntensity = 1.15; } return x; };
+    // the livery materials keep their identity (the game recolours them); they get the clear-coat texture set
+    for (const [k, m] of [["body", ctx.body], ["panel", ctx.panel], ["trim", ctx.trim]]) { m.bumpMap = null; TLXL.dressMat(m, "gloss", { size: 128, key: "paint" }); m.normalScale = new T.Vector2(0.03, 0.03); M[k] = m; }
+    if (ctx.seat) { TLXL.dressMat(ctx.seat, "vinyl", { size: 128, key: "seat", base: 0.7, stamp: H => { H.seam(0.2, 0, 0.2, 1, { w: 2.4, depth: 0.9 }); H.seam(0.8, 0, 0.8, 1, { w: 2.4, depth: 0.9 }); H.seam(0.5, 0.18, 0.5, 0.92, { w: 1.6, depth: 0.5, stitch: 3 }); } }); ctx.seat.envMap = env; ctx.seat.envMapIntensity = 0.35; M.seat = ctx.seat; }
+    M.alu = mat(0x8f98a1, 0.5, 0.85, "brushed", { size: 128 }); M.alu.normalScale = new T.Vector2(0.2, 0.2); M.alu.envMapIntensity = 0.85;
+    M.cast = mat(0xa3acb6, 0.62, 0.75, "cast", { size: 128 });
+    M.steel = mat(0x7d8791, 0.4, 0.85, "brushed", { size: 128, key: "s" }); M.steel.normalScale = new T.Vector2(0.3, 0.3); M.steel.envMapIntensity = 0.85;
+    M.chrome = mat(0xb4bcc6, 0.1, 1, "gloss", { size: 128, key: "chrome" }); M.chrome.envMapIntensity = 0.8; M.chrome.normalScale = new T.Vector2(0.2, 0.2);
+    M.black = mat(0x24292f, 0.62, 0.05, "plastic", { size: 128, base: 0.7, key: "blk" });
+    M.dark = mat(0x33393f, 0.55, 0.15, "plastic", { size: 128, base: 0.72, key: "dk" });
+    M.rubber = mat(0x2c3238, 1, 0, "rubber", { size: 128, base: 0.68, key: "rub" });
+    M.pad = mat(0x2a2f36, 0.7, 0, "vinyl", { size: 128, base: 0.7, key: "pad" });
+    M.springDark = mat(0x4b525a, 0.45, 0.6, "cast", { size: 128, key: "sp" });
+    const bt = mkTex(beltCanvas()); bt.repeat.set(1, 1); const tr = TLXL.fabric("tread", { size: 128 });
+    M.belt = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, map: bt, normalMap: tr.normalMap, roughnessMap: tr.roughnessMap }); M.belt.userData.noShadow = true;
+    M.lug = mat(0x2c3238, 1, 0, "tread", { size: 128, base: 0.7, key: "lug" }); M.lug.userData.noShadow = true;
+    M.stud = mat(0xd5dde5, 0.2, 1, "cast", { size: 128, key: "stud" }); M.stud.userData.noShadow = true;
+    M.glass = new T.MeshStandardMaterial({ color: 0xcfe6f4, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.26, depthWrite: false, side: T.DoubleSide, map: mkTex(gradCanvas("#9fb6c4", "#f2f8fc")), envMap: env, envMapIntensity: 1.1 });
+    TLXL.dressMat(M.glass, "lens", { size: 128, key: "pc" }); M.glass.map = mkTex(gradCanvas("#9fb6c4", "#f2f8fc")); M.glass.normalScale = new T.Vector2(0.15, 0.15);
+    M.tint = new T.MeshStandardMaterial({ color: 0x3a5064, roughness: 0.05, metalness: 0.15, transparent: true, opacity: 0.46, depthWrite: false, side: T.DoubleSide, envMap: env, envMapIntensity: 1.1 });
+    TLXL.dressMat(M.tint, "lens", { size: 128, key: "pc" }); M.tint.map = mkTex(gradCanvas("#2e4152", "#8aa4b6")); M.tint.normalScale = new T.Vector2(0.15, 0.15);
+    const lensMat = (core, mid, edge, em, key) => { const t = mkTex(lensCanvas(core, mid, edge), true, false), ln = TLXL.fabric("lens", { size: 128, key: "ln" + key }); const x = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0.1, map: t, emissive: new T.Color(em), emissiveMap: t, emissiveIntensity: 1.2, normalMap: ln.normalMap, roughnessMap: ln.roughnessMap }); x.normalScale = new T.Vector2(0.1, 0.1); x.userData.lens = true; return x; };
+    M.lamp = lensMat("#fffbe8", "#e9dca8", "#9a8e68", 0xfff0c8, "w"); M.led = lensMat("#f4fbff", "#c4dcec", "#788a98", 0xd8f0ff, "c"); M.tail = lensMat("#ff8f80", "#c42218", "#6a0e0a", 0xff2a1a, "r"); M.tail.emissiveIntensity = 0.9;
+    M.refl = mat(0xe0e7ee, 0.14, 1, "lens", { size: 128, key: "refl" });
+    M.board = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.8, map: mkTex(holesCanvas()), alphaTest: 0.5, side: T.DoubleSide, envMap: env, envMapIntensity: 1.1 }); M.board.map.repeat.set(1, 1);
+    const bm = TLXL.fabric("brushed", { size: 128 }); M.board.normalMap = bm.normalMap; M.board.roughnessMap = bm.roughnessMap;
+    M.dial = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0, map: mkTex(dialCanvas("spd"), true, false), envMap: env, envMapIntensity: 0.4 });
+    M.dialR = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0, map: mkTex(dialCanvas("rpm"), true, false), envMap: env, envMapIntensity: 0.4 });
+    M.screen = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0, map: mkTex(screenCanvas(), true, false), envMap: env, envMapIntensity: 0.5 });
+    M.brass = mat(0xcaa24a, 0.3, 0.9, "cast", { size: 128, key: "cast" });
+    M.leather = mat(0x5a3220, 0.7, 0, "leather", { size: 128, key: "lth" }); M.paintRed = mat(0xa3101a, 0.28, 0.2, "gloss", { size: 128, key: "pr" }); M.paintRed.envMap = env; M.paintRed.envMapIntensity = 1;
+    S.ms = performance.now() - t0; S.texMs = TLXL.ms - ms0; return M;
+  };
+
+  /* ---------------- the hood and belly pan: lofted, crowned, with the nose ---------------- */
+  const STYLE = {   // plan taper to the nose (1 = full width), side-wall squareness (superellipse n), nose dome length
+    round: { kn: 0.72, n: 2.4, dome: 0.15 }, flat: { kn: 0.88, n: 4.2, dome: 0.08 }, wedge: { kn: 0.5, n: 4.6, dome: 0.07 },
+    riderfwd: { kn: 0.54, n: 4.1, dome: 0.07 }, smooth: { kn: 0.64, n: 2.6, dome: 0.12 } };
+  const crownAt = (pts, z) => { let y = pts[0][1]; for (let i = 1; i < pts.length; i++) { if (pts[i][0] < pts[i - 1][0]) break; if (pts[i][0] >= z) { const a = pts[i - 1], b = pts[i], t = (z - a[0]) / ((b[0] - a[0]) || 1); return a[1] + (b[1] - a[1]) * t; } y = pts[i][1]; } return y; };
+  const ringPt = (sc, a, infl) => { const e = 2 / sc.n, sn = Math.sin(a), cs = Math.cos(a); return [(sc.rx + infl) * Math.sign(sn) * Math.pow(Math.abs(sn), e), sc.cy + (sc.ry + infl) * Math.sign(cs) * Math.pow(Math.abs(cs), e)]; };
+  const angleAtY = (sc, y) => { if (y >= sc.cy + sc.ry) return 0; if (y <= sc.cy - sc.ry) return PI; let lo = 0, hi = PI; for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (ringPt(sc, mid, 0)[1] > y) lo = mid; else hi = mid; } return (lo + hi) / 2; };
+  const angleAtX = (sc, x) => { const q = clamp(x / sc.rx, 0, 1); return Math.asin(Math.pow(q, sc.n / 2)); };
+  // a patch of the lofted body: ranges(sc, i) -> [a0, a1] (a1 >= a0) or null, pushed out by infl
+  const patch = (secs, ranges, infl, kt) => {
+    const K = L() ? 10 : 16, rows = secs.length, cols = K + 1, pos = new Float32Array(rows * cols * 3), uv = new Float32Array(rows * cols * 2), idx = [];
+    for (let i = 0; i < rows; i++) { const sc = secs[i], r = ranges(sc, i) || [0, 0], a0 = r[0], a1 = Math.max(r[0], r[1]), arc = (a1 - a0) * (sc.rx + sc.ry) * 0.5;
+      for (let j = 0; j < cols; j++) { const a = a0 + (a1 - a0) * j / K, pt = ringPt(sc, a, infl), p = (i * cols + j) * 3; pos[p] = pt[0]; pos[p + 1] = pt[1]; pos[p + 2] = sc.z; uv[(i * cols + j) * 2] = (j / K * arc + sc.rx) * kt; uv[(i * cols + j) * 2 + 1] = sc.z * kt; } }
+    for (let i = 0; i < rows - 1; i++) for (let j = 0; j < K; j++) { const a = i * cols + j, b = a + 1, c = a + cols, d = c + 1; idx.push(a, c, b, b, c, d); }
+    const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(pos, 3)); g.setAttribute("uv", new T.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+  // a rear-facing disc closing the hood's back (the firewall)
+  const disc = (sc, z, infl) => { const K = 20, pos = [sc.cx || 0, sc.cy, z], uv = [0.5, 0.5], idx = []; for (let j = 0; j <= K; j++) { const pt = ringPt(sc, -PI + TAU * j / K, infl); pos.push(pt[0], pt[1], z); uv.push(0.5 + pt[0], 0.5 + pt[1]); } for (let j = 0; j < K; j++) idx.push(0, 2 + j, 1 + j);
+    const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(new Float32Array(pos), 3)); g.setAttribute("uv", new T.BufferAttribute(new Float32Array(uv), 2)); g.setIndex(idx); g.computeVertexNormals(); return g; };
+
+  S.hood = function (s, H, HB, ctx) {
+    const M = S.mats(ctx), st = STYLE[s.style] || STYLE.round, z0 = H.z0, z1 = H.z1, hp = H.pts, w = s.w, yB = s.yBelly, topAt = z => crownAt(hp, z) + HB;
+    const nS = L() ? 14 : 24, zE = z1 - 0.1, secs = [], sec = z => { const u = (z - z0) / (z1 - z0), top = topAt(z), bot = yB + 0.05 * sstep(z1 - 0.22, z1, z), kw = 1 - (1 - st.kn) * sstep(0.22, 1, u);
+      return { z, cx: 0, cy: (top + bot) / 2, ry: Math.max(0.04, (top - bot) / 2), rx: w / 2 * kw * (0.985 + 0.015 * Math.cos(u * 6)), n: st.n }; };
+    for (let i = 0; i < nS; i++) secs.push(sec(z0 + (zE - z0) * i / (nS - 1)));
+    const e = secs[secs.length - 1], dk = L() ? 3 : 6;                       // the nose cap: sections shrinking round the last one's centre
+    for (let i = 1; i <= dk; i++) { const th = i / dk * PI / 2 * 0.93, sc = Math.pow(Math.cos(th), 0.85); secs.push({ z: zE + (st.dome + 0.02) * Math.sin(th), cx: 0, cy: e.cy - (e.ry * (1 - sc)) * 0.15, ry: Math.max(0.012, e.ry * sc), rx: Math.max(0.015, e.rx * sc), n: e.n }); }
+    const pan = s.pan, items = [], decal = { stripe: [], wide: [], flash: [] };
+    const bandY = (ya, yb) => (sc) => { const a = angleAtY(sc, yb), b = angleAtY(sc, ya); return [a, b]; };      // between heights, +x side (a: upper edge)
+    const both = (g1, g2, m, list) => { const r = []; r.push(g1, g2); return r; };
+    const side = (ya, yb, infl, m, arr) => { arr.push({ g: patch(secs, bandY(ya, yb), infl, 3), m }); arr.push({ g: patch(secs, (sc, i) => { const r = bandY(ya, yb)(sc); return [-r[1], -r[0]]; }, infl, 3), m }); };
+    // hood: from the shut line over the crown and down the other side; pan: round the belly
+    const aHood = sc => angleAtY(sc, pan + 0.006), aPan = sc => angleAtY(sc, pan - 0.006);
+    items.push({ g: patch(secs, sc => { const a = aHood(sc); return [-a, a]; }, 0.004, 3), m: M.body });
+    items.push({ g: patch(secs, sc => { const a = aPan(sc); return [a, TAU - a]; }, 0.0, 3), m: M.panel });
+    items.push({ g: patch(secs, sc => { const a = aPan(sc), b = aHood(sc); return [b, a]; }, -0.006, 3), m: M.black });                // the shut line, recessed
+    items.push({ g: patch(secs, sc => { const a = aPan(sc), b = aHood(sc); return [-a, -b]; }, -0.006, 3), m: M.black });
+    side(pan + 0.016, pan + 0.03, 0.0055, M.trim, items);                                                                           // pinstripe over the shut line
+    items.push({ g: disc(secs[0], z0 - 0.01, 0), m: M.black });                                                                      // firewall
+    // livery graphics that follow the hood (toggled by SET.decal)
+    const band = (xc, sw, list) => decal[list].push(patch(secs, (sc, i) => { if (i >= secs.length - dk) { const a = angleAtX(sc, Math.min(sc.rx * 0.9, xc)); return [a, a]; } const xa = Math.max(0, xc - sw / 2), xb = xc + sw / 2; if (xb > sc.rx * 0.97) { const a = angleAtX(sc, sc.rx * 0.97); return [a, a]; } return [angleAtX(sc, xa), angleAtX(sc, xb)]; }, 0.006, 3));
+    for (const sx of [-1, 1]) { const g = patch(secs, (sc, i) => { const xa = 0.13 - 0.035, xb = 0.13 + 0.035; if (xb > sc.rx * 0.97) { const a = angleAtX(sc, sc.rx * 0.97); return sx > 0 ? [a, a] : [-a, -a]; } const a = angleAtX(sc, xa), b = angleAtX(sc, xb); return sx > 0 ? [a, b] : [-b, -a]; }, 0.006, 3); decal.stripe.push(g); }
+    decal.wide.push(patch(secs, (sc, i) => { const xb = 0.13; if (xb > sc.rx * 0.97) { const a = angleAtX(sc, sc.rx * 0.97); return [-a, -a]; } const b = angleAtX(sc, xb); return [-b, b]; }, 0.006, 3));
+    for (const sx of [-1, 1]) decal.flash.push(patch(secs, (sc) => { const r = bandY(pan + 0.07, pan + 0.17)(sc); return sx > 0 ? r : [-r[1], -r[0]]; }, 0.006, 3));
+    // helpers for things that sit on the skin
+    const poly = []; for (const sc of secs) poly.push([sc.z, sc.cy + sc.ry]); for (let i = secs.length - 1; i >= 0; i--) poly.push([secs[i].z, secs[i].cy - secs[i].ry]);
+    const frontZ = y => { let best = -9; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; if ((y - a[1]) * (y - b[1]) <= 0 && a[1] !== b[1]) best = Math.max(best, a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1])); } return best; };
+    const secAt = z => z <= zE ? sec(z) : secs[secs.length - 1];
+    const sideX = (z, y) => { const sc = secAt(z), a = angleAtY(sc, y); return ringPt(sc, a, 0)[0]; };
+    const info = { frontZ, sideX, secAt, zE, topAt };
+    // ---- the nose: lamp bucket, intake, bumper brackets ----
+    const yN = s.yNose, fh = yN - yB - 0.05, lampY = yB + 0.05 + fh * 0.6, grY = yB + 0.05 + fh * 0.2;
+    const tilt = y => Math.atan((frontZ(y + 0.03) - frontZ(y - 0.03)) / 0.06);
+    const lampAt = (x, y, build, yaw) => { const z = frontZ(y), g = build(); TLXL.xf(g.g, { rx: tilt(y), ry: yaw || 0 }); TLXL.xf(g.g, { x, y, z: z - 0.004 }); return g; };
+    const face = g => TLXL.xf(g, { rx: PI / 2 });                                      // a lathe built round +y now looks along +z
+    const planar = (g, r) => { const P = g.attributes.position, U = g.attributes.uv; for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / (2 * r) + 0.5, P.getZ(i) / (2 * r) + 0.5); return g; };
+    const round = (x, y, r, m, bezelM) => {   // a round headlamp: bezel ring, reflector bowl, domed lens
+      const it = [], s0 = L() ? 12 : 22;
+      it.push({ m: bezelM, g: face(TLXL.lathe([[r * 1.02, -0.03], [r * 1.12, -0.02], [r * 1.14, 0.004], [r * 1.08, 0.016], [r * 1.0, 0.012], [r * 0.99, -0.03]], s0)) });
+      it.push({ m: M.refl, g: face(TLXL.lathe([[0.004, -0.075], [r * 0.3, -0.07], [r * 0.58, -0.05], [r * 0.82, -0.025], [r * 0.97, 0.0], [r * 0.97, -0.03]], s0)) });
+      it.push({ m: m, g: face(planar(TLXL.lathe([[0, 0.0105], [r * 0.4, 0.0098], [r * 0.75, 0.007], [r * 0.95, 0.0015], [r * 0.95, -0.004], [0, -0.004]], s0), r * 0.95)) });
+      it.push({ m: M.black, g: face(TLXL.lathe([[r * 1.0, -0.2], [r * 1.0, -0.03], [0.001, -0.03]], s0)) });
+      return it; };
+    const rectLamp = (w2, h2, m, bz) => { const it = []; it.push({ m: bz, g: TLXL.rbox(w2 + 0.04, h2 + 0.04, 0.05, 0.016) }); it.push({ m: M.refl, g: at(TLXL.rbox(w2 + 0.005, h2 + 0.005, 0.02, 0.01), 0, 0, 0.012) }); it.push({ m: m, g: at(TLXL.rbox(w2 - 0.012, h2 - 0.012, 0.012, 0.006), 0, 0, 0.026) }); return it; };
+    const place = (items2, x, y, yaw) => { const z = frontZ(y) + 0.002, tl = tilt(y); for (const it of items2) { TLXL.xf(it.g, { rx: tl, ry: yaw || 0 }); TLXL.xf(it.g, { x, y, z }); items.push(it); } };
+    if (s.lamp === "round") place(round(0, lampY, 0.115, M.lamp, M.chrome), 0, lampY);
+    else if (s.lamp === "rect") place(rectLamp(0.3, 0.14, M.lamp, M.chrome), 0, lampY);
+    else if (s.lamp === "twin") for (const sx of [-1, 1]) place(round(0, lampY, 0.075, M.lamp, M.black), sx * 0.19, lampY, sx * 0.14);
+    else if (s.lamp === "slit") for (const sx of [-1, 1]) place(rectLamp(0.2, 0.06, M.lamp, M.black), sx * 0.15, lampY + 0.01, sx * 0.3);
+    else if (s.lamp === "led") { for (const sx of [-1, 1]) { place(round(0, lampY, 0.05, M.led, M.black), sx * 0.19, lampY, sx * 0.22); place(rectLamp(0.17, 0.016, M.led, M.black), sx * 0.17, lampY + 0.07, sx * 0.25); } }
+    else if (s.lamp === "strip") place(rectLamp(w * 0.62, 0.028, M.led, M.black), 0, lampY + 0.03, 0);
+    // intake / grille under the lamp: a dark recess with slats
+    if (s.style !== "round" || s.lamp !== "round") {
+      const gw = w * (s.style === "flat" ? 0.5 : 0.36), gh = Math.max(0.05, fh * 0.2), z = frontZ(grY) - 0.012, tl = tilt(grY), it = [];
+      it.push({ m: M.black, g: TLXL.rbox(gw, gh, 0.04, 0.012) }); const n = 4; for (let i = 0; i < n; i++) it.push({ m: M.dark, g: at(TLXL.rbox(gw * 0.92, 0.008, 0.02, 0.003, 1), 0, -gh * 0.36 + i * gh * 0.24, 0.018) });
+      for (const x of it) { TLXL.xf(x.g, { rx: tl }); TLXL.xf(x.g, { y: grY, z }); items.push(x); }
+    }
+    // louvres cut into the flanks: a dark recess with slats, at the back of the pan
+    const lz = H.zP + 0.28, nl = s.style === "flat" || s.style === "round" ? 3 : 4;
+    for (const sx of [-1, 1]) { const y0 = pan + 0.1, x = sideX(lz, y0 + 0.05) * sx; const pocket = TLXL.rbox(0.016, 0.04 + nl * 0.05, 0.2, 0.007); TLXL.xf(pocket, { x: x - sx * 0.003, y: y0 + nl * 0.025 - 0.02, z: lz }); items.push({ m: M.black, g: pocket });
+      for (let i = 0; i < nl; i++) { const sl = TLXL.rbox(0.014, 0.012, 0.17, 0.004, 1); TLXL.xf(sl, { x: x + sx * 0.002, y: y0 + i * 0.05 - 0.01, z: lz, rx: 0.4 }); items.push({ m: M.dark, g: sl }); } }
+    // a slotted intake on the crown of the sporting hoods: a dark recess with slats set inside it
+    if (s.style === "wedge" || s.style === "riderfwd" || s.style === "smooth") { const zz = H.zP + 0.35, y0 = topAt(zz + 0.09);
+      const rec = TLXL.rbox(0.23, 0.012, 0.25, 0.005, 1); TLXL.xf(rec, { x: 0.2, y: y0 - 0.002, z: zz + 0.09, rx: -0.12 }); items.push({ m: M.black, g: rec });
+      for (let i = 0; i < 4; i++) { const g = TLXL.rbox(0.19 - i * 0.012, 0.006, 0.014, 0.0025, 1); TLXL.xf(g, { x: 0.2, y: topAt(zz + 0.02 + i * 0.05) + 0.004, z: zz + 0.02 + i * 0.05, rx: -0.12 }); items.push({ m: M.dark, g }); } }
+    // hood latches (a draw latch each side at the shut line) and the badge
+    for (const sx of [-1, 1]) { const z = z0 + 0.5 * (z1 - z0), x = sideX(z, pan + 0.012) * sx;
+      const base = TLXL.rbox(0.014, 0.05, 0.075, 0.005, 1); TLXL.xf(base, { x: x + sx * 0.005, y: pan + 0.012, z }); items.push({ m: M.cast, g: base });
+      const lev = TLXL.rbox(0.012, 0.03, 0.05, 0.005, 1); TLXL.xf(lev, { x: x + sx * 0.014, y: pan + 0.03, z, rx: 0.2 }); items.push({ m: M.black, g: lev });
+      items.push({ m: M.steel, g: S.bolt([x + sx * 0.012, pan - 0.01, z - 0.025], [sx, 0, 0], 0.007) }); items.push({ m: M.steel, g: S.bolt([x + sx * 0.012, pan - 0.01, z + 0.025], [sx, 0, 0], 0.007) }); }
+    { const zb = z1 - 0.2, yb = topAt(zb) - 0.004; const g = TLXL.rbox(0.13, 0.01, 0.045, 0.004, 1); TLXL.xf(g, { y: yb, z: zb, rx: Math.atan2(topAt(zb - 0.02) - topAt(zb + 0.02), 0.04) * -1 }); items.push({ m: M.chrome, g }); }
+    // nose bumper and its brackets
+    const zN = frontZ(yB + 0.12) + 0.01, yBB = yB - HB;
+    const brk = (x, y, z) => { items.push({ m: M.cast, g: at(TLXL.rbox(0.04, 0.05, 0.03, 0.01), x, y, z) }); items.push({ m: M.steel, g: S.bolt([x, y, z + 0.015], [0, 0, 1], 0.009) }); };
+    if (s.bumper === "hoop") {
+      items.push({ m: M.chrome, g: tb([[-w * 0.47, yBB + 0.11, zN - 0.5], [-w * 0.45, yBB + 0.14, zN - 0.1], [-w * 0.3, yBB + 0.165, zN + 0.07], [0, yBB + 0.17, zN + 0.1], [w * 0.3, yBB + 0.165, zN + 0.07], [w * 0.45, yBB + 0.14, zN - 0.1], [w * 0.47, yBB + 0.11, zN - 0.5]], 0.021, 9) });
+      for (const sx of [-1, 1]) { items.push({ m: M.chrome, g: S.rod([sx * (w / 2 - 0.12), yBB + 0.04, zN - 0.26], [sx * (w * 0.45), yBB + 0.14, zN - 0.1], 0.018) }); brk(sx * (w / 2 - 0.12), yBB + 0.04, zN - 0.27); }
+    } else if (s.bumper === "bar") {
+      items.push({ m: M.black, g: tb([[-w * 0.44, yBB + 0.07, zN - 0.08], [-w * 0.36, yBB + 0.07, zN + 0.05], [w * 0.36, yBB + 0.07, zN + 0.05], [w * 0.44, yBB + 0.07, zN - 0.08]], 0.032, 8) });
+      for (const sx of [-1, 1]) { items.push({ m: M.black, g: S.rod([sx * w * 0.4, yBB + 0.07, zN - 0.2], [sx * w * 0.4, yBB + 0.07, zN + 0.03], 0.026) }); brk(sx * w * 0.4, yBB + 0.07, zN - 0.2); }
+    } else if (s.bumper === "skid") {
+      items.push({ m: M.steel, g: tb([[-w * 0.36, yBB + 0.02, zN - 0.24], [-w * 0.3, yBB + 0.03, zN + 0.04], [0, yBB + 0.035, zN + 0.1], [w * 0.3, yBB + 0.03, zN + 0.04], [w * 0.36, yBB + 0.02, zN - 0.24]], 0.024, 8) });
+    }
+    // the nose wear strip under the belly: a dark skid plate
+    items.push({ m: M.dark, g: S.plate(w * 0.5, 0.015, 0.4, 0.006, 3).translate(0, yB - 0.012, z1 - 0.3) });
+    info.zN = zN; info.lampY = lampY;
+    return { items, decal, info, secs };
+  };
+
+  /* ---------------- tunnel, boards, tail ---------------- */
+  S.chassis = function (s, ctx, ud) {
+    const M = S.mats(ctx), tw = ud.tw, tl = ud.tl, zB = ud.zBack, bx = ud.boardX, zc = 0.4 - tl / 2, items = [], decal = { flash: [] }, rail = s.chrome ? M.chrome : M.black;
+    const tun = TLXL.loft([{ y: zB, rx: tw / 2, rz: 0.105, cz: 0.465, n: 7 }, { y: 0.4, rx: tw / 2, rz: 0.105, cz: 0.465, n: 7 }], { axis: "z", seg: L() ? 12 : 20, cap: true, uv: [0, 0, Math.max(1, tw * 2.5), Math.max(1, tl * 2.5)] });
+    items.push({ m: M.alu, g: tun });
+    items.push({ m: M.panel, g: S.plate(tw + 0.06, 0.03, tl + 0.05, 0.012, 4).translate(0, 0.575, zc) });                      // the deck, in the panel colour
+    for (let z = zB + 0.1; z < 0.35; z += 0.14) for (const sx of [-1, 1]) items.push({ m: M.steel, g: S.bolt([sx * tw / 2, 0.435, z], [sx, 0, 0], 0.0075) });      // rivet line down each flank
+    if (s.tailRound) items.push({ m: M.alu, g: at(new T.CylinderGeometry(0.11, 0.11, tw, L() ? 12 : 18), 0, 0.46, zB + 0.02, 0, 0, PI / 2) });
+    else { items.push({ m: M.alu, g: S.plate(tw, 0.08, 0.16, 0.014).translate(0, 0.52, zB - 0.06) }); items.push({ m: M.dark, g: at(S.plate(tw, 0.04, 0.3, 0.012), 0, 0.36, zB - 0.08, 0.35) }); }
+    // snow flap: a rubber flap hanging off the tail on a steel strip
+    items.push({ m: M.rubber, g: at(S.plate(tw * 0.78, 0.01, 0.26, 0.004, 3), 0, 0.36, zB - 0.2, -0.5) });
+    items.push({ m: M.trim, g: at(S.plate(tw * 0.5, 0.012, 0.035, 0.004, 3), 0, 0.357, zB - 0.215, -0.5) });
+    items.push({ m: M.steel, g: S.plate(tw * 0.8, 0.02, 0.03, 0.006, 4).translate(0, 0.45, zB - 0.075) });
+    for (let i = 0; i < 4; i++) items.push({ m: M.steel, g: S.bolt([(i - 1.5) * tw * 0.2, 0.461, zB - 0.075], [0, 1, 0], 0.008) });
+    // tail lamp: housing and a red lens facing back
+    items.push({ m: M.black, g: at(S.plate(0.17, 0.065, 0.055, 0.02), 0, 0.545, zB - 0.17) });
+    items.push({ m: M.tail, g: at(TLXL.rbox(0.14, 0.04, 0.012, 0.012, 1), 0, 0.545, zB - 0.2, 0, PI) });
+    // rear bumper / grab bar on brackets
+    items.push({ m: rail, g: tb([[-tw / 2 - 0.02, 0.42, zB + 0.1], [-tw / 2 - 0.03, 0.42, zB - 0.12], [-tw / 2 - 0.0, 0.42, zB - 0.17], [tw / 2 + 0.0, 0.42, zB - 0.17], [tw / 2 + 0.03, 0.42, zB - 0.12], [tw / 2 + 0.02, 0.42, zB + 0.1]], 0.02, 8) });
+    for (const sx of [-1, 1]) { items.push({ m: M.cast, g: at(S.plate(0.03, 0.06, 0.05, 0.01), sx * (tw / 2 + 0.01), 0.42, zB + 0.08) }); items.push({ m: M.steel, g: S.bolt([sx * (tw / 2 + 0.026), 0.42, zB + 0.08], [sx, 0, 0], 0.009) }); }
+    // running boards: punched sheet with a serrated outer rail and gussets
+    const bl = tl * 0.72, bz = 0.2 - tl * 0.4;
+    for (const sx of [-1, 1]) {
+      items.push({ m: M.board, g: S.plate(0.24, 0.03, bl, 0.008, 4).translate(sx * bx, 0.36, bz) });
+      items.push({ m: M.alu, g: S.plate(0.03, 0.055, bl, 0.01, 4).translate(sx * (bx + 0.12), 0.375, bz) });
+      for (let z = bz - bl / 2 + 0.03; z < bz + bl / 2 - 0.02; z += 0.055) items.push({ m: M.steel, g: new T.BoxGeometry(0.012, 0.016, 0.026).translate(sx * (bx + 0.12), 0.41, z) });
+      for (let i = 0; i < 4; i++) { const z = bz - bl / 2 + 0.1 + i * (bl - 0.2) / 3; items.push({ m: M.cast, g: at(S.plate(0.016, 0.1, 0.05, 0.006), sx * (tw / 2 + 0.035), 0.405, z, 0, 0, sx * 0.55) }); }
+    }
+    if (s.raceStripe) for (const sx of [-1, 1]) for (const [y, hh] of [[0.425, 0.04], [0.52, 0.025]]) items.push({ m: M.trim, g: S.plate(0.006, hh, tl * 0.5, 0.002, 3).translate(sx * (tw / 2 + 0.003), y, 0.2 - tl * 0.4) });
+    for (const sx of [-1, 1]) decal.flash.push(S.plate(0.008, 0.06, tl * 0.6, 0.002, 3).translate(sx * (tw / 2 + 0.005), 0.49, 0.2 - tl * 0.4));
+    // 1970s bogies: wheel pairs on cross axles under an unsprung belt
+    if (s.bogies) for (let i = 0; i < 4; i++) { const z = -1.3 + i * 0.4;
+      for (const sx of [-1, 1]) { items.push({ m: M.rubber, g: at(TLXL.lathe([[0.11, -0.027], [0.116, -0.016], [0.116, 0.016], [0.11, 0.027], [0.06, 0.027], [0.06, -0.027]], L() ? 12 : 18), sx * 0.31, 0.16, z, 0, 0, PI / 2) }); items.push({ m: M.cast, g: at(new T.CylinderGeometry(0.052, 0.052, 0.062, 10), sx * 0.31, 0.16, z, 0, 0, PI / 2) }); items.push({ m: M.steel, g: S.bolt([sx * 0.345, 0.16, z], [sx, 0, 0], 0.012) }); }
+      items.push({ m: M.steel, g: S.rod([-0.33, 0.16, z], [0.33, 0.16, z], 0.011) }); items.push({ m: M.cast, g: at(S.plate(0.66, 0.03, 0.045, 0.01), 0, 0.3, z) }); }
+    // tail rack: a tube frame
+    if (s.rack) { const rz = zB + 0.5, rw = tw + 0.24, y = 0.72;
+      for (const sx of [-1, 1]) { items.push({ m: M.dark, g: S.rod([sx * rw / 2, y, rz - 0.45], [sx * rw / 2, y, rz + 0.45], 0.016) }); for (const dz of [-0.4, 0, 0.4]) items.push({ m: M.dark, g: S.rod([sx * rw / 2, y, rz + dz], [sx * rw / 2, 0.58, rz + dz], 0.014) }); items.push({ m: M.dark, g: S.rod([sx * rw / 2, 0.6, rz - 0.4], [sx * rw / 2, 0.6, rz + 0.4], 0.012) }); }
+      for (let i = 0; i < 5; i++) items.push({ m: M.dark, g: S.rod([-rw / 2, y + 0.002, rz - 0.4 + i * 0.2], [rw / 2, y + 0.002, rz - 0.4 + i * 0.2], 0.012) });
+      for (const sx of [-1, 1]) for (const dz of [-0.4, 0.4]) items.push({ m: M.steel, g: S.bolt([sx * rw / 2, 0.58, rz + dz], [0, -1, 0], 0.01) }); }
+    if (s.spoiler) { items.push({ m: M.panel, g: at(S.plate(tw + 0.1, 0.035, 0.2, 0.014), 0, 0.8, zB + 0.12, -0.25) }); for (const sx of [-1, 1]) items.push({ m: M.dark, g: S.rod([sx * (tw / 2 - 0.02), 0.58, zB + 0.12], [sx * (tw / 2 - 0.02), 0.79, zB + 0.1], 0.02) }); }
+    if (s.charge) { const z = ud.chargeZ, y = s.pan + 0.12; items.push({ m: M.dark, g: S.plate(0.016, 0.1, 0.14, 0.012).translate(-ud.hoodW / 2 - 0.0, y, z) }); items.push({ m: M.rubber, g: TLXL.xf(TLXL.lathe([[0.034, 0], [0.04, 0.006], [0.04, 0.012], [0.03, 0.012], [0.03, 0]], 16), { rz: PI / 2, x: -ud.hoodW / 2 - 0.008, y, z }) }); items.push({ m: M.black, g: TLXL.xf(TLXL.lathe([[0.026, 0], [0.026, 0.01]], 12), { rz: PI / 2, x: -ud.hoodW / 2 - 0.004, y, z }) }); }
+    if (s.exhaust) { const x = s.exhaust * (tw / 2 + 0.05), z = zB + 0.3; items.push({ m: M.steel, g: TLXL.xf(TLXL.lathe([[0.02, -0.15], [0.045, -0.13], [0.06, -0.07], [0.062, 0.08], [0.045, 0.14], [0.028, 0.17], [0.026, 0.2]], L() ? 10 : 16), { rx: PI / 2, x, y: 0.46, z }) }); items.push({ m: M.cast, g: TLXL.xf(TLXL.lathe([[0.066, -0.01], [0.066, 0.01]], 12), { rx: PI / 2, x, y: 0.46, z: z - 0.03 }) }); items.push({ m: M.cast, g: TLXL.xf(TLXL.lathe([[0.066, -0.01], [0.066, 0.01]], 12), { rx: PI / 2, x, y: 0.46, z: z + 0.07 }) }); }
+    return { items, decal };
+  };
+
+  /* ---------------- the seat ---------------- */
+  const topOf = (poly, z) => { let y = -1; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; if (a[0] !== b[0] && (z - a[0]) * (z - b[0]) <= 0) y = Math.max(y, a[1] + (b[1] - a[1]) * (z - a[0]) / (b[0] - a[0])); } return y; };
+  S.seat = function (poly, zr, w, kind, ctx) {
+    const M = S.mats(ctx), items = [], zA = zr - 0.04, zF = 0.09, n = L() ? 14 : 26, secs = [];
+    for (let i = 0; i < n; i++) { const z = zA + (zF - zA) * i / (n - 1), top = Math.max(0.64, topOf(poly, clamp(z, zr, 0.05))) + 0.05, bot = 0.59, f = kind === "bench" || kind === "twoup" ? 1 : 0.72 + 0.28 * sstep(zr + 0.9, -0.3, z) * (1 - sstep(-0.1, 0.09, z) * 0.3);
+      secs.push({ y: z, rx: w / 2 * f, rz: Math.max(0.03, (top - bot) / 2), cx: 0, cz: (top + bot) / 2, n: 3.4 }); }
+    items.push({ m: M.seat, g: TLXL.loft(secs, { axis: "z", seg: L() ? 12 : 22, roundTop: 0.04, roundBottom: 0.03, uv: [0, 0, 1, 1] }) });
+    // piping along both top edges
+    for (const sx of [-1, 1]) { const pts = []; for (let i = 2; i < n - 2; i += 3) { const sc = secs[i], a = 1.1, e = 2 / sc.n; pts.push([sx * (sc.rx * Math.pow(Math.sin(a), e) + 0.004), sc.cz + sc.rz * Math.pow(Math.cos(a), e) + 0.003, sc.y]); } items.push({ m: M.trim, g: tb(pts, 0.0065, 5) }); }
+    items.push({ m: M.rubber, g: tb([[-0.14, 0.77, zr + 0.04], [-0.14, 0.81, zr - 0.05], [0.14, 0.81, zr - 0.05], [0.14, 0.77, zr + 0.04]], 0.016, 6) });
+    for (const sx of [-1, 1]) items.push({ m: M.steel, g: S.bolt([sx * 0.14, 0.775, zr + 0.04], [0, 1, 0], 0.012) });
+    if (kind === "twoup") for (const sx of [-1, 1]) { items.push({ m: M.chrome, g: tb([[sx * (w / 2 + 0.02), 0.82, -0.9], [sx * (w / 2 + 0.06), 0.88, -1.0], [sx * (w / 2 + 0.06), 0.88, zr + 0.4], [sx * (w / 2 + 0.02), 0.82, zr + 0.5]], 0.016, 7) }); for (const z of [-0.92, zr + 0.45]) items.push({ m: M.cast, g: at(S.plate(0.03, 0.05, 0.04, 0.01), sx * (w / 2 + 0.02), 0.8, z) }); }
+    return items;
+  };
+
+  /* ---------------- skis and spindles ---------------- */
+  const SKI = { steel: { z0: -0.62, zk: 0.46, R: 0.32, ph: 1.15, w: 0.07, t: 0.014 }, plastic: { z0: -0.6, zk: 0.44, R: 0.34, ph: 1.2, w: 0.085, t: 0.017 }, powder: { z0: -0.66, zk: 0.44, R: 0.4, ph: 1.1, w: 0.14, t: 0.015 } };
+  const skiPath = k => { const p = [], d = SKI[k], nf = 10, nc = 9; for (let i = 0; i <= nf; i++) p.push([lerp(d.z0, d.zk, i / nf), d.t]); for (let i = 1; i <= nc; i++) { const f = i / nc * d.ph; p.push([d.zk + d.R * Math.sin(f), d.t + d.R * (1 - Math.cos(f))]); } return p; };
+  S.ski = function (kind, s, ctx) {
+    const M = S.mats(ctx), d = SKI[kind], items = [], path = skiPath(kind), m = path.length, mat = kind === "steel" ? M.alu : kind === "powder" ? M.panel : M.black;
+    const pf = u => Math.min(1, u / 0.035, (1 - u) / 0.05);
+    const wF = u => d.w * (0.84 + 0.16 * sstep(0, 0.14, u)) * (1 - 0.42 * sstep(0.8, 1, u)) * Math.sqrt(Math.max(0.02, pf(u))), tF = u => d.t * (1 + 0.45 * sstep(0.4, 0.5, u) * (1 - sstep(0.5, 0.7, u))) * Math.max(0.1, pf(u));
+    items.push({ m: mat, g: S.sweep(path, wF, tF, { n: kind === "powder" ? 3 : 4, len: 3 }) });
+    items.push({ m: M.steel, g: S.sweep(path.slice(0, m - 4), u => 0.011 * Math.min(1, u * 20), u => 0.011, { off: -d.t - 0.008, n: 2.4 }) });     // keel
+    items.push({ m: mat === M.black ? M.dark : mat, g: S.sweep(path.slice(2, m - 3), u => 0.018, u => 0.008, { off: d.t + 0.004, n: 3 }) });     // top spine
+    if (kind !== "steel") for (const sx of [-1, 1]) items.push({ m: M.dark, g: S.sweep(path.slice(3, m - 5), u => 0.008, u => 0.005, { off: d.t + 0.002, cx: sx * d.w * 0.5, n: 3 }) });
+    const tip = path[m - 1]; items.push({ m: M.black, g: tb([[-0.04, tip[1] - 0.01, tip[0] - 0.09], [-0.04, tip[1] + 0.065, tip[0] - 0.05], [0.04, tip[1] + 0.065, tip[0] - 0.05], [0.04, tip[1] - 0.01, tip[0] - 0.09]], 0.009, 6) });
+    items.push({ m: M.cast, g: at(S.plate(0.11, 0.05, 0.2, 0.012), 0, 0.06, 0.02) });                                 // saddle casting
+    for (const sx of [-1, 1]) for (const dz of [-0.07, 0.11]) items.push({ m: M.steel, g: S.bolt([sx * 0.035, 0.086, 0.02 + dz * 0.6], [0, 1, 0], 0.011) });
+    // spindle: era by era
+    if (s.susp === "leaf") {
+      for (let i = 0; i < 4; i++) { const hl = 0.3 - 0.055 * i, lp = []; for (let k = 0; k <= 8; k++) { const z = lerp(-hl, hl, k / 8); lp.push([z + 0.02, 0.135 + i * 0.012 + 0.045 * (1 - Math.pow(z / hl, 2)) * (1 - 0.1 * i)]); }
+        items.push({ m: M.springDark, g: S.sweep(lp, u => 0.026, u => 0.0052, { n: 4 }) }); }
+      items.push({ m: M.cast, g: at(S.plate(0.07, 0.035, 0.05, 0.01), 0, 0.2, 0.02) });
+      for (const sx of [-1, 1]) items.push({ m: M.steel, g: S.rod([sx * 0.03, 0.12, 0.0], [sx * 0.03, 0.222, 0.0], 0.006) }), items.push({ m: M.steel, g: S.rod([sx * 0.03, 0.12, 0.04], [sx * 0.03, 0.222, 0.04], 0.006) });
+      items.push({ m: M.steel, g: S.rod([0, 0.07, 0.02], [0, 0.64, 0.02], 0.0155) });
+      items.push({ m: M.cast, g: TLXL.xf(TLXL.lathe([[0.032, 0.07], [0.034, 0.1], [0.026, 0.13], [0.02, 0.15]], 10), { z: 0.02 }) });
+      items.push({ m: M.rubber, g: TLXL.xf(TLXL.lathe([[0.022, 0.44], [0.034, 0.46], [0.022, 0.48], [0.034, 0.5], [0.022, 0.52], [0.034, 0.54], [0.02, 0.56]], 10), { z: 0.02 }) });
+      items.push({ m: M.cast, g: at(S.plate(0.06, 0.05, 0.12, 0.012), 0, 0.62, 0.02) });
+      items.push({ m: M.steel, g: S.bolt([0, 0.648, 0.02], [0, 1, 0], 0.012) });
+    } else {
+      items.push({ m: M.steel, g: S.rod([0, 0.08, 0.02], [0, 0.31, 0.02], 0.0175) });
+      items.push({ m: M.cast, g: TLXL.xf(TLXL.lathe([[0.034, 0.07], [0.036, 0.1], [0.03, 0.14], [0.022, 0.17]], 10), { z: 0.02 }) });
+      items.push({ m: M.cast, g: TLXL.xf(TLXL.ell(0.03, 0.026, 0.03), { y: 0.3, z: 0.02 }) });
+      items.push({ m: M.steel, g: S.rod([0, 0.24, 0.02], [0.0, 0.24, -0.1], 0.007) });                                 // the steering arm
+    }
+    return items;
+  };
+
+  /* ---------------- front suspension in sled space ---------------- */
+  S.front = function (s, ctx, yPeak) {
+    const M = S.mats(ctx), it = [];
+    for (const sx of [-1, 1]) {
+      if (s.susp === "aarm") {
+        const U0 = [sx * 0.2, 0.56, 0.9], U1 = [sx * 0.48, 0.42, 0.94], L0 = [sx * 0.2, 0.36, 0.84], L1 = [sx * 0.2, 0.36, 1.0], L2 = [sx * 0.48, 0.24, 0.94];
+        for (const [a, b, r] of [[U0, U1, 0.0165], [L0, L2, 0.0165], [L1, L2, 0.015]]) { it.push({ m: M.dark, g: S.rod(a, b, r) }); it.push({ m: M.cast, g: TLXL.xf(TLXL.ell(r * 1.25, r * 1.25, r * 1.25), { x: a[0], y: a[1], z: a[2] }) }); it.push({ m: M.cast, g: TLXL.xf(TLXL.ell(r * 1.4, r * 1.4, r * 1.4), { x: b[0], y: b[1], z: b[2] }) }); }
+        const lo = [sx * 0.46, 0.3, 0.94], hi = [sx * 0.24, yPeak - 0.12, 0.8], v = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]], P = f => [lo[0] + v[0] * f, lo[1] + v[1] * f, lo[2] + v[2] * f];
+        it.push({ m: M.chrome, g: S.rod(P(0.1), P(0.62), 0.018) }); it.push({ m: M.alu, g: S.rod(P(0.5), P(1), 0.026) }); it.push({ m: M.cast, g: TLXL.xf(TLXL.ell(0.03, 0.03, 0.03), { x: lo[0], y: lo[1], z: lo[2] }) }); it.push({ m: M.cast, g: TLXL.xf(TLXL.ell(0.03, 0.03, 0.03), { x: hi[0], y: hi[1], z: hi[2] }) });
+        it.push({ m: s.style === "wedge" ? M.springY : s.style === "riderfwd" ? M.springR : s.style === "smooth" ? M.springB : M.springR, g: S.spring(P(0.18), P(0.84), 0.046, 8, 0.0085) });
+      } else {
+        const a = [sx * 0.18, 0.4, 0.5], b = [sx * 0.5, 0.68, 0.94];
+        it.push({ m: M.dark, g: S.rod(a, b, 0.017) }); it.push({ m: M.cast, g: at(S.plate(0.05, 0.05, 0.05, 0.012), a[0], a[1], a[2]) }); it.push({ m: M.cast, g: TLXL.xf(TLXL.ell(0.03, 0.03, 0.03), { x: b[0], y: b[1], z: b[2] }) });
+        it.push({ m: M.steel, g: S.bolt([a[0], a[1], a[2] - 0.026], [0, 0, -1], 0.012) });
+      }
+    }
+    return it;
+  };
+
+  /* ---------------- the belt: lugs ride a path in the vertex shader, so the track animation moves real geometry ---------------- */
+  const TR = { R: 0.17, Ls: 1.8, zf: 0.34, zr: -1.46, yc: 0.19, w: 0.26 }; TR.arc = PI * TR.R; TR.len = 2 * TR.Ls + 2 * TR.arc;
+  S.beltU = { value: 0 };
+  const GLSL = `
+    uniform float uOff; attribute vec3 aPath;
+    void tpath(float s, out vec2 p, out vec2 n, out vec2 t) {
+      float R = ${TR.R.toFixed(4)}, LS = ${TR.Ls.toFixed(4)}, ARC = ${TR.arc.toFixed(5)}, ZF = ${TR.zf.toFixed(4)}, ZR = ${TR.zr.toFixed(4)}, YC = ${TR.yc.toFixed(4)}, LT = ${TR.len.toFixed(5)};
+      s = mod(s, LT);
+      if (s < LS) { p = vec2(ZF - s, YC - R); n = vec2(0.0, -1.0); t = vec2(-1.0, 0.0); }
+      else if (s < LS + ARC) { float f = (s - LS) / R; vec2 d = vec2(-sin(f), -cos(f)); p = vec2(ZR, YC) + R * d; n = d; t = vec2(-cos(f), sin(f)); }
+      else if (s < 2.0 * LS + ARC) { p = vec2(ZR + (s - LS - ARC), YC + R); n = vec2(0.0, 1.0); t = vec2(1.0, 0.0); }
+      else { float f = (s - 2.0 * LS - ARC) / R; vec2 d = vec2(sin(f), cos(f)); p = vec2(ZF, YC) + R * d; n = d; t = vec2(cos(f), -sin(f)); }
+    }`;
+  const pathify = m => {
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uOff = S.beltU;
+      sh.vertexShader = sh.vertexShader.replace("void main() {", GLSL + "\nvoid main() {")
+        .replace("#include <beginnormal_vertex>", "vec2 _pp, _pn, _pt; tpath(aPath.x + uOff, _pp, _pn, _pt);\nvec3 objectNormal = vec3(normal.x, _pn.y * normal.y + _pt.y * normal.z, _pn.x * normal.y + _pt.x * normal.z);")
+        .replace("#include <begin_vertex>", "vec3 transformed = vec3(aPath.z, _pp.y + _pn.y * aPath.y, _pp.x + _pn.x * aPath.y);");
+    };
+    m.customProgramCacheKey = () => "tlxtrack"; return m; };
+  // geometry in path space: a box from s0..s1, h0..h1 (h out of the belt), x0..x1; shear slants it along s with x
+  const pathBox = (s0, s1, h0, h1, x0, x1, shear, topK) => {
+    const tk = topK === undefined ? 1 : topK, ms = (s0 + s1) / 2, hs = (s1 - s0) / 2, pos = [], nor = [], uv = [], idx = [], P = (h, x, k) => [ms + (x * (shear || 0)) + (k) * hs, h, x];
+    const quad = (a, b, c, d, n) => { const i = pos.length / 3; for (const v of [a, b, c, d]) { pos.push(...[v[0], v[1], v[2]]); nor.push(...n); uv.push(v[2] * 8, v[0] * 8); } idx.push(i, i + 2, i + 1, i, i + 3, i + 2); };
+    const A = [P(h0, x0, -1), P(h0, x1, -1), P(h0, x1, 1), P(h0, x0, 1)], B = [P(h1, x0, -tk), P(h1, x1, -tk), P(h1, x1, tk), P(h1, x0, tk)];
+    quad(B[0], B[3], B[2], B[1], [0, 1, 0]); quad(A[0], A[1], A[2], A[3], [0, -1, 0]);
+    quad(A[1], B[1], B[2], A[2], [1, 0, 0]); quad(A[3], B[3], B[0], A[0], [-1, 0, 0]);
+    quad(A[2], B[2], B[3], A[3], [0, 0, 1]); quad(A[0], B[0], B[1], A[1], [0, 0, -1]);
+    return { pos, nor, uv, idx }; };
+  const pathGeo = parts => { let pos = [], nor = [], uv = [], idx = []; for (const p of parts) { const o = pos.length / 3; pos = pos.concat(p.pos); nor = nor.concat(p.nor); uv = uv.concat(p.uv); for (const i of p.idx) idx.push(i + o); }
+    const g = new T.BufferGeometry(), aP = new Float32Array(pos); const lat = new Float32Array(pos.length); for (let i = 0; i < pos.length / 3; i++) { lat[i * 3] = pos[i * 3 + 2]; }   // position.x = lateral (for the bounding box)
+    g.setAttribute("position", new T.BufferAttribute(lat, 3)); g.setAttribute("aPath", new T.BufferAttribute(aP, 3)); g.setAttribute("normal", new T.BufferAttribute(new Float32Array(nor), 3)); g.setAttribute("uv", new T.BufferAttribute(new Float32Array(uv), 2)); g.setIndex(idx); return g; };
+  S.track = function (ctx) {
+    const M = S.mats(ctx); pathify(M.belt); pathify(M.lug); pathify(M.stud);
+    const res = { beltGeo: null, lugs: {}, items: {}, wheelA: [], wheelB: [], rig: [], rear: [] };
+    // the belt body: a rectangular ring along the path
+    const N = L() ? 100 : 190, parts = [], W = TR.w, th = 0.02;
+    for (let i = 0; i < N; i++) { const s0 = TR.len * i / N, s1 = TR.len * (i + 1) / N, sp = { pos: [], nor: [], uv: [], idx: [] }, f0 = i / N * 47, f1 = (i + 1) / N * 47;
+      const face = (a, b, c, d, n, ua, ub) => { const k = sp.pos.length / 3; for (const [v, u, vv] of [[a, ua, f0], [b, ub, f0], [c, ub, f1], [d, ua, f1]]) { sp.pos.push(v[0], v[1], v[2]); sp.nor.push(...n); sp.uv.push(u, vv); } sp.idx.push(k, k + 2, k + 1, k, k + 3, k + 2); };
+      const O = (s, x) => [s, 0, x], I = (s, x) => [s, -th, x];
+      face(O(s0, -W), O(s0, W), O(s1, W), O(s1, -W), [0, 1, 0], 0, 1); face(I(s0, W), I(s0, -W), I(s1, -W), I(s1, W), [0, -1, 0], 1, 0);
+      face(O(s0, W), I(s0, W), I(s1, W), O(s1, W), [1, 0, 0], 0, 0.05); face(I(s0, -W), O(s0, -W), O(s1, -W), I(s1, -W), [-1, 0, 0], 0, 0.05);
+      parts.push(sp); }
+    res.beltGeo = pathGeo(parts);
+    const lugRow = (pitch, sw, h, x0, x1, shear, topK, off) => { const out = [], n = Math.round(TR.len / pitch), p = TR.len / n; for (let i = 0; i < n; i++) { const c = (i + (off || 0)) * p; out.push(pathBox(c - sw / 2, c + sw / 2, 0, h, x0, x1, shear, topK)); } return out; };
+    const xs = 0.245;
+    res.lugs.stock = pathGeo([].concat(lugRow(0.1, 0.03, 0.026, -xs, -0.03, 0, 0.7, 0), lugRow(0.1, 0.03, 0.026, 0.03, xs, 0, 0.7, 0.5)));            // staggered bars, a gap down the middle
+    res.lugs.hard = pathGeo([].concat(lugRow(0.1, 0.026, 0.022, -xs, -0.01, 0.9, 0.8, 0), lugRow(0.1, 0.026, 0.022, 0.01, xs, -0.9, 0.8, 0)));        // chevrons
+    res.lugs.paddle = pathGeo(lugRow(0.1, 0.034, 0.062, -xs, xs, 0, 0.55, 0));                                                                        // tall paddles
+    const studs = []; { const n = Math.round(TR.len / 0.2), p = TR.len / n; for (let i = 0; i < n; i++) for (const x of [-0.13, 0.13]) studs.push(pathBox(i * p - 0.005, i * p + 0.005, 0.022, 0.032, x - 0.006, x + 0.006, 0, 1)); }
+    res.lugs.stud = pathGeo(studs);
+    // wheels: rear idler pair and the drive sprocket (both rotate round x in the game's animation)
+    const tyre = (r, w, rg) => TLXL.lathe([[r, -w / 2], [r + 0.004, -w / 2 + 0.004], [r + 0.004, w / 2 - 0.004], [r, w / 2], [rg, w / 2], [rg, -w / 2]], L() ? 14 : 22);
+    for (const sx of [-1, 1]) { res.wheelA.push({ m: M.rubber, g: TLXL.xf(tyre(0.15, 0.065, 0.06), { x: sx * 0.2, rz: PI / 2 }) }); res.wheelA.push({ m: M.cast, g: TLXL.xf(new T.CylinderGeometry(0.058, 0.058, 0.07, 10), { x: sx * 0.2, rz: PI / 2 }) }); res.wheelA.push({ m: M.steel, g: S.bolt([sx * 0.238, 0, 0], [sx, 0, 0], 0.014) }); }
+    res.wheelA.push({ m: M.steel, g: S.rod([-0.24, 0, 0], [0.24, 0, 0], 0.014) });
+    for (const sx of [-1, 1]) { res.wheelB.push({ m: M.cast, g: TLXL.xf(TLXL.lathe([[0.138, -0.012], [0.138, 0.012], [0.05, 0.012], [0.05, -0.012]], 18), { x: sx * 0.1, rz: PI / 2 }) });
+      for (let k = 0; k < 9; k++) { const a = k / 9 * TAU; res.wheelB.push({ m: M.cast, g: TLXL.xf(new T.BoxGeometry(0.022, 0.03, 0.034), { x: sx * 0.1, y: Math.cos(a) * 0.15, z: Math.sin(a) * 0.15, rx: -a }) }); }
+      res.wheelB.push({ m: M.steel, g: S.bolt([sx * 0.114, 0, 0], [sx, 0, 0], 0.016) }); }
+    res.wheelB.push({ m: M.steel, g: S.rod([-0.24, 0, 0], [0.24, 0, 0], 0.016) });
+    // skid frame: slide rails with rubber slides, idler wheels, rear arm and a coil-over
+    for (const sx of [-1, 1]) {
+      res.rig.push({ m: M.steel, g: S.plate(0.04, 0.045, 1.5, 0.012).translate(sx * 0.18, 0.075, -0.6) });
+      res.rig.push({ m: M.black, g: S.plate(0.032, 0.012, 1.46, 0.004).translate(sx * 0.18, 0.047, -0.6) });
+      for (const z of [-1.2, -0.55, 0.0]) { res.rig.push({ m: M.rubber, g: TLXL.xf(TLXL.lathe([[0.055, -0.016], [0.057, -0.01], [0.057, 0.01], [0.055, 0.016], [0.03, 0.016], [0.03, -0.016]], 14), { x: sx * 0.18, y: 0.11, z, rz: PI / 2 }) }); res.rig.push({ m: M.cast, g: TLXL.xf(new T.CylinderGeometry(0.028, 0.028, 0.044, 8), { x: sx * 0.18, y: 0.11, z, rz: PI / 2 }) }); }
+      res.rig.push({ m: M.dark, g: S.rod([sx * 0.18, 0.1, -1.15], [sx * 0.18, 0.33, -0.78], 0.017) });                          // rear arm
+      res.rig.push({ m: M.dark, g: S.rod([sx * 0.18, 0.1, -0.05], [sx * 0.18, 0.34, -0.3], 0.017) });                           // front arm
+    }
+    res.rig.push({ m: M.steel, g: S.rod([-0.18, 0.1, -1.15], [0.18, 0.1, -1.15], 0.015) }); res.rig.push({ m: M.steel, g: S.rod([-0.18, 0.09, -0.4], [0.18, 0.09, -0.4], 0.013) });
+    res.rig.push({ m: M.chrome, g: S.rod([0, 0.12, -1.1], [0, 0.26, -0.99], 0.016) }); res.rig.push({ m: M.alu, g: S.rod([0, 0.24, -1.0], [0, 0.34, -0.9], 0.024) }); res.rig.push({ m: M.trim, g: S.spring([0, 0.14, -1.08], [0, 0.32, -0.92], 0.042, 7, 0.007) });
+    return res;
+  };
+
+  /* ---------------- bars, controls, windshield, pod, column ---------------- */
+  S.bars = function (ctx) {
+    const M = S.mats(ctx), main = [], guards = [[], []], riser = [], mirrors = [];
+    main.push({ m: M.steel, g: tb([[-0.42, 0.065, -0.058], [-0.3, 0.03, -0.02], [-0.16, 0, 0], [0.16, 0, 0], [0.3, 0.03, -0.02], [0.42, 0.065, -0.058]], 0.0115, 8) });
+    main.push({ m: M.pad, g: TLXL.xf(TLXL.ell(0.11, 0.03, 0.03), { y: 0.052, z: -0.004 }) });
+    main.push({ m: M.cast, g: TLXL.xf(TLXL.rbox(0.1, 0.05, 0.07, 0.014), { y: -0.012 }) });
+    main.push({ m: M.cast, g: TLXL.xf(new T.CylinderGeometry(0.034, 0.034, 0.1, 12), { y: -0.065 }) });
+    for (const sx of [-1, 1]) for (const dz of [-1, 1]) main.push({ m: M.steel, g: S.bolt([sx * 0.032, 0.014, dz * 0.022], [0, 1, 0], 0.009) });
+    for (const sx of [-1, 1]) {
+      const a = [sx * 0.29, 0.025, -0.015], b = [sx * 0.42, 0.065, -0.055];
+      main.push({ m: M.rubber, g: S.taper(a, b, 0.0185, 0.0175, 10) });
+      main.push({ m: M.black, g: S.taper([sx * 0.288, 0.0245, -0.0146], [sx * 0.282, 0.0225, -0.0127], 0.027, 0.027, 12) });
+      main.push({ m: M.black, g: S.taper([sx * 0.415, 0.0635, -0.0535], [sx * 0.43, 0.0685, -0.0585], 0.0185, 0.015, 10) });
+      const lev = sx > 0 ? [[0.285, 0.008, 0.0], [0.27, -0.002, 0.06], [0.256, -0.014, 0.1], [0.245, -0.035, 0.115]] : [[-0.285, 0.008, 0.0], [-0.27, -0.002, 0.065], [-0.256, -0.012, 0.11], [-0.246, -0.028, 0.13]];
+      main.push({ m: M.alu, g: tb(lev, 0.0065, 6) }); main.push({ m: M.black, g: TLXL.xf(TLXL.rbox(0.07, 0.034, 0.045, 0.012), { x: sx * 0.272, y: 0.004, z: 0.0 }) });
+    }
+    main.push({ m: M.black, g: TLXL.xf(TLXL.lathe([[0.016, 0], [0.018, 0.02], [0.016, 0.045], [0.0, 0.045]], 12), { x: 0.255, y: 0.012, z: 0.02 }) });      // master cylinder
+    main.push({ m: M.alu, g: TLXL.xf(new T.CylinderGeometry(0.014, 0.014, 0.01, 10), { x: 0.255, y: 0.062, z: 0.02 }) });
+    main.push({ m: M.black, g: TLXL.xf(TLXL.rbox(0.03, 0.022, 0.03, 0.008), { x: -0.225, y: 0.02, z: -0.005 }) });                                      // kill switch and its red button
+    main.push({ m: M.paintRed, g: TLXL.xf(new T.CylinderGeometry(0.008, 0.008, 0.012, 10), { x: -0.225, y: 0.036, z: -0.005 }) });
+    for (const [i, sx] of [[0, -1], [1, 1]]) { guards[i].push({ m: M.dark, g: TLXL.xf(TLXL.loft([{ y: -0.065, rx: 0.003, rz: 0.075, cz: 0, n: 3 }, { y: 0.0, rx: 0.006, rz: 0.08, cz: 0.0, n: 3 }, { y: 0.065, rx: 0.003, rz: 0.075, cz: 0, n: 3 }], { axis: "z", seg: 10 }), { x: sx * 0.372, y: 0.07, z: 0.08, ry: sx * 0.25, rx: -0.35 }) });
+      guards[i].push({ m: M.alu, g: S.rod([sx * 0.3, 0.035, 0.015], [sx * 0.345, 0.075, 0.07], 0.006) }); guards[i].push({ m: M.alu, g: S.rod([sx * 0.4, 0.07, -0.04], [sx * 0.388, 0.085, 0.07], 0.006) }); }
+    riser.push({ m: M.cast, g: S.plate(0.12, 0.03, 0.1, 0.008).translate(0, -0.13, 0) }); riser.push({ m: M.cast, g: S.plate(0.12, 0.03, 0.1, 0.008).translate(0, -0.03, 0) });
+    for (const sx of [-1, 1]) { riser.push({ m: M.alu, g: S.rod([sx * 0.04, -0.13, 0], [sx * 0.04, -0.03, 0], 0.017) }); riser.push({ m: M.steel, g: S.bolt([sx * 0.04, -0.012, 0], [0, 1, 0], 0.011) }); riser.push({ m: M.dark, g: S.rod([sx * 0.2, 0.02, -0.04], [sx * 0.2, 0.14, -0.05], 0.011) }); riser.push({ m: M.dark, g: TLXL.xf(TLXL.ell(0.016, 0.012, 0.016), { x: sx * 0.2, y: 0.145, z: -0.05 }) }); }
+    for (const sx of [-1, 1]) { mirrors.push({ m: M.alu, g: S.rod([sx * 0.3, 0.04, 0.0], [sx * 0.34, 0.2, 0.0], 0.009) }); mirrors.push({ m: M.black, g: TLXL.xf(TLXL.ell(0.075, 0.052, 0.02), { x: sx * 0.35, y: 0.255, z: 0.01, rx: 0.15 }) }); mirrors.push({ m: M.refl, g: TLXL.xf(TLXL.ell(0.062, 0.042, 0.006), { x: sx * 0.35, y: 0.255, z: -0.007, rx: 0.15 }) }); }
+    return { main, guards, riser, mirrors };
+  };
+  S.shield = function (ctx) {
+    const M = S.mats(ctx), trim = [], rub = [], arc = (r, y, t0, t1, n) => { const p = []; for (let i = 0; i <= n; i++) { const t = lerp(t0, t1, i / n); p.push([r * Math.sin(t), y, r * Math.cos(t) - 0.44]); } return p; };
+    const pane = new T.CylinderGeometry(0.3, 0.44, 0.5, 24, 1, true, -1.0, 2.0); pane.translate(0, 0.25, -0.44);
+    const top = arc(0.3, 0.5, -1.0, 1.0, 12), bot = arc(0.44, 0, -1.0, 1.0, 14);
+    const bead = tb(top, 0.0075, 6), edgeL = tb([bot[0], [0.3 * Math.sin(-1) * 0.5 + bot[0][0] * 0.5, 0.25, (bot[0][2] + top[0][2]) / 2], top[0]], 0.006, 6), edgeR = tb([bot[14], [bot[14][0] * 0.5 + top[12][0] * 0.5, 0.25, (bot[14][2] + top[12][2]) / 2], top[12]], 0.006, 6);
+    rub.push({ m: M.rubber, g: tb(bot, 0.011, 6) }); rub.push({ m: M.rubber, g: edgeL }); rub.push({ m: M.rubber, g: edgeR });
+    for (const t of [-0.62, 0.62]) { const p = [0.44 * Math.sin(t), -0.004, 0.44 * Math.cos(t) - 0.44]; rub.push({ m: M.cast, g: TLXL.xf(TLXL.rbox(0.05, 0.036, 0.03, 0.01), { x: p[0], y: 0.006, z: p[2] - 0.004 }) }); rub.push({ m: M.steel, g: S.bolt([p[0], 0.026, p[2] - 0.004], [0, 1, 0], 0.01) }); }
+    for (let i = -2; i <= 2; i++) { const t = i * 0.3, x = 0.44 * Math.sin(t), z = 0.44 * Math.cos(t) - 0.44; rub.push({ m: M.steel, g: S.bolt([x * 0.99, 0.045, z * 1.0 - 0.001], [-Math.sin(t) * 0 , 0, 1], 0.006) }); }
+    return { pane, bead, rub };
+  };
+  S.pod = function (kind, ctx) {
+    const M = S.mats(ctx), it = [];
+    const toRider = (g, x, y, z) => { TLXL.xf(g, { rx: -(PI / 2 - 0.5) * 0 - 0.9 }); return TLXL.xf(g, { x, y, z }); };
+    if (kind === "round") for (const sx of [-1, 1]) {
+      const dial = TLXL.lathe([[0, 0.0], [0.04, 0.0]], 16); const cyl = TLXL.lathe([[0.056, -0.04], [0.056, 0.0], [0.05, 0.012], [0.0, 0.012]], 18);
+      it.push({ m: M.black, g: toRider(cyl, sx * 0.07, 0.02, 0.02) });
+      const bz = TLXL.lathe([[0.056, 0.0], [0.06, 0.006], [0.06, 0.014], [0.052, 0.016], [0.05, 0.01]], 18); it.push({ m: M.chrome, g: toRider(bz, sx * 0.07, 0.02, 0.02) });
+      const face = new T.CircleGeometry(0.048, 18); face.rotateX(-PI / 2); const fp = face.attributes.position, fu = face.attributes.uv; for (let i = 0; i < fp.count; i++) fu.setXY(i, fp.getX(i) / 0.096 + 0.5, -fp.getZ(i) / 0.096 + 0.5);
+      it.push({ m: sx > 0 ? M.dial : M.dialR, g: toRider(TLXL.xf(face, { y: 0.0125 }), sx * 0.07, 0.02, 0.02) });
+    } else {
+      it.push({ m: M.dark, g: TLXL.xf(TLXL.rbox(0.24, 0.07, 0.11, 0.022), { rx: -0.45 }) });
+      const f = TLXL.rbox(0.2, 0.006, 0.075, 0.002, 1); const fp = f.attributes.position, fu = f.attributes.uv; for (let i = 0; i < fp.count; i++) fu.setXY(i, fp.getX(i) / 0.2 + 0.5, fp.getZ(i) / 0.075 + 0.5);
+      it.push({ m: M.screen, g: TLXL.xf(f, { y: 0.036, z: -0.01, rx: -0.45 }) });
+    }
+    return it;
+  };
+  S.carbide = function (ctx) { const M = S.mats(ctx), p = skiPath("steel").slice(0, 11); return [{ m: M.chrome, g: S.sweep(p, u => 0.026, u => 0.012, { off: -0.032, n: 3 }) }, { m: M.steel, g: S.sweep(p, u => 0.034, u => 0.004, { off: -0.018, n: 4 }) }]; };
+
+  /* ---------------- bolt-on parts (the PARTS options), as item lists per group ---------------- */
+  S.parts = function (ctx) {
+    const M = S.mats(ctx), P = {}, V3b = V3, L2 = () => (L() ? 6 : 10), ac = (m, g) => ({ m, g });
+    const mkSpr = (hex, key) => { const x = new T.MeshStandardMaterial({ color: hex, roughness: 0.35, metalness: 0.6, envMap: ctx.env, envMapIntensity: 0.9 }); TLXL.dressMat(x, "cast", { size: 128, key: "spr" }); return x; };
+    M.springY = mkSpr(0xf2c230); M.springR = mkSpr(0xd8352a); M.springB = mkSpr(0x2f6bdf);
+    // jerry can, origin at its centre, standing; sx = which side (the can leans its strap to the outside)
+    P.can = (cm, sx) => [ac(cm, TLXL.rbox(0.13, 0.36, 0.28, 0.026)), ac(cm, at(TLXL.rbox(0.134, 0.03, 0.286, 0.012), 0, 0.12, 0)), ac(cm, at(TLXL.rbox(0.134, 0.03, 0.286, 0.012), 0, -0.12, 0)),
+      ...[-1, 1].map(d => ac(cm, TLXL.xf(TLXL.rbox(0.012, 0.4, 0.03, 0.005, 1), { x: sx * 0.066, rx: d * 0.9 }))), ac(M.black, TLXL.xf(TLXL.lathe([[0.03, 0], [0.03, 0.03], [0.022, 0.034], [0, 0.034]], 10), { y: 0.19, z: 0.1, rx: 0.5 })), ac(M.chrome, TLXL.xf(TLXL.lathe([[0.034, 0], [0.034, 0.008]], 10), { y: 0.19, z: 0.1, rx: 0.5 })),
+      ac(M.black, tb([[0, 0.185, -0.1], [0, 0.235, -0.07], [0, 0.235, 0.04], [0, 0.19, 0.06]], 0.011, 5)), ac(M.dark, S.plate(0.16, 0.04, 0.31, 0.012).translate(-sx * 0.01, -0.2, 0)), ac(M.dark, S.plate(0.11, 0.035, 0.04, 0.01).translate(sx * 0.1, -0.2, 0)),
+      ac(M.rubber, S.plate(0.142, 0.025, 0.05, 0.008).translate(0, 0.05, 0))];
+    P.lightBar = [ac(M.black, at(S.plate(0.66, 0.08, 0.1, 0.03), 0, 0, 0, 0.2)), ac(M.led, at(TLXL.rbox(0.6, 0.044, 0.014, 0.014, 1), 0, -0.012, 0.052, 0.2)), ac(M.refl, at(TLXL.rbox(0.62, 0.052, 0.01, 0.014, 1), 0, -0.012, 0.045, 0.2))];
+    for (const sx of [-1, 1]) { P.lightBar.push(ac(M.dark, S.rod([sx * 0.26, 0.0, -0.02], [sx * 0.26, -0.2, -0.06], 0.014))); P.lightBar.push(ac(M.cast, at(S.plate(0.05, 0.03, 0.05, 0.01), sx * 0.26, -0.01, -0.025))); P.lightBar.push(ac(M.steel, S.bolt([sx * 0.26, -0.01, 0.0], [0, 0, 1], 0.01))); }
+    const can = (r, len, m, tip) => [ac(m, TLXL.xf(TLXL.lathe([[0.02, -len / 2], [r * 0.7, -len / 2 + 0.03], [r, -len / 2 + 0.08], [r, len / 2 - 0.08], [r * 0.7, len / 2 - 0.03], [tip, len / 2 + 0.02]], L2() + 4), { rx: PI / 2 })), ac(M.steel, TLXL.xf(TLXL.lathe([[r + 0.004, -0.012], [r + 0.004, 0.012]], 12), { rx: PI / 2, z: -len * 0.28 })), ac(M.steel, TLXL.xf(TLXL.lathe([[r + 0.004, -0.012], [r + 0.004, 0.012]], 12), { rx: PI / 2, z: len * 0.28 }))];
+    P.raceCan = can(0.11, 0.62, M.chrome, 0.04); P.trailCan = can(0.07, 0.36, M.black, 0.04);
+    P.turboCan = can(0.1, 0.7, M.chrome, 0.05).concat([ac(M.dark, S.rod([0.32, 0.5, -0.14], [0.32, 0.72, 0.22], 0.036)), ac(M.cast, TLXL.xf(TLXL.ell(0.13, 0.13, 0.11), { x: 0.32, y: 0.86, z: 0.26 })), ac(M.dark, S.rod([0.24, 0.86, 0.4], [0.3, 0.86, 0.2], 0.026)), ac(M.cast, at(S.plate(0.14, 0.05, 0.1, 0.014), 0.3, 0.5, -0.95)), ac(M.cast, at(S.plate(0.14, 0.05, 0.1, 0.014), 0.3, 0.5, -0.42))]);
+    P.rackBox = [ac(M.black, at(S.plate(0.56, 0.3, 0.5, 0.04), 0, 0, 0, 0.18)), ac(M.trim, at(S.plate(0.58, 0.05, 0.52, 0.02), 0, 0.16, 0.01, 0.18)), ...[-1, 1].map(sx => ac(M.chrome, at(TLXL.rbox(0.05, 0.03, 0.02, 0.008, 1), sx * 0.18, 0.12, 0.27, 0.18))), ac(M.steel, S.rod([-0.25, 0.14, -0.26], [0.25, 0.14, -0.26], 0.009))];
+    P.deck = [ac(M.alu, at(S.plate(0.62, 0.05, 1.0, 0.014), 0, 0, 0, 0.08)), ...[-1, 1].map(sx => ac(M.black, at(S.plate(0.05, 0.16, 1.0, 0.014), sx * 0.3, 0.1, 0, 0.08))), ...[0.25, 0, -0.25, -0.5].map(z => ac(M.steel, at(S.plate(0.58, 0.012, 0.025, 0.004), 0, 0.03, z, 0.08)))];
+    // aftermarket suspension springs
+    const sprFront = (m, r, turns) => [-1, 1].flatMap(sx => [ac(m, S.spring([sx * 0.24, 0.84, 0.8], [sx * 0.46, 0.3, 0.94], r, turns, 0.012)), ac(M.chrome, S.rod([sx * 0.26, 0.8, 0.82], [sx * 0.44, 0.34, 0.93], 0.02))]);
+    P.coilKit = sprFront(M.springY, 0.07, 6); P.longKit = sprFront(M.springR, 0.075, 8).concat([-1, 1].map(sx => ac(M.brass, S.rod([sx * 0.18, 0.7, 0.72], [sx * 0.22, 0.88, 0.78], 0.04))));
+    P.coilKitRear = [ac(M.springY, S.spring([0, 0.33, -1.095], [0, 0.68, -0.905], 0.07, 6, 0.012)), ac(M.chrome, S.rod([0, 0.36, -1.08], [0, 0.65, -0.92], 0.02))];
+    P.longKitRear = [ac(M.springR, S.spring([0, 0.33, -1.095], [0, 0.68, -0.905], 0.075, 8, 0.012)), ac(M.brass, S.rod([0.1, 0.45, -1.1], [0.1, 0.65, -0.96], 0.045))];
+    P.clutchKit = [ac(M.black, at(S.plate(0.03, 0.3, 0.42, 0.012), -0.44, 0.62, 0.5)), ac(M.steel, TLXL.xf(TLXL.lathe([[0.12, 0], [0.12, 0.012], [0.05, 0.028], [0.02, 0.03], [0.02, 0]], 18), { x: -0.46, y: 0.62, z: 0.5, rz: -PI / 2 })), ac(M.springR, S.spring([-0.47, 0.62, 0.5], [-0.54, 0.62, 0.5], 0.07, 3, 0.011))];
+    for (let i = 0; i < 4; i++) P.clutchKit.push(ac(M.dark, at(TLXL.rbox(0.012, 0.014, 0.14, 0.004, 1), -0.462, 0.7 - i * 0.032, 0.5)));
+    const scoop = (w2, red) => { const it = [ac(M.black, TLXL.loft([{ y: -0.17, rx: w2 * 0.36, rz: 0.012, cz: 0.012, n: 3 }, { y: 0.0, rx: w2 * 0.5, rz: 0.04, cz: 0.04, n: 3 }, { y: 0.16, rx: w2 * 0.46, rz: 0.012, cz: 0.012, n: 3 }], { axis: "z", seg: 14, cap: true }))]; for (let i = 0; i < 3; i++) it.push(ac(red ? M.springR : M.chrome, at(TLXL.rbox(w2 * 0.8, 0.008, 0.012, 0.003, 1), 0, 0.044 + i * 0.012, 0.18 - i * 0.05, 0.05))); return it; };
+    P.hoodScoop = scoop(0.5, false); P.turboScoop = scoop(0.8, true);
+    // parts that had no model before
+    P.winch = [-1, 1].flatMap(sx => [ac(M.cast, at(S.plate(0.04, 0.14, 0.1, 0.012), sx * 0.15, 0, 0))]).concat([ac(M.dark, TLXL.xf(TLXL.lathe([[0.055, -0.13], [0.055, 0.13], [0.0, 0.13], [0.0, -0.13]], 16), { rz: PI / 2 })), ac(M.steel, TLXL.xf(TLXL.lathe([[0.062, -0.14], [0.062, -0.12], [0.036, -0.12]], 16), { rz: PI / 2 })), ac(M.steel, TLXL.xf(TLXL.lathe([[0.062, 0.12], [0.062, 0.14], [0.036, 0.12]], 16), { rz: PI / 2 })), ac(M.rubber, tb([[-0.1, 0.0, 0.05], [0, 0.0, 0.08], [0.1, 0.0, 0.05], [0.12, -0.04, 0.12]], 0.012, 5)), ac(M.chrome, at(S.plate(0.16, 0.03, 0.03, 0.01), 0, -0.05, 0.14))]);
+    P.winchMotor = [ac(M.black, TLXL.xf(TLXL.lathe([[0.045, 0], [0.045, 0.14], [0.0, 0.14]], 14), { rz: -PI / 2, x: 0.22 })), ac(M.alu, TLXL.xf(TLXL.lathe([[0.048, 0.0], [0.048, 0.012]], 14), { rz: -PI / 2, x: 0.16 }))];
+    P.recv = [ac(M.dark, S.plate(0.07, 0.07, 0.34, 0.012).translate(0, 0, -0.1)), ac(M.cast, at(S.plate(0.2, 0.05, 0.05, 0.012), 0, 0.04, 0.05)), ac(M.chrome, S.rod([0, 0, -0.27], [0, 0.05, -0.27], 0.012)), ac(M.chrome, TLXL.xf(TLXL.ell(0.026, 0.026, 0.026), { y: 0.075, z: -0.27 })), ac(M.steel, S.bolt([0, 0.036, -0.1], [0, 1, 0], 0.012))];
+    P.recvHeavy = [ac(M.dark, S.plate(0.2, 0.025, 0.12, 0.01).translate(0, -0.05, -0.2)), ac(M.steel, S.bolt([0.07, -0.036, -0.2], [0, 1, 0], 0.014)), ac(M.steel, S.bolt([-0.07, -0.036, -0.2], [0, 1, 0], 0.014))];
+    P.hitchPin = [ac(M.steel, tb([[0, 0, -0.15], [0, 0.02, -0.3], [0, 0.04, -0.4], [0, 0.0, -0.45], [0, -0.03, -0.4]], 0.014, 6)), ac(M.cast, at(S.plate(0.07, 0.03, 0.06, 0.01), 0, 0.0, -0.2))];
+    P.hitchChain = [ac(M.steel, tb([[0.1, 0.0, -0.1], [0.12, -0.08, -0.22], [0.06, -0.1, -0.3]], 0.006, 4)), ac(M.steel, tb([[-0.1, 0.0, -0.1], [-0.12, -0.08, -0.22], [-0.06, -0.1, -0.3]], 0.006, 4))];
+    P.scratch = [-1, 1].flatMap(sx => [ac(M.steel, at(S.plate(0.04, 0.012, 0.3, 0.004), sx * 0.28, 0.0, 0, -0.5)), ac(M.cast, at(S.plate(0.06, 0.03, 0.05, 0.01), sx * 0.28, 0.06, 0.14))]);
+    P.coolPro = [ac(M.black, TLXL.xf(TLXL.lathe([[0.04, 0], [0.042, 0.02], [0.042, 0.13], [0.03, 0.14], [0.0, 0.14]], 12), { x: 0.25, y: 0.0, z: 0 })), ac(M.alu, TLXL.xf(TLXL.lathe([[0.03, 0.14], [0.03, 0.17], [0.0, 0.17]], 10), { x: 0.25 })), ac(M.rubber, tb([[0.25, 0.04, 0.0], [0.2, -0.06, 0.1], [0.1, -0.1, 0.18]], 0.01, 5))];
+    P.gripHeat = [ac(M.black, TLXL.xf(TLXL.rbox(0.045, 0.02, 0.03, 0.008), { x: -0.17, y: 0.022, z: -0.01 })), ac(M.paintRed, TLXL.xf(new T.CylinderGeometry(0.008, 0.008, 0.01, 10), { x: -0.17, y: 0.035, z: -0.01 })), ac(M.rubber, tb([[-0.17, 0.02, -0.01], [-0.1, -0.03, -0.03], [0, -0.06, -0.04]], 0.0045, 4))];
+    for (const sx of [-1, 1]) P.gripFull = (P.gripFull || []).concat([ac(M.rubber, TLXL.xf(TLXL.loft([{ y: -0.01, rx: 0.052, rz: 0.058, n: 2.6 }, { y: 0.08, rx: 0.062, rz: 0.066, n: 2.6 }, { y: 0.17, rx: 0.056, rz: 0.06, n: 2.6 }], { axis: "z", seg: 14, roundTop: 0.03, roundBottom: 0 }), { x: sx * 0.36, y: 0.045, z: -0.1 }))]);
+    P.tether = [ac(M.paintRed, tb([[-0.225, 0.02, -0.005], [-0.2, -0.05, -0.02], [-0.24, -0.1, -0.03], [-0.2, -0.15, -0.04], [-0.24, -0.2, -0.05]], 0.0055, 4)), ac(M.chrome, at(TLXL.rbox(0.03, 0.014, 0.012, 0.004, 1), -0.24, -0.215, -0.05))];
+    P.tankPod = [ac(M.black, TLXL.ell(0.06, 0.07, 0.62)), ac(M.chrome, TLXL.xf(TLXL.lathe([[0.034, 0], [0.034, 0.014], [0.018, 0.02], [0, 0.02]], 12), { y: 0.06, z: 0.3 })), ac(M.steel, S.bolt([0, 0.0, 0.0], [0, 1, 0], 0.001))];
+    P.strap = [-1, 1].map(z => ac(M.trim, tb([[-0.3, 0.7, z * 0.3], [-0.3, 0.9, z * 0.3], [0.3, 0.9, z * 0.3], [0.3, 0.7, z * 0.3]], 0.011, 5))).concat([ac(M.chrome, at(TLXL.rbox(0.05, 0.03, 0.025, 0.006, 1), 0, 0.91, 0.3)), ac(M.chrome, at(TLXL.rbox(0.05, 0.03, 0.025, 0.006, 1), 0, 0.91, -0.3))]);
+    P.cage = []; for (const sx of [-1, 1]) { P.cage.push(ac(M.black, S.rod([sx * 0.34, 0.6, 0.38], [sx * 0.34, 0.98, 0.38], 0.013))); P.cage.push(ac(M.black, S.rod([sx * 0.34, 0.6, -0.38], [sx * 0.34, 0.98, -0.38], 0.013))); P.cage.push(ac(M.black, S.rod([sx * 0.34, 0.98, -0.38], [sx * 0.34, 0.98, 0.38], 0.013))); } P.cage.push(ac(M.black, S.rod([-0.34, 0.98, 0], [0.34, 0.98, 0], 0.013))); P.cage.push(ac(M.black, S.rod([-0.34, 0.98, 0.38], [0.34, 0.98, 0.38], 0.013)));
+    P.thermos = [ac(M.paintRed, TLXL.xf(TLXL.lathe([[0.001, 0], [0.04, 0.0], [0.042, 0.02], [0.042, 0.26], [0.034, 0.27], [0.034, 0.3], [0.0, 0.3]], 14), { rx: PI / 2, x: -0.13 })), ac(M.chrome, TLXL.xf(TLXL.lathe([[0.034, 0.3], [0.034, 0.34], [0.0, 0.34]], 12), { rx: PI / 2, x: -0.13 }))];
+    P.stove = [ac(M.steel, at(S.plate(0.2, 0.09, 0.16, 0.02), 0.1, 0.06, 0)), ac(M.black, TLXL.xf(TLXL.lathe([[0.001, 0], [0.032, 0], [0.034, 0.1], [0.0, 0.1]], 12), { x: 0.2, y: 0.01, z: 0, rz: PI / 2 })), ac(M.chrome, at(TLXL.rbox(0.07, 0.012, 0.07, 0.004, 1), 0.1, 0.108, 0))];
+    P.shovel = [ac(M.steel, S.rod([0, 0, -0.5], [0, 0, 0.5], 0.011)), ac(M.alu, at(S.plate(0.22, 0.012, 0.26, 0.006), 0, 0, 0.48)), ac(M.black, at(S.plate(0.05, 0.03, 0.04, 0.01), 0, 0, -0.5))];
+    P.beacon = [ac(M.black, at(S.plate(0.1, 0.05, 0.14, 0.02), 0, 0, 0)), ac(M.paintRed, at(S.plate(0.07, 0.01, 0.1, 0.004), 0, 0.03, 0)), ac(M.black, S.rod([0.04, 0.02, 0.05], [0.05, 0.2, 0.08], 0.006))];
+    return P;
+  };
+  /* ---------------- Santa's sleigh bodywork: lacquered wood, brass, leather, cloth ---------------- */
+  S.sleigh = function (ud, ctx) {
+    const M = S.mats(ctx), it = [], ac = (m, g) => ({ m, g }), tw = ud.tw, zB = ud.zBack, z0 = -0.05, z1 = zB + 0.25, zc = (z0 + z1) / 2, Ln = z0 - z1;
+    if (!M.sack) { M.sack = new T.MeshStandardMaterial({ color: 0x7a2418, roughness: 1 }); TLXL.dressMat(M.sack, "fleece", { size: 128, base: 0.7, key: "sack" }); M.gift1 = new T.MeshStandardMaterial({ color: 0x1f6b3a, roughness: 0.6 }); TLXL.dressMat(M.gift1, "shell", { size: 128, base: 0.75, key: "gift" }); M.gift2 = new T.MeshStandardMaterial({ color: 0xf2eee4, roughness: 0.6 }); TLXL.dressMat(M.gift2, "shell", { size: 128, base: 0.9, key: "gift2" }); }
+    for (const sx of [-1, 1]) {
+      const X = sx * (tw / 2 + 0.26);
+      const side = TLXL.loft([{ y: z1, rx: 0.016, rz: 0.12, cz: 0.66, n: 3 }, { y: zc, rx: 0.02, rz: 0.17, cz: 0.64, n: 3 }, { y: z0 - 0.04, rx: 0.016, rz: 0.2, cz: 0.66, n: 3 }, { y: z0 + 0.08, rx: 0.012, rz: 0.12, cz: 0.78, n: 3 }], { axis: "z", seg: 14, roundTop: 0.05, roundBottom: 0.04, uv: [0, 0, 1, Math.abs(Ln) * 2] });
+      it.push(ac(M.paintRed, TLXL.xf(side, { x: X })));
+      it.push(ac(M.brass, tb([[X, 0.52, z0 - 0.02], [X, 0.5, zc], [X, 0.5, z1]], 0.014, 7)));
+      it.push(ac(M.brass, tb([[X, 0.82, z0 + 0.1], [X, 0.84, zc], [X, 0.9, z1 + 0.05], [X, 1.06, zB + 0.04], [X, 1.14, zB + 0.2], [X, 1.04, zB + 0.28], [X, 0.98, zB + 0.24]], 0.02, 8)));
+      it.push(ac(M.brass, tb([[X, 0.48, z0 - 0.02], [X, 0.6, z0 + 0.18], [X, 0.76, z0 + 0.2], [X, 0.84, z0 + 0.08]], 0.018, 7)));
+      it.push(ac(M.leather, tb([[X + sx * 0.03, 0.74, z1 + 0.1], [X + sx * 0.03, 0.7, zc], [X + sx * 0.03, 0.74, z0 - 0.05]], 0.012, 5)));
+      for (let k = 0; k < 4; k++) { const z = z1 + 0.15 + k * Ln / 4; it.push(ac(M.brass, TLXL.xf(TLXL.lathe([[0.0, 0.05], [0.012, 0.045], [0.03, 0.01], [0.04, -0.03], [0.036, -0.036], [0.014, -0.03], [0.0, -0.02]], 12), { x: X + sx * 0.04, y: 0.69, z }))); }
+    }
+    it.push(ac(M.brass, tb([[-(tw / 2 + 0.26), 0.86, z0 + 0.02], [-0.1, 0.9, z0 + 0.14], [0.1, 0.9, z0 + 0.14], [tw / 2 + 0.26, 0.86, z0 + 0.02]], 0.017, 7)));      // the dash rail
+    for (let k = 0; k < 6; k++) it.push(ac(M.brass, TLXL.xf(TLXL.ell(0.014, 0.014, 0.01), { x: (k % 3 - 1) * 0.16, y: 0.9 + (k > 2 ? 0.1 : 0.04), z: zB + 0.36 })));   // tufting buttons on the backrest
+    it.push(ac(M.sack, TLXL.xf(TLXL.ell(0.3, 0.345, 0.3), { y: 0.98, z: zB + 0.42 })));
+    it.push(ac(M.sack, TLXL.xf(TLXL.lathe([[0.05, 0], [0.1, 0.16], [0.0, 0.16]], 10), { y: 1.28, z: zB + 0.42 })));
+    it.push(ac(M.leather, tb([[-0.1, 1.27, zB + 0.42], [0, 1.31, zB + 0.5], [0.1, 1.27, zB + 0.42], [0, 1.25, zB + 0.34]], 0.012, 5)));
+    for (const [m, x, y, z, ry, w2, h2] of [[M.gift1, -0.17, 0.72, zB + 0.12, 0.3, 0.24, 0.2], [M.gift2, 0.19, 0.7, zB + 0.1, -0.2, 0.18, 0.16]]) { it.push(ac(m, TLXL.xf(S.plate(w2, h2, w2, 0.012, 3), { x, y, z, ry }))); it.push(ac(M.paintRed, TLXL.xf(S.plate(0.032, h2 + 0.004, w2 + 0.004, 0.006, 3), { x, y, z, ry }))); it.push(ac(M.paintRed, TLXL.xf(S.plate(w2 + 0.004, h2 + 0.004, 0.032, 0.006, 3), { x, y, z, ry }))); it.push(ac(M.paintRed, TLXL.xf(TLXL.ell(0.04, 0.025, 0.03), { x, y: y + h2 / 2 + 0.01, z, ry }))); }
+    return it;
+  };
+  S.column = function () { const g = TLXL.lathe([[0.02, 0], [0.058, 0.0], [0.06, 0.02], [0.052, 0.04], [0.058, 0.06], [0.05, 0.08], [0.04, 0.1], [0.036, 0.12]], 14); return g; };
 })();

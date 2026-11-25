@@ -1436,30 +1436,21 @@ const offsetPts = (pts, d) => {
 // hood height at a given z along the crown
 const crownY = (pts, z) => { let y = pts[0][1]; for (let i = 1; i < pts.length; i++) { if (pts[i][0] < pts[i - 1][0]) break; if (pts[i][0] >= z) { const a = pts[i - 1], b = pts[i], t = (z - a[0]) / ((b[0] - a[0]) || 1); return a[1] + (b[1] - a[1]) * t; } y = pts[i][1]; } return y; };
 
-/* ---- running gear: shared track on a slide rail ---- */
+/* ---- running gear: shared track (R2: a belt with lugs that ride a path in the vertex shader, wheels, a skid frame) ---- */
+// the sled kit's materials (tlx-look.js, TLXL.sled): the livery materials are dressed in place, the rest are shared by all ten machines
+const SKCTX = { env: sledEnvCube, body: bodyMat, panel: panelMat, trim: sledTrimMat, seat: M.vinyl };
+const SKM = TLXL.sled.mats(SKCTX);
+function skMesh(geo, mat, parent, shadow) { const me = new THREE.Mesh(geo, mat); me.frustumCulled = false; me.castShadow = !!shadow; parent.add(me); return me; }   // a belt mesh: its vertices move in the shader, so no culling by position
 {
   const tr = new THREE.Group(); sledBody.add(tr); V.track = tr;
-  const tc = document.createElement("canvas"); tc.width = 32; tc.height = 64;
-  const tg2 = tc.getContext("2d");
-  tg2.fillStyle = "#14181d"; tg2.fillRect(0, 0, 32, 64);
-  for (let i = 0; i < 8; i++) { tg2.fillStyle = i % 2 ? "#22282f" : "#0c1014"; tg2.fillRect(0, i * 8, 32, 5); }
-  tg2.fillStyle = "#2c333b"; tg2.fillRect(2, 0, 3, 64); tg2.fillRect(27, 0, 3, 64);
-  const trackTex = new THREE.CanvasTexture(tc);
-  trackTex.wrapS = trackTex.wrapT = THREE.RepeatWrapping; trackTex.repeat.set(1, 6);
-  const beltMat = new THREE.MeshStandardMaterial({ map: trackTex, roughness: 0.95 });
-  V.beltTex = trackTex;
-  box(0.52, 0.34, 1.9, beltMat, 0, 0.19, -0.55, 0, 0, 0, tr);
-  V.studs = [];
-  for (let i = 0; i < 16; i++) {           // lugs along the bottom run
-    box(0.56, 0.05, 0.07, M.rubber, 0, 0.015, -1.45 + i * 0.12, 0, 0, 0, tr);
-    if (i % 2 === 0) { const st = box(0.44, 0.04, 0.03, M.chrome, 0, -0.015, -1.45 + i * 0.12, 0, 0, 0, tr); st.visible = false; V.studs.push(st); }
-  }
-  V.wheelA = cyl(0.19, 0.19, 0.5, M.rubber, 0, 0.19, -1.46, 0, 0, Math.PI / 2, tr, 14);   // rear idler
-  V.wheelB = cyl(0.17, 0.17, 0.5, M.rubber, 0, 0.19, 0.34, 0, 0, Math.PI / 2, tr, 14);    // drive sprocket
-  for (const s of [-0.19, 0.19]) { cyl(0.1, 0.1, 0.04, M.alu, s, 0.1, -0.95, 0, 0, Math.PI / 2, tr, 12); cyl(0.1, 0.1, 0.04, M.alu, s, 0.12, -0.35, 0, 0, Math.PI / 2, tr, 12); }
-  for (const s of [-0.2, 0.2]) box(0.04, 0.05, 1.7, M.alu, s, 0.06, -0.55, 0, 0, 0, tr);   // slide rails
-  box(0.06, 0.5, 0.06, M.steel, 0, 0.5, -1.0, 0.5, 0, 0, tr);                  // rear shock
-  cyl(0.05, 0.05, 0.42, M.chrome, 0, 0.52, -0.55, 0.9, 0, 0, tr, 8);
+  const K = TLXL.sled.track(SKCTX);
+  skMesh(K.beltGeo, SKM.belt, tr);
+  V.lugs = skMesh(K.lugs.stock, SKM.lug, tr);
+  V.beltU = TLXL.sled.beltU; V.lugMeshes = { hard: K.lugs.hard, paddle: K.lugs.paddle };
+  V.studs = [skMesh(K.lugs.stud, SKM.stud, tr)]; V.studs[0].visible = false;
+  V.wheelA = new THREE.Group(); V.wheelA.position.set(0, 0.19, -1.46); tr.add(V.wheelA); TLXL.build(K.wheelA, V.wheelA);     // rear idler pair
+  V.wheelB = new THREE.Group(); V.wheelB.position.set(0, 0.19, 0.34); tr.add(V.wheelB); TLXL.build(K.wheelB, V.wheelB);       // drive sprocket
+  TLXL.build(K.rig, tr);
 }
 
 /* ---- machines: one body per sled ---- */
@@ -1491,161 +1482,62 @@ function buildMachine(sd) {
   const s = sd.shape, m = new THREE.Group(), ud = m.userData; sledBody.add(m); m.visible = false;
   const tw = s.tunnelW, tl = s.tunnelL, zBack = 0.4 - tl, boardX = tw / 2 + 0.11;
   ud.boardX = boardX; ud.zBack = zBack; ud.tw = tw; ud.tl = tl;
-  const H = hoodProfile(s), hp = H.pts, w = s.w, HB = 0.05;   // HB: the hood shell's bevel, which pushes its skin out by that much
+  const H = hoodProfile(s), hp = H.pts, w = s.w, HB = 0.05;   // HB: how far the hood's skin stands off the profile
   ud.barY = s.barY; ud.barZ = s.barZ || 0.34;
   ud.hoodY = z => crownY(hp, z) + HB;                 // the hood's top at z (sled space), for things that sit over it
+  ud.hoodW = w; ud.chargeZ = H.z0 + 0.5;
+  const KS = TLXL.sled, items = [];
 
-  /* tunnel: an aluminium extrusion with a top deck in the panel colour */
-  box(tw, 0.2, tl, M.alu, 0, 0.46, 0.4 - tl / 2, 0, 0, 0, m);
-  box(tw + 0.08, 0.035, tl + 0.06, panelMat, 0, 0.57, 0.4 - tl / 2, 0, 0, 0, m);          // deck
-  box(tw * 0.5, 0.05, 0.24, M.dark, 0, 0.58, zBack + 0.18, 0, 0, 0, m);                     // rack / tail plate
-  if (s.tailRound) cyl(0.11, 0.11, tw, M.alu, 0, 0.46, zBack + 0.02, 0, 0, Math.PI / 2, m, 12);
-  else { box(tw, 0.08, 0.16, M.alu, 0, 0.52, zBack - 0.06, 0, 0, 0, m); box(tw, 0.04, 0.3, M.dark, 0, 0.36, zBack - 0.08, 0.35, 0, 0, m); }
-  box(0.4, 0.05, 0.22, M.rubber, 0, 0.4, zBack - 0.2, 0.55, 0, 0, m);                      // snow flap
-  box(0.24, 0.05, 0.04, M.tail, 0, 0.54, zBack - 0.16, 0, 0, 0, m).castShadow = false;      // tail light
-  tube([[-tw / 2 - 0.02, 0.42, zBack + 0.1], [-tw / 2 - 0.02, 0.42, zBack - 0.16], [tw / 2 + 0.02, 0.42, zBack - 0.16], [tw / 2 + 0.02, 0.42, zBack + 0.1]], 0.02, s.chrome ? M.chrome : M.black, m);   // rear bumper
-  for (const sx of [-1, 1]) {                                                                // running boards with traction strips
-    box(0.24, 0.03, tl * 0.72, M.alu, sx * boardX, 0.36, 0.2 - tl * 0.4, 0, 0, 0, m);
-    box(0.03, 0.05, tl * 0.72, M.dark, sx * (boardX + 0.11), 0.37, 0.2 - tl * 0.4, 0, 0, 0, m);   // lip
-    for (let i = 0; i < 5; i++) box(0.16, 0.012, 0.03, M.dark, sx * boardX, 0.377, 0.2 - tl * 0.7 + i * tl * 0.15, 0, 0, 0, m);
-    box(0.04, 0.12, tl * 0.6, M.alu, sx * (tw / 2 - 0.01), 0.41, 0.2 - tl * 0.4, 0, 0, sx * 0.5, m);   // board gusset
-  }
-  if (s.fins) for (let i = 0; i < 7; i++) box(tw * 0.8, 0.03, 0.02, M.steel, 0, 0.59, -0.5 - i * 0.14, 0, 0, 0, m);   // heat exchanger ribs
-  if (s.bogies) {                                                                            // 1970s: bogie wheels under an un-sprung belt
-    for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) { cyl(0.11, 0.11, 0.05, M.dark, sx * 0.31, 0.16, -1.3 + i * 0.4, 0, 0, Math.PI / 2, m, 12); cyl(0.04, 0.04, 0.07, M.steel, sx * 0.31, 0.16, -1.3 + i * 0.4, 0, 0, Math.PI / 2, m, 8); }
-    for (let i = 0; i < 4; i++) box(0.66, 0.03, 0.04, M.steel, 0, 0.3, -1.3 + i * 0.4, 0, 0, 0, m);
-  }
+  /* tunnel, running boards, snow flap, tail lamp, bumper, bogies, rack: sheet aluminium and tube (kit) */
+  const ch = KS.chassis(s, SKCTX, ud); items.push(...ch.items);
 
-  /* hood, belly pan, pinstripe and the graphics the settings can switch on */
-  const hood = extrudeZ(hp, w, bodyMat, { bevel: HB }, m); ud.hood = hood;
-  const skinPan = offsetPts(hp, HB - 0.03 + 0.012), skinThin = offsetPts(hp, HB - 0.005 + 0.014);   // the shell's skin, pushed out for each overlay's own bevel
-  extrudeZ(clipY(skinPan, s.pan, true), w + 0.03, panelMat, { bevel: 0.03 }, m);   // belly pan
-  extrudeZ(clipY(clipY(skinThin, s.pan + 0.012, true), s.pan - 0.012, false), w + 0.05, sledTrimMat, { bevel: 0.005, segs: 1, shadow: false }, m);   // pinstripe on the split line
+  /* hood, belly pan with its shut line, the graphics the settings can switch on, the nose, vents, latches, badge */
+  const hd = KS.hood(s, H, HB, SKCTX); items.push(...hd.items);
   const dec = ud.decal = { stripe: [], wide: [], flash: [] };
-  const top = clipY(skinThin, s.pan + 0.03, false);
-  const stripeAt = (x, sw, list) => list.push(extrudeZ(top, sw, sledTrimMat, { bevel: 0.005, segs: 1, shadow: false, x }, m));
-  stripeAt(0.13, 0.07, dec.stripe); stripeAt(-0.13, 0.07, dec.stripe);
-  stripeAt(0, 0.26, dec.wide);
-  dec.flash.push(extrudeZ(clipY(clipY(skinThin, s.pan + 0.17, true), s.pan + 0.07, false), w + 0.05, sledTrimMat, { bevel: 0.005, segs: 1, shadow: false }, m));
-  for (const sx of [-1, 1]) dec.flash.push(box(0.012, 0.06, tl * 0.6, sledTrimMat, sx * (tw / 2 + 0.005), 0.49, 0.2 - tl * 0.4, 0, 0, 0, m));
-  for (const list of Object.values(dec)) list.forEach(x => x.visible = false);
-  if (s.raceStripe) {                                                                        // factory race graphics: flank stripes in the trim colour
-    for (const sx of [-1, 1]) { box(0.012, 0.04, tl * 0.5, sledTrimMat, sx * (tw / 2 + 0.005), 0.42, 0.2 - tl * 0.4, 0, 0, 0, m); box(0.012, 0.025, tl * 0.5, sledTrimMat, sx * (tw / 2 + 0.005), 0.53, 0.2 - tl * 0.4, 0, 0, 0, m); }
-  }
-  for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) box(0.015, 0.05, 0.16, M.dark, sx * (w / 2 + 0.03), s.pan + 0.1 + i * 0.075, H.zP + 0.28 + i * 0.02, 0, 0, 0, m);   // louvres
-  box(w - 0.02, s.yTop - 0.4, 0.03, M.dark, 0, (s.yTop + 0.4) / 2, H.z0 - HB - 0.02, 0, 0, 0, m).castShadow = false;   // bulkhead just behind the hood's back face
+  for (const k of Object.keys(dec)) for (const g of (hd.decal[k] || []).concat(k === "flash" ? ch.decal.flash : [])) { const me = new THREE.Mesh(g, sledTrimMat); me.castShadow = false; me.visible = false; m.add(me); dec[k].push(me); }
+  { const dt = new THREE.CanvasTexture(KS.decalCanvas(sd.name.split(" ")[0])); dt.encoding = TLXL.srgb ? THREE.sRGBEncoding : dt.encoding; dt.anisotropy = 4;
+    const dm = new THREE.MeshStandardMaterial({ color: sledTrimMat.color.clone(), map: dt, transparent: true, depthWrite: false, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    (V.decalMats = V.decalMats || []).push(dm);
+    for (const sx of [-1, 1]) { const z = H.z0 + 0.38, y = s.pan + 0.2, x = hd.info.sideX(z, y) * sx + sx * 0.003, pl = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.085), dm); pl.position.set(x, y, z); pl.rotation.y = sx * Math.PI / 2; pl.castShadow = false; pl.userData.noWear = true; m.add(pl); } }
+  ud.decalMat = null;
+  if (s.shieldFrame) { const zs = (s.barZ || 0.34) + 0.3, ys = crownY(hp, zs) + HB - 0.01; items.push({ m: SKM.chrome, g: TLXL.tube([[-w * 0.38, ys - 0.02, zs - 0.16], [-w * 0.3, ys + 0.01, zs - 0.04], [0, ys + 0.02, zs + 0.02], [w * 0.3, ys + 0.01, zs - 0.04], [w * 0.38, ys - 0.02, zs - 0.16]], 0.012) }); }
+  const zN = H.z1 + HB;                                                          // where the shell's skin actually is
+  ud.lightBar = [s.yNose + 0.22, zN - 0.3]; ud.scoop = [s.yPeak + HB + 0.01, H.zP + 0.12];
 
-  /* nose: grille, lamps and a bumper that suits the decade */
-  const yN = s.yNose, yB = s.yBelly, z1 = H.z1, fh = yN - yB - 0.05, tilt = 0.25;
-  const grY = yB + 0.05 + fh * 0.2, lampY = yB + 0.05 + fh * 0.6, lampZ = z1 + HB + 0.01;
-  box(w * 0.55, fh * 0.26, 0.05, M.black, 0, grY, lampZ - 0.015, tilt, 0, 0, m);             // grille
-  for (let i = 0; i < 3; i++) box(w * 0.5, 0.01, 0.012, M.chrome, 0, grY - fh * 0.1 + i * fh * 0.1, lampZ + 0.012, tilt, 0, 0, m);
-  if (s.lamp === "round") {
-    cyl(0.14, 0.14, 0.12, M.chrome, 0, lampY, lampZ - 0.03, Math.PI / 2 - tilt, 0, 0, m, 16);
-    cyl(0.115, 0.115, 0.03, M.lamp, 0, lampY, lampZ + 0.03, Math.PI / 2 - tilt, 0, 0, m, 16).castShadow = false;
-  } else if (s.lamp === "rect") {
-    box(0.34, 0.16, 0.06, M.chrome, 0, lampY, lampZ, tilt, 0, 0, m);
-    box(0.28, 0.11, 0.03, M.lamp, 0, lampY, lampZ + 0.03, tilt, 0, 0, m).castShadow = false;
-  } else if (s.lamp === "twin") {
-    for (const sx of [-1, 1]) { box(0.22, 0.13, 0.06, M.dark, sx * 0.17, lampY, lampZ, tilt, 0, 0, m); box(0.18, 0.09, 0.03, M.lamp, sx * 0.17, lampY, lampZ + 0.03, tilt, 0, 0, m).castShadow = false; }
-  } else if (s.lamp === "slit") {
-    box(0.5, 0.1, 0.06, M.dark, 0, lampY, lampZ, tilt, 0, 0, m);
-    box(0.46, 0.06, 0.03, M.lamp, 0, lampY, lampZ + 0.03, tilt, 0, 0, m).castShadow = false;
-  } else if (s.lamp === "led") {
-    for (const sx of [-1, 1]) {
-      box(0.2, 0.08, 0.05, M.black, sx * 0.19, lampY, lampZ, tilt, 0, sx * 0.25, m);
-      box(0.16, 0.035, 0.03, M.led, sx * 0.19, lampY, lampZ + 0.025, tilt, 0, sx * 0.25, m).castShadow = false;
-    }
-    box(0.44, 0.012, 0.02, M.led, 0, lampY + 0.09, lampZ + 0.02, tilt, 0, 0, m).castShadow = false;   // DRL bar
-  } else if (s.lamp === "strip") {
-    box(w * 0.7, 0.03, 0.03, M.black, 0, lampY + 0.02, lampZ, tilt, 0, 0, m);
-    box(w * 0.66, 0.014, 0.02, M.led, 0, lampY + 0.02, lampZ + 0.02, tilt, 0, 0, m).castShadow = false;
-  }
-  const zN = z1 + HB, yBB = yB - HB;                                                          // where the shell's skin actually is
-  if (s.bumper === "hoop") {
-    tube([[-w / 2 - 0.06, yBB + 0.1, zN - 0.5], [-w / 2 - 0.04, yBB + 0.14, zN - 0.08], [-w * 0.22, yBB + 0.16, zN + 0.14], [w * 0.22, yBB + 0.16, zN + 0.14], [w / 2 + 0.04, yBB + 0.14, zN - 0.08], [w / 2 + 0.06, yBB + 0.1, zN - 0.5]], 0.028, M.chrome, m, 8);
-    for (const sx of [-1, 1]) tube([[sx * (w / 2 - 0.12), yBB + 0.02, zN - 0.28], [sx * (w / 2 + 0.04), yBB + 0.13, zN - 0.08]], 0.02, M.chrome, m, 6);
-  } else if (s.bumper === "bar") {
-    box(w * 0.9, 0.07, 0.07, M.black, 0, yBB + 0.06, zN + 0.04, 0, 0, 0, m);
-    for (const sx of [-1, 1]) box(0.06, 0.06, 0.25, M.black, sx * w * 0.4, yBB + 0.06, zN - 0.1, 0, 0, 0, m);
-  } else if (s.bumper === "skid") {
-    tube([[-w * 0.36, yBB + 0.02, zN - 0.24], [-w * 0.28, yBB + 0.03, zN + 0.06], [w * 0.28, yBB + 0.03, zN + 0.06], [w * 0.36, yBB + 0.02, zN - 0.24]], 0.024, M.black, m, 6);
-  }
-  ud.lightBar = [yN + 0.22, zN - 0.3]; ud.scoop = [s.yPeak + HB + 0.01, H.zP + 0.12];
-
-  /* seat: a padded profile in the seat colour, on the tunnel */
+  /* seat: moulded vinyl on the tunnel with stitched seams, piping and a grab strap */
   const zr = zBack + 0.16, seatW = s.seat === "bench" ? tw - 0.02 : s.seat === "twoup" ? tw - 0.04 : s.seat === "sport" ? 0.4 : 0.44;
-  const seat = extrudeZ(SEAT_PROFILES[s.seat](zr), seatW, M.vinyl, { bevel: 0.05, segs: 5 }, m); ud.seat = seat;
-  if (s.seat === "twoup") for (const sx of [-1, 1]) tube([[sx * (seatW / 2 + 0.02), 0.82, -0.9], [sx * (seatW / 2 + 0.06), 0.88, -1.0], [sx * (seatW / 2 + 0.06), 0.88, zr + 0.4], [sx * (seatW / 2 + 0.02), 0.82, zr + 0.5]], 0.016, M.chrome, m, 6);   // grab rails
-  if (s.seat === "bench") for (let i = 0; i < 3; i++) box(seatW + 0.01, 0.01, 0.02, sledTrimMat, 0, 0.795, -0.86 - i * 0.2, 0, 0, 0, m);   // piping, behind where the rider sits
-  tube([[-0.14, 0.76, zr + 0.04], [-0.14, 0.8, zr - 0.06], [0.14, 0.8, zr - 0.06], [0.14, 0.76, zr + 0.04]], 0.014, M.chrome, m, 6);   // grab strap
+  items.push(...KS.seat(SEAT_PROFILES[s.seat](zr), zr, seatW, s.seat, SKCTX));
   // hips rest on top of the cushion: profile top + the seat's bevel + the hip ball's half height
   ud.hip = { y: (s.seat === "sport" ? 0.71 : 0.74) + 0.05 + 0.06, z: s.seat === "sport" ? -0.52 : s.seat === "twoup" ? -0.64 : s.seat === "bench" ? -0.62 : -0.58 };   // well back on the seat, so the legs stretch out to the boards instead of folding into a squat
   // what the rider has to stay out of: the hood envelope (profile + bevel) and the seat cushion
   { const sp = SEAT_PROFILES[s.seat](zr).filter(p => p[1] > 0.65);   // the cushion's top line
     ud.seatTopAt = z => hoodTopAt(sp, z) + 0.05;                      // + the seat's bevel
     let top = 0; for (let z = ud.hip.z - 0.2; z <= ud.hip.z + 0.2; z += 0.02) top = Math.max(top, ud.seatTopAt(z));   // under the whole seat of the pants
-    ud.seatTop = top; ud.seatW = seatW; ud.hoodPts = hp; ud.hoodW = w; ud.hoodZ0 = H.z0 - HB - 0.04; }   // hoodZ0 includes the bulkhead plate behind the hood
+    ud.seatTop = top; ud.seatW = seatW; ud.hoodPts = hp; ud.hoodW = w; ud.hoodZ0 = H.z0 - HB - 0.04; }   // hoodZ0 includes the firewall behind the hood
   // footwells: a toe hold under each side panel, a dark recess flush with the panel and the bulkhead that
   // swallows the front of the boot, so the feet can go forward instead of folding the knees up to the chest.
-  // Shown only when poseRider puts the boots there.
-  ud.footwell = [-1, 1].map(sx => { const b = box(0.2, 0.245, 0.25, M.black, sx * (w / 2 + 0.056 - 0.1), 0.5075, ud.hoodZ0 - 0.006 + 0.125, 0, 0, 0, m); b.castShadow = false; b.visible = false; return b; });
+  // Shown only when poseRider puts the boots there. (A hidden flat recess plate: the one honest box left on a machine.)
+  ud.footwell = [-1, 1].map(sx => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.245, 0.25), SKM.black); b.userData.flat = true; b.position.set(sx * (w / 2 + 0.056 - 0.1), 0.5075, ud.hoodZ0 - 0.006 + 0.125); b.castShadow = false; b.visible = false; m.add(b); return b; });
 
-  /* front end: suspension, spindles, skis */
-  const skis = [];
+  /* front end: skis, spindles and the suspension of the era */
+  const skis = [], skiItems = KS.ski(s.skis, s, SKCTX);
   for (const sx of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(sx * 0.5, 0, 0.92); m.add(pv); skis.push(pv); skiPivots.push(pv);
-    const kind = s.skis, sw = SKI_W[kind], skiMat = kind === "steel" ? M.steel : kind === "powder" ? panelMat : M.black;
-    extrudeZ(SKI_PROFILES[kind], sw, skiMat, { bevel: 0.012, segs: 2 }, pv);
-    box(0.03, 0.03, 1.0, M.steel, 0, -0.012, -0.08, 0, 0, 0, pv);                              // keel / wear bar
-    if (kind !== "steel") { for (const d of [-1, 1]) box(0.02, 0.03, 0.9, skiMat, d * sw * 0.32, 0.075, -0.1, 0, 0, 0, pv); tube([[-0.05, 0.12, 0.6], [-0.05, 0.36, 0.78], [0.05, 0.36, 0.78], [0.05, 0.12, 0.6]], 0.012, M.black, pv, 5); }   // ridges and a ski loop
-    box(0.18, 0.06, 0.26, M.dark, 0, 0.09, 0.02, 0, 0, 0, pv);                                  // saddle
-    if (s.susp === "leaf") {                                                                     // leaf spring riding on the ski
-      for (let i = 0; i < 3; i++) box(0.05, 0.016, 0.62 - i * 0.16, M.steel, 0, 0.13 + i * 0.018, 0.02, 0, 0, 0, pv);
-      cyl(0.03, 0.03, 0.5, M.steel, 0, 0.42, 0.02, 0, 0, 0, pv, 8);                            // straight spindle up into the hood
-      box(0.06, 0.06, 0.2, M.dark, 0, 0.62, 0.02, 0, 0, 0, pv);
-    } else {
-      cyl(0.03, 0.03, 0.3, M.steel, 0, 0.27, 0.02, 0, 0, 0, pv, 8);                            // spindle
-    }
+    TLXL.build(skiItems, pv);
   }
-  if (s.susp === "aarm") for (const sx of [-1, 1]) {
-    limb(0.03, sx * 0.2, 0.56, 0.9, sx * 0.48, 0.42, 0.94, M.dark, m);                          // upper A-arm
-    limb(0.03, sx * 0.2, 0.36, 0.84, sx * 0.48, 0.24, 0.94, M.dark, m);
-    limb(0.028, sx * 0.2, 0.36, 1.0, sx * 0.48, 0.24, 0.94, M.dark, m);
-    limb(0.04, sx * 0.24, s.yPeak - 0.12, 0.8, sx * 0.46, 0.3, 0.94, M.chrome, m);              // shock
-    limb(0.06, sx * 0.26, s.yPeak - 0.16, 0.78, sx * 0.34, s.yPeak - 0.4, 0.84, M.spring, m);   // coil
-  } else for (const sx of [-1, 1]) {
-    limb(0.03, sx * 0.18, 0.4, 0.5, sx * 0.5, 0.68, 0.94, M.dark, m);                           // radius rod back to the chassis
-  }
+  items.push(...KS.front(s, SKCTX, s.yPeak));
+  const built = TLXL.build(items, m);
+  ud.hood = built.find(q => q.material === bodyMat); ud.seat = built.find(q => q.material === M.vinyl);
 
   /* bars and the column, at this machine's height */
   ud.columnBase = s.yTop - 0.28; ud.columnZ = H.z0 + 0.3;
-  const pod = s.gauges === "round";
   const gz = ud.barZ + 0.14, gy = s.barY - 0.06;
-  ud.pod = new THREE.Group(); m.add(ud.pod);
-  if (pod) { for (const sx of [-1, 1]) { cyl(0.05, 0.05, 0.04, M.chrome, sx * 0.07, 0.02, 0.02, Math.PI / 2 - 0.5, 0, 0, ud.pod, 14); cyl(0.04, 0.04, 0.01, M.black, sx * 0.07, 0.03, 0.04, Math.PI / 2 - 0.5, 0, 0, ud.pod, 14); } }
-  else { box(0.24, 0.1, 0.12, M.dark, 0, 0, 0, -0.5, 0, 0, ud.pod); box(0.2, 0.06, 0.005, std(0x18324a, 0.2, 0, { emissive: 0x1f5f8a, emissiveIntensity: 0.8 }), 0, 0.03, 0.06, -0.5, 0, 0, ud.pod).castShadow = false; }
+  ud.pod = new THREE.Group(); m.add(ud.pod); TLXL.build(KS.pod(s.gauges === "round" ? "round" : "screen", SKCTX), ud.pod);
   ud.pod.position.set(0, gy, gz);
-
   /* the shield stands on the hood just ahead of the bars */
   const zs = ud.barZ + 0.3, ys = crownY(hp, zs) + HB - 0.01;
   ud.shield = { y: ys, z: zs, w };
-  if (s.shieldFrame) tube([[-w * 0.38, ys - 0.02, zs - 0.16], [-w * 0.3, ys + 0.01, zs - 0.04], [0, ys + 0.02, zs + 0.02], [w * 0.3, ys + 0.01, zs - 0.04], [w * 0.38, ys - 0.02, zs - 0.16]], 0.012, M.chrome, m, 6);   // chrome bead
-
-  /* era extras */
-  if (s.rack) {                                                                                // utility rack over the tail
-    const rz = zBack + 0.5, rw = tw + 0.24;
-    box(rw, 0.04, 0.9, M.dark, 0, 0.7, rz, 0, 0, 0, m);
-    for (const sx of [-1, 1]) { box(0.04, 0.2, 0.9, M.dark, sx * rw / 2, 0.62, rz, 0, 0, 0, m); for (let i = 0; i < 3; i++) box(0.04, 0.16, 0.04, M.dark, sx * rw / 2, 0.62, rz - 0.4 + i * 0.4, 0, 0, 0, m); }
-    for (let i = 0; i < 4; i++) box(rw, 0.03, 0.04, M.dark, 0, 0.73, rz - 0.4 + i * 0.27, 0, 0, 0, m);
-  }
-  if (s.spoiler) {
-    box(tw + 0.1, 0.04, 0.2, panelMat, 0, 0.8, zBack + 0.12, -0.25, 0, 0, m);
-    for (const sx of [-1, 1]) box(0.05, 0.24, 0.06, M.dark, sx * (tw / 2 - 0.02), 0.69, zBack + 0.1, -0.1, 0, 0, m);
-  }
-  if (s.charge) { box(0.14, 0.1, 0.02, M.dark, -w / 2 - 0.02, s.pan + 0.12, H.z0 + 0.5, 0, Math.PI / 2, 0, m); box(0.08, 0.05, 0.01, std(0x2be08a, 0.3, 0, { emissive: 0x1fbf6e, emissiveIntensity: 1.2 }), -w / 2 - 0.035, s.pan + 0.12, H.z0 + 0.5, 0, Math.PI / 2, 0, m).castShadow = false; }   // charge port
-  if (s.exhaust) { cyl(0.05, 0.05, 0.24, M.steel, s.exhaust * (tw / 2 + 0.05), 0.46, zBack + 0.3, Math.PI / 2, 0, 0, m, 10); }
-  ud.skis = skis;
+  ud.skis = skis; ud.nose = [s.yBelly + 0.1, hd.info.zN - 0.04];
   if (s.sleigh) sleighTrim(m, s, ud);
   return m;
 }
@@ -1658,38 +1550,26 @@ function buildMachines() {
 /* ---- shared steering, shield, bolt-ons ---- */
 sledBody.add(barPivot); barPivot.position.set(0, 1.5, 0.34);
 {
-  const cg = new THREE.CylinderGeometry(0.035, 0.05, 1, 10); cg.translate(0, 0.5, 0);
-  V.column = put(new THREE.Mesh(cg, M.dark), 0, 0.62, 0.34, -0.12);
-  V.columnFoot = put(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.16), M.dark), 0, 0.62, 0.36);
+  const cg = new THREE.CylinderGeometry(0.035, 0.05, 1, 12); cg.translate(0, 0.5, 0);
+  V.column = put(new THREE.Mesh(cg, SKM.dark), 0, 0.62, 0.34, -0.12);
+  V.columnFoot = put(new THREE.Mesh(TLXL.sled.column(), SKM.rubber), 0, 0.62, 0.36);
 }
-tube([[-0.4, 0.06, -0.05], [-0.3, 0.03, -0.02], [-0.16, 0, 0], [0.16, 0, 0], [0.3, 0.03, -0.02], [0.4, 0.06, -0.05]], 0.02, M.steel, barPivot, 8);   // bent cross bar
-box(0.24, 0.028, 0.028, M.steel, 0, 0.07, 0, 0, 0, 0, barPivot);                       // cross brace
-cyl(0.034, 0.034, 0.12, M.steel, 0, -0.06, 0, 0, 0, 0, barPivot, 8);                    // clamp onto the column
-V.grip = [];
-for (const s of [-1, 1]) {
-  limb(0.03, s * 0.29, 0.025, -0.015, s * 0.42, 0.065, -0.055, M.rubber, barPivot);    // grip on the bent end
-  V.grip.push(new THREE.Vector3(s * 0.355, 0.045, -0.035));
-  (V.guards = V.guards || []).push(box(0.15, 0.13, 0.025, M.dark, s * 0.36, 0.07, 0.07, -0.3, 0, 0, barPivot));   // handguard
+{
+  const KB = TLXL.sled.bars(SKCTX);
+  TLXL.build(KB.main, barPivot);
+  V.grip = []; V.guards = [];
+  for (const s of [-1, 1]) V.grip.push(new THREE.Vector3(s * 0.355, 0.045, -0.035));
+  for (const gi of KB.guards) { const g = new THREE.Group(); barPivot.add(g); TLXL.build(gi, g); V.guards.push(g); }
+  V.mirrors = new THREE.Group(); barPivot.add(V.mirrors); V.mirrors.visible = false; TLXL.build(KB.mirrors, V.mirrors);
+  V.riser = new THREE.Group(); barPivot.add(V.riser); TLXL.build(KB.riser, V.riser);
 }
-box(0.1, 0.02, 0.05, M.steel, 0.3, 0.06, 0.03, 0, 0, 0, barPivot);                      // throttle lever
-box(0.1, 0.02, 0.05, M.steel, -0.3, 0.06, 0.03, 0, 0, 0, barPivot);                     // brake lever
-V.mirrors = new THREE.Group(); barPivot.add(V.mirrors); V.mirrors.visible = false;
-for (const sx of [-1, 1]) {
-  cyl(0.018, 0.018, 0.26, M.steel, sx * 0.3, 0.16, 0.0, 0.1, 0, sx * 0.25, V.mirrors, 6);
-  box(0.15, 0.11, 0.03, M.dark, sx * 0.35, 0.3, 0.01, 0.15, 0, 0, V.mirrors);
-}
-V.riser = new THREE.Group(); barPivot.add(V.riser);
-box(0.12, 0.03, 0.1, M.alu, 0, -0.13, 0, 0, 0, 0, V.riser);                              // riser block: base plate on the column
-for (const s of [-1, 1]) box(0.035, 0.13, 0.05, M.alu, s * 0.04, -0.075, 0, 0, 0, 0, V.riser);   // twin posts
-box(0.12, 0.03, 0.1, M.alu, 0, -0.03, 0, 0, 0, 0, V.riser);                              // top plate under the clamp
-for (const s of [-1, 1]) box(0.04, 0.16, 0.04, M.dark, s * 0.2, 0.1, -0.04, -0.4, 0, 0, V.riser);   // hooks
-// windshield: a curved pane (a slice of cylinder) growing up from the hood's back edge
+// windshield: a curved polycarbonate pane (a slice of cylinder) growing up from the hood's back edge, with rubber edging and mounts
 {
   const sh = new THREE.Group(); sledBody.add(sh); V.shield = sh;
-  const paneGeo = new THREE.CylinderGeometry(0.3, 0.44, 0.5, 18, 1, true, -1.0, 2.0); paneGeo.translate(0, 0.25, -0.44);
-  V.pane = put(new THREE.Mesh(paneGeo, M.glass), 0, 0, 0, 0, 0, 0, sh); V.pane.castShadow = false;
-  const bead = new THREE.CylinderGeometry(0.44, 0.452, 0.035, 18, 1, true, -1.0, 2.0); bead.translate(0, 0.0175, -0.44);
-  V.paneBead = put(new THREE.Mesh(bead, sledTrimMat), 0, 0, 0, 0, 0, 0, sh); V.paneBead.castShadow = false;
+  const KSH = TLXL.sled.shield(SKCTX);
+  V.pane = put(new THREE.Mesh(KSH.pane, SKM.glass), 0, 0, 0, 0, 0, 0, sh); V.pane.castShadow = false;
+  V.paneBead = put(new THREE.Mesh(KSH.bead, sledTrimMat), 0, 0, 0, 0, 0, 0, sh); V.paneBead.castShadow = false;
+  TLXL.build(KSH.rub, sh);
 }
 // the dash tablet: a 10-inch screen on a short stalk off the hood, under the bars on the rider's side of the column. Idle, it
 // shows a live heading-up map in first person and its home screen in the other views (a small CanvasTexture, see
@@ -1780,92 +1660,39 @@ for (let i = 0; i < 3; i++) {
   box(0.46, 0.32, 0.38, std(i === 1 ? 0x7a6a52 : 0x8a6a42, 0.9), 0, 0.76, -1.5 - i * 0.44, 0.22, 0, 0, cargoMesh);
   box(0.5, 0.05, 0.06, sledTrimMat, 0, 0.92, -1.48 - i * 0.44, 0.22, 0, 0, cargoMesh);
 }
-V.deck = new THREE.Group(); sledBody.add(V.deck);
-box(0.62, 0.08, 1.0, M.alu, 0, 0.58, -1.95, 0.08, 0, 0, V.deck);       // stretched deck
-box(0.06, 0.2, 1.0, M.dark, 0.3, 0.68, -1.95, 0.08, 0, 0, V.deck);
-box(0.06, 0.2, 1.0, M.dark, -0.3, 0.68, -1.95, 0.08, 0, 0, V.deck);
-// jerry cans on the running boards
-V.canMat = std(0xb3201a, 0.45, 0.35);
-V.tankL = new THREE.Group(); V.tankR = new THREE.Group(); sledBody.add(V.tankL, V.tankR);
-for (const [grp, sx] of [[V.tankL, 1], [V.tankR, -1]]) {   // the sled faces +z, so its left is +x
-  const cx = sx * 0.38, cz = -0.68, cy = 0.56;
-  box(0.13, 0.36, 0.28, V.canMat, cx, cy, cz, 0, 0, 0, grp);
-  for (const d of [-1, 1]) box(0.012, 0.36, 0.035, V.canMat, cx + sx * 0.066, cy, cz, d * 0.9, 0, 0, grp);
-  box(0.135, 0.03, 0.285, V.canMat, cx, cy + 0.12, cz, 0, 0, 0, grp);
-  for (const hz of [-0.07, 0, 0.07]) box(0.03, 0.06, 0.025, V.canMat, cx, cy + 0.2, cz + hz, 0, 0, 0, grp);
-  box(0.03, 0.02, 0.17, V.canMat, cx, cy + 0.235, cz, 0, 0, 0, grp);
-  cyl(0.028, 0.028, 0.06, M.dark, cx, cy + 0.19, cz + 0.12, 0.5, 0, 0, grp, 8);
-  box(0.05, 0.03, 0.03, M.chrome, cx, cy + 0.2, cz + 0.1, 0, 0, 0, grp);
-  box(0.16, 0.035, 0.31, M.dark, cx - sx * 0.01, cy + 0.04, cz, 0, 0, 0, grp);
-  box(0.1, 0.035, 0.035, M.dark, sx * 0.3, cy + 0.04, cz, 0, 0, 0, grp);
-}
-V.lightBar = new THREE.Group(); sledBody.add(V.lightBar);
-box(0.66, 0.08, 0.1, M.dark, 0, 0, 0, 0.2, 0, 0, V.lightBar);
-box(0.6, 0.05, 0.04, M.led, 0, -0.02, 0.05, 0.2, 0, 0, V.lightBar).castShadow = false;
-for (const sx of [-1, 1]) box(0.04, 0.24, 0.04, M.dark, sx * 0.26, -0.12, -0.04, 0.2, 0, 0, V.lightBar);
-V.raceCan = new THREE.Group(); sledBody.add(V.raceCan);
-cyl(0.09, 0.11, 0.6, M.chrome, 0.26, 0.5, -0.9, Math.PI / 2 - 0.1, 0, 0, V.raceCan, 12);
-cyl(0.06, 0.06, 0.12, M.dark, 0.26, 0.5, -1.22, Math.PI / 2 - 0.1, 0, 0, V.raceCan, 10);
-cyl(0.12, 0.12, 0.34, std(0x9a8a6a, 0.3, 0.7), 0.26, 0.52, -0.84, Math.PI / 2 - 0.1, 0, 0, V.raceCan, 12);
-V.rackBox = new THREE.Group(); sledBody.add(V.rackBox);
-box(0.56, 0.3, 0.5, std(0x2e3742, 0.8), 0, 0.76, -1.56, 0.18, 0, 0, V.rackBox);
-box(0.58, 0.05, 0.52, sledTrimMat, 0, 0.92, -1.55, 0.18, 0, 0, V.rackBox);
+V.canMat = std(0xb3201a, 0.45, 0.35); TLXL.dressMat(V.canMat, "gloss", { size: 128 }); V.canMat.envMap = sledEnvCube; V.canMat.envMapIntensity = 0.8; V.canMat.normalScale = new THREE.Vector2(0.1, 0.1);
 {
-  const springY = std(0xf2c230, 0.35, 0.6), springR = std(0xd8352a, 0.35, 0.6), gold = std(0xc9a227, 0.25, 0.8);
-  const spring = (ax, ay, az, bx, by, bz, r, turns, mat, parent) => {
-    const len = Math.hypot(bx - ax, by - ay, bz - az), pts = [];
-    for (let i = 0; i <= turns * 12; i++) { const t = i / (turns * 12), a = t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, t * len)); }
-    const g = new THREE.Group(); g.position.set(ax, ay, az); parent.add(g);
-    g.lookAt(new THREE.Vector3(bx, by, bz).sub(new THREE.Vector3(ax, ay, az)).add(g.position));
-    const mm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), turns * 12, 0.013, 5), mat); mm.castShadow = true; g.add(mm);
-    return g;
-  };
-  const grp = (name, parent = sledBody) => { const g = new THREE.Group(); parent.add(g); g.visible = false; V[name] = g; return g; };
-  const tr = V.track;
-  const pad = grp("paddles", tr);
-  for (let i = 0; i < 16; i++) box(0.54, 0.12, 0.045, M.rubber, 0, -0.02, -1.45 + i * 0.12, 0, 0, 0, pad);
-  const hp = grp("hardpack", tr);
-  for (let i = 0; i < 16; i++) for (const sx of [-1, 1]) box(0.24, 0.04, 0.05, M.rubber, sx * 0.12, 0.0, -1.43 + i * 0.12, 0, sx * 0.35, 0, hp);
+  const PK = TLXL.sled.parts(SKCTX), tr = V.track;
+  const grp = (name, parent = sledBody, items, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); parent.add(g); g.visible = false; g.position.set(x, y, z); V[name] = g; if (items) TLXL.build(items, g); return g; };
+  const mv = (items, x, y, z) => items.map(it => ({ m: it.m, g: TLXL.xf(it.g.clone(), { x, y, z }) }));
+  V.deck = grp("deck", sledBody, PK.deck, 0, 0.58, -1.95); V.deck.visible = true;
+  V.tankL = grp("tankL", sledBody, mv(PK.can(V.canMat, 1), 0.38, 0.56, -0.68)); V.tankR = grp("tankR", sledBody, mv(PK.can(V.canMat, -1), -0.38, 0.56, -0.68)); V.tankL.visible = V.tankR.visible = true;
+  V.lightBar = grp("lightBar", sledBody, PK.lightBar); V.lightBar.visible = true;
+  V.raceCan = grp("raceCan", sledBody, PK.raceCan, 0.26, 0.5, -0.9); V.raceCan.rotation.x = -0.1; V.raceCan.visible = true;
+  V.rackBox = grp("rackBox", sledBody, mv(PK.rackBox, 0, 0.76, -1.56)); V.rackBox.visible = true;
+  grp("paddles", tr); skMesh(V.lugMeshes.paddle, SKM.lug, V.paddles);
+  grp("hardpack", tr); skMesh(V.lugMeshes.hard, SKM.lug, V.hardpack);
   V.powderSki = []; V.carbide = [];
-  for (const [name, mat, r, turns, res] of [["coilKit", springY, 0.075, 6, false], ["longKit", springR, 0.085, 8, true]]) {
-    const g = grp(name);
-    for (const s of [-1, 1]) {
-      spring(s * 0.24, 0.84, 0.8, s * 0.46, 0.3, 0.94, r, turns, mat, g);
-      if (res) { cyl(0.045, 0.045, 0.24, gold, s * 0.18, 0.86, 0.7, 0.4, 0, s * 0.4, g, 10); limb(0.012, s * 0.18, 0.9, 0.72, s * 0.24, 0.84, 0.8, M.dark, g); }
-    }
-    const rg = grp(name + "Rear", tr);
-    spring(0, 0.33, -1.095, 0, 0.68, -0.905, r * 1.1, turns, mat, rg);
-    if (res) cyl(0.05, 0.05, 0.3, gold, 0.1, 0.55, -1.02, 0.5, 0, 0, rg, 10);
-  }
-  const cl = grp("clutchKit");
-  box(0.04, 0.3, 0.42, M.dark, -0.44, 0.62, 0.5, 0, 0, 0, cl);
-  cyl(0.12, 0.12, 0.05, M.black, -0.46, 0.62, 0.5, 0, 0, Math.PI / 2, cl, 16);
-  spring(-0.47, 0.62, 0.5, -0.53, 0.62, 0.5, 0.075, 3, springR, cl);
-  const hs = grp("hoodScoop");
-  box(0.34, 0.08, 0.34, M.dark, 0, 0.03, 0, 0.12, 0, 0, hs);
-  box(0.28, 0.05, 0.03, M.black, 0, 0.05, 0.17, 0.12, 0, 0, hs);
-  for (let i = 0; i < 3; i++) box(0.24, 0.012, 0.012, M.chrome, 0, 0.035 + i * 0.018, 0.186, 0.12, 0, 0, hs);
-  const tb = grp("turboScoop");
-  box(0.52, 0.1, 0.4, M.black, 0, 0.04, 0, 0.1, 0, 0, tb);
-  for (const sx of [-1, 1]) box(0.18, 0.06, 0.03, springR, sx * 0.13, 0.07, 0.2, 0.1, 0, 0, tb);
-  box(0.4, 0.02, 0.3, std(0x2e3742, 0.4, 0.5), 0, 0.1, -0.02, 0.1, 0, 0, tb);
-  const tc2 = grp("trailCan");
-  cyl(0.075, 0.08, 0.34, M.dark, 0.28, 0.48, -0.75, Math.PI / 2 - 0.1, 0, 0, tc2, 12);
-  cyl(0.045, 0.045, 0.08, M.chrome, 0.28, 0.46, -0.95, Math.PI / 2 - 0.1, 0, 0, tc2, 10);
-  const tcn = grp("turboCan");                                  // turbo plumbing down the right flank
-  cyl(0.1, 0.12, 0.7, M.chrome, 0.32, 0.5, -0.7, Math.PI / 2 - 0.08, 0, 0, tcn, 12);
-  box(0.14, 0.05, 0.1, M.dark, 0.3, 0.5, -0.95, 0, 0, 0, tcn);
-  box(0.14, 0.05, 0.1, M.dark, 0.3, 0.5, -0.42, 0, 0, 0, tcn);
-  cyl(0.07, 0.07, 0.62, M.dark, 0.32, 0.66, -0.14, Math.PI / 2 - 0.5, 0, 0, tcn, 10);
-  ball(0.13, M.steel, 0.32, 0.86, 0.26, tcn);
-  cyl(0.05, 0.05, 0.3, M.dark, 0.24, 0.86, 0.4, Math.PI / 2 - 0.2, 0, 0, tcn, 8);
+  for (const [name, items, res] of [["coilKit", PK.coilKit, false], ["longKit", PK.longKit, true]]) { grp(name, sledBody, items); grp(name + "Rear", tr, PK[name + "Rear"]); }
+  grp("clutchKit", sledBody, PK.clutchKit); grp("hoodScoop", sledBody, PK.hoodScoop); grp("turboScoop", sledBody, PK.turboScoop);
+  grp("trailCan", sledBody, PK.trailCan, 0.28, 0.48, -0.75); V.trailCan.rotation.x = -0.1; grp("turboCan", sledBody, PK.turboCan);
+  // parts that had no model before the sled rebuild
+  grp("winchKit", sledBody, PK.winch); V.winchMotor = grp("winchMotor", V.winchKit, PK.winchMotor); V.winchMotor.visible = true;
+  grp("recvKit", sledBody, PK.recv); V.recvHeavy = grp("recvHeavy", V.recvKit, PK.recvHeavy); V.recvHeavy.visible = true;
+  grp("hitchKit", sledBody, PK.hitchPin); V.hitchChain = grp("hitchChain", V.hitchKit, PK.hitchChain); V.hitchChain.visible = true;
+  grp("coolScratch", sledBody, PK.scratch); grp("coolPro", sledBody, PK.coolPro);
+  grp("gripHeat", barPivot, PK.gripHeat); grp("gripFull", barPivot, PK.gripFull); grp("tetherKit", barPivot, PK.tether);
+  grp("tankPodL", sledBody, PK.tankPod); grp("tankPodR", sledBody, PK.tankPod);
+  grp("strapKit", sledBody, PK.strap); grp("cageKit", sledBody, PK.cage);
+  grp("thermosKit", sledBody, PK.thermos); grp("stoveKit", sledBody, PK.stove);
+  grp("shovelKit", sledBody, PK.shovel); grp("beaconKit", sledBody, PK.beacon);
   // aftermarket skis ride on the steering pivots of whichever machine is showing
   V.skiKits = new THREE.Group(); sledBody.add(V.skiKits);
+  const pk = { leaf: TLXL.sled.ski("powder", { susp: "leaf" }, SKCTX), aarm: TLXL.sled.ski("powder", { susp: "aarm" }, SKCTX) }, cb = TLXL.sled.carbide(SKCTX);
   for (const sx of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(sx * 0.5, 0, 0.92); V.skiKits.add(pv); skiPivots.push(pv);
-    const ps = extrudeZ(SKI_PROFILES.powder, 0.3, panelMat, { bevel: 0.012, segs: 2 }, pv); ps.visible = false; V.powderSki.push(ps);
-    for (const d of [-1, 1]) { const rb = box(0.02, 0.03, 0.95, panelMat, d * 0.1, 0.075, -0.1, 0, 0, 0, pv); rb.visible = false; V.powderSki.push(rb); }
-    const cb = box(0.05, 0.05, 1.0, M.chrome, 0, -0.03, -0.08, 0, 0, 0, pv); cb.visible = false; V.carbide.push(cb);
+    for (const k of ["leaf", "aarm"]) for (const me of TLXL.build(pk[k], pv)) { me.visible = false; me.userData.susp = k; V.powderSki.push(me); }
+    for (const me of TLXL.build(cb, pv)) { me.visible = false; V.carbide.push(me); }
   }
 }
 
@@ -4231,10 +4058,10 @@ function updVisuals(dt) {
   for (const pv of skiPivots) pv.rotation.y += (skiT - pv.rotation.y) * kS;
   barPivot.rotation.y += (skiT * 0.7 - barPivot.rotation.y) * kS;
   poseArms();
-  if (V.beltTex) {
-    const roll = (P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)) * dt / 0.42;
-    V.beltTex.offset.y -= roll;
-    if (V.wheelA) { V.wheelA.rotation.x -= roll * 3.2; V.wheelB.rotation.x -= roll * 3.6; }
+  if (V.beltU) {                                        // the belt's lugs ride a path in the vertex shader: one number moves the whole track
+    const dist = (P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw)) * dt;
+    V.beltU.value = (V.beltU.value + dist) % 1e4;
+    V.wheelA.rotation.x -= dist / 0.15; V.wheelB.rotation.x -= dist / 0.14;
   }
   { const hid = VIEWS[camMode].fp && !showroomOn(); if (hid !== V.headHid) { V.headHid = hid; applyLoadout(); } }
   sledBody.position.y = (P.gnd ? Math.sin(performance.now() * 0.05) * 0.006 * clamp(spd / 10, 0, 1) : 0) - SWG.dip;
@@ -6343,6 +6170,7 @@ function updSky() {
 // leans the reflection a third of the way toward the light's tint.
 const SENV = { key: "", t: { r: 1, g: 1, b: 1 } };
 function updSledEnv() {
+  { const k = clamp(headlight.intensity / 3.2, 0.1, 1); SKM.lamp.emissiveIntensity = SKM.led.emissiveIntensity = 1.4 * k; SKM.tail.emissiveIntensity = 0.9 * k; }   // the lens glows only as the headlight does
   const t = SENV.t, q = v => Math.round(v * 200) / 200;
   const r = hemi.color.r * hemi.intensity + sun.color.r * sun.intensity * 0.3, g = hemi.color.g * hemi.intensity + sun.color.g * sun.intensity * 0.3,
     b = hemi.color.b * hemi.intensity + sun.color.b * sun.intensity * 0.3;
@@ -9485,6 +9313,7 @@ function applyLivery(sd) {
   const L = liveryOf(sd);
   if (!bodyMat) return L;
   bodyMat.color.set(L.body); panelMat.color.set(L.panel); sledTrimMat.color.set(L.trim); V.seatMat.color.set(L.seat);
+  if (V.decalMats) for (const dm of V.decalMats) dm.color.set(L.trim);
   V.canMat.color.set(SET.canMatch ? L.body : "#b3201a");
   return L;
 }
@@ -10108,7 +9937,7 @@ function genWhy(tier) {
   const got = GS.own.sleds.some(id => SLEDS.findIndex(x => x.id === id) >= tier);
   return got ? `Fits the ${s.name} and newer: switch sleds on the Sleds tab` : `Fits the ${s.name} and newer (${s.need} deliveries, $${s.cost})`;
 }
-buildMachines();
+{ const _bt = performance.now(); buildMachines(); V.buildMs = Math.round(performance.now() - _bt); }
 const partDef = (cat, id) => PARTS[cat].options.find(o => o.id === id) || PARTS[cat].options[0];
 const gearDef = (slot, id) => GEAR[slot].options.find(o => o.id === id) || GEAR[slot].options[0];
 const ownKey = (cat, id) => cat + ":" + id;
@@ -13555,24 +13384,7 @@ function teamTick(dt, hide) {
 }
 // Santa's Sled's own bodywork on top of the sled chassis: lacquered sleigh sides, gold rails curling over at the back,
 // sleigh bells, and a sack of presents on the tail. Called from buildMachine (so it rides in that machine's group).
-function sleighTrim(m, s, ud) {
-  const gold = std(0xd9a520, 0.28, 0.85); gold.envMap = sledEnvCube; gold.envMapIntensity = 1.1;
-  const red = std(0xa3101a, 0.3, 0.1); red.envMap = sledEnvCube; red.envMapIntensity = 0.6;
-  const sack = std(0x7a2418, 0.95), green = std(0x1f6b3a, 0.6), white = std(0xf2eee4, 0.9);
-  const tw = ud.tw, zB = ud.zBack, z0 = -0.05, z1 = zB + 0.25, zc = (z0 + z1) / 2, L = z0 - z1;
-  for (const sx of [-1, 1]) {
-    const X = sx * (tw / 2 + 0.26);
-    box(0.035, 0.32, L, red, X, 0.64, zc, 0, 0, 0, m);
-    box(0.045, 0.03, L, gold, X, 0.5, zc, 0, 0, 0, m);
-    tube([[X, 0.8, z0 + 0.1], [X, 0.82, zc], [X, 0.88, z1 + 0.05], [X, 1.06, zB + 0.04], [X, 1.12, zB + 0.2], [X, 1.02, zB + 0.27]], 0.024, gold, m, 6);
-    tube([[X, 0.48, z0 - 0.02], [X, 0.6, z0 + 0.18], [X, 0.76, z0 + 0.18], [X, 0.82, z0 + 0.06]], 0.02, gold, m, 6);
-    for (let k = 0; k < 4; k++) ball(0.035, gold, X + sx * 0.03, 0.74, z1 + 0.15 + k * L / 4, m);
-  }
-  ball(0.3, sack, 0, 0.98, zB + 0.42, m, 1.05, 1.15, 1.0);
-  cyl(0.05, 0.1, 0.16, sack, 0, 1.33, zB + 0.42, 0, 0, 0, m, 8); box(0.13, 0.03, 0.13, gold, 0, 1.27, zB + 0.42, 0, 0.4, 0, m);
-  box(0.24, 0.2, 0.24, green, -0.17, 0.72, zB + 0.12, 0, 0.3, 0, m); box(0.25, 0.21, 0.05, gold, -0.17, 0.72, zB + 0.12, 0, 0.3, 0, m);
-  box(0.18, 0.16, 0.18, white, 0.19, 0.7, zB + 0.1, 0, -0.2, 0, m); box(0.05, 0.17, 0.19, red, 0.19, 0.7, zB + 0.1, 0, -0.2, 0, m);
-}
+function sleighTrim(m, s, ud) { TLXL.build(TLXL.sled.sleigh(ud, SKCTX), m); }
 
 /* ---------------- the town dog ---------------- */
 /* A scruffy spitz who lives by the quay. Come within ~25 m and it runs alongside you, barking, as far as the town
@@ -13938,10 +13750,10 @@ function applyLoadout() {
   const deck = pr.rack === "stretch" || pr.rack === "freight";
   V.track.scale.z = sd.trackLen * (pr.rack === "freight" ? 1.24 : deck ? 1.12 : 1);
   V.studs.forEach(m => m.visible = pr.track === "stud");
-  V.paddles.visible = pr.track === "paddle"; V.hardpack.visible = pr.track === "trail";
+  V.paddles.visible = pr.track === "paddle"; V.hardpack.visible = pr.track === "trail"; V.lugs.visible = !V.paddles.visible && !V.hardpack.visible;
   const powder = pr.skis === "powder";                 // the machine's own skis, or an aftermarket set on the same pivots
   ud.skis.forEach(pv => pv.visible = !powder);
-  V.powderSki.forEach(m => m.visible = powder);
+  V.powderSki.forEach(m => m.visible = powder && m.userData.susp === (sh.susp === "leaf" ? "leaf" : "aarm"));
   V.carbide.forEach(m => m.visible = pr.skis === "carbide");
   /* bars, column, gauges */
   barPivot.position.set(0, ud.barY + (pr.bars === "stock" ? 0 : 0.12), ud.barZ);
@@ -14010,7 +13822,7 @@ function applyLoadout() {
   V.shield.visible = !V.headHid;
   V.shield.position.set(0, ud.shield.y, ud.shield.z);
   V.shield.scale.set(ud.shield.w / 0.8, shieldKind === "tall" ? 1.5 : shieldKind === "mid" ? 1.05 : 0.6, 1);
-  V.pane.material = shieldKind === "low" ? M.tint : M.glass;
+  V.pane.material = shieldKind === "low" ? SKM.tint : SKM.glass;
   /* bolt-ons */
   V.tankL.visible = pr.tankL === "fitted"; V.tankR.visible = pr.tankR === "fitted";
   for (const [g, k] of [[V.tankL, "tankL"], [V.tankR, "tankR"]]) {   // the 12 L pack: taller and longer, still sat on the board
@@ -14039,6 +13851,21 @@ function applyLoadout() {
   V.rackBox.visible = pr.rack === "box" && nSmall > 0;
   V.rackBox.position.z = ud.zBack + 1.5 + 0.1;
   if (V.xcRack) xcLook();
+  /* parts that have a model since the sled rebuild: winch, receiver, hitch, cooling, grips, tether, fuel pods, guard, survival, recovery */
+  { const g = pr, zB = ud.zBack, tw = ud.tw;
+    V.winchKit.visible = g.winch !== "none"; V.winchKit.position.set(0, ud.nose[0], ud.nose[1]); V.winchKit.scale.setScalar(g.winch === "heavy" ? 1.25 : g.winch === "hand" ? 0.8 : 1); V.winchMotor.visible = g.winch === "elec" || g.winch === "heavy";
+    V.recvKit.visible = g.recv !== "none"; V.recvKit.position.set(0, 0.42, zB - 0.1); V.recvHeavy.visible = g.recv === "heavy";
+    V.hitchKit.visible = g.hitch !== "none"; V.hitchKit.position.set(0, g.recv !== "none" ? 0.3 : 0.4, zB - 0.1); V.hitchChain.visible = g.hitch === "trailer" || g.hitch === "flatbed" || g.hitch === "akja";
+    V.coolScratch.visible = g.cool === "scratch"; V.coolScratch.position.set(0, 0.33, zB + 0.5);
+    V.coolPro.visible = g.cool === "pro"; V.coolPro.position.set(tw / 2 - 0.2, 0.6, 0.0);
+    V.gripHeat.visible = g.grips === "grips" || g.grips === "full"; V.gripFull.visible = g.grips === "full";
+    V.tetherKit.visible = g.tether === "rope";
+    const tk = { stock: 0, ext: 1, long: 1.25, cell: 1.5, expd: 1.8 }[g.tank] || 0;
+    for (const [q, sx] of [[V.tankPodL, 1], [V.tankPodR, -1]]) { q.visible = tk > 0; q.scale.set(tk * 0.9, tk * 0.9, 0.85 + tk * 0.1); q.position.set(sx * (ud.seatW / 2 + 0.03), 0.64, -0.62); }
+    V.strapKit.visible = g.guard === "straps"; V.cageKit.visible = g.guard === "cage"; V.strapKit.position.set(0, 0, zB + 0.5); V.cageKit.position.set(0, 0, zB + 0.5);
+    V.thermosKit.visible = g.survival !== "none"; V.thermosKit.position.set(0.3, 0.64, zB + 0.1); V.stoveKit.visible = g.survival === "stove"; V.stoveKit.position.set(-0.25, 0.62, zB + 0.3);
+    V.shovelKit.visible = g.recovery === "kit"; V.shovelKit.position.set(-(tw / 2 + 0.05), 0.5, zB + 0.9);
+    V.beaconKit.visible = g.recovery === "sat"; V.beaconKit.position.set(0.2, ud.hoodY(0.5) + 0.01, 0.5); }
   /* rider kit */
   for (const k of ["helmet", "beanie", "mask", "heated"]) (V.head[k] || []).forEach(m => m.visible = false);
   (V.head[gr.head] || V.head.helmet).forEach(m => m.visible = true);
@@ -17819,7 +17646,7 @@ function sledCopy(id, L) {
     if (o.userData && o.userData.wearDecal) return null;
     const m0 = o.isMesh ? (o.userData.wear0 || o.material) : null;
     const n = o.isMesh ? new THREE.Mesh(o.userData.geo0 || o.geometry, own.get(m0) || m0) : new THREE.Group();
-    n.position.copy(o.position); n.quaternion.copy(o.quaternion); n.scale.copy(o.scale); n.visible = o.visible; n.castShadow = o.castShadow; n.receiveShadow = o.receiveShadow; n.renderOrder = o.renderOrder;
+    n.position.copy(o.position); n.quaternion.copy(o.quaternion); n.scale.copy(o.scale); n.frustumCulled = o.frustumCulled; n.visible = o.visible; n.castShadow = o.castShadow; n.receiveShadow = o.receiveShadow; n.renderOrder = o.renderOrder;
     for (const c of o.children) { const k = cp(c); if (k) n.add(k); }
     return n;
   };
