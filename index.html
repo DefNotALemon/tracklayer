@@ -245,7 +245,9 @@
   #godList .row .val{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.12em;color:var(--slate);border:1px solid var(--line);border-radius:3px;padding:2px 8px}
   #godList .row.on .val{color:var(--ink);background:#ffc26b;border-color:#ffc26b}
   /* GTA 5-style god menu layout: sidebar + list + search */
-  #god{display:grid;grid-template-columns:180px 1fr;min-width:720px;max-width:900px}
+  #god{display:grid;grid-template-columns:180px 1fr;min-width:min(720px,calc(100% - 32px));max-width:900px}
+  #god>.bhead,#god>.bfoot,#godSearchWrap{grid-column:1/-1}
+  #god>.bhead{order:-2}#godSearchWrap{order:-1}
   #godSidebar{padding:0 10px 0 0;border-right:1px solid var(--line);overflow-y:auto}
   #godSidebar .gcat{font:inherit;font-size:13px;font-weight:700;color:var(--slate);padding:8px 12px;cursor:pointer;border-radius:var(--r-md);transition:all .2s var(--ease);text-transform:uppercase;letter-spacing:.08em}
   #godSidebar .gcat:hover{background:rgba(234,242,248,.06)}
@@ -1201,6 +1203,7 @@
   <div class="bfoot"><b>Esc</b> closes. Pad: <b>D-pad</b> or stick to move, <b>A</b> to pick, <b>◀ ▶</b> on a slider, <b>B</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
 </div>
 
+<div class="panel" id="god" hidden>
   <div class="bhead"><div><div class="brand">TRACKLAYER · GOD MODE</div><div class="btitle" id="godTitle">Categories</div></div><button id="godClose" class="xbtn" aria-label="Close god menu">✕</button></div>
   <div id="godSidebar" class="godsid"></div>
   <div id="godList" class="godlist"></div>
@@ -1339,10 +1342,6 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<<<<<<< HEAD
-<script src="tracklayer.js?v=260"></script>
-=======
-<script src="tracklayer.js?v=260"></script>
->>>>>>> 9548fc5 (God menu: GTA 5-style sidebar categories (Vehicles, Stats, Gear, World, Teleport, Misc) with search, sub-menus, and gamepad/keyboard support — script v260)
->>>>>>> ff7dfcb (God menu: GTA 5-style sidebar categories (Vehicles, Stats, Gear, World, Teleport, Misc) with search, sub-menus, and gamepad/keyboard support — script v260)
+<script src="tlx-seasons.js?v=1"></script>
+<script src="tracklayer.js?v=261"></script>
 </body></html>

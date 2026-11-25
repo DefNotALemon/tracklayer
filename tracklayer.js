@@ -14450,7 +14450,7 @@ function titleCam(dt) {
     if (B.t >= 1.1) TCAM.blend = null;
   }
 }
-// the menu's own frame tick: pointer parallax, drifting ice crystals and low-sun glints
+// the menu's own frame tick: pointer parallax, drifting ice crystals
 function titleTick(dt, now) {
   const k = 1 - Math.exp(-4 * dt), el = $("title");
   TT.px += (TT.tx - TT.px) * k; TT.py += (TT.ty - TT.py) * k;
@@ -14459,17 +14459,11 @@ function titleTick(dt, now) {
   if (away !== TT.away) { TT.away = away; el.classList.toggle("away", away); if (!away && TT.mode === "menu") titleSelect(TT.sel, !TC.on); }
   const c = $("tDust"), g = c.getContext("2d"), W = c.width, H = c.height, s = TT.dpr;
   g.clearRect(0, 0, W, H);
-  if (away || !TT.dust) return;
+  if (away || !TT.dust || TT.mode === "boot") return;   // nothing drifts over the loading screen: the page only paints now and then while the world builds, so crystals read as flashing points
   for (const p of TT.dust) {
     if (!TT.still) { p.y += p.s * dt * s; p.x += (Math.sin(p.w + now * 0.0006) * 10 + 6) * dt * s; }
     if (p.y > H + 4) { p.y = -4; p.x = Math.random() * W; } if (p.x > W + 4) p.x = -4;
     g.fillStyle = `rgba(255,250,240,${p.a})`; g.beginPath(); g.arc(p.x - TT.px * 30 * p.r / 2 * s, p.y - TT.py * 14 * p.r / 2 * s, p.r * s, 0, 6.283); g.fill();
-  }
-  if (!TT.still && innerWidth > innerHeight) for (const q of TT.glint) {
-    const a = Math.max(0, Math.sin(now * 0.001 * q.f + q.p)); if (a < 0.6) continue;
-    const r = (a - 0.6) * 9 * s, x = q.x * W, y = q.y * H;
-    g.strokeStyle = `rgba(255,236,200,${((a - 0.6) * 2).toFixed(3)})`; g.lineWidth = s;
-    g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke();
   }
 }
 function titlePad(gp, dt) {
@@ -14515,7 +14509,6 @@ addEventListener("resize", () => { if (TT.on) { titleLayout(); if (TT.mode === "
 {
   const W = innerWidth, H = innerHeight;
   TT.dust = []; for (let i = 0; i < 150; i++) TT.dust.push({ x: Math.random() * W * 1.5, y: Math.random() * H * 1.5, r: 0.5 + Math.random() * 1.8, s: 8 + Math.random() * 26, w: Math.random() * 6.28, a: 0.25 + Math.random() * 0.55 });
-  TT.glint = []; for (let i = 0; i < 26; i++) TT.glint.push({ x: 0.5 + Math.random() * 0.47, y: 0.6 + Math.random() * 0.36, p: Math.random() * 6.28, f: 0.6 + Math.random() * 1.6 });
   titleLayout();
 }
 
