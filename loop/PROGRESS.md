@@ -1,5 +1,7 @@
 # Builder progress log
 
+## 2026-11-24 — Village house types (script v262)
+Lemon: houses were one design. KIT.house takes an optional KIT.HT type; KIT.village deals five types (blue/red/ochre/wood/white) by position hash so neighbours differ. Per-type pitch 27-41 deg, size range, paint-scheme canvas cladding, trim/roof paint, window pattern (two/four small/one big/tall), rough stone foundation (one merged mesh), porch, garage/shed, woodpile, flagstaff, shutters, 44 cm snow, varied chimneys. Town houses unchanged; layout, doors and rnd stream unchanged. Test xH_houses.mjs; gate smoke + x1_save + xH_houses pass.
 ## 2026-11-24 — Loading screen clean-up (script v261) — 8ee1d3b
 Lemon: loading in from the website showed other menus and flashing points.
 - Cause: e57d152 landed a botched merge in index.html: the `<div class="panel" id="god" hidden>` opening tag was deleted (god menu header, search box and help text painted behind the loading/title screens, and `$("god")` was null), the `tlx-seasons.js` script tag was deleted (Four Seasons never loaded on the site), and conflict-marker lines were printed as page text. All restored/removed.

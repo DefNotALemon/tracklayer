@@ -5336,7 +5336,13 @@ function fuelTip(j, chance, lo, hi) {
    house), a stone plinth, corner boards, framed windows with glazing bars on all four walls and a framed door. The
    trim and the glass are each one merged mesh per house (houseFacade), so a house costs 2 more draw calls, not 50.
    Window glass (houseWinMat) is unlit and driven from updSky by houseWinTick: dark slate glass by day, the warm
-   lamp glow from dusk, in storms and through the polar night. Nothing saved. */
+   lamp glow from dusk, in storms and through the polar night. Nothing saved.
+
+   House types (KIT.HT, village houses only; the town's own houses keep the old single look): A maritime-blue steep roof,
+   B barn red with an attached shed, C ochre low roof with a porch, D weathered wood with an attached garage, E tall narrow
+   white. Each has its own pitch, size range, roof paint, trim colour, window pattern (two, four small, one big, tall),
+   chimney, rough-hewn stone foundation (merged blocks, one mesh), shutters, woodpile and a wall flagstaff. KIT.village
+   deals types by a position hash so no two neighbours match. Snow on a typed roof is 44 cm thick. Nothing saved. */
 const HOUSE_BW = 1.44;                                  // metres of wall per texture repeat (8 boards)
 function houseBoardTex() {
   if (houseBoardTex.t) return houseBoardTex.t;
@@ -5369,6 +5375,28 @@ function houseClad(mat, metal) {
   const C = houseClad.c || (houseClad.c = new Map()), key = mat.uuid + (metal ? "m" : "");
   let m = C.get(key); if (!m) { m = mat.clone(); m.map = metal ? shedMetalTex() : houseBoardTex(); if (metal) { m.roughness = 0.62; m.metalness = 0.25; } C.set(key, m); }
   return m;
+}
+// Kjølelfjord paint schemes (house types in KIT.HT): the same eight-board layout as houseBoardTex, but each scheme paints its own
+// colour (maritime blue, barn red, ochre, weathered silver-brown wood, white) with its own wear: peeling flecks on the painted
+// boards, knots and silvering on the bare ones. Cached; the material is white so the canvas colour is the colour.
+const HOUSE_SCHEMES = {
+  blue: { c: [61, 90, 122], v: 0.12, seed: 11 }, red: { c: [138, 47, 34], v: 0.14, seed: 23 }, yellow: { c: [201, 162, 58], v: 0.1, seed: 37 },
+  wood: { c: [133, 112, 88], v: 0.3, seed: 41, bare: true }, white: { c: [232, 228, 220], v: 0.07, seed: 53 }
+};
+function houseSchemeTex(kind) {
+  const C = houseSchemeTex.c || (houseSchemeTex.c = {}); if (C[kind]) return C[kind];
+  const S = HOUSE_SCHEMES[kind], c = document.createElement("canvas"); c.width = 256; c.height = 64; const g = c.getContext("2d"), rnd = mulberry32(7121 + S.seed);
+  for (let i = 0; i < 8; i++) {
+    const b = 1 - S.v * rnd(), x0 = i * 32, v = (k, a = 1) => `rgba(${Math.min(255, Math.round(S.c[0] * b * k))},${Math.min(255, Math.round(S.c[1] * b * k))},${Math.min(255, Math.round(S.c[2] * b * k))},${a})`;
+    g.fillStyle = v(1); g.fillRect(x0, 0, 32, 64);
+    for (let k = 0; k < (S.bare ? 9 : 4); k++) { const gx = x0 + 3 + rnd() * 27, lt = rnd() < 0.5; g.fillStyle = v(lt ? (S.bare ? 1.18 : 1.05) : 0.84, S.bare ? 0.55 : 0.4); g.fillRect(gx, 0, 1 + rnd() * 2, 64); }   // grain / weather streaks
+    if (S.bare) for (let k = 0; k < 2; k++) { g.fillStyle = v(0.55, 0.7); g.beginPath(); g.ellipse(x0 + 6 + rnd() * 20, 6 + rnd() * 52, 2.2, 3.4, 0, 0, 6.3); g.fill(); }   // knots
+    else for (let k = 0; k < 5; k++) { g.fillStyle = v(1.18, 0.5); g.fillRect(x0 + 2 + rnd() * 27, rnd() * 62, 1 + rnd() * 2, 1 + rnd() * 2); }   // flecks of chipped paint
+    g.fillStyle = v(0.55); g.fillRect(x0, 0, 2, 64); g.fillStyle = v(1.08); g.fillRect(x0 + 2, 0, 1, 64);          // shadowed joint, lit edge
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return (C[kind] = t);
 }
 // box (w > 0): u across each wall face in metres / HOUSE_BW; extrude (w = 0): its caps already carry world x,y as uv
 function houseUV(geo, w, d, off) {
@@ -5622,39 +5650,173 @@ const KIT = (() => {
     return st;
   };
   K.bx = (g, w, h, d, mat, x, y, z, ry = 0) => K.put(g, new THREE.BoxGeometry(w, h, d), mat, x, y, z, ry);
-  // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows
-  K.house = (x, z, w, d, h, ry, mat, lit) => {
+  /* ---- house types: the village houses of Kjølelfjord (see the house facades block) ---- */
+  K.trimD = L(0x2a2420); K.trimB = L(0x3d2e22); K.roofS = L(0x33383c); K.roofR = L(0x4a2a24); K.roofK = L(0x24272a); K.stoneR = L(0x77777a);
+  K.shutB = L(0x2a3f58); K.shutG = L(0x2e4a38); K.shutW = L(0x4a3426); K.shutD = L(0x30343a);
+  K.logM = L(0x8a6a45); K.flagR = L(0xc8102e); K.flagB = L(0x00205b); K.deckM = L(0x6a5038);
+  // window patterns: [face, along, width, height, centre y], face 0 front (the door), 1 back, 2 +x side, 3 -x side
+  const WPAT = {
+    two: (w, d, o) => { const l = [[0, -o], [0, o], [1, -o], [1, o]]; if (d >= 6.2) l.push([2, -d / 4], [2, d / 4], [3, -d / 4], [3, d / 4]); else l.push([2, 0], [3, 0]); return l; },
+    four: (w, d, o) => {                                               // four small panes along each long wall
+      const l = [[0, -o, 0.6, 0.8, 1.5], [0, o, 0.6, 0.8, 1.5], [1, -o, 0.6, 0.8, 1.5], [1, o, 0.6, 0.8, 1.5]], ps = d >= 5.8 ? [-0.3, -0.1, 0.1, 0.3] : [-0.2, 0.2];
+      for (const f of [2, 3]) for (const q of ps) l.push([f, q * d, 0.6, 0.8, 1.5]);
+      return l;
+    },
+    big: (w, d, o) => [[0, -o], [0, o], [1, 0, 1.5, 1.15, 1.5], [2, 0, 1.5, 1.2, 1.5], [3, 0, 1.5, 1.2, 1.5]],    // one large pane per wall
+    tall: (w, d, o) => { const l = [[0, -o, 0.72, 0.95], [0, o, 0.72, 0.95], [1, -o, 0.72, 0.95], [1, o, 0.72, 0.95]]; for (const f of [2, 3]) for (const q of [-d / 4, d / 4]) l.push([f, q, 0.72, 0.95, 1.45], [f, q, 0.72, 0.9, 2.75]); return l; }
+  };
+  K.HT = [
+    { id: "blue", scheme: "blue", a: 0.66, w: [5.6, 7.4], d: [5, 6.4], h: [2.8, 3.1], trim: K.trimW, roof: K.roofS, shut: K.shutB, wins: "two", attic: true, chx: -0.25, chz: 0.22, chw: 0.7, chh: 1.0, wood: 0.7, flag: 0.5 },
+    { id: "red", scheme: "red", a: 0.55, w: [7, 9.5], d: [5.5, 7], h: [2.7, 3.0], trim: K.trimW, roof: K.roofR, shut: K.shutG, wins: "four", chx: 0, chz: -0.2, chw: 0.65, chh: 1.2, wood: 0.8, flag: 0.3, garage: "shed" },
+    { id: "ochre", scheme: "yellow", a: 0.47, w: [5, 6.4], d: [4.6, 5.6], h: [2.6, 2.9], trim: K.trimD, roof: K.roofK, shut: K.shutW, wins: "big", chx: 0.25, chz: 0.2, chw: 0.75, chh: 0.9, wood: 0.5, flag: 0.6, porch: true },
+    { id: "wood", scheme: "wood", a: 0.52, w: [8, 11], d: [5.6, 7.4], h: [2.7, 3.0], trim: K.trimB, roof: K.woodD, shut: null, wins: "big", chx: 0.3, chz: -0.25, chw: 0.8, chh: 1.4, wood: 0.6, flag: 0.15, garage: "garage" },
+    { id: "white", scheme: "white", a: 0.72, w: [4.2, 5.0], d: [5.4, 6.8], h: [3.4, 3.8], trim: K.trimD, roof: K.roofS, shut: K.shutD, wins: "tall", attic: true, chx: 0, chz: 0.15, chw: 0.6, chh: 1.1, wood: 0.4, flag: 0.6 }
+  ];
+  K.typeClad = t => t.cm || (t.cm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, map: houseSchemeTex(t.scheme) }));
+  K.vlog = [];                                                         // [{ site, types: [id...] }] per village, for the test
+  const hpos = (x, z, seed) => { let n = (Math.imul(Math.round(x * 10) | 0, 73856093) ^ Math.imul(Math.round(z * 10) | 0, 19349663) ^ Math.imul(seed | 0, 83492791)) >>> 0; n = Math.imul(n ^ (n >>> 13), 0x5bd1e995) >>> 0; return (n ^ (n >>> 15)) >>> 0; };
+  // rough-hewn stone foundation: two staggered courses of irregular blocks round the walls, one merged mesh (vertex-tinted per block)
+  // behind a dark core, in place of the smooth plinth
+  K.stoneFound = (g, w, d, rnd) => {
+    K.bx(g, w + 0.04, 0.6, d + 0.04, K.plinth, 0, 0.3, 0).castShadow = false;
+    const l = [], row = (len, alongX, sd) => {
+      for (let c = 0; c < 2; c++) {
+        const y0 = c ? 0.32 : 0, hh = c ? 0.3 : 0.34; let u = -len / 2 - 0.1 - (c ? 0.35 : 0);
+        while (u < len / 2 + 0.1) {
+          const bw = 0.4 + rnd() * 0.5, bh = hh - 0.02 + rnd() * 0.06, bd = 0.14 + rnd() * 0.12, k = 0.8 + rnd() * 0.35, cu = u + bw / 2;
+          if (alongX) l.push([bw - 0.03, bh, bd, cu, y0 + bh / 2, sd * (d / 2 + bd / 2 - 0.05), 0, k]); else l.push([bd, bh, bw - 0.03, sd * (w / 2 + bd / 2 - 0.05), y0 + bh / 2, cu, 0, k]);
+          u += bw;
+        }
+      }
+    };
+    row(w, true, 1); row(w, true, -1); row(d, false, 1); row(d, false, -1);
+    const m = mergeBoxes(l); K.put(g, m, trimVC(K.stoneR, m), 0, 0, 0).castShadow = false;
+    return l.length;
+  };
+  // front porch: a plank deck 35 cm over the ground, three steps down, two posts and a snow-loaded shed roof. Door frame boxes go in `more`.
+  K.porch = (g, d, t) => {
+    K.bx(g, 2.6, 0.62, 1.5, K.deckM, 0, 0.31, d / 2 + 0.75).castShadow = false;
+    for (let i = 0; i < 3; i++) { const top = 0.52 - i * 0.1; K.bx(g, 1.5, top, 0.32, K.deckM, 0, top / 2, d / 2 + 1.5 + 0.16 + i * 0.32).castShadow = false; }
+    for (const s of [-1, 1]) K.bx(g, 0.12, 1.8, 0.12, t.trim, s * 1.15, 1.45, d / 2 + 1.4);
+    const sl = K.bx(g, 2.9, 0.1, 1.95, t.roof, 0, 2.42, d / 2 + 0.9); sl.rotation.x = 0.14;
+    const sn = K.bx(g, 3.0, 0.2, 2.0, K.snowM, 0, 2.58, d / 2 + 0.9); sn.rotation.x = 0.14;
+  };
+  // attached garage (3.2 m wide, ribbed door) or shed (2.4 m, plain door): clad walls under a mono-pitch roof that drains away from
+  // the house, a wedge-shaped gable so there's no gap under the slab. Door frame trim goes in `more`; returns the footprint.
+  K.garage = (g, t, w, d, side, big, more) => {
+    const gw = big ? 3.2 : 2.4, gd = big ? Math.min(d - 0.6, 4.6) : 2.6, gh = big ? 2.1 : 1.9, al = big ? 0.14 : 0.2, tn = Math.tan(al);
+    const xc = side * (w / 2 + gw / 2), zc = -d / 2 + gd / 2, zf = zc + gd / 2, xi = xc - side * gw / 2, xo = xc + side * gw / 2;
+    const sh = new THREE.Shape(); sh.moveTo(xi, 0); sh.lineTo(xo, 0); sh.lineTo(xo, gh); sh.lineTo(xi, gh + gw * tn); sh.closePath();
+    const ex = new THREE.ExtrudeGeometry(sh, { depth: gd, bevelEnabled: false }); ex.translate(0, 0, zc - gd / 2); houseUV(ex, 0, 0, 0);
+    K.put(g, ex, K.typeClad(t), 0, 0, 0);
+    const cy = gh + (gw / 2) * tn + 0.06, ln = (gw + 0.5) / Math.cos(al);
+    K.bx(g, ln, 0.12, gd + 0.5, t.roof, xc, cy, zc).rotation.z = -side * al;
+    K.bx(g, ln + 0.1, 0.3, gd + 0.6, K.snowM, xc, cy + 0.2, zc).rotation.z = -side * al;
+    const dw = big ? 2.5 : 0.9, dh = big ? 1.95 : 1.7;
+    K.bx(g, dw, dh, 0.08, big ? K.L(0x565c63) : K.doorM, xc, dh / 2, zf + 0.04);
+    for (const s of [-1, 1]) more.push([0.1, dh + 0.08, 0.1, xc + s * (dw / 2 + 0.05), (dh + 0.08) / 2, zf + 0.06]);
+    more.push([dw + 0.3, 0.1, 0.1, xc, dh + 0.08, zf + 0.06]);
+    if (big) for (const yy of [0.5, 1.0, 1.5]) more.push([dw, 0.04, 0.03, xc, yy, zf + 0.09]);   // the door's panel ribs
+    return { xc, zc, gw, gd };
+  };
+  // woodpile against a wall: five courses of split logs lying along the wall (end grain to the front), a plank cover with snow, stakes
+  K.woodpile = (g, x, z) => {
+    const geo = new THREE.CylinderGeometry(0.105, 0.105, 1.9, 7);
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 4 - (r === 4 ? 1 : 0); c++) {
+      const m = K.put(g, geo, K.logM, x + (c - 1.5) * 0.21 + (r % 2) * 0.1, 0.42 + r * 0.18, z); m.rotation.x = Math.PI / 2; m.castShadow = false;
+    }
+    K.bx(g, 0.95, 0.05, 2.1, K.woodD, x, 1.36, z).castShadow = false;
+    K.bx(g, 0.95, 0.14, 2.1, K.snowM, x, 1.45, z).castShadow = false;
+    for (const s of [-1, 1]) K.bx(g, 0.06, 1.1, 0.06, K.woodD, x - 0.5 * 1, 0.8, z + s * 0.98).castShadow = false;
+  };
+  // flagstaff: a 2 m pole on a bracket in the wall's corner, slanting out, a Norwegian flag (red, white cross, blue cross) flying off it
+  K.flagpole = (g, x, y, z, side) => {
+    const th = 0.75, phi = -side * th, cs = Math.cos(phi), sn = Math.sin(phi), at = (lx, ly) => [x + lx * cs - ly * sn, y + lx * sn + ly * cs];
+    const [px, py] = at(0, 1.0); K.put(g, new THREE.CylinderGeometry(0.025, 0.035, 2.0, 6), K.woodD, px, py, z + 0.12).rotation.z = phi;
+    const bit = (bw, bh, lx, mat, dz) => { const [fx, fy] = at(side * lx, 1.45); K.bx(g, bw, bh, 0.015, mat, fx, fy, z + 0.12 + dz).rotation.z = phi; };
+    bit(0.85, 0.55, 0.45, K.flagR, 0.03); bit(0.85, 0.12, 0.45, K.white, 0.04); bit(0.12, 0.55, 0.3, K.white, 0.04);
+    bit(0.85, 0.055, 0.45, K.flagB, 0.05); bit(0.055, 0.55, 0.3, K.flagB, 0.05);
+  };
+  // Finnmark house: painted timber, a gabled roof under a foot of snow, lit windows. `type` (a KIT.HT row) gives a village house its own
+  // look and extras; without it the house is the original single design (the town's houses, the depot's neighbours, the cabins).
+  K.house = (x, z, w, d, h, ry, mat, lit, type) => {
+    const t = type || null;
     addYard(x, z, Math.max(w, d) / 2 + 3);                             // plowed round the walls and out to the door
-    K.foot.push({ x, z, w, d, ry, lit: lit !== false });                // the chart's town layer (tabTown) draws every house from this
+    const foot = { x, z, w, d, ry, lit: lit !== false, type: t ? t.id : null, ex: {} };
+    K.foot.push(foot);                                                 // the chart's town layer (tabTown) draws every house from this
     if (lit !== false) addYard(x + Math.sin(ry) * (d / 2 + 5), z + Math.cos(ry) * (d / 2 + 5), 3.5);   // and a plowed apron out from the door (local +z), so you walk up to it on hard pack
     if (lit !== false) K.doors.push({ x, z, nx: Math.sin(ry), nz: Math.cos(ry), d, rr: Math.max(w, d) / 2 + 3.5 });   // buildTown plows a lane to it
     const g = new THREE.Group();
     g.position.set(x, groundAt(x, z) - 0.25, z); g.rotation.y = ry; scene.add(g); g.userData.kStatic = true;
+    const rnd = mulberry32(t ? hpos(x, z, 17) : 1), cm = t ? K.typeClad(t) : houseClad(mat);
     // walls and gables wear vertical board cladding (houseClad), UVs in metres so every house gets the same board width
     const wallG = new THREE.BoxGeometry(w, h, d); houseUV(wallG, w, d, 0);
-    K.put(g, wallG, houseClad(mat), 0, h / 2, 0);
-    const a = 0.55, hs = w / 2 + 0.4, Ls = hs / Math.cos(a);
-    const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, (w / 2) * Math.tan(a)); tri.closePath();
+    K.put(g, wallG, cm, 0, h / 2, 0);
+    const a = t ? t.a : 0.55, hs = w / 2 + 0.4, Ls = hs / Math.cos(a), tn = Math.tan(a);
+    const tri = new THREE.Shape(); tri.moveTo(-w / 2, 0); tri.lineTo(w / 2, 0); tri.lineTo(0, (w / 2) * tn); tri.closePath();
     const gable = new THREE.ExtrudeGeometry(tri, { depth: d, bevelEnabled: false }); gable.translate(0, 0, -d / 2); houseUV(gable, 0, 0, w / 2);
-    K.put(g, gable, houseClad(mat), 0, h, 0);
+    K.put(g, gable, cm, 0, h, 0);
+    const snowT = t ? 0.44 : 0.3, roofM = t ? t.roof : K.woodD, sy = t ? (0.1 + snowT / 2 - 0.02) / Math.cos(a) : 0.23;   // a typed roof carries a heavier snow load
     for (const s of [-1, 1]) {
-      K.bx(g, Ls, 0.2, d + 0.7, K.woodD, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.05, 0).rotation.z = -s * a;
-      K.bx(g, Ls + 0.1, 0.3, d + 0.8, K.snowM, s * hs / 2, h + (hs / 2) * Math.tan(a) + 0.28, 0).rotation.z = -s * a;
+      K.bx(g, Ls, 0.2, d + 0.7, roofM, s * hs / 2, h + (hs / 2) * tn + 0.05, 0).rotation.z = -s * a;
+      K.bx(g, Ls + (t ? 0.16 : 0.1), snowT, d + (t ? 0.95 : 0.8), K.snowM, s * hs / 2, h + (hs / 2) * tn + 0.05 + sy, 0).rotation.z = -s * a;
     }
-    K.bx(g, 0.7, 1.8, 0.7, K.stone, -w / 4, h + 1.1, d / 4);
-    K.bx(g, 0.8, 0.18, 0.8, K.snowM, -w / 4, h + 2.05, d / 4);
-    if (lit !== false) K.chimneys.push([x - (w / 4) * Math.cos(ry) + (d / 4) * Math.sin(ry), g.position.y + h + 2.16, z + (w / 4) * Math.sin(ry) + (d / 4) * Math.cos(ry)]);   // someone's home: the stove is lit (updChimSmoke)
+    let chx = -w / 4, chz = d / 4, chTop = h + 2.0;
+    if (t) {
+      chx = t.chx * w; chz = t.chz * d; chTop = h + Math.abs(chx) * tn + 0.1 + snowT * 0.5 + t.chh + rnd() * 0.3;
+      K.bx(g, t.chw, chTop - h, t.chw, K.stone, chx, (chTop + h) / 2, chz);
+      K.bx(g, t.chw + 0.14, 0.08, t.chw + 0.14, K.plinth, chx, chTop, chz);
+      K.bx(g, t.chw + 0.1, 0.18, t.chw + 0.1, K.snowM, chx, chTop + 0.1, chz);
+      foot.ex.chTop = +(chTop - h).toFixed(2);
+    } else {
+      K.bx(g, 0.7, 1.8, 0.7, K.stone, chx, h + 1.1, chz);
+      K.bx(g, 0.8, 0.18, 0.8, K.snowM, chx, h + 2.05, chz);
+    }
+    if (lit !== false) K.chimneys.push([x + chx * Math.cos(ry) + chz * Math.sin(ry), g.position.y + chTop + 0.16, z - chx * Math.sin(ry) + chz * Math.cos(ry)]);   // someone's home: the stove is lit (updChimSmoke)
     // facade: a stone plinth, painted corner boards, framed windows with glazing bars on every wall (front and back,
     // and both eave sides on ordinary-length houses), a framed door. Trim and glass are one merged mesh each.
-    const pl = K.bx(g, w + 0.12, 0.6, d + 0.12, K.plinth, 0, 0.3, 0); pl.castShadow = false;
-    const wins = [];
+    const more = [], wins = [];
+    if (t) foot.ex.stones = K.stoneFound(g, w, d, rnd); else K.bx(g, w + 0.12, 0.6, d + 0.12, K.plinth, 0, 0.3, 0).castShadow = false;
+    let doorFrame = true;
     if (lit !== false) {
-      for (const sx of [-w / 4, w / 4]) wins.push([0, sx], [1, sx]);
-      if (d < 12) wins.push([2, 0], [3, 0]);
-      K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, 0.95, d / 2 + 0.04);
+      if (t) {
+        const o = Math.min(w / 2 - 0.9, Math.max(w / 4, 1.25));
+        for (const e of WPAT[t.wins](w, d, o)) wins.push(e);
+        if (t.attic) wins.push([0, 0, 0.5, 0.62, h + 0.95], [1, 0, 0.5, 0.62, h + 0.95]);
+        let dy = 0;
+        if (t.porch) { K.porch(g, d, t); dy = 0.62; doorFrame = false; for (const s of [-1, 1]) more.push([0.11, 2.0, 0.12, s * 0.5, dy + 1.0, d / 2 + 0.06]); more.push([1.22, 0.13, 0.12, 0, dy + 2.02, d / 2 + 0.06]); foot.ex.porch = true; }
+        K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, dy + 0.95, d / 2 + 0.04);
+      } else {
+        for (const sx of [-w / 4, w / 4]) wins.push([0, sx], [1, sx]);
+        if (d < 12) wins.push([2, 0], [3, 0]);
+        K.bx(g, 0.9, 1.9, 0.1, K.doorM, 0, 0.95, d / 2 + 0.04);
+      }
     }
-    const fac = houseFacade(w, h, d, wins, lit !== false, roofTrim(w, h, d, a, 0.4, 0.35, 0.2));
-    const c = mat.color, trimM = c.r + c.g + c.b > 2.1 ? K.trimG : K.trimW;   // white houses get grey trim so it reads
+    const cols = [];                                                   // extra collision spots (garage), group-local
+    let gside = 0;
+    if (t && lit !== false) {
+      if (t.garage) {
+        gside = rnd() < 0.5 ? -1 : 1; const gg = K.garage(g, t, w, d, gside, t.garage === "garage", more); foot.ex.garage = t.garage;
+        for (let v = gg.zc - gg.gd / 2 + 0.9; v <= gg.zc + gg.gd / 2 - 0.5; v += 1.9) cols.push([gg.xc, v]);
+        addYard(x + gg.xc * Math.cos(ry) + (gg.zc + gg.gd / 2 + 1.5) * Math.sin(ry), z - gg.xc * Math.sin(ry) + (gg.zc + gg.gd / 2 + 1.5) * Math.cos(ry), 3);
+      }
+      const ws = gside ? -gside : (rnd() < 0.5 ? -1 : 1);
+      if (rnd() < t.wood) { K.woodpile(g, ws * (w / 2 + 0.45), -d / 2 + 1.4); foot.ex.wood = true; }
+      if (rnd() < t.flag) { K.flagpole(g, ws * (w / 2 + 0.02), 2.1, d / 2 - 0.05, ws); foot.ex.flag = true; }
+      if (t.shut) {                                                    // shutters swung open flat against the wall beside each front and back window
+        const sl = [];
+        for (const [f, al, ww = 0.82, wh = 0.98, wb = 1.48] of wins) {
+          if (f > 1 || wb > h) continue; const lw = ww / 2 - 0.04;
+          for (const s of [-1, 1]) {
+            const cx = al + s * (ww / 2 + 0.1 + 0.02 + lw / 2); if (Math.abs(cx) - lw / 2 < 0.75 || Math.abs(cx) + lw / 2 > w / 2 - 0.2) continue;
+            sl.push(f === 0 ? [lw, wh + 0.1, 0.04, cx, wb, d / 2 + 0.03] : [lw, wh + 0.1, 0.04, -cx, wb, -d / 2 - 0.03]);
+          }
+        }
+        if (sl.length) { K.put(g, mergeBoxes(sl), t.shut, 0, 0, 0).castShadow = false; foot.ex.shutters = sl.length; }
+      }
+    }
+    const fac = houseFacade(w, h, d, wins, lit !== false && doorFrame, roofTrim(w, h, d, a, 0.4, 0.35, 0.2).concat(more));
+    const c = mat.color, trimM = t ? t.trim : c.r + c.g + c.b > 2.1 ? K.trimG : K.trimW;   // white houses get grey trim so it reads
     K.put(g, fac.trim, trimVC(trimM, fac.trim), 0, 0, 0).castShadow = false;
     if (fac.glass) K.put(g, fac.glass, houseWinMat(), 0, 0, 0).castShadow = false;
     const box = { x, z, c: Math.cos(ry), s: Math.sin(ry), hw: w / 2 + 0.45, hd: d / 2 + 0.4 };   // the walls + eaves, for camWallClip
@@ -5662,6 +5824,8 @@ const KIT = (() => {
       const wx = x + u * Math.cos(ry) + v * Math.sin(ry), wz = z - u * Math.sin(ry) + v * Math.cos(ry);
       addOb({ x: wx, z: wz, r: 1.35, top: 1e9, ax: ry, box });
     }
+    for (const [u, v] of cols) addOb({ x: x + u * Math.cos(ry) + v * Math.sin(ry), z: z - u * Math.sin(ry) + v * Math.cos(ry), r: 1.25, top: 1e9, ax: ry });
+    foot.ex.pitch = a; foot.ex.h = h; foot.ex.wins = wins.length;
     return g;
   };
   K.lamp = (x, z) => {
@@ -5686,16 +5850,21 @@ const KIT = (() => {
     for (let u = -len / 2; u <= len / 2; u += 1.5) { const wx = x + u * Math.cos(ry), wz = z - u * Math.sin(ry); addOb({ x: wx, z: wz, r: 1.0, top: 1e9, ax: ry }); }
     return g;
   };
-  // a village: a shop on the flat, houses around it, a lamp or two, racks down by the shore
+  // a village: a shop on the flat, houses around it (a different KIT.HT type each, dealt by a position hash so no two neighbours
+  // match), a lamp or two, racks down by the shore
   K.village = (s, seed) => {
     const rnd = mulberry32(seed);
-    const pal = [K.red, K.white, K.yellow, K.blue, K.wood, K.L(0x6d4a33), K.L(0x7a5a3a)];
-    const n = s.houses || 4;
+    const n = s.houses || 4, used = [], vl = { site: s.id, types: [] }; K.vlog.push(vl);
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + rnd() * 0.8, r = 22 + rnd() * 22;
       const hx = s.x + Math.cos(a) * r, hz = s.z + Math.sin(a) * r;
       if (isSea(hx, hz) || slopeAt(hx, hz, 5) > 0.25) continue;
-      K.house(hx, hz, 6 + rnd() * 3, 5 + rnd() * 2.5, 2.7 + rnd() * 0.5, rnd() * 6.28, pal[(rnd() * pal.length) | 0]);
+      const nt = K.HT.length, prev = used.length ? used[used.length - 1] : -1, first = used.length ? used[0] : -1, last = i === n - 1;
+      let k = hpos(hx, hz, seed) % nt;
+      for (let q = 0; q < nt; q++) { const c = (k + q) % nt; if (!used.includes(c) || (used.length >= nt && c !== prev && !(last && c === first))) { k = c; break; } }
+      used.push(k); vl.types.push(K.HT[k].id);
+      const t = K.HT[k], u1 = rnd(), u2 = rnd(), u3 = rnd(), ry = rnd() * 6.28; rnd();   // (the old palette pick's draw, kept so later houses stay where they were)
+      K.house(hx, hz, t.w[0] + u1 * (t.w[1] - t.w[0]), t.d[0] + u2 * (t.d[1] - t.d[0]), t.h[0] + u3 * (t.h[1] - t.h[0]), ry, K.white, true, t);
     }
     K.lamp(s.x + 16, s.z - 8);
     if (n >= 4) K.lamp(s.x - 18, s.z + 12);
