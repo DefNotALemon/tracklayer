@@ -10028,6 +10028,7 @@ const BTN = {
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
   mod: { kbm: "Y", xbox: "Y", ps: "△", nin: "X", touch: "MOD MENU" },   // the mod menu (on touch: the button in Settings)
   rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
+  scroll: { kbm: "Up / Down", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Swipe" },   // tlx-gram.js: the Local and Reels scroll (the tablet's own move keys, d-pad and swipe)
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
@@ -17791,7 +17792,7 @@ function initExpansion() {
     // the vehicle bridge (see VEH): what a wheeled vehicle needs from the sled's world
     veh: VEH, input, BOG, HELP, MNT, DMT, GB, LOG, camState, sled: { root: sledRoot, body: sledBody, headlight },
     groomx: GROOMX, warmx: WARMX, calx: CALX, sarCall: (spec) => sarCallIn(spec), sarState: () => ({ cur: SAR.cur, ping: SAR.ping, busy: sarBusy() }), sarAccept: c => sarAccept(c), crewAt: RANKS[1].at, gameHour: GAMEHOUR,
-    gram: { shot: gramShot, quad: { make: wildRig, free: wildFree, pose: quadPose, kinds: () => Object.keys(QSP) }, sunEl: sunEl, aur: () => AUR },
+    gram: { lights: { sun, hemi }, shot: gramShot, quad: { make: wildRig, free: wildFree, pose: quadPose, kinds: () => Object.keys(QSP) }, sunEl: sunEl, aur: () => AUR },
     footx: footX(), jobx: jobX(), ridex: rideX(), rideUse: rideUseA(), appx: appX, payMul, licensed, fmtTime, getG: () => G, sledKg: MASS, ST: () => ST, restat, now: () => gameClock, audio: () => audio, tutHidden, dayFactor, fp: () => !!VIEWS[camMode].fp, tablet: () => TABLET.open,
     enterBog, freeBog, thinIceStep, emit, muck: emitMuck, spark, thud, whump, wobble, dropSnow, cargoHit, poseWalker, snowStep, sm: _sm, recenter, towSnap,
     // the universal hitch (2.5): the rig's state and the sled's receiver rules

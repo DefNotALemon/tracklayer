@@ -281,8 +281,8 @@ await section("H state, old saves, the app", async () => {
   // junk in the saved state does not throw
   const bad = JSON.parse(JSON.stringify(sv)); bad.x.sys.trails = { v: 1, s: { h: "x", rs: null, tr: { lys: { taken: 1, seg: [[5, "a", -3], 7, null], out: [{ p: 3 }], last: [null, 4] }, ghost: 1 } } }; bad.x.sys.news = { v: 1, s: { seq: "q", posts: [null, 3, { t: "x" }, { t: 5, kind: "ski", id: 9 }] } };
   await reload(bad); await sleep(1500); await ev(SETUP); await sleep(400); await ev(KIT);
-  const jk = await J(`({ ready: TLXSK.ready, err: TLXSK.err, taken: __T("lys").st.taken, seg0: __T("lys").st.seg[0], n: TLX.state("news").posts.length, seq: TLX.state("news").seq })`);
-  ok(jk.ready && !jk.err && jk.taken === 1 && jk.seg0[0] === 1 && jk.seg0[1] === 0 && jk.seg0[2] === 0 && jk.n === 1 && jk.seq === 9, "junk in the saved state is cleaned, never thrown: " + JSON.stringify(jk.seg0));
+  const jk = await J(`({ ready: TLXSK.ready, err: TLXSK.err, taken: __T("lys").st.taken, seg0: __T("lys").st.seg[0], n: TLX.state("news").posts.filter(q => q.kind === "ski").length, seq: TLX.state("news").seq })`); // the weather/road feeders may post a storm or road line right after boot: only the planted ski post counts
+  ok(jk.ready && !jk.err && jk.taken === 1 && jk.seg0[0] === 1 && jk.seg0[1] === 0 && jk.seg0[2] === 0 && jk.n === 1 && jk.seq >= 9, "junk in the saved state is cleaned, never thrown: " + JSON.stringify(jk.seg0));
   // the app's text under keyboard, a pad and touch
   await ev(`GS.delivered = 5; GS.own.parts.hitch = "groomer"; GS.hour = 34; true`);
   const texts = {};

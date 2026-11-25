@@ -152,9 +152,10 @@ E.placeSled = (a, x, z, yaw, speed, turn, bump, o) => {
 E.sledLights = (a, head, tail, night, own) => { if (head && night > 0) { const fx = Math.sin(a.yaw), fz = Math.cos(a.yaw), sp = Math.max(a.speed, 3); a.pool.position.set(a.x + fx * (4 + sp * 0.25), W.surf(a.x + fx * 5, a.z + fz * 5) + 0.1, a.z + fz * (4 + sp * 0.25)); a.pool.scale.set(4.2, 1, 9); a.pool.rotation.y = a.yaw; }
   a.head.visible = head && !own; a.head.material.opacity = 0.9; a.tails[0].visible = a.tails[1].visible = tail; a.cone.visible = !!head && night > 0; a.cone.material.opacity = 0.2 * night; a.pool.visible = !!head && night > 0; a.pool.material.opacity = 0.7 * night; };
 function buildWalker(i) {
-  const std = A.mesh.std, g = A.newWalker({ jacket: std(JK[i % JK.length], 0.85, 0), pants: std([0x20262e, 0x2a2f3a, 0x3a3226, 0x1c2a3a][i % 4], 0.9, 0), trim: std(JK[(i * 5 + 3) % JK.length], 0.7, 0) }), U = g.userData; g.visible = false; scene.add(g);
+  const std = A.mesh.std, jk = std(JK[i % JK.length], 0.85, 0), pn = std([0x20262e, 0x2a2f3a, 0x3a3226, 0x1c2a3a][i % 4], 0.9, 0), tr = std(JK[(i * 5 + 3) % JK.length], 0.7, 0), sk = std(0xd9a98c, 0.7, 0);
+  const g = A.newWalker({ jacket: jk, pants: pn, trim: tr, skin: sk }), U = g.userData; g.visible = false; scene.add(g);
   const ph = new T.Mesh(new T.BoxGeometry(0.075, 0.015, 0.15), new T.MeshBasicMaterial({ color: 0x0a0c10 })), sc = new T.Mesh(new T.PlaneGeometry(0.062, 0.135), new T.MeshBasicMaterial({ color: 0xcfe8ff })); sc.rotation.x = -Math.PI / 2; sc.position.y = 0.0085; ph.add(sc); ph.visible = false; U.fore[1].userData.hand.add(ph); ph.position.set(0, 0.0, 0.04);
-  return { g, U, o: { x: 0, z: 0, yaw: 0, quiet: true, vol: 0 }, phone: ph, blob: blob(0.7, 0.7), on: false, ph: i * 0.77, sc: 0.85 };
+  return { g, U, o: { x: 0, z: 0, yaw: 0, quiet: true, vol: 0 }, phone: ph, blob: blob(0.7, 0.7), on: false, ph: i * 0.77, sc: 0.85, mats: { jacket: jk, pants: pn, trim: tr, skin: sk } };
 }
 // a walking or standing figure at (x, z) facing game yaw `yaw`; its gait comes from the ground it really covers
 E.walk = (w, x, z, yaw, scale) => {
@@ -175,6 +176,7 @@ function buildDeer(i) {
   tg.visible = false; q.head.add(tg); return { q, tongue: tg, blob: blob(1.1, 2.0), on: false };
 }
 E.deerPlace = (d, x, z, yaw, v, graze, dt) => { const q = d.q, y = W.surf(x, z); q.g.position.set(x, y - 0.05, z); q.g.rotation.set(0, yaw, 0); A.gram.quad.pose(q, dt === undefined ? E.dt || 0.04 : dt, v, graze || 0, 0); d.on = true; d.blob.position.set(x, y + 0.07, z); d.blob.rotation.y = yaw; d.blob.visible = true; d.blobOn = true; };
+E.buildWalker = buildWalker; E.blob = blob; E.buildSled = buildSled; E.poseRider = poseRider; E.actorsShow = actorsShow; E.tex = tex;
 E.prepare = need => {
   engInit(); need = need || {};
   while (E.sleds.length < (need.sled || 0)) E.sleds.push(buildSled(E.sleds.length));
@@ -194,7 +196,7 @@ E.ext = (o) => { o.on = true; return o; };
 
 /* ---------------- one frame of a clip ---------------- */
 let _stamp = 0;
-function pre(bw, bh) {                                                                                    // inside the shot: the spray's scale for this viewport, its colour from the sky's fog
+function pre(bw, bh) {  if (E.lit) E.lit(bw, bh);                                                                                  // inside the shot: the spray's scale for this viewport, its colour from the sky's fog
   const k = bh / (2 * Math.tan(E.cam.fov * Math.PI / 360)), f = A.scene.fog, c = f && f.color ? f.color : null; if (E.fogD && f) f.density = E.fogD;
   for (const P of [E.fx, E.fl]) { P.u.uScale.value = k; if (c) { const dl = A.dayFactor(); P.u.uCol.value.setRGB(lerp(c.r, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.g, 1, 0.4) * (0.5 + 0.4 * dl), lerp(c.b, 1, 0.4) * (0.52 + 0.42 * dl)); } }
 }
@@ -207,7 +209,7 @@ function renderAt(Sc, t, cv, g) {
   fxUpdate(t); actorsShow(true);
   const c0 = A.renderer.info.render.calls; let ok = false;
   try { ok = A.gram.shot({ cam: E.cam, hour: Sc.hour, storm: Sc.storm, w: cv.width, h: cv.height, ctx: g, noShadow: true, pre }); }
-  finally { actorsShow(false); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
+  finally { actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
   E.reset = false; R.calls.push(A.renderer.info.render.calls); if (R.calls.length > 60) R.calls.shift();
   if (ok) { if (Sc.post) Sc.post(g, t, cv.width, cv.height, E); vignette(g, cv.width, cv.height, Sc); }
   const ms = performance.now() - t0; R.ms.push(ms); if (R.ms.length > 90) R.ms.shift(); R.renders++;
@@ -268,12 +270,13 @@ function sane(gs) {
 }
 R.sane = sane;
 const list = () => { const s = S(); return s ? s.list : []; };
-R.list = () => list().slice().reverse();                                                                  // newest first
+R.list = () => list().slice().reverse();     // every land's reels, newest first (Reels is the whole world; Local asks for one region)
+R.landName = rg => ({ nordkinn: "The Nordkinn" })[rg || "nordkinn"] || String(rg).replace(/^./, c => c.toUpperCase());                                                                  // newest first
 R.unseen = () => list().filter(q => !q.sn && q.who !== "you").length;
 function add(o) {
   const s = S(), ty = R.types[o.ty]; if (!s || !ty) return null;
   const p = o.who && o.who !== "you" ? Hh.who(o.who) : null;
-  const rec = { id: ++s.seq, t: Math.round((o.t === undefined ? A.GS.hour : o.t) * 100) / 100, who: o.who || null, vid: o.vid || (p ? p.vid : null), place: o.place || "", ty: o.ty, sd: o.sd || 1, x: Math.round(o.x * 10) / 10, z: Math.round(o.z * 10) / 10, a: Math.round((o.a || 0) * 100) / 100, h: Math.round(o.h * 100) / 100, s: Math.round(clamp(o.s || 0, 0, 1) * 100) / 100, cap: o.cap, sn: 0 };
+  const rec = { id: ++s.seq, t: Math.round((o.t === undefined ? A.GS.hour : o.t) * 100) / 100, who: o.who || null, vid: o.vid || (p ? p.vid : null), place: o.place || "", ty: o.ty, sd: o.sd || 1, rg: o.rg || (window.TLX ? TLX.region() : "nordkinn"), x: Math.round(o.x * 10) / 10, z: Math.round(o.z * 10) / 10, a: Math.round((o.a || 0) * 100) / 100, h: Math.round(o.h * 100) / 100, s: Math.round(clamp(o.s || 0, 0, 1) * 100) / 100, cap: o.cap, sn: 0 };
   if (o.k !== undefined) rec.k = o.k; if (o.ev) rec.ev = o.ev;
   rec.cm = o.cm || (p ? Hh.comments({ place: rec.place, n: 0 }, p, "reel") : []); rec.lk = Math.round(Hh.likesOf({ id: rec.id + 5000, cm: rec.cm }, p) * 1.4);
   s.list.push(rec); if (s.list.length > CAPN) s.list.splice(0, s.list.length - CAPN);
@@ -373,18 +376,15 @@ R.slow = 0;
 /* ---------------- the tab ---------------- */
 const SHOWN = { tag: "Seen on the Nordkinn" };
 function renderTab(el, ui) {
-  const L = R.list(); let h = ui.head + ui.tabs;
-  if (!L.length) { el.innerHTML = `<div class="tapp">${h}<p class="tnote2">No reels yet. People post them now and then; give the day a few hours.</p></div>`; return; }
+  const L = R.list(); const H = ui.height || 420;
+  if (!L.length) { el.innerHTML = `<div class="gcol" style="height:${H}px">${ui.tabs}<p class="tnote2" style="padding:18px">No reels yet. People post them now and then; give the day a few hours.</p></div>`; return; }
   R.cur = clamp(R.cur, 0, L.length - 1); const rec = L[R.cur], ty = R.types[rec.ty], p = rec.who === "you" ? null : Hh.who(rec.who), handle = p ? "@" + p.handle : "@nordkinn", D = DIM();
-  const cms = rec.cm.map(([pid, t]) => { const c = Hh.who(pid); return `<div class="gmsg">${ui.avatar(c)}<div class="gmb"><b>${esc(c ? c.first + " " + (c.last || "") : "?")}</b><p>${esc(t)}</p></div></div>`; }).join("");
-  const tag = SHOWN.tag + (ty.notyet ? " · not something you can do yet" : "");
-  h += `<div class="rlw"><button type="button" class="rlv" data-tf="rl:v" data-rlv="1" aria-label="Reel ${R.cur + 1} of ${L.length}"><canvas id="rlCv" width="${D[0]}" height="${D[1]}"></canvas><span class="rlc">${R.cur + 1} / ${L.length}</span></button>
-    <div class="rli"><div class="gph">${ui.avatar(p)}<div class="gwho"><b>${esc(handle)}<i class="gchip">${esc(ty.chip)}</i></b><span>${esc(rec.place || "")} · ${ui.ago(rec.t)}</span></div></div>
-    <div class="gcap">${esc(rec.cap)}</div><div class="gmeta">${rec.lk} likes${rec.cm.length ? " · " + rec.cm.length + " comment" + (rec.cm.length > 1 ? "s" : "") : ""}</div><div class="rltag">${esc(tag)}</div>
-    <div class="rln"><button type="button" class="tbtn ghost" data-tf="rl:prev" data-rln="-1"${R.cur <= 0 ? " disabled" : ""}>‹ Newer</button><button type="button" class="tbtn ghost" data-tf="rl:next" data-rln="1"${R.cur >= L.length - 1 ? " disabled" : ""}>Older ›</button></div>
-    ${cms ? `<div style="margin-top:8px">${cms}</div>` : ""}</div></div>`;
-  el.innerHTML = `<div class="tapp">${h}</div>`;
-  for (const b of el.querySelectorAll("[data-rln]")) b.addEventListener("click", () => R.go(+b.dataset.rln));
+  const bh = H - ui.tabsH, bw = Math.min(el.clientWidth || 360, Math.floor(bh * 9 / 16));
+  const cms = rec.cm.slice(0, 2).map(([pid, t]) => { const c = Hh.who(pid); return `<div class="gcm"><b>${esc(c ? c.first : "?")}</b> ${esc(t)}</div>`; }).join("");
+  el.innerHTML = `<div class="gcol" style="height:${H}px">${ui.tabs}<div class="rlbox" style="height:${bh}px"><button type="button" class="rlv" data-tf="rl:v" data-rlv="1" style="width:${bw}px;height:${bh}px" aria-label="Reel ${R.cur + 1} of ${L.length}"><canvas id="rlCv" width="${D[0]}" height="${D[1]}"></canvas>
+    <span class="rlc">${R.cur + 1} / ${L.length}</span><span class="rlland">${esc(R.landName(rec.rg))}</span>
+    <div class="rlov rlt"><div class="gph">${ui.avatar(p)}<div class="gwho"><b>${esc(handle)}<i class="gchip">${esc(ty.chip)}</i></b><span>${esc(rec.place || "")} · ${ui.ago(rec.t)}</span></div></div></div>
+    <div class="rlov rlb"><div class="gcap">${esc(rec.cap)}</div><div class="gmeta">${rec.lk || 0} likes${rec.cm.length ? " · " + rec.cm.length + " comment" + (rec.cm.length > 1 ? "s" : "") : ""}</div>${cms}</div></button></div></div>`;
   const v = el.querySelector(".rlv"); if (v) {
     let y0 = null, x0 = 0; v.addEventListener("pointerdown", e => { y0 = e.clientY; x0 = e.clientX; });
     v.addEventListener("pointerup", e => { if (y0 === null) return; const dy = e.clientY - y0, dx = e.clientX - x0; y0 = null; if (Math.abs(dy) > 36 && Math.abs(dy) > Math.abs(dx) * 1.2) R.go(dy < 0 ? 1 : -1); });
@@ -393,10 +393,9 @@ function renderTab(el, ui) {
   const s = S(); if (s) rec.sn = 1;
 }
 R.renderTab = renderTab;
-R.css = `#tabS .rlw{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start}#tabS .rlv{position:relative;display:block;padding:0;border:2px solid var(--rule);border-radius:14px;background:#06101a;cursor:pointer;touch-action:none;overflow:hidden;height:min(440px,62vh);aspect-ratio:9/16}#tabS .rlv.tfoc{border-color:var(--bandline)}
-#tabS .rlv canvas{display:block;width:100%;height:100%;object-fit:cover}#tabS .rlc{position:absolute;right:8px;top:8px;font-size:11px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.55);color:#dfe9f2}
-#tabS .rli{min-width:0}#tabS .rli .gcap{font-size:15px}#tabS .rltag{margin:8px 0 6px;font-size:11px;letter-spacing:.05em;color:var(--frost2);text-transform:uppercase}#tabS .rln{display:flex;gap:8px;margin-top:8px}#tabS .rln .tbtn{flex:1}
-@media (max-width:760px){#tabS .rlw{grid-template-columns:1fr;justify-items:center}}`;
+R.css = `#tabS .rlbox{display:flex;justify-content:center;background:#04080e}#tabS .rlv{position:relative;display:block;padding:0;border:0;background:#06101a;cursor:pointer;touch-action:none;overflow:hidden}#tabS .rlv.tfoc{outline:2px solid var(--bandline);outline-offset:-2px}
+#tabS .rlv canvas{display:block;width:100%;height:100%;object-fit:cover}#tabS .rlc{position:absolute;right:8px;top:8px;font-size:11px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.55);color:#dfe9f2}#tabS .rlland{position:absolute;right:8px;top:30px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:rgba(20,60,90,.7);color:#bfe2ff}
+#tabS .rlov{position:absolute;left:0;right:0;text-align:left;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}#tabS .rlt{top:0;padding:8px 10px 24px;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0))}#tabS .rlb{bottom:0;padding:26px 10px 10px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.7))}#tabS .rlb .gcap{font-size:13px;line-height:1.3}#tabS .rlb .gmeta,#tabS .rlb .gcm{font-size:11px;opacity:.9}#tabS .rlov .gwho span{color:#d8e6f2}`;
 // keyboard, d-pad and the right stick all arrive as TABLET.move(dx, dy): on the reel, up and down are previous and next; anywhere else the tablet moves its cursor as always
 function hookMove() {
   const TB = A.TABLET; if (TB.__reelMove) return; const mv = TB.move; TB.__reelMove = true;

@@ -1,330 +1,168 @@
-// Goal G7 slice H2a: Gram (tlx-gram.js): the feed with real renders of the real place, the ambient generator, the bus posts and the Local chat. Asserts, exit 1 on a failure.
-//   A  bus posts arrive from several systems when their events are forced (a groom contract, a bog, a crash, a wildlife sighting, the calendar's first light, the ferry,
-//      a storm, a road), and the post is made in one line without changing what happens
-//   B  the ambient generator over 3 simulated days: >= 6 subjects, >= 15 people, >= 4 villages, nobody twice in an hour, no caption repeated within 20 posts
-//   C  commenters are relatives or neighbours of the poster more often than not (family first)
-//   D  every post's recipe: camera above the ground, on land or the quay, inside the map, aimed at its subject (the subject projects into the frame)
-//   E  a real render is non-blank and differs between two recipes; the main view (camera, fog, sun, sky, pixel ratio, viewport, target) is identical after it; render cost
-//   F  renders run only with the tablet on the Feed, a healthy frame rate and a calm ride
-//   G  Local: the current village's events and the peninsula-wide ones only, switching with the player, a reply gets an answer; a player-caused event names the player in feed and chat
-//   H  reload keeps posts, chat and seen; an old save (no x.sys.gram) loads; junk state does not throw
-//   I  the app's text and scrolling under keyboard, pad and touch
-//   J  the low preset draws the painted fallback
-// Stills (OUT, skip with NOSTILLS=1): the feed with real pictures (a view, a storm, a skier on the trail, a reindeer), an opened post, Local in two villages.
-import { boot, ev, raw, sleep, done, reload, shot, down, up, padSet, send } from "../lib.mjs";
+// Goal G7 slice H2R-a: Gram remade (tlx-gram.js director and posts, tlx-gramkinds.js / tlx-gramk-*.js the moment table, tlx-gramui.js the app, tlx-reels.js the Reels tab). Asserts, exit 1 on a failure.
+//   F  a new game has two days of posts already there
+//   A  the moment table: >= 24 kinds, all seven families, >= 8 caption lines per kind, no "not yet / a still for now / wish" anywhere
+//   B  the director over 3 days: posts per day, villages, no caption twice; Local is the whole land (one feed keyed by region): the same posts wherever the player stands; another region's post is in Reels, not in Local
+//   C  witnessed-first: a skier on a kept trail and the plow pin real moments
+//   D  light and composition: a murky or empty shot is rejected; the main view is byte-identical after shots; nothing renders with the tablet closed or on Reels
+//   E  the Local UI: one post per screen, 4:5 picture, header with place, likes, caption, comments sheet; keyboard, pad and touch scroll and open comments; prompts through btn()
+//   F2 reload keeps posts and seen; old, first-build and junk saves load
+//   G  the low preset paints per kind
+// Stills (OUT, skip with NOSTILLS=1): the first screen of Local and the comments sheet.
+import { boot, ev, raw, sleep, done, reload, shot, tap, padSet, send } from "../lib.mjs";
+import fs from "node:fs";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const NOSTILLS = !!process.env.NOSTILLS;
+const settle = async () => { for (let i = 0; i < 160 && (await J(`!!TLXGR.bl`)); i++) await sleep(250); };
 const section = async (n, f) => { console.log("--- " + n); try { await f(); } catch (e) { ok(false, n + " threw: " + String(e.message).slice(0, 600)); } };
 const SETUP = `tutSkip(); crashCancel(); FOOT.on = false; TLX.monday = () => { }; TLX.setOn("police", false); TLX.setOn("traffic", false); true`;
-
+const OPEN = `FOOT.on = true; TLXGR.fpsOk = true; TLX.api.TABLET.toggle(true, "gram"); true`;
+const QUIET = `(() => { const T = TLX.api.TABLET; for (const n of T.notes.slice()) n.dismiss(); return 1; })()`;
+const snap = `(() => { const r = renderer, f = scene.fog, v = new THREE.Vector4(), sz = new THREE.Vector2(); r.getViewport(v); r.getSize(sz); return JSON.stringify({ cp: camera.position.toArray(), cq: camera.quaternion.toArray(), fov: camera.fov, asp: camera.aspect, fog: [f.color.r, f.color.g, f.color.b, f.density], sunI: sun.intensity, sunC: sun.color.toArray(), sunP: sun.position.toArray(), sunT: sun.target.position.toArray(), sunDir: sunDir.toArray(), hemi: [hemi.intensity, hemi.color.r, hemi.color.g, hemi.color.b], exp: r.toneMappingExposure, pr: r.getPixelRatio(), size: [sz.x, sz.y], vp: v.toArray(), sc: r.getScissorTest(), rt: r.getRenderTarget() === null, hour: GS.hour, storm: GS.storm, sky: sky.position.toArray(), uSun: sky.material.uniforms.uSun.value.toArray(), uAur: sky.material.uniforms.uAurora.value, uStorm: sky.material.uniforms.uStorm.value, stars: stars.material.uniforms.uOp.value, starP: stars.position.toArray(), sm: [sun.shadow.mapSize.x, r.shadowMap.enabled, sun.castShadow], cv: [r.domElement.width, r.domElement.height] }); })()`;
 await boot(); await ev(SETUP); await sleep(1500);
-await ev(`window.__gv = () => TLXGR.posts(); window.__vil = id => TLXN.village(id); true`);
 ok(await J(`TLXGR.ready && !TLXGR.err`), "Gram is ready: " + (await ev(`TLXGR.err`)));
-ok(await J(`!!TLX.api.TABLET.byId.gram && !TLX.api.TABLET.byId.gram.hidden()`), "the app is installed (free, preinstalled like the Løyper app)");
-ok((await J(`TLXGR.posts().length`)) >= 5, "a first run fills the feed from the morning's ambient posts: " + (await J(`TLXGR.posts().length`)));
+ok(await J(`!!TLX.api.TABLET.byId.gram && !TLX.api.TABLET.byId.gram.hidden()`), "the app is installed");
 
-/* ---------------- A the bus ---------------- */
-await section("A bus posts from the game's systems", async () => {
-  const sys = new Set(), seen = () => J(`TLXN.all().map(p => (p.data && p.data.sys) || p.kind)`);
-  await ev(`window.__b0 = TLXN.all().length; true`);
-  // a groom contract finished
-  const g = await J(`(() => { const site = TLX.api.world.SITES.find(s => s.id === "strandbu") || TLX.api.world.SITES[2]; GS.groomJob = { dest: site, pts: [{ done: true }, { done: true }, { done: true }], pay: 100 }; try { finishGroom(site); } catch (e) { return String(e); } return TLXN.all().filter(p => p.data && p.data.sys === "groomjob").length; })()`);
-  ok(g === 1, "a finished grooming contract posts to the bus (groomjob): " + g);
-  await ev(`enterBog(0.5); freeBog && freeBog(); true`);
-  ok((await J(`TLXN.all().some(p => p.data && p.data.sys === "bog")`)), "bogging posts (bog)");
-  const cr = await J(`(() => { crashCancel(); FOOT.on = false; P.x = P.x; const r = crashEject("hard", 0, 0, 22, null); const posted = TLXN.all().some(p => p.data && p.data.sys === "crash"); crashCancel(); return { r, posted }; })()`);
-  ok(cr.posted || cr.r === false, "a hard crash posts (crash) " + JSON.stringify(cr));
-  // a wildlife sighting by a village
-  const w = await J(`(() => { const v = TLXN.village("mehamn"); P.x = v.x; P.z = v.z + 20; FOOT.on = false; recenter(P.x, P.z, true); for (let k = 0; k < 80 && !TLXN.all().some(p => p.data && p.data.sys === "wild"); k++) { WILD.groups.length = 0; WILD.newsH = undefined; wildSpawn(P.x, P.z); } return TLXN.all().some(p => p.data && p.data.sys === "wild"); })()`);
-  ok(w, "a wildlife group spawning by a village posts (wild)");
-  // the calendar: the first day of the polar night
-  const pn = await J(`(() => { let H = 0; for (let d = 1; d < 120; d++) if (CAL.isPolarNight(d * 24 + 12) && !CAL.isPolarNight((d - 1) * 24 + 12)) { H = d * 24; break; } return H; })()`);
-  if (pn > 0) {
-    await ev(`GS.hour = ${pn - 0.03}; true`); let cal = false; for (let i = 0; i < 24 && !cal; i++) { await sleep(500); cal = await J(`TLXN.all().some(p => p.data && p.data.sys === "calendar")`); }
-    ok(cal, "the polar night's first day posts (calendar)");
-  } else ok(false, "found the polar night in the calendar");
-  // a storm starts and ends (the watcher: there is no single call to hook)
-  await ev(`GS.hour = 130; GS.storm = 0.8; TLXGR.watch(130); true`);
-  ok(await J(`TLXN.all().some(p => p.data && p.data.sys === "weather" && p.data.what === "start")`), "a storm starting posts (weather)");
-  await ev(`GS.storm = 0.05; TLXGR.watch(133); true`);
-  const se = await J(`TLXN.all().filter(p => p.data && p.data.sys === "weather" && p.data.what === "end")[0] || null`);
-  ok(!!se && /m\/s/.test(se.text) && /cm/.test(se.text), "and ending posts its peak wind and snowfall: " + (se && se.text));
-  // a road shut and open again
-  const rd = await J(`(() => { const r = TLXR.routes.find(q => !q.closed); TLXGR.watch(134); TLXR.setSnow(r.id, 1); TLXGR.watch(135); const a = TLXN.all().filter(p => p.data && p.data.sys === "roads" && p.data.what === "shut").length; TLXR.setSnow(r.id, 0); TLXGR.watch(136); const b = TLXN.all().filter(p => p.data && p.data.sys === "roads" && p.data.what === "open").length; return { a, b, st: TLXR.status(r.id) }; })()`);
-  ok(rd.a >= 1 && rd.b >= 1, "a road shutting and opening posts (roads): " + JSON.stringify(rd));
-  // the ferry's notice
-  const fe = await J(`(() => { WX.force = { v: 1, until: 1e9 }; let c = null; for (let h = 140; h < 200 && !c; h += 1) { const l = steamerCalls(h, h + 6, true).filter(q => q.state !== "on time" && !q.told); if (l.length) c = l[0]; } if (!c) return null; GS.hour = c.sArr - 3; return { sArr: c.sArr, state: c.state }; })()`);
-  if (fe) { await sleep(3000); ok(await J(`TLXN.all().some(p => p.data && p.data.sys === "ferry")`), "a cancelled or late ferry posts (ferry): " + JSON.stringify(fe)); } else ok(false, "the forced storm cancels or delays a ferry call");
-  await ev(`WX.force = null; true`);
-  const kinds = new Set(await J(`TLXN.all().slice(window.__b0).map(p => (p.data && p.data.sys) || p.kind)`));
-  console.log("   bus systems posting now:", [...kinds].join(", "));
-  ok(kinds.size >= 5, `bus posts from at least 5 different systems (${kinds.size})`);
-  // all of them arrived in Gram as chat lines too
-  ok((await J(`Object.values(TLX.state("gram").chat).flat().length`)) >= 10, "and as chat lines in the villages");
+await section("F new game", async () => {
+  for (let i = 0; i < 120 && (await J(`!!TLXGR.bl`)); i++) await sleep(250);
+  ok(!(await J(`!!TLXGR.bl`)) && (await J(`TLXGR.backlogMs`)) > 0, "the two days of posts are made a few hours per frame, not in one block (" + (await J(`TLXGR.backlogMs`)) + " ms of work in all)");
+  const b = await J(`(() => { const ps = TLXGR.localPosts(); return { n: ps.length, span: Math.max(...ps.map(p => p.t)) - Math.min(...ps.map(p => p.t)) }; })()`);
+  ok(b.n >= 40 && b.span >= 30, `a new game starts with two days of posts already there (${b.n} posts over ${b.span.toFixed(0)} h)`);
+  ok(await J(`TLXGR.localPosts().every(p => p.rg === TLX.region() && p.k && (p.k.startsWith("txt:") || p.rc))`), "every post carries its region, and every picture post its recipe");
 });
 
-/* ---------------- B the ambient generator ---------------- */
-await ev(`GS.hour = 200.3; WX.force = null; true`);
-let gen = [];
-await section("B ambient generator, 3 simulated days", async () => {
-  await ev(`TLXGR.genLog.length = 0; true`);
-  const storms = [10, 11, 12, 13, 14, 15, 36, 37, 38];                                      // a few stormy hours so the weather subjects can come up
-  for (let h = 0; h < 72; h++) {
-    await ev(`(() => { const H = 200 + ${h}; WX.force = ${JSON.stringify(storms)}.includes(${h}) ? { v: 1, until: H + 1 } : null; TLXGR.genHour(H + 0.4); return 1; })()`);
-  }
-  await ev(`WX.force = null; true`);
-  gen = await J(`TLXGR.genLog.slice()`);
-  const amb = gen.filter(g => g.ev === 0);
-  const subj = new Set(amb.map(g => g.sj)), ppl = new Set(amb.map(g => g.who)), vil = new Set(amb.map(g => g.vid));
-  console.log("   ambient posts", amb.length, "subjects", [...subj].join(","), "people", ppl.size, "villages", [...vil].join(","));
-  ok(subj.size >= 6, `at least 6 different subjects (${subj.size})`);
-  ok(ppl.size >= 15, `at least 15 different people (${ppl.size})`);
-  ok(vil.size >= 4, `at least 4 villages (${vil.size})`);
-  const last = {}; let twice = 0; for (const g of amb) { if (last[g.who] !== undefined && g.t - last[g.who] < 1) twice++; last[g.who] = g.t; }
-  ok(twice === 0, `no person posts twice within an hour (${twice} cases)`);
-  let rep = 0; for (let i = 0; i < gen.length; i++) for (let j = Math.max(0, i - 20); j < i; j++) if (gen[j].cap === gen[i].cap) { rep++; break; }
-  ok(rep === 0, `no caption repeats within 20 posts (${rep} repeats)`);
-  const wish = amb.filter(g => /^wish|reindeerlens/.test(g.sj)); ok(wish.length >= 1, `the wished-for things show up as honest stills (${wish.length}, e.g. ` + (wish[0] ? wish[0].cap.slice(0, 80) : "none") + ")");
-  ok((await J(`TLXGR.posts().length`)) <= 120, "the feed is capped at 120 posts: " + (await J(`TLXGR.posts().length`)));
+await section("A the moment table", async () => {
+  const t = await J(`(() => { const ks = TLXGK.kinds, fam = new Set(Object.values(ks).map(r => r.fam)); return { n: Object.keys(ks).length, fams: [...fam], poor: Object.entries(ks).filter(([k, r]) => !(r.cap && r.cap.length >= 8)).map(([k]) => k), noCm: Object.entries(ks).filter(([k, r]) => !r.cm || !r.cm.nb || !r.cm.nb.length).map(([k]) => k), plans: Object.values(ks).every(r => typeof r.plan === "function" && typeof r.anchor === "function") }; })()`);
+  ok(t.n >= 24, `at least 24 photo kinds (${t.n})`); ok(["people", "action", "animals", "sea", "weather", "cosy", "funny"].every(f => t.fams.includes(f)), "all seven families: " + t.fams.join(","));
+  ok(t.poor.length === 0, "at least 8 caption lines per kind" + (t.poor.length ? ": " + t.poor : "")); ok(t.noCm.length === 0, "every kind has neighbour comments" + (t.noCm.length ? ": " + t.noCm : ""));
+  ok(t.plans, "every kind carries a plan (still and clip) and an anchor");
+  const src = ["tlx-gram.js", "tlx-gramkinds.js", "tlx-gramk-a.js", "tlx-gramk-b.js", "tlx-gramk-c.js", "tlx-gramui.js"].map(f => fs.readFileSync(new URL("../../../" + f, import.meta.url), "utf8")).join("\n");
+  ok(!/not yet|a still for now|a still: not in the game|wish:/i.test(src), "no 'not yet / a still for now / wish' posts anywhere in the gram sources");
+  await ev(`TLXGR.forceW = true; TLXGR.noText = true; true`);
+  const r = await J(`(() => { const vs = TLXN.villages().map(v => v.id), made = [], fail = []; let n = 0; for (const k of Object.keys(TLXGK.kinds)) { let got = null; for (let tr = 0; tr < 6 && !got; tr++) { const t = Math.floor(GS.hour / 24) * 24 + [10.5, 12.2, 13.5, 15.4][tr % 4]; try { got = TLXGR.makeOne(t, vs[(tr + n) % vs.length], { only: k }); } catch (e) { fail.push(k + ":" + e); } } n++; if (got) made.push(k); else fail.push(k); } return { made, fail }; })()`);
+  console.log("   made " + r.made.length + " of the table; not at this date/place: " + r.fail.join(","));
+  ok(r.made.length >= 18, `the director stages at least 18 kinds on a forced run (${r.made.length})`);
+  const bad = await J(`TLXGR.genLog.filter(g => g.cap && (g.cap.length < 12 || /\\{[a-z0-9]+\\}/.test(g.cap))).map(g => g.k + ": " + g.cap)`); ok(bad.length === 0, "no caption has an unfilled {slot}: " + bad.slice(0, 3));
+  await ev(`TLXGR.forceW = false; TLXGR.noText = false; true`);
 });
 
-/* ---------------- C comments ---------------- */
-await section("C comments", async () => {
-  const r = await J(`(() => { let fam = 0, nb = 0, other = 0, n = 0, famFirst = 0, withFam = 0; for (const p of TLXGR.posts()) { const a = TLXN.person(p.who); if (!a) continue; const hasFam = TLXN.family(a).some(q => q.id !== a.id); for (const [cid] of p.cm) { const c = TLXN.person(cid); if (!c) continue; n++; if (c.home === a.home) fam++; else if (c.vid === a.vid) nb++; else other++; } if (hasFam && p.cm.length) { withFam++; } } return { n, fam, nb, other, withFam }; })()`);
-  console.log("   comments", JSON.stringify(r));
-  ok(r.n >= 30, `plenty of comments to judge from (${r.n})`);
-  ok((r.fam + r.nb) / r.n > 0.5 && r.other === 0, `commenters are relatives or neighbours (${r.fam} family, ${r.nb} neighbours, ${r.other} others)`);
-  ok(r.fam / r.n >= 0.3, `family comments come first often (${Math.round(100 * r.fam / r.n)}% of comments)`);
-  const kin = await J(`(() => { for (const p of TLXGR.posts()) { const a = TLXN.person(p.who); if (!a) continue; for (const [cid, t] of p.cm) { const c = TLXN.person(cid); if (c && c.home === a.home && TLXGR.kinWord(c, a)) return { t, k: TLXGR.kinWord(c, a), c: c.role, a: a.role }; } } return null; })()`);
-  ok(!!kin, "a relative's comment names the relation (\"" + (kin ? kin.t + "\" from the " + kin.c + " to the " + kin.a : "none") + ")");
+await section("B director over 3 days, Local is the land", async () => {
+  const h0 = 40 * 24 + 5.4; await ev(`TLXGR.hold = true; GS.hour = ${h0}; true`);
+  for (let h = 0; h < 72; h++) { await ev(`(() => { const H = ${h0} + ${h}; WX.force = ${h % 29 === 7 || h % 29 === 8} ? { v: 1, until: H + 1 } : null; GS.hour = H; TLXGR.genHour(H + 0.4); return 1; })()`); if (h % 8 === 0) await sleep(40); }
+  await ev(`WX.force = null; TLXGR.hold = false; GS.hour = ${h0 + 71.5}; true`);
+  const per = await J(`(() => { const o = {}; for (const p of TLXGR.localPosts()) { const d = Math.floor(p.t / 24); if (d >= 40 && d < 43) o[d] = (o[d] || 0) + 1; } return Object.values(o); })()`);
+  ok(per.slice(0, 3).every(n => n >= 20 && n <= 60), `about 30-40 Local posts a game day for the land: ${JSON.stringify(per)}`);
+  const L = await J(`TLXGRUI.list().slice(0, 30).map(p => ({ id: p.id, v: p.vid, k: p.k, cap: p.cap, place: p.place }))`);
+  ok(new Set(L.map(p => p.v)).size >= 5, `Local holds posts from at least 5 villages in 30: ${new Set(L.map(p => p.v)).size}`);
+  ok(L.every(p => p.place), "every post names its place for the header"); ok(new Set(L.map(p => p.cap)).size === L.length, "no caption twice in 30");
+  let rep = 0; for (let i = 0; i < L.length; i++) for (let j = Math.max(0, i - 5); j < i; j++) if (L[j].k === L[i].k) rep++; ok(rep === 0, `no kind within 5 in the feed order (${rep})`);
+  // one synchronous read at both villages with the director frozen: the only thing that may differ is the player's position
+  const both = await J(`(() => { TLXGR.hold = true; const out = []; for (const v of ["mehamn", "kjollefjord"]) { const k = TLXN.village(v); P.x = FOOT.x = k.x; P.z = FOOT.z = k.z; recenter(P.x, P.z, true); out.push(TLXGR.localPosts().map(p => p.id).sort((a, b) => a - b).join(",")); } TLXGR.hold = false; return out; })()`);
+  const ids1 = both[0], ids2 = both[1];
+  ok(ids1 === ids2 && ids1.length > 100, "Local's content does not change when the player moves from one village to another");
+  const ms = await J(`(() => { const a = TLXGR.localPosts().length, rl = TLXRL.list().length; TLXGR.addPost({ k: "txt:news", who: null, t: GS.hour, vid: "mehamn", place: "Nuuk", cap: "A post from another land", rg: "greenland", tx: { h: 200, i: "x" } }); const s = TLX.state("gram"); s.reels.seq++; s.reels.list.push({ id: s.reels.seq, t: GS.hour, who: null, vid: null, place: "Nuuk", ty: "sea", sd: 1, rg: "greenland", x: 0, z: 0, a: 0, h: 12, s: 0, cap: "A reel from another land", cm: [], lk: 3, sn: 0 }); return { local: TLXGR.localPosts().length - a, inLocal: TLXGR.localPosts().some(p => p.rg === "greenland"), inUi: TLXGRUI.list().some(p => p.rg === "greenland"), reels: TLXRL.list().length - rl, inReels: TLXRL.list().some(r => r.rg === "greenland"), land: TLXRL.landName("greenland") }; })()`);
+  ok(ms.local <= 0 && !ms.inLocal && !ms.inUi, "a post planted with another region id is not in Local");
+  ok(ms.reels === 1 && ms.inReels, `and a reel with another region id shows in Reels (the land shown: ${ms.land})`);
+  await ev(`(() => { const s = TLX.state("gram"); s.posts = s.posts.filter(p => p.rg !== "greenland"); s.reels.list = s.reels.list.filter(r => r.rg !== "greenland"); return 1; })()`);
 });
 
-/* ---------------- D recipes ---------------- */
-await section("D recipes", async () => {
-  const bad = await J(`(() => { const out = []; const T3 = TLX.api.THREE, W = TLX.api.world; for (const p of TLXGR.posts()) { const rc = p.rc; const why = [];
-    if (!(rc.c[2] >= 0.3 && rc.c[2] < 400)) why.push("camera height " + rc.c[2]);
-    if (!(Math.abs(rc.c[0]) < W.half && Math.abs(rc.c[1]) < W.half)) why.push("outside the map");
-    if (!rc.q && !rc.pt && (W.isSea(rc.c[0], rc.c[1]) || W.isWater(rc.c[0], rc.c[1]))) why.push("camera on water");
-    if (!rc.pt) { const cam = TLXGR.shotCam(rc, 384, 480), v = new T3.Vector3(), tgt = rc.p && rc.p.length ? [rc.p[0][1], rc.p[0][2]] : [rc.a[0], rc.a[1]], y = W.surf(tgt[0], tgt[1]) + (rc.p && rc.p.length ? 1.0 : rc.a[2]); v.set(tgt[0], y, tgt[1]).project(cam); if (!(Math.abs(v.x) < 1 && Math.abs(v.y) < 1 && v.z < 1)) why.push("subject out of frame " + v.x.toFixed(2) + "," + v.y.toFixed(2)); }
-    if (!(rc.f >= 30 && rc.f <= 90) || !Number.isFinite(rc.h) || !(rc.s >= 0 && rc.s <= 1)) why.push("lens/hour/storm");
-    if (!p.cap || !p.place) why.push("no caption or place");
-    if (why.length) out.push([p.id, p.sj, why.join("; ")]); } return out; })()`);
-  ok(bad.length === 0, `every feed post has a recipe with a camera above ground, on land (or the quay), aimed at its subject (${bad.length} bad${bad.length ? ": " + JSON.stringify(bad.slice(0, 4)) : ""})`);
-  ok(await J(`TLXGR.posts().every(p => !p.pix && JSON.stringify(p).length < 1200)`), "posts store recipes and text, never pixels (each under 1.2 kB)");
-  const subj = await J(`[...new Set(TLXGR.posts().map(p => p.sj))]`); console.log("   subjects in the feed:", subj.join(", "));
+await section("C witnessed first", async () => {
+  const sk = await J(`(() => { const X = window.TLXSK; if (!X || !X.ready) return { err: "no trails" }; const per = TLXN.peopleIn("mehamn").find(q => q.age > 16 && q.age < 70), tr = X.list[0], sv = X.skiers; X.skiers = () => [{ p: per.id, trail: tr.id, x: tr.pts[3][0], z: tr.pts[3][1] }]; const s = TLX.state("gram"); delete s.pinT.skier; const n0 = TLXGR.posts().length; try { TLXGR.pinnedHour(GS.hour); } finally { X.skiers = sv; } const p = TLXGR.posts().find((q, i) => i >= 0 && q.pin === "skier" && q.id > TLX.state("gram").seq - 5); return p ? { k: p.k, who: p.rc.w[0] === per.id, x: Math.abs(p.rc.x - tr.pts[3][0]) < 1 } : { none: 1 }; })()`);
+  ok(sk.k === "trailskier" && sk.who && sk.x, "a skier on a kept trail is pinned: the post is of that skier at that spot " + JSON.stringify(sk));
+  const pl = await J(`(() => { const s0 = TLX.state("gram").seq; TLXN.post({ kind: "road", who: null, x: P.x + 30, z: P.z + 30, place: "Kjøllefjord", text: "The road was plowed", data: { sys: "plow", what: "plowed" } }); const p = TLXGR.posts().find(q => q.id > s0 && q.k === "plowwall"); return p ? { pin: p.pin, x: p.rc.x === Math.round((P.x + 30) * 10) / 10 } : { none: 1 }; })()`);
+  ok(pl.pin && pl.x, "the plow's real position is pinned: a plowwall post at the event " + JSON.stringify(pl));
 });
 
-/* ---------------- E a real render ---------------- */
-await section("E real render", async () => {
-  const picks = await J(`(() => { const ps = TLXGR.posts().filter(p => !p.rc.pt); const a = ps.find(p => p.sj === "peak") || ps[0], b = ps.find(p => p.sj !== a.sj && p.rc.h !== a.rc.h) || ps[1]; return [a.id, b.id]; })()`);
-  const stat = id => `(() => { const e = TLXGR.makePic(TLXGR.posts().find(p => p.id === ${id})); const g = e.cv.getContext("2d"), d = g.getImageData(0, 0, e.w, e.h).data; let s = 0, s2 = 0, n = 0; for (let i = 0; i < d.length; i += 40) { const l = (d[i] + d[i + 1] + d[i + 2]) / 3; s += l; s2 += l * l; n++; } const m = s / n; return { real: e.real, w: e.w, h: e.h, mean: m, sd: Math.sqrt(Math.max(0, s2 / n - m * m)), data: Array.from(d.filter((v, i) => i % 400 === 0)) }; })()`;
-  // the main view before and after
-  const snap = `(() => { const r = renderer, f = scene.fog, v = new THREE.Vector4(), sz = new THREE.Vector2(); r.getViewport(v); r.getSize(sz); return JSON.stringify({ cp: camera.position.toArray(), cq: camera.quaternion.toArray(), fov: camera.fov, asp: camera.aspect, fog: [f.color.r, f.color.g, f.color.b, f.density], sunI: sun.intensity, sunC: sun.color.toArray(), sunP: sun.position.toArray(), sunT: sun.target.position.toArray(), sunDir: sunDir.toArray(), hemi: [hemi.intensity, hemi.color.r, hemi.color.g, hemi.color.b], exp: r.toneMappingExposure, pr: r.getPixelRatio(), size: [sz.x, sz.y], vp: v.toArray(), sc: r.getScissorTest(), rt: r.getRenderTarget() === null, hour: GS.hour, storm: GS.storm, sky: sky.position.toArray(), uSun: sky.material.uniforms.uSun.value.toArray(), uAur: sky.material.uniforms.uAurora.value, uStorm: sky.material.uniforms.uStorm.value, stars: stars.material.uniforms.uOp.value, starP: stars.position.toArray(), sm: [sun.shadow.mapSize.x, r.shadowMap.enabled, sun.castShadow], cv: [r.domElement.width, r.domElement.height] }); })()`;
+await section("D light and composition", async () => {
+  const r = await J(`(() => { const E = TLXRL.E; E.prepare({}); E.marks = [[1e5, 0, 1e5], [1e5, 2, 1e5]]; E.faces = []; E.needH = 0.25; const bad = TLXGR.compose(E, { open: true }); const cv = document.createElement("canvas"); cv.width = 72; cv.height = 90; const g = cv.getContext("2d"); g.fillStyle = "#06080c"; g.fillRect(0, 0, 72, 90); E.marks = [[0, 0, 0]]; const m = TLXGR.measure(cv, E); return { composeOk: bad.ok, why: bad.why, sub: m.sub, contrast: m.contrast, floor: TLXGR.FLOOR }; })()`);
+  ok(!r.composeOk, "a shot whose subject is out of the frame is rejected: " + r.why.join("; "));
+  ok(r.sub < r.floor.sub && r.contrast < r.floor.contrast, `a black picture is under the luminance and contrast floors (sub ${r.sub.toFixed(0)}/${r.floor.sub}, contrast ${r.contrast.toFixed(0)}/${r.floor.contrast})`);
+  const f = await J(`TLXGR.framing`); ok(f.rejected > 0 && f.ok > 5, `composition rejected ${f.rejected} of ${f.tries} staged shots and accepted ${f.ok}; light dropped ${await J("TLXGR.dropped.length")}, re-lit ${await J("TLXGR.relit")}`);
   await ev(`TLXGR.fpsOk = false; true`);
-  const h0 = await J(`GS.hour`); for (let i = 0; i < 60 && (await J(`GS.hour`)) < h0 + 0.01; i++) await sleep(300);   // let the main loop run a frame so its own sky state is current
-  const both = JSON.parse(await ev(`(() => { const snapF = ${snap.replace(/^\(\(\) => /, "(() => ").replace(/\)\(\)$/, ")")}, S1 = snapF(), A = ${stat(picks[0])}, S2 = snapF(), B = ${stat(picks[1])}, S3 = snapF(); return JSON.stringify({ A, B, S1, S2, S3 }); })()`));
-  const A = both.A, B = both.B, before = both.S1, after1 = both.S2, after2 = both.S3;
-  console.log("   render A", A.real, A.w + "x" + A.h, "mean", A.mean.toFixed(0), "sd", A.sd.toFixed(1), "| B", B.real, "mean", B.mean.toFixed(0), "sd", B.sd.toFixed(1));
-  ok(A.real && B.real, "both pictures are real renders (not the painted fallback)");
-  ok(A.sd > 4 && B.sd > 4 && A.mean > 8 && B.mean > 8, `neither picture is blank or black (sd ${A.sd.toFixed(1)}/${B.sd.toFixed(1)}, mean ${A.mean.toFixed(0)}/${B.mean.toFixed(0)})`);
-  let diff = 0; for (let i = 0; i < Math.min(A.data.length, B.data.length); i++) diff += Math.abs(A.data[i] - B.data[i]); diff /= Math.min(A.data.length, B.data.length);
-  ok(diff > 4, `two different recipes give different pictures (mean pixel difference ${diff.toFixed(1)})`);
-  ok(before === after1 && after1 === after2, "the main view is exactly as it was after the renders (camera, lens, fog, sun, sky, exposure, pixel ratio, viewport, scissor, target, shadows, hour, storm)");
-  if (before !== after1) { const a = JSON.parse(before), b = JSON.parse(after1); for (const k in a) if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) console.log("   differs:", k, JSON.stringify(a[k]), JSON.stringify(b[k])); }
-  const ms = await J(`TLXGR.renderMs.slice()`); const sorted = ms.slice().sort((x, y) => x - y);
-  console.log("   render ms:", JSON.stringify(ms), " cache", await J(`TLXGR.cache.size`));
-  ok(ms.length >= 2, "render cost measured: median " + sorted[Math.floor(sorted.length / 2)] + " ms at " + A.w + "x" + A.h);
-  // a night recipe and a day recipe through the same hour of the main view (a render at another hour must not leave its light behind)
-  const hrs = await J(`(() => { const ps = TLXGR.posts().filter(p => !p.rc.pt); return [...new Set(ps.map(p => Math.round(TLX.api.sunEl(p.rc.h % 24))))].slice(0, 6); })()`);
-  console.log("   sun elevations among the renderable posts:", hrs.join(","));
-  // the cache is capped (LRU)
-  await ev(`(() => { for (const p of TLXGR.posts().filter(p => !p.rc.pt).slice(0, 40)) TLXGR.makePic(p); return 1; })()`);
-  ok((await J(`TLXGR.cache.size`)) <= 24, "the picture cache keeps at most 24 (LRU): " + (await J(`TLXGR.cache.size`)));
+  const h1 = await J(`GS.hour`); for (let i = 0; i < 60 && (await J(`GS.hour`)) < h1 + 0.01; i++) await sleep(300);
+  const both = JSON.parse(await ev(`(() => { const snapF = ${snap.replace(/^\(\(\) => /, "(() => ").replace(/\)\(\)$/, ")")}, S1 = snapF(), ps = TLXGRUI.list().filter(p => !p.k.startsWith("txt:")).slice(0, 3), o = []; for (const p of ps) { const e = TLXGRUI.makePic(p); o.push([e.real, e.w, e.h]); } return JSON.stringify({ S1, S2: snapF(), o }); })()`));
+  const before = both.S1, after = both.S2, e = both.o;
+  ok(e.length === 3 && e.every(x => x[0] && x[1] === 360 && x[2] === 450), "three pictures render for real at 360x450 (4:5)");
+  ok(before === after, "the main view (camera, fog, sun, hemi, exposure, sky, viewport, size) is byte-identical after the shots");
+  if (before !== after) { const a = JSON.parse(before), b = JSON.parse(after); console.log("   differs:", Object.keys(a).filter(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])).join(",")); }
+  await ev(`TLX.api.TABLET.close(true); true`); const n0 = await J(`TLXGR.renders + TLXGR.painted`);
+  await ev(`for (let i = 0; i < 12; i++) TLXGRUI.tick(0.5); true`); await sleep(500);
+  ok((await J(`TLXGR.renders + TLXGR.painted`)) === n0, "nothing renders with the tablet closed");
+  await ev(OPEN); await ev(`TLXGR.setTab("reels"); true`); await sleep(500); const n1 = await J(`TLXGR.renders`);
+  await ev(`for (let i = 0; i < 12; i++) TLXGRUI.tick(0.5); true`); ok((await J(`TLXGR.renders`)) === n1, "nothing from Local renders while the Reels tab is up");
+  await ev(`TLXGR.setTab("local"); TLX.api.TABLET.close(true); true`);
 });
 
-/* ---------------- F when renders run ---------------- */
-await section("F the render queue", async () => {
-  await ev(`FOOT.on = false; TLXGR.fpsOk = true; TLX.api.TABLET.close(true); TLXGR.cache.clear(); true`);
-  const n0 = await J(`TLXGR.renders + TLXGR.painted`); await sleep(2500);
-  ok((await J(`TLXGR.renders + TLXGR.painted`)) === n0, "no render with the tablet closed");
-  await ev(`TLX.api.TABLET.toggle(true, "gram"); TLXGR.setTab("local"); true`); await sleep(2000);
-  ok((await J(`TLXGR.renders + TLXGR.painted`)) === n0, "no render with the tablet on Local");
-  await ev(`TLXGR.fpsOk = false; TLXGR.setTab("feed"); true`); await sleep(2000);
-  ok((await J(`TLXGR.renders + TLXGR.painted`)) === n0, "no render while the frame rate is unhealthy");
-  // a ride-critical moment, asked synchronously (the sled at 25 m/s; a frame in between would let physics change it): renderTick must not draw
-  const fast = await J(`(() => { const n0 = TLXGR.renders + TLXGR.painted, v0 = [P.vx, P.vz]; TLXGR.fpsOk = true; P.vx = 0; P.vz = 25; TLXGR.resetWait(); const a = TLXGR.calm(); TLXGR.renderTick(1); const n1 = TLXGR.renders + TLXGR.painted; P.vx = v0[0]; P.vz = v0[1]; TLXGR.resetWait(); const b = TLXGR.calm(); return { a, b, drew: n1 - n0 }; })()`);
-  ok(fast.a === false && fast.drew === 0 && fast.b === true, "no render at 25 m/s on the sled (a ride-critical moment): calm " + fast.a + ", drew " + fast.drew + "; at rest calm " + fast.b);
-  await ev(`P.vx = 0; P.vz = 0; true`); await sleep(6000);
-  const n1 = await J(`TLXGR.renders + TLXGR.painted`);
-  ok(n1 > n0, `with the tablet on the Feed, a healthy frame rate and a calm ride, pictures are drawn one at a time (${n1 - n0} so far)`);
-  ok(await J(`document.querySelectorAll("#tabV canvas[data-done=real]").length >= 1`), "the feed shows real pictures in its canvases");
-  ok(await J(`document.querySelectorAll("#tabV canvas[data-done=temp]").length >= 0`), "pictures not yet drawn show a painted stand-in");
-  await ev(`TLXGR.fpsOk = null; true`);
-});
-
-/* ---------------- G Local chat ---------------- */
-await section("G Local chat", async () => {
-  await ev(`TLX.api.TABLET.close(true); const k = TLXN.village("kjollefjord"); P.x = k.x + 20; P.z = k.z + 20; FOOT.on = false; true`);
-  ok((await J(`TLXGR.localVid()`)) === "kjollefjord", "standing in Kjøllefjord, Local is Kjøllefjord's");
-  const mark = "Reindeer by the Mehamn harbour wall " + Math.floor(Math.random() * 1e6);
-  await ev(`(() => { const v = TLXN.village("mehamn"); TLXN.post({ kind: "wildlife", x: v.x + 30, z: v.z + 30, text: ${JSON.stringify(mark)}, data: { sys: "wild", what: "seen", kind: "reindeer", n: 5 } }); return 1; })()`);
-  const has = (vid, re) => J(`TLXGR.chat(${JSON.stringify(vid)}).some(m => ${re}.test(m[3]) || m[4] === "wildlife" && m[1] > GS.hour - 0.2)`);
-  const wl = vid => J(`TLXGR.chat(${JSON.stringify(vid)}).filter(m => m[4] === "wildlife" && m[1] > GS.hour - 0.3).length`);
-  ok((await wl("mehamn")) >= 1, "a Mehamn wildlife event is in Mehamn's chat");
-  ok((await wl("kjollefjord")) === 0 && (await wl("ifjord")) === 0 && (await wl("gamvik")) === 0, "and not in Kjøllefjord's, Ifjord's or Gamvik's");
-  await ev(`(() => { TLXN.post({ kind: "storm", x: P.x, z: P.z, place: "Kjøllefjord", text: "A storm is coming in from the north.", data: { sys: "weather", what: "start", peak: 0.7 } }); return 1; })()`);
-  const stm = n => J(`TLXGR.chat(${JSON.stringify(n)}).filter(m => m[4] === "storm" && m[1] > GS.hour - 0.3).length`);
-  ok((await stm("ifjord")) >= 1 && (await stm("mehamn")) >= 1 && (await stm("kjollefjord")) >= 1, "a storm is peninsula-wide: in Ifjord's, Mehamn's and Kjøllefjord's chats");
-  // moving
-  await ev(`const i = TLXN.village("ifjord"); P.x = i.x + 15; P.z = i.z + 15; recenter(P.x, P.z, true); true`);
-  ok((await J(`TLXGR.localVid()`)) === "ifjord", "travelling to Ifjord switches Local to Ifjord's");
-  await ev(`TLX.api.TABLET.toggle(true, "gram"); TLXGR.setTab("local"); true`); await sleep(500);
-  const t1 = await ev(`document.getElementById("tabV").textContent`);
-  ok(/Ifjord/.test(t1) && /\d+ online/.test(t1), "the header shows the village and how many are online: " + (t1.match(/Ifjord[^]{0,40}?\d+ online/) || [""])[0].replace(/\s+/g, " "));
-  ok(!/Mehamn harbour wall/.test(t1), "Ifjord's chat does not show Mehamn's event");
-  await ev(`const k = TLXN.village("kjollefjord"); P.x = k.x + 20; P.z = k.z + 20; recenter(P.x, P.z, true); true`); await sleep(300);
-  // the player's reply
-  const opts = await J(`TLXGR.replies()`); ok(opts.length >= 2 && opts.length <= 3, "2-3 reply lines are offered: " + JSON.stringify(opts));
-  const n0 = await J(`TLXGR.chat("kjollefjord").length`);
-  await ev(`TLXGR.reply(0); true`);
-  const you = await J(`TLXGR.chat("kjollefjord").filter(m => m[2] === "you").length`); ok(you >= 1, "the player's reply is in the chat");
-  await ev(`GS.hour += 0.06; true`); await sleep(1200);
-  const ans = await J(`(() => { const c = TLXGR.chat("kjollefjord"), i = c.map(m => m[2]).lastIndexOf("you"); return i >= 0 && i < c.length - 1 && c.slice(i + 1).some(m => m[2] && m[2] !== "you" && m[5] === c[i][0]); })()`);
-  ok(ans, "someone answers the reply within a game minute or two");
-  // a player-caused event
-  await ev(`TLX.api.TABLET.close(true); (() => { const site = TLX.api.world.SITES.find(s => s.id === "strandbu"); GS.groomJob = { dest: site, pts: [{ done: true }, { done: true }], pay: 100 }; finishGroom(site); })(); true`); await sleep(300);
-  const yp = await J(`TLXGR.posts().filter(p => p.you).slice(-1)[0] || null`);
-  ok(!!yp && /@courier/.test(yp.cap), "a player-caused event is a feed post that names the player: " + (yp && yp.cap));
-  ok(await J(`Object.values(TLX.state("gram").chat).flat().some(m => /@courier/.test(m[3]) && m[1] > GS.hour - 0.3)`), "and a chat line that names the player");
-  await ev(`TLXN.post({ kind: "rescue", who: "you", x: P.x, z: P.z, text: "You brought a stranded rider home on the rescue sled.", data: { sys: "sar", what: "done" } }); true`);
-  ok(await J(`TLXGR.posts().filter(p => p.you && p.sj === "rescue").length >= 1`), "a finished rescue is in the feed naming you");
-  // notifications: at most one a day
-  await ev(`GS.hour += 26; true`);
-  const ns = await J(`(() => { const n0 = TLXGR.notes; for (let i = 0; i < 4; i++) TLXN.post({ kind: "road", who: "you", x: P.x, z: P.z, place: "Kjøllefjord", text: "Road plowed " + i, data: { sys: "plow", what: "plowed" } }); return [n0, TLXGR.notes]; })()`);
-  ok(ns[1] - ns[0] === 1, `exactly one notification for four notable posts in a day (${ns[1] - ns[0]})`);
-  await ev(`TLX.setOn("gramnotes", false); GS.hour += 30; true`);
-  const ns2 = await J(`(() => { const n0 = TLXGR.notes; TLXN.post({ kind: "road", who: "you", x: P.x, z: P.z, place: "Kjøllefjord", text: "Road plowed again", data: { sys: "plow", what: "plowed" } }); return TLXGR.notes - n0; })()`);
-  ok(ns2 === 0, "option gramnotes off: no notification"); await ev(`TLX.setOn("gramnotes", true); true`);
-  // 60 messages a village
-  await ev(`(() => { for (let i = 0; i < 90; i++) TLXGR.chatPost("dyfjord", null, "filler " + i, "x", GS.hour); return 1; })()`);
-  ok((await J(`TLXGR.chat("dyfjord").length`)) === 60, "a village keeps its last 60 messages: " + (await J(`TLXGR.chat("dyfjord").length`)));
-});
-
-/* ---------------- I scrolling and text under the three schemes ---------------- */
-await section("I app text and scrolling under keyboard, pad and touch", async () => {
-  await ev(`TLX.api.TABLET.close(true); FOOT.on = true; TLXGR.fpsOk = false; true`); await sleep(500);
-  await ev(`TLX.api.TABLET.toggle(true, "gram"); TLXGR.setTab("feed"); true`); await sleep(700);
-  const texts = {};
-  for (const [dev, pad] of [["kbm", "xbox"], ["pad", "ps"], ["touch", "xbox"]]) { await ev(`INP.dev = ${JSON.stringify(dev)}; INP.pad = ${JSON.stringify(pad)}; TLX.api.TABLET.refresh("gram"); true`); await sleep(200); texts[dev] = await ev(`document.getElementById("tabV").textContent.replace(/\\s+/g, " ")`); }
-  const nt = s => s.replace(/\d+ (min|h) ago|now|yesterday|\d+ d ago/g, "").length;
-  ok(nt(texts.kbm) === nt(texts.pad) && nt(texts.pad) === nt(texts.touch) && texts.kbm.length > 200, "the app reads the same under keyboard, pad and touch (no key names in its text)");
-  await ev(`INP.dev = "kbm"; true`);
-  const sc0 = await J(`({ top: document.getElementById("tabV").scrollTop, h: document.getElementById("tabV").scrollHeight, ch: document.getElementById("tabV").clientHeight, ov: getComputedStyle(document.getElementById("tabV")).overflowY, ta: getComputedStyle(document.getElementById("tabV")).touchAction })`);
-  ok(sc0.h > sc0.ch + 300 && /auto|scroll/.test(sc0.ov), `the feed is longer than the screen and scrolls (${sc0.h} > ${sc0.ch})`);
-  // keyboard: the arrows walk the focus down the posts and the view follows
-  const f0 = await J(`TLX.api.TABLET.focus`);
-  for (let i = 0; i < 9; i++) { await down("ArrowDown"); await sleep(60); await up("ArrowDown"); await sleep(60); }
-  const k1 = await J(`({ top: document.getElementById("tabV").scrollTop, focus: TLX.api.TABLET.focus })`);
-  ok(k1.top > 100 && k1.focus !== f0 && /^gp:/.test(k1.focus), `keyboard: arrows move down the feed and it scrolls (scrollTop ${Math.round(k1.top)}, focus ${k1.focus})`);
-  // Enter opens the focused post, Escape/Backspace returns
-  await down("Enter"); await sleep(70); await up("Enter"); await sleep(500);
-  ok(await J(`TLXGR.view.post !== null`) && /comment|No comments/.test(await ev(`document.getElementById("tabV").textContent`)), "keyboard: Enter opens the post large with its comments");
-  await down("Escape"); await sleep(70); await up("Escape"); await sleep(400);
-  ok(await J(`TLXGR.view.post === null && TLX.api.TABLET.open`), "keyboard: Escape closes the post and keeps the tablet open (the app's own back)");
-  // pad: the d-pad down and the right stick
-  await ev(`document.getElementById("tabV").scrollTop = 0; TLX.api.TABLET.focus = null; TLX.api.TABLET.render(); true`); await sleep(300);
-  const p0 = await J(`document.getElementById("tabV").scrollTop`);
-  for (let i = 0; i < 8; i++) { await padSet({ 13: 1 }); await sleep(250); await padSet(); await sleep(150); }
-  const p1 = await J(`({ top: document.getElementById("tabV").scrollTop, focus: TLX.api.TABLET.focus })`);
-  ok(p1.top > p0 + 100, `pad: the d-pad scrolls the feed (${Math.round(p0)} -> ${Math.round(p1.top)})`);
-  await ev(`document.getElementById("tabV").scrollTop = 0; TLX.api.TABLET.focus = null; TLX.api.TABLET.render(); true`); await sleep(300);
-  for (let i = 0; i < 8; i++) { await padSet({}, [0, 0, 0, 1]); await sleep(250); await padSet(); await sleep(150); }
-  const p2 = await J(`document.getElementById("tabV").scrollTop`);
-  ok(p2 > 100, `pad: the right stick scrolls the feed (${Math.round(p2)})`);
-  await padSet({ 0: 1 }); await sleep(120); await padSet(); await sleep(500);
-  ok(await J(`TLXGR.view.post !== null`), "pad: A opens the focused post"); await padSet({ 1: 1 }); await sleep(120); await padSet(); await sleep(400);
-  ok(await J(`TLXGR.view.post === null`), "pad: B comes back to the feed");
-  // touch: a real swipe through the browser's touch scrolling
-  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 }); await ev(`INP.dev = "touch"; document.getElementById("tabV").scrollTop = 0; true`); await sleep(300);
-  const rect = await J(`(() => { const r = document.getElementById("tabV").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * 0.7 }; })()`);
-  await send("Input.synthesizeScrollGesture", { x: rect.x, y: rect.y, yDistance: -260, gestureSourceType: "touch", speed: 800 }); await sleep(800);
-  const t1 = await J(`document.getElementById("tabV").scrollTop`);
-  ok(t1 > 60, `touch: a swipe scrolls the feed (${Math.round(t1)}) and the area is pan-y (${sc0.ta})`);
-  await ev(`(() => { const b = document.querySelector("#tabV [data-gt='local']"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); b.click(); return 1; })()`); await sleep(500);
-  ok(await J(`TLXGR.view.tab === "local"`), "touch: the Local tab opens by tap");
-  await send("Emulation.setTouchEmulationEnabled", { enabled: false }); await ev(`INP.dev = "kbm"; FOOT.on = false; TLXGR.setTab("feed"); true`);
-});
-
-/* ---------------- stills ---------------- */
-if (!NOSTILLS) await section("stills", async () => {
-  await ev(`TLX.api.TABLET.close(true); FOOT.on = true; true`);
-  // four subjects through the real recipes: a peak view, a storm, a skier on the trail, a reindeer close up
-  await ev(`(() => { const s = TLX.state("gram"); s.posts = []; WX.force = null; TLXGR.hold = true; TLXGR.always = true; GS.hour = 250.4; return 1; })()`);
-  const mk = await J(`(() => {
-    const out = [], fam = TLXN.people.find(p => p.interests.includes("photos") && p.vid === "kjollefjord") || TLXN.people[0];
-    const k = TLXN.village("kjollefjord"), t = TLXSK.list.find(q => q.id === "lys"), m = t.mid[6];
-    const c = { p: fam, H: 250.4, vil: k, hr: 10.4, dow: 3, int: { photos: 1 }, el: 3, storm: 0, snow: true, kid: false, adult: true, adultKids: false, kidsList: [], household: 3, sami: false, k: 1, coast: null, slope: null, lookout: { L: TLX.api.world.LOOKOUTS[0], d: 800 }, lake: null, sled: true, aur: 0, sinceStorm: false, depth: 0.5 };
-    const rc1 = TLXGR.recipeFor("peak", c); if (rc1) out.push(TLXGR.addPost({ who: fam.id, t: 250.2, vid: "kjollefjord", place: "Finnkirka lookout", sj: "peak", cap: "View from Finnkirka lookout. Not a cloud. Nydelig.", rc: rc1, chip: "VIEW" }).id);
-    return { out, ski: [m.x, m.z] }; })()`);
-  await ev(`(() => {
-    const k = TLXN.village("kjollefjord"), sk = TLXN.people.find(p => p.interests.includes("ski") && p.vid === "kjollefjord");
-    TLXN.post({ kind: "storm", x: k.x, z: k.z, place: "Kjøllefjord", text: "The storm has blown through: gusts to about 28 m/s and 22 cm of new snow.", data: { sys: "weather", what: "end", peak: 0.7, ms: 28, cm: 22 } });
-    TLXN.post({ kind: "ski", who: sk.id, x: ${mk.ski[0]}, z: ${mk.ski[1]}, place: "Lysløypa", text: "8.4 km on Lysløypa. The track was good. I've had worse.", data: { trail: "lys", km: 8.4, word: "good" } });
-    TLXN.post({ kind: "wildlife", x: k.x + 380, z: k.z + 120, place: "Kjøllefjord", text: "A reindeer herd was seen near the village.", data: { sys: "wild", what: "seen", kind: "reindeer", n: 5 } });
-    return 1; })()`);
-  const ps = await J(`TLXGR.posts().map(p => [p.id, p.sj, p.cap.slice(0, 50)])`); console.log("   still posts:", JSON.stringify(ps));
-  await ev(`TLXGR.fpsOk = true; GS.hour = 250.5; TLX.api.TABLET.toggle(true, "gram"); TLXGR.setTab("feed"); true`); await sleep(500);
-  for (let i = 0; i < 80; i++) { await sleep(500); if (await J(`document.querySelectorAll("#tabV canvas[data-done=real]").length >= TLXGR.posts().length`)) break; }
-  await ev(`document.getElementById("tabV").scrollTop = 99999; true`); for (let i = 0; i < 60; i++) { await sleep(500); if (await J(`document.querySelectorAll("#tabV canvas[data-done=real]").length >= TLXGR.posts().length`)) break; } await ev(`document.getElementById("tabV").scrollTop = 0; true`); await sleep(400);
-  console.log("   drawn:", await ev(`[...document.querySelectorAll("#tabV canvas[data-gp]")].map(c => c.dataset.done).join(",")`));
-  await shot("gram_feed_top", 90);
-  await ev(`document.getElementById("tabV").scrollTop = 520; true`); await sleep(1500); await shot("gram_feed_mid", 90);
-  await ev(`document.getElementById("tabV").scrollTop = 0; TLXGR.setTab("feed", TLXGR.posts().slice(-1)[0].id); true`); await sleep(1500); await shot("gram_post_open", 90);
-  // dump the pictures themselves for a closer look
-  const urls = await J(`TLXGR.posts().map(p => { const e = TLXGR.picOf(p.id); return e ? [p.id, p.sj, e.real, e.cv.toDataURL("image/jpeg", 0.9)] : null; }).filter(Boolean)`);
-  const fs = await import("fs"); for (const [id, sj, real, u] of urls) fs.writeFileSync(`${process.env.OUT || "."}/gram_pic_${sj}_${id}_${real ? "real" : "paint"}.jpg`, Buffer.from(u.split(",")[1], "base64"));
-  // Local in two villages
-  await ev(`TLXGR.setTab("local"); true`); await sleep(600); await shot("gram_local_kjollefjord", 90);
-  await ev(`const v = TLXN.village("mehamn"); P.x = FOOT.x = v.x + 20; P.z = FOOT.z = v.z + 20; recenter(P.x, P.z, true); TLXGR.setTab("feed"); TLXGR.setTab("local"); true`); await sleep(800); await shot("gram_local_mehamn", 90);
-  await ev(`TLX.api.TABLET.close(true); FOOT.on = false; TLXGR.fpsOk = null; true`);
-});
-
-/* ---------------- H reload, old saves, junk ---------------- */
-await section("H reload and old saves", async () => {
-  await ev(`TLX.api.TABLET.close(true); const s = TLX.state("gram"); s.seen = (s.posts[s.posts.length - 1] || { id: 0 }).id; save(); true`);
-  const before = await J(`({ n: TLXGR.posts().length, ids: TLXGR.posts().map(p => p.id).join(","), chat: Object.fromEntries(Object.entries(TLX.state("gram").chat).map(([k, v]) => [k, v.length])), seen: TLX.state("gram").seen, cap: TLXGR.posts().slice(-1)[0].cap, rc: JSON.stringify(TLXGR.posts().slice(-1)[0].rc) })`);
-  await reload(); await sleep(1500); await ev(SETUP);
-  const after = await J(`({ n: TLXGR.posts().length, ids: TLXGR.posts().map(p => p.id).join(","), chat: Object.fromEntries(Object.entries(TLX.state("gram").chat).map(([k, v]) => [k, v.length])), seen: TLX.state("gram").seen, cap: TLXGR.posts().slice(-1)[0].cap, rc: JSON.stringify(TLXGR.posts().slice(-1)[0].rc), err: TLXGR.err, ready: TLXGR.ready })`);
-  ok(after.ready && !after.err, "reload: Gram is ready, no error " + after.err);
-  ok(after.ids.startsWith(before.ids) && after.n >= before.n, `reload keeps the posts (${before.n} -> ${after.n}: the clock moved on and made a few more)`);
-  ok(await J(`(() => { const p = TLXGR.posts().find(q => q.id === ${before.ids.split(",").pop()}); return !!p && p.cap === ${JSON.stringify(before.cap)} && JSON.stringify(p.rc) === ${JSON.stringify(before.rc)}; })()`), "and their captions and recipes are the same");
-  ok(Object.keys(before.chat).every(k => after.chat[k] >= Math.min(60, before.chat[k])), "reload keeps every village's chat: " + JSON.stringify(after.chat));
-  ok(after.seen === before.seen && (await J(`TLXGR.unseen()`)) === (await J(`TLXGR.posts().filter(p => p.id > ${before.seen}).length`)), `reload keeps what was seen (seen ${after.seen}; only the posts made since are unseen: ${await J(`TLXGR.unseen()`)})`);
-  // an old save: no x.sys.gram
-  const sv = JSON.parse(await ev(`localStorage.getItem("tracklayer.save.v2")`));
-  if (sv.x && sv.x.sys) delete sv.x.sys.gram;
-  await reload(sv); await sleep(1500); await ev(SETUP);
-  const old = await J(`({ ready: TLXGR.ready, err: TLXGR.err, n: TLXGR.posts().length, app: !!TLX.api.TABLET.byId.gram })`);
-  ok(old.ready && !old.err && old.app && old.n >= 1, `a save without x.sys.gram loads and fills from the news (${old.n} posts)`);
-  // junk state
-  const sv2 = JSON.parse(JSON.stringify(sv)); sv2.x = sv2.x || { v: 1, sys: {} }; sv2.x.sys = sv2.x.sys || {};
-  sv2.x.sys.gram = { v: 1, s: { posts: [null, 5, "x", { id: "a" }, { id: 3, t: 1, cap: "ok", rc: { c: [1, 2], a: [1] } }, { id: 4, t: "x" }], chat: { kjollefjord: "bad", mehamn: [[1, 2], null, [3, 4, 5, "ok"]], 7: 3 }, seen: "x", seq: -4, busId: null, genH: {}, rs: "no", last: 5, storm: null, road: [] } };
-  await reload(sv2); await sleep(1500); await ev(SETUP);
-  const junk = await J(`({ ready: TLXGR.ready, err: TLXGR.err, n: TLXGR.posts().length, chat: Object.keys(TLX.state("gram").chat).length })`);
-  ok(junk.ready && !junk.err, "junk state does not throw: Gram loads (" + junk.n + " posts)");
-  await ev(`TLX.api.TABLET.toggle(true, "gram"); true`); await sleep(500);
-  ok((await ev(`document.getElementById("tabV").textContent`)).length > 80, "and the app renders from it");
+await section("E the Local UI", async () => {
+  await ev(OPEN); await ev(`TLXGR.setTab("local"); true`); await sleep(1200); await ev(QUIET);
+  const g = await J(`(() => { const sn = document.getElementById("gSn"), col = document.querySelector("#tabS .gcol"), s = sn.children[0], r = sn.getBoundingClientRect(), pw = s.querySelector(".gpw").getBoundingClientRect(), tv = document.getElementById("tabV").getBoundingClientRect(), cr = col.getBoundingClientRect(); return { n: sn.children.length, secH: s.getBoundingClientRect().height / (r.height || 1), ratio: pw.height / pw.width, colW: cr.width, tvW: tv.width, tvH: tv.height, colH: cr.height, centred: Math.abs((cr.left + cr.right) / 2 - (tv.left + tv.right) / 2) < 12, head: !!s.querySelector(".gph .gav") && /@/.test(s.querySelector(".gwho b").textContent) && s.querySelector(".gwho span").textContent.includes("·"), likes: !!s.querySelector(".glk"), tabs: [...document.querySelectorAll("#tabS .gtabs .tml")].map(b => b.dataset.gt), all: !!sn.querySelector(".gall"), hint: document.querySelector(".ghint").textContent }; })()`);
+  ok(g.n >= 30, `one feed, ${g.n} posts`); ok(Math.abs(g.secH - 1) < 0.02, "one post per screen (a section is as tall as the scroller)"); ok(Math.abs(g.ratio - 1.25) < 0.02, "the picture is 4:5 (" + g.ratio.toFixed(2) + ")");
+  ok(g.centred && g.colW < g.tvW && g.colH >= g.tvH * 0.9, `a phone-shaped column, centred, as tall as the tablet allows (${Math.round(g.colW)}x${Math.round(g.colH)} in ${Math.round(g.tvW)}x${Math.round(g.tvH)})`);
+  ok(g.head && g.likes && g.all, "header (avatar, handle, place, time), likes, caption and a way to all comments"); ok(JSON.stringify(g.tabs) === '["local","reels"]', "only the Local and Reels tabs: " + g.tabs);
+  ok(!(await J(`!!document.querySelector('[data-gt="feed"],[data-gt="you"]')`)), "Feed, the old Local chat and You are gone");
+  ok(/Up \/ Down|D-pad|Swipe/.test(g.hint), "the hint comes from btn(): " + g.hint);
+  await ev(`TLXGR.view.cur = 0; true`); const cur0 = await J(`TLXGR.view.cur`);
+  await ev(`(() => { window.__rn = 0; const T = TLX.api.TABLET, f = T.render; T.render = function () { window.__rn++; return f.apply(this, arguments); }; return 1; })()`);
+  await tap("ArrowDown"); await sleep(800); ok((await J(`TLXGR.view.cur`)) === cur0 + 1, "Arrow down scrolls to the next post");
+  await tap("ArrowDown"); await sleep(700); await tap("ArrowUp"); await sleep(700); ok((await J(`TLXGR.view.cur`)) === cur0 + 1, "Arrow up goes back one");
+  ok((await J(`window.__rn`)) === 0, "scrolling does not re-render the tablet page");
+  await sleep(1500); const pix = await J(`(() => { const sn = document.getElementById("gSn"), n = TLXGR.view.cur; return [n, n + 1, n + 2].map(i => sn.children[i] ? (sn.children[i].querySelector("canvas[data-gp]") || { dataset: { done: "text" } }).dataset.done || "" : "x"); })()`);
+  ok(pix.every(d => d === "real" || d === "text" || d === "paint"), "the current post and the next two are drawn ahead: " + pix);
+  await ev(QUIET); await tap("Enter"); await sleep(400); const sh = await J(`!!document.querySelector("#tabS .gsheet") && document.querySelectorAll("#tabS .gsheet .gmsg").length`);
+  ok(sh > 0, `Enter opens all the comments (${sh})`); if (!NOSTILLS) await shot("sheet_open");
+  await tap("Escape"); await sleep(300); ok(!(await J(`!!document.querySelector("#tabS .gsheet")`)), "Back closes the comments and keeps the place");
+  ok(await J(`TLX.api.TABLET.open && TLX.api.TABLET.app === "gram"`), "and the app stays open");
+  const c1 = await J(`TLXGR.view.cur`); await padSet({ 13: 1 }); await sleep(250); await padSet(); await sleep(800); ok((await J(`TLXGR.view.cur`)) === c1 + 1, "the d-pad scrolls one post");
+  await padSet({}, [0, 0, 0, 1]); await sleep(250); await padSet(); await sleep(800); ok((await J(`TLXGR.view.cur`)) >= c1 + 2, "the right stick scrolls too");
+  await padSet({ 0: 1 }); await sleep(120); await padSet(); await sleep(500); ok(await J(`!!document.querySelector("#tabS .gsheet")`), "A opens the comments"); await padSet({ 1: 1 }); await sleep(120); await padSet(); await sleep(400); ok(!(await J(`!!document.querySelector("#tabS .gsheet")`)), "B closes them");
+  await ev(`TLX.api.INP.dev = "touch"; TLX.api.TABLET.render(); true`); await sleep(500);
+  const hint2 = await J(`document.querySelector(".ghint").textContent`); ok(/Swipe/.test(hint2), "touch shows the swipe prompt: " + hint2);
+  const c2 = await J(`TLXGR.view.cur`), rc = await J(`(() => { const r = document.getElementById("gSn").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * 0.75 }; })()`);
+  await send("Input.synthesizeScrollGesture", { x: rc.x, y: rc.y, yDistance: -420, speed: 900, gestureSourceType: "touch" }); await sleep(1100);
+  ok((await J(`TLXGR.view.cur`)) >= c2 + 1, "a touch swipe up moves on to the next post");
+  await ev(`TLX.api.INP.dev = "kbm"; true`);
+  if (!NOSTILLS) { await ev(`TLXGR.view.cur = 0; TLX.api.TABLET.render(); true`); await sleep(1500); await ev(QUIET); await shot("local_first"); }
+  const tc = await J(`(() => { const ps = TLXGRUI.list(); return { text: ps.filter(p => p.k.startsWith("txt:")).length, cm: ps.filter(p => p.cm.length).length, thread: ps.some(p => p.cm.some(c => c[2] >= 0)), n: ps.length }; })()`);
+  ok(tc.text >= 3 && tc.cm >= tc.n * 0.7 && tc.thread, `text posts (${tc.text}), comments on ${tc.cm} of ${tc.n}, and threaded replies exist`);
+  await send("Emulation.setDeviceMetricsOverride", { width: 640, height: 360, deviceScaleFactor: 1, mobile: false }); await sleep(700); await ev(`TLX.api.TABLET.render(); true`); await sleep(500);
+  const sm = await J(`(() => { const col = document.querySelector("#tabS .gcol"), tv = document.getElementById("tabV"), p = document.querySelector("#tabS .gpo .gpw").getBoundingClientRect(), r = col.getBoundingClientRect(), v = tv.getBoundingClientRect(); return { pic: p.height, inside: r.bottom <= v.bottom + 2 && r.top >= v.top - 2 }; })()`);
+  ok(sm.inside && sm.pic > 100, `on 640x360 the column fits the tablet and the picture is still ${Math.round(sm.pic)} px tall`);
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await ev(`TLX.api.TABLET.close(true); true`);
 });
 
-/* ---------------- J the low preset ---------------- */
-await section("J the low preset draws the painted fallback", async () => {
-  await raw(`localStorage.setItem("tracklayer.set.v1", JSON.stringify({ gfx: "low" })); true`); await reload(); await sleep(1500); await ev(SETUP);
+await section("F2 reload and old saves", async () => {
+  await ev(`TLX.api.TABLET.close(true); const s = TLX.state("gram"); s.seen = (s.posts[s.posts.length - 1] || { id: 0 }).id; save(); true`);
+  const before = await J(`({ n: TLXGR.posts().length, ids: TLXGR.posts().map(p => p.id).join(","), seen: TLX.state("gram").seen, cap: TLXGR.posts().slice(-1)[0].cap, rc: JSON.stringify(TLXGR.posts().slice(-1)[0].rc) })`);
+  await reload(); await sleep(1500); await ev(SETUP); await settle();
+  const after = await J(`({ n: TLXGR.posts().length, ids: TLXGR.posts().map(p => p.id).join(","), seen: TLX.state("gram").seen, err: TLXGR.err, ready: TLXGR.ready })`);
+  ok(after.ready && !after.err, "reload: Gram is ready, no error " + after.err);
+  { const a = new Set(after.ids.split(",")), top = before.ids.split(",").map(Number).sort((x, y) => y - x).slice(0, 100); ok(top.every(i => a.has(String(i))) && after.n >= Math.min(before.n, 100), `reload keeps the posts (${before.n} -> ${after.n}; the newest 100 are all still there)`); }
+  ok(await J(`(() => { const p = TLXGR.posts().find(q => q.id === ${before.ids.split(",").pop()}); return !!p && p.cap === ${JSON.stringify(before.cap)} && JSON.stringify(p.rc) === ${JSON.stringify(before.rc)}; })()`), "and their captions and recipes are the same");
+  ok(after.seen === before.seen, `reload keeps what was seen (${after.seen})`);
+  const sv = JSON.parse(await ev(`localStorage.getItem("tracklayer.save.v2")`)), keep = JSON.parse(JSON.stringify(sv));
+  if (sv.x && sv.x.sys) delete sv.x.sys.gram;
+  await reload(sv); await sleep(1500); await ev(SETUP); await settle();
+  const old = await J(`({ ready: TLXGR.ready, err: TLXGR.err, n: TLXGR.localPosts().length, app: !!TLX.api.TABLET.byId.gram })`);
+  ok(old.ready && !old.err && old.app && old.n >= 40, `a save with no gram state starts with two days of posts (${old.n})`);
+  const sv1 = JSON.parse(JSON.stringify(keep)); sv1.x = sv1.x || { v: 1, sys: {} }; sv1.x.sys = sv1.x.sys || {};
+  sv1.x.sys.gram = { v: 1, s: { seq: 5, seen: 3, cseq: 9, busId: 1, genH: 20, noteD: -9, rs: 4, last: {}, storm: { on: 0, peak: 0, t0: 0, cm: 0 }, road: {}, reels: { seq: 0, list: [] }, chat: { mehamn: [[1, 5, "x", "hello there", 0, 0, ""]] }, posts: [{ id: 1, t: 5, who: "x", vid: "mehamn", place: "Mehamn", cap: "old first-build post", sj: "peak", lk: 4, cm: [], rc: { c: [1, 2, 3], a: [1, 2], f: 50, h: 12, s: 0 } }] } };
+  await reload(sv1); await sleep(1500); await ev(SETUP); await settle();
+  const fb = await J(`({ ready: TLXGR.ready, err: TLXGR.err, n: TLXGR.localPosts().length, old: TLXGR.posts().some(p => p.cap === "old first-build post"), chat: !!TLX.state("gram").chat })`);
+  ok(fb.ready && !fb.err && !fb.old && fb.n >= 40 && !fb.chat, `the first build's save is discarded cleanly and the game starts with two days of new posts (${fb.n})`);
+  const sv2 = JSON.parse(JSON.stringify(keep)); sv2.x.sys.gram = { v: 2, s: { posts: [null, 5, "x", { id: "a" }, { id: 3, t: 1, cap: "ok", k: "nokind", rc: { k: "nokind" } }, { id: 4, t: "x" }, { id: 9, t: 5, cap: "fine", k: "txt:news", cm: [[1, "x"]], lk: 3 }], seen: "x", seq: -4, busId: null, gen: {}, rs: "no", last: 5, storm: null, road: [], mem: 7, sk: "no" } };
+  await reload(sv2); await sleep(1500); await ev(SETUP); await settle();
+  const junk = await J(`({ ready: TLXGR.ready, err: TLXGR.err, n: TLXGR.localPosts().length })`);
+  ok(junk.ready && !junk.err, "junk state does not throw: Gram loads (" + junk.n + " posts)");
+  await ev(OPEN); await sleep(800); ok((await ev(`document.getElementById("tabV").textContent`)).length > 80, "and the app renders from it"); await ev(`TLX.api.TABLET.close(true); true`);
+});
+
+await section("G the low preset paints per kind", async () => {
+  await raw(`localStorage.setItem("tracklayer.set.v1", JSON.stringify({ gfx: "low" })); true`); await reload(); await sleep(1500); await ev(SETUP); await settle();
   ok(await J(`TLX.api.GFX.low === true`), "the low preset is on");
-  const r = await J(`(() => { const p = TLXGR.posts().find(q => !q.rc.pt) || TLXGR.posts()[0], r0 = TLXGR.renders, n0 = TLXGR.painted; const e = TLXGR.makePic(p); const g = e.cv.getContext("2d"), d = g.getImageData(0, 0, e.w, e.h).data; let s = 0, s2 = 0, n = 0; for (let i = 0; i < d.length; i += 40) { const l = (d[i] + d[i + 1] + d[i + 2]) / 3; s += l; s2 += l * l; n++; } const m = s / n; return { real: e.real, painted: TLXGR.painted - n0, renders: TLXGR.renders - r0, sd: Math.sqrt(Math.max(0, s2 / n - m * m)), w: e.w, h: e.h }; })()`);
-  ok(!r.real && r.painted === 1 && r.renders === 0 && r.sd > 8, `no render on low: a painted picture is drawn (${r.w}x${r.h}, sd ${r.sd.toFixed(0)})`);
-  ok(r.w <= 288, "and it is smaller (" + r.w + "x" + r.h + ")");
+  const r = await J(`(() => { const ps = TLXGRUI.list().filter(p => !p.k.startsWith("txt:")), by = {}; for (const p of ps) { const row = TLXGK.kinds[p.k]; if (row && !by[row.paint]) by[row.paint] = p; } const out = [], r0 = TLXGR.renders; for (const p of Object.values(by).slice(0, 5)) { const e = TLXGRUI.makePic(p), d = e.cv.getContext("2d").getImageData(0, 0, e.w, e.h).data; let s = 0, s2 = 0, n = 0, sig = 0; for (let i = 0; i < d.length; i += 40) { const l = (d[i] + d[i + 1] + d[i + 2]) / 3; s += l; s2 += l * l; n++; sig = (sig * 31 + Math.round(l / 8)) % 1000003; } const m = s / n; out.push({ paint: TLXGK.kinds[p.k].paint, real: e.real, w: e.w, sd: Math.sqrt(Math.max(0, s2 / n - m * m)), sig }); } return { out, renders: TLXGR.renders - r0 }; })()`);
+  ok(r.out.length >= 3 && r.out.every(o => !o.real && o.sd > 8 && o.w <= 288) && r.renders === 0, `no render on low: painted pictures are drawn, ${r.out.length} paint styles, none real`);
+  ok(new Set(r.out.map(o => o.sig)).size === r.out.length, "and each kind paints its own picture (" + r.out.map(o => o.paint).join(",") + ")");
   await raw(`localStorage.setItem("tracklayer.set.v1", JSON.stringify({})); true`);
 });
 

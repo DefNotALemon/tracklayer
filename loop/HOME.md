@@ -11,7 +11,7 @@ time, one builder per slice, from a chat session (not a cron lane). Log each sli
 |---|---|---|
 | H0 | The news bus (`tlx-news.js`) | built with H1a (bus, families in real houses; only the trails post so far) |
 | H1 | Ski trail network (`tlx-trails.js`) | done (H1a, H1b, H1c, plus the H2a posture fixes) |
-| H2 | Gram (`tlx-gram.js`) | first build landed (v273); being remade (Lemon, 25 Nov): H2R-a next |
+| H2 | Gram (`tlx-gram.js`) | remade (Lemon, 25 Nov): H2R-a landed (director, 28 photo kinds, phone-column Local + Reels shell, scroll test); H2R-b next (Reels on the same moments) |
 | I1-I10 | Indoors and Senses update: walk-in places, a word with anybody, furnishing, radio stations with sound, haptics, camera, field guide, Paths, save slots, summer on foot | designed 25 Nov; I1 after the Gram remake |
 | H4 | Whales, seals and seabirds (`tlx-sealife.js`) | design below, after H3 |
 | H5 | The outdoors life (avalanches, sea ice, snow shelters, ghosts, dog team, camera) | outline |
@@ -250,10 +250,13 @@ threshold); Reels has at least 8 new a day and at least 10 kinds in 20.
 ### Slices
 - [x] H2a, H2b (v272, v273): the first build (feed, 12 reel scenes, local chat). Its render path (`gramShot`), reel
       engine and cast pool, bus posts and tests are the base the remake is cut from.
-- [ ] **H2R-a** The remake's core: the director and moment table, the light plan and the checks, the phone-column
-      Local gram with text posts and comments, at least 24 photo kinds from the catalogue across all seven families
-      (new props as needed: fish, thermos, sausage stick, snowman, snow lantern, kicksled, a phone in the selfie hand),
-      the old Feed/Local/You tabs gone, two days of posts on a new game, and the scroll test with its floor.
+- [x] **H2R-a** (v274, tlx-gram v3) The remake's core: the director and moment table (`tlx-gramkinds.js`, `tlx-gramk-a/b/c.js`),
+      the light plan and the checks, the phone-column Local gram (`tlx-gramui.js`) with text posts and comments, 28 photo
+      kinds across all seven families, the old Feed/Local chat/You tabs gone, two days of posts on a new game, Local keyed
+      by `TLX.region()` (the whole land, one feed), recipes and reels carry a region id, and `gram_scroll.mjs` with its floor.
+      Left for H2R-c: eight kinds are built but switched off (`TLXGK.offs`: kicksled, skisoutside, snowlantern, woodpile,
+      digout, doorwall, gloveonpost, bonfire) because their prop or framing is not good enough yet; the "about you" kind
+      (crashseen) exists but has weight 0 until the player's own posts are asked for again; text cards are still flat.
 - [ ] **H2R-b** Reels gram on the same moments: full-height player, every starred kind as a clip (at least 20), the
       rhythm, and the scroll test for reels.
 - [ ] **H2R-c** The rest of the catalogue, the nitpick rounds from the scroll sheets, low-preset and phone look.

@@ -117,7 +117,7 @@ async function launch(go = true, how = {}) {
     if (!netFail.length) break;
     console.log("playtest: script(s) failed to load: " + netFail.join(", ") + (tries < 2 ? " -> loading the page again" : " -> giving up"));
     if (tries >= 2) { errors.push("EXC script failed to load: " + netFail.join(", ")); break; }
-    netFail.length = 0;
+    netFail.length = 0; errors.length = 0; // the discarded load's exceptions (TLX is not defined from a reset tlx.js) are not the game's
     try {
       if (how.fresh) await raw(`(() => { try { window.__tl && window.__tl("save = function () { }; true"); } catch (e) { } localStorage.clear(); return true; })()`);
       else if (how.plant !== undefined) await raw(`(() => { try { window.__tl && window.__tl("save = function () { }; true"); } catch (e) { } localStorage.setItem("tracklayer.save.v2", ${JSON.stringify(JSON.stringify(how.plant))}); return true; })()`);
