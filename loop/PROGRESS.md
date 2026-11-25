@@ -11,6 +11,13 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-24 22:52 — R1b the figure, second pass (G4-style, G8) — 8af0862, fixed up in dfd7d8a
+Reviewer pass on R1. Bulkier suit with soft folds (elbows, knees, waist, gaiters), level rolled jacket hem, two-tone colour blocking derived from the player's colours (yoke, side, elbow, deltoid, knee and seat panels, trim piping), storm flap, pocket flaps, double-stitch seams, lugged snowmobile boots, shaped pack with straps, one-piece gradient goggles, neck warmer, nose, lips and cold flush, full-face helmet with port, rim, tinted visor, peak, vent and dark neck roll, cloth that stays blue in sun. Rider arms are the walker's arms. The icefish.js angler uses the kit. Thigh tops no longer poke through the hem.
+Numbers: walker 48 calls, 22.1k triangles; rider 46 calls, 19.7k; lite build 10.4k / 8.9k (R1: 36 calls / 20.0k and 34 / 17.0k); look kit textures 52 to 80 ms at load when calm.
+Rounds: 5 shoot-and-critique rounds plus low preset (planted before boot) at 640x360, mount swing on open ground, angler stills; lists in ~/.hermes/cache/scratch/tlreal/r1b/roundN.md.
+Still not right: boots chunky and short-looking, visor opaque, slim side view, pack a box in profile, fingers are tubes, folds low amplitude.
+Note: 8af0862 (v267) was committed from a tree that predated the mod-menu commit and overwrote it (tlx-vehicles.js, the mod_menu scenario, parts of tracklayer.js); dfd7d8a restores them on top and is the real v268.
+
 ## 2026-11-24 23:10 — The mod menu (replaces the god menu) — 8e01d65
 Lemon: "I want a reimagined mod menu because I don't think you understood what I meant ... like every open world in game mod menu or creative menu where I can just spawn any sled to ride on, or any gun to pick up, or any amount of cash, or have any upgrade or sled on the go without spawning it, just switching actively." The v260/v264 sidebar was a list of cheats (several wrote to fields that don't exist); it is gone. Built in chat, directly (worktree tracklayer-modmenu).
 - A trainer panel docked left (`#god.mod`), the game running under it: `godOpen` is out of `noControl()`, `readInput` drops the arrow keys while it is up, the pad's D-pad / A / B go to `godPad` and the stick and triggers still drive. Pages are functions that build rows (`go` / `adj` / `page`); the search box filters all of them (`modFlat`).
