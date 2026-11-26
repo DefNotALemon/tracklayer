@@ -291,7 +291,7 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       (`tlx-furnish.js`), and every kitchen is built **cooking-ready** (a stove with hobs and an oven door that opens,
       a sink, counters, pots, pans, a kettle, plates, a fridge and a larder as separate named props with anchor
       points), so the later cooking update needs no new models.
-- [ ] **I2 A word with anybody.** Walk up to any person, indoors or out, press the use control: one exchange, one
+- [x] **I2 A word with anybody.** Walk up to any person, indoors or out, press the use control: one exchange, one (v289, outdoors: `tlx-folk.js`, `i2_folk.mjs`. People of each house are out by the hour and weather, walk errands, shovel, play, work the quay; one-line exchange with a reply, nothing pauses; regard per person. Indoors people come with I1.)
       line each way, in a small speech bubble over their head, two or three replies to pick from (or none: it closes
       itself in a few seconds). **Nothing stops**: no pause, no camera cut, no lock on movement; walk away and it
       ends. Who is busy says so in a word and carries on: someone serving at a counter or working a job (selling, a

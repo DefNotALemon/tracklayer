@@ -111,9 +111,12 @@ function household(h, village, idx, kn) {
   else { const a = 36 + Math.floor(r() * 20); add("mother", a, "f"); add("father", a, "m"); if (r() < 0.5) kids(1); add("lodger", 20 + Math.floor(r() * 30), r() < 0.5 ? "f" : "m", pick(tw.last)); }
   const people = []; let adultN = 0;
   mem.forEach((m, k) => {
-    const child = m.age < 18, g = m.g || (r() < 0.5 ? "f" : "m");
+    const child = m.age < 18; let g = m.g; if (!g) { const rr = r(); g = m.role === "daughter" ? "f" : m.role === "son" ? "m" : rr < 0.5 ? "f" : "m"; }                  // a daughter has a girl's name, a son a boy's
     let first = g === "f" ? nameF() : nameM(), reused = null;
-    if (!child && adultN++ === 0 && kn.has(h)) { const k2 = kn.get(h); first = k2.first; reused = k2.what; if (FEMALE.includes(first) && m.g === "m") { m.g = "f"; } }
+    if (!child && adultN++ === 0 && kn.has(h)) { const k2 = kn.get(h); first = k2.first; reused = k2.what;
+      // a name the game already has decides who this is: Ole is the father of the house, not its mother
+      const want = FEMALE.includes(first) || SAMI_F.includes(first) ? "f" : MALE.includes(first) || SAMI_M.includes(first) ? "m" : null;
+      if (want && want !== g) { const flip = { mother: "father", father: "mother", grandmother: "grandfather", grandfather: "grandmother" }; const other = mem.find(q => q !== m && q.role === flip[m.role]); if (other) { other.role = m.role; other.g = g; } if (flip[m.role]) m.role = flip[m.role]; m.g = want; } }
     const ints = []; const want = child ? 2 : 2 + (r() < 0.4 ? 1 : 0);
     if (m.age > 5 && m.age < 80 && r() < (child ? 0.7 : 0.55) * ((tw.like.ski || 1) / 2 + 0.5) / 1.2) ints.push("ski");
     for (let g2 = 0; ints.length < want && g2 < 40; g2++) { const it = pick(wpool); if (!ints.includes(it)) ints.push(it); }

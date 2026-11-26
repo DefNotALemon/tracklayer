@@ -1474,6 +1474,10 @@ With a hunter's licence, a rifle of your own and no more than $300 owed in Polit
 
 **Out on the fell.** Not everything out there is on a list. A few remote places each week, far from any house and off the roads, have something going on: a farm building that is not a farm. Nothing marks them. If a place looks wrong (a generator running where nobody lives, purple light round a blacked-out window at night, men carrying tubs from a van, somebody smoking by a door who watches you the whole way past) stop and look at it from a distance: a long look, with a clear line of sight, or a longer one through a rifle scope, is how you find out, and then it goes on your map as a place you found. No licence or tip is needed. They do not want company: come close and the look-out walks out and shouts, and if you keep coming they bar the door. Nobody can be hurt yet and the doors stay locked: that part is still to come.
 
+## People
+
+The people of every house have a day. Near you they are out in the street: walking an errand, shovelling the step, children playing, the boats' men at work. Walk up (or stop the sled beside one) and press the use control for **a word**: they say a line, you can answer with the use control again, and they have the last word. Nothing pauses and you can walk off at any moment. Someone at work says so and carries on. What they say comes from the weather, their family, the village news and what you have done; a word on two different days and they know you by name.
+
 ## Paths
 
 The **Paths** app on the tablet is one screen for your whole life here. Each path (courier, rescue, ski trails, plowing, staff, homes and property, lighthouses, boats, machines, hunting, the village, money) is a line saying where you stand, the next step in plain words and what it opens, with a button to that path's own app. On top is **Today**: three things worth doing now, the most pressing first (get warm, a storm coming, what is aboard, a trail that needs setting, rent owed).
