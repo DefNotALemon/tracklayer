@@ -116,7 +116,7 @@ K.add({
 
 /* ---- spot the ptarmigan ---- */
 K.add({
-  id: "ptarmigan", fam: "animals", chip: "SPOT IT", paint: "deer", need: {}, close: true, open: true, flat: true,
+  id: "ptarmigan", nobc: true, fam: "animals", chip: "SPOT IT", paint: "deer", need: {}, close: true, open: true, flat: true,
   w: c => c.snow && c.el > -9 && c.storm < 0.5 ? (c.int.birds ? 2.6 : c.int.photos ? 1.4 : 0.7) : 0,
   anchor(c, rng) { const sp = SP.ring(rng, c.vil.x, c.vil.z, 120, 900, 3); if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: c.vil.name, w: [] }; },
   plan(rec, E) {

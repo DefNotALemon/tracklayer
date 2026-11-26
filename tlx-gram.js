@@ -383,20 +383,27 @@ function skyDress(E, rec, el, st) {
 G.litPlan = litPlan;
 // the shot's subject on the frame: its projected box (NDC), whether each face is to the camera, whether anything stands in front
 function compose(E, row) {
-  const V = tv3()[0], m = E.marks || [], why = [], cam = E.cam; let x0 = 9, x1 = -9, y0 = 9, y1 = -9, n = 0;
+  const V = tv3()[0], m = E.marks || [], why = [], cam = E.cam; let x0 = 9, x1 = -9, y0 = 9, y1 = -9, n = 0, h = 0;
   if (!m.length) return { ok: false, why: ["no subject"], h: 0 };
-  cam.updateMatrixWorld(true);
+  const asp0 = cam.aspect; cam.aspect = 0.8; cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);                       // the picture is 4:5, the clip engine's camera is 9:16
+  try {
   for (const q of m) { V.set(q[0], q[1], q[2]).project(cam); if (V.z > 1 || V.z < -1) { why.push("behind"); continue; } x0 = Math.min(x0, V.x); x1 = Math.max(x1, V.x); y0 = Math.min(y0, V.y); y1 = Math.max(y1, V.y); n++; }
-  const h = (y1 - y0) / 2, need = (E.needH || 0.25) * 0.82;
+  h = (y1 - y0) / 2; const need = (E.needH || 0.25) * 0.82;
   if (n < m.length) why.push("subject behind the camera"); else {
     if (h < need) why.push("small " + h.toFixed(2) + "<" + need); if (x0 < -1.12 || x1 > 1.12 || y0 < -1.15 || y1 > 1.12) why.push("cropped " + [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",")); if (!row.wideOk && ((x0 + x1) / 2 < -0.8 || (x0 + x1) / 2 > 0.8)) why.push("off centre");
   }
   for (const f of E.faces || []) { const dx = cam.position.x - f.x, dz = cam.position.z - f.z, dl = Math.hypot(dx, dz) || 1, d = (dx * Math.sin(f.yaw) + dz * Math.cos(f.yaw)) / dl; if (d < 0.5) { why.push("a face turned away " + d.toFixed(2)); break; } V.set(f.x, f.y, f.z).project(cam); if (Math.abs(V.x) > 1.1 || Math.abs(V.y) > 1.1) { why.push("a face out of frame"); break; } }
+  if (!why.length && m.length) {                                                                         // the ground between the lens and the subject: a ridge or drift across the line hides it (the picture shows snow and a glare, no subject)
+    const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z; let hid = surf(cx, cz) > cy - 0.25;
+    for (const q of m.slice(0, 4)) { if (hid || q[1] < surf(q[0], q[2]) + 0.6) continue; for (let k = 1; k < 10; k++) { const f = k / 12, px = cx + (q[0] - cx) * f, pz = cz + (q[2] - cz) * f, py = cy + (q[1] - cy) * f; if (py < surf(px, pz) + 0.15) { hid = true; break; } } }
+    if (hid) { why.push("ground in the way"); G.hidden = (G.hidden || 0) + 1; }
+  }
   if (!row.open && !why.length) {                                                                         // nothing solid between the lens and the subject
     const a = m[0], dx = a[0] - cam.position.x, dz = a[2] - cam.position.z, L = Math.hypot(dx, dz);
     for (let d = 1.6; d < L - 0.9; d += 1.6) if (W.obNear(cam.position.x + dx / L * d, cam.position.z + dz / L * d, 0.9)) { why.push("something in the way"); break; }
     if (W.obNear(cam.position.x, cam.position.z, 0.5)) why.push("camera inside something");
   }
+  } finally { cam.aspect = asp0; cam.updateProjectionMatrix(); }
   return { ok: !why.length, why, h, box: [x0, y0, x1, y1] };
 }
 G.compose = compose;
@@ -410,11 +417,12 @@ function measure(cv, E) {
   for (const q of E.marks || []) { V.set(q[0], q[1], q[2]).project(E.cam); const px = (V.x + 1) / 2 * 32, py = (1 - V.y) / 2 * 40; sx0 = Math.min(sx0, px); sx1 = Math.max(sx1, px); sy0 = Math.min(sy0, py); sy1 = Math.max(sy1, py); any = true; }
   if (!any) { sx0 = 8; sx1 = 24; sy0 = 10; sy1 = 30; }
   const pad = 1.5; sx0 = clamp(Math.floor(sx0 - pad), 0, 31); sx1 = clamp(Math.ceil(sx1 + pad), 0, 31); sy0 = clamp(Math.floor(sy0 - pad), 0, 39); sy1 = clamp(Math.ceil(sy1 + pad), 0, 39);
-  let sum = 0, nn = 0; for (let y = sy0; y <= sy1; y++) for (let x = sx0; x <= sx1; x++) { sum += L[y * 32 + x]; nn++; }
-  return { sub: nn ? sum / nn : mean, mean, contrast: s[1216] - s[64], box: [sx0, sy0, sx1, sy1] };
+  let sum = 0, nn = 0; const bl = []; for (let y = sy0; y <= sy1; y++) for (let x = sx0; x <= sx1; x++) { sum += L[y * 32 + x]; bl.push(L[y * 32 + x]); nn++; }
+  bl.sort((a, b) => a - b); const bc = bl.length > 4 ? bl[Math.floor(bl.length * 0.92)] - bl[Math.floor(bl.length * 0.08)] : 0;      // the spread of light inside the subject's box: a sled, a car or a rack has edges, empty snow or a glare has none
+  return { sub: nn ? sum / nn : mean, mean, contrast: s[1216] - s[64], bc, box: [sx0, sy0, sx1, sy1] };
 }
 G.measure = measure;
-const FLOOR = { sub: 62, contrast: 30, mean: 34 };
+const FLOOR = { sub: 62, contrast: 30, mean: 34, bc: 26 };
 G.FLOOR = FLOOR;
 const dims = () => api.GFX.low || api.GFX.mobile ? [240, 300] : [360, 450];
 G.dims = dims;
@@ -452,7 +460,7 @@ function verify(rec, row) {
   let lb = 1, m = null;
   for (let tr = 0; tr < 2; tr++) {
     const r = shotInto(rec, TC.cv, lb); if (!r) return { ok: true, lb: 1, skip: 1, h: cm.h };
-    m = measure(TC.cv, r.E); const need = row.close ? FLOOR.sub + 8 : FLOOR.sub, ok = m.sub >= need && m.contrast >= (row.flat ? FLOOR.contrast * 0.6 : FLOOR.contrast) && m.mean >= FLOOR.mean + 9 && m.sub >= need * 0.9 && m.mean < (tr === 0 ? 150 : 215);
+    m = measure(TC.cv, r.E); const need = row.close ? FLOOR.sub + 8 : FLOOR.sub, ok = m.sub >= need && m.contrast >= (row.flat ? FLOOR.contrast * 0.6 : FLOOR.contrast) && m.mean >= FLOOR.mean + 9 && m.sub >= need * 0.9 && m.mean < (tr === 0 ? 150 : 215) && (row.flat || row.nobc || m.bc >= FLOOR.bc * 0.7);
     if (ok) return { ok: true, lb, m, h: cm.h };
     if (tr === 0) { lb = m.mean >= 150 ? 0.55 : 1.7 + (m.sub < need * 0.7 ? 0.4 : 0); G.relit++; }
   }

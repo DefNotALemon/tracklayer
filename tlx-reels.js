@@ -233,7 +233,7 @@ function renderAt(Sc, t, cv, g) {
   if (belt0 !== null) TLXL.sled.beltU.value = E.belt;
   fxUpdate(t); actorsShow(true);
   const c0 = A.renderer.info.render.calls; let ok = false, hid = null;
-  try { hid = hideWild(); } catch (e) { } let hc = null; try { hc = cullSmall(cv.height / (2 * Math.tan(E.cam.fov * Math.PI / 360))); } catch (e) { }
+  try { hid = hideWild(); } catch (e) { } let hc = null; try { for (const a of E.sleds) if (a.on) a.g.updateMatrixWorld(true); for (const w of E.walkers) if (w.on) w.g.updateMatrixWorld(true); for (const d of E.deer) if (d.on) d.q.g.updateMatrixWorld(true); for (const o of E.extra) if (o.on) o.m.updateMatrixWorld(true); hc = cullSmall(cv.height / (2 * Math.tan(E.cam.fov * Math.PI / 360))); } catch (e) { }
   try { ok = A.gram.shot({ cam: E.cam, hour: Sc.hour, storm: Sc.storm, w: cv.width, h: cv.height, ctx: g, noShadow: true, pre }); }
   finally { if (hc) for (const o of hc) o.visible = true; if (hid) for (const g of hid) g.visible = true; actorsShow(false); if (E.litOff) E.litOff(); if (belt0 !== null) TLXL.sled.beltU.value = belt0; }
   E.reset = false; R.calls.push(A.renderer.info.render.calls); if (R.calls.length > 60) R.calls.shift();
@@ -362,7 +362,7 @@ function genOne(H, p, only) {
   return null;
 }
 function capOf(ty, key, c, p, rec0, an, sd) {
-  const recent = list().slice(-12).map(q => q.cap); let cap = "";
+  const recent = list().slice(-40).map(q => q.cap); let cap = "";
   for (let k2 = 0; k2 < 8; k2++) {
     if (ty.row && Array.isArray(ty.row.cap) && G.capReel) cap = G.capReel(ty.row, key, c, p, rec0, an);
     else { const vars = Hh.varsFor(key, c, p); vars.place = an.place || vars.place; cap = Hh.flavor(p, ty.cap(c, vars, mulb(sd + k2)), true); }

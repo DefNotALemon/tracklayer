@@ -139,7 +139,9 @@ K.add({
   plan(rec, E) {
     const r = mulb(rec.sd), nx = Math.sin(rec.a), nz = Math.cos(rec.a);
     return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.5 },
-      frame(t, E) { K.begin(E); K.prop(E, "carMound", 0, rec.x, rec.z, rec.a + 1.57 + (r() - 0.5) * 0.4, {}); camFront(E, rec, 5.8, 1.35, 0.7, 52, 1.2); mark2(E, rec.x, rec.z, 0.05, 1.6); E.needH = 0.28; } };
+      frame(t, E) { K.begin(E); const lx = nz, lz = -nx, sg = rec.sd % 2 ? 1 : -1, cols = [0x9a2a2a, 0x2a4a7a, 0x2c5a3c, 0x6a6e74]; K.prop(E, "carMound", 0, rec.x, rec.z, rec.a + 0.6 * sg + (r() - 0.5) * 0.3, { c: cols[rec.sd % 4], key: "c" + rec.sd % 4 });
+        const sx = rec.x + lx * -1.25 * sg + nx * 1.1, sz = rec.z + lz * -1.25 * sg + nz * 1.1; K.prop(E, "shovelStuck", 0, sx, sz, rec.a + 1, {});       // the shovel stuck in the drift beside it
+        camFront(E, rec, 5.0, 1.25, 0.8, 52, 0.3 * sg); mark2(E, rec.x, rec.z, 0.05, 2.2); E.marks.push([sx, surf(sx, sz) + 1.4, sz]); E.needH = 0.26; } };
   },
   cap: [["w", "That used to be a car. It is a lovely hill now."], ["c", "WHO CAN TELL ME WHERE MY CAR IS. I can see the aerial. That is the car. That is all of the car"], ["d", "Car. Under there. Somewhere."], ["t", "The car is a mound."], ["y", "Our car has gone into hibernation and I respect that."], ["e", "A whole street of cars like this after the night. Please dig your neighbours out too."], ["w", "A white bump with one aerial, standing proud. That is us."], ["c", "if you need me I will be digging until spring"], ["y", "Not a parking ticket in sight. Nothing in sight."], ["d", "Aerial: visible. Car: theoretical."]],
   cm: { pic: [], nb: ["Is that the blue one? I thought it was the neighbour's compost.", "Mine is the one with the other aerial, three doors down.", "You can borrow my shovel, it is on the porch.", "I laughed out loud, sorry."], grump: ["Do not shovel it into the road."], reply: ["The blue one, yes.", "Not into the road, I promise."] }
@@ -147,7 +149,7 @@ K.add({
 
 /* ---------------- cosy ---------------- */
 K.add({
-  id: "snowlantern", fam: "cosy", chip: "COSY", paint: "house", need: {}, close: true, open: true,
+  id: "snowlantern", nobc: true, fam: "cosy", chip: "COSY", paint: "house", need: {}, close: true, open: true,
   w: c => c.snow && c.storm < 0.5 && c.el < 0 && c.hr >= 14 ? (c.household > 1 ? 2.4 : 1.6) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 4.2, 4); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
