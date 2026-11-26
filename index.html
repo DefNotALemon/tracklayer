@@ -1094,6 +1094,8 @@
   body:not(.touch) #mapWrap{padding:clamp(5px,1vmin,8px)}
   /* the on-foot hint line keeps off the middle of short screens */
   #wnHud{bottom:calc(clamp(56px,20vh,150px) + env(safe-area-inset-bottom,0px))}
+  /* on a narrow view a long hint (a word with somebody, and get on) wraps rather than run under the speedo */
+  @media (max-width:780px){body:not(.touch) #wnHud{max-width:calc(100% - 432px);padding:8px 12px;font-size:14px}}
   /* keyboard cheat-sheet (H hides it): a narrow top-right card; the long lines only when the screen is tall */
   #help{width:max-content;max-width:clamp(200px,calc(50vw - 240px),420px);font-size:12px;line-height:1.4;padding:8px 11px}
   #help .mx{display:none}
@@ -1354,9 +1356,10 @@
 <script src="tlx-gramclips.js?v=4"></script>
 <script src="tlx-gramui.js?v=5"></script>
 <script src="tlx-gram.js?v=8"></script>
-<script src="tlx-folk.js?v=1"></script>
+<script src="tlx-folk.js?v=2"></script>
 <script src="tlx-radio.js?v=1"></script>
+<script src="tlx-camera.js?v=1"></script>
 <script src="tlx-paths.js?v=1"></script>
 <script src="tlx-haptics.js?v=1"></script>
-<script src="tracklayer.js?v=289"></script>
+<script src="tracklayer.js?v=290"></script>
 </body></html>

@@ -2561,14 +2561,14 @@ function readInput(dt) {
     thr = Math.max(thr, gp.buttons[7] ? gp.buttons[7].value : 0); brk = Math.max(brk, gp.buttons[6] ? gp.buttons[6].value : 0);
     if (gp.buttons[5] && gp.buttons[5].pressed) lean = 1;
     if (gp.buttons[2] && gp.buttons[2].pressed) wh = 1;
-    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !TABLET.open && !FOOT.on) input.hop = true; padHop = h;
+    const h = gp.buttons[0] && gp.buttons[0].pressed; if (h && !padHop && started && !godOpen && !TABLET.open && !FOOT.on && !camUp()) input.hop = true; padHop = h;
     if (h && FOOT.on) WN.padReel = true;
-    if (h && !padRifle && started && FOOT.on && !INT.on && !godOpen && !TABLET.open && WN.state !== "hooked") gameKey({ code: "KeyL" }); padRifle = h;   // A on foot: shoulder / lower the rifle (tlx-guns.js)
+    if (h && !padRifle && started && FOOT.on && !camUp() && !INT.on && !godOpen && !TABLET.open && WN.state !== "hooked") gameKey({ code: "KeyL" }); padRifle = h;   // A on foot: shoulder / lower the rifle (tlx-guns.js)
     const lb = gp.buttons[4] && gp.buttons[4].pressed; if (lb && !padLB && started && !godOpen && !GS.dead) gameKey({ code: "KeyQ" }); padLB = lb;
     const xb = gp.buttons[2] && gp.buttons[2].pressed; if (xb && !padX && started && FOOT.on && !godOpen) gameKey({ code: "KeyX" }); padX = xb;
     // B opens the garage (T) or backs out of whatever's open; Menu is Esc; L3 is the horn
     const bb = gp.buttons[1] && gp.buttons[1].pressed;
-    if (bb && !padB && started && !godOpen && !GS.dead && !TABLET.open) gameKey({ code: GS.garageOpen || !$("settings").hidden ? "Escape" : "KeyT" });   // with the tablet up, B is its back button (TABLET.pad)
+    if (bb && !padB && started && !godOpen && !GS.dead && !TABLET.open && !camUp()) gameKey({ code: GS.garageOpen || !$("settings").hidden ? "Escape" : "KeyT" });   // with the tablet up, B is its back button (TABLET.pad)
     padB = bb;
     const mn = gp.buttons[9] && gp.buttons[9].pressed; if (mn && !padMenu && started && !godOpen && !GS.dead) gameKey({ code: "Escape" }); padMenu = mn;
     const y = gp.buttons[3] && gp.buttons[3].pressed; if (y && !padGod && started) toggleGod(); padGod = y;
@@ -2576,12 +2576,12 @@ function readInput(dt) {
     if (!started && TT.on) titlePad(gp, dt);
     if (started && !godOpen) TABLET.pad(gp, dt);
     const r = gp.buttons[8] && gp.buttons[8].pressed; if (r && !padReset && started) resetSled(); padReset = r;
-    const v = gp.buttons[11] && gp.buttons[11].pressed; if (v && !padView && started) cycleView(); padView = v;
+    const v = gp.buttons[11] && gp.buttons[11].pressed; if (!v && padView && started && !(window.TLXCAM && TLXCAM.claimR3())) cycleView(); padView = v;   // on release: a hold lifts the camera (tlx-camera.js), a tap changes the view
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open && !(TLX.gunwheel && TLX.gunwheel.claimsDpadLeft())) wipeVisor(); padWipe = dl;   // rifle owners: a tap wipes on release, a hold opens the gun wheel (tlx-gunwheel.js)   // D-pad left wipes the visor
-    const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
+    const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open && !camUp()) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
     const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
-    const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
+    const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open && !camUp()) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
     break;
   }
@@ -10067,10 +10067,13 @@ const BTN = {
   wmove: { kbm: "1-6", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
   mod: { kbm: "Y", xbox: "Y", ps: "△", nin: "X", touch: "MOD MENU" },   // the mod menu (on touch: the button in Settings)
+  camera: { kbm: "K", xbox: "Hold RS", ps: "Hold R3", nin: "Hold RS", touch: "CAMERA" },   // tlx-camera.js: lift / lower the camera anywhere
+  shutter: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "The round button" },
   rifle: { kbm: "L", xbox: "A", ps: "✕", nin: "B", touch: () => TLX.guns && TLX.guns.aim.on ? "LOWER" : "RIFLE" },   // tlx-guns.js: shoulder / lower the rifle on foot; the trigger is the use control
   scroll: { kbm: "Up / Down", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Swipe" },   // tlx-gram.js: the Local and Reels scroll (the tablet's own move keys, d-pad and swipe)
   help: { kbm: "P", xbox: "D-pad down", ps: "D-pad down", nin: "D-pad down", touch: "CALL HELP" }     // the rescue sled / fuel delivery: on a pad D-pad down calls it while helpWanted(), the bandage otherwise
 };
+const camUp = () => !!(window.TLXCAM && TLXCAM.on);                        // the camera is up (tlx-camera.js): the pad's A, B and d-pad up/down are its shutter, back and zoom
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
 // a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
 function keyHint(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a) + ": " + what; }

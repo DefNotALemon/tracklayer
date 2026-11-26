@@ -333,7 +333,7 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       revs, powder versus packed trail versus ice versus gravel, landings by height, bogging down, ice cracking under
       you, a collision by speed, the blade biting, a fish on the line, a heartbeat when freezing. Strength slider and
       off switch in Settings. A scenario records every effect call per event.
-- [ ] **I6 Camera app (replaces the old H2c).** A camera on the tablet and a shortcut on every scheme: lifts the phone
+- [x] **I6 Camera app (replaces the old H2c).** A camera on the tablet and a shortcut on every scheme: lifts the phone (v290, `tlx-camera.js`, `i6_camera.mjs`. K / hold the right stick in / the CAMERA chip or the app. Hanging a shot in a room waits for I3; the Field guide reads `TLXCAM.onShot` in I7. Subjects so far: the seven land animals, people, places, the northern lights.)
       into first person right where you are, riding, walking or in a cab, and **the world keeps running** (Pokemon
       Snap style: animals move, weather blows). Zoom, a focus reticle that names what it is on, a shutter. Each shot is
       scored on subject, size, pose (an animal doing something beats one standing), light and rarity, kept in a roll,
