@@ -4,6 +4,17 @@ Lemon, 24 Nov 2026: "go through tracklayers assets, roads, viewport, character, 
 like a highly realistic roblox game ... it doesn't need metahuman, just realistic clothes, streets, houses,
 character, body and sleds ... you could manage that by slowly nitpicking yourself".
 
+Lemon, 26 Nov 2026: "we should have workers working to make tracklayer be photoreal, or at least as close as ultra
+graphics roblox games go, we dont need to make the roblox game roblox is my example of a game that doesn't have good
+graphics unless you're on the right game where it's beautiful."
+
+So the bar is raised from "realistic assets" to **the whole picture reads as photoreal, or as near as the best
+ultra-graphics Roblox games get**, and builders work on it continuously: when a slice lands and the supervisor has
+looked at its stills, the next is dispatched at once, without asking, until R8 is done (one builder at a time, his
+standing rule). What makes those games beautiful is mostly the light and the picture (soft contact shade, bloom on
+lamps and windows, a real sky and haze, sharp soft shadows, reflections, a film grade), then materials, then meshes.
+That is why slice P1 now comes first.
+
 Web game only (the no-Roblox rule stands): "highly realistic Roblox game" is the LOOK to hit, not a port.
 Built in worktree `~/Documents/GitHub/tracklayer-realism` (branch `realism`, lands with
 `git push origin realism:main`, gate/land with `TL_WT` set to it), one slice at a time, one builder per slice,
@@ -15,11 +26,12 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 |---|---|---|
 | R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265, reworked v267 (24 Nov 2026) |
 | R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | landed v269 (25 Nov 2026) |
-| R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after R2 |
+| P1 | The picture: a post chain (contact shade, bloom, grade), sky and haze, sky light on every material, shadows; an Ultra preset | **next** (26 Nov 2026) |
+| R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after P1 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
 | R5 | Vehicles and props: trucks, cars, boats, trailers, crates, fuel pumps, quay | after R4 |
 | R6 | Nature close up: trees, rocks, animals' coats | after R5 |
-| R7 | The viewport: camera framing, image sharpness, sky light on every material, contact shade, grade, HUD fit | after R6 |
+| R7 | The viewport, second pass: camera framing, HUD fit, what P1 left (reflections on wet road and ice, depth of field for stills, motion blur) | after R6 |
 | R8 | The nitpick round: a full audit of every still set against the bar, fixing the worst 30 | after R7 |
 
 ## The bar
@@ -179,6 +191,83 @@ narrow sharp hood, a 2029 electric), and as a real manufactured machine.
 - Numbers (frontier, sled meshes only, no rider): 135 -> 66 draw calls, 8.4k -> 39.1k triangles (lite 24.6k); ten machines 58-64 ms -> 157-188 ms to build; sled textures 45-60 ms; look kit total 88-94 -> 150-162 ms (same load, back to back).
 - Lessons: `BufferGeometry.applyQuaternion` does not exist in r128 (use `applyMatrix4`); hand-built index winding must be checked against the outward normal (the belt first rendered inside-out); a lens set flush with the hood skin disappears (stand it 2 mm proud); an AABB of an AABB inflates under pitch (measure bounds in sled space with one matrix); big-load gate runs inflate every timing 5x (check `uptime` before trusting a budget assert).
 - Known remaining: paint has no chips and only a name decal; the 1990s wedge hoods are softer than real sheet plastic; no cables or hoses on the bars; handguards are curved plates; chrome and alu read pale under the noon sky; the flap has no logo; no engine glimpse, pull-start or fuel cap; powder skis are the stock ski with a wider blade; the two-up seat piping wobbles; `r2_sleds` `buildMachines` and texture asserts are generous because the gate machine is shared. `g2_santa` (rareSpots()[0].q is null) and `x2_deckeverysled` (the sled never leaves the start) fail the same way on origin/main (not caused by R2).
+
+### P1. The picture (audit of 26 Nov 2026, stills `~/.hermes/cache/scratch/tlreal/audit2/`)
+
+What the stills show at v283, pixel ratio 1.5, noon / 19:30 / 22:30 in Kjøllefjord:
+- **No contact shade anywhere.** Houses, kerbs, lamp posts, the chimney box and the sled meet the snow on a hard
+  line with nothing under them; walls under the eaves are as bright as the open wall. Everything looks pasted on.
+- **Lamps and lit windows do not glow.** A street lamp is a cream ball with a hard-edged pool on the ground; a lit
+  window is a flat cream rectangle with no spill on the snow and no bloom. Night looks like a diagram.
+- **The sky is a flat gradient** by day (no sun disc glow, no horizon haze band, clouds only as smudges), and the
+  far hills end on a hard edge against it with no aerial perspective between town and fell.
+- **Shade is one flat blue.** Snow in shadow and snow in sun differ by a hard edge only; no sky bounce, no
+  warm/cool split, the shadow edge is jagged at 15 m (41_chase_noon).
+- **Nothing but the sled mirrors the sky.** Window glass is a dark gradient, the wet road is matt, roof snow is a
+  flat white plane with no sheen.
+- **The picture is ungraded**: no gentle highlight roll-off on snow (large areas at flat #fff or flat pale blue),
+  no vignette, no grain, hard aliasing on thin lines (wind turbine blades, road dashes far off).
+- Asset problems seen in the same stills belong to later slices and are listed under R3 and R4 below.
+
+What P1 builds (new file `tlx-post.js`, global `TLXP`, loaded before `tracklayer.js`; three r128, no build step, no
+image files, so every pass is hand-written against `THREE.WebGLRenderTarget`):
+1. **A post chain** the main frame goes through when on: scene to a HDR (half-float) multisampled target with a
+   depth texture, then passes, then ONE final pass that does tone mapping (the same ACES curve and exposure
+   `updSky` sets) and sRGB out. A render target skips the renderer's tone mapping (known from `gramShot`), so the
+   final pass owns it and the scene's materials must render linear into the target. The interior scene
+   (`INT.scene`), the ice-fishing pass (`FISH.render`), `gramShot`, the showroom and the title screen all still
+   work: either they go through the chain or they keep the direct path, decided per case and tested.
+2. **Contact shade**: screen-space ambient occlusion from the depth buffer (normals rebuilt from depth), half
+   resolution, blurred with a depth-aware blur, applied to ambient light only as far as a post pass can (multiply,
+   strength falling off in direct sun is not known in post, so keep it gentle: darkest 0.55), radius about 0.6 m in
+   world space, faded out past 60 m. Must not band on flat snow or halo the sled against the sky.
+3. **Bloom**: bright-pass on HDR values over 1, a 5-level downsample/upsample chain, so the sun glint on snow, lamp
+   globes, lit windows, headlights, tail lamps, the aurora and the purple site light bleed softly. Lamp globes and
+   lit windows get real HDR emissive values (driven from `updSky`, so nothing glows by day). Never a foggy overall
+   glow: a white daylit snowfield must not bloom.
+4. **Sky and haze**: a sun disc with a soft aureole and a horizon band whose colour follows the sun height (the
+   existing sky dome is the base: improve it, do not replace its night, stars or aurora); aerial perspective that
+   takes the sky's horizon colour, so the fell fades into the sky instead of ending on an edge; height fog low in
+   the fjord at dawn and dusk.
+5. **Sky light on everything**: the sky cube the sled already mirrors (`sledEnvCube`, repainted by
+   `updSledEnv`) becomes the scene's environment light at a low strength for every standard material, with window
+   glass, the road, roof snow and car paint getting more. Nothing may glow at night (the cube is already dimmed
+   there; check it).
+6. **Shadows**: softer and steadier sun shadows near the camera (a second, tight shadow cascade round the player
+   or a texel-snapped camera, PCF with more taps), no shimmer when riding, no jagged edge at 15 m. Keep
+   `shadowMap.autoUpdate = false` and the per-frame `needsUpdate` rule (see `references/rendering.md`).
+7. **The grade**: highlight roll-off so sunlit snow keeps texture instead of clipping, a slight cool shade / warm
+   sun split, gentle vignette, very fine grain, and FXAA or SMAA after tone mapping if the multisampled target is
+   not enough for thin lines.
+8. **An Ultra preset**: Settings > Graphics gets Ultra above High. Auto on a desktop picks Ultra only when the frame
+   governor (`QG`) says there is room; phones and the low preset skip the chain entirely and look exactly as today.
+   The governor drops bloom and contact shade before it drops the pixel ratio.
+
+Asserts for `p1_picture.mjs`: chain on by default on high/ultra and off on low (and the low picture is pixel-near
+today's); with the chain on, the mean luma and mean hue of a pinned noon frame are within 4 % of the direct path
+with every effect at zero (the chain itself changes nothing); contact shade darkens the pixel at a wall foot by at
+least 12 % and an open snow pixel by under 2 %; a lamp globe at night has a bloom halo (luma 12 px outside the
+globe is at least 1.5x the luma 60 px out) and at noon has none; no pixel of a clear-noon snowfield frame is
+bloomed (frame with bloom on vs off differs by under 1 % mean); `INT`, fishing, `gramShot`, the showroom and the
+tablet still render (non-black, right size); frame cost on this Mac at 1280x720 pixel ratio 1.5: at most 2.5 ms
+added with everything on, measured back to back in town and on the fell; resize, pixel-ratio change by the
+governor and a GFX preset change at run time all keep the chain the right size.
+
+### R3 and R4: defects already seen in the 26 Nov audit (for their briefs)
+
+- Road surface is a black ribbon with a tiled pattern of round white blobs that repeats visibly (30_street,
+  41_chase_noon); it should be worn asphalt showing through packed snow in wheel lanes, sanded, with a snow
+  shoulder that feathers out instead of a ruler-straight edge. Centre dashes are bright yellow bars floating on it.
+- Kerbs are white square beams with grey end caps, laid in straight segments that overlap at corners; parallel
+  streets and their kerbs meet in a stack of box ends (41_chase_noon, centre). Road pieces meet at hard seams with a
+  tone change between them.
+- Lamp posts are a cone hat on a ball on a plain pole, the same pale colour as the snow.
+- Houses: wall cladding is a stripe texture on a flat face with no board relief, no corner boards with depth, the
+  white trim is flat strips; roofs are one flat white slab with a grey fascia, no snow thickness, no drift, no
+  icicles, no gutter; windows are flat grey frames with a dark gradient pane; the chimney is an orange box
+  standing on the ground beside the wall; foundations are a grey band; nothing is dirty or weathered.
+- Depot shed: corrugated wall is a stripe texture; its roof is a flat slab.
+- Hillside rocks are grey pebbles scattered evenly like litter; chimney smoke is a grey smudge sprite.
 
 ### R3 to R8
 
