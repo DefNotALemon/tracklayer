@@ -18,6 +18,9 @@ const CSS = `#tabS .gcol{margin:0 auto;display:flex;flex-direction:column;overfl
 #tabS .gft{flex:1;min-height:0;padding:4px 9px 6px;overflow:hidden}#tabS .glk{font-size:12px;font-weight:700;color:#e8f1f8}#tabS .gcap{font-size:12px;line-height:1.3;margin-top:2px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #tabS .gcm{font-size:11px;line-height:1.25;color:var(--frost2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#tabS .gcm b{color:#cfe0ee}
 #tabS .gall{display:inline-block;margin-top:2px;padding:1px 0;border:0;background:none;color:#8fc4f0;font:inherit;font-size:11px;cursor:pointer}#tabS .gall.tfoc{outline:1px solid var(--bandline);outline-offset:2px;border-radius:4px}
+#tabS .gpw canvas{object-fit:cover}#tabS .gpo.cmp .gph{padding:3px 6px;gap:6px}#tabS .gpo.cmp .gav{width:24px;height:24px;font-size:10px}#tabS .gpo.cmp .gwho b{font-size:12px}#tabS .gpo.cmp .gwho span{font-size:10px}
+#tabS .gpo.cmp .gft{position:absolute;left:0;right:0;bottom:0;flex:none;min-height:0;background:linear-gradient(rgba(6,10,16,0),rgba(6,10,16,.93) 36%);padding:16px 8px 3px}#tabS .gpo.cmp .gcm{display:none}#tabS .gpo.cmp .gcap{-webkit-line-clamp:2;font-size:11px;margin-top:0}#tabS .gpo.cmp .glk{font-size:11px}
+body.touch #tabS .gall{padding:5px 0}
 #tabS .gsheet{position:absolute;left:0;right:0;bottom:0;top:${TABH}px;background:#0b141d;display:flex;flex-direction:column;z-index:3}#tabS .gsheet .gshl{flex:1;overflow-y:auto;padding:4px 10px}#tabS .gsheet .gshh{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-size:12px;font-weight:700}
 #tabS .gmsg{display:flex;gap:8px;margin:7px 0}#tabS .gmb b{font-size:12px}#tabS .gmb i{font-style:normal;font-size:10px;color:var(--frost2);margin-left:6px}#tabS .gmb p{margin:1px 0 0;font-size:12px;line-height:1.3}#tabS .gmb .gre{font-size:10px;color:var(--frost2)}
 #tabS .gempty{padding:22px;text-align:center;color:var(--frost2);font-size:13px}`;
@@ -49,7 +52,8 @@ const isText = p => p.k.slice(0, 4) === "txt:";
 /* ---- layout ---- */
 const inner = el => { const cs = getComputedStyle(el), f = k => parseFloat(cs[k]) || 0; return [(el.clientWidth || 360) - f("paddingLeft") - f("paddingRight"), (el.clientHeight || 400) - f("paddingTop") - f("paddingBottom")]; };
 function geom(el) {
-  const [iw, ih] = inner(el), H = Math.max(240, Math.floor(ih)), W = Math.max(200, Math.floor(iw)), avail = H - TABH, ph0 = avail - 38 - 84;
+  const [iw, ih] = inner(el), small = ih < 330, H = Math.max(small ? 150 : 240, Math.floor(ih)), W = Math.max(small ? 120 : 200, Math.floor(iw)), avail = H - TABH, ph0 = avail - 38 - 84;
+  if (small) { const ph = Math.max(100, Math.floor(avail - 34)), pw = Math.min(W, Math.floor(ph * 0.9)); return { H, W, avail, pw, ph, cmp: true }; }       // a short tablet (640x360, a phone on its side): the picture takes the height under the header and the likes, caption and comments sit over its foot
   const pw = Math.floor(clamp(Math.min(W, ph0 * 0.8), 170, 430)), ph = Math.floor(pw * 1.25);
   return { H, W, avail, pw, ph };
 }
@@ -77,7 +81,7 @@ function postHTML(p, g, i) {
   else pic = `<div class="gpw" style="width:${g.pw}px;height:${g.ph}px"><canvas class="ph" data-gp="${p.id}" width="36" height="45"></canvas></div>`;
   const cm = p.cm.slice(0, 2).map(([pid, t]) => { const c = who(pid); return `<div class="gcm"><b>${esc(c ? c.first : "?")}</b> ${esc(t)}</div>`; }).join("");
   const cap = isText(p) ? "" : `<div class="gcap"><b>${esc(per ? per.first : "Nordkinn")}</b> ${esc(p.cap)}</div>`;
-  return `<section class="gpo" data-id="${p.id}" data-i="${i}">${head}<div style="margin:0 auto">${pic}</div><div class="gft"><div class="glk">♥ ${p.lk || 0}</div>${cap}${cm}${p.cm.length ? `<button type="button" class="gall" data-tf="gc:${p.id}" data-gc="${p.id}">View all ${p.cm.length} comments</button>` : ""}</div></section>`;
+  return `<section class="gpo${g.cmp ? " cmp" : ""}" data-id="${p.id}" data-i="${i}">${head}<div style="margin:0 auto">${pic}</div><div class="gft"><div class="glk">♥ ${p.lk || 0}</div>${cap}${cm}${p.cm.length ? `<button type="button" class="gall" data-tf="gc:${p.id}" data-gc="${p.id}">View all ${p.cm.length} comments</button>` : ""}</div></section>`;
 }
 
 /* ---- the Local tab ---- */
