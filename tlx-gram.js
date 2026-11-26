@@ -393,7 +393,7 @@ function compose(E, row) {
     if (h < need) why.push("small " + h.toFixed(2) + "<" + need); if (x0 < -1.12 || x1 > 1.12 || y0 < -1.15 || y1 > 1.12) why.push("cropped " + [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",")); if (!row.wideOk && ((x0 + x1) / 2 < -0.8 || (x0 + x1) / 2 > 0.8)) why.push("off centre");
   }
   for (const f of E.faces || []) { const dx = cam.position.x - f.x, dz = cam.position.z - f.z, dl = Math.hypot(dx, dz) || 1, d = (dx * Math.sin(f.yaw) + dz * Math.cos(f.yaw)) / dl; if (d < 0.5) { why.push("a face turned away " + d.toFixed(2)); break; } V.set(f.x, f.y, f.z).project(cam); if (Math.abs(V.x) > 1.1 || Math.abs(V.y) > 1.1) { why.push("a face out of frame"); break; } }
-  if (!why.length && m.length) {                                                                         // the ground between the lens and the subject: a ridge or drift across the line hides it (the picture shows snow and a glare, no subject)
+  if (!why.length && m.length && !G.noOcc) {                                                              // the ground between the lens and the subject: a ridge or drift across the line hides it (the picture shows snow and a glare, no subject)
     const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z; let hid = surf(cx, cz) > cy - 0.25;
     for (const q of m.slice(0, 4)) { if (hid || q[1] < surf(q[0], q[2]) + 0.6) continue; for (let k = 1; k < 10; k++) { const f = k / 12, px = cx + (q[0] - cx) * f, pz = cz + (q[2] - cz) * f, py = cy + (q[1] - cy) * f; if (py < surf(px, pz) + 0.15) { hid = true; break; } } }
     if (hid) { why.push("ground in the way"); G.hidden = (G.hidden || 0) + 1; }
@@ -455,7 +455,7 @@ function verify(rec, row) {
   try { Sc = planOf(row, rec, E); if (!Sc) return { ok: false, why: ["no plan"] }; if (Sc.setup) Sc.setup(E); E.tPrev = -1; E.reset = true; E.clearFx(); KT().begin(E); Sc.frame(Sc.still, E); } catch (e) { console.error("TLX gram plan", rec.k, e); G.err = String(e && e.stack || e); return { ok: false, why: ["plan threw"] }; }
   E.clearFx(); const cm = compose(E, row); G.framing.tries++; if (!cm.ok) { G.framing.rejected++; G.framing.why.push(rec.k + ": " + cm.why.join("; ")); if (G.framing.why.length > 80) G.framing.why.shift(); return { ok: false, why: cm.why }; }
   G.framing.ok++;
-  if (api.GFX.low || G.noLum) return { ok: true, lb: 1, h: cm.h };
+  if (api.GFX.low || G.noLum || G.bl) return { ok: true, lb: 1, h: cm.h };                              // the backlog's old posts are only composed, never test-rendered (a first draw of a new prop is a long frame): the picture is measured, re-lit or dropped when it is first looked at
   if (!TC.cv) { TC.cv = document.createElement("canvas"); TC.cv.width = 72; TC.cv.height = 90; }
   let lb = 1, m = null;
   for (let tr = 0; tr < 2; tr++) {
@@ -536,7 +536,7 @@ function makeOne(t, vid, opt) {
     const chk = verify(rec, row); if (!chk.ok) { bad[key] = (bad[key] || 0) + 1; if (bad[key] < 2 && !opt.pin) { at--; } continue; }
     const vars = varsOf(key, c, p, rec, an), cap = capFor(row, p, vars);
     s.last[p.id] = t; s.day[p.id] = calAt(t).day; for (const q of rec.w) if (q !== "you") s.day[q] = calAt(t).day;
-    const post = addPost({ k: key, who: p.id, t, vid: p.vid, place: vars.place, cap, rc: rec, cm: [], lb: chk.lb !== 1 ? chk.lb : 0, pin: opt.pin ? opt.pinSrc || "pin" : 0, ev: opt.ev || 0, you: opt.you ? 1 : 0, wide: row.wide ? 1 : 0 });
+    G.lastKind = key; const post = addPost({ k: key, who: p.id, t, vid: p.vid, place: vars.place, cap, rc: rec, cm: [], lb: chk.lb !== 1 ? chk.lb : 0, pin: opt.pin ? opt.pinSrc || "pin" : 0, ev: opt.ev || 0, you: opt.you ? 1 : 0, wide: row.wide ? 1 : 0 });
     post.cm = makeComments(rec, row, p, vars); post.lk = likesOf(post, p); G.lastM = chk.m || null; post.sh = r2(chk.h || 0); post.lm = chk.m ? Math.round(chk.m.sub) : 0;
     if (!opt.noReel && window.TLXRL && TLXRL.fromMoment) TLXRL.fromMoment(rec, p, c, an, row);                // the clip of the same moment, when the director takes it up
     return post;
@@ -724,9 +724,13 @@ G.backlog = backlog;
 function startBacklog() { const H = api.GS.hour; G.noText = false; G.bl = { h: Math.floor(H) - BACKLOG_H, end: Math.floor(H), t0: performance.now(), ms: 0 }; }
 function stepBacklog() {
   const b = G.bl; if (!b) return; const t0 = performance.now();
+  if (!b.cast) {                                                                                     // first the shot engine's cast (up to 4 sleds and 21 walkers), one figure per frame: a piece that built twenty figures at once was the longest frame of a new game
+    const E = window.TLXRL && TLXRL.ready && TLXRL.E; if (E && E.prepareStep) { let more = false; try { more = !E.prepareStep({ sled: 4, walker: 21 }); } catch (e) { console.error("TLX gram cast", e); } if (more) { const d0 = performance.now() - t0; b.ms += d0; G.stepMs.push(d0); if (G.stepMs.length > 120) G.stepMs.shift(); return; } }
+    b.cast = 1;
+  }
   for (let k = 0; k < 6 && b.h <= b.end; k++) {                                                          // pieces of an hour until about 14 ms are spent, never a whole hour
     if (!b.st) b.st = hourStart(b.h + 0.3);
-    let fin = false; try { fin = hourStep(b.st); } catch (e) { console.error("TLX gram backlog", e); fin = true; }
+    let fin = false; const sg = b.st.stage, p0 = performance.now(); try { fin = hourStep(b.st); } catch (e) { console.error("TLX gram backlog", e); fin = true; } (G.pieceLog = G.pieceLog || []).push([sg, Math.round(performance.now() - p0), G.lastKind || ""]); if (G.pieceLog.length > 200) G.pieceLog.shift();
     if (fin) { b.st = null; b.h++; }
     if (performance.now() - t0 > 14) break;
   }

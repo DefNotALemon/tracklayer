@@ -24,7 +24,7 @@ K.add({
   w: c => c.lookout && c.lookout.d < 7000 && c.el > -17 && c.storm < 0.55 && c.adult || (c.lookout && c.kid && c.el > -17 && c.storm < 0.5) ? (c.int.photos ? 1.6 : 0.5) + (c.int.ski ? 0.5 : 0) + (c.int.sled ? 0.5 : 0) : 0,
   anchor(c, rng) {
     const sp = SP.lookout(rng, c.vil); if (!sp) return null; let best = null;
-    for (let k = 0; k < 8; k++) { const a = rng() * TAU, r = k ? 1.5 + rng() * 14 : 0, px = sp.x + Math.cos(a) * r, pz = sp.z + Math.sin(a) * r; if (!openOk(px, pz, 1.2)) continue; if (Math.abs(surf(px, pz) - surf(sp.x, sp.z)) > 1.2) continue; const bv = SP.bestView(rng, px, pz, 1.7, 20); if (bv && bv.score > 0.2 && (!best || bv.score > best.s)) best = { px, pz, az: bv.az, s: bv.score }; }
+    for (let k = 0, nk = window.TLXGR && TLXGR.bl ? 3 : 8; k < nk; k++) { const a = rng() * TAU, r = k ? 1.5 + rng() * 14 : 0, px = sp.x + Math.cos(a) * r, pz = sp.z + Math.sin(a) * r; if (!openOk(px, pz, 1.2)) continue; if (Math.abs(surf(px, pz) - surf(sp.x, sp.z)) > 1.2) continue; const bv = SP.bestView(rng, px, pz, 1.7, 20); if (bv && bv.score > 0.2 && (!best || bv.score > best.s)) best = { px, pz, az: bv.az, s: bv.score }; }
     if (!best) return null; return { x: best.px, z: best.pz, a: best.az, place: sp.name, w: [c.p.id] };
   },
   plan(rec, E) {

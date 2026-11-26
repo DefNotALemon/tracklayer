@@ -26,6 +26,8 @@ ok(await J(`!!TLX.api.TABLET.byId.gram && !TLX.api.TABLET.byId.gram.hidden()`), 
 await section("F new game", async () => {
   for (let i = 0; i < 120 && (await J(`!!TLXGR.bl`)); i++) await sleep(250);
   ok(!(await J(`!!TLXGR.bl`)) && (await J(`TLXGR.backlogMs`)) > 0, "the two days of posts are made a few hours per frame, not in one block (" + (await J(`TLXGR.backlogMs`)) + " ms of work in all)");
+  const pc = await J(`(() => { const a = (TLXGR.pieceLog || []).map(q => q[1]).sort((x, y) => x - y); return { n: a.length, p90: a[Math.floor(a.length * 0.9)] || 0, max: a[a.length - 1] || 0, top: (TLXGR.pieceLog || []).slice().sort((x, y) => y[1] - x[1]).slice(0, 3).map(q => q.join(":")) }; })()`);
+  ok(pc.n >= 60 && pc.p90 < 60 && pc.max < 200, `no backlog piece is a long frame: ${pc.n} pieces, 90th percentile ${pc.p90} ms, longest ${pc.max} ms [${pc.top}] (the cast of the shot engine is built a figure per frame; gram_backlog.mjs measures the frames themselves)`);
   const b = await J(`(() => { const ps = TLXGR.localPosts(); return { n: ps.length, span: Math.max(...ps.map(p => p.t)) - Math.min(...ps.map(p => p.t)) }; })()`);
   ok(b.n >= 40 && b.span >= 30, `a new game starts with two days of posts already there (${b.n} posts over ${b.span.toFixed(0)} h)`);
   ok(await J(`TLXGR.localPosts().every(p => p.rg === TLX.region() && p.k && (p.k.startsWith("txt:") || p.rc))`), "every post carries its region, and every picture post its recipe");

@@ -338,7 +338,7 @@ R.dayTarget = dayTarget;
 const countDay = H => list().filter(q => dayOf(q.t) === dayOf(H)).length;
 // is this moment worth posting as a clip: non-murky at three times through the clip (on a small test render, re-lit once), never a blank or a black frame
 function verifyReel(rec, ty) {
-  if (A.GFX.low || (G && G.noLum)) return { ok: true, lb: 1 };
+  if (A.GFX.low || (G && (G.noLum || G.bl))) return { ok: true, lb: 1 };
   const Sc = planOf(rec); if (!Sc) return { ok: false, why: "no plan" }; if (Sc.setup) Sc.setup(E);
   const cv = document.createElement("canvas"); cv.width = 54; cv.height = 96; const g = cv.getContext("2d"), r0 = R.renders, ms0 = R.ms.length, c0 = R.calls.length; let lb = 1, why = "";
   try {
