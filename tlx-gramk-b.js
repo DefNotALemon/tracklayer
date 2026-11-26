@@ -151,7 +151,7 @@ K.add({
   plan(rec, E) {
     const r = mulb(rec.sd), ca = r() * TAU, d = 2.3, face = Math.atan2(Math.cos(ca), Math.sin(ca)) ;
     const cx = rec.x + Math.cos(ca) * d, cz = rec.z + Math.sin(ca) * d, cyaw = Math.atan2(rec.x - cx, rec.z - cz);
-    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.12, light: { fill: 0.95 },
+    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.12, light: { fill: 1.7, hemi: 1.0, exp: 0.55 },
       frame(t, E) {
         K.begin(E); const q = K.animal(E, "reindeer", 0, rec.x, rec.z, face, { graze: 0, v: 0 }); q.head.updateWorldMatrix(true, false); const h = _v(); q.head.getWorldPosition(h);
         K.animal(E, "reindeer", 1, rec.x + Math.cos(ca + 2.2) * 4.5, rec.z + Math.sin(ca + 2.2) * 4.5, face + 0.7, { graze: 0.8 });
@@ -206,11 +206,11 @@ K.add({
   plan(rec, E) {
     // shot from indoors: the frame of the kitchen window, a curtain's edge and the sill in front of the lens, the moose's head large outside in the porch light
     const r = mulb(rec.sd), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, face = yaw + Math.PI + (r() - 0.5) * 0.9, night = NIGHTK(rec.h), side = (r() - 0.5) * 1.1, cx = rec.x - fx * 4.2 + lx * side * 0.4, cz = rec.z - fz * 4.2 + lz * side * 0.4;
-    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.3, light: { fill: 0.6 },
+    return { dur: 4, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.3, light: { fill: 1.0, hemi: 0.5, warm: 0.6 },
       frame(t, E) {
         K.begin(E); const q = K.animal(E, "moose", 0, rec.x, rec.z, face, { v: 0, graze: 0 }); const hd = _v(); q.head.getWorldPosition(hd);
         K.lampPool(E, "porch", rec.x - fx * 1.2, rec.z - fz * 1.2, 9, 0xffc070, 0.55 * Math.max(night, 0.3)); K.prop(E, "lamp", 0, rec.x - fx * 4.2 - lx * 3, rec.z - fz * 4.2 - lz * 3, 0, {});
-        E.look(cx, surf(cx, cz) + 1.62, cz, hd.x, hd.y - 0.1, hd.z, 40, 0.02); K.windowFrame(E, night, { mull: 0.8 });
+        E.look(cx, surf(cx, cz) + 1.62, cz, hd.x, hd.y - 0.1, hd.z, 40, 0.02); E.cam.updateMatrixWorld(true); const mz = _v(); mz.set(hd.x, hd.y - 0.32, hd.z); mz.project(E.cam); K.windowFrame(E, night, { mull: 0.8, fog: { x: clamp(mz.x, -0.7, 0.7), y: clamp(mz.y, -0.6, 0.6), s: 0.28, a: 0.34 + 0.12 * Math.sin(t * 1.3) } });          // breath fog on the glass where the muzzle is
         E.marks.push([hd.x, hd.y + 0.45, hd.z], [hd.x, hd.y - 0.45, hd.z]); E.needH = 0.3;
       } };
   },

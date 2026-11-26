@@ -451,7 +451,7 @@ function verify(rec, row) {
   let lb = 1, m = null;
   for (let tr = 0; tr < 2; tr++) {
     const r = shotInto(rec, TC.cv, lb); if (!r) return { ok: true, lb: 1, skip: 1, h: cm.h };
-    m = measure(TC.cv, r.E); const need = row.close ? FLOOR.sub + 8 : FLOOR.sub, ok = m.sub >= need && m.contrast >= (row.flat ? FLOOR.contrast * 0.6 : FLOOR.contrast) && m.mean >= FLOOR.mean + 5 && m.mean < (tr === 0 ? 150 : 215);
+    m = measure(TC.cv, r.E); const need = row.close ? FLOOR.sub + 8 : FLOOR.sub, ok = m.sub >= need && m.contrast >= (row.flat ? FLOOR.contrast * 0.6 : FLOOR.contrast) && m.mean >= FLOOR.mean + 9 && m.sub >= need * 0.9 && m.mean < (tr === 0 ? 150 : 215);
     if (ok) return { ok: true, lb, m, h: cm.h };
     if (tr === 0) { lb = m.mean >= 150 ? 0.55 : 1.7 + (m.sub < need * 0.7 ? 0.4 : 0); G.relit++; }
   }
@@ -504,6 +504,10 @@ function pickKind(c, vid, H, only, bad) {
     if (only && G.forceW) w = 1;
     if (!only) { if (recentK.includes(k)) w = 0; if (glob.includes(k)) w *= 0.35; const fc = fams.filter(f => f === row.fam).length; w *= fc >= 3 ? 0.2 : fc >= 2 ? 0.55 : 1; w *= s.sk[k] ? 1 / (1 + 0.3 * s.sk[k]) : 1.6; if (!fams30.has(row.fam)) w *= (fams30.size < 6 ? 8 : 1.9); const sb = row.paint; if ((sb === "deer" || sb === "sled" || sb === "mound") && posts().slice(-6).some(q => (kinds()[q.k] || {}).paint === sb)) w *= 0.25; }
     ws.push(w);
+  }
+  if (!only) {                                                                                            // the family mix is a guarantee: a family absent from the last 18 posts gets the next picture post if any of its kinds can happen now
+    const REQ = ["people", "action", "animals", "sea", "weather", "cosy", "funny"], seen18 = new Set(localPosts().slice(-18).map(q => famOf(q.k))), miss = REQ.filter(f => !seen18.has(f));
+    if (miss.length) { let any = 0; for (let i = 0; i < ks.length; i++) if (ws[i] > 0 && miss.includes((kinds()[ks[i]] || {}).fam)) any++; if (any) for (let i = 0; i < ks.length; i++) if (!miss.includes((kinds()[ks[i]] || {}).fam)) ws[i] = 0; }
   }
   const tot = ws.reduce((a, b) => a + b, 0); if (tot <= 0) return null; let r = rnd() * tot; for (let i = 0; i < ks.length; i++) { r -= ws[i]; if (r <= 0) return ks[i]; } return ks[0];
 }

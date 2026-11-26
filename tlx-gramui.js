@@ -34,7 +34,11 @@ UI.ago = ago;
 /* ---- pictures ---- */
 function makePic(post) {
   const [w, h] = G.dims(), cv = document.createElement("canvas"); cv.width = w; cv.height = h; let real = false; const t0 = performance.now();
-  if (!api.GFX.low && !G.forcePaint && post.rc) { try { const r = G.shotInto(post.rc, cv, post.lb || 0); real = !!r; } catch (e) { real = false; console.error("TLX gram shot", e); G.err = String(e && e.stack || e); } }
+  if (!api.GFX.low && !G.forcePaint && post.rc) { try {
+    let r = G.shotInto(post.rc, cv, post.lb || 0), m = r && G.measure(cv, r.E);                                 // the real picture is measured too: too dark is re-lit, still too dark is dropped, never posted
+    for (const b of [1.8, 2.6]) { if (!r || (m.mean >= G.FLOOR.mean + 3 && m.sub >= G.FLOOR.sub - 8)) break; r = G.shotInto(post.rc, cv, b); m = r && G.measure(cv, r.E); if (r && m.mean >= G.FLOOR.mean + 3) post.lb = b; }
+    if (r && m.mean < G.FLOOR.mean) { post.dead = 1; G.lumDrops = (G.lumDrops || 0) + 1; r = null; }
+    real = !!r; } catch (e) { real = false; console.error("TLX gram shot", e); G.err = String(e && e.stack || e); } }
   if (!real) { cv.getContext("2d").clearRect(0, 0, w, h); G.paintPic(post, cv); G.painted = (G.painted || 0) + 1; } else { G.renders = (G.renders || 0) + 1; (G.renderMs = G.renderMs || []).push(Math.round(performance.now() - t0)); if (G.renderMs.length > 80) G.renderMs.shift(); }
   const e = { cv, real, id: post.id, w, h }; G.cache.set(post.id, e); if (G.cache.size > 40) G.cache.delete(G.cache.keys().next().value); return e;
 }

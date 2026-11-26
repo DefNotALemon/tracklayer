@@ -409,14 +409,20 @@ R.active = () => !!R.play;
 R.wantPlay = tabOpen;
 R.current = () => { const L = R.list(); return L[clamp(R.cur, 0, Math.max(0, L.length - 1))] || null; };
 // the next reel is prepared while this one plays: planned, its cast built, its materials compiled by a few tiny frames drawn out of sight (the first frames of a new figure or prop draw nothing), so scrolling to it plays at once
-function prefetch() {
-  const L = R.list(), nx = L[R.cur + 1]; if (!nx || (R.next && R.next.id === nx.id)) return;
+// the next reel is made ready a stage per idle frame (plan, then setup, then three small warm renders) so that no single frame carries the whole build; the frame that draws the playing reel never does it
+function prefetch(one) {
+  const L = R.list(), nx = L[R.cur + 1]; if (!nx) return false; let pf = R.pf;
+  if (!pf || pf.id !== nx.id) { if (R.next && R.next.id === nx.id) return false; pf = R.pf = { id: nx.id, step: 0, Sc: null }; }
   const keep = { tPrev: E.tPrev, reset: E.reset }, r0 = R.renders, p0 = R.painted, ms0 = R.ms.length, c0 = R.calls.length;
   try {
-    const Sc = planOf(nx); R.next = { id: nx.id, Sc: Sc || null }; if (!Sc) return; R.prefetched = (R.prefetched || 0) + 1;
-    if (Sc.setup) Sc.setup(E); const cv = document.createElement("canvas"); cv.width = 27; cv.height = 48; const g = cv.getContext("2d"); for (let i = 0; i < 3; i++) { E.tPrev = -1; renderAt(Sc, Sc.dur * (0.2 + 0.2 * i), cv, g); }
-  } catch (e) { console.error("TLX reel prefetch", e); R.next = { id: nx.id, Sc: null }; }
+    for (let n = 0; n < (one ? 1 : 9) && pf.step < 5; n++, pf.step++) {
+      if (pf.step === 0) { pf.Sc = planOf(nx); R.next = { id: nx.id, Sc: pf.Sc || null }; if (!pf.Sc) { pf.step = 9; break; } R.prefetched = (R.prefetched || 0) + 1; }
+      else if (pf.step === 1) { if (pf.Sc.setup) pf.Sc.setup(E); pf.cv = document.createElement("canvas"); pf.cv.width = 27; pf.cv.height = 48; pf.g = pf.cv.getContext("2d"); }
+      else { E.tPrev = -1; renderAt(pf.Sc, pf.Sc.dur * (0.2 + 0.2 * (pf.step - 2)), pf.cv, pf.g); }
+    }
+  } catch (e) { console.error("TLX reel prefetch", e); R.next = { id: nx.id, Sc: null }; pf.step = 9; }
   finally { R.painted = p0; R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
+  return pf.step < 5;
 }
 R.prefetch = prefetch;
 function stop() { if (R.play) { R.play = null; } actorsShow(false); E.tPrev = -1; R.live = 0; }
@@ -449,10 +455,9 @@ R.tick = dt => {
   const P = R.play; if (!P) return; const now = performance.now();
   if (!A.started() || !document.getElementById("rlCv")) return;
   const fps = R.paintedNow() ? 12 : (R.slow >= 1 ? 12 : R.fpsCap);
-  if (now - P.last < 1000 / fps - 2) return;
+  if (now - P.last < 1000 / fps - 2) { if (P.frames >= 2 && !R.paintedNow()) prefetch(true); return; }               // an idle tick: one stage of the next reel's build
   if (G.fpsOk === false && !R.force) return;
   R.frameNow();
-  if (P.frames >= 2 && !R.paintedNow()) prefetch();
   if (R.lastKind === "real") { const c = cost(); if (R.ms.length >= 20) { if (c > 34) R.slow = (R.slow || 0) + 0.08; else if (c > 18) R.slow = Math.max(R.slow || 0, 1); else R.slow = Math.max(0, (R.slow || 0) - 0.02); } }
 };
 R.go = n => {                                                                                              // next (+1: older) and previous (-1) reel

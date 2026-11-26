@@ -296,9 +296,9 @@ await section("H state, old saves, the app", async () => {
     const crew = await ev(`document.querySelector("#tabS .tapp").textContent`);
     await ev(`TABLET.close ? TABLET.close() : TABLET.toggle(false); true`); await sleep(200);
     // the groomer's pass over an untaken trail tells you where the app is, in the right words for the device
-    await ev(`(() => { const t = __T("stj"); t.st.taken = 0; const q = TLXSK.at(t, 200); GS.hour += 8; window.__tsaw = []; if (!window.__tsawI) window.__tsawI = setInterval(() => { const a = window.__tsaw || (window.__tsaw = []); for (const m of (TOASTQ || []).map(t => t.msg).concat([...$("toasts").children].map(c => c.textContent))) if (!a.includes(m)) a.push(m); }, 80); TOASTQ.length = 0; $("toasts").textContent = ""; TLX.api.groomx[0](q.x, q.z, Math.atan2(q.tx, q.tz), 2.4); return true; })()`);
-    await sleep(500);
-    const toast = await J(`(window.__tsaw || []).filter(m => /Take it on/.test(m))`);
+    // the toast is made synchronously inside the groomer hook, so it is read in the SAME evaluation (box children + queue). The old 80 ms page timer + sleep(500) read an empty list when a loaded
+    // machine starved the page's main thread for half a second (the gate's one failure, touch, third device, ten Chromes running); nothing here waits on a timer.
+    const toast = await J(`(() => { const t = __T("stj"); t.st.taken = 0; const q = TLXSK.at(t, 200); GS.hour += 8; TOASTQ.length = 0; $("toasts").textContent = ""; TLX.api.groomx[0](q.x, q.z, Math.atan2(q.tx, q.tz), 2.4); return [...$("toasts").children].map(c => c.textContent).concat((TOASTQ || []).map(t => t.msg)).filter(m => /Take it on/.test(m)); })()`);
     const hint = await J(`btn("tablet")`);
     texts[dev[0]] = { list, page, crew, toast: toast[0] || "", hint };
     ok(toast.length === 1 && toast[0].includes(hint), `${dev[0]}: the groomer's pass over an untaken trail names the tablet control for this device ("${hint}"): ${toast[0] || "no toast"}`);

@@ -32,15 +32,16 @@ const lookOf = p => { const h = hashS(p.id || "x"), kid = p.age < 16; return { j
 K.lookOf = lookOf;
 const _col = new Map();
 function recolor(root, hex) { const seen = new Set(); root.traverse(o => { if (o.isMesh && o.material && !seen.has(o.material)) { seen.add(o.material); o.material.color.setHex(hex); } }); }
+let _skk = null; const SKINK = () => _skk || (_skk = new (T().Color)(0.76, 0.58, 0.47));
 function dress(w, p, o) {
   const L = lookOf(p), M = w.mats, U = w.U; o = o || {};
   M.jacket.color.setHex(o.jk || L.jk); M.pants.color.setHex(L.pn); M.trim.color.setHex(L.tr);
   const all = U.headParts.all; for (const g of all) g.visible = false;                                   // [helmet, goggles, goggM, faceBase, face, beanie, mask, warm]
   all[4].visible = true; all[5].visible = true; all[7].visible = !!o.warm;
   const bk = w.bnKey !== L.bn + (o.bn || 0); if (bk) { w.bnKey = L.bn + (o.bn || 0); recolor(all[5], o.bn || L.bn); if (all[7]) recolor(all[7], 0x3a3f48); }
-  if (M.skin) { M.skin.color.setHex(L.sk); if (!M.skin.emissive) M.skin.emissive = new (T().Color)(); M.skin.emissive.setHex(L.sk).multiplyScalar(0.16); }
+  if (M.skin) { M.skin.color.setHex(L.sk).multiply(SKINK()); if (!M.skin.emissive) M.skin.emissive = new (T().Color)(); M.skin.emissive.setHex(L.sk).multiplyScalar(0.03); }       // the kit's skin map is pale: tint it to the person's real tone, nothing self-lit
   if (!w.nocull) { w.nocull = 1; w.g.traverse(o => { o.frustumCulled = false; }); w.skinStale = 1; }
-  w.look = L; return L;
+  w.look = L; w.kid = p.age < 14; return L;
 }
 function stand(w, o) {                                                                                 // a relaxed standing figure: arms down a little, head level
   const U = w.U; o = o || {};
@@ -51,22 +52,27 @@ function stand(w, o) {                                                          
 // a face laid on the head for the frame: eyes with brows, cold-red cheeks and a smile (a laugh, wide, with teeth and squinting eyes). The kit's face is plain, and at feed size a selfie needs these.
 // Unlit flat shapes just off the head's surface (they stay readable at night); k is the smile (0..1.4), the laugh squints the eyes.
 function grin(w, k) {
-  if (!w.smile) { const t = T(), g = new t.Group(), dk = new t.MeshBasicMaterial({ color: 0x3a1010 }), tt = new t.MeshBasicMaterial({ color: 0xf2eee6 });
-    const cres = new t.Mesh(new t.CircleGeometry(0.03, 16, Math.PI * 1.06, Math.PI * 0.88), dk); cres.position.set(0, -0.046, 0.0975); cres.scale.set(1, 1.1, 1); g.add(cres);
-    const teeth = new t.Mesh(new t.PlaneGeometry(0.044, 0.009), tt); teeth.position.set(0, -0.0535, 0.0978); g.add(teeth);
-    const open = new t.Mesh(new t.CircleGeometry(0.028, 16, Math.PI, Math.PI), new t.MeshBasicMaterial({ color: 0x4a0f12 })); open.position.set(0, -0.043, 0.0985); g.add(open); open.visible = false;
-    const tng = new t.Mesh(new t.CircleGeometry(0.014, 12, Math.PI, Math.PI), new t.MeshBasicMaterial({ color: 0xd8607a })); tng.position.set(0, -0.0545, 0.099); g.add(tng); tng.visible = false;
-    g.userData.open = open; g.userData.tng = tng; w.smile = g; w.U.headParts.all[4].parent.add(g);
-    const f = new t.Group(), wh = new t.MeshBasicMaterial({ color: 0xf6f4ee }), ir = new t.MeshBasicMaterial({ color: 0x24160f }), bw = new t.MeshBasicMaterial({ color: 0x2c1c14 }), ch = new t.MeshBasicMaterial({ color: 0xe23a3a, transparent: true, opacity: 0.72, depthWrite: false });
+  if (!w.smile) { const t = T(), g = new t.Group(), lipM = new t.MeshBasicMaterial({ color: 0x74383a, side: t.DoubleSide }), dk = new t.MeshBasicMaterial({ color: 0x4a1c1e }), tt = new t.MeshBasicMaterial({ color: 0xf0ece4 });
+    const Z = 0.0975, line = new t.Mesh(new t.RingGeometry(0.0235, 0.0275, 20, 1, Math.PI * 1.13, Math.PI * 0.74), lipM); line.position.set(0, -0.034, Z); g.add(line);                 // [0] the smile line
+    const teeth = new t.Mesh(new t.PlaneGeometry(0.026, 0.0052), tt); teeth.position.set(0, -0.0522, 0.0988); g.add(teeth);                                             // [1] teeth of a slightly open smile
+    const open = new t.Mesh(new t.CircleGeometry(0.0195, 14, Math.PI * 1.09, Math.PI * 0.82), dk); open.position.set(0, -0.0455, 0.0982); g.add(open); open.visible = false; const rim = new t.Mesh(new t.RingGeometry(0.0195, 0.0228, 14, 1, Math.PI * 1.09, Math.PI * 0.82), lipM); rim.position.set(0, -0.0455, 0.0983); open.add(rim); rim.position.set(0, 0, 0.0001); open.userData.rim = 1;      // slightly open mouth, rimmed by the lip
+    const wide = new t.Mesh(new t.CircleGeometry(0.024, 16, Math.PI, Math.PI), dk); wide.position.set(0, -0.0485, 0.0985); g.add(wide); wide.visible = false;                 // a kid's laugh
+    const tng = new t.Mesh(new t.CircleGeometry(0.0125, 12, Math.PI, Math.PI), new t.MeshBasicMaterial({ color: 0xcf6a78 })); tng.position.set(0, -0.0575, 0.099); g.add(tng); tng.visible = false;
+    const lt = new t.Mesh(new t.PlaneGeometry(0.036, 0.0066), tt); lt.position.set(0, -0.0475, 0.0992); g.add(lt); lt.visible = false;
+    g.userData.open = open; g.userData.wide = wide; g.userData.tng = tng; g.userData.lt = lt; w.smile = g; w.U.headParts.all[4].parent.add(g);
+    if (!K._cheek) { const c = document.createElement("canvas"); c.width = c.height = 32; const x = c.getContext("2d"), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, "rgba(206,104,98,0.9)"); gr.addColorStop(0.55, "rgba(206,104,98,0.35)"); gr.addColorStop(1, "rgba(206,104,98,0)"); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); K._cheek = new t.CanvasTexture(c); }
+    const f = new t.Group(), wh = new t.MeshBasicMaterial({ color: 0xeeece6 }), ir = new t.MeshBasicMaterial({ color: 0x3a2618 }), pu = new t.MeshBasicMaterial({ color: 0x120a08 }), bw = new t.MeshBasicMaterial({ color: 0x3a2a20 }), ch = new t.MeshBasicMaterial({ map: K._cheek, transparent: true, opacity: 0.4, depthWrite: false });
     f.userData.eyes = [];
     for (const s of [-1, 1]) {
-      const eg = new t.Group(); eg.position.set(s * 0.036, 0.016, 0.0985); eg.rotation.y = s * 0.34; const e1 = new t.Mesh(new t.CircleGeometry(0.0165, 14), wh), e2 = new t.Mesh(new t.CircleGeometry(0.01, 12), ir); e2.position.set(0, -0.001, 0.0007); eg.add(e1, e2); f.add(eg); f.userData.eyes.push(eg);
-      const br = new t.Mesh(new t.PlaneGeometry(0.034, 0.0085), bw); br.position.set(s * 0.038, 0.0405, 0.0955); br.rotation.set(0, s * 0.4, -s * 0.16); f.add(br);
-      const c = new t.Mesh(new t.CircleGeometry(0.027, 14), ch); c.position.set(s * 0.057, -0.021, 0.0895); c.rotation.y = s * 0.72; f.add(c);
+      const eg = new t.Group(); eg.position.set(s * 0.036, 0.016, 0.0985); eg.rotation.y = s * 0.34; const e1 = new t.Mesh(new t.CircleGeometry(0.0155, 14), wh), e2 = new t.Mesh(new t.CircleGeometry(0.0098, 12), ir), e3 = new t.Mesh(new t.CircleGeometry(0.0052, 10), pu); e2.position.set(0, -0.001, 0.0007); e3.position.set(0, -0.001, 0.0012); eg.add(e1, e2, e3); f.add(eg); f.userData.eyes.push(eg);
+      const br = new t.Mesh(new t.PlaneGeometry(0.034, 0.0075), bw); br.position.set(s * 0.038, 0.0405, 0.0955); br.rotation.set(0, s * 0.4, -s * 0.16); f.add(br);
+      const c = new t.Mesh(new t.CircleGeometry(0.03, 14), ch); c.position.set(s * 0.057, -0.021, 0.0895); c.rotation.y = s * 0.72; f.add(c);
     }
     w.faceFx = f; w.U.headParts.all[4].parent.add(f); }
-  const laugh = k > 1.15, u = w.smile.userData; w.smile.visible = k > 0; w.smile.scale.set(0.85 + 0.25 * Math.min(k, 1.2), 0.62 + 0.5 * Math.min(k, 1.2), 1); w.smile.children[1].visible = k > 0.5 && !laugh; u.open.visible = laugh; u.tng.visible = laugh; w.smile.children[0].visible = !laugh;
-  w.faceFx.visible = true; for (const e of w.faceFx.userData.eyes) e.scale.set(1, laugh ? 0.35 : 1, 1);
+  if (!w.kid && k > 1.1) k = 1.1;                                                                       // only a child laughs open-mouthed; grown-ups smile
+  const laugh = k > 1.15, u = w.smile.userData, opn = !laugh && k > 0.78; w.smile.visible = k > 0; w.smile.children[0].visible = !laugh && !opn; w.smile.children[1].visible = opn; u.open.visible = opn; u.wide.visible = laugh; u.tng.visible = laugh; u.lt.visible = laugh;
+  w.smile.scale.set(0.9 + 0.2 * Math.min(k, 1.1), 0.8 + 0.3 * Math.min(k, 1.1), 1);
+  w.faceFx.visible = true; for (const e of w.faceFx.userData.eyes) e.scale.set(1, laugh ? 0.4 : 1, 1);
 }
 K.faceOff = w => { if (w.faceFx) w.faceFx.visible = false; if (w.smile) w.smile.visible = false; };
 K.grin = grin;
@@ -119,9 +125,13 @@ PB.cup = () => { const g = new (T().Group)(); cy(g, mat("cupB", 0xe8e4da, 0.45, 
 PB.stick = () => { const g = new (T().Group)(); cy(g, mat("stickW", 0x8a6a3a, 0.9, 0), 0.007, 0.006, 0.9, 0, 0, 0.45, [Math.PI / 2, 0, 0], 6); ell(g, mat("sausage", 0xb8503a, 0.6, 0), 0.017, 0.017, 0.075, 0, 0, 0.8); return g; };
 PB.fire = () => { const t = T(), g = new t.Group(), lg = mat("logB", 0x3a2616, 0.95, 0), fl = ["fireA", "fireB", "fireC"].map((k, i) => new t.MeshBasicMaterial({ color: [0xff7a18, 0xffb02e, 0xfff0a0][i], transparent: true, opacity: [0.85, 0.9, 0.95][i], depthWrite: false, fog: false }));
   for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; cy(g, lg, 0.045, 0.05, 0.7, Math.cos(a) * 0.16, 0.1, Math.sin(a) * 0.16, [Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9], 7); }
-  const f0 = new t.Mesh(new t.ConeGeometry(0.22, 0.75, 9), fl[0]); f0.position.y = 0.45; g.add(f0); const f1 = new t.Mesh(new t.ConeGeometry(0.14, 0.58, 8), fl[1]); f1.position.set(0.04, 0.4, 0.02); g.add(f1); const f2 = new t.Mesh(new t.ConeGeometry(0.08, 0.38, 7), fl[2]); f2.position.set(-0.02, 0.32, 0); g.add(f2);
+  if (!K._flame) { const c = document.createElement("canvas"); c.width = 64; c.height = 128; const x = c.getContext("2d"); x.beginPath(); x.moveTo(32, 126); x.bezierCurveTo(2, 118, 6, 70, 30, 40); x.bezierCurveTo(30, 28, 34, 16, 36, 3); x.bezierCurveTo(40, 22, 44, 34, 48, 52); x.bezierCurveTo(62, 76, 62, 118, 32, 126); x.closePath();
+    const gr = x.createLinearGradient(0, 128, 0, 0); gr.addColorStop(0, "rgba(255,244,180,0.98)"); gr.addColorStop(0.35, "rgba(255,176,60,0.92)"); gr.addColorStop(0.75, "rgba(255,96,24,0.7)"); gr.addColorStop(1, "rgba(220,50,10,0)"); x.fillStyle = gr; x.fill(); K._flame = new t.CanvasTexture(c); }
+  [[0.5, 1.0, 0, 0xff6a1a, 0.9], [0.4, 0.82, 0.06, 0xff9a2a, 0.92], [0.34, 0.7, -0.07, 0xffb43a, 0.95], [0.26, 0.5, 0.02, 0xffe27a, 0.95], [0.16, 0.3, 0, 0xfff6c8, 0.95]].forEach(([w, h, dx, col, op], i) => { const sp = new t.Sprite(new t.SpriteMaterial({ map: K._flame, color: col, transparent: true, opacity: op, depthWrite: false, fog: false })); sp.scale.set(w, h, 1); sp.position.set(dx, 0.18 + h / 2, 0); sp.userData.b = [w, h, dx]; g.add(sp); });
   for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; ell(g, mat("stone", 0x6a6e72, 0.95, 0), 0.1, 0.07, 0.1, Math.cos(a) * 0.42, 0.04, Math.sin(a) * 0.42); }
   glow(g, "fireG", 0xff9a3a, 3.0, 0, 0.7, 0, 0.5); const pool = new t.Mesh(E_().blobGeo, new t.MeshBasicMaterial({ map: E_().tex().glow, color: 0xff8a2a, transparent: true, depthWrite: false, blending: t.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, fog: false, opacity: 0.8 })); pool.scale.set(5, 1, 5); pool.position.y = 0.08; g.add(pool); return g; };
+PB.tail = () => { const g = new (T().Group)(); bx(g, mat("carDk", 0x20262e, 0.8, 0), 1.7, 0.75, 4, 0, 0.7, 0); bx(g, mat("carDk", 0x20262e, 0.8, 0), 1.5, 0.5, 2, 0, 1.25, 0.3); for (const s of [-1, 1]) { glow(g, "tailG", 0xff2a1a, 1.5, s * 0.65, 0.85, -2.05, 0.95); glow(g, "tailH", 0xff3a24, 4.2, s * 0.65, 0.85, -2.1, 0.35); } return g; };
+PB.logseat = () => { const g = new (T().Group)(), lg = mat("logS", 0x5a3c22, 0.95, 0); cy(g, lg, 0.2, 0.2, 1.1, 0, 0.2, 0, [0, 0, Math.PI / 2], 10); cy(g, mat("logE", 0xc8a070, 0.9, 0), 0.19, 0.19, 0.01, 0.56, 0.2, 0, [0, 0, Math.PI / 2], 10); return g; };
 PB.plasticSled = (o) => { const g = new (T().Group)(), m = mat("psl" + ((o && o.c) || 0), (o && o.c) || 0xd8352a, 0.5, 0.05); const b = bx(g, m, 0.5, 0.05, 0.85, 0, 0.08, 0, [0, 0, 0]); bx(g, m, 0.5, 0.14, 0.05, 0, 0.14, 0.43, [-0.3, 0, 0]); for (const s of [-1, 1]) bx(g, m, 0.04, 0.1, 0.8, s * 0.26, 0.12, 0); cy(g, mat("rope", 0x2a2a2a, 0.9), 0.006, 0.006, 0.6, 0, 0.18, 0.7, [1.2, 0, 0], 5); return g; };
 PB.kicksled = () => { const g = new (T().Group)(), wd = mat("ksW", 0x7a4a2a, 0.7, 0), sl = mat("ksS", 0xb8b8b8, 0.4, 0.7), seat = mat("ksT", 0x2a5a8a, 0.6, 0);
   for (const s of [-1, 1]) { bx(g, sl, 0.025, 0.02, 1.1, s * 0.2, 0.03, 0.05); bx(g, wd, 0.03, 0.4, 0.03, s * 0.2, 0.22, -0.3, [0.1, 0, 0]); bx(g, wd, 0.03, 0.45, 0.03, s * 0.2, 0.25, 0.3, [-0.1, 0, 0]); bx(g, sl, 0.025, 0.02, 0.2, s * 0.2, 0.03, 0.62, [-0.5, 0, 0]); }
@@ -175,13 +185,13 @@ K.windowFrame = (E, night, o) => {
   const t = T(), e = E.extraOf("gp:winframe", () => { const g = new t.Group(), mk = (c) => new t.MeshBasicMaterial({ color: c, fog: false }), parts = {};
     parts.frame = mk(0xdad4c8); parts.dark = mk(0x7a6a58); parts.cur = mk(0xb8463a); parts.cur2 = mk(0x963a30); parts.glass = new t.MeshBasicMaterial({ color: 0xa8c4e0, transparent: true, opacity: 0.06, fog: false, depthWrite: false });
     const box = (m) => { const b = new t.Mesh(new t.BoxGeometry(1, 1, 1), m); g.add(b); return b; };
-    g.userData.b = { top: box(parts.frame), bot: box(parts.frame), l: box(parts.frame), r: box(parts.frame), mull: box(parts.frame), sill: box(parts.dark), cur: box(parts.cur), cur2: box(parts.cur2), cur3: box(parts.cur), glass: box(parts.glass), warm: box(new t.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.0, fog: false, depthWrite: false })) }; g.userData.parts = parts; g.traverse(q => { q.frustumCulled = false; q.renderOrder = 20; }); return g; }), g = e.m, B = g.userData.b, cam = E.cam;
+    g.userData.b = { top: box(parts.frame), bot: box(parts.frame), l: box(parts.frame), r: box(parts.frame), mull: box(parts.frame), sill: box(parts.dark), cur: box(parts.cur), cur2: box(parts.cur2), cur3: box(parts.cur), glass: box(parts.glass), warm: box(new t.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.0, fog: false, depthWrite: false })), fog: box(new t.MeshBasicMaterial({ map: E_().tex().glow, color: 0xe8f0fa, transparent: true, opacity: 0.0, fog: false, depthWrite: false })) }; g.userData.parts = parts; g.traverse(q => { q.frustumCulled = false; q.renderOrder = 20; }); return g; }), g = e.m, B = g.userData.b, cam = E.cam;
   const d = 0.42, hh = Math.tan(cam.fov * Math.PI / 360) * d, hw = hh * cam.aspect, bar = 0.1 * hw, k = 1 - 0.55 * night; g.userData.parts.frame.color.setRGB(0.86 * k, 0.83 * k, 0.78 * k); g.userData.parts.dark.color.setRGB(0.5 * k, 0.42 * k, 0.34 * k); g.userData.parts.cur.color.setRGB(0.72 * k, 0.27 * k, 0.23 * k); g.userData.parts.cur2.color.setRGB(0.58 * k, 0.2 * k, 0.18 * k);
   const dp = 0.012, set = (b, x, y, w, h, z) => { b.position.set(x, y, -d + (z || 0)); b.scale.set(w, h, dp); };
   set(B.top, 0, hh - bar * 0.5, 2 * hw, bar); set(B.bot, 0, -hh + bar * 0.5, 2 * hw, bar); set(B.l, -hw + bar * 0.5, 0, bar, 2 * hh); set(B.r, hw - bar * 0.5, 0, bar, 2 * hh); set(B.mull, (o && o.mull || 0.12) * hw, 0, bar * 0.4, 2 * hh, 0.001);
   B.sill.position.set(0, -hh + bar * 1.1, -d + 0.05); B.sill.scale.set(2 * hw, bar * 0.28, 0.08);
   set(B.cur, -hw + bar + hw * 0.1, 0.12 * hh, hw * 0.22, 2 * hh, 0.003); set(B.cur2, -hw + bar + hw * 0.04, 0.12 * hh, hw * 0.08, 2 * hh, 0.006); set(B.cur3, -hw + bar + hw * 0.17, 0.12 * hh, hw * 0.04, 2 * hh, 0.004);
-  set(B.glass, 0, 0, 2 * hw, 2 * hh, 0.0005); set(B.warm, 0, 0, 2 * hw, 2 * hh, 0.0007); B.warm.material.opacity = 0.0;
+  set(B.glass, 0, 0, 2 * hw, 2 * hh, 0.0005); if (o && o.fog) set(B.fog, o.fog.x * hw, o.fog.y * hh, o.fog.s * hh * 2 * 1.3, o.fog.s * hh * 2, 0.0009); B.fog.material.opacity = o && o.fog ? o.fog.a : 0; B.fog.visible = !!(o && o.fog); set(B.warm, 0, 0, 2 * hw, 2 * hh, 0.0007); B.warm.material.opacity = 0.0;
   g.position.copy(cam.position); g.quaternion.copy(cam.quaternion); g.scale.setScalar(1); g.visible = true; e.on = true; return e;
 };
 // a pooled prop: built once per key and index, placed for the frame (the engine hides it after the shot)

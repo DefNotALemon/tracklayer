@@ -23,7 +23,7 @@ const NOWIN = true;
 /* ---------------- people ---------------- */
 K.add({
   id: "familyskis", fam: "people", chip: "FAMILY", paint: "group", need: { walker: 5 }, close: false, open: true,
-  w: c => c.household >= 3 && c.int.ski !== undefined && c.snow && c.el > -17 && c.storm < 0.5 && c.hr >= 9 && c.hr <= 17 && window.TLXSK && TLXSK.ready ? 2.2 + (c.int.ski ? 1.5 : 0) : 0,
+  w: c => c.household >= 3 && c.int.ski !== undefined && c.snow && c.el > -46 && c.storm < 0.5 && c.hr >= 9 && c.hr <= 17 && window.TLXSK && TLXSK.ready ? 2.2 + (c.int.ski ? 1.5 : 0) : 0,
   anchor(c, rng) { const t = SP.trail(rng, c.vil, true); if (!t) return null; const fam = TLXN.family(c.p).filter(q => q && q.age > 2).slice(0, 5); if (fam.length < 3) return null; return { x: t.x, z: t.z, a: t.yaw, place: t.name + " trailhead", w: fam.map(q => q.id) }; },
   plan(rec, E) {
     const r = mulb(rec.sd), ps = rec.w.map(who).filter(Boolean).sort((a, b) => b.age - a.age), n = ps.length, fy = rec.a + (r() - 0.5) * 0.8, fx = Math.sin(fy), fz = Math.cos(fy), lx = fz, lz = -fx;
@@ -43,7 +43,7 @@ K.add({
 
 K.add({
   id: "couplerail", fam: "people", chip: "TOGETHER", paint: "group", need: { walker: 2 }, close: true, open: true,
-  w: c => c.coast && c.el > -17 && c.storm < 0.5 && (TLXN.family(c.p).filter(q => q && q.age >= 22).length >= 2) ? 1.8 + (c.int.photos ? 1 : 0) : 0,
+  w: c => c.coast && c.el > -46 && c.storm < 0.5 && (TLXN.family(c.p).filter(q => q && q.age >= 22).length >= 2) ? 1.8 + (c.int.photos ? 1 : 0) : 0,
   anchor(c, rng) { const co = c.coast; if (!co) return null; const ad = TLXN.family(c.p).filter(q => q && q.age >= 22 && q.age < 85); if (ad.length < 2) return null; const b = co.yaw; for (let k = 0; k < 8; k++) { const r = k ? rng() * 14 : 0, a = rng() * TAU, px = co.x + Math.cos(a) * r, pz = co.z + Math.sin(a) * r; if (openOk(px, pz, 1.4)) return { x: px, z: pz, a: b, place: c.vil.name + " harbour", w: [ad[0].id, ad[1].id] }; } return null; },
   plan(rec, E) {
     const r = mulb(rec.sd), fy = yawOfAz(rec.a + Math.PI), fx = Math.sin(fy), fz = Math.cos(fy), lx = fz, lz = -fx, pa = who(rec.w[0]), pb = who(rec.w[1]);
@@ -77,7 +77,7 @@ K.add(Object.assign({
 
 K.add({
   id: "digout", off: true, fam: "sea", chip: "DIGGING", paint: "mound", need: { walker: 1 }, close: false, open: true,
-  w: c => c.snow && (c.sinceStorm || c.depth > 0.3) && c.el > -17 ? (c.adult ? 3 : 0.5) : 0,
+  w: c => c.snow && (c.sinceStorm || c.depth > 0.3) && c.el > -46 ? (c.adult ? 3 : 0.5) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 7.5, 0); if (!f) return null; f.w = [c.p.id]; return f; },
   plan(rec, E) {
     const p = who(rec.w[0]), nx = Math.sin(rec.a), nz = Math.cos(rec.a), lx = nz, lz = -nx, fy = rec.a, r = mulb(rec.sd);
@@ -97,7 +97,7 @@ K.add({
 /* ---------------- weather at the door ---------------- */
 K.add({
   id: "doorwall", off: true, fam: "weather", chip: "STORM", paint: "mound", need: {}, close: true, open: true,
-  w: c => c.snow && (c.sinceStorm || c.depth > 0.35) && c.el > -17 ? 2.2 : 0,
+  w: c => c.snow && (c.sinceStorm || c.depth > 0.35) && c.el > -46 ? 2.2 : 0,
   anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; return { x: d.x + d.nx * 0.9, z: d.z + d.nz * 0.9, a: d.yaw, place: c.vil.name, w: [] }; },
   plan(rec, E) {
     const nx = Math.sin(rec.a), nz = Math.cos(rec.a), r = mulb(rec.sd);
@@ -114,14 +114,17 @@ K.add({
 
 K.add({
   id: "thisistheroad", fam: "weather", chip: "WHITEOUT", paint: "road", need: {}, close: false, open: true,
-  w: c => c.storm >= 0.55 && c.el > -17 && c.snow ? 3 : 0,
+  w: c => c.storm >= 0.55 && c.el > -46 && c.snow ? 3 : 0,
   anchor(c, rng) { const rd = SP.road(rng, c.vil); if (!rd) return null; return { x: rd.x, z: rd.z, a: rd.yaw, place: rd.name || (c.vil.name + " road"), w: [], s: Math.max(0.82, c.storm) }; },
   plan(rec, E) {
     const fx = Math.sin(rec.a), fz = Math.cos(rec.a), r = mulb(rec.sd);
     return { dur: 4, still: 1, need: {}, hour: rec.h, storm: Math.max(rec.s, 0.82), fog: 0.045, vig: 0.4, light: { fill: 0.4, hemi: 0.5, exp: 0.3 }, flat: true,
       frame(t, E) {
-        K.begin(E); const px = rec.x + fx * 8, pz = rec.z + fz * 8; K.prop(E, "pole", 0, px, pz, 0, {}); K.prop(E, "pole", 1, rec.x + fx * 22 + fz * 3, rec.z + fz * 22 - fx * 3, 0, {});
-        E.look(rec.x, surf(rec.x, rec.z) + 1.5, rec.z, px, surf(px, pz) + 1.4, pz, 55, 0); E.flakes(-6 - 3 * Math.sin(t), -1.2, 2, 0.85, 0.06, [16, 9, 26], 6); E.marks.push([px, surf(px, pz) + 0.1, pz], [px, surf(px, pz) + 2.4, pz]); E.needH = 0.25;
+        // something to read in the white: a marker pole close by, a half-buried road sign at its foot, and (some of the time) the faint tail lamps of a car ahead
+        K.begin(E); const lx = fz, lz = -fx, px = rec.x + fx * 5.5 + lx * 0.6, pz = rec.z + fz * 5.5 + lz * 0.6, sx = px - lx * 1.9 + fx * 1.2, sz = pz - lz * 1.9 + fz * 1.2, tail = r() < 0.6;
+        K.prop(E, "pole", 0, px, pz, 0, {}); K.prop(E, "sign", 0, sx, sz, rec.a + 2.7, { dy: -0.75, rz: 0.12 }); K.prop(E, "pole", 1, rec.x + fx * 21 + lx * 3, rec.z + fz * 21 + lz * 3, 0, {});
+        K.prop(E, "berm", 0, sx + fx * 0.3, sz + fz * 0.3, rec.a, { s: 0.55, dy: -0.1 }); if (tail) K.prop(E, "tail", 0, rec.x + fx * 17 - lx * 0.3, rec.z + fz * 17 - lz * 0.3, rec.a, {});
+        E.look(rec.x, surf(rec.x, rec.z) + 1.5, rec.z, px - lx * 0.5 + fx * 3, surf(px, pz) + 1.3, pz - lz * 0.5 + fz * 3, 58, 0); E.flakes(-6 - 3 * Math.sin(t), -1.2, 2, 0.85, 0.06, [16, 9, 26], 6); E.marks.push([px, surf(px, pz) + 0.1, pz], [px, surf(px, pz) + 2.4, pz]); E.needH = 0.25;
       } };
   },
   vars: (c, rec, an) => ({ road: (an && an.place || rec.place || "") }),
@@ -131,7 +134,7 @@ K.add({
 
 K.add({
   id: "carmound", fam: "funny", chip: "WINTER", paint: "mound", need: {}, close: false, open: true,
-  w: c => c.snow && c.el > -17 ? ((c.sinceStorm || c.depth > 0.3) ? 1.3 : 0.5) : 0,
+  w: c => c.snow && c.el > -46 ? ((c.sinceStorm || c.depth > 0.3) ? 1.3 : 0.5) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 8, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd), nx = Math.sin(rec.a), nz = Math.cos(rec.a);
@@ -157,7 +160,7 @@ K.add({
 
 K.add({
   id: "snowmanfamily", fam: "cosy", chip: "SNOW FAMILY", paint: "snowman", need: {}, close: false, open: true,
-  w: c => c.snow && c.el > -17 && c.storm < 0.4 && c.household >= 2 && c.hr >= 10 && c.hr <= 17 ? ((c.kid || c.kidsList.length) ? 1.3 : 0.5) : 0,
+  w: c => c.snow && c.el > -46 && c.storm < 0.4 && c.household >= 2 && c.hr >= 10 && c.hr <= 17 ? ((c.kid || c.kidsList.length) ? 1.3 : 0.5) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 8, 3); if (!f) return null; const fam = TLXN.family(c.p).filter(q => q).slice(0, 6); f.w = fam.map(q => q.id); return f; },
   plan(rec, E) {
     const r = mulb(rec.sd), ps = rec.w.map(who).filter(Boolean).sort((a, b) => b.age - a.age), nx = Math.sin(rec.a), nz = Math.cos(rec.a), lx = nz, lz = -nx, n = ps.length;
@@ -174,7 +177,7 @@ K.add({
 
 K.add({
   id: "kicksled", off: true, fam: "cosy", chip: "SPARK", paint: "house", need: {}, close: false, open: true,
-  w: c => c.snow && c.storm < 0.5 && c.el > -17 && c.hr >= 9 && c.hr <= 18 ? 1.6 + (c.p.age > 55 ? 1.2 : 0) : 0,
+  w: c => c.snow && c.storm < 0.5 && c.el > -46 && c.hr >= 9 && c.hr <= 18 ? 1.6 + (c.p.age > 55 ? 1.2 : 0) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 3.4, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.45 },
@@ -198,7 +201,7 @@ K.add({
 
 K.add({
   id: "bonfire", off: true, fam: "cosy", chip: "FIRE", paint: "fire", need: { walker: 4 }, close: false, open: true,
-  w: c => c.snow && c.storm < 0.45 && c.el > -17 && c.household >= 2 && c.hr >= 13 ? 2 + (c.el < 0 ? 1 : 0) + (c.kid || c.kidsList.length ? 1 : 0) : 0,
+  w: c => c.snow && c.storm < 0.45 && c.el > -46 && c.household >= 2 && c.hr >= 13 ? 2 + (c.el < 0 ? 1 : 0) + (c.kid || c.kidsList.length ? 1 : 0) : 0,
   anchor(c, rng) { const fam = TLXN.family(c.p).filter(q => q && q.age > 3).slice(0, 4); if (fam.length < 2) return null; const sp = SP.ring(rng, c.vil.x, c.vil.z, 30, 200, 5); if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: "behind " + c.vil.name, w: fam.map(q => q.id) }; },
   plan(rec, E) {
     const r = mulb(rec.sd), ps = rec.w.map(who).filter(Boolean), n = ps.length, ua = rec.a, ux = Math.sin(ua), uz = Math.cos(ua), lx = uz, lz = -ux;
@@ -235,7 +238,7 @@ K.add({
 
 K.add({
   id: "woodpile", off: true, fam: "cosy", chip: "WOOD", paint: "house", need: {}, close: false, open: true,
-  w: c => c.snow && c.storm < 0.5 && c.el > -17 ? (c.p.age > 40 ? 1.8 : 0.7) : 0,
+  w: c => c.snow && c.storm < 0.5 && c.el > -46 ? (c.p.age > 40 ? 1.8 : 0.7) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 5.2, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.4 },
@@ -248,7 +251,7 @@ K.add({
 /* ---------------- funny ---------------- */
 K.add({
   id: "sledburied", fam: "funny", chip: "OOPS", paint: "sled", need: { sled: 1, walker: 1 }, close: false, open: true,
-  w: c => c.snow && (c.int.sled || c.int.racing) && c.el > -17 && (c.depth > 0.2 || c.sinceStorm || c.storm > 0.3) ? 2.4 : c.depth > 0.1 ? 1 : 0,
+  w: c => c.snow && (c.int.sled || c.int.racing) && c.el > -46 && (c.depth > 0.2 || c.sinceStorm || c.storm > 0.3) ? 2.4 : c.depth > 0.1 ? 1 : 0,
   anchor(c, rng) { let sp = null; for (let k = 0; k < 14 && !sp; k++) { const q = SP.ring(rng, c.vil.x, c.vil.z, 90, 900, 4); if (q && Math.abs(surf(q[0] + 4, q[1]) - surf(q[0] - 4, q[1])) < 0.5 && Math.abs(surf(q[0], q[1] + 4) - surf(q[0], q[1] - 4)) < 0.5) sp = q; } if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: c.vil.name + " backcountry", w: [c.p.id] }; },
   plan(rec, E) {
     const r = mulb(rec.sd), night = NIGHTK(rec.h), yaw = rec.a, p = who(rec.w[0]) || { id: "x", first: "?", age: 30 }, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = Math.cos(yaw), lz = -Math.sin(yaw), shrug = r() < 0.6, side = r() < 0.5 ? 1 : -1;
@@ -272,7 +275,7 @@ K.add({
 
 K.add({
   id: "gloveonpost", off: true, fam: "funny", chip: "WHOSE?", paint: "house", need: {}, close: true, open: true,
-  w: c => c.snow && c.storm < 0.55 && c.el > -17 ? 1.4 : 0,
+  w: c => c.snow && c.storm < 0.55 && c.el > -46 ? 1.4 : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 6.5, 12); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.22, light: { fill: 0.5 },
@@ -304,7 +307,7 @@ K.add({
 
 K.add({
   id: "groomed", fam: "you", chip: "TRAIL", paint: "ski", need: {}, close: false, open: true,
-  w: c => c.int.ski && c.snow && c.el > -17 && c.storm < 0.4 && window.TLXSK && TLXSK.ready ? 1.1 : 0,
+  w: c => c.int.ski && c.snow && c.el > -46 && c.storm < 0.4 && window.TLXSK && TLXSK.ready ? 1.1 : 0,
   anchor(c, rng) { const t = SP.trail(rng, c.vil, false); if (!t) return null; return { x: t.x, z: t.z, a: t.yaw, place: t.name, w: [] }; },
   plan(rec, E) {
     const fx = Math.sin(rec.a), fz = Math.cos(rec.a), lx = Math.cos(rec.a), lz = -Math.sin(rec.a), r = mulb(rec.sd), side = r() < 0.5 ? 1 : -1; return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.55 },
