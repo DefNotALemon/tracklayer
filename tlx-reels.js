@@ -180,6 +180,14 @@ function buildDeer(i) {
 }
 E.deerPlace = (d, x, z, yaw, v, graze, dt) => { const q = d.q, y = W.surf(x, z); q.g.position.set(x, y - 0.05, z); q.g.rotation.set(0, yaw, 0); A.gram.quad.pose(q, dt === undefined ? E.dt || 0.04 : dt, v, graze || 0, 0); d.on = true; d.blob.position.set(x, y + 0.07, z); d.blob.rotation.y = yaw; d.blob.visible = true; d.blobOn = true; };
 E.buildWalker = buildWalker; E.blob = blob; E.buildSled = buildSled; E.poseRider = poseRider; E.actorsShow = actorsShow; E.tex = tex;
+// one actor of a cast per call (true when the whole cast stands): prefetch builds the next reel's sleds, walkers and deer a piece at a time so no idle frame carries twenty figures
+E.prepareStep = need => {
+  engInit(); need = need || {};
+  if (E.sleds.length < (need.sled || 0)) { E.sleds.push(buildSled(E.sleds.length)); return false; }
+  if (E.walkers.length < (need.walker || 0)) { E.walkers.push(buildWalker(E.walkers.length)); return false; }
+  if (E.deer.length < (need.deer || 0)) { E.deer.push(buildDeer(E.deer.length)); return false; }
+  return true;
+};
 E.prepare = need => {
   engInit(); need = need || {};
   while (E.sleds.length < (need.sled || 0)) E.sleds.push(buildSled(E.sleds.length));
@@ -415,14 +423,15 @@ function prefetch(one) {
   if (!pf || pf.id !== nx.id) { if (R.next && R.next.id === nx.id) return false; pf = R.pf = { id: nx.id, step: 0, Sc: null }; }
   const keep = { tPrev: E.tPrev, reset: E.reset }, r0 = R.renders, p0 = R.painted, ms0 = R.ms.length, c0 = R.calls.length;
   try {
-    for (let n = 0; n < (one ? 1 : 9) && pf.step < 5; n++, pf.step++) {
-      if (pf.step === 0) { pf.Sc = planOf(nx); R.next = { id: nx.id, Sc: pf.Sc || null }; if (!pf.Sc) { pf.step = 9; break; } R.prefetched = (R.prefetched || 0) + 1; }
-      else if (pf.step === 1) { if (pf.Sc.setup) pf.Sc.setup(E); pf.cv = document.createElement("canvas"); pf.cv.width = 27; pf.cv.height = 48; pf.g = pf.cv.getContext("2d"); }
-      else { E.tPrev = -1; renderAt(pf.Sc, pf.Sc.dur * (0.2 + 0.2 * (pf.step - 2)), pf.cv, pf.g); }
+    for (let n = 0; n < (one ? 1 : 12) && pf.step < 6; n++, pf.step++) {
+      if (pf.step === 0) { const ty = R.types[nx.ty]; if (ty && !E.prepareStep(ty.need)) { pf.step--; continue; } }                          // the cast, one figure per idle frame
+      else if (pf.step === 1) { pf.Sc = planOf(nx); R.next = { id: nx.id, Sc: pf.Sc || null }; if (!pf.Sc) { pf.step = 9; break; } R.prefetched = (R.prefetched || 0) + 1; }
+      else if (pf.step === 2) { E.prepare(pf.Sc.need); if (pf.Sc.setup) pf.Sc.setup(E); pf.cv = document.createElement("canvas"); pf.cv.width = 27; pf.cv.height = 48; pf.g = pf.cv.getContext("2d"); }
+      else { E.tPrev = -1; renderAt(pf.Sc, pf.Sc.dur * (0.2 + 0.2 * (pf.step - 3)), pf.cv, pf.g); }
     }
   } catch (e) { console.error("TLX reel prefetch", e); R.next = { id: nx.id, Sc: null }; pf.step = 9; }
   finally { R.painted = p0; R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
-  return pf.step < 5;
+  return pf.step < 6;
 }
 R.prefetch = prefetch;
 function stop() { if (R.play) { R.play = null; } actorsShow(false); E.tPrev = -1; R.live = 0; }
