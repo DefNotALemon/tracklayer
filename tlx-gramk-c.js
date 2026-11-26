@@ -76,8 +76,8 @@ K.add(Object.assign({
 }, viaReel("plowwall", 3.75, (E, rec) => { const e = E.extra.find(q => q.key === "plowtruck"); if (e) { const p = e.m.position; E.marks.push([p.x, p.y + 0.3, p.z], [p.x, p.y + 3.2, p.z]); E.needH = 0.22; } })));
 
 K.add({
-  id: "digout", off: true, fam: "sea", chip: "DIGGING", paint: "mound", need: { walker: 1 }, close: false, open: true,
-  w: c => c.snow && (c.sinceStorm || c.depth > 0.3) && c.el > -46 ? (c.adult ? 3 : 0.5) : 0,
+  id: "digout", fam: "sea", chip: "DIGGING", paint: "mound", need: { walker: 1 }, close: false, open: true,
+  w: c => c.snow && (c.sinceStorm || c.depth > 0.3) && c.el > -6 ? (c.adult ? 3 : 0.5) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 7.5, 0); if (!f) return null; f.w = [c.p.id]; return f; },
   plan(rec, E) {
     const p = who(rec.w[0]), nx = Math.sin(rec.a), nz = Math.cos(rec.a), lx = nz, lz = -nx, fy = rec.a, r = mulb(rec.sd);
@@ -147,8 +147,8 @@ K.add({
 
 /* ---------------- cosy ---------------- */
 K.add({
-  id: "snowlantern", off: true, fam: "cosy", chip: "COSY", paint: "house", need: {}, close: true, open: true,
-  w: c => c.snow && c.storm < 0.5 && (c.el < 2 ? 3 : 1.2) && c.hr >= 14 ? (c.household > 1 ? 2.4 : 1.6) : 0,
+  id: "snowlantern", fam: "cosy", chip: "COSY", paint: "house", need: {}, close: true, open: true,
+  w: c => c.snow && c.storm < 0.5 && c.el < 0 && c.hr >= 14 ? (c.household > 1 ? 2.4 : 1.6) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 4.2, 4); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: Math.min(rec.s, 0.3), vig: 0.26, light: { fill: 0.25, hemi: 0.1, exp: 0.4, warm: 0.4 },
@@ -176,31 +176,31 @@ K.add({
 });
 
 K.add({
-  id: "kicksled", off: true, fam: "cosy", chip: "SPARK", paint: "house", need: {}, close: false, open: true,
+  id: "kicksled", fam: "cosy", chip: "SPARK", paint: "house", need: {}, close: false, open: true,
   w: c => c.snow && c.storm < 0.5 && c.el > -46 && c.hr >= 9 && c.hr <= 18 ? 1.6 + (c.p.age > 55 ? 1.2 : 0) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 3.4, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.45 },
-      frame(t, E) { K.begin(E); K.prop(E, "kicksled", 0, rec.x, rec.z, rec.a + 0.6 + (r() - 0.5) * 0.5, { rx: -0.05 }); K.prop(E, "drift", 0, rec.x - Math.sin(rec.a) * 0.2, rec.z - Math.cos(rec.a) * 0.2 + 0.2, 0, { s: 0.6 }); camFront(E, rec, 4.2, 1.1, 0.5, 48, 1.0); mark2(E, rec.x, rec.z, 0.02, 1.0); E.needH = 0.26; } };
+      frame(t, E) { K.begin(E); K.prop(E, "kicksled", 0, rec.x, rec.z, rec.a + 0.6 + (r() - 0.5) * 0.5, { rx: -0.05, s: 1.25 }); K.prop(E, "drift", 0, rec.x - Math.sin(rec.a) * 0.2, rec.z - Math.cos(rec.a) * 0.2 + 0.2, 0, { s: 0.6 }); camFront(E, rec, 2.7, 0.85, 0.55, 50, 0.9); mark2(E, rec.x, rec.z, 0.02, 1.25); E.needH = 0.26; } };
   },
   cap: [["w", "The kicksled outside the shop. It has carried half this village's shopping, and the other half's grandchildren."], ["c", "the spark!! the kicksled!! outside the shop where it always is and I will not hear a word against it"], ["d", "Kicksled. Shop. Waiting."], ["t", "Kicksled at the shop."], ["y", "The Nordkinn's most reliable vehicle, parked illegally."], ["e", "Outside the shop {hr}. Everyone borrows it, nobody forgets to bring it back."], ["w", "A good old kicksled and a fresh drift at the door."], ["c", "{first}'s granddad built this one in 1974 and it STILL goes"], ["y", "No fuel, no insurance, no complaints."], ["d", "Left at the door. Will be there tomorrow. And the day after."]],
   cm: { pic: [], nb: ["I borrowed it Thursday, sorry, it is back now.", "Whose is it? I want to buy one!", "The runners are new, aren't they?", "Mine is the exact same one, in blue."], grump: ["It is in front of the door, you know."], reply: ["Thursday, no problem.", "Moving it now!"] }
 });
 
 K.add({
-  id: "skisoutside", off: true, fam: "cosy", chip: "COSY", paint: "house", need: {}, close: false, open: true,
+  id: "skisoutside", fam: "cosy", chip: "COSY", paint: "house", need: {}, close: false, open: true,
   w: c => c.snow && c.storm < 0.55 && (c.el < 2 ? 2.4 : 1.2) && c.int.ski !== undefined ? 1.4 + (c.int.ski ? 1.8 : 0) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 3.0, 4); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: Math.min(rec.s, 0.35), vig: 0.24, light: { fill: 0.3, warm: 0.3 },
-      frame(t, E) { K.begin(E); K.prop(E, "skis", 0, rec.x, rec.z, rec.a + 1.57, { rz: 0.04 }); K.prop(E, "skis", 1, rec.x + 0.5, rec.z + 0.2, rec.a + 1.4, { rz: -0.05 }); camFront(E, rec, 4.6, 1.2, 0.9, 50, 0.5); mark2(E, rec.x, rec.z, 0.05, 1.7); E.needH = 0.26; } };
+      frame(t, E) { K.begin(E); K.prop(E, "skis", 0, rec.x, rec.z, rec.a + 1.57, { rz: 0.04, s: 1.3 }); K.prop(E, "skis", 1, rec.x + 0.5, rec.z + 0.2, rec.a + 1.4, { rz: -0.05, s: 1.3 }); camFront(E, rec, 3.3, 1.05, 0.95, 50, 0.4); mark2(E, rec.x, rec.z, 0.05, 1.9); E.needH = 0.26; } };
   },
   cap: [["w", "Skis in the drift outside the cabin, and the window glowing behind. Home."], ["c", "THE LIGHT IN THE WINDOW and the skis in the snow and soup on the stove, this is peak winter!!"], ["d", "Skis outside. Stove inside."], ["t", "Skis. Cabin. Home."], ["y", "Evidence that I have gone out and come back, in that order."], ["e", "Back from {place}, skis parked, the stove already warm. A good day."], ["w", "Frost on the skis and a yellow window. That says it all."], ["c", "we skied until the light went and now everyone is in front of the fire"], ["y", "The skis are tired. So am I. The window is the only awake one."], ["d", "Out. In. Done."]],
   cm: { pic: [], nb: ["The window looks so warm from the road.", "Which wax did you use? They look fast.", "Soup at yours?", "I had the same view from the trail."], grump: ["Wipe the skis, the porch is wet."], reply: ["Blue wax, from the shop.", "Soup at seven."] }
 });
 
 K.add({
-  id: "bonfire", off: true, fam: "cosy", chip: "FIRE", paint: "fire", need: { walker: 4 }, close: false, open: true,
+  id: "bonfire", fam: "cosy", chip: "FIRE", paint: "fire", need: { walker: 4 }, close: false, open: true,
   w: c => c.snow && c.storm < 0.45 && c.el > -46 && c.household >= 2 && c.hr >= 13 ? 2 + (c.el < 0 ? 1 : 0) + (c.kid || c.kidsList.length ? 1 : 0) : 0,
   anchor(c, rng) { const fam = TLXN.family(c.p).filter(q => q && q.age > 3).slice(0, 4); if (fam.length < 2) return null; const sp = SP.ring(rng, c.vil.x, c.vil.z, 30, 200, 5); if (!sp) return null; return { x: sp[0], z: sp[1], a: rng() * TAU, place: "behind " + c.vil.name, w: fam.map(q => q.id) }; },
   plan(rec, E) {
@@ -237,7 +237,7 @@ K.add({
 });
 
 K.add({
-  id: "woodpile", off: true, fam: "cosy", chip: "WOOD", paint: "house", need: {}, close: false, open: true,
+  id: "woodpile", fam: "cosy", chip: "WOOD", paint: "house", need: {}, close: false, open: true,
   w: c => c.snow && c.storm < 0.5 && c.el > -46 ? (c.p.age > 40 ? 1.8 : 0.7) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 5.2, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
@@ -274,7 +274,7 @@ K.add({
 });
 
 K.add({
-  id: "gloveonpost", off: true, fam: "funny", chip: "WHOSE?", paint: "house", need: {}, close: true, open: true,
+  id: "gloveonpost", fam: "funny", chip: "WHOSE?", paint: "house", need: {}, close: true, open: true,
   w: c => c.snow && c.storm < 0.55 && c.el > -46 ? 1.4 : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 6.5, 12); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {

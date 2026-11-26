@@ -374,10 +374,11 @@ function skyDress(E, rec, el, st) {
   lerpC(SU.uZen.value, 0.03, 0.075, 0.2, m); lerpC(SU.uMid.value, 0.07, 0.15, 0.33, m); lerpC(SU.uHor.value, 0.17, 0.3, 0.46, m * (el > -9 ? 0.6 : 1)); lerpC(SU.uHorA.value, 0.14, 0.26, 0.42, m);
   if (fog && fog.color) { lerpC(fog.color, 0.1, 0.18, 0.3, m * 0.7); SU.uFog && SU.uFog.value.copy(fog.color); }
   if (ST && el < -6) ST.uOp.value = Math.max(ST.uOp.value, 0.9 * d) * 1.25;
-  if (el < -6 && (SU.uMoonI.value < 0.3 || SU.uMoon.value.y < 0.12)) {                                   // the real moon is down: put one in the frame, a little left of where the lens looks, well up
+  if (E.moonDir && el < -6) { SU.uMoon.value.copy(E.moonDir); SU.uMoonI.value = 0.95 * clearK; }                // a moment that wants the moon in a place (the halo) puts it there
+  else if (el < -6 && (SU.uMoonI.value < 0.3 || SU.uMoon.value.y < 0.12)) {                                   // the real moon is down: put one in the frame, a little left of where the lens looks, well up
     E.cam.getWorldDirection(tmp); const a = Math.atan2(tmp.x, tmp.z) + 0.45 + 0.3 * (hash01("moon" + (rec.sd | 0)) - 0.5); SU.uMoon.value.set(Math.sin(a) * 0.9, 0.42, Math.cos(a) * 0.9).normalize(); SU.uMoonI.value = 0.8 * clearK;
   }
-  if (el < -10 && hash01("aur" + (rec.sd | 0)) < 0.42) SU.uAurora.value = Math.max(SU.uAurora.value, 0.75 * clearK);
+  if (el < -10 && (E.forceAur || hash01("aur" + (rec.sd | 0)) < 0.42)) SU.uAurora.value = Math.max(SU.uAurora.value, 0.75 * clearK);
 }
 G.litPlan = litPlan;
 // the shot's subject on the frame: its projected box (NDC), whether each face is to the camera, whether anything stands in front
@@ -537,15 +538,22 @@ function makeOne(t, vid, opt) {
 G.makeOne = makeOne;
 // a reel's caption: the same per-kind lines as the photo's, filled from the moment (who, where, how much)
 G.capReel = (row, key, c, p, rec, an) => { const base = varsFor(key, c, p), pics = (rec.w || []).map(who).filter(Boolean); const v = Object.assign(base, { _H: rec.h, place: (an && an.place) || p.village, first: p.first, pic: pics.map(q => q.first).join(" and ") || p.first, pic1: pics[0] ? pics[0].first : p.first, pic2: pics[1] ? pics[1].first : "", fam: TLXN.homeOf(p) ? TLXN.homeOf(p).surname : "", hr: hourWord(calAt(rec.h).h) }); if (row.vars) Object.assign(v, row.vars(c, rec, an || {}, p)); return capFor(row, p, v); };
-function genHour(H) {
-  const rate = rateAt(H), n = Math.floor(rate + rnd()); let made = 0;
-  for (let i = 0; i < n; i++) {
-    const vid = pickVillage(H), t = Math.floor(H) + (i + rnd()) / Math.max(1, n) * 0.95;
-    try { const textP = rnd() < 0.14 && !G.noText; const post = textP ? makeText(t, vid) || makeOne(t, vid) : makeOne(t, vid); if (post) made++; } catch (e) { console.error("TLX gram director", e); G.err = String(e && e.stack || e); }
+// one hour of the director, in pieces: the posts one at a time, then the pinned moments, then the reels. A piece is one frame's work (the backlog and the live hours step through them so that no frame
+// carries a whole hour); genHour(H) runs every piece at once, for tests and scripts.
+function hourStart(H) { return { H, n: Math.floor(rateAt(H) + rnd()), i: 0, stage: 0, made: 0 }; }
+function hourStep(st) {
+  const H = st.H;
+  if (st.stage === 0) {
+    if (st.i >= st.n) { st.stage = 1; return false; }
+    const i = st.i++, vid = pickVillage(H), t = Math.floor(H) + (i + rnd()) / Math.max(1, st.n) * 0.95;
+    try { const textP = rnd() < 0.14 && !G.noText; const post = textP ? makeText(t, vid) || makeOne(t, vid) : makeOne(t, vid); if (post) st.made++; } catch (e) { console.error("TLX gram director", e); G.err = String(e && e.stack || e); }
+    return false;
   }
-  try { pinnedHour(H); } catch (e) { console.error("TLX gram pinned", e); G.err = String(e && e.stack || e); }
-  reelHour(H); return made;
+  if (st.stage === 1) { st.stage = 2; try { pinnedHour(H); } catch (e) { console.error("TLX gram pinned", e); G.err = String(e && e.stack || e); } return false; }
+  st.stage = 3; reelHour(H); return true;
 }
+function genHour(H) { const st = hourStart(H); let g = 0; while (!hourStep(st) && g++ < 400); return st.made; }
+G.hourStart = hourStart; G.hourStep = hourStep; G.stepMs = [];
 G.genHour = genHour;
 function reelHour(H) { if (window.TLXRL && TLXRL.ready) TLXRL.genHour(H + 0.45); }
 
@@ -708,8 +716,13 @@ G.backlog = backlog;
 function startBacklog() { const H = api.GS.hour; G.noText = false; G.bl = { h: Math.floor(H) - BACKLOG_H, end: Math.floor(H), t0: performance.now(), ms: 0 }; }
 function stepBacklog() {
   const b = G.bl; if (!b) return; const t0 = performance.now();
-  for (let k = 0; k < 2 && b.h <= b.end; k++, b.h++) { try { genHour(b.h + 0.3); } catch (e) { console.error("TLX gram backlog", e); } if (performance.now() - t0 > 40) { b.h++; break; } }
-  b.ms += performance.now() - t0;
+  for (let k = 0; k < 6 && b.h <= b.end; k++) {                                                          // pieces of an hour until about 14 ms are spent, never a whole hour
+    if (!b.st) b.st = hourStart(b.h + 0.3);
+    let fin = false; try { fin = hourStep(b.st); } catch (e) { console.error("TLX gram backlog", e); fin = true; }
+    if (fin) { b.st = null; b.h++; }
+    if (performance.now() - t0 > 14) break;
+  }
+  const dt = performance.now() - t0; b.ms += dt; G.stepMs.push(dt); if (G.stepMs.length > 120) G.stepMs.shift();
   if (b.h > b.end) { const s = S(), H = api.GS.hour; s.posts = s.posts.filter(q => q.t <= H); s.seen = Math.max(0, ...s.posts.map(q => q.id)); G.backlogMs = Math.round(b.ms); G.bl = null; if (G.ui && G.ui.onPost) G.ui.onPost(null); }
 }
 G.startBacklog = startBacklog; G.stepBacklog = stepBacklog;
@@ -732,7 +745,7 @@ TLX.register({
       G.ready = true;
       if (window.TLXRL) TLXRL.init(a, G, G.H);
       lastH = Math.floor(H);
-      if (!s.posts.length || s.gen < -5) { startBacklog(); s.gen = Math.floor(H); }
+      if ((!s.posts.length || s.gen < -5) && !G.noBl) { startBacklog(); s.gen = Math.floor(H); }
       if (G.ui) G.ui.afterInit();
     } catch (e) { G.err = String(e && e.stack || e); console.error("TLX gram", e); }
   },
@@ -742,7 +755,8 @@ TLX.register({
       if (G.bl) { stepBacklog(); return; }
       const H = api.GS.hour, h = Math.floor(H);
       if (h !== lastH && G.hold) lastH = h;
-      if (h !== lastH) { if (h > lastH && h - lastH <= 6) for (let k = lastH + 1; k <= h; k++) { watch(k); genHour(k + 0.4); } else if (h > lastH) { watch(h); genHour(h + 0.4); } lastH = h; S().gen = h; }
+      if (h !== lastH) { if (h > lastH && h - lastH <= 6) for (let k = lastH + 1; k <= h; k++) { watch(k); (G.q = G.q || []).push(hourStart(k + 0.4)); } else if (h > lastH) { watch(h); (G.q = G.q || []).push(hourStart(h + 0.4)); } lastH = h; S().gen = h; }
+      if (G.q && G.q.length) { const t0 = performance.now(); try { if (hourStep(G.q[0])) G.q.shift(); } catch (e) { console.error("TLX gram live hour", e); G.q.shift(); } G.stepMs.push(performance.now() - t0); if (G.stepMs.length > 120) G.stepMs.shift(); }
       if (G.ui) G.ui.tick(dt); if (window.TLXRL) TLXRL.tick(dt);
     } catch (e) { if (!G.tickErr) console.error("TLX gram tick", e); G.tickErr = String(e && e.stack || e); }
   }

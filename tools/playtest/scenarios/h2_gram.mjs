@@ -36,7 +36,7 @@ await section("A the moment table", async () => {
   ok(t.n >= 24, `at least 24 photo kinds (${t.n})`); ok(["people", "action", "animals", "sea", "weather", "cosy", "funny"].every(f => t.fams.includes(f)), "all seven families: " + t.fams.join(","));
   ok(t.poor.length === 0, "at least 8 caption lines per kind" + (t.poor.length ? ": " + t.poor : "")); ok(t.noCm.length === 0, "every kind has neighbour comments" + (t.noCm.length ? ": " + t.noCm : ""));
   ok(t.plans, "every kind carries a plan (still and clip) and an anchor");
-  const src = ["tlx-gram.js", "tlx-gramkinds.js", "tlx-gramk-a.js", "tlx-gramk-b.js", "tlx-gramk-c.js", "tlx-gramui.js"].map(f => fs.readFileSync(new URL("../../../" + f, import.meta.url), "utf8")).join("\n");
+  const src = ["tlx-gram.js", "tlx-gramkinds.js", "tlx-gramk-a.js", "tlx-gramk-b.js", "tlx-gramk-c.js", "tlx-gramk-d.js", "tlx-gramui.js"].map(f => fs.readFileSync(new URL("../../../" + f, import.meta.url), "utf8")).join("\n");
   ok(!/not yet|a still for now|a still: not in the game|wish:/i.test(src), "no 'not yet / a still for now / wish' posts anywhere in the gram sources");
   await ev(`TLXGR.forceW = true; TLXGR.noText = true; true`);
   const r = await J(`(() => { const vs = TLXN.villages().map(v => v.id), made = [], fail = []; let n = 0; for (const k of Object.keys(TLXGK.kinds)) { let got = null; for (let tr = 0; tr < 6 && !got; tr++) { const t = Math.floor(GS.hour / 24) * 24 + [10.5, 12.2, 13.5, 15.4][tr % 4]; try { got = TLXGR.makeOne(t, vs[(tr + n) % vs.length], { only: k }); } catch (e) { fail.push(k + ":" + e); } } n++; if (got) made.push(k); else fail.push(k); } return { made, fail }; })()`);

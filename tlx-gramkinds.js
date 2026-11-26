@@ -103,7 +103,7 @@ function markFig(E, w, face) {
   if (face !== false) E.faces.push({ x: L.x, y: L.y, z: L.z, yaw: w.o.yaw });
 }
 K.markFig = markFig;
-function begin(E) { E.marks = []; E.faces = []; E.needH = 0.25; }
+function begin(E) { E.marks = []; E.faces = []; E.needH = 0.25; E.moonDir = null; E.forceAur = false; }
 K.begin = begin;
 
 /* ================= props: small things built from boxes, cylinders and balls ================= */
