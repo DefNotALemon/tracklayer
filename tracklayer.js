@@ -3790,13 +3790,18 @@ function initAudio() {
     audio = { AC, master, o1, o2, o2g, lp, eg, hiss, wind, buf, ow, wg };
   } catch (e) { audio = null; }
 }
+// haptics (tlx-haptics.js): what happened and how hard, for the pad. Listeners never throw into the game.
+const HAPX = [];
+function hapEv(k, v) { for (const f of HAPX) { try { f(k, v); } catch (e) { /* a pad never stops the game */ } } }
 function thud(v) {
+  hapEv("thud", v);
   if (!audio) return;
   const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
   s.buffer = buf; f.type = "lowpass"; f.frequency.value = 220; g.gain.setValueAtTime(0.9 * v, AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 0.35);
   s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(AC.currentTime + 0.4);
 }
 function whump(v) {
+  hapEv("whump", v);
   if (!audio) return;
   const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
   s.buffer = buf; f.type = "lowpass"; f.frequency.setValueAtTime(900, t); f.frequency.exponentialRampToValueAtTime(160, t + 0.9);
@@ -4637,6 +4642,7 @@ function iceBreak(x, z) {
   if (started && !GS.dead) toast("The ice gave way!", "bad");
 }
 function iceCrackSnd(v) {
+  hapEv("ice", v);
   if (!audio) return;
   const { AC, master, buf } = audio, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), t = AC.currentTime;
   s.buffer = buf; f.type = "bandpass"; f.frequency.setValueAtTime(2400 + Math.random() * 1800, t); f.frequency.exponentialRampToValueAtTime(500, t + 0.25); f.Q.value = 2;
@@ -17434,6 +17440,7 @@ function crashOk() {
 }
 // throw the rider off with the sled's velocity. skip: the trunk you hit, ignored for a moment so you sail past it
 function crashEject(why, vx, vy, vz, skip) {
+  hapEv("crash", Math.hypot(vx || 0, vy || 0, vz || 0));
   if (VEH.cur) return;                                   // a cab keeps you in: damage and a thud instead (tlx-vehicles.js)
   if (!crashOk()) return false;
   if (SWG.dirty) { SWG.sim = false; swgRigReset(); }
@@ -17832,7 +17839,7 @@ function initExpansion() {
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }
         GS.own.gear[slot] = id; restat(); save(); toast(own ? `Wearing: ${o.name}.` : `Bought and wearing: ${o.name}.`, "good"); return true; } },
     // the quick-customize wheel (11.2): the pads, and the visor wipe a quick tap of D-pad left still does
-    wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
+    hapx: HAPX, wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

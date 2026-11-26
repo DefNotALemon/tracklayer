@@ -318,7 +318,9 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       generated music in its style before a tune repeats. **Safety updates cut in on every station**: storm warnings,
       a road shut or a convoy leaving, avalanche and thin-ice warnings when those exist, a rescue call near you, with
       a two-tone alert and the music ducked. Reception fades behind the fell and in a storm; the relay mast matters.
-- [ ] **I5 Haptics.** Full use of the pad. DualSense first (Lemon's pad), Xbox working too, anything else falls back
+- [x] **I5 Haptics.** (v285, `tlx-haptics.js`, `i5_haptics.mjs`; built by the supervising session. NOT yet felt on a real pad: the report
+      bytes follow the published DualSense layout and are asserted, but only Lemon's hands can say the feel is right.)
+       Full use of the pad. DualSense first (Lemon's pad), Xbox working too, anything else falls back
       to plain rumble. Through the Gamepad API (`vibrationActuator.playEffect`: dual-rumble on every pad,
       trigger-rumble where the browser offers it) and, for the DualSense's own features, WebHID after a one-time
       "connect controller" prompt in Settings (Chrome and Edge; a browser without it gets the Gamepad API rumble and

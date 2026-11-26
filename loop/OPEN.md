@@ -35,6 +35,9 @@ the cron list and the usage governor):
 | Clothing: a real wardrobe, all or nothing | 25 Nov | not started on purpose; waits for his call |
 | Cooking | 25 Nov | his later update; I1 and I3 build kitchens ready for it |
 
+## Needs Lemon's hands
+- I5 haptics (v285): open the tablet's Controller app, click CONNECT DUALSENSE (Chrome or Edge), ride. Say what feels wrong (too strong, wrong trigger, light bar); the DualSense path has never run on real hardware.
+
 ## Small things
 - Tether rope stays visible after a plain dismount (13 Nov). Open.
 - "X: size it up" prompt by an unhooked rescue victim does nothing (13 Nov). Open.
