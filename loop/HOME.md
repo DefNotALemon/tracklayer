@@ -308,7 +308,10 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       furniture shop, the marketplace, and by catalogue order that arrives on the ferry as freight you carry home.
       Business rooms score on what is in them (an inn room with a bed, a lamp and a rug rents for more; a café with
       seats fills them with villagers).
-- [ ] **I4 The radio, with sound (replaces the old H3 below).** A radio on the sled, in every cab and in rooms:
+- [x] **I4 The radio, with sound (replaces the old H3 below).** (`tlx-radio.js` v1, `i4_radio.mjs`. Built by the supervising session.
+      Controls are in the Radio tablet app on all three schemes; there is no dash shortcut key yet. Rooms get the radio with I1.
+      NOT yet heard by a person: the notes, levels and styles are asserted, whether it is pleasant is Lemon's ears' call.)
+       A radio on the sled, in every cab and in rooms:
       on/off, station and volume on all three control schemes. **Several stations, each a different style**, all real
       sound made in the browser (WebAudio synthesis and sequencing, no files to load): Radio Nordkinn (local: talk,
       call-ins from villagers built from the news bus, trail and road reports, accordion and dance-band), a rock

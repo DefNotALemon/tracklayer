@@ -37,6 +37,7 @@ the cron list and the usage governor):
 
 ## Needs Lemon's hands
 - I5 haptics (v285): open the tablet's Controller app, click CONNECT DUALSENSE (Chrome or Edge), ride. Say what feels wrong (too strong, wrong trigger, light bar); the DualSense path has never run on real hardware.
+- I4 radio: listen to all six stations (tablet > Radio). Say which sound wrong or grating; the music has only been checked by meter, never by ear. No quick key for next station yet (tablet only).
 
 ## Small things
 - Tether rope stays visible after a plain dismount (13 Nov). Open.
