@@ -17756,11 +17756,14 @@ function gramShot(o) {
   const W_ = Math.max(8, Math.floor(o.w * k / pr)), H_ = Math.max(8, Math.floor(o.h * k / pr)), bw = Math.round(W_ * pr), bh = Math.round(H_ * pr); if (bw > cv.width || bh > cv.height) return false;
   const h0 = GS.hour, s0 = GS.storm, skyP = sky.position.clone(), starP = stars.position.clone(), rt0 = r.getRenderTarget(), vp = new THREE.Vector4(), sc = new THREE.Vector4(), st0 = r.getScissorTest();
   r.getViewport(vp); r.getScissor(sc); let ok = false; const nu0 = r.shadowMap.needsUpdate;
+  // small things far from the PLAYER are switched off (farCullTick): a picture taken in another village shows them again for its own frame (walls, doors, fences near the lens)
+  const shown = []; { const cx = o.cam.position.x, cz = o.cam.position.z; for (const f of FARC.list) if (f.far && !f.dead && Math.hypot(f.x - cx, f.z - cz) - f.r < f.lim) { f.o.layers.mask = 1; shown.push(f.o); } }
   try {
     GS.hour = o.hour; GS.storm = o.storm; updSky(); sky.position.copy(o.cam.position); stars.position.copy(o.cam.position);
     r.setRenderTarget(null); r.setViewport(0, 0, W_, H_); r.setScissor(0, 0, W_, H_); r.setScissorTest(true); r.clear(); if (o.noShadow) r.shadowMap.needsUpdate = false; if (o.pre) o.pre(bw, bh); r.render(scene, o.cam);
     o.ctx.drawImage(cv, 0, cv.height - bh, bw, bh, 0, 0, o.w, o.h); ok = true;
   } finally {
+    for (const m of shown) m.layers.mask = 0;
     r.setRenderTarget(rt0); r.setViewport(vp); r.setScissor(sc); r.setScissorTest(st0);
     GS.hour = h0; GS.storm = s0; updSky(); sky.position.copy(skyP); stars.position.copy(starP); r.shadowMap.needsUpdate = o.noShadow ? nu0 : true;       /* a reel frame never uses up (or asks for) the main view's shadow pass */
   }

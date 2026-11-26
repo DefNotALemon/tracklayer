@@ -208,9 +208,8 @@ def("wheelie", { chip: "WHEELIE", fam: "action", dur: 5.5, need: { sled: 1 }, pk
 /* ---- 10. snow off the roof onto the path just shovelled ---- */
 def("roofslide", { chip: "OOPS", fam: "funny", dur: 6, need: { walker: 1 }, pk: "house", pspeed: 4,
   w: c => c.snow && c.storm < 0.55 && c.el > -17 && (c.depth > 0.15 || c.sinceStorm) ? 1.8 : 0,
-  // the standing spot is measured from the wall the camera will really see: walk in from the yard to the first solid thing (a porch, the wall), stand 1.5 m out from it
-  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; let face = null; for (let s = 9; s >= -3; s -= 0.25) { if (W().obNear(d.x + d.nx * s, d.z + d.nz * s, 0.35)) { face = s; break; } } if (face === null || face > 4) return null;
-    const x = d.x + d.nx * (face + 1.5), z = d.z + d.nz * (face + 1.5); if (!openOk(x, z, 0.6) || !openOk(x + d.nx * 5.2, z + d.nz * 5.2, 0.8)) return null; return { x, z, a: d.yaw, place: c.vil.name, w: [c.p.id] }; },
+  // the standing spot is 1.5 m out from the front wall (SP.door gives the wall, not the house's centre)
+  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; const x = d.x + d.nx * 1.5, z = d.z + d.nz * 1.5; if (!openOk(x + d.nx * 1.2, z + d.nz * 1.2, 0.5) || !openOk(x + d.nx * 5.2, z + d.nz * 5.2, 0.8)) return null; return { x, z, a: d.yaw, place: c.vil.name, w: [c.p.id] }; },
   plan(rec, E) {
     const p = who(rec.w[0]), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, dur = 6, tS = 1.9, night = NIGHT(rec.h), r = mulb(rec.sd), side = r() < 0.5 ? 1 : -1;
     const wallX = rec.x - fx * 1.5, wallZ = rec.z - fz * 1.5;                                               // the wall face; the eave hangs 0.5 m out from it

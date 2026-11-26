@@ -153,8 +153,8 @@ K.add({
   w: c => c.snow && c.storm < 0.5 && c.el < 0 && c.hr >= 14 ? (c.household > 1 ? 2.4 : 1.6) : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 4.2, 4); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
-    const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: Math.min(rec.s, 0.3), vig: 0.26, light: { fill: 0.25, hemi: 0.1, exp: 0.4, warm: 0.4 },
-      frame(t, E) { K.begin(E); K.prop(E, "lantern", 0, rec.x, rec.z, r() * 6, { s: 1.4 }); K.lampPool(E, "lan", rec.x, rec.z, 4.5, 0xffa850, 0.5 + 0.08 * Math.sin(t * 7)); camFront(E, rec, 2.0, 0.55, 0.45, 52, 0.15); mark2(E, rec.x, rec.z, 0.05, 0.75); E.needH = 0.3; } };
+    const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: Math.min(rec.s, 0.3), vig: 0.26, light: { fill: 0.12, hemi: 0.1, warm: 0.3 },
+      frame(t, E) { K.begin(E); K.prop(E, "lantern", 0, rec.x, rec.z, r() * 6, { s: 1.4 }); K.lampPool(E, "lan", rec.x, rec.z, 3.2, 0xffa850, 0.22 + 0.03 * Math.sin(t * 7)); camFront(E, rec, 2.0, 0.55, 0.45, 52, 0.15); mark2(E, rec.x, rec.z, 0.05, 0.75); E.needH = 0.3; } };
   },
   cap: [["w", "Made a snow lantern at the door with a candle in it. The whole step glows."], ["c", "A LANTERN MADE OF SNOW and it glows orange from the inside and I am never going back in"], ["d", "Snow, candle, door. Done."], ["t", "Snow lantern. Candle."], ["y", "Quality of the lantern: considerable. Quality of the fingers: gone."], ["e", "A small light at the door for anyone who walks by in the dark."], ["w", "Candlelight through the ice. That is what the polar night is for."], ["c", "the kids made six and we lit all of them!!"], ["y", "Free lighting, hand-packed, eco-friendly, melts in April."], ["d", "{place}, {hr}. One candle, one lantern, all quiet."]],
   cm: { pic: [], nb: ["We saw it from the road, it looks so warm.", "How long does the candle last in the cold?", "The kids did the same at ours.", "Beautiful, {first}."], grump: ["Mind that the candle is out before bed."], reply: ["About four hours.", "Out before bed, promise."] }
@@ -244,7 +244,7 @@ K.add({
   anchor(c, rng) { const f = frontOf(c, rng, 5.2, 5); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.4 },
-      frame(t, E) { K.begin(E); K.prop(E, "woodpile", 0, rec.x, rec.z, rec.a + 1.57, {}); camFront(E, rec, 3.2, 1.2, 0.6, 52, 0.8); mark2(E, rec.x, rec.z, 0.02, 0.85); E.needH = 0.2; } };
+      frame(t, E) { K.begin(E); K.prop(E, "woodpile", 0, rec.x, rec.z, rec.a + 0.35, {}); camFront(E, rec, 3.4, 1.25, 0.85, 50, 0.5); mark2(E, rec.x, rec.z, 0.02, 1.8); E.needH = 0.3; } };
   },
   cap: [["w", "Next winter's wood, stacked, squared and covered. I am prouder of this than of most things."], ["c", "LOOK AT THE STACK!! every log the same way round, three weeks of work, do NOT touch it!!"], ["d", "Wood. Stacked. Enough."], ["t", "Woodpile done."], ["y", "My other hobby is arguing about woodpiles. This one wins."], ["e", "A full woodpile is the best feeling in the north. We will be warm."], ["w", "Birch from the valley, dry by March. Smells wonderful."], ["c", "{first} said it leans a bit and I said that is called character"], ["y", "Measured twice, stacked once, photographed immediately."], ["d", "Split, stacked, done. Now let it snow."]],
   cm: { pic: [], nb: ["That leans a little on the left!", "Is that birch or pine?", "Mine is not even half of that.", "That is a proper stack."], grump: ["It is closer to my fence than you said."], reply: ["Character, not lean.", "Birch, from the valley."] }
@@ -277,7 +277,7 @@ K.add({
 
 K.add({
   id: "gloveonpost", fam: "funny", chip: "WHOSE?", paint: "house", need: {}, close: true, open: true,
-  w: c => c.snow && c.storm < 0.55 && c.el > -46 ? 1.4 : 0,
+  w: c => c.snow && c.storm < 0.55 && c.el > -46 ? 0.55 : 0,
   anchor(c, rng) { const f = frontOf(c, rng, 6.5, 12); if (!f) return null; f.w = []; return f; },
   plan(rec, E) {
     const r = mulb(rec.sd); return { dur: 3, still: 1, need: {}, hour: rec.h, storm: rec.s, vig: 0.22, light: { fill: 0.5 },
