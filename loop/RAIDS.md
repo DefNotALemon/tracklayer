@@ -15,7 +15,7 @@ the gate and looks at the stills. Worktree `~/Documents/GitHub/tracklayer-raids`
 | Slice | What | State |
 |---|---|---|
 | A1 | Armed work: armed courier and guard shifts for the state and for companies, armed standing | landed (25 Nov 2026, `tlx-armed.js` v1, `a1_armed.mjs`) |
-| A2a | The places and the people outside: seeded sites, the grow barn inside and out, the crew's suspicious routines, spotting one yourself, tips from standing, the map mark | next |
+| A2a | The places and the people outside: seeded sites, the grow barn inside and out, the crew's suspicious routines, spotting one yourself, tips from standing, the map mark | landed (25 Nov 2026, `tlx-raids.js` v1, `a2a_sites.mjs`, 152 assertions) |
 | A2b | The raid itself: the crew fights, the cash, the Politi clock, getting clear | not started |
 | A3 | More places (meth lab, hjemmebrent still, smugglers' boathouse, pill press), your name gets out | not started |
 | A4 | Tools for the job: pistol, pump shotgun, body armour, a mask; crews that come looking for you | not started |
@@ -149,6 +149,18 @@ tracklayer.js (`crashEject` calls `TLXAW.crashed`). Scenario `a1_armed.mjs`.
 - **Tested only with forced odds.** The tail's one-in-four chance is forced in the scenario (`TLXAW.force({ tail: true })`); every guard event is started by hand
   (`TLXAW.evStart`) rather than waiting for the schedule; events run in a time-lapse (`TUNE.evK = 3`) except the gait strip; the tail's patience is shortened to 12 s.
   The tail giving up by line of sight is tested as the LOS function only (open ground sees, a rise blocks), not as a drive.
+
+### A2a notes (built 25 Nov 2026)
+- Supervisor's look at the A2a stills (25 Nov), fixes for A2b: the dog is a cream blob with a tube body (remake or remove); the two tub carriers walk inside each other (carry one tub between them, or keep them apart); the purple leak reads as a magenta box outline on the windows rather than light spilling out.
+- `tlx-raids.js`, state `x.sys.raids` (sites with `found`/`tipped`/`raided`, tip threads, read fill). API `window.TLXRD` (S, build, spawn, crew, fig, readTick, giveTip, signs, losPts, testEnter, ...). Kinds table `KINDS` (A3 adds entries); the barn is `KINDS.grow`.
+- Seeding: 2-3 sites per game week from world + week; each >= 250 m from any door, >= 400 m from the other sites, dry, level (ground height, not snow height, so the weather never moves a site), no collider within 22 m, off roads, trails and plowed yards. Week 0: three sites (Sandfjorddalen cabin, Risfjord cabin, Gartefjellet wind farm). A site stales with its week unless the player is within sight.
+- Distances: meshes built within 1500 m (past the fog), disposed past 1800 m; crew simulated within 760 m, freed past 860 m (no flicker margin). Far sites cost nothing.
+- Crew: 3-5 figures, roles look/carA/carB/shov/phone/rider/dog; routines look (smoking, tracks the player), carry (tubs van to barn, both hands), phone (paces; goes in when you appear), refuel (can into the generator), drum fire (rubbish at night), shovel, rider (sled idles at the gate, leaves when you near, comes back), dog (chained, lifts its head, barks). Reactions by distance and line of sight: 90 m notice, 60 m wary, 35 m warn-off (look-out walks out, hand raised, shouted toast), 20 m barred (everyone in, bar across the door); reset after 7 s beyond 140 m. The door is locked in A2a (test hook `TLXRD.testEnter`).
+- Spotting: read fills only with a clear sight line within 220 m (x(scope zoom x 0.45) through the rifle scope), more by night with the purple leak showing, closer, and with more routines in view; 0.04/s base; the HUD line shows from 0.34; full = found: Map mark, Jobs row, toast, Vakt note. No licence or standing needed.
+- Tips: first tip at 12 armed standing points and 5 finished armed jobs, then every 8 points, at most one a day (`TUNE.tipMin/tipJobs/tipEvery`); named real contact fitting the employer's trade or "the duty desk"; 8+ templates; Tips tab in the Vakt app; found + tipped merge into one mark.
+- A1 fixes done: walk-in figure crouch (`poseWalker` took `o.hard` off the wading branch and `crouch` as a parameter); posts carry their employer's things and vans sit in the snow; contact trade by post; the notification banner sits at the bottom of the Vakt app.
+- Performance (default pixel ratio 1.5, noisy machine, `a2a_perf.mjs`): render CPU +2.5 ms with a full crew (5 men, rider, dog) in view at 25-60 m, GPU time unchanged within noise, draw calls +700. Over the 1.5 ms aim; the figure kit is ~55 meshes of distinct materials a man so it cannot be merged. Far figures drop shadows and small parts past 45 m. Cheaper crews or an impostor figure is a later pass.
+- Frank: the purple room reads pink in daylight-lit stills (walls take the lamp colour too strongly); the look-out still is framed from behind the player; bin bags are a bit large; the map glyphs are small at full-map zoom.
 
 ## Decisions (defaults are built; Lemon can change any)
 - Only raid crews can be shot (default above).

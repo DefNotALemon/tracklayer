@@ -729,6 +729,7 @@
   .tban,.tnote{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 8px 10px 12px;border-radius:14px;background:var(--panel);border:1px solid rgba(234,242,248,.12);box-shadow:var(--soft);color:var(--frost);font-family:var(--body)}
   .tban{position:fixed;z-index:6;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(440px,calc(100% - 24px));box-sizing:border-box;cursor:pointer;backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);animation:tbanIn .35s var(--ease) both}
   .tnote{position:absolute;z-index:2;top:48px;left:12px;right:12px;background:#142230;animation:tnoteIn .3s var(--ease) both}
+  #tabS[data-app=armed] .tnote{top:auto;bottom:12px}   /* the Vakt app: a notification sits under its tabs, never over them */
   .tban.alert,.tnote.alert{border-color:rgba(255,90,31,.75);box-shadow:0 0 0 1px rgba(255,90,31,.35),var(--soft)}
   .tban.good .tni,.tnote.good .tni{color:var(--pay)}.tban.warn .tni,.tnote.warn .tni{color:var(--warm)}.tban.alert .tni,.tnote.alert .tni{color:var(--signal)}
   @keyframes tbanIn{from{opacity:0;translate:0 -12px}}@keyframes tnoteIn{from{opacity:0;translate:0 -10px}}
@@ -1337,7 +1338,8 @@
 <script src="tlx-gear.js?v=2"></script>
 <script src="tlx-guns.js?v=4"></script>
 <script src="tlx-gunwheel.js?v=2"></script>
-<script src="tlx-armed.js?v=1"></script>
+<script src="tlx-armed.js?v=2"></script>
+<script src="tlx-raids.js?v=1"></script>
 <script src="tlx-seasons.js?v=1"></script>
 <script src="tlx-news.js?v=3"></script>
 <script src="tlx-trails.js?v=6"></script>
@@ -1351,5 +1353,5 @@
 <script src="tlx-gramclips.js?v=3"></script>
 <script src="tlx-gramui.js?v=4"></script>
 <script src="tlx-gram.js?v=8"></script>
-<script src="tracklayer.js?v=282"></script>
+<script src="tracklayer.js?v=283"></script>
 </body></html>

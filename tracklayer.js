@@ -17713,12 +17713,13 @@ function walkAs(g, o, dt) {
   const d = depthAt(ix, iz), f = freshAt(ix, iz), pack = f > 0.02 ? clamp(1 - d / f, 0, 1) : 1;
   const qt = quayTop(o.x, o.z), hardS = qt !== null ? 1 : 0, ls = hardS ? 0 : d * (1 - 0.8 * pack);
   o.hardW += ((hardS ? 1 : 1 - sstep(0.04, 0.3, ls)) - o.hardW) * (1 - Math.exp(-4 * dt));
+  if (o.hard) o.hardW = 1;                                                      /* o.hard: somebody on a trodden yard, not wading (G9 A2a: a guard or a crew member walks upright, never in the player's deep-snow wade) */
   const hw = o.hardW;
   o.sp += ((dt > 0 ? moved / dt : 0) - o.sp) * (1 - Math.exp(-8 * dt));
   o.strain += (clamp(0.55 + 0.45 * sstep(0.05, 0.6, d) + 0.25 * (1 - footWade(d, pack, 0)), 0.55, 1) - o.strain) * (1 - Math.exp(-3 * dt));
   o.hgV += (o.sp - o.hgV) * (1 - Math.exp(-dt / 0.45)); o.hgS = hgStride(o.hgV, 0);
   o.step += lerp(moved * 3.1, moved * 2 * Math.PI / o.hgS, hw);
-  o.sink = hardS ? 0 : 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
+  o.sink = hardS || o.hard ? 0 : 0.5 * clamp(d / 0.85, 0, 1) * (1 - 0.6 * pack);
   o.y = hardS ? qt : surf(o.x, o.z) - o.sink * 0.6;
   o.trk += moved; if (o.trk > 0.2) { o.trk = 0; if (!hardS && hw < 0.85 && !o.quiet) footPath(o.x - fx * 0.5, o.z - fz * 0.5, fx, fz); }
   const half = Math.floor(o.step / Math.PI);
@@ -17734,7 +17735,7 @@ function walkAs(g, o, dt) {
   const F = FOOT, keep = WALKAS_K.map(k => F[k]), mnt = MNT.on, dmt = DMT.on, dirty = SWG.dirty, wipe = WIPE.w;
   let bob = 0, lat = 0;
   try {
-    F.x = o.x; F.z = o.z; F.y = o.y; F.yaw = o.yaw; F.sp = o.sp; F.go = o.sp; F.turn = 0; F.step = o.step; F.hardW = hw; F.strain = o.strain; F.tired = o.tired || 0; F.crouch = 0;
+    F.x = o.x; F.z = o.z; F.y = o.y; F.yaw = o.yaw; F.sp = o.sp; F.go = o.sp; F.turn = 0; F.step = o.step; F.hardW = hw; F.strain = o.strain; F.tired = o.tired || 0; F.crouch = o.crouch || 0;
     F.runW = 0; F.brisk = 0; F.hgS = o.hgS; F.hgV = o.hgV; F.sink = o.sink; F.shoe = false; F.aboard = false; F.latX = 0;
     MNT.on = false; DMT.on = false; SWG.dirty = false; WIPE.w = 0;
     bob = poseWalker(g, dt); lat = F.latX;

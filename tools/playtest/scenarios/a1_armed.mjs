@@ -50,7 +50,7 @@ const KIT = `(() => {
     return null; };
   window.__pup = (x, z, dx, dz, v) => { window.__pupOn = true; window.__pupV = v; let last = gameClock;
     const step = () => { if (!window.__pupOn) return; const t = gameClock, dt = Math.min(0.1, t - last); last = t; const sp = window.__pupV;
-      if (dt > 0) { x += dx * sp * dt; z += dz * sp * dt; P.x = x; P.z = z; P.y = surf(x, z) + 0.3; P.vx = dx * sp; P.vz = dz * sp; P.vy = 0; P.yaw = Math.atan2(dx, dz); window.__pupPos = { x, z }; }
+      if (dt > 0) { x += dx * sp * dt; z += dz * sp * dt; P.x = x; P.z = z; P.y = surf(x, z) + 0.3; P.vx = dx * sp; P.vz = dz * sp; P.vy = 0; P.yaw = Math.atan2(dx, dz); window.__pupPos = { x, z }; CRASH.cool = 1; /* the puppet is carried along a line the test only checked for water and slope: a tree, a rock or an animal on it must not throw the rider and end the run (the crash rule has its own section) */ }
       requestAnimationFrame(step); };
     requestAnimationFrame(step); return true; };
   window.__rec = () => { window.__tr = []; clearInterval(window.__trI); window.__trI = setInterval(() => { const T = TLXAW.TAIL, p = window.__pupPos || { x: P.x, z: P.z }; window.__tr.push({ t: gameClock, on: T.on, mode: T.mode, gap: T.gap, why: T.why || "", d: T.on && T.px !== undefined ? Math.hypot(T.px - P.x, T.pz - P.z) : -1, v: window.__pupV }); }, 100); return true; };
@@ -134,7 +134,7 @@ await section("2 courier", async () => {
   await sleep(500); ok(/Armed courier/.test(await J(`$("jobTitle").textContent`)), "the compass follows it to the drop");
   const hud = await hudIs("rifle stays on your back"); ok(/left/.test(hud) && /rifle stays on your back/.test(hud), "the HUD names the time left and the rifle rule: " + hud.replace(/\n/g, " | "));
   await ev(`__at({ x: ${o.to.x}, z: ${o.to.z} }, 3, 0); true`); await sleep(500);
-  fu = await J(`({ use: footUse(), hint: $("wnHint").textContent })`);
+  for (let i = 0; i < 40; i++) { fu = await J(`({ use: footUse(), hint: $("wnHint").textContent })`); if (/hand the case over/.test(fu.hint)) break; await sleep(250); }
   ok(fu.use === "HAND OVER" && /E: hand the case over/.test(fu.hint), "at the drop: HAND OVER, " + fu.hint);
   await clearToasts(); await tap("KeyE"); await sleep(600);
   const st1 = await stand(), cash1 = await J(`GS.cash`), tl = await toasts();
@@ -221,7 +221,8 @@ await section("5 tail", async () => {
   // B: outrun it
   await run(25, "outran");
   await until(`TLXAW.TAIL.on`, 40); const got2 = await until(`TLXAW.TAIL.mode === "away" || !TLXAW.TAIL.on`, 30);
-  const w2 = await J(`window.__tr.filter(r => r.mode === "away").map(r => r.why)[0]`), tl2 = await toasts();
+  const w2 = await J(`window.__tr.filter(r => r.mode === "away").map(r => r.why)[0] || (TLXAW.S().active && TLXAW.S().active.tailGone) || null`) /* the 100 ms recorder may not have sampled the turn-away yet: the job itself records why the tail left */, tl2 = await toasts();
+  if (w2 !== "outran") console.log("   dbg outrun: " + JSON.stringify(await J(`({ n: window.__tr.length, on: window.__tr.filter(r => r.on).length, modes: [...new Set(window.__tr.map(r => r.mode))], gapMax: Math.max(...window.__tr.map(r => r.gap || 0)), last: window.__tr.slice(-1)[0], act: TLXAW.S().active && { st: TLXAW.S().active.state, tail: TLXAW.S().active.tail, done: TLXAW.S().active.tailDone, gone: TLXAW.S().active.tailGone }, cum: TLXAW.TAIL.cum, sp: TLXAW.TAIL.sp, foot: FOOT.on, crash: (() => { try { return { why: CRASH.why, x: Math.round(CRASH.x || P.x), z: Math.round(CRASH.z || P.z) }; } catch (e) { return String(e); } })(), line: window.__dbgL, obs: (() => { try { return obstaclesNear(FOOT.x, FOOT.z, 12).map(o => ({ x: Math.round(o.x), z: Math.round(o.z), r: o.r, tree: o.tree !== undefined, k: o.kind || o.tag || '' })).slice(0, 8); } catch (e) { return String(e); } })(), fx: Math.round(FOOT.x), fz: Math.round(FOOT.z), pv: Math.hypot(P.vx, P.vz), pup: window.__pupOn })`)) + " toasts " + JSON.stringify(tl2).slice(0, 600));
   ok(got2 && w2 === "outran" && tl2.some(t => /you have left it for dead/.test(t)), "at 25 m/s it is outpaced and falls away: " + w2);
   await ev(`window.__pupOn = false; P.vx = P.vz = 0; true`); await sleep(300); await ev(`TLXAW.fail(TLXAW.S().active, "abandon"); true`); await sleep(300);
   // C: stand still: it catches up and the case is snatched

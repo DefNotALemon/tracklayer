@@ -66,13 +66,15 @@ const EMP = {
   jakt: { name: "Nordkinn Jakt & Våpen" }, survey: { name: "Polar Survey AS" }, film: { name: "Nordlys Film" }
 };
 // a named contact: a real adult of a real household, picked by trade and seeded by the employer (none for the armed forces and the lensmann's desk)
-const CONTACT = { fisk: /fish-plant|harbour/, kommune: /teacher|nurse/, kystverket: /lighthouse|harbour|bird warden/, apotek: /nurse/, jakt: /shopkeeper|mechanic|guide/, survey: /guide|forester|herder/, film: /guide|photograph/, kraft: /mechanic|carpenter/ };
-function contact(emp) {
-  const re = CONTACT[emp]; if (!re || !window.TLXN || !TLXN.people || !TLXN.people.length) return null;
+const CONTACT = { fisk: /fish-plant|harbour/, kommune: /mechanic|carpenter|harbour hand|ferry hand/, kystverket: /lighthouse|harbour|bird warden/, apotek: /nurse/, jakt: /shopkeeper|mechanic|guide/, survey: /guide|forester|herder/, film: /guide|photograph/, kraft: /mechanic|carpenter/ };
+// a post can narrow it (the fuel store's man is a mechanic or a carpenter, the quay's a harbour or ferry hand); a trade that does not fit is never named: the card says "the duty desk" (A2a fix: the kommune's fuel store once named a nurse)
+const CONTACT_POST = { fuel: /mechanic|carpenter/, quay: /harbour hand|ferry hand/ };
+function contact(emp, post) {
+  const re = (post && CONTACT_POST[post]) || CONTACT[emp]; if (!re || !window.TLXN || !TLXN.people || !TLXN.people.length) return null;
   const L = TLXN.people.filter(p => p.age >= 24 && re.test(p.trade || "")); if (!L.length) return null;
-  return L[hashS("armed:" + emp) % L.length];
+  return L[hashS("armed:" + emp + (post || "")) % L.length];
 }
-const contactLine = emp => { const p = contact(emp); return p ? `${p.first} ${p.last}, ${p.trade}, ${p.village}` : EMP[emp].state ? "the duty desk" : "the office"; };
+const contactLine = (emp, post) => { const p = contact(emp, post); return p ? `${p.first} ${p.last}, ${p.trade}, ${p.village}` : EMP[emp].state ? "the duty desk" : "the office"; };
 
 /* ---------------- the world: places ---------------- */
 const W = () => api.world;
@@ -229,7 +231,9 @@ const JK = [0x2d4a63, 0x6b3a2a, 0x3a5a3a, 0x5a5a60, 0x7a2f35, 0x3a3f5a, 0x4a4030
 function newPerson(seed, opt) {
   const std = api.mesh.std, r = rng(seed);
   const g = api.newWalker({ jacket: std(JK[seed % JK.length], 0.85, 0), pants: std(0x23272e, 0.9, 0), trim: std(0xa8adb2, 0.7, 0) });
-  g.visible = false; g.scale.setScalar(0.82 + r() * 0.08); api.scene.add(g); return g;
+  g.visible = false; g.scale.setScalar(0.82 + r() * 0.08); api.scene.add(g);
+  const hk = g.userData.headKit; if (hk) { for (const n in hk) for (const m of hk[n]) m.visible = false; for (const m of hk[seed % 3 === 0 && hk.mask ? "mask" : "beanie"] || hk.helmet) m.visible = true; }     // a hat, not the rider's full-face helmet
+  return g;
 }
 function figMove(f, dt) {
   const o = f.o; if (f.hold > 0) f.hold -= dt;
@@ -262,7 +266,7 @@ function figFree(f) {
   if (f.R) { api.scene.remove(f.R.g); }
 }
 function mkFig(kind, seed, x, z, yaw, vmax) {
-  const f = { o: { x, z, yaw, tired: 0.05 }, v: 0, vmax, path: [], t: 0, hold: 0, turn: 2.4 };
+  const f = { o: { x, z, yaw, tired: 0.05, hard: true }, v: 0, vmax, path: [], t: 0, hold: 0, turn: 2.4 };
   if (kind === "fox") { const q = api.gram.quad.make("fox"); if (!q.g.parent) api.scene.add(q.g); f.fox = q; q.g.visible = false; }
   else if (kind === "sled") { f.R = buildRider(seed); }
   else f.g = newPerson(seed);
@@ -307,6 +311,7 @@ function buildPost(def, sp) {
   const P = { id: def.id, g, obs: [], glow: [], x: sp.x, z: sp.z, ry: sp.ry, lampOn: true, parts: {}, flick: 0, lamps: [], hutWord: "hut" };
   const wood = std(0x7a5c3c, 0.92, 0), red = std(0x8a2f26, 0.85, 0), white = std(0xe4e6e8, 0.8, 0), grey = std(0x6b7279, 0.6, 0.35), dgrey = std(0x2c3036, 0.7, 0.3), yel = std(0xd2a62f, 0.75, 0), blue = std(0x2f4f78, 0.8, 0), roofM = std(0x2a2d31, 0.85, 0.1), black = std(0x15171a, 0.9, 0.1), orange = std(0xcf6a1e, 0.75, 0.05), olive = std(0x4c5a3c, 0.85, 0);
   P.winMat = new T.MeshBasicMaterial({ color: 0x3a3f45 }); P.lampMat = new T.MeshBasicMaterial({ color: 0x555a60 }); P.coalMat = new T.MeshBasicMaterial({ color: 0x5a2410 }); P.alarmMat = null;
+  const snowM = std(0xe8eef3, 1, 0), M2 = api.mesh;
   const ob = (lx, lz, r) => { const o = { x: wx(lx, lz), z: wz(lx, lz), r, top: 1e9 }; w.addOb(o); P.obs.push(o); };
   const sprite = (lx, y, lz, sz, col) => { const s = new T.Sprite(new T.SpriteMaterial({ map: haloTex(), color: col, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false, opacity: 0 })); s.position.set(lx, Y(lx, lz) + y, lz); s.scale.set(sz, sz, 1); s.visible = false; g.add(s); return s; };
   const hut = (lx, lz, bw, bd, bh, mat, roof, door) => {
@@ -338,11 +343,13 @@ function buildPost(def, sp) {
     P.bz = sprite(lx, 1.15, lz, 4.2, 0xff8a3a); P.bz.userData.base = 1; P.brazierAt = { x: wx(lx, lz), z: wz(lx, lz) }; ob(lx, lz, 0.45);
   };
   const van = (lx, lz, ry, col, stripe, big) => {
-    const y = Y(lx, lz), v = new T.Group(); v.position.set(lx, y, lz); v.rotation.y = ry; g.add(v), L = big ? 1.25 : 1;
+    const y = Y(lx, lz) - 0.15, v = new T.Group(); v.position.set(lx, y, lz); v.rotation.y = ry; g.add(v), L = big ? 1.25 : 1;      // sunk 15 cm: the wheels stand in the snow, not on top of it (A2a fix)
+    for (const sx of [-1, 1]) { const b = box(0.75, 0.34, 4.4 * L, snowM, sx * 1.12, 0.28, 0.2, 0, 0, sx * 0.25, v); b.scale.y = 1; box(0.5, 0.22, 3.2 * L, snowM, sx * 1.42, 0.2, 0.3, 0, 0, sx * 0.4, v); }
     box(1.95 * L, 1.55 * L, 3.6 * L, col, 0, 1.0 * L + 0.2, -0.3 * L, 0, 0, 0, v); box(1.9, 1.15, 1.35, col, 0, 0.78 + 0.2, 1.95 * L, 0, 0, 0, v); box(1.85, 0.5, 0.06, std(0x2a3340, 0.2, 0.6), 0, 1.15 + 0.2, 2.62 * L, -0.35, 0, 0, v);
     box(1.97 * L, 0.2, 3.6 * L, stripe, 0, 0.65 * L + 0.2, -0.3 * L, 0, 0, 0, v); box(2.05, 0.18, 4.7 * L + 0.7, black, 0, 0.33, 0.3, 0, 0, 0, v);
     for (const sx of [-1, 1]) for (const z of [-1.0 * L, 1.7 * L]) cyl(0.38, 0.38, 0.22, black, sx * 1.0, 0.38, z, 0, 0, Math.PI / 2, v, 12);
     ob(lx + Math.sin(ry) * 1.6, lz + Math.cos(ry) * 1.6, 1.5); ob(lx - Math.sin(ry) * 0.9, lz - Math.cos(ry) * 0.9, 1.6);
+    (P.vans || (P.vans = [])).push(v);                                    // the van's group: the wheels stand in the snow (a2a_sites measures them)
     if (!P.hut) { P.hut = { x: wx(lx, lz), z: wz(lx, lz), lx, lz, bd: 4 }; P.hutWord = "truck"; }     // a post with no hut keeps its alarm panel in the van
   }; var L;
   const drums = (lx, lz, n, col) => { for (let i = 0; i < n; i++) { const dx = (i % 2) * 0.62, dz = Math.floor(i / 2) * 0.62, y = Y(lx + dx, lz + dz); cyl(0.28, 0.28, 0.85, col, lx + dx, y + 0.38, lz + dz, 0, 0, 0, g, 12); box(0.58, 0.04, 0.58, grey, lx + dx, y + 0.82, lz + dz, 0, 0, 0, g); } ob(lx + 0.3, lz + 0.3, 0.9); };
@@ -351,6 +358,54 @@ function buildPost(def, sp) {
   const tent = (lx, lz, col) => { const y = Y(lx, lz); cyl(0.05, 2.0, 2.3, col, lx, y + 1.0, lz, 0, 0.4, 0, g, 4); box(0.9, 1.5, 0.05, black, lx, y + 0.65, lz + 1.55, 0, 0, 0, g); ob(lx, lz, 2.0); };
   const bins = (lx, lz) => { for (let i = 0; i < 2; i++) { const y = Y(lx + i * 0.8, lz); box(0.62, 1.0, 0.72, i ? std(0x2f6a3a, 0.8, 0) : std(0x3a3f46, 0.8, 0), lx + i * 0.8, y + 0.3, lz, 0, 0.1 * i, 0, g); box(0.68, 0.08, 0.78, black, lx + i * 0.8, y + 0.84, lz, 0, 0.1 * i, 0, g); } P.bins = { x: wx(lx + 0.4, lz), z: wz(lx + 0.4, lz) }; ob(lx + 0.4, lz, 0.9); };
   const mast = (lx, lz) => { const y = Y(lx, lz); cyl(0.06, 0.1, 6.2, grey, lx, y + 2.9, lz, 0, 0, 0, g, 8); cyl(0.9, 0.9, 0.08, white, lx, y + 5.7, lz + 0.35, 1.2, 0, 0, g, 16); ob(lx, lz, 0.5); };
+
+  // what the employer keeps beside its post (A2a fix: a post was a bare box in open snow). Each piece stands on the snow at its own spot (Y) and the big ones are solid (ob).
+  const rope = (lx, lz, len, ang) => { const y = Y(lx, lz); box(len, 0.045, 0.045, black, lx, y + 0.04, lz, 0, ang || 0, 0, g); };
+  const extras = k => {
+    const strut = (a, b, th, mat) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L2 = Math.hypot(dx, dy, dz), m = box(th, th, L2, mat, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, 0, 0, 0, g); m.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), new T.Vector3(dx / L2, dy / L2, dz / L2)); return m; };
+    const ball = M2.ball, steelM = std(0xaab2b9, 0.45, 0.6), pipeM = std(0x7b8087, 0.5, 0.5);
+    if (k === "lighthouse") {                                    // buoys on a pallet, a davit crane, a coil of chain, a lens crate
+      for (let i = 0; i < 3; i++) { const bx = -6.2 - (i % 2) * 1.5, bz = -1.2 - Math.floor(i / 2) * 1.5, y = Y(bx, bz); box(1.3, 0.14, 1.3, wood, bx, y + 0.07, bz, 0, 0.1 * i, 0, g); cyl(0.5, 0.58, 0.7, i % 2 ? red : yel, bx, y + 0.5, bz, 0, 0, 0, g, 14); cyl(0.5, 0.5, 0.18, white, bx, y + 0.94, bz, 0, 0, 0, g, 14); cyl(0.04, 0.2, 0.9, dgrey, bx, y + 1.5, bz, 0, 0, 0, g, 8); ob(bx, bz, 0.7); }
+      const dy = Y(7, -3); cyl(0.09, 0.11, 3.0, red, 7, dy + 1.4, -3, 0, 0, 0, g, 8); box(0.1, 0.1, 2.4, red, 7, dy + 2.9, -1.9, 0, 0, 0, g); box(0.06, 1.6, 0.06, dgrey, 7, dy + 2.1, -0.8, 0, 0, 0, g); ob(7, -3, 0.5);
+      for (let i = 0; i < 4; i++) cyl(0.3 - i * 0.04, 0.3 - i * 0.04, 0.12, dgrey, 6.6, Y(6.6, -5.6) + 0.07 + i * 0.12, -5.6, 0, 0, 0, g, 12);
+    } else if (k === "radar") {                                  // a radome on a steel gantry, a guyed lattice mast, a cabinet and a generator
+      const ry0 = Y(7, -4.5); for (const [a, b] of [[-1, -1], [1, -1], [0, 1.2]]) cyl(0.07, 0.09, 3.2, steelM, 7 + a * 1.1, ry0 + 1.5, -4.5 + b * 1.1, 0, 0, 0, g, 6); ball(1.5, white, 7, ry0 + 4.2, -4.5, g); cyl(1.52, 1.52, 0.06, grey, 7, ry0 + 4.2, -4.5, 0, 0, 0, g, 24); ob(7, -4.5, 1.7);
+      const my = Y(-6.5, -4); for (let i = 0; i < 7; i++) { box(0.08, 0.08, 0.7, steelM, -6.5, my + 0.4 + i * 0.9, -4, 0, 0, 0, g); box(0.42, 0.04, 0.04, steelM, -6.5, my + 0.9 + i * 0.9, -4, 0, i * 0.6, 0, g); } for (const [a, b] of [[3, 0], [-2, 2.5], [-2, -2.5]]) strut([-6.5, my + 5.2, -4], [-6.5 + a * 1.4, my + 0.05, -4 + b * 1.4], 0.025, black);
+      box(1.1, 1.9, 0.7, grey, -7.4, Y(-7.4, 0.5) + 0.95, 0.5, 0, 0.1, 0, g); box(0.1, 1.4, 0.04, dgrey, -7.4, Y(-7.4, 0.5) + 1.0, 0.86, 0, 0.1, 0, g); ob(-7.4, 0.5, 0.9);
+      box(1.3, 0.8, 0.8, orange, 4.4, Y(4.4, -1) + 0.5, -1.3, 0, 0, 0, g); cyl(0.05, 0.05, 0.6, dgrey, 4.8, Y(4.8, -1) + 1.2, -1.3, 0, 0, 0, g, 6);
+    } else if (k === "fuel") {                                   // two horizontal tanks on saddles inside a low bund, pipework, a pump and a hose reel
+      for (const bx of [7, 10]) { const ty = Y(bx, -5); cyl(1.15, 1.15, 5.2, std(0xb8bdc2, 0.4, 0.5), bx, ty + 1.45, -5, Math.PI / 2, 0, 0, g, 20); for (const dz of [-1.7, 1.7]) box(1.8, 0.8, 0.3, dgrey, bx, ty + 0.4, -5 + dz, 0, 0, 0, g); box(0.5, 0.25, 0.5, red, bx, ty + 2.65, -5, 0, 0, 0, g); ob(bx, -5, 1.6); ob(bx, -3.2, 1.4); ob(bx, -6.8, 1.4); }
+      for (const [x1, z1, x2, z2] of [[5.6, -7.6, 11.4, -7.6], [5.6, -2.4, 11.4, -2.4], [5.6, -7.6, 5.6, -2.4], [11.4, -7.6, 11.4, -2.4]]) { const len = Math.hypot(x2 - x1, z2 - z1); box(x1 === x2 ? 0.28 : len, 0.4, x1 === x2 ? len : 0.28, std(0x8d9096, 0.9, 0), (x1 + x2) / 2, Y((x1 + x2) / 2, (z1 + z2) / 2) + 0.18, (z1 + z2) / 2, 0, 0, 0, g); }
+      cyl(0.07, 0.07, 3.1, pipeM, 8.5, Y(8.5, -5) + 0.35, -2.9, 0, 0, Math.PI / 2, g, 8); cyl(0.07, 0.07, 1.0, pipeM, 5.3, Y(5.3, -2.5) + 0.6, -2.5, 0, 0, 0, g, 8);
+      const py = Y(5, 0.4); box(0.62, 1.5, 0.45, red, 5, py + 0.75, 0.4, 0, 0, 0, g); box(0.4, 0.3, 0.06, black, 5, py + 1.15, 0.65, 0, 0, 0, g); cyl(0.2, 0.2, 0.12, dgrey, 5.7, py + 0.9, 0.4, 0, 0, Math.PI / 2, g, 12); ob(5, 0.4, 0.7);
+    } else if (k === "quay") {                                   // bollards, a stack of fish boxes on pallets, mooring rope, a pallet jack
+      for (const bx of [-6, 6]) { const y = Y(bx, 3.4); cyl(0.2, 0.26, 0.7, dgrey, bx, y + 0.3, 3.4, 0, 0, 0, g, 10); cyl(0.3, 0.2, 0.12, dgrey, bx, y + 0.7, 3.4, 0, 0, 0, g, 10); ob(bx, 3.4, 0.4); }
+      for (let i = 0; i < 2; i++) { const bx = -5.4 + i * 1.5, y = Y(bx, -4); box(1.3, 0.14, 1.1, wood, bx, y + 0.07, -4, 0, 0, 0, g); for (let j = 0; j < 4; j++) box(1.2, 0.3, 1.0, j % 2 ? blue : white, bx, y + 0.3 + j * 0.31, -4, 0, 0.05 * j, 0, g); ob(bx, -4, 0.9); }
+      for (let i = 0; i < 4; i++) cyl(0.5 - i * 0.07, 0.5 - i * 0.07, 0.1, std(0xcfc3a0, 1, 0), 5.5, Y(5.5, 2.4) + 0.06 + i * 0.1, 2.4, 0, 0, 0, g, 14);
+      const jy = Y(-3.2, -5.6); box(0.6, 0.12, 1.2, yel, -3.2, jy + 0.12, -5.6, 0, 0.3, 0, g); box(0.08, 1.1, 0.08, yel, -3.2, jy + 0.7, -5.2, 0, 0.3, 0, g);
+    } else if (k === "fish") {                                   // a conveyor from the plant door to a crate stack, ice bins, a hose reel
+      const cx = 7.2, cy = Y(cx, -4), len = 7.5; box(0.9, 0.12, len, std(0x3a3f46, 0.7, 0.3), cx, cy + 0.85, -4, 0, 0, 0, g); box(0.8, 0.03, len - 0.1, std(0x16191c, 0.9, 0), cx, cy + 0.92, -4, 0, 0, 0, g); for (const sx of [-0.45, 0.45]) box(0.06, 0.18, len, steelM, cx + sx, cy + 0.98, -4, 0, 0, 0, g);
+      for (let i = 0; i < 6; i++) for (const sx of [-0.4, 0.4]) { const z = -4 - len / 2 + 0.6 + i * 1.25; box(0.06, 0.8, 0.06, steelM, cx + sx, Y(cx + sx, z) + 0.4, z, 0, 0, 0, g); } ob(cx, -2, 0.7); ob(cx, -4, 0.7); ob(cx, -6, 0.7);
+      for (let i = 0; i < 3; i++) box(0.6, 0.3, 0.45, std(0x9fb6c4, 0.8, 0), cx + (i - 1) * 0.1, cy + 1.08 + (i % 2) * 0.02, -3.6 - i * 1.4, 0, 0.1 * i, 0, g);
+      for (let i = 0; i < 2; i++) { const bx = -4 + i * 1.5, y = Y(bx, -8.4); box(1.3, 0.9, 1.0, std(0x2e6f9a, 0.8, 0), bx, y + 0.45, -8.4, 0, 0, 0, g); box(1.36, 0.08, 1.06, white, bx, y + 0.95, -8.4, 0, 0, 0, g); ob(bx, -8.4, 0.9); }
+      const hy = Y(-3.6, 1.6); cyl(0.4, 0.4, 0.22, orange, -3.6, hy + 0.9, 1.6, Math.PI / 2, 0, 0, g, 16); box(0.1, 0.9, 0.1, dgrey, -3.6, hy + 0.45, 1.6, 0, 0, 0, g);
+    } else if (k === "substation") {                             // more transformers with fins and bushings, a portal gantry, cable runs
+      for (const [bx, bz] of [[-9, -4], [-9, -7.4]]) { const y = Y(bx, bz); box(2.0, 1.9, 1.6, std(0x59666f, 0.5, 0.4), bx, y + 1.0, bz, 0, 0, 0, g); for (let i = 0; i < 6; i++) box(0.05, 1.3, 1.1, grey, bx - 1.1 - i * 0.07 + 0.04, y + 1.0, bz, 0, 0, 0, g); for (let i = 0; i < 3; i++) { cyl(0.09, 0.12, 0.7, white, bx - 0.6 + i * 0.6, y + 2.2, bz, 0, 0, 0, g, 10); cyl(0.11, 0.11, 0.08, white, bx - 0.6 + i * 0.6, y + 2.3, bz, 0, 0, 0, g, 10); } ob(bx, bz, 1.4); }
+      const gy = Y(9, -4); for (const sz of [-3.2, 3.2]) cyl(0.09, 0.11, 6.0, steelM, 9, gy + 2.8, -4 + sz, 0, 0, 0, g, 8); box(0.14, 0.14, 7.2, steelM, 9, gy + 5.6, -4, 0, 0, 0, g); for (const sz of [-1.6, 0, 1.6]) { cyl(0.04, 0.04, 0.6, white, 9, gy + 5.2, -4 + sz, 0, 0, 0, g, 6); } ob(9, -7.2, 0.4); ob(9, -0.8, 0.4);
+      rope(-5, -2.2, 6, 0.2); rope(7, -1.5, 5, -0.3);
+    } else if (k === "survey") {                                 // a drill tripod with a sheave and rods, core boxes, a sample table and gas bottles
+      const tx = 8.5, tz = -4.5, ty = Y(tx, tz); for (let i = 0; i < 3; i++) { const a = i * 2.094 + 0.4; strut([tx, ty + 3.6, tz], [tx + Math.cos(a) * 1.6, ty, tz + Math.sin(a) * 1.6], 0.09, steelM); }
+      cyl(0.18, 0.18, 0.16, dgrey, tx, ty + 3.6, tz, 0, 0, Math.PI / 2, g, 12); cyl(0.04, 0.04, 3.5, black, tx, ty + 1.8, tz, 0, 0, 0, g, 6); box(0.7, 0.5, 0.7, yel, tx, ty + 0.3, tz - 1.4, 0, 0, 0, g); ob(tx, tz, 1.6);
+      for (let i = 0; i < 3; i++) { const bx = 6.2, bz = -1.6 - i * 0.8, y = Y(bx, bz); box(1.3, 0.22, 0.5, wood, bx, y + 0.12 + (i % 2) * 0.01, bz, 0, 0, 0, g); for (let j = 0; j < 4; j++) cyl(0.07, 0.07, 0.3, std(0x9b8f80, 1, 0), bx - 0.5 + j * 0.33, y + 0.26, bz, 0, 0, 0, g, 8); } ob(6.2, -2.4, 1.0);
+      const ty2 = Y(-4, 3.8); box(1.4, 0.06, 0.7, wood, -4, ty2 + 0.74, 3.8, 0, 0, 0, g); for (const sx of [-0.6, 0.6]) box(0.06, 0.74, 0.06, wood, -4 + sx, ty2 + 0.37, 3.8, 0, 0, 0, g); for (let i = 0; i < 5; i++) box(0.16, 0.05, 0.12, std(0xbfae90, 1, 0), -4.5 + i * 0.22, ty2 + 0.8, 3.8, 0, 0.3 * i, 0, g);
+      for (let i = 0; i < 2; i++) cyl(0.12, 0.12, 1.2, i ? red : std(0x4a6a8a, 0.6, 0.3), 4.6 + i * 0.3, Y(4.6, -3.4) + 0.6, -3.4, 0, 0, 0, g, 10);
+    } else {                                                     // film: lighting stands with heads, flight cases, a cable run, a director's chair
+      for (const [bx, bz, h] of [[8, 0.5, 3.4], [9.8, -1.6, 2.8], [-8, -3, 3.1]]) { const y = Y(bx, bz); cyl(0.04, 0.04, h, steelM, bx, y + h / 2, bz, 0, 0, 0, g, 6); for (let i = 0; i < 3; i++) { const a = i * 2.094; strut([bx, y + h * 0.5, bz], [bx + Math.cos(a) * 0.95, y, bz + Math.sin(a) * 0.95], 0.04, steelM); } box(0.5, 0.42, 0.3, black, bx, y + h + 0.15, bz, 0.1, 0.4, 0, g); box(0.42, 0.34, 0.06, std(0xe8e0c8, 0.5, 0), bx + 0.04, y + h + 0.14, bz + 0.12, 0.1, 0.4, 0, g); ob(bx, bz, 0.5); }
+      for (let i = 0; i < 5; i++) { const bx = 7 + (i % 3) * 0.95, bz = -5 - Math.floor(i / 3) * 0.7, y = Y(bx, bz); box(0.9, 0.5, 0.6, std(0x1a1c20, 0.6, 0.2), bx, y + 0.27 + (i > 2 ? 0.0 : 0), bz, 0, 0.04 * i, 0, g); box(0.92, 0.04, 0.62, steelM, bx, y + 0.52, bz, 0, 0.04 * i, 0, g); for (const sx of [-1, 1]) box(0.04, 0.5, 0.04, steelM, bx + sx * 0.44, y + 0.27, bz + 0.29, 0, 0, 0, g); ob(bx, bz, 0.6); }
+      rope(2, -1, 7, 0.4); rope(-3, 2, 5, -0.2);
+      const cy2 = Y(-3.2, 3.4); box(0.5, 0.05, 0.5, std(0x2a3a52, 1, 0), -3.2, cy2 + 0.5, 3.4, 0, 0.5, 0, g); box(0.5, 0.5, 0.05, std(0x2a3a52, 1, 0), -3.5, cy2 + 0.78, 3.15, 0, 0.5, 0, g); for (const [dx, dz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) box(0.04, 0.5, 0.04, dgrey, -3.2 + dx, cy2 + 0.25, 3.4 + dz, 0, 0, 0, g);
+    }
+  };
   // the layouts: the hut stands at the back (-z), the door and the approach face +z, the lamp and the barrier in front
   const L0 = def.look;
   if (L0 === "lighthouse") { hut(0, -4, 3.4, 2.6, 2.5, white, red); box(3.5, 0.3, 2.7, red, 0, Y(0, -4) + 1.0, -4, 0, 0, 0, g); lamp(4.2, 0.5, 4.2); brazier(-3.2, 0.8); barrier(0, 5, 4.4, 0); drums(4, -4.5, 2, red); }
@@ -362,6 +417,7 @@ function buildPost(def, sp) {
   else if (L0 === "survey") { tent(-1.6, -4.5, orange); tent(2.4, -5, olive); van(-6.4, 1.2, 0.2, orange, white, false); brazier(0.6, -1); crates(4, -1, 2, 2, std(0x6a6f76, 0.7, 0.2)); lamp(4.6, 1.8, 4.0); }
   else { van(-1, -4.2, 0.1, std(0x23262b, 0.7, 0.3), std(0xe0e2e4, 0.7, 0), true); crates(4.2, -3, 3, 2, black); lamp(4.2, 1.8, 4.4); lamp(-5.4, -0.5, 3.8); P.parts.film = true; }
   bins(L0 === "film" ? 5 : 3.4, L0 === "fish" ? -7.6 : -6.2);
+  extras(L0); P.parts.extra = true;
   P.lampOn = true; return P;
 }
 function dropPost() {
@@ -627,7 +683,7 @@ function cleanup() { tailReset(); evEnd(true); dropPost(); EV.wait = 0; setHud("
 function newsPost(j, ok, text) {
   if (!window.TLXN || !TLXN.post) return;
   try {
-    const pos = j.type === "shift" ? j.spot : (j.state === "carry" ? j.to : j.from), per = contact(j.emp);
+    const pos = j.type === "shift" ? j.spot : (j.state === "carry" ? j.to : j.from), per = contact(j.emp, j.post);
     TLXN.post({ kind: "armed", who: ok && per ? per : "you", x: pos.x, z: pos.z, text, data: { sys: "armed", what: j.type, emp: j.emp, ok, kind: j.kind || j.post } });
   } catch (e) { }
 }
@@ -638,7 +694,7 @@ function finish(j) {
   const emp = EMP[j.emp];
   let text;
   if (j.type === "courier") {
-    const per = contact(j.emp); text = `${CASEBY[j.kind].name} delivered at ${j.to.name} for ${emp.name}: ${money(pay)}.`;
+    const per = contact(j.emp, j.post); text = `${CASEBY[j.kind].name} delivered at ${j.to.name} for ${emp.name}: ${money(pay)}.`;
     api.toast(`${text} Standing ${levelName(s.standing.all)} (${s.standing.all}).`, "good");
     newsPost(j, true, per ? `${per.first} ${per.last} at ${emp.name} had ${CASEBY[j.kind].item} delivered at ${j.to.name} by the courier with a rifle on his back.` : `${emp.name}'s ${CASEBY[j.kind].name.toLowerCase()} reached ${j.to.name} on time with an armed courier.`);
   } else {
@@ -647,6 +703,7 @@ function finish(j) {
     newsPost(j, true, `${emp.name} had a guard on ${def.short} overnight. ${j.log.length ? "Quiet enough" : "Nothing happened"}, they say.`);
   }
   record(j, true, text, pay, st); s.rec.best = Math.max(s.rec.best || 0, pay);
+  try { if (window.TLXRD && TLXRD.afterJob) TLXRD.afterJob(j); } catch (e) { console.warn("tlx-raids afterJob", e); }
   s.active = null; cleanup(); api.save(); try { api.TABLET.refresh("armed"); api.TABLET.refresh("jobs"); } catch (e) { }
 }
 const FAILS = {
@@ -760,6 +817,7 @@ function jobRow() {
 
 /* ---------------- the Vakt app ---------------- */
 let tabSel = "work";
+const EXTRA = [];                                    // tabs other systems add (tlx-raids.js: Tips): { id, label, badge(), html(), bind(el, again) }
 const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 5 5.6v5.3c0 4.3 2.8 7.6 7 9.3 4.2-1.7 7-5 7-9.3V5.6z"/><path d="M9.2 12.6l2 2 3.7-4"/></svg>';
 function offerCard(o, q) {
   const U = api.ui, emp = EMP[o.emp], pay = money(payNow(o));
@@ -767,19 +825,21 @@ function offerCard(o, q) {
   if (o.type === "courier") {
     const c = CASEBY[o.kind]; title = `${c.name} → ${o.to.name}`; chips = U.chip("ARMED COURIER", "due") + chips + (o.tail ? "" : "");
     meta = `${esc(c.item)} · ${esc(o.from.name)} → ${esc(o.to.name)} · ${U.fmtMi(o.dist)} · ${hrs(o.limH)} on the clock once you have it · the rifle stays on your back`;
-    note = esc(c.why) + ` <br>Contact: ${esc(contactLine(o.emp))}.`;
+    note = esc(c.why) + ` <br>Contact: ${esc(contactLine(o.emp, o.post))}.`;
   } else {
     const p = postDef(o.post); title = p.name; chips = U.chip("GUARD SHIFT", "due") + (o.payday ? U.chip("PAYROLL DAY", "ok") : "") + chips;
     meta = `${o.len} h on post · the shift starts when you reach it · stay inside ${TUNE.perim} m of the lamp`;
-    note = `Things happen on a shift: challenge, sign, watch, or do nothing. Contact: ${esc(contactLine(o.emp))}.`;
+    note = `Things happen on a shift: challenge, sign, watch, or do nothing. Contact: ${esc(contactLine(o.emp, o.post))}.`;
   }
   return U.tabCard({ tf: "aw:" + o.id, title, chips, meta, note, warn: q.ok ? "" : "Locked: " + q.miss.join(" "), pay, act: "awacc:" + o.id, actLabel: q.ok ? "TAKE IT" : "LOCKED", blocked: !q.ok });
 }
 function render(el) {
   const s = S(), U = api.ui;
   let h = U.tabHead("VAKT · ARMED WORK", "Vakt", api.fmtCash(api.GS.cash));
-  h += `<div class="tsub"><button type="button" class="tbtn${tabSel === "work" ? "" : " ghost"}" data-act="awtab:work">Work</button> <button type="button" class="tbtn${tabSel === "stand" ? "" : " ghost"}" data-act="awtab:stand">Standing</button></div>`;
-  if (!TLX.on("armedwork")) {
+  h += `<div class="tsub"><button type="button" class="tbtn${tabSel === "work" ? "" : " ghost"}" data-act="awtab:work">Work</button> <button type="button" class="tbtn${tabSel === "stand" ? "" : " ghost"}" data-act="awtab:stand">Standing</button>${EXTRA.map(t => ` <button type="button" class="tbtn${tabSel === t.id ? "" : " ghost"}" data-act="awtab:${t.id}">${t.label}${t.badge && t.badge() ? " · " + t.badge() : ""}</button>`).join("")}</div>`;
+  const xt = EXTRA.find(t => t.id === tabSel);
+  if (xt) h += xt.html();
+  else if (!TLX.on("armedwork")) {
     h += `<p class="tnote2">Armed work is switched off in Settings &gt; Options, so no armed jobs are offered. Switch "Armed work" back on to see the board.</p>`;
   } else if (tabSel === "work") {
     const q = qual(), j = s.active;
@@ -807,6 +867,7 @@ function render(el) {
   for (const b of el.querySelectorAll("[data-act^='awtab:']")) b.addEventListener("click", () => { tabSel = b.dataset.act.slice(6); render(el); });
   for (const b of el.querySelectorAll("[data-act^='awacc:']")) b.addEventListener("click", () => { accept(b.dataset.act.slice(6)); });
   for (const b of el.querySelectorAll("[data-act='awdrop']")) b.addEventListener("click", () => { abandon(); });
+  if (xt && xt.bind) xt.bind(el, () => render(el));
 }
 
 /* ---------------- register ---------------- */
@@ -840,5 +901,6 @@ TLX.register({
 });
 
 window.TLXAW = { S, qual, accept, abandon, refreshOffers, standing, level, levelName, postDef, POSTS, CASES, EMP, EVT, EV, TAIL, TUNE, losClear, findSpot, spotOf: id => findSpot(postDef(id)), payNow, crashed,
+  extraTab: t => { if (!EXTRA.some(q => q.id === t.id)) EXTRA.push(t); }, setTab: id => { tabSel = id; }, tab: () => tabSel, contact, contactLine, CONTACT, CONTACT_POST, rider: { build: buildRider, place: riderPlace },
   force: o => { force = Object.assign(force, o || {}); return force; }, tailNow: gap => tailSpawn(gap), evStart, evEnd, hud: () => hudText, get post() { return POST; }, PROV, jobRow, takeCase, handOver, finish, fail, here };
 })();
