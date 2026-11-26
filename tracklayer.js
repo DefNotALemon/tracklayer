@@ -17906,7 +17906,7 @@ function initExpansion() {
         if (!own) { if (GS.cash < o.cost) { toast(`${o.name} is ${fmtCash(o.cost)}. You have ${fmtCash(GS.cash)}.`, "warn"); return false; } GS.cash -= o.cost; GS.own.gearOwned[ownKey(slot, id)] = true; }
         GS.own.gear[slot] = id; restat(); save(); toast(own ? `Wearing: ${o.name}.` : `Bought and wearing: ${o.name}.`, "good"); return true; } },
     // the quick-customize wheel (11.2): the pads, and the visor wipe a quick tap of D-pad left still does
-    hapx: HAPX, wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
+    hapx: HAPX, ranks: RANKS, wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

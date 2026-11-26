@@ -1474,6 +1474,10 @@ With a hunter's licence, a rifle of your own and no more than $300 owed in Polit
 
 **Out on the fell.** Not everything out there is on a list. A few remote places each week, far from any house and off the roads, have something going on: a farm building that is not a farm. Nothing marks them. If a place looks wrong (a generator running where nobody lives, purple light round a blacked-out window at night, men carrying tubs from a van, somebody smoking by a door who watches you the whole way past) stop and look at it from a distance: a long look, with a clear line of sight, or a longer one through a rifle scope, is how you find out, and then it goes on your map as a place you found. No licence or tip is needed. They do not want company: come close and the look-out walks out and shouts, and if you keep coming they bar the door. Nobody can be hurt yet and the doors stay locked: that part is still to come.
 
+## Paths
+
+The **Paths** app on the tablet is one screen for your whole life here. Each path (courier, rescue, ski trails, plowing, staff, homes and property, lighthouses, boats, machines, hunting, the village, money) is a line saying where you stand, the next step in plain words and what it opens, with a button to that path's own app. On top is **Today**: three things worth doing now, the most pressing first (get warm, a storm coming, what is aboard, a trail that needs setting, rent owed).
+
 ## The radio
 
 The sled and every cab have a radio (the **Radio** app on the tablet: on/off, station, volume). Six stations, each with its own music made as you listen: **Radio Nordkinn** (old-time dance music, local talk, villagers ringing in with what they have seen), **Fjell FM** (rock), **Nattradio** (slow and quiet, for the dark months), **Veiradio** (country, and the roads), **Sámi Radio** (joik and drum) and **P2 Klassisk** (piano and strings, the news). A station does not repeat a tune for hours, and tuning in lands you in the middle of whatever is on. Between songs the presenter talks; what is said is shown as a caption, and can be spoken aloud (SPOKEN VOICE in the app).

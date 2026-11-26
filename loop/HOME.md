@@ -343,7 +343,9 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       prints it leaves in the snow), its **nests, dens and haul-outs** once found, what it eats, how close it lets
       you. Tracks in the snow become readable in the world (fresh or old, which way) so the guide can be used to find
       the animal. A count per species group and per area.
-- [ ] **I8 Paths app.** One screen for your whole life here: each path (courier, freight, trail crew, rescue, plowing,
+- [x] **I8 Paths app.** (v288, `tlx-paths.js`, `i8_paths.mjs`: twelve paths and the today card; the village path counts people who know
+      you once I2 lands, and the field guide and photos once I6/I7 land.)
+       One screen for your whole life here: each path (courier, freight, trail crew, rescue, plowing,
       roads, staff, property, lighthouses, boats, fishing, hunting, trails, the village: people who know you, places
       furnished, field guide, photos) as a line with where you stand, the next step in plain words and what it opens,
       and a "today" card of three things worth doing now. Reads the real state of every system.
