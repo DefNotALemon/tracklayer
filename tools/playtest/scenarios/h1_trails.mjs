@@ -72,8 +72,8 @@ await section("A the news bus", async () => {
   ok(a.ready && a.fields && a.dup === 0 && a.hdup === 0, "each person has name, age, role, handle, 2-3 interests and a voice; ids and handles are unique");
   ok(a.ski >= 40, `${a.ski} of them ski`);
   await ev(`window.__got = []; window.__off = TLXN.on(p => window.__got.push(p.id)); true`);
-  const t0 = await J(`GS.hour`);
-  const p1 = await J(`TLXN.post({ kind: "ski", who: TLXN.people[3], x: -1300, z: -385, text: "hello", data: { km: 3 } })`);
+  // the clock is read in the same evaluation as the post: two calls apart the game hour moves on (a loaded machine ran the page for seconds between them)
+  const [t0, p1] = await J(`(() => { const t0 = GS.hour, p = TLXN.post({ kind: "ski", who: TLXN.people[3], x: -1300, z: -385, text: "hello", data: { km: 3 } }); return [t0, p]; })()`);
   ok(p1 && p1.id > 0 && p1.t === Math.round(t0 * 100) / 100 && p1.kind === "ski" && /^[a-z]{2}\d\d\.\d$/.test(p1.who) && p1.place === "Kjøllefjord", "post stamps t and an id, who becomes the person's id, place is filled from x,z: " + JSON.stringify([p1.id, p1.who, p1.place]));
   await ev(`GS.hour += 5; TLXN.post({ kind: "road", who: "you", x: 3000, z: -3000, text: "far" }); TLXN.post({ kind: "storm", text: "no position" }); true`);
   a = await J(`({ since: TLXN.since(GS.hour - 2).map(p => p.kind), all: TLXN.since(0).length, near: TLXN.near(-1300, -385, 200).map(p => p.kind), near2: TLXN.near(-1300, -385, 200, GS.hour - 2).length, far: TLXN.near(3000, -3000, 50).map(p => p.kind), got: window.__got.length, you: TLXN.all().find(p => p.who === "you").kind })`);
