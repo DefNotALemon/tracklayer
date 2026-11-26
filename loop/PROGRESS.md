@@ -17,6 +17,14 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 26 Nov 2026 — Town: the half-lane strip beside Kaigata, and the seat's row of holes (G4-style, G8) — 98f811e
+
+Lemon: "there should not be a regular road of two lanes sittings nexyt to another clipped off half one lane" and "i can see through the middle of the sled".
+- `townRoads`: a leg's cuts are now only the streets that cross it. The 7 m depot yard lane was cut by Kirkegata and Storgata 50 and 90 m past its end, which laid 3 m of asphalt and kerb for 87 m, 5 m north of Kaigata. Road segs 21 -> 19. Overhead stills before/after in `~/.hermes/cache/scratch/tlstreets/a0`, `a1`.
+- Seat (`tlx-look.js` v12): the stitched centre seam is gone (4 cm stitches at this texture size mirrored the sky and read as holes; the mesh is solid by ray test) and the vinyl normal map is at 0.45.
+- Not done: the town layout itself (roads out of town joining the grid, streets to the quay and sites). Written into REALISM.md as R3's first part.
+- Gate: smoke, x1_save, x_townroads, g1_lanes, r2_sleds all pass.
+
 ## 25 Nov 2026 — Drug sites, the crew outside, spotting and tips (G9 A2a) — 17c5c28
 Built `tlx-raids.js` (state `x.sys.raids`, API `TLXRD`, kinds table for A3): 2-3 seeded sites a game week at remote dry level spots (>= 250 m from any door, off roads, trails, yards), a grow barn inside and out (blacked-out windows, purple leak and drum fire at night, generator, snowed-in van with wheels in the snow, cans, bags, chained dog, packed tracks, a walk-in room with plants, lamps, drying line, fans, scales and cash), a crew of 3-5 on seven routines using the realistic figure rig, reactions by distance and sight (notice, wary, warn-off, barred door), spotting by a hidden read (no marker, HUD line only once part-filled, map mark, Jobs row, toast, Vakt note), tips from armed standing (first at 12 points / 5 jobs, then every 8, one a day, named real contact or the duty desk, 8+ templates, Tips tab). Carried A1 fixes: the walk-in figure no longer crouches (`poseWalker` took the hard-ground flag off the wading branch), posts have their employer's things, contact trade by post, notification banner at the bottom of the app. `a2a_sites.mjs` 152 assertions pass; stills in `~/.hermes/cache/scratch/tlraids/a2a/`. Performance: render CPU +~2.5 ms with a full crew in view (aim was 1.5), GPU unchanged; figure kit is ~55 distinct-material meshes a man. Frank: purple room reads pink, look-out stills framed from behind the player, bags a bit big. Not built: any fight, loot or Politi (A2b).
 Next: A2b the raid itself.
