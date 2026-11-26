@@ -1474,6 +1474,10 @@ With a hunter's licence, a rifle of your own and no more than $300 owed in Polit
 
 **Out on the fell.** Not everything out there is on a list. A few remote places each week, far from any house and off the roads, have something going on: a farm building that is not a farm. Nothing marks them. If a place looks wrong (a generator running where nobody lives, purple light round a blacked-out window at night, men carrying tubs from a van, somebody smoking by a door who watches you the whole way past) stop and look at it from a distance: a long look, with a clear line of sight, or a longer one through a rifle scope, is how you find out, and then it goes on your map as a place you found. No licence or tip is needed. They do not want company: come close and the look-out walks out and shouts, and if you keep coming they bar the door. Nobody can be hurt yet and the doors stay locked: that part is still to come.
 
+## Saves
+
+The title menu has **SAVES**: five slots, each a card with its name, where you were, the date in the game, your cash, deliveries and time played, and a small picture. Pick a slot to load it, start a new game in an empty one, copy it into another slot, rename it, delete it, save it to a file or load one from a file (to move a game between browsers or keep a backup). START OVER on the slot in play begins that slot again. The game you had before slots is Save 1.
+
 ## Controller haptics
 
 The pad feels the machine and the ground. Any controller with rumble gets it: a faint idle, revs climbing, heavy soft powder, a fine buzz on a packed trail, chatter on ice, rough bare ground, landings by their height, the labour of bogging down, ice cracking under you, a knock or a crash by its speed, and a heartbeat when you are freezing. An Xbox pad's trigger motors are used where the browser offers them.

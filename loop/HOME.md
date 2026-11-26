@@ -344,7 +344,9 @@ their tracks, their locations, their nests. [goals page:] sounds awesome, paths 
       roads, staff, property, lighthouses, boats, fishing, hunting, trails, the village: people who know you, places
       furnished, field guide, photos) as a line with where you stand, the next step in plain words and what it opens,
       and a "today" card of three things worth doing now. Reads the real state of every system.
-- [ ] **I9 Save slots.** Three or more named saves with a card each (place, day, cash, time played, a thumbnail),
+- [x] **I9 Save slots.** (v286, `SLOT` and `savesPanel` in tracklayer.js, `i9_slots.mjs`: five slots; NEW GAME moved into the Saves panel as
+      START OVER on the slot in play and NEW GAME HERE on an empty one.)
+       Three or more named saves with a card each (place, day, cash, time played, a thumbnail),
       new / load / copy / delete with a confirm, export to and import from a file; the old single save becomes slot 1.
 - [ ] **I10 Summer on foot and in the water.** Marked hiking trails in the snow-free months (the ski trails and old
       routes as paths, cairns and signposts, summit books to sign, the gapahuks in use, villagers out walking), and

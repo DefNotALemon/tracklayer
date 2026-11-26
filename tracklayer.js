@@ -6758,7 +6758,41 @@ function blackout(kind) {
   }, 1200);
   setTimeout(() => { $("black").hidden = true; GS.dead = false; save(); }, 3800);
 }
-function save() { try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null, x: TLX.dump() })); } catch (e) { } }
+/* ---- save slots (loop/HOME.md I9). The game in play always lives in tracklayer.save.v2 (nothing else has to know);
+   the slots are stored copies beside it: tracklayer.slot.N is a slot's game, tracklayer.slots.v1 the index (which slot
+   is in play, and each slot's card: name, place, day, cash, time played, a small picture). Changing slot stores the game
+   in play back into its slot, puts the other slot's game into save.v2 and reloads the page: a load is always a clean
+   boot. The single save from before slots is slot 1. */
+const SLOT = { N: 5, lock: false, t0: 0, played: 0,
+  idx() { let ix = null; try { ix = JSON.parse(localStorage.getItem("tracklayer.slots.v1") || "null"); } catch (e) { } if (!ix || typeof ix !== "object") ix = {}; if (!(ix.cur >= 1 && ix.cur <= SLOT.N)) ix.cur = 1; if (!ix.m || typeof ix.m !== "object") ix.m = {}; return ix; },
+  put(ix) { try { localStorage.setItem("tracklayer.slots.v1", JSON.stringify(ix)); return true; } catch (e) { return false; } },
+  blob(n) { const ix = SLOT.idx(); try { return localStorage.getItem(n === ix.cur ? "tracklayer.save.v2" : "tracklayer.slot." + n); } catch (e) { return null; } },
+  has(n) { return !!SLOT.blob(n); },
+  name(n) { const m = SLOT.idx().m[n]; return (m && m.name) || "Save " + n; },
+  // the card of a stored game, read from its own data (so an imported or copied save describes itself)
+  cardOf(d) { if (!d || typeof d !== "object") return null; const h = +d.hour || 0, day = Math.floor(h / 24); let label = "Day " + (day + 1); try { const dt = new Date(Date.UTC(2025, 10, 1 + day)); label = dt.getUTCDate() + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][dt.getUTCMonth()]; } catch (e) { } return { cash: +d.cash || 0, delivered: +d.delivered || 0, day: label, days: day + 1 }; },
+  // time played in the slot in play: real seconds while the game runs, kept in the index
+  touch() { if (!started) return; const now = performance.now(), dt = SLOT.t0 ? Math.min(120, (now - SLOT.t0) / 1000) : 0; SLOT.t0 = now; if (dt <= 0) return; const ix = SLOT.idx(), m = ix.m[ix.cur] = ix.m[ix.cur] || {}; m.played = (+m.played || 0) + dt; m.at = Date.now(); try { m.place = window.TLXN && TLXN.placeOf ? String(TLXN.placeOf(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z) || "") : m.place || ""; } catch (e) { } SLOT.put(ix); },
+  thumb() { try { const c = document.createElement("canvas"); c.width = 160; c.height = 90; if (gramShot({ cam: camera, ctx: c.getContext("2d"), w: 160, h: 90, hour: GS.hour, storm: GS.storm, noShadow: true })) return c.toDataURL("image/jpeg", 0.6); } catch (e) { } return ""; },
+  // store the game in play into its slot
+  stash(pic) { const ix = SLOT.idx(); if (hasSave() || localStorage.getItem("tracklayer.save.v2")) { const l = SLOT.lock; SLOT.lock = false; save(); SLOT.lock = l; } let b = null; try { b = localStorage.getItem("tracklayer.save.v2"); } catch (e) { } const ix2 = SLOT.idx(); if (b) { try { localStorage.setItem("tracklayer.slot." + ix2.cur, b); } catch (e) { return false; } const m = ix2.m[ix2.cur] = ix2.m[ix2.cur] || {}; if (pic) { const t = SLOT.thumb(); if (t) m.pic = t; } m.at = Date.now(); } SLOT.put(ix2); void ix; return true; },
+  // leave for another slot (an empty one starts a new game)
+  go(n) { n = +n; if (!(n >= 1 && n <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (n === ix0.cur) return false; if (!SLOT.stash(true)) return false; const ix = SLOT.idx(); let b = null; try { b = localStorage.getItem("tracklayer.slot." + n); } catch (e) { }
+    SLOT.lock = true; try { if (b) localStorage.setItem("tracklayer.save.v2", b); else localStorage.removeItem("tracklayer.save.v2"); } catch (e) { SLOT.lock = false; return false; } ix.cur = n; SLOT.put(ix); SLOT.reload(); return true; },
+  reload() { if (window.__noReload) { window.__reloadAsked = (window.__reloadAsked || 0) + 1; return; } location.reload(); },
+  copy(a, b) { a = +a; b = +b; if (a === b || !(b >= 1 && b <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (b === ix0.cur) return false; if (a === ix0.cur) SLOT.stash(true); const src = SLOT.blob(a); if (!src) return false; try { localStorage.setItem("tracklayer.slot." + b, src); } catch (e) { return false; } const ix = SLOT.idx(); ix.m[b] = Object.assign({}, ix.m[a] || {}, { name: SLOT.name(a) + " copy", at: Date.now() }); return SLOT.put(ix); },
+  del(n) { n = +n; const ix = SLOT.idx(); try { localStorage.removeItem("tracklayer.slot." + n); } catch (e) { } delete ix.m[n]; SLOT.put(ix); if (n === ix.cur) { SLOT.lock = true; try { localStorage.removeItem("tracklayer.save.v2"); } catch (e) { } SLOT.reload(); } return true; },
+  rename(n, name) { name = String(name || "").replace(/[<>&"]/g, "").trim().slice(0, 24); if (!name) return false; const ix = SLOT.idx(); (ix.m[n] = ix.m[n] || {}).name = name; return SLOT.put(ix); },
+  // a file: { tracklayer: 1, name, played, save }
+  exportText(n) { n = +n; const ix = SLOT.idx(); if (n === ix.cur) SLOT.stash(false); const b = SLOT.blob(n); if (!b) return null; let d = null; try { d = JSON.parse(b); } catch (e) { return null; } return JSON.stringify({ tracklayer: 1, name: SLOT.name(n), played: Math.round((ix.m[n] && ix.m[n].played) || 0), save: d }); },
+  exportFile(n) { const t = SLOT.exportText(n); if (!t) return false; try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type: "application/json" })); a.download = "tracklayer-" + SLOT.name(n).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".json"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; } catch (e) { return false; } },
+  importText(n, text) { n = +n; if (!(n >= 1 && n <= SLOT.N)) return "No such slot."; let d = null; try { d = JSON.parse(text); } catch (e) { return "That file is not a Tracklayer save."; } const sv = d && d.tracklayer && d.save ? d.save : d; if (!sv || typeof sv !== "object" || Array.isArray(sv) || !(("cash" in sv) && ("own" in sv))) return "That file is not a Tracklayer save.";
+    const ix = SLOT.idx(), cur = n === ix.cur; if (cur) SLOT.lock = true; try { localStorage.setItem(cur ? "tracklayer.save.v2" : "tracklayer.slot." + n, JSON.stringify(sv)); if (cur) localStorage.setItem("tracklayer.slot." + n, JSON.stringify(sv)); } catch (e) { SLOT.lock = false; return "No room to store it."; }
+    ix.m[n] = { name: String((d && d.name) || "Imported").replace(/[<>&"]/g, "").slice(0, 24), played: +(d && d.played) || 0, at: Date.now() }; SLOT.put(ix); if (cur) SLOT.reload(); return ""; },
+  cards() { const ix = SLOT.idx(), out = []; for (let n = 1; n <= SLOT.N; n++) { let d = null; const b = SLOT.blob(n); if (b) { try { d = JSON.parse(b); } catch (e) { d = null; } } const m = ix.m[n] || {}; out.push({ n, cur: n === ix.cur, empty: !d || (n === ix.cur && !hasSave() && !d), name: SLOT.name(n), card: SLOT.cardOf(d), place: m.place || "", played: +m.played || 0, pic: m.pic || "" }); } return out; }
+};
+window.TLSLOT = SLOT;
+function save() { if (SLOT.lock) return; SLOT.touch(); try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null, x: TLX.dump() })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
 function load() {
@@ -14216,7 +14250,7 @@ function titleItems() {
   return [
     ret ? { id: "go", label: "CONTINUE", sub: `${GS.delivered} deliver${GS.delivered === 1 ? "y" : "ies"} · ${fmtCash(GS.cash)} · ${rankOf(GS.delivered).name} · ${sledDef().name}` }
       : { id: "go", label: "RIDE", sub: "Freight's coming off the boat at Kjøllefjord quay" },
-    ...(ret ? [{ id: "new", label: "NEW GAME", sub: "Start over at Kjøllefjord quay" }] : []),
+    { id: "saves", label: "SAVES", sub: `${SLOT.name(SLOT.idx().cur)} in play · new game, load, copy, save to a file` },
     { id: "garage", label: "GARAGE", sub: "Nordkinn Skuter & Service" },
     { id: "settings", label: "SETTINGS", sub: "Sled paint, rider kit, sound, camera" },
     { id: "howto", label: "HOW TO PLAY", sub: TC.on ? "Touch, keyboard and gamepad" : "Keyboard, gamepad and touch" },
@@ -14269,6 +14303,7 @@ function titleActivate(i) {
   if (i !== TT.sel) titleSelect(i, false);
   if (it.id === "go") titleLaunch();
   else if (it.id === "new") titlePanel("confirm");
+  else if (it.id === "saves") savesPanel();
   else if (it.id === "garage") openGarage();
   else if (it.id === "settings") toggleSettings(true);
   else titlePanel(it.id);
@@ -14306,6 +14341,38 @@ function titlePanel(kind) {
   TT.mode = "panel"; $("title").classList.add("dim");
   p.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => { if (b.dataset.a === "wipe") titleWipe(); else titleBack(); }));
   const f = p.querySelector(".pbtn") || p.querySelector(".tx"); if (f && !TC.on) f.focus({ preventScroll: true });
+}
+// the Saves panel: a card a slot. sub = { n, kind } opens a slot's actions or a confirm.
+function savesPanel(sub, msg) {
+  const p = $("tPanel"); if (!sub) SLOT.stash(true);
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])), hrs = t => t >= 3600 ? (t / 3600).toFixed(1) + " h played" : Math.max(0, Math.round(t / 60)) + " min played";
+  const cs = SLOT.cards(); let h = `<div class="ph"><div><div class="pe">SAVES</div><div class="pt">${sub ? esc(SLOT.name(sub.n)) : "Your games"}</div></div><button type="button" class="tx" data-s="close" aria-label="Close">✕</button></div>`;
+  if (msg) h += `<p class="pnote"><b>${esc(msg)}</b></p>`;
+  if (!sub) {
+    h += `<div class="svl">` + cs.map(c => `<button type="button" class="svc${c.cur ? " cur" : ""}${c.empty ? " empty" : ""}" data-s="open:${c.n}">${c.pic && !c.empty ? `<img src="${c.pic}" alt="">` : `<span class="svp"></span>`}<span class="svt"><b>${esc(c.name)}</b>${c.cur ? ` <i>IN PLAY</i>` : ""}<br>${c.empty ? "Empty: start a new game here" : `${esc(c.place || "Nordkinn")} · ${c.card ? esc(c.card.day) : ""} · ${c.card ? fmtCash(c.card.cash) : ""}<br>${c.card ? c.card.delivered + " deliveries · " : ""}${hrs(c.played)}`}</span></button>`).join("") + `</div><p class="pnote">Pick a slot to load it, copy it, rename it, save it to a file or bring one in from a file. The game in play is stored whenever you leave it.</p>`;
+  } else if (sub.kind === "del") {
+    h += `<p>Delete ${esc(SLOT.name(sub.n))}? ${cs[sub.n - 1].cur ? "It is the game in play: this slot starts again as a new game." : "It cannot be brought back."}</p><div class="pbtns"><button type="button" class="pbtn" data-s="open:${sub.n}">KEEP IT</button><button type="button" class="pbtn go" data-s="delgo:${sub.n}">DELETE</button></div>`;
+  } else if (sub.kind === "copy") {
+    h += `<p>Copy ${esc(SLOT.name(sub.n))} into which slot? What is there is replaced.</p><div class="pbtns" style="flex-wrap:wrap">` + cs.filter(c => c.n !== sub.n && !c.cur).map(c => `<button type="button" class="pbtn" data-s="copygo:${sub.n}:${c.n}">${esc(c.name)}${c.empty ? " (empty)" : ""}</button>`).join("") + `<button type="button" class="pbtn" data-s="open:${sub.n}">BACK</button></div>`;
+  } else {
+    const c = cs[sub.n - 1];
+    h += `<p>${c.empty ? "Nothing here yet." : `${esc(c.place || "Nordkinn")} · ${c.card ? esc(c.card.day) + " · " + fmtCash(c.card.cash) + " · " + c.card.delivered + " deliveries" : ""} · ${hrs(c.played)}`}${c.cur ? " This is the game in play." : ""}</p><div class="pbtns" style="flex-wrap:wrap">`
+      + (c.cur ? (hasSave() ? `<button type="button" class="pbtn" data-s="over:${c.n}">START OVER</button>` : "") : `<button type="button" class="pbtn go" data-s="go:${c.n}">${c.empty ? "NEW GAME HERE" : "LOAD"}</button>`)
+      + (c.empty ? "" : `<button type="button" class="pbtn" data-s="copy:${c.n}">COPY TO…</button><button type="button" class="pbtn" data-s="ren:${c.n}">RENAME</button><button type="button" class="pbtn" data-s="exp:${c.n}">SAVE TO A FILE</button>`)
+      + `<button type="button" class="pbtn" data-s="imp:${c.n}">LOAD FROM A FILE</button>` + (c.empty ? "" : `<button type="button" class="pbtn" data-s="del:${c.n}">DELETE</button>`) + `<button type="button" class="pbtn" data-s="list">BACK</button></div>`;
+  }
+  p.className = "tpanel saves"; p.innerHTML = h; p.hidden = false; p.setAttribute("aria-label", "Saves"); TT.mode = "panel"; $("title").classList.add("dim");
+  p.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => {
+    const [a, x, y] = b.dataset.s.split(":"), n = +x;
+    if (a === "close") titleBack(); else if (a === "over") titlePanel("confirm"); else if (a === "list") savesPanel(); else if (a === "open") savesPanel({ n }); else if (a === "del") savesPanel({ n, kind: "del" }); else if (a === "copy") savesPanel({ n, kind: "copy" });
+    else if (a === "go") { if (!SLOT.go(n)) savesPanel({ n }, "Could not change slot: the browser's storage is full or blocked."); }
+    else if (a === "delgo") { SLOT.del(n); savesPanel(null, "Deleted."); titleRender(); }
+    else if (a === "copygo") savesPanel(null, SLOT.copy(n, +y) ? "Copied." : "Could not copy: the browser's storage is full.");
+    else if (a === "ren") { const v = window.prompt("Name this save", SLOT.name(n)); if (v !== null) { SLOT.rename(n, v); titleRender(); } savesPanel({ n }); }
+    else if (a === "exp") savesPanel({ n }, SLOT.exportFile(n) ? "Saved to a file in your downloads." : "Could not write the file.");
+    else if (a === "imp") { const f = document.createElement("input"); f.type = "file"; f.accept = ".json,application/json"; f.addEventListener("change", () => { const file = f.files && f.files[0]; if (!file) return; const r = new FileReader(); r.onload = () => { const e = SLOT.importText(n, String(r.result || "")); savesPanel({ n }, e || "Loaded from the file."); }; r.readAsText(file); }); f.click(); }
+  }));
+  const f = p.querySelector(".svc.cur") || p.querySelector(".pbtn") || p.querySelector(".tx"); if (f && !TC.on) f.focus({ preventScroll: true });
 }
 function titleBack() {
   $("tPanel").hidden = true; $("title").classList.remove("dim");
