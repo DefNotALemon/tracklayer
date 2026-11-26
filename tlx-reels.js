@@ -411,12 +411,12 @@ R.current = () => { const L = R.list(); return L[clamp(R.cur, 0, Math.max(0, L.l
 // the next reel is prepared while this one plays: planned, its cast built, its materials compiled by a few tiny frames drawn out of sight (the first frames of a new figure or prop draw nothing), so scrolling to it plays at once
 function prefetch() {
   const L = R.list(), nx = L[R.cur + 1]; if (!nx || (R.next && R.next.id === nx.id)) return;
-  const keep = { tPrev: E.tPrev, reset: E.reset }, r0 = R.renders, ms0 = R.ms.length, c0 = R.calls.length;
+  const keep = { tPrev: E.tPrev, reset: E.reset }, r0 = R.renders, p0 = R.painted, ms0 = R.ms.length, c0 = R.calls.length;
   try {
     const Sc = planOf(nx); R.next = { id: nx.id, Sc: Sc || null }; if (!Sc) return; R.prefetched = (R.prefetched || 0) + 1;
     if (Sc.setup) Sc.setup(E); const cv = document.createElement("canvas"); cv.width = 27; cv.height = 48; const g = cv.getContext("2d"); for (let i = 0; i < 3; i++) { E.tPrev = -1; renderAt(Sc, Sc.dur * (0.2 + 0.2 * i), cv, g); }
   } catch (e) { console.error("TLX reel prefetch", e); R.next = { id: nx.id, Sc: null }; }
-  finally { R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
+  finally { R.painted = p0; R.renders = r0; R.ms.length = ms0; R.calls.length = Math.min(R.calls.length, c0); E.tPrev = -1; E.reset = true; E.clearFx(); }
 }
 R.prefetch = prefetch;
 function stop() { if (R.play) { R.play = null; } actorsShow(false); E.tPrev = -1; R.live = 0; }
