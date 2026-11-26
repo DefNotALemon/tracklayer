@@ -57,8 +57,8 @@ R.types.summit = {
     return {
       dur, need: { sled: 1, walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.3,
       frame(t, E) {
-        const u = ease(t / dur), az = a0 + arc * u, sh = shake(t, 1), pitchH = tabAt(tb, az) + Math.atan((2 * row - 1) * th), py = surf(px, pz) + 1.05;
-        const pitchP = Math.atan2(py - cy, 3.7) + 0.02, k = ease((u - 0.68) / 0.3), pitch = lerp(pitchH, pitchP, k);
+        const azP = a1 - 0.04, v1 = ease((t - 1.4) / 2.6), v2 = ease((t - 4.0) / 2.0), az = lerp(lerp(azP, a0, v1), azP, v2), sh = shake(t, 1), pitchH = tabAt(tb, az) + Math.atan((2 * row - 1) * th), py = surf(px, pz) + 1.05;      // opens on the rider and the sled (not on empty sky), swings out across the whole view, comes back to them for the wave
+        const pitchP = Math.atan2(py - cy, 3.7) + 0.02, k = Math.max(1 - ease((t - 1.4) / 1.0), ease((t - 4.4) / 1.4)), pitch = lerp(pitchH, pitchP, k);
         const ex = cx + dirX(az) * 1, ez = cz + dirZ(az) * 1, tx = cx + dirX(az) * 50, tz = cz + dirZ(az) * 50, ty = cy + Math.tan(pitch) * 50;
         E.look(cx, cy + sh[1], cz, tx + sh[0] * 50, ty, tz, fov, 0);
         E.placeSled(E.sleds[0], sx, sz, syaw, 0, 0, false, { noRider: true }); E.sledLights(E.sleds[0], false, false, 0);
@@ -182,11 +182,11 @@ function raceWeight(c, mul) { return lakeHint(c) && c.el > -5 && c.storm < 0.45 
 function raceAnchor(c, rng) { const lp = lakePick(c, rng); if (!lp) return null; const idx = A().world.LAKES.indexOf(lp.L); return { x: lp.L.x, z: lp.L.z, a: lp.a, k: String(idx), place: "a lake near " + c.vil.name, h: c.H, s: Math.min(c.storm, 0.3) }; }
 function racePlan(rec, E, mode) {
   const G = raceG(rec), r = G.r, o = { x: 0, z: 0, yaw: 0 }, o2 = { x: 0, z: 0, yaw: 0 }, oc = { x: 0, z: 0, yaw: 0 }, nw = mode === "watch" ? 16 : 13, dur = 6.5, night = clamp(E.nightAt(rec.h), 0, 1);
-  const camU = mode === "watch" ? 8 : 7, camOff = mode === "watch" ? LN + 6.2 : LN - 1.8;
-  const crowd = raceCrowd(G, r, nw, mode === "watch" ? -9 : -13, mode === "watch" ? 46 : 20, camU, camOff - LN, true).slice(0, mode === "watch" ? nw : 6); const near = []; if (mode === "watch") for (let j = 0; j < 5; j++) near.push([camU - 4.2 + j * 2.2 + (r() - 0.5) * 0.8, camOff - 1.7 - r() * 1.2, r(), r()]); else for (let j = 0; j < 8; j++) near.push([camU - 2.3 - j * 1.0 + (r() - 0.5) * 0.4, camOff + 0.75 + (j % 2) * 0.7 + r() * 0.3, r(), r()]);      // the foreground crowd: eight at the lens's shore-side edge, a few more along the rope
+  const camU = mode === "watch" ? 8 : 2.6, camOff = mode === "watch" ? LN + 6.2 : 4.3, LS = mode === "watch" ? 2.5 : 2.2, ropeOff = mode === "watch" ? LN - 0.9 : 4.7;
+  const crowd = mode === "watch" ? raceCrowd(G, r, nw, -9, 46, camU, camOff - LN, true) : []; const near = []; if (mode === "watch") for (let j = 0; j < 5; j++) near.push([camU - 4.2 + j * 2.2 + (r() - 0.5) * 0.8, camOff - 1.7 - r() * 1.2, r(), r()]); else for (let j = 0; j < 20; j++) near.push(j < 6 ? [camU + 1.3 + j * 0.9 + r() * 0.4, 5.1 + (j % 3) * 0.6 + r() * 0.3, r(), r()] : j < 9 ? [camU - 2.6 - (j - 6) * 1.3 - r() * 0.4, 5.1 + (j % 2) * 0.7 + r() * 0.3, r(), r()] : [-9 + (j - 9) * 1.3 + r() * 0.5, -(5.4 + (j % 2) * 0.9 + r() * 0.3), r(), r()]);      // the crowd along the rope: six ahead of the lens (the near edge of the frame once the camera swings after the sleds), three behind it at the line, and eleven along the rope on the far side of the lanes (behind the sleds at the launch)
   const all = crowd.concat(near);
-  const pose = (i, t) => { const s = sledS(G, i, t); laneAt(G, s, G.lane[i] * 2.5 + 0.0, o); return s; };
-  const roosts = [0, 1, 2].map(i => ({ n: 100, life: 1.5, size0: 0.35, size1: 1.7, a: 0.62, g: 5, drag: 1.5, spread: 1.8, fn(te, q) { const s = sledS(G, i, te), v = sledV(G, i, te); laneAt(G, s, G.lane[i] * 2.5, o2); const fx = Math.sin(o2.yaw), fz = Math.cos(o2.yaw); q.on = te > 0.3 ? clamp(0.3 + v / 9, 0, 1) : 0; q.x = o2.x - fx * 1.7; q.z = o2.z - fz * 1.7; q.y = surf(q.x, q.z) + 0.3; q.vx = -fx * (v * 0.3 + 1.0); q.vz = -fz * (v * 0.3 + 1.0); q.vy = 2.0 + v * 0.16; } }));
+  const pose = (i, t) => { const s = sledS(G, i, t); laneAt(G, s, G.lane[i] * LS + 0.0, o); return s; };
+  const roosts = [0, 1, 2].map(i => ({ n: 100, life: 1.5, size0: 0.35, size1: 1.7, a: 0.62, g: 5, drag: 1.5, spread: 1.8, fn(te, q) { const s = sledS(G, i, te), v = sledV(G, i, te); laneAt(G, s, G.lane[i] * LS, o2); const fx = Math.sin(o2.yaw), fz = Math.cos(o2.yaw); q.on = te > 0.3 ? clamp(0.3 + v / 9, 0, 1) : 0; q.x = o2.x - fx * 1.7; q.z = o2.z - fz * 1.7; q.y = surf(q.x, q.z) + 0.3; q.vx = -fx * (v * 0.3 + 1.0); q.vz = -fz * (v * 0.3 + 1.0); q.vy = 2.0 + v * 0.16; } }));
   const rope = { on: true }; let ropeObj = null;
   return {
     dur, need: { sled: 3, walker: all.length }, hour: rec.h, storm: rec.s, vig: 0.34,
@@ -194,17 +194,17 @@ function racePlan(rec, E, mode) {
       const T = A().THREE; ropeObj = E.extraOf("rope", () => { const g = new T.LineSegments(new T.BufferGeometry(), new T.LineBasicMaterial({ color: 0xd8302a })); g.frustumCulled = false; g.geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(3 * 2 * 40), 3)); return g; });
       E.extraOf("lanemarks", () => { const gg = new T.Group(), strip = (pts, w, col, op) => { const pos = [], idx = []; for (let i = 0; i < pts.length; i++) { const a = pts[i]; pos.push(a[0][0], a[0][1], a[0][2], a[1][0], a[1][1], a[1][2]); if (i) idx.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2 - 1, i * 2 + 1, i * 2); } const geo = new T.BufferGeometry(); geo.setAttribute("position", new T.BufferAttribute(new Float32Array(pos), 3)); geo.setIndex(idx); const m = new T.Mesh(geo, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: op, side: T.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: true })); m.frustumCulled = false; m.renderOrder = 3; gg.add(m); };
         const q = { x: 0, z: 0, yaw: 0 }, rib = (u0, u1, o, w, step) => { const pts = []; for (let u = u0; u <= u1 + 1e-6; u += step) { const row = []; for (const dw of [-w / 2, w / 2]) { laneAt(G, u, o + dw, q); row.push([q.x, surf(q.x, q.z) + 0.05, q.z]); } pts.push(row); } return pts; };
-        for (const o of [-3.75, -1.25, 1.25, 3.75]) strip(rib(-6, 72, o, 0.16, 3), 0.16, 0x1d3f78, 0.8);          // four lines make three lanes, one sled to a lane
-        strip(rib(-0.2, 0.2, 0, 8.4, 0.2).map(r => r), 0, 0xf2f4f8, 0.95); strip(rib(-0.6, -0.2, 0, 8.4, 0.2), 0, 0x2a2a30, 0.85);      // the start line (white, the dark line behind it)
+        for (const o of [-1.5 * LS, -0.5 * LS, 0.5 * LS, 1.5 * LS]) strip(rib(-6, 72, o, 0.16, 3), 0.16, 0x1d3f78, 0.8);          // four lines make three lanes, one sled to a lane
+        strip(rib(-0.2, 0.2, 0, 3 * LS + 0.4, 0.2).map(r => r), 0, 0xf2f4f8, 0.95); strip(rib(-0.6, -0.2, 0, 3 * LS + 0.4, 0.2), 0, 0x2a2a30, 0.85);      // the start line (white, the dark line behind it)
         gg.traverse(o => { o.frustumCulled = false; }); return gg; });
-      const pos = ropeObj.m.geometry.attributes.position.array; let k = 0, prev = null; for (let u = -12; u <= 52; u += 2) { laneAt(G, u, LN - 0.9, oc); const x = oc.x, z = oc.z, y = surf(x, z) + 0.95; if (prev) { pos[k++] = prev[0]; pos[k++] = prev[1]; pos[k++] = prev[2]; pos[k++] = x; pos[k++] = y; pos[k++] = z; } prev = [x, y, z]; }
+      const pos = ropeObj.m.geometry.attributes.position.array; let k = 0, prev = null; for (let u = -12; u <= 52; u += 2) { laneAt(G, u, ropeOff, oc); const x = oc.x, z = oc.z, y = surf(x, z) + 0.95; if (prev) { pos[k++] = prev[0]; pos[k++] = prev[1]; pos[k++] = prev[2]; pos[k++] = x; pos[k++] = y; pos[k++] = z; } prev = [x, y, z]; }
       ropeObj.m.geometry.setDrawRange(0, k / 3); ropeObj.m.geometry.attributes.position.needsUpdate = true;
     },
     frame(t, E) {
       E.extraOf("rope", null); E.extraOf("lanemarks", null);
       for (let i = 0; i < 3; i++) { const s = pose(i, t), v = sledV(G, i, t), a = E.sleds[i]; E.placeSled(a, o.x, o.z, o.yaw, v, 0, v > 1, { lean: 0.05 + 0.2 * clamp(v / 25, 0, 1) }); E.sledLights(a, false, false, 0); E.emitter(roosts[i]); a.ph += 0; }
       E.belt = sledS(G, 0, t) * 1.0;
-      for (let j = 0; j < all.length; j++) { const q = all[j], w = E.walkers[j]; laneAt(G, q[0], q[1], oc); const yaw = Math.atan2(G.L.x + Math.cos(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.x, G.L.z + Math.sin(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.z) + (q[2] - 0.5) * 0.3;
+      for (let j = 0; j < all.length; j++) { const q = all[j], w = E.walkers[j]; laneAt(G, q[0], q[1], oc); const yaw = Math.atan2(G.L.x + Math.cos(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.x, G.L.z + Math.sin(G.a + q[0] / (G.rs - LN)) * (G.rs - LN - 2) - oc.z) + (q[2] - 0.5) * 0.3 + (q[1] < 0 ? Math.PI : 0);
         E.walk(w, oc.x, oc.z, yaw); const run = ease((t - 0.8) / 1.6), k = 0.25 + 0.75 * run; E.cheer(w, clamp(k * 1.3, 0, 1) * (0.8 + q[3] * 0.2), t * (1.1 + q[2] * 0.5) + q[3] * 3, q[2] > 0.45 && t > 0.4); }
       // camera: on the shore at the rope, turning to follow the lead sled
       laneAt(G, camU, camOff, oc); const ex = oc.x, ez = oc.z, ey = surf(ex, ez) + (mode === "watch" ? 1.62 : 1.2);
@@ -214,16 +214,16 @@ function racePlan(rec, E, mode) {
       const sh = shake(t, mode === "watch" ? 1.2 : 0.7);
       if (mode === "watch") E.look(ex, ey + sh[1], ez, tx + sh[0] * 20, ty, tz, 62, 0);
       else {                                                                                               // the start: behind the line, low, looking down the three lanes with the crowd at the rope on the right; the roost from the launch rolls over the lens, then clears to the sleds running away down their lanes
-        laneAt(G, camU, camOff, oc); const sx = oc.x, sz = oc.z, sy = surf(sx, sz) + 0.55, tl = Math.max(0, t - 0.3), lu = Math.max(sledS(G, 0, tl), sledS(G, 1, tl), sledS(G, 2, tl)); laneAt(G, clamp(lu * 0.92 + 0.5, 1.5, 60), -0.4 + 0.8 * ease((t - 4.2) / 1.5), o2);
-        { const q1 = { x: 0, z: 0, yaw: 0 }, q2 = { x: 0, z: 0, yaw: 0 }; laneAt(G, camU - 12, camOff - 2.6, q1); laneAt(G, camU - 12, camOff - 4.4, q2); const k0 = ease((t - 1.3) / 1.1), ax = lerp(lerp(q1.x, q2.x, 0.3), o2.x, k0), az = lerp(lerp(q1.z, q2.z, 0.3), o2.z, k0);       // the opening looks down the rope with the crowd at the edge and the lanes beyond, then follows the lead sled
-          E.look(sx, sy + sh[1], sz, ax + sh[0] * 20, lerp(sy + 0.1, surf(o2.x, o2.z) + 0.85, k0), az, 88, 0); }      // the camera is low at the rope, ahead of the line and 2 m off the near lane: the sleds launch at the lens and tear past it (a third of the frame), the camera whips round after them; the crowd stands along the shore at the frame's edge
+        laneAt(G, camU, camOff, oc); const sx = oc.x, sz = oc.z, sy = surf(sx, sz) + 0.7, tl = Math.max(0, t - 0.3), lu = Math.max(sledS(G, 0, tl), sledS(G, 1, tl), sledS(G, 2, tl)); laneAt(G, clamp(lu * 0.95 + 0.8, 0, 70), -0.2 + 0.8 * ease((t - 4.2) / 1.5), o2);
+        { const q1 = { x: 0, z: 0, yaw: 0 }; laneAt(G, -0.6, -0.9, q1); const k0 = ease((t - 1.0) / 1.1), ax = lerp(q1.x, o2.x, k0), az = lerp(q1.z, o2.z, k0);       // the lens sits at the rope, low, 2.6 m past the line and 4 m off the near lane: the three sleds wait at its shoulder, launch and tear past (the near one fills a third of the frame), the camera whips round after them with the roost behind and the crowd along the rope at its near edge
+          E.look(sx, sy + sh[1], sz, ax + sh[0] * 20, lerp(sy + 0.05, surf(o2.x, o2.z) + 0.85, k0), az, lerp(84, 42, ease((t - 1.6) / 1.6)), 0); }
       }
     },
     post(g, t, w, h) { }
   };
 }
 const RACE_CAP = (c, v, r) => [`Lake drag race at ${v.place}, three sleds and the whole village at the rope.`, `Three on the line, one flag, no rules. ${v.place}.`, `Waited all winter for this. Ice is good at ${v.place}.`, `Sleds, roost, and everyone screaming. ${v.place} on a Sunday.`][Math.floor(r() * 4)];
-R.types.lakerace = { chip: "DRAG RACE", dur: 6.5, need: { sled: 3, walker: 14 }, pk: "race", pspeed: 30, notyet: true, weight: c => raceWeight(c, 1), fit: p => p.interests.includes("racing") || p.interests.includes("sled"), anchor: raceAnchor, plan: (rec, E) => racePlan(rec, E, "side"), cap: RACE_CAP };
+R.types.lakerace = { chip: "DRAG RACE", dur: 6.5, need: { sled: 3, walker: 20 }, pk: "race", pspeed: 30, notyet: true, weight: c => raceWeight(c, 1), fit: p => p.interests.includes("racing") || p.interests.includes("sled"), anchor: raceAnchor, plan: (rec, E) => racePlan(rec, E, "side"), cap: RACE_CAP };
 R.types.watchrace = { chip: "AT THE ROPE", dur: 6.5, need: { sled: 3, walker: 21 }, pk: "watch", pspeed: 30, notyet: true, weight: c => raceWeight(c, 0.8), fit: p => p.interests.includes("gossip") || p.interests.includes("racing"), anchor: raceAnchor, plan: (rec, E) => racePlan(rec, E, "watch"), cap: (c, v, r) => [`Front row at the lake. Phones up.`, `Got the whole village in the shot and three sleds just past their heads.`, `Behind everyone's hats at ${v.place}. Worth it.`, `If you did not film it, did it happen? Drag race at ${v.place}.`][Math.floor(r() * 4)] };
 
 
