@@ -208,27 +208,39 @@ def("wheelie", { chip: "WHEELIE", fam: "action", dur: 5.5, need: { sled: 1 }, pk
 /* ---- 10. snow off the roof onto the path just shovelled ---- */
 def("roofslide", { chip: "OOPS", fam: "funny", dur: 6, need: { walker: 1 }, pk: "house", pspeed: 4,
   w: c => c.snow && c.storm < 0.55 && c.el > -17 && (c.depth > 0.15 || c.sinceStorm) ? 1.8 : 0,
-  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; return { x: d.x + d.nx * 2.6, z: d.z + d.nz * 2.6, a: d.yaw, place: c.vil.name, w: [c.p.id] }; },
+  // the standing spot is measured from the wall the camera will really see: walk in from the yard to the first solid thing (a porch, the wall), stand 1.5 m out from it
+  anchor(c, rng) { const d = SP.door(rng, c.vil); if (!d) return null; let face = null; for (let s = 9; s >= -3; s -= 0.25) { if (W().obNear(d.x + d.nx * s, d.z + d.nz * s, 0.35)) { face = s; break; } } if (face === null || face > 4) return null;
+    const x = d.x + d.nx * (face + 1.5), z = d.z + d.nz * (face + 1.5); if (!openOk(x, z, 0.6) || !openOk(x + d.nx * 5.2, z + d.nz * 5.2, 0.8)) return null; return { x, z, a: d.yaw, place: c.vil.name, w: [c.p.id] }; },
   plan(rec, E) {
-    const p = who(rec.w[0]), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, dur = 6, tS = 2.4, night = NIGHT(rec.h), r = mulb(rec.sd), side = r() < 0.5 ? 1 : -1;
-    const wallX = rec.x - fx * 2.0, wallZ = rec.z - fz * 2.0;
+    const p = who(rec.w[0]), yaw = rec.a, fx = Math.sin(yaw), fz = Math.cos(yaw), lx = fz, lz = -fx, dur = 6, tS = 1.9, night = NIGHT(rec.h), r = mulb(rec.sd), side = r() < 0.5 ? 1 : -1;
+    const wallX = rec.x - fx * 1.5, wallZ = rec.z - fz * 1.5;                                               // the wall face; the eave hangs 0.5 m out from it
     return { dur, need: { walker: 1 }, hour: rec.h, storm: rec.s, vig: 0.2, light: { fill: 0.55 },
       frame(t, E) {
-        K.begin(E); const y0 = surf(wallX, wallZ), EV = 3.1, tF = tS + 0.55, g0 = 9.8, tI = tF + Math.sqrt(2 * (EV - 0.2) / g0);
-        // the slab of roof snow: slides out over the eave (tilting), falls, and breaks on the path in a cloud
-        if (t > tS && t < tI + 0.35) {
-          const sg = E.extraOf("gp:slab", () => { const m = new (T().Mesh)(new (T().BoxGeometry)(3.4, 0.4, 1.3), A().mesh.std(0xf4f8fc, 0.95, 0)); m.frustumCulled = false; return m; }), m = sg.m, ku = clamp((t - tS) / 0.55, 0, 1);
-          let y, off, tilt, sy = 1; if (t < tF) { y = EV + 0.1 - 0.0 * ku; off = 0.1 + 0.55 * ku * ku; tilt = 0.5 * ku; } else if (t < tI) { const tau = t - tF; y = EV - 0.5 * g0 * tau * tau; off = 0.65 + 0.5 * tau; tilt = 0.5 + 0.6 * tau; } else { const k2 = (t - tI) / 0.35; y = 0.2 - 0.1 * k2; off = 1.45; tilt = 1.2 - 1.1 * k2; sy = 1 - 0.7 * k2; }
-          m.position.set(wallX + fx * (off + 0.2), y0 + y, wallZ + fz * (off + 0.2)); m.rotation.set(0, yaw, 0); m.rotateX(-tilt); m.scale.set(1, sy, 1);
+        K.begin(E); const y0 = surf(wallX, wallZ), EV = 3.0, tF = tS + 0.55, g0 = 9.8, tI = tF + Math.sqrt(2 * (EV - 0.3) / g0);
+        // the slab of roof snow: creeps, slides out over the eave (tilting), falls, and breaks on the path in a cloud
+        let slabY = EV;
+        if (t < tI + 0.4) {
+          const sg = E.extraOf("gp:slab", () => { const m = new (T().Mesh)(new (T().BoxGeometry)(3.6, 0.45, 1.5), A().mesh.std(0xf4f8fc, 0.95, 0)); m.frustumCulled = false; return m; }), m = sg.m, ku = clamp((t - tS) / 0.55, 0, 1), creep = 0.12 * ease(t / tS);
+          let y, off, tilt, sy = 1; if (t < tF) { y = EV + 0.12; off = 0.0 + creep + 0.75 * ku * ku; tilt = 0.08 + 0.5 * ku; } else if (t < tI) { const tau = t - tF; y = EV - 0.5 * g0 * tau * tau; off = 0.87 + 0.6 * tau; tilt = 0.58 + 0.8 * tau; } else { const k2 = (t - tI) / 0.4; y = 0.3 - 0.15 * k2; off = 1.3; tilt = 1.1 - 1.0 * k2; sy = 1 - 0.75 * k2; }
+          slabY = y; m.visible = true; m.position.set(wallX + fx * off, y0 + y, wallZ + fz * off); m.rotation.set(0, yaw, 0); m.rotateX(-tilt); m.scale.set(1, sy, 1);
         }
-        const px = rec.x + lx * 0.5 * side, pz = rec.z + lz * 0.5 * side, w = K.person(E, 0, p, px, pz, yaw - 0.0 + 0.5 * side * 0.0, { warm: true }); const U = w.U, sc = w.g.scale.x, shov = t < tS + 0.7 ? 1 : 0, ph = t * 3.1;
-        const flinch = ease((t - tF + 0.2) / 0.25) * (1 - ease((t - tI - 0.5) / 0.8)), step = ease((t - tF + 0.1) / 0.5);
-        const sh = K.prop(E, "shovel", 0, px, pz, yaw, {}); const hand = _v();
-        if (shov) { U.torso.rotation.set(0.35 + 0.25 * Math.sin(ph), 0.2 * Math.sin(ph * 0.5), 0); for (let i = 0; i < 2; i++) { U.arms[i].rotation.set(-0.7 - 0.5 * Math.sin(ph), 0, (i ? 1 : -1) * 0.12); U.fore[i].rotation.set(-0.5, 0, 0); } K.grin(w, 0.4); }
-        else { U.torso.rotation.set(-0.3 * flinch, 0.3 * flinch, 0); for (let i = 0; i < 2; i++) { U.arms[i].rotation.set(-1.2 * flinch, 0, (i ? 1 : -1) * (0.15 + 0.6 * flinch)); U.fore[i].rotation.set(-0.5, 0, 0); } K.grin(w, 0.1); }
-        w.g.position.x += fx * step * 0.5; w.g.position.z += fz * step * 0.5; sh.position.set(px + fx * 0.1 + lx * 0.2, surf(px, pz) + 0.7 + 0.2 * Math.sin(ph) * shov - (shov ? 0 : 0.5), pz + fz * 0.1 + lz * 0.2); sh.rotation.set(0.8 + 0.4 * Math.sin(ph) * shov, yaw, 0);
-        puff(E, 170, 1.7, 0.6, 2.6, 0.85, 2.2, (te, q) => { q.on = te > tI - 0.02 && te < tI + 0.6 ? 1 : 0; q.x = wallX + fx * 1.7 + lx * (Math.sin(te * 131) * 2.6); q.z = wallZ + fz * 2.7 + lz * (Math.sin(te * 131) * 2.6); q.y = surf(q.x, q.z) + 0.2; q.vx = fx * 1.2 + lx * Math.sin(te * 87) * 2; q.vz = fz * 1.2 + lz * Math.sin(te * 87) * 2; q.vy = 2.2 + Math.abs(Math.sin(te * 53)) * 1.6; });
-        const h = K.headPos(w, _v()), cx = rec.x + fx * 3.0 + lx * 1.9 * side, cz = rec.z + fz * 3.0 + lz * 1.9 * side; E.look(cx, surf(cx, cz) + 1.4, cz, rec.x - fx * 1.2, surf(rec.x, rec.z) + 1.9, rec.z - fz * 1.2, 62, 0); mk(E, h.x, h.y + 0.14 * sc, h.z); mk(E, px, surf(px, pz), pz); E.needH = 0.2;
+        // the heap it leaves on the path
+        if (t >= tI) { const hp = E.extraOf("gp:heap", () => { const m = new (T().Mesh)(new (T().SphereGeometry)(1, 12, 7, 0, TAU, 0, Math.PI / 2), A().mesh.std(0xeef4fa, 0.95, 0)); m.frustumCulled = false; return m; }).m, k3 = ease((t - tI) / 0.3); hp.visible = true; hp.position.set(wallX + fx * 1.3, y0, wallZ + fz * 1.3); hp.rotation.set(0, yaw, 0); hp.scale.set(1.9 * k3 + 0.01, 0.55 * k3 + 0.01, 1.0 * k3 + 0.01); }
+        const px = rec.x + lx * 0.2 * side, pz = rec.z + lz * 0.2 * side, back = ease((t - tF) / 0.45) * 1.5, turn = ease((t - (tF + Math.sqrt(2 * 2.7 / 9.8)) - 1.0) / 0.7), w = K.person(E, 0, p, px + fx * back, pz + fz * back, yaw + Math.PI * (1 - turn) * side, { warm: true }); const U = w.U, sc = w.g.scale.x, shov = t < tF ? 1 : 0, ph = t * 3.4;
+        const flinch = ease((t - tF) / 0.2) * (1 - ease((t - tI - 0.9) / 0.9)), after = ease((t - tI - 1.0) / 0.6);
+        const sh = K.prop(E, "shovel", 0, px, pz, yaw, {});
+        if (shov) { const dig = Math.sin(ph); U.torso.rotation.set(0.42 + 0.3 * dig, 0.35 * Math.sin(ph * 0.5), 0); for (let i = 0; i < 2; i++) { U.arms[i].rotation.set(-0.8 - 0.6 * dig, 0, (i ? 1 : -1) * 0.12); U.fore[i].rotation.set(-0.5 + 0.2 * dig, 0, 0); } K.grin(w, 0.4);
+          sh.visible = true; sh.position.set(px - fx * 0.55 + lx * 0.15, surf(px, pz) + 0.75 + 0.3 * dig, pz - fz * 0.55 + lz * 0.15); sh.rotation.set(-0.9 - 0.5 * dig, yaw, 0); }
+        else {                                                                                                // jumps back, arms up; then drops them and turns the head to the camera: the look
+          U.torso.rotation.set(-0.35 * flinch, 0, 0); for (let i = 0; i < 2; i++) { U.arms[i].rotation.set(-2.2 * flinch - 0.1 * after, 0, (i ? 1 : -1) * (0.15 + 0.7 * flinch + 0.5 * after)); U.fore[i].rotation.set(-0.9 * flinch, 0, 0); } K.grin(w, 0.05 + 0.5 * after);
+          sh.visible = true; sh.position.set(px - fx * 0.2 + lx * 0.5, surf(px, pz) + 0.06, pz - fz * 0.2 + lz * 0.5); sh.rotation.set(-1.5, yaw + 0.7, 0); }                                                            // the shovel dropped on the path
+        puff(E, 200, 1.9, 0.7, 3.2, 0.9, 2.0, (te, q) => { q.on = te > tI - 0.02 && te < tI + 0.7 ? 1 : 0; q.x = wallX + fx * 1.3 + lx * (Math.sin(te * 131) * 2.4); q.z = wallZ + fz * 1.3 + lz * (Math.sin(te * 131) * 2.4); q.y = surf(q.x, q.z) + 0.25; q.vx = fx * 2.0 + lx * Math.sin(te * 87) * 2.4; q.vz = fz * 2.0 + lz * Math.sin(te * 87) * 2.4; q.vy = 2.6 + Math.abs(Math.sin(te * 53)) * 2.0; });
+        // a handheld phone from the yard: looking at the shoveller, whips up to the roof as it lets go, follows the slab down, jolts on the hit, settles on the look
+        const [sx, sy2] = shake(t, 1.6), h = K.headPos(w, _v()), cx = rec.x + fx * 5.0 + lx * 1.5 * side, cz = rec.z + fz * 5.0 + lz * 1.5 * side;
+        const upk = ease((t - tS + 0.25) / 0.4) * (1 - ease((t - tF) / (tI - tF))), jolt = t > tI ? Math.exp(-(t - tI) * 5) * Math.sin((t - tI) * 38) * 0.09 : 0, push = 0.9 * ease((t - tI - 0.6) / 1.2);
+        const ty = lerp(1.15, EV + 0.2, upk) + (t > tF && t < tI ? 0 : 0) + jolt, fov = lerp(58, 46, push);
+        E.look(cx - fx * push + sx * 3, surf(cx, cz) + 1.45 + sy2 * 3, cz - fz * push, rec.x - fx * 0.8 + lx * sx * 6, surf(rec.x, rec.z) + ty, rec.z - fz * 0.8 + lz * sx * 6, fov, sx * 0.6 + jolt * 0.5);
+        mk(E, h.x, h.y + 0.14 * sc, h.z); mk(E, w.g.position.x, surf(px, pz), w.g.position.z); E.needH = 0.18;
       } };
   },
   capfn: (c, v, r) => [`Shovelled the path for an hour. The roof had other plans.`, `The roof gave the path back what I had just taken away.`, `Four hours of snow came off the roof in four seconds. Right on the path.`, `Do not stand under the eaves. I stood under the eaves.`][Math.floor(r() * 4)] });
