@@ -12333,9 +12333,9 @@ function townRoads() {
       const pos = ew ? S.a[1] : S.a[0]; if (pos < lo - HW || pos > hi + HW) continue;          // this street doesn't reach across here
       const t = ew ? (c - S.a[0]) / dx : (c - S.a[1]) / dz; cuts.push(t);
     }
-    cuts.sort((p, q) => p - q);
+    cuts = cuts.filter(t => t > -HW && t < Ln + HW).sort((p, q) => p - q);   /* only streets that cross THIS leg: the 7 m depot yard lane was being cut by streets 50 and 90 m past its end, which laid a half-width strip of asphalt and curb the whole length of Kaigata, 5 m beside it */
     let t0 = 0; const spans = [];
-    for (const t of cuts) { if (t - HW > t0 + 0.2) spans.push([t0, t - HW]); t0 = Math.max(t0, t + HW); }
+    for (const t of cuts) { if (t - HW > t0 + 0.2) spans.push([t0, Math.min(t - HW, Ln)]); t0 = Math.max(t0, t + HW); }
     if (Ln > t0 + 0.2) spans.push([t0, Ln]);
     for (const [s0, s1] of spans) {
       ribbon(S.a, S.b, s0, s1, S.hw); G.road.segs.push({ a: [S.a[0] + dx * s0, S.a[1] + dz * s0], b: [S.a[0] + dx * s1, S.a[1] + dz * s1], hw: S.hw });

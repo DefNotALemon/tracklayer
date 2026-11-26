@@ -255,6 +255,31 @@ governor and a GFX preset change at run time all keep the chain the right size.
 
 ### R3 and R4: defects already seen in the 26 Nov audit (for their briefs)
 
+Lemon, 26 Nov 2026, on the town: "can you fix the vewry shittily pla ced roads to be nice and actually look like a town?
+there should not be a regular road of two lanes sittings nexyt to another clipped off half one lane". And on the sleds:
+"i can see through the middle of the sled, you aren't really finishing these assets".
+
+- Fixed the same day (v286): the half-width strip of asphalt and kerb that ran the whole length of Kaigata 5 m beside it
+  (the 7 m depot yard lane was being cut by streets far past its own end, `townRoads` cuts), and the row of "holes" down
+  the middle of every seat (a stitched seam stamped at 4 cm per stitch that mirrored the sky; solid geometry, checked by
+  ray). Overhead stills before/after: `~/.hermes/cache/scratch/tlstreets/a0`, `a1`.
+- **Still to do in R3, the layout itself (his "actually look like a town")**: seen from above Kjøllefjord is a bare
+  rectangle of seven ruler-straight streets, 126 x 96 m, that all stop dead at the rectangle's edge. None of the three
+  roads out of town (fv888 east, Dyfjord north, Lebesby south-west) joins a street as a road: their town legs are 3 m
+  snow lanes that start at the depot and cut diagonally across house lots. The quay, the garage, the fuel station, the
+  hospital, the church and the trailhead stand off the grid in open snow with no street to them. R3 must: bring each
+  road out of town in as a real street that meets the grid at a proper junction (asphalt, kerbs, same width, the route's
+  own town leg moved onto it); run a street to the quay and to every site that has a door; break the perfect rectangle
+  (a main street that carries on through, side streets of different lengths, a bend or two following the shore and the
+  slope); T-junctions with corner radii instead of square overlaps; no two parallel carriageways closer than a lot's
+  depth; no street ending in a blunt cut (a turning head, or it fades to a plowed lane). Asserts: from every lit door and
+  every site a walker reaches every road out of town on asphalt or plowed lane without crossing unplowed snow; no asphalt
+  strip under 4 m wide and over 10 m long; no two asphalt centre lines run parallel within 12 m of each other for more
+  than 10 m; every street end is a junction, a turning head or a road out. Judge from overhead stills as well as from the saddle.
+- **Rule for every asset slice from now on (after the seat):** a slice is not done until each asset has been looked at
+  from the game's own cameras (chase from behind and above, first person, on foot beside it) at full size, not only on
+  a side-on turntable, and a ray grid through its silhouette finds no hole.
+
 - Road surface is a black ribbon with a tiled pattern of round white blobs that repeats visibly (30_street,
   41_chase_noon); it should be worn asphalt showing through packed snow in wheel lanes, sanded, with a snow
   shoulder that feathers out instead of a ruler-straight edge. Centre dashes are bright yellow bars floating on it.
