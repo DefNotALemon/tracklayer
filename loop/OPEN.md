@@ -19,7 +19,9 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
 3a. ROADS REDONE (Lemon, 27 Nov, placed here by the supervisor right after the two snow fixes because he asked for it
    by name today; move it if he says so): "completely redo the road design, the roads themselves, re place them around
    the map, drop the curbs too, make the roads look much nicer, you can make them look more worn down, but realistic
-   is my main priority." Scope: every road on the map (town streets AND the roads between places), new routes laid
+   is my main priority." And the same day: "I want the road model entirely replaces": the old road mesh, its
+   material and textures and the kerb pieces are deleted and a new road model is built from nothing; re-skinning or
+   patching the old one does not count. Scope: every road on the map (town streets AND the roads between places), new routes laid
    out the way real Finnmark roads run (follow the shore and the valley floors, honest junctions, every building on
    a street), no kerbs anywhere, a real road surface (worn asphalt, patches, cracks, faded and partly missing
    markings, gravel shoulders, packed snow and ruts in winter, plow banks instead of kerbs). Realism outranks the

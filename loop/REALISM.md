@@ -275,7 +275,8 @@ Known remaining (see `~/.hermes/cache/scratch/tlreal/p1/round4.md`): contact sha
 "completely redo the road design, the roads themselves, re place them around the map, drop the curbs too, make the
 roads look much nicer, you can make them look more worn down, but realistic is my main priority." So R3's roads are
 not a re-skin: new routes over the whole map, new road mesh and surface, kerbs removed everywhere (plow banks and
-gravel shoulders instead). Full wording and scope in `loop/OPEN.md`, build order 3a.
+gravel shoulders instead). He added: "I want the road model entirely replaces": the old road model is deleted and a
+new one built from nothing, never re-skinned. Full wording and scope in `loop/OPEN.md`, build order 3a.
 
 ### R3 and R4: defects already seen in the 26 Nov audit (for their briefs)
 
