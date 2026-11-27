@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds steam/store/options.html (mock Steam pages to compare) and options.md (the text to paste) from OPTIONS below.
+"""Builds steam/store/options.html (mock Steam pages to compare; plain HTML and CSS, no script, so it shows in any viewer) and options.md (the text to paste) from OPTIONS below.
    python3 steam/store/make_options.py      Stills come from steam/store/src/ (untouched game frames, 1920x1080)."""
 import base64, io, json, os, re
 from PIL import Image
@@ -117,17 +117,38 @@ def img(name, w, h, fx=50, fy=50, q=80):
     im = im.crop((x, y, x + cw, y + ch)).resize((w, h), Image.LANCZOS)
     b = io.BytesIO(); im.save(b, "JPEG", quality=q); return "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode()
 
-data = []
-for o in OPTIONS:
-    d = {k: o[k] for k in ("id", "name", "angle", "who", "logo", "sub", "short", "about", "bullets", "tags", "strong", "weak")}
-    d["cap"] = img(o["cap"], 920, 430, o["capx"], o["capy"], 84)
-    d["shots"] = [img(s, 960, 540, q=78) for s in o["shots"]]
+from html import escape as E
+stills = sorted({o["cap"] for o in OPTIONS} | {s for o in OPTIONS for s in o["shots"]})
+imgcss = "\n".join(f".i-{s}{{background-image:url({img(s, 720, 405, q=70)})}}" for s in stills)
+ids = [o["id"] for o in OPTIONS]
+tabcss = ",".join(f"#r{i}:checked~.tabs label[for=r{i}]" for i in ids) + \
+    "{border-color:var(--accent,#6cf);background:color-mix(in srgb,var(--accent,#6cf) 14%,transparent)}\n" + \
+    ",".join(f"#r{i}:checked~.pages .p{i}" for i in ids) + "{display:block}"
+def cap(o, extra=""):
+    sub = f"<small>{E(o['sub'])}</small>" if o["sub"] else ""
+    logo = (sub + "Tracklayer") if o["logo"] == "thin" else ("Tracklayer" + sub)
+    return (f'<div class="cap l-{o["logo"]}{extra}"><div class="im i-{o["cap"]}" style="background-position:{o["capx"]}% {o["capy"]}%"></div>'
+            f'<div class="scrim"></div><div class="logo">{logo}</div></div>')
+def page(o):
     assert len(o["short"]) <= 300, (o["id"], len(o["short"]))
-    data.append(d)
+    return f"""<div class="page p{o['id']}">
+<div class="steam"><h2>Tracklayer</h2><div class="top">
+<div><div class="main im i-{o['shots'][0]}"></div><div class="thumbs">{''.join(f'<div class="im i-{s}"></div>' for s in o['shots'][1:])}</div></div>
+<div>{cap(o)}<p class="short">{E(o['short'])}</p>
+<div class="meta">Popular user-defined tags for this product</div><div class="tags">{''.join(f'<span>{E(t)}</span>' for t in o['tags'])}</div>
+<div class="meta">The capsule at the sizes Steam shrinks it to</div><div class="small">{cap(o)}{cap(o, ' s2')}</div></div></div>
+<div class="about"><h3>About this game</h3>{''.join(f'<p>{E(p)}</p>' for p in o['about'])}<ul>{''.join(f'<li>{E(b)}</li>' for b in o['bullets'])}</ul></div></div>
+<div class="notes"><div><h4>Who it is for</h4><p>{E(o['who'])}</p></div><div><h4>For it</h4><p>{E(o['strong'])}</p></div><div><h4>Against it</h4><p>{E(o['weak'])}</p></div></div>
+<button class="pick" data-hermes-send="Go with Steam store page option {o['id']} ({E(o['name'])}) for Tracklayer.">Go with {o['id']}: {E(o['name'])}</button>
+</div>"""
+body = "".join(f'<input class="rd" type="radio" name="opt" id="r{i}"{" checked" if k == 0 else ""}>' for k, i in enumerate(ids)) + \
+    '\n<div class="tabs">' + "".join(f'<label for="r{o["id"]}"><b>{o["id"]}</b>{E(o["name"])}</label>' for o in OPTIONS) + '</div>\n<div class="pages">\n' + \
+    "\n".join(page(o) for o in OPTIONS) + "\n</div>"
 
 html = open(os.path.join(HERE, "options.tmpl.html")).read()
 html = html.replace("/*FONT800*/", font(800)).replace("/*FONT600*/", font(600)).replace("/*FONT400*/", font(400))
-html = html.replace("/*CAVEAT*/", font(600, "Caveat")).replace("/*DATA*/", json.dumps(data))
+html = html.replace("/*CAVEAT*/", font(600, "Caveat")).replace("/*TABCSS*/", tabcss).replace("/*IMGCSS*/", imgcss).replace("<!--BODY-->", body)
+assert "<script" not in html
 open(os.path.join(HERE, "options.html"), "w").write(html)
 
 md = ["# Tracklayer: store page options", "",
