@@ -2276,7 +2276,7 @@ function updVisor(dt) {
   if (VZ.level > VZ.target) VZ.level = Math.max(VZ.target, VZ.level - VZ_THAW * dt);   // warming up lowers the target: the frost thaws out and stays gone
   if (VZ.target <= 0.001) VZ.hold = 0;
   if (VZ.sweep >= 0) wipeTimeline(VZ.sweep / VZ_SWEEP); else WIPE.w = 0;     // the arm (and, on foot, the figure's elbow) reads this
-  if (!VZ.hinted && VZ.level > 0.3) { VZ.hinted = true; toast(TC.on ? "Your visor's icing over. Tap WIPE to clear it, or get warm." : "Your visor's icing over. Press Z (pad: D-pad left) to wipe it, or get warm.", "warn"); }
+  if (!VZ.hinted && VZ.level > 0.3) { VZ.hinted = true; toast(visorLine(), "warn"); }
   const show = VZ.level > 0.012 || VZ.sweep >= 0;
   if (!show) { if (VZ.mesh && VZ.mesh.visible) VZ.mesh.visible = false; return; }
   const m = visorMesh(), U = VZ.mat.uniforms; m.visible = true;
@@ -7786,7 +7786,7 @@ const tabEsc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/<
 function tabNoteHtml(n, banner) {
   if (!n || !n.id) return "";
   const a = n.app && TABLET.byId[n.app];
-  const hint = banner ? `<span class="tnk">${TC.on ? "tap to open" : "<kbd>Tab</kbd> to open"}</span>` : "";
+  const hint = banner ? `<span class="tnk">${TC.on || INP.dev === "touch" ? "tap to open" : `<kbd>${btn("tablet")}</kbd> to open`}</span>` : "";
   return `<div class="tni">${a ? a.icon : TICON.ping}</div><div class="tnb"><div class="tne">${a ? a.name.toUpperCase() : "TABLET"} · ${fmtTime(n.at)}${hint}</div><div class="tnt">${tabEsc(n.title)}</div>${n.body ? `<div class="tnx">${tabEsc(n.body)}</div>` : ""}${n.actions ? `<div class="tna">${n.actions.map((x, i) => `<button type="button" class="tbtn${i ? " ghost" : ""}" data-na="${i}" data-tf="note:${n.id}:${i}">${tabEsc(x.label)}</button>`).join("")}</div>` : ""}</div><button type="button" class="tnc" data-nx="1" aria-label="Dismiss">✕</button>`;
 }
 function tabBindNote(el, n) {
@@ -10134,6 +10134,7 @@ const BTN = {
   tablet: { kbm: "Tab", xbox: "D-pad up", ps: "D-pad up", nin: "D-pad up", touch: "TABLET" },
   view: { kbm: "V", xbox: "R3", ps: "R3", nin: "Right stick click", touch: "CAM" },
   reset: { kbm: "N", xbox: "View", ps: "Create", nin: "−", touch: "↺" },
+  wipe: { kbm: "Z", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "WIPE VISOR" },   // wipe the iced visor (a rifle owner's pad: a tap wipes, a hold opens the gun wheel)
   menu: { kbm: "Esc", xbox: "Menu", ps: "Options", nin: "+", touch: "≡" },
   use: { kbm: "E", xbox: "L3", ps: "L3", nin: "Left stick click", touch: () => footUse() || "USE" },   // on foot: hook, dig, help someone up. The touch button wears the verb
   reel: { kbm: "Space", xbox: "A", ps: "✕", nin: "B", touch: "REEL" },
@@ -14050,7 +14051,7 @@ function updGame(dt, spd) {
   GS.storm += (wxT - GS.storm) * (1 - Math.exp(-dt / 10));
   const nX = FOOT.on && tutHidden() ? FOOT.x : P.x, nZ = FOOT.on && tutHidden() ? FOOT.z : P.z;   // tutorial: no sled yet, so where you're standing
   let near = null; for (const s of SITES) if (Math.hypot(nX - s.x, nZ - s.z) < 22) near = s;
-  if (near !== GS.near && near) toast(near === garageSite ? `Nordkinn Skuter & Service. ${TC.on ? "Tap GARAGE" : "Press T"} for sleds, parts and kit.` : near.fuelPrice ? `${near.name}. Warm stove inside, and jerry cans on the porch: fuel at ${fuelFmt(near.fuelPrice)}.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
+  if (near !== GS.near && near) toast(near === garageSite ? garageLine() : near.fuelPrice ? `${near.name}. Warm stove inside, and jerry cans on the porch: fuel at ${fuelFmt(near.fuelPrice)}.` : near === depot ? `Kjøllefjord quay. Warm up and refuel.` : near.kind === "village" ? `${near.name}. The shop has coffee on.` : near.type === "relay" ? `${near.name}. The keeper waves you in.` : near.type === "home" ? `${near.name}. Someone's already at the window.` : `${near.name}. Warm stove inside.`);
   GS.near = near;
   // your own depot cabins (O6) warm you like any cabin; the new lakeside ones aren't in SITES
   const reC = reNearCab(P.x, P.z, 22), reHome = reC && GS.re && GS.re.own[reC.id] ? reC : null;
@@ -14650,9 +14651,18 @@ function enterBog(depth) {
   for (let k = 0; k < 44; k++) emit(P.x + (Math.random() - 0.5) * 2, P.y + 0.3, P.z + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 7, 2 + Math.random() * 4, (Math.random() - 0.5) * 7, 1.6, 1.3);
   crater(P.x, P.z, 0.22); whump(0.9);
   const wd = winchDef();
-  if (VEH.cur) toast(`Stuck to the axles. ${keyHint("dismount", "get out")}, then ${btn("use")} to dig, or ${btn("reset")} to reset.`, "bad");
-  else toast(wd ? "Bogged to the skis. Get off (Q), wade to a tree and hook your winch (E)." : "Bogged to the skis. Get off (Q) and dig (hold E), or press R.", "bad");
+  toast(bogLine(!!VEH.cur, !!wd), "bad");
 }
+// The lines that tell a stuck or arriving player what to press, worded for the device in hand (beta 0384 #1: they named
+// keyboard keys to pad and touch players, "dig (hold E)" for a press that is a toggle, and R for the reset, which is N).
+// The touch use button wears its verb, so the line names the word it will wear beside the machine (DIG, HOOK).
+function bogLine(truck, winch) {
+  if (truck) return `Stuck to the axles. ${capFirst(doHint("dismount", "get out"))}, then ${pressHint("use", "DIG")} beside it to dig, or ${pressHint("reset")} to reset.`;
+  return winch ? `Bogged to the skis. ${capFirst(doHint("dismount", "get off"))}, wade to a tree and ${doHint("use", "hook your winch", "HOOK")}.`
+    : `Bogged to the skis. ${capFirst(doHint("dismount", "get off"))} and ${pressHint("use", "DIG")} beside the sled to dig, or ${pressHint("reset")} to reset.`;
+}
+function visorLine() { return `Your visor's icing over. ${capFirst(pressHint("wipe"))} to clear it, or get warm.`; }
+function garageLine() { return `Nordkinn Skuter & Service. ${capFirst(pressHint("garage"))} for sleds, parts and kit.`; }
 function freeBog(how) {
   if (!BOG.on) return;
   BOG.on = false; BOG.acc = 0; BOG.immune = 8; BOG.dig = 0;
