@@ -56,7 +56,7 @@ for (const s of spots.sh) {
   await waitGame(1);
 }
 // 3. deep: honestly stuck, but it warns before the bog; then put on plowed ground it is freed and drives
-const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 4 || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R) continue; const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: (Y.x + Y.x2) / 2, z: (Y.z + Y.z2) / 2, yaw: Math.atan2(Y.x2 - Y.x, Y.z2 - Y.z), L }; } return best; })()`);
+const lane = await J(`(() => { let best = null; for (const Y of YARDS) { if (Y.x2 === undefined || Y.r > 5 || Math.hypot(Y.x - depot.x, Y.z - depot.z) > TOWN_R) continue;   /* streets are r 2.2-3.5 since the grid (v227); 6+ are yards */ const L = Math.hypot(Y.x2 - Y.x, Y.z2 - Y.z); if (!best || L > best.L) best = { x: (Y.x + Y.x2) / 2, z: (Y.z + Y.z2) / 2, yaw: Math.atan2(Y.x2 - Y.x, Y.z2 - Y.z), L }; } return best; })()`);
 if (spots.dp.length) {
   const s = spots.dp[0]; await put(s); await waitGame(0.8); await ev(`window.__t0 = [P.x, P.z]; window.__warnFirst = null; true`);
   await down("KeyW");
@@ -69,6 +69,7 @@ if (spots.dp.length) {
   // onto the plowed lane, still flagged bogged: the bog clears on hard ground and W drives
   await ev(`(() => { P.x = ${lane.x}; P.z = ${lane.z}; P.yaw = ${lane.yaw}; P.vx = P.vz = 0; P.y = surf(P.x, P.z); recenter(P.x, P.z, true); return 1; })()`);
   await waitGame(1.2);
+  console.log("  on the street:", await ev(`JSON.stringify({ sink: TLXV.rt().sink.map(v => +v.toFixed(3)), pack: +P.pack.toFixed(2), yard: +yardAt(P.x, P.z).toFixed(2) })`));
   const b = await J(`BOG.on`);
   ok(!b, `bog clears once the truck sits on plowed ground (BOG.on ${b})`);
   await ev(`window.__t0 = [P.x, P.z]; true`); await down("KeyW"); await waitGame(3); await up("KeyW"); const r2 = await moved();

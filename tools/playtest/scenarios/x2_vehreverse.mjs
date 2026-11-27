@@ -34,9 +34,24 @@ const getIn = async () => {
   await sleep(800); await down("KeyQ"); await sleep(120); await up("KeyQ");
   return waitUntil("!MNT.on && !FOOT.on && !!VEH.cur", 14);
 };
+// 27 Nov (lane A): "off the lane" was 5 s of W and a touch of A from a town lane, which since the street grid (v227) ends on
+// another plowed street (or against a house), so A and B failed on main ("on lane true"). The truck is now set on a flat
+// open spot with 20 cm of loose snow laid round it (the trailer on its ball behind it, or left in town), driven 2.5 s into
+// that snow and braked; the brake is let go the moment it has stopped it (S held on is reverse).
+let spotN = 0;
+const toSpot = async hitch => { spotN++; const got = await J(`(() => { BOG.on = false; BOG.acc = 0; BOG.warned = false; BOG.immune = 0; WX.at = () => 0; GS.storm = 0;
+  for (let i = 0; i < 9000; i++) { const a = (i + ${spotN} * 37) * 2.39996, r = 150 + ${spotN} * 140 + i * 0.35, x = depot.x + Math.cos(a) * r, z = depot.z + Math.sin(a) * r;
+    if (Math.abs(x) > HALF - 200 || Math.abs(z) > HALF - 200 || isSea(x, z) || isWater(x, z) || bioAt(x, z) === 1 || obNear(x, z, 30) || slopeAt(x, z, 8) > 0.03 || slopeAt(x, z, 20) > 0.04 || yardAt(x, z) > 0.05) continue;
+    if (window.TLXR && TLXR.near && TLXR.near(x, z).d < 45) continue;
+    const ux = Math.sin(a), uz = Math.cos(a); P.x = x; P.z = z; P.yaw = a; P.vx = P.vy = P.vz = 0; recenter(x, z, true);
+    for (let ix = Math.floor((x - 30 + HALF) / CELL); ix <= Math.ceil((x + 30 + HALF) / CELL); ix++) for (let iz = Math.floor((z - 30 + HALF) / CELL); iz <= Math.ceil((z + 30 + HALF) / CELL); iz++) { const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), d0 = c.d[k]; c.f[k] = 0.2; c.d[k] = 0.2; writeCell(ix, iz, d0, 0.2, 0.2); }
+    const h = TLXV.haul(); if (${hitch}) { const cx = x - ux * 4, cz = z - uz * 4; h.on = TLX.state("vehicles").owned[0].uid; h.ramp = 0; h.x = cx - ux * TLXV.HAUL.L; h.z = cz - uz * TLXV.HAUL.L; h.yaw = a; } else h.on = null;
+    recenter(x, z, true); P.y = surf(x, z); return { x: Math.round(x), z: Math.round(z) }; } return null; })()`);
+  ok(!!got, `a flat open spot with 20 cm of loose snow laid (${JSON.stringify(got)})`); if (!got) await done(1); await waitGame(1.2); };
+const VF = "(P.vx * Math.sin(P.yaw) + P.vz * Math.cos(P.yaw))";
 async function offLaneAndBack(label) {
-  await down("KeyW"); await waitGame(5); await down("KeyA"); await waitGame(0.8); await up("KeyA"); await waitGame(1.5); await up("KeyW");
-  await down("KeyS"); await waitUntil("Math.hypot(P.vx, P.vz) < 0.6", 8); await up("KeyS"); await waitGame(1.2);
+  await down("KeyW"); await waitGame(2.5); await up("KeyW");
+  await down("KeyS"); await waitUntil(`${VF} < 0.5`, 8); await up("KeyS"); await waitUntil("Math.hypot(P.vx, P.vz) < 0.04", 6); await waitGame(0.6);
   const p0 = await J(`({ x: P.x, z: P.z, sp: Math.hypot(P.vx, P.vz), lane: yardAt ? !!yardAt(P.x, P.z) : null })`);
   console.log(label, "stopped at", p0.x.toFixed(0), p0.z.toFixed(0), "speed", p0.sp.toFixed(3), "on lane", p0.lane);
   ok(p0.sp < 0.05 && !p0.lane, `${label}: braked to a standstill off the lane (${p0.sp.toFixed(3)} m/s)`);
@@ -49,10 +64,11 @@ async function offLaneAndBack(label) {
 
 // ---- A: with the trailer
 await setup(true); ok(await getIn(), "in the pickup");
+await toSpot(true);
 await offLaneAndBack("A truck + trailer");
 await shot("x2vehrev_A");
 // ---- B: trailer left behind on the lane
-await setup(false); await ev(`P.vx = P.vz = 0; BOG.on = false; BOG.acc = 0; true`); await waitGame(0.5);
+await toSpot(false);
 await offLaneAndBack("B truck alone");
 
 // ---- C/D: deep untouched powder, flat, clear of everything
@@ -66,7 +82,11 @@ const find = (LO, HI) => J(`(() => { const LO = ${LO}, HI = ${HI}; let best = nu
 const mid = await find(0.34, 0.46);
 console.log("mid spot", JSON.stringify(mid));
 ok(mid && mid.hit, `found powder over the clearance (${mid && mid.d.toFixed(2)} m)`);
-await ev(`(() => { TLXV.haul().on = null; P.x = ${mid.x} - 8; P.z = ${mid.z}; P.yaw = Math.PI / 2; P.vx = 9; P.vz = 0; P.y = surf(P.x, P.z); BOG.on = false; BOG.acc = 0; BOG.immune = 0; recenter(P.x, P.z, true); return 1; })()`);
+// the spot's own snow varied 0.40-0.66 m along the run from one boot to the next (the finder reads the shallowest cell of a
+// line), so "ploughed N m" came and went on main too: 40 cm of loose snow is laid along the run (27 Nov, lane A)
+await ev(`(() => { TLXV.haul().on = null; P.x = ${mid.x} - 8; P.z = ${mid.z}; P.yaw = Math.PI / 2; P.vx = 0; P.vz = 0; recenter(P.x, P.z, true);
+  for (let ix = Math.floor((${mid.x} - 14 + HALF) / CELL); ix <= Math.ceil((${mid.x} + 26 + HALF) / CELL); ix++) for (let iz = Math.floor((${mid.z} - 7 + HALF) / CELL); iz <= Math.ceil((${mid.z} + 7 + HALF) / CELL); iz++) { const c = getChunk(ix >> 5, iz >> 5), k = (iz & 31) * CH + (ix & 31), d0 = c.d[k]; c.f[k] = 0.4; c.d[k] = 0.4; writeCell(ix, iz, d0, 0.4, 0.4); }
+  P.vx = 9; P.y = surf(P.x, P.z); BOG.on = false; BOG.acc = 0; BOG.immune = 0; recenter(P.x, P.z, true); return 1; })()`);
 const spot = mid;
 await down("KeyW"); await waitGame(2); await up("KeyW"); await waitGame(1.5);
 const tr = await J(`(() => { const out = []; const fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), R = TLXV.rt(), hc = (R.H[0] + R.H[1] + R.H[2] + R.H[3]) / 4;

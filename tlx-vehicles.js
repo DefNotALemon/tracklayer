@@ -536,7 +536,11 @@ function core(R, dt) {
   /* a light pull on the pad trigger still backs up: an automatic creeps in reverse, so the pedal maps onto 0.35..1 of the
      pull past a small dead zone instead of 0..1 (beta 0116 #2: 30% LT made 2 kN against 1-2.7 kN of standing drag) */
   const brkR = input.brk > 0.08 ? 0.35 + 0.65 * input.brk : input.brk;
-  if (rev) { const over = Math.max(0, -vf) / d.revTop; Fx = -Math.min(d.fmax * 0.8, T0) * brkR * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
+  /* the pedal is a share of what the gearbox gives, and the tyres cap that, as going forward (27 Nov: it was a share of the
+     grip, so on loose snow, where the grip is under the gearbox's pull, 30% of the trigger made 2.2 kN against 2.35 kN of
+     standing drag in 20 cm and the pickup sat still, where the same trigger forward pulls through 30 cm; now 3.6 kN) */
+  R.fr = 0; R.frMax = 0;
+  if (rev) { const over = Math.max(0, -vf) / d.revTop; R.fr = d.fmax * 0.8 * brkR; R.frMax = Math.min(d.fmax * 0.8, T0); Fx = -Math.min(R.fr, T0) * (over > 1 ? Math.max(0, 1 - (over - 1) * 6) : 1); }
   else if (input.brk > 0 && !parked) Fx = -(Math.min(d.brakeN || 9500, T0 * 0.98) + xl.brakeN) * input.brk * (vf > 0.4 ? 1 : 0.25);   /* + the trailer's own axles braking (3.5b2) */
   /* traction control (beta 0129 #2): a 2019 pickup's ECU trims the throttle when the driven wheels slip while the truck can
      still make way, so a floored pedal (keyboard W is all or nothing) crawls on through powder it can beat instead of
@@ -573,7 +577,14 @@ R.drag = Fres; R.fx = Fx; R.gp = -GR * (gx * fx + gz * fz) / (1 + g2); R.vfA = v
     vx -= cut * dt * lx2; vz -= cut * dt * lz2;
   }
   if (parked) { vx = vz = 0; }
-  else if (BOG.on && !HELP.on && gndOK && Math.max(R.sink[0], R.sink[1], R.sink[2], R.sink[3]) < 0.05 && packS > 0.8) api.freeBog("");   // dragged or towed onto plowed/hard ground: nothing left to be stuck in (beta 0117 #2)
+  /* dragged or towed onto plowed/hard ground: nothing left to be stuck in (beta 0117 #2). The limits were "every tyre under
+     5 cm and pack over 0.8", from before the street grid: measured on seven plowed Kjøllefjord streets and yards (27 Nov) the
+     tyres read 2.6-8.3 cm (mean 3.9-6.3) at pack 0.76-0.85, so five of the seven kept the truck bogged for good; a plowed
+     street's leftover is a tenth of the winter's fall, so it reads deeper where the snow lies deeper. Now it is the packed
+     state that says "plowed" (the cells ahead of the tyres 70% packed: loose powder reads 0, and a truck's own ruts are
+     pressed under the tyres, not ahead of them), with the belly clear of the snow, a mean sink under 10 cm and no tyre
+     over 14 (hard ground the truck does not dig into: the dig below needs loose snow or a truck that cannot move) */
+  else if (BOG.on && !HELP.on && gndOK && sinkS < 0.1 && Math.max(R.sink[0], R.sink[1], R.sink[2], R.sink[3]) < 0.14 && packS > 0.7 && cb <= 0) api.freeBog("");
   else if (BOG.on) {                                                          // in a hole: whatever you do with the throttle it digs deeper
     const k = Math.exp(-12 * dt); vx *= k; vz *= k;
     if (thrE > 0.2) {
@@ -683,6 +694,9 @@ function stillWhy(R, rev, sinkS, sf) {
   /* "ease off" is only right when the wheels spin and dig; a truck that pushes without spin is short of push, not digging */
   const spinning = (R.spinK || 0) > 0.05 || BOG.acc > 0.15;
   if (!rev && R.fe > 0 && (R.fe < need || (!spinning && sinkS > 0.07)) && R.fe < avail * 0.95) { R.why = "pull"; api.toast(`Not enough throttle to push through ${sinkS > 0.07 ? "this snow" : "here"}. Give it more, smooth and steady.`, "warn"); }
+  /* the same in reverse (27 Nov): a light pull that the full pedal would beat was told "too much snow behind the pickup",
+     which sends the driver the wrong way. Only when the whole of the reverse pull does beat the snow and the grade */
+  else if (rev && !spinning && R.fr > 0 && R.fr < (R.frMax || 0) * 0.95 && (R.frMax || 0) > ((R.fsnow || 0) + Math.max(0, -sf) * R.mass * GR) * 1.03) { R.why = "pull"; api.toast(`Not enough pedal to back through ${sinkS > 0.07 ? "this snow" : "here"}. Give it more, smooth and steady.`, "warn"); }
   else if (sinkS > 0.07 && (rev ? sf < -0.04 : sf > 0.04) && (R.fsnow || 0) < avail * 0.92) { R.why = "steep"; api.toast(`Too steep to ${rev ? "back up" : "climb"} in this snow. ${rev ? "Pull forward" : "Back down"} and take a run at it, or go round.`, "warn"); }
   else if (sinkS > 0.07 && spinning) { R.why = "dig"; BOG.warned = true; toastDig(rev); }
   else if (sinkS > 0.07) { R.why = "deep"; api.toast(rev ? `Too much snow behind the ${R.def.kind} to back through. Pull forward along your ruts, or get out and dig.` : `The snow is deeper than the ${R.def.kind} can push. Back out along your ruts, or get out and dig.`, "warn"); }
@@ -695,7 +709,7 @@ function toastDig(rev) { api.toast(rev ? "The wheels spin in reverse and dig in.
    for as long as it lasts; it names no control, so it reads the same on keys, a pad and touch. "dig" has the game's own
    WHEELS DIGGING IN line, a snowed-in road and a held load say theirs */
 const STILL_LINE = {
-  pull: ["NOT ENOUGH THROTTLE · give it more, smooth and steady", ""],
+  pull: ["NOT ENOUGH THROTTLE · give it more, smooth and steady", "NOT ENOUGH PEDAL · give it more, smooth and steady"],
   steep: ["TOO STEEP IN THIS SNOW · back down and take a run at it", "TOO STEEP TO BACK UP · pull forward and take a run at it"],
   deep: ["SNOW TOO DEEP TO PUSH · back out along your ruts", "TOO MUCH SNOW BEHIND · pull forward along your ruts"],
   grip: ["NO GRIP · rock it back a little and try again", "NO GRIP · rock it forward a little and try again"],

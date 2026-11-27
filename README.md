@@ -972,7 +972,7 @@ Parked with a fuel pump, a wall or a rock hard against the driver's door, you sl
 and use the passenger door instead, out and back in; only with both doors blocked does the truck
 tell you to pull forward a little.
 Gas, brake, steering and the get-on / get-off button are the same on keyboard, pad and touch. Hold
-the brake at a standstill to reverse (on a pad even a light pull on the trigger creeps it back). Off the plowed lanes a truck backs out along its own ruts
+the brake at a standstill to reverse (on a pad even a light pull on the trigger creeps it back, through a boot's depth of loose snow too; where a light pull is not enough to back through the snow it says so and asks for more). Off the plowed lanes a truck backs out along its own ruts
 and the trench its belly ploughed; if it's high-centred in powder it says so (the wheels spin in
 reverse and dig in) and then bogs like the sled, with the usual dig-out. A truck that sits still for a
 second with the gas or reverse held always tells you why: digging in (only when the wheels really spin), too steep for its grip (or too steep
