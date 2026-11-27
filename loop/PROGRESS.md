@@ -21,6 +21,13 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — d42c386
+Lemon, 27 Nov: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs". RD1 of the roads direction (loop/OPEN.md build order 3a): the road MODEL, not yet the road ROUTES.
+- Deleted: `townRoads` (ribbon + 1.25 m kerb pieces + snow caps + drain grates + junction squares), `townRoadTex`, `CURB_H/CURB_W`, `crossesAt`, the kerb-gap logic, the vertex-coloured pole cylinder. The network roads had no mesh (a plowed snow channel only), so their surface is new. No code says kerb/curb any more (asserted).
+- Built: `tlx-roadkit.js` (`TLXRK`), loaded before `tlx-roads.js`; 13 roads (7 town streets, 6 routes), 282 chunks, 246 k vertices, made lazily nearest first (boot 230-410 ms). 19-column ribbon draped on `surf()` within 1.2-7 cm, junction mouths cut/projected/flared (20), tapers (10), turning places (16), one surface shader (aged asphalt, wheel paths, cracks, sealed cracks, patches, markings, gravel, winter snow/ice/tracks/banks, wet), road snow state per stretch drives it, seasons drive it (July = bare), opaque + alphaToCoverage, low preset variant, poles in pairs (50 m, 25 m in bends) with a headlight reflector, lamps moved onto the shoulder.
+- Asserts: `rd1_roads` (no kerb; 7/7 town + every network segment on the kit; ribbon within 1.2-7 cm of surf, no steeper and no stair step beyond the surface's own; 0 doubled-surface samples of 63 280, 20 mouths, 6 m flare; sled and a traffic car drive street, junction and a network stretch; snow states switch the look; July is bare; old save loads). Existing scenarios edited: `x_townroads` (kerb asserts replaced), `p1_picture` (`BASE_LOW` 128.0 -> 146.6, the pinned street frame is lighter without the black ribbon).
+- Stills: before `~/.hermes/cache/scratch/tlroads/before/`, rounds `r1..r8`, final `after/`; the plan stills `plan/`. Ten worst left and the measured cost: loop/REALISM.md "RD1 as built". The re-placement plan and slices RD2-RD8: "RD plan: roads re-placed".
+
 ## 2026-11-27 11:50 — beta fix 0221 #1: a used truck handed over at a seller's stands clear of every door, the hint beside it names the truck (v295, tlx-vehicles v40, lane A) (G4) — 4b441bc
 
 Triage: reports 372-373 read (371 -> 373). 0372 (I9 slot clamps, v294) verifies 0371 #1-#3 as fixed, no BLOCKER or BUG,
