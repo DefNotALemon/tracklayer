@@ -26,6 +26,11 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
    a street), no kerbs anywhere, a real road surface (worn asphalt, patches, cracks, faded and partly missing
    markings, gravel shoulders, packed snow and ruts in winter, plow banks instead of kerbs). Realism outranks the
    worn look. This replaces R3's road part in `loop/REALISM.md`. Nothing built yet.
+0. STEAM RELEASE (Lemon, 27 Nov: "i want to register a steam page for tracklayer", then "start on all of those ...
+   get me plenty of optionss for store pages"). Placed first by the supervisor because it has outside deadlines
+   (Valve's waiting periods) and he asked for it by name today; move it if he says so. Target 27 Jan 2027. Plan and
+   slice table `loop/STEAM.md`. S1 desktop shell and S2 store page options building; S3 final assets wait on his
+   pick; S4 waits on his Steamworks App ID.
 Then back to the newer directions (G9 the raid, I7 field guide, G8 houses). The expansion lanes (G4) keep
 running beside this under the governor.
 
