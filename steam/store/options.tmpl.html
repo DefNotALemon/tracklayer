@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tracklayer: store page options</title>
+<style>
+@font-face{font-family:"TLB";font-weight:800;src:url(data:font/woff2;base64,/*FONT800*/) format("woff2")}
+@font-face{font-family:"TLB";font-weight:600;src:url(data:font/woff2;base64,/*FONT600*/) format("woff2")}
+@font-face{font-family:"TLB";font-weight:400;src:url(data:font/woff2;base64,/*FONT400*/) format("woff2")}
+@font-face{font-family:"TLC";font-weight:600;src:url(data:font/woff2;base64,/*CAVEAT*/) format("woff2")}
+*{box-sizing:border-box}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.tabs button{font:inherit;font-size:13px;color:var(--foreground,inherit);background:transparent;border:1px solid var(--border,#555);border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+.tabs button b{color:var(--accent,#6cf);margin-right:6px}
+.tabs button[aria-selected=true]{border-color:var(--accent,#6cf);background:color-mix(in srgb,var(--accent,#6cf) 14%,transparent)}
+.steam{background:#1b2838;color:#c6d4df;border-radius:8px;padding:14px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45}
+.steam h2{margin:0 0 10px;font-size:22px;font-weight:400;color:#fff}
+.top{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:12px}
+@media(max-width:620px){.top{grid-template-columns:1fr}}
+.main{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#000}
+.thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px}
+.thumbs img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;cursor:pointer;opacity:.6;border:2px solid transparent}
+.thumbs img.on{opacity:1;border-color:#fff}
+.cap{position:relative;width:100%;aspect-ratio:920/430;overflow:hidden;container-type:inline-size;background:#000}
+.cap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cap .scrim{position:absolute;inset:0}
+.logo{position:absolute;color:#fff;font-family:"TLB",sans-serif;text-transform:uppercase;line-height:.9;text-shadow:0 .4cqw 2.4cqw rgba(4,14,30,.55)}
+.logo small{display:block;font-weight:600;font-size:3.6cqw;letter-spacing:.34em;margin-top:1.6cqw}
+/* track: heavy title with two ski lines running off to the right */
+.l-track .scrim{background:linear-gradient(180deg,transparent 35%,rgba(6,20,44,.72))}
+.l-track .logo{left:5cqw;bottom:9cqw;font-weight:800;font-size:15.5cqw;letter-spacing:.01em}
+.l-track .logo::after{content:"";position:absolute;left:.6cqw;right:-60cqw;bottom:-3.6cqw;height:1.5cqw;border-top:.5cqw solid #fff;border-bottom:.5cqw solid #fff;opacity:.9;
+  -webkit-mask-image:linear-gradient(90deg,#000 35%,transparent 80%);mask-image:linear-gradient(90deg,#000 35%,transparent 80%)}
+/* stamp: boxed like a freight label */
+.l-stamp .scrim{background:linear-gradient(90deg,rgba(6,20,44,.7),transparent 70%)}
+.l-stamp .logo{left:5cqw;top:50%;transform:translateY(-50%);font-weight:800;font-size:11.5cqw;border:.7cqw solid #fff;padding:2.2cqw 3cqw 1.6cqw;letter-spacing:.03em}
+.l-stamp .logo small{font-size:3.1cqw;letter-spacing:.3em;border-top:.35cqw solid #fff;padding-top:1.5cqw;margin-top:1.8cqw}
+/* hand: handwritten, warm */
+.l-hand .scrim{background:radial-gradient(ellipse at 28% 78%,rgba(4,14,30,.7),transparent 62%)}
+.l-hand .logo{left:5cqw;bottom:5cqw;font-family:"TLC",cursive;text-transform:none;font-weight:600;font-size:19cqw;color:#ffe9b0;line-height:.8}
+.l-hand .logo small{font-family:"TLB";color:#fff;font-size:3.2cqw;text-transform:uppercase;margin-top:2.4cqw}
+/* wide: spaced out, centred, cold */
+.l-wide .scrim{background:rgba(10,24,46,.38)}
+.l-wide .logo{left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-weight:600;font-size:9.6cqw;letter-spacing:.3em;padding-left:.3em}
+/* thin: a place name plate */
+.l-thin .scrim{background:linear-gradient(180deg,transparent 40%,rgba(3,10,24,.8))}
+.l-thin .logo{left:0;right:0;bottom:6cqw;text-align:center;font-weight:400;font-size:10.5cqw;letter-spacing:.22em;padding-left:.22em}
+.l-thin .logo small{font-weight:600;color:#8ff0c4;margin:0 0 2cqw;font-size:3.4cqw}
+.short{margin:10px 0}
+.meta{color:#8f98a0;font-size:11px;margin:8px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.tags span{display:inline-block;background:rgba(103,193,245,.2);color:#67c1f5;border-radius:2px;padding:2px 7px;margin:0 3px 3px 0;font-size:12px}
+.small{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:8px}
+.small .cap{width:min(231px,100%);flex:none}.small .cap.s2{width:120px}
+.about{margin-top:14px;border-top:1px solid #2a475e;padding-top:10px;max-width:70ch}
+.about h3{margin:0 0 8px;font-size:14px;color:#fff;text-transform:uppercase;font-weight:400;letter-spacing:.06em}
+.about p{margin:0 0 8px}.about ul{margin:6px 0 0;padding-left:18px}
+.notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 0;font-size:13px;color:var(--foreground,inherit)}
+@media(max-width:620px){.notes{grid-template-columns:1fr}}
+.notes h4{margin:0 0 3px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-foreground,inherit);font-weight:600}
+.notes p{margin:0}
+.pick{margin-top:12px;font:inherit;font-size:13px;font-weight:600;color:var(--foreground,inherit);background:color-mix(in srgb,var(--accent,#6cf) 18%,transparent);border:1px solid var(--accent,#6cf);border-radius:6px;padding:7px 14px;cursor:pointer}
+</style></head><body>
+<div class="tabs" id="tabs" role="tablist"></div>
+<div class="steam">
+  <h2>Tracklayer</h2>
+  <div class="top">
+    <div><img class="main" id="main" alt=""><div class="thumbs" id="thumbs"></div></div>
+    <div>
+      <div class="cap" id="cap"></div>
+      <p class="short" id="short"></p>
+      <div class="meta">Popular user-defined tags for this product</div>
+      <div class="tags" id="tags"></div>
+      <div class="meta">The capsule at the sizes Steam shrinks it to</div>
+      <div class="small"><div class="cap" id="capS"></div><div class="cap s2" id="capXS"></div></div>
+    </div>
+  </div>
+  <div class="about"><h3>About this game</h3><div id="about"></div></div>
+</div>
+<div class="notes">
+  <div><h4>Who it is for</h4><p id="who"></p></div>
+  <div><h4>For it</h4><p id="strong"></p></div>
+  <div><h4>Against it</h4><p id="weak"></p></div>
+</div>
+<button class="pick" id="pick"></button>
+<script>
+const D = /*DATA*/;
+const $ = id => document.getElementById(id), esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const capHtml = o => `<img src="${o.cap}" alt=""><div class="scrim"></div><div class="logo">${o.logo === "thin" && o.sub ? `<small>${esc(o.sub)}</small>` : ""}Tracklayer${o.logo !== "thin" && o.sub ? `<small>${esc(o.sub)}</small>` : ""}</div>`;
+function show(i) {
+  const o = D[i];
+  [...$("tabs").children].forEach((b, k) => b.setAttribute("aria-selected", k === i));
+  for (const id of ["cap", "capS", "capXS"]) { const c = $(id); c.className = "cap l-" + o.logo + (id === "capXS" ? " s2" : ""); c.innerHTML = capHtml(o); }
+  $("short").textContent = o.short;
+  $("tags").innerHTML = o.tags.map(t => `<span>${esc(t)}</span>`).join("");
+  $("about").innerHTML = o.about.map(p => `<p>${esc(p)}</p>`).join("") + "<ul>" + o.bullets.map(b => `<li>${esc(b)}</li>`).join("") + "</ul>";
+  $("who").textContent = o.who; $("strong").textContent = o.strong; $("weak").textContent = o.weak;
+  const pick = n => { $("main").src = o.shots[n]; [...$("thumbs").children].forEach((t, k) => t.classList.toggle("on", k === n)); };
+  $("thumbs").innerHTML = o.shots.map(s => `<img src="${s}" alt="">`).join("");
+  [...$("thumbs").children].forEach((t, k) => t.onclick = () => pick(k)); pick(0);
+  $("pick").textContent = `Go with ${o.id}: ${o.name}`;
+  $("pick").onclick = () => { const m = `Go with Steam store page option ${o.id} (${o.name}) for Tracklayer.`; if (window.hermes && window.hermes.send) window.hermes.send(m); };
+}
+$("tabs").innerHTML = D.map(o => `<button role="tab"><b>${o.id}</b>${esc(o.name)}</button>`).join("");
+[...$("tabs").children].forEach((b, i) => b.onclick = () => show(i));
+show(Math.max(0, D.findIndex(o => "#" + o.id === location.hash)));
+</script>
+</body></html>

@@ -38,7 +38,7 @@ Worktree `~/Documents/GitHub/tracklayer-steam` (branch `steam`, `git push origin
 | # | Slice | State |
 |---|---|---|
 | S1 | Desktop shell (Electron): offline bundle, saves on disk, full screen, Quit, mac + Windows builds, hidden smoke test | done (v296, 27 Nov 2026). Unverified: Tracklayer.exe never run (built on a Mac, exe icon/version not edited), F11/Alt+Enter/real full screen never exercised (tests never full-screen), real gamepad on the Quit entry, Steam Deck |
-| S2 | Store page options: positioning, short and long descriptions, tags, capsule designs, mock pages to compare | building (chat session) |
+| S2 | Store page options: positioning, short and long descriptions, tags, capsule designs, mock pages to compare | six options shown to Lemon 27 Nov (`steam/store/options.html`, text in `options.md`); waits on his pick |
 | S3 | Final assets for the page Lemon picks: every capsule size, library set, 8+ screenshots at 1920x1080, trailer | not started (needs his pick) |
 | S4 | Steamworks hookup: App ID, overlay, Steam Cloud on the save file, achievements, depot upload script | waits on Lemon's App ID |
 | S5 | Release pass: first-hour play on the Windows build, controller + Steam Deck check, launch-day checklist | not started |
