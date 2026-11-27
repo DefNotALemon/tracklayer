@@ -4198,6 +4198,7 @@ function updVisuals(dt) {
   if (started) {
     const tipped = Math.abs(P.roll) > 0.9 || Math.abs(P.pitch) > 1.0;
     P.stuckT = (tipped || (input.thr > 0 && spd < 0.6)) ? P.stuckT + dt : 0;
+    helpSync();
     $("flip").hidden = P.stuckT < 2.5 || BOG.on || FOOT.on || HELP.on;
     safeT += dt;
     if (safeT > 2 && P.gnd && !P.wet && !isWater(P.x, P.z) && !P.thin && spd > 3 && !tipped) { P.safe = { x: P.x - fx * 4, z: P.z - fz * 4, yaw: P.yaw }; safeT = 0; }
@@ -9566,13 +9567,16 @@ function fsTip(force) {
 function toggleSettings(force) {
   const open = force !== undefined ? force : $("settings").hidden;
   $("settings").hidden = !open;
-  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); optSync(); }
+  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); optSync(); SETPAD.fresh = true; }
 }
 
 // Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of
 // swatches, then the next row down), A presses the focused button, left / right on a slider steps it,
 // B or Menu closes. The first press after opening focuses the first control.
-const SETPAD = { nav: 0, navT: 0, a: false, b: false, m: false };
+/* fresh: Settings has just come up. The pad button that opened it (Menu) is still down on the next frame, and the
+   panel read that as its own "Menu closes" press: every second press of Menu flashed Settings up for one frame and shut
+   it again (the stale m from the time before decided which). The first frame after opening only notes what is held. */
+var SETPAD = { nav: 0, navT: 0, a: false, b: false, m: false, fresh: false };
 function settingsFocusables() {
   return [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.offsetParent !== null && e.id !== "closeSet");
 }
@@ -9618,6 +9622,7 @@ function settingsPad(gp, dt) {
   }
   SETPAD.nav = nav;
   const a = b(0), bb = b(1), m = b(9);
+  if (SETPAD.fresh) { SETPAD.fresh = false; SETPAD.a = a; SETPAD.b = bb; SETPAD.m = m; return; }
   if (a && !SETPAD.a) {
     const f = document.activeElement;
     if (f && $("settings").contains(f) && f.tagName === "BUTTON") f.click(); else settingsMove(0, 0);
@@ -10160,6 +10165,51 @@ function keyHint(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a
 function doHint(a, what, lbl) { return INP.dev === "touch" ? "tap " + (lbl || btn(a)) : `${what} (${btn(a)})`; }
 function pressHint(a, lbl) { return (INP.dev === "touch" ? "tap " : "press ") + (INP.dev === "touch" && lbl ? lbl : btn(a)); }
 function capFirst(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+/* ---- the cheat-sheet (#help) and the "STUCK?" card name the controls in hand ----
+   The sheet was fixed keyboard text in index.html, so a pad player read W / S, Ctrl and Tab (beta 0150 #1), and the
+   stuck card said PRESS N to a player holding a pad trigger (beta 0320). helpSync() runs each frame and rebuilds both
+   only when the device or the pad's brand changes. A keyboard gets the sheet it always had; a pad gets its own rows,
+   named by brand through btn(), and only for what a pad really does (no Map, next-job or hide-sheet button on a pad,
+   so those are not listed). Touch has no sheet (body.touch hides it): a touch screen without the touch buttons is a
+   keyboard machine and keeps the keyboard sheet. Nothing saved. Test: scenarios/g3_helpsheet.mjs. */
+var HLP = { k: "" };
+function helpRows() {
+  const pad = INP.dev === "pad", b = btn, i = s => `<b style="min-width:0">${s}</b>`, R = [];
+  const row = (k, t, mx) => R.push(`<div${mx ? ' class="mx"' : ""}><b>${k}</b>${t}</div>`);
+  if (!pad) {
+    row("W / S", "Throttle / brake"); row("A / D", "Steer"); row("Shift", "Lean into turn"); row("Space", "Hop");
+    row("Ctrl", "Wheelie", 1); row("S / ↓", "Brake · hold it once stopped to reverse", 1); row("N", "Reset sled", 1);
+    row("E", "Horn · stopped by a frozen lake: get off and fish · at the tackle shop or fish buyer: open it", 1);
+    row("T", "Garage", 1); row("G", "Tiller wings in / out", 1); row("P", "Call a rescue sled (fjord dunking or empty tank)", 1);
+    row("Z", "Wipe frost off your visor", 1); row("Q", "Get off / on the sled", 1);
+    row("Shift", "On foot: hold to jog (quickest on packed snow; it winds you)", 1);
+    row("E", `On foot: hook winch / dig · ${i("X")} snatch block · hold ${i("Space")} reel`, 1);
+    row("Tab", `Dash tablet: parcels, map, weather · ${i("B")} Weather`, 1);
+    row("V", `Cycle view · ${i("M")} Map · ${i("J")} Next job on the compass`, 1);
+    row("Esc", `Settings · ${i("H")} Hide`); row("Y", "Mod menu", 1);
+  } else {
+    row(`${b("gas")} / ${b("brake")}`, "Throttle / brake"); row(b("steer"), "Steer"); row(b("lean"), "Lean into turn"); row(b("hop"), "Hop");
+    row(b("assess"), "Wheelie", 1); row(b("brake"), "Brake · hold it once stopped to reverse", 1); row(b("reset"), "Reset sled", 1);
+    row(b("use"), "Horn · by a frozen lake: fish · at a shop: open it", 1);
+    row(b("garage"), "Garage · backs out of a menu", 1);
+    row(b("help"), "Bandage a wound · in the fjord or on an empty tank: call a rescue sled", 1);
+    row(b("wipe"), "Wipe frost off your visor", 1); row(b("mount"), "Get off / on the sled", 1);
+    row(b("jog"), "On foot: hold to jog (quickest on packed snow; it winds you)", 1);
+    row(b("use"), `On foot: hook winch / dig · ${i(b("assess"))} snatch block · hold ${i(b("reel"))} reel`, 1);
+    row(b("tablet"), `Dash tablet: parcels, map, weather · ${i("D-pad right")} Weather`, 1);
+    row(b("view"), "Cycle view", 1);
+    row(b("menu"), "Settings"); row(b("mod"), "Mod menu", 1);
+  }
+  return R.join("");
+}
+function helpSync() {
+  const k = INP.dev === "pad" ? "pad:" + INP.pad : INP.dev === "touch" ? "touch" : "kbm";
+  if (k === HLP.k) return;
+  HLP.k = k;
+  const h = $("help"), f = $("flip");
+  if (h) { h.innerHTML = helpRows(); h.classList.toggle("pad", INP.dev === "pad"); h.classList.toggle("nin", INP.dev === "pad" && INP.pad === "nin"); }
+  if (f) f.textContent = "STUCK? " + pressHint("reset").toUpperCase();
+}
 addEventListener("keydown", () => { INP.dev = "kbm"; }, true);
 addEventListener("pointerdown", e => { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
 function tutPadPoll() {
@@ -10167,7 +10217,7 @@ function tutPadPoll() {
   let a = false;
   for (const gp of pads) {
     if (!gp || phantomPad(gp)) continue;
-    const any = gp.buttons.some(b => b && b.pressed) || gp.axes.some(v => Math.abs(v) > 0.5);
+    const any = gp.buttons.some(b => b && (b.pressed || b.value > 0.1)) || gp.axes.some(v => Math.abs(v) > 0.5);   /* a feathered trigger drives the sled, so it is the device in hand too (beta 0320) */
     if (any) { INP.dev = "pad"; INP.pad = /054c|playstation|dualsense|dualshock/i.test(gp.id) ? "ps" : /057e|nintendo|switch|pro controller|joy-con/i.test(gp.id) ? "nin" : "xbox"; }
     if (gp.buttons[0] && gp.buttons[0].pressed) a = true;
   }

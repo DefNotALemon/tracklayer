@@ -1106,6 +1106,8 @@
   /* keyboard cheat-sheet (H hides it): a narrow top-right card; the long lines only when the screen is tall */
   #help{width:max-content;max-width:clamp(200px,calc(50vw - 240px),420px);font-size:12px;line-height:1.4;padding:8px 11px}
   #help .mx{display:none}
+  #help.pad b{min-width:7.2em;padding-right:.5em}   /* pad names run longer than keys ("D-pad down", "Left stick") */
+  #help.nin b{min-width:10.4em}                     /* "Right stick click" */
   @media (min-height:1000px){#help .mx{display:block}}
   @media (max-height:560px){
     #mapWrap .cap,#mailBar{display:none}
@@ -1247,7 +1249,7 @@
   <div class="mx"><b>G</b>Tiller wings in / out</div>
   <div class="mx"><b>P</b>Call a rescue sled (fjord dunking or empty tank)</div>
   <div class="mx"><b>Z</b>Wipe frost off your visor</div>
-  <div class="mx"><b>Q</b>Get off / on the sled (when bogged)</div>
+  <div class="mx"><b>Q</b>Get off / on the sled</div>
   <div class="mx"><b>Shift</b>On foot: hold to jog (quickest on packed snow; it winds you)</div>
   <div class="mx"><b>E</b>On foot: hook winch / dig · <b style="min-width:0">X</b> snatch block · hold <b style="min-width:0">Space</b> reel</div>
   <div class="mx"><b>Tab</b>Dash tablet: parcels, map, weather · <b style="min-width:0">B</b> Weather</div>
@@ -1371,5 +1373,5 @@
 <script src="tlx-paths.js?v=1"></script>
 <script src="tlx-haptics.js?v=1"></script>
 <script src="tlx-gifts.js?v=1"></script>
-<script src="tracklayer.js?v=302"></script>
+<script src="tracklayer.js?v=303"></script>
 </body></html>
