@@ -237,6 +237,30 @@
   #settings button:focus-visible,#settings input:focus-visible,#settings button:focus{outline:2px solid var(--signal);outline-offset:2px}
   #settings .sw:focus{transform:scale(1.15)}
   #settings .hint b{color:var(--frost)}
+  /* Settings is a short top page with Game, Graphics and Sound pages; the paint shop is a garage tab */
+  #settings .bhead{align-items:center}
+  #settings .bhead .mt{flex:1;min-width:0}
+  #settings .setpage{display:grid;gap:8px;min-width:0}
+  #settings .setpage[hidden],#settings .setdone[hidden]{display:none}
+  #settings .setgo{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;font:inherit;color:var(--frost);background:rgba(234,242,248,.05);border:1px solid rgba(234,242,248,.12);border-radius:var(--r-md,6px);padding:12px 16px;cursor:pointer}
+  #settings .setgo:hover{border-color:var(--signal);background:rgba(234,242,248,.08)}
+  #settings .setgo b{display:block;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.03em}
+  #settings .setgo em{display:block;font-style:normal;font-size:13px;line-height:1.35;color:var(--slate)}
+  #settings .setgo .chev{font-style:normal;font-size:26px;line-height:1;color:var(--slate)}
+  #settings .setdone{display:flex;justify-content:flex-end;margin-top:4px}
+  #settings .setrow>div{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+  #settings #optRows .setrow,#settings #optRowsGfx .setrow,#settings #optRowsSnd .setrow{margin-bottom:2px}
+  #garageBody .pshop{display:grid;gap:10px}
+  #garageBody .prow{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-width:0}
+  #garageBody .prow label{font-size:13px;color:var(--slate);min-width:92px}
+  #garageBody .prow>div{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+  #garageBody .prow input[type=range]{flex:1;min-width:140px;accent-color:var(--signal)}
+  #garageBody .prow .hint{font-size:13px;color:var(--slate)}
+  #garageBody .prow .hint b{color:var(--frost)}
+  #garageBody .prow .chip{width:34px;height:34px;border-radius:6px;border:1px solid rgba(234,242,248,.25);flex:none}
+  #garageBody .pshop button:focus,#garageBody .pshop input:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  #garageBody .pshop .sw:focus{transform:scale(1.15)}
+  #garage button:focus-visible,#garage .setrow button:focus{outline:2px solid var(--signal);outline-offset:2px}
   #intFade{position:fixed;inset:0;z-index:5;background:#05070a;opacity:0;pointer-events:none;transition:opacity .3s linear}
   #black{position:fixed;inset:0;z-index:6;background:#05090d;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadein .8s}
   @keyframes fadein{from{opacity:0}}
@@ -1183,31 +1207,40 @@
 <div id="summer" hidden><div class="sumc"><div class="brand">THE NORDKINN · SUMMER</div><div class="sumt" id="sumDate">1 June</div><p id="sumNote"></p><div class="sumb" id="sumBills" hidden></div><div class="sumy" id="sumYear" hidden></div></div></div>
 
 <div class="panel" id="settings" hidden>
-  <div class="bhead"><div><div class="brand">TRACKLAYER</div><div class="btitle">Settings</div></div><button id="closeSet" class="xbtn" aria-label="Close settings">✕</button></div>
-  <div class="bsec">Sled paint</div>
-  <div class="setrow"><span id="colorSwatch" class="chip"></span><span id="liveryName" class="hint"></span><button id="liveryBtn" class="sbtn">Stock livery</button></div>
-  <div class="setrow"><label>Body</label><div id="swatches"></div></div>
-  <div class="setrow"><label for="hue">Any hue</label><input id="hue" type="range" min="0" max="360" value="18"><span class="hint">panels and trim stay the machine's own</span></div>
-  <div class="setrow"><label>Jerry cans</label><button id="canBtn" class="sbtn">Jerry cans: red</button><span class="hint">or match the sled</span></div>
-  <div class="setrow"><label>Graphics</label><div id="decalBtns"></div></div>
-  <div class="setrow"><label>Seat</label><div id="seatSw"></div></div>
-  <div class="bsec">Rider</div>
-  <div class="setrow"><label>Jacket</label><div id="jacketSw"></div></div>
-  <div class="setrow"><label>Jacket trim</label><div id="trimSw"></div></div>
-  <div class="setrow"><label>Snow pants</label><div id="pantsSw"></div></div>
-  <div class="setrow"><label>Helmet</label><div id="helmetSw"></div></div>
-  <div class="setrow"><label>Style</label><div id="styleBtns"></div><button id="randomKit" class="sbtn">Random kit</button></div>
-  <div class="bsec">Sound</div>
-  <div class="setrow"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="100" value="35"><button id="muteBtn" class="sbtn">Sound: on</button></div>
-  <div class="bsec">Camera</div>
-  <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint">or press <b>V</b> while riding</span></div>
-  <div class="bsec">Graphics</div>
-  <div class="setrow"><button id="gfxBtn" class="sbtn">Graphics: auto</button><button id="fpsBtn" class="sbtn">Frame rate: hidden</button><button id="fsBtn" class="sbtn" hidden>Full screen</button><span class="hint" id="gfxHint">auto lowers the detail by itself until the frame rate holds steady</span></div>
-  <div class="bsec">Controls</div>
-  <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled (P)</button><button id="godBtn" class="sbtn">Mod menu</button><button id="tutSkip" class="sbtn" hidden>Skip tutorial</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
-  <div class="bsec" id="optSec" hidden>Options</div>
-  <div id="optRows" hidden></div>
-  <div class="bfoot"><b>Esc</b> closes. Pad: <b>D-pad</b> or stick to move, <b>A</b> to pick, <b>◀ ▶</b> on a slider, <b>B</b> closes. Your kit and volume are remembered next time. <b>M</b> opens the map on your tablet.</div>
+  <div class="bhead"><button id="setBackHd" class="xbtn" aria-label="Back to Settings" hidden>‹</button><div class="mt"><div class="brand">TRACKLAYER</div><div class="btitle" id="setTitle">Settings</div></div><button id="closeSet" class="xbtn" aria-label="Close settings">✕</button></div>
+  <div class="setpage" id="setTop">
+    <button id="setGoGame" class="setgo" data-page="game"><span><b>Game</b><em>Camera, controls, your rider's kit and the extras</em></span><i class="chev">›</i></button>
+    <button id="setGoGfx" class="setgo" data-page="graphics"><span><b>Graphics</b><em>Detail, frame rate and full screen</em></span><i class="chev">›</i></button>
+    <button id="setGoSnd" class="setgo" data-page="sound"><span><b>Sound</b><em>Volume and mute</em></span><i class="chev">›</i></button>
+    <div class="setdone"><button id="setCloseBtn" class="sbtn">Close</button></div>
+  </div>
+  <div class="setpage" id="setGame" hidden>
+    <div class="hint" id="setPaintNote">Sled paint is done at the garage, in the same shed as the repairs.</div>
+    <div class="bsec">Camera</div>
+    <div class="setrow"><button id="viewBtn" class="sbtn">View: Chase</button><span class="hint" id="viewHint">cycles chase, close, first person and drone</span></div>
+    <div class="bsec">Controls</div>
+    <div class="setrow"><button id="touchBtn" class="sbtn">Touch controls: auto</button><button id="towBtn" class="sbtn">Call rescue sled</button><button id="godBtn" class="sbtn">Mod menu</button><button id="tutSkip" class="sbtn" hidden>Skip tutorial</button><span class="hint">auto shows touch controls on phones and tablets</span></div>
+    <div class="bsec">Rider</div>
+    <div class="setrow"><label>Jacket</label><div id="jacketSw"></div></div>
+    <div class="setrow"><label>Jacket trim</label><div id="trimSw"></div></div>
+    <div class="setrow"><label>Snow pants</label><div id="pantsSw"></div></div>
+    <div class="setrow"><label>Helmet</label><div id="helmetSw"></div></div>
+    <div class="setrow"><label>Style</label><div id="styleBtns"></div><button id="randomKit" class="sbtn">Random kit</button></div>
+    <div class="bsec" id="optSec" hidden>Options</div>
+    <div id="optRows" hidden></div>
+  </div>
+  <div class="setpage" id="setGfx" hidden>
+    <div class="setrow"><button id="gfxBtn" class="sbtn">Graphics: auto</button><button id="fpsBtn" class="sbtn">Frame rate: hidden</button><button id="fsBtn" class="sbtn" hidden>Full screen</button><span class="hint" id="gfxHint">auto lowers the detail by itself until the frame rate holds steady</span></div>
+    <div class="bsec" id="optSecGfx" hidden>Picture options</div>
+    <div id="optRowsGfx" hidden></div>
+  </div>
+  <div class="setpage" id="setSnd" hidden>
+    <div class="setrow"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="100" value="35"><button id="muteBtn" class="sbtn">Sound: on</button></div>
+    <div class="bsec" id="optSecSnd" hidden>Sound options</div>
+    <div id="optRowsSnd" hidden></div>
+  </div>
+  <div class="setdone" id="setBackRow" hidden><button id="setBackBtn" class="sbtn">‹ Back</button></div>
+  <div class="bfoot" id="setFoot"></div>
 </div>
 
 <div class="panel mod" id="god" hidden>
@@ -1326,7 +1359,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="icefish.js?v=44"></script>
-<script src="tlx.js?v=2"></script>
+<script src="tlx.js?v=3"></script>
 <script src="tlx-look.js?v=12"></script>
 <script src="tlx-post.js?v=1"></script>
 <script src="tlx-roadkit.js?v=2"></script>
@@ -1354,7 +1387,7 @@
 <script src="tlx-gunwheel.js?v=2"></script>
 <script src="tlx-armed.js?v=2"></script>
 <script src="tlx-raids.js?v=1"></script>
-<script src="tlx-seasons.js?v=1"></script>
+<script src="tlx-seasons.js?v=2"></script>
 <script src="tlx-news.js?v=4"></script>
 <script src="tlx-trails.js?v=6"></script>
 <script src="tlx-reels.js?v=9"></script>

@@ -16,7 +16,7 @@
 //     save() { ... },                 // optional: just before the state is written out, bring it up to date
 //     monday(week) { ... }            // optional: the weekly settle-up, with the rent and fuel bills
 //   });
-//   TLX.option({ id: "ships", name: "Passing ships", hint: "...", sys: "lights" });   // a suggested addition
+//   TLX.option({ id: "ships", name: "Passing ships", hint: "...", sys: "lights", cat: "game" });   // a suggested addition (cat: "game" | "graphics" | "sound", default game: the Settings page it sits on)
 //
 // and reads its state with TLX.state("vehicles"), an option with TLX.on("ships").
 //
@@ -73,6 +73,7 @@ const TLX = {
   option(o) {
     if (!o || typeof o.id !== "string" || OPT_BY[o.id]) return null;
     o.def = o.def !== false;
+    if (o.cat !== "graphics" && o.cat !== "sound") o.cat = "game";   // the Settings page it sits on: game (default), graphics or sound
     OPTS.push(o); OPT_BY[o.id] = o;
     return o;
   },

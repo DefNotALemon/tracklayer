@@ -1272,7 +1272,7 @@ let bodyMat = null, panelMat = null, sledTrimMat = null, jacketMat = null, rider
 const V = {};   // swappable parts, machines and rider kit, toggled by the garage
 const SR = { on: false, a: 0, drag: false, lx: 0 };           // garage / settings showroom camera
 const PV = { sled: null, cat: null, slot: null, id: null };   // what the mouse is trying on
-function showroomOn() { return GS.garageOpen || !document.getElementById("settings").hidden; }
+function showroomOn() { return GS.garageOpen || (!document.getElementById("settings").hidden && !document.getElementById("setGame").hidden); }   // Settings brings the showroom up only on its Game page (the rider rows change the rider); Graphics and Sound show the real game
 let godOpen = false, padGodA = false, padGodB = false;   // the mod menu's state (declared up here: the input code reads it long before the menu's own block runs)
 // nobody's hands are on the controls: garage or settings are up, or the rider is dead. (Not the mod menu: you ride on under it.)
 // Riding (or coasting) through a menu like this used to keep whatever thr/brk was held when it opened.
@@ -2557,6 +2557,7 @@ function readInput(dt) {
       TT.padA = pb(0); TT.padB = pb(1); TT.nav = 0;
       break;
     }
+    if (GS.garageOpen && TUT.stage >= 2) garagePad(gp, dt);                 // the garage (and its paint shop) answers the d-pad and A like Settings does
     if (started && TLX.gunwheel && TLX.gunwheel.wheelOpen()) {              // the quick-customize wheel is up: tlx-gunwheel.js reads the pad (D-pad / stick / A / B); the game itself sees nothing new
       const pb = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
       padHop = pb(0); padRifle = pb(0); padB = pb(1); padX = pb(2); padGod = pb(3); padLB = pb(4); padMenu = pb(9); padReset = pb(8); padView = pb(11); padHorn = pb(10);
@@ -9394,7 +9395,7 @@ function gameKey(e) {
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
   if (e.code === "KeyJ") { jobCycle(); return; }                          // J: point the compass at the next job you've taken on (then back to auto)
-  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (GS.garageOpen) closeGarage(); else toggleSettings(); }
+  if (e.code === "Escape") { if (godOpen) toggleGod(false); else if (GS.garageOpen) closeGarage(); else if (!$("settings").hidden) settingsBack(); else toggleSettings(true); }
   if (e.code === "KeyG") toggleWings();
   if (e.code === "KeyP") callForHelp();
   if (e.code === "KeyZ") wipeVisor();
@@ -9418,7 +9419,7 @@ const DECALS = [["none", "Clean"], ["stripe", "Twin stripes"], ["wide", "Wide st
 const SET = { paint: {}, jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", helmet: "#f2f5f8", decal: "none", canMatch: false, vol: 0.35, hud: true, touch: "auto", gfx: "auto", fps: false };
 function loadSettings() { try { const d = JSON.parse(localStorage.getItem("tracklayer.set.v1") || "null"); if (d) Object.assign(SET, d); } catch (e) { } if (!SET.paint || typeof SET.paint !== "object") SET.paint = {}; }
 function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.stringify(SET)); } catch (e) { } }
-// the sled the settings are painting: whatever the garage is previewing, else the one you own
+// the sled being painted: the garage's Paint shop paints the one you ride; applySettings shows whatever the garage previews
 const paintSled = () => (PV.sled && SLEDS.find(x => x.id === PV.sled)) || sledDef();
 function liveryOf(sd) {
   const sch = typeof SCHOOL !== "undefined" && SCHOOL.on && sd.id === SCHOOL_SLED && GS.own.sled === SCHOOL_SLED;   // the school sled wears the school's colours
@@ -9466,8 +9467,38 @@ function applySettings() {
   const lb = $("liveryBtn"); if (lb) { lb.textContent = L.stock ? "Stock livery" : "Back to stock livery"; lb.disabled = L.stock; }
   const ln = $("liveryName"); if (ln) ln.innerHTML = `<b>${sd.name}</b> · ${L.stock ? sd.livery.name : "custom paint"}`;
 }
+/* ---- the Paint shop: the garage's tab beside the Workshop ----
+   Painting moved out of Settings. It is free, and it paints the sled you ride (sledDef()): stock livery, body colour
+   and any hue, jerry cans, hood graphics and seat. Saved the same way as before (SET.paint per machine, SET.decal,
+   SET.canMatch in tracklayer.set.v1), so old saves show their paint unchanged. Reachable wherever the garage is (T at
+   the garage site, and the title menu's Garage). */
+function paintShopSync() { applySettings(); }
+function renderPaintShop(body) {
+  const sd = sledDef();
+  const wrap = document.createElement("div"); wrap.className = "pshop"; wrap.id = "paintShop";
+  wrap.innerHTML = `<div class="bsec" style="margin-top:0">Paint shop</div>
+    <div class="prow"><span id="colorSwatch" class="chip"></span><span id="liveryName" class="hint"></span><button id="liveryBtn" class="sbtn">Stock livery</button></div>
+    <div class="prow"><label>Body</label><div id="swatches"></div></div>
+    <div class="prow"><label for="hue">Any hue</label><input id="hue" type="range" min="0" max="360" value="18"><span class="hint">panels and trim stay the machine's own</span></div>
+    <div class="prow"><label>Jerry cans</label><button id="canBtn" class="sbtn">Jerry cans: red</button><span class="hint">or match the sled</span></div>
+    <div class="prow"><label>Decals</label><div id="decalBtns"></div></div>
+    <div class="prow"><label>Seat</label><div id="seatSw"></div></div>
+    <div class="bfoot">Painting is on the house. It is the sled you ride, <b>${sd.name}</b>, that gets painted, and the paint shows on it right here; each machine keeps its own body and seat colour. Repairs are on the Workshop tab.</div>`;
+  body.appendChild(wrap);
+  swatchRow("swatches", SLED_COLORS, null, c => setPaint(sledDef(), "body", c));
+  swatchRow("seatSw", SEAT_COLORS, null, c => setPaint(sledDef(), "seat", c));
+  DECALS.forEach(([id, name]) => {
+    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.s = id; b.textContent = name;
+    b.addEventListener("click", () => { SET.decal = id; paintShopSync(); saveSettings(); });
+    $("decalBtns").appendChild(b);
+  });
+  $("liveryBtn").addEventListener("click", () => { delete SET.paint[sledDef().id]; paintShopSync(); saveSettings(); });
+  $("canBtn").addEventListener("click", () => { SET.canMatch = !SET.canMatch; paintShopSync(); saveSettings(); });
+  $("hue").addEventListener("input", e => { setPaint(sledDef(), "body", "#" + new THREE.Color().setHSL(e.target.value / 360, 0.85, 0.55).getHexString()); paintShopSync(); saveSettings(); });
+  applySettings();
+}
 function swatchRow(id, colors, key, onPick) {
-  const box = $(id);
+  const box = $(id); if (!box) return;
   colors.forEach(c => {
     const b = document.createElement("button"); b.className = "sw"; b.dataset.c = c; b.title = c === "stock" ? "Stock seat" : c;
     b.style.background = c === "stock" ? "repeating-linear-gradient(45deg, #2a3340 0 6px, #4a5566 6px 12px)" : c;
@@ -9476,19 +9507,10 @@ function swatchRow(id, colors, key, onPick) {
   });
 }
 function buildSettings() {
-  swatchRow("swatches", SLED_COLORS, null, c => setPaint(paintSled(), "body", c));
   swatchRow("jacketSw", JACKET_COLORS, "jacket");
   swatchRow("trimSw", TRIM_COLORS, "trim");
   swatchRow("pantsSw", PANTS_COLORS, "pants");
-  swatchRow("seatSw", SEAT_COLORS, null, c => setPaint(paintSled(), "seat", c));
-  $("liveryBtn").addEventListener("click", () => { delete SET.paint[paintSled().id]; applySettings(); saveSettings(); });
-  $("canBtn").addEventListener("click", () => { SET.canMatch = !SET.canMatch; applySettings(); saveSettings(); });
   swatchRow("helmetSw", HELMET_COLORS, "helmet");
-  DECALS.forEach(([id, name]) => {
-    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.s = id; b.textContent = name;
-    b.addEventListener("click", () => { SET.decal = id; applySettings(); saveSettings(); });
-    $("decalBtns").appendChild(b);
-  });
   STYLES.forEach(([id, name]) => {
     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.s = id; b.textContent = name;
     b.addEventListener("click", () => { SET.style = id; applySettings(); saveSettings(); });
@@ -9500,7 +9522,10 @@ function buildSettings() {
     SET.helmet = pick(HELMET_COLORS);
     applySettings(); saveSettings();
   });
-  $("hue").addEventListener("input", e => { setPaint(paintSled(), "body", "#" + new THREE.Color().setHSL(e.target.value / 360, 0.85, 0.55).getHexString()); applySettings(); saveSettings(); });
+  for (const g of $("setTop").querySelectorAll(".setgo")) g.addEventListener("click", () => setPage(g.dataset.page));
+  $("setBackHd").addEventListener("click", () => settingsBack());
+  $("setBackBtn").addEventListener("click", () => settingsBack());
+  $("setCloseBtn").addEventListener("click", () => toggleSettings(false));
   $("vol").addEventListener("input", e => { SET.vol = e.target.value / 100; muted = SET.vol === 0; applySettings(); saveSettings(); });
   $("muteBtn").addEventListener("click", () => { muted = !muted; applySettings(); saveSettings(); });
   $("viewBtn").addEventListener("click", () => { cycleView(); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; });
@@ -9566,25 +9591,68 @@ function fsTip(force) {
   $("fsOk").onclick = () => { t.hidden = true; try { localStorage.setItem("tracklayer.fstip", "1"); } catch (e) { } };
   $("fsLater").onclick = () => { t.hidden = true; };
 }
-function toggleSettings(force) {
+/* ---- Settings: a short top page (Game, Graphics, Sound) and one page at a time ----
+   Opening Settings always starts at the top page; toggleSettings(true, "graphics") opens a page straight away (a
+   deep link). Esc / pad B goes back one level, then closes; the pad Menu button closes outright. Game holds the camera,
+   the controls, the rider's kit and the options other systems add (TLX.option, category "game"); Graphics and Sound
+   hold the picture and sound options (category "graphics" / "sound"). The showroom (the sled turning beside the panel)
+   comes up only on the Game page, where the rider rows change the rider. Sled paint is NOT here: it is the garage's Paint
+   shop tab (renderPaintShop). The footer names the buttons of the device in hand (setFootSync). */
+var SETPAD = { nav: 0, navT: 0, a: false, b: false, m: false, fresh: false, page: "top", fk: "" };
+const SET_PAGES = { top: "setTop", game: "setGame", graphics: "setGfx", sound: "setSnd" };
+const SET_TITLES = { top: "Settings", game: "Game", graphics: "Graphics", sound: "Sound" };
+const SET_ENTRY = { game: "setGoGame", graphics: "setGoGfx", sound: "setGoSnd" };
+function setPage(p, focusId) {
+  if (!SET_PAGES[p]) p = "top";
+  SETPAD.page = p;
+  for (const k in SET_PAGES) $(SET_PAGES[k]).hidden = k !== p;
+  $("setTitle").textContent = SET_TITLES[p]; $("setBackHd").hidden = p === "top"; $("setBackRow").hidden = p === "top";
+  const st = $("settings"); st.scrollTop = 0;
+  $("viewBtn").textContent = "View: " + VIEWS[camMode].n;
+  applySettings(); optSync(); setFootSync(true);
+  const f = (focusId && $(focusId)) || settingsFocusables()[0]; if (f) f.focus({ preventScroll: true });
+}
+function settingsBack() {
+  if ($("settings").hidden) return;
+  if (SETPAD.page !== "top") { const from = SETPAD.page; setPage("top", SET_ENTRY[from]); } else toggleSettings(false);
+}
+function toggleSettings(force, page) {
   const open = force !== undefined ? force : $("settings").hidden;
   $("settings").hidden = !open;
-  if (open) { TABLET.close(true); $("viewBtn").textContent = "View: " + VIEWS[camMode].n; applySettings(); optSync(); SETPAD.fresh = true; }
+  if (open) { TABLET.close(true); SETPAD.fresh = true; setPage(page || "top"); }
 }
+// the footer names the controls of the device in hand: a pad by brand, the keyboard and mouse, or touch (never a key on a pad or on touch)
+function setFootSync(force) {
+  const f = $("setFoot"); if (!f) return;
+  const dev = INP.dev === "pad" ? "pad:" + INP.pad : INP.dev, top = SETPAD.page === "top", k = dev + "|" + SETPAD.page;
+  if (!force && k === SETPAD.fk) return;
+  SETPAD.fk = k;
+  const what = top ? "closes" : "goes back";
+  let h;
+  if (INP.dev === "pad") h = `<b>D-pad</b> or stick to move, <b>${btn("pick")}</b> to pick, <b>◀ ▶</b> on a slider, <b>${btn("wclose")}</b> ${what}, <b>${btn("menu")}</b> closes.`;
+  else if (INP.dev === "touch") h = `Tap a control to change it. ${top ? "<b>✕</b> closes." : "<b>‹</b> goes back, <b>✕</b> closes."}`;
+  else h = `<b>${btn("menu")}</b> ${what}. Click a control, or <b>Tab</b> to move and <b>Enter</b> to pick.`;
+  f.innerHTML = h + " Your kit and volume are remembered next time.";
+  const vh = $("viewHint"); if (vh) vh.innerHTML = `cycles chase, close, first person and drone · ${pressHint("view")} while riding`;
+  const tb = $("towBtn"); if (tb) tb.textContent = INP.dev === "touch" ? "Call rescue sled" : `Call rescue sled (${btn("help")})`;
+}
+addEventListener("keydown", () => { if (!$("settings").hidden) setFootSync(); }, true);
+addEventListener("pointerdown", () => { if (!$("settings").hidden) setFootSync(); }, true);
 
 // Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of
 // swatches, then the next row down), A presses the focused button, left / right on a slider steps it,
-// B or Menu closes. The first press after opening focuses the first control.
+// B goes back a page (then closes), Menu closes. Focus lands on the first control when a page opens.
 /* fresh: Settings has just come up. The pad button that opened it (Menu) is still down on the next frame, and the
    panel read that as its own "Menu closes" press: every second press of Menu flashed Settings up for one frame and shut
    it again (the stale m from the time before decided which). The first frame after opening only notes what is held. */
-var SETPAD = { nav: 0, navT: 0, a: false, b: false, m: false, fresh: false };
-function settingsFocusables() {
-  return [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.offsetParent !== null && e.id !== "closeSet");
+function settingsFocusables(root) {
+  root = root || $("settings");
+  return [...root.querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.offsetParent !== null && e.id !== "closeSet" && e.id !== "setBackHd" && e.id !== "closeGarage");
 }
-function settingsMove(dx, dy) {
-  const all = settingsFocusables(); if (!all.length) return;
-  let cur = document.activeElement && $("settings").contains(document.activeElement) && all.includes(document.activeElement) ? document.activeElement : null;
+function settingsMove(dx, dy, root) {
+  root = root || $("settings");
+  const all = settingsFocusables(root); if (!all.length) return;
+  let cur = document.activeElement && root.contains(document.activeElement) && all.includes(document.activeElement) ? document.activeElement : null;
   if (!cur) { all[0].focus(); return; }
   const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   let best = null, bs = 1e9;
@@ -9603,34 +9671,54 @@ function settingsMove(dx, dy) {
     if (sc < bs) { bs = sc; best = e; }
   }
   if (best) best.focus();
-  else if (dy < 0) $("settings").scrollTo({ top: 0 });
-  else if (dy > 0) $("settings").scrollTo({ top: $("settings").scrollHeight });
+  else if (dy < 0) root.scrollTo({ top: 0 });
+  else if (dy > 0) root.scrollTo({ top: root.scrollHeight });
 }
 function settingsStep(el, d) {
   const mn = +el.min || 0, mx = +el.max || 100, st = Math.max(1, Math.round((mx - mn) / 20));
   el.value = clamp(+el.value + d * st, mn, mx); el.dispatchEvent(new Event("input", { bubbles: true }));
 }
-function settingsPad(gp, dt) {
+// the pad's d-pad / stick over a menu root; returns true on a fresh press of the bottom face button
+function padMenuNav(gp, dt, root, S) {
   const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
   const nav = b(12) || ay < -0.6 ? 1 : b(13) || ay > 0.6 ? 2 : b(14) || ax < -0.6 ? 3 : b(15) || ax > 0.6 ? 4 : 0;   // 1 up, 2 down, 3 left, 4 right
-  SETPAD.navT -= dt;
-  if (nav !== SETPAD.nav || (nav && SETPAD.navT <= 0)) {
+  S.navT -= dt;
+  if (nav !== S.nav || (nav && S.navT <= 0)) {
     if (nav) {
-      const cur = document.activeElement, onRange = cur && cur.type === "range" && $("settings").contains(cur);
+      const cur = document.activeElement, onRange = cur && cur.type === "range" && root.contains(cur);
       if (onRange && nav >= 3) settingsStep(cur, nav === 4 ? 1 : -1);
-      else settingsMove(nav === 3 ? -1 : nav === 4 ? 1 : 0, nav === 1 ? -1 : nav === 2 ? 1 : 0);
+      else settingsMove(nav === 3 ? -1 : nav === 4 ? 1 : 0, nav === 1 ? -1 : nav === 2 ? 1 : 0, root);
     }
-    SETPAD.navT = nav === SETPAD.nav ? 0.12 : 0.4;
+    S.navT = nav === S.nav ? 0.12 : 0.4;
   }
-  SETPAD.nav = nav;
+  S.nav = nav;
+  const a = b(0), edge = a && !S.a; S.a = a;
+  return edge;
+}
+function settingsPad(gp, dt) {
+  const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), root = $("settings");
+  if (gp.buttons.some(x => x && x.pressed) || Math.abs(gp.axes[0] || 0) > 0.6 || Math.abs(gp.axes[1] || 0) > 0.6) {   // a pad in hand names its own buttons (also from the title, where the game's poll is not running)
+    INP.dev = "pad"; INP.pad = /054c|playstation|dualsense|dualshock/i.test(gp.id) ? "ps" : /057e|nintendo|switch|pro controller|joy-con/i.test(gp.id) ? "nin" : "xbox"; setFootSync();
+  }
+  const press = padMenuNav(gp, dt, root, SETPAD);
   const a = b(0), bb = b(1), m = b(9);
   if (SETPAD.fresh) { SETPAD.fresh = false; SETPAD.a = a; SETPAD.b = bb; SETPAD.m = m; return; }
-  if (a && !SETPAD.a) {
+  if (press) {
     const f = document.activeElement;
-    if (f && $("settings").contains(f) && f.tagName === "BUTTON") f.click(); else settingsMove(0, 0);
+    if (f && root.contains(f) && f.tagName === "BUTTON") f.click(); else settingsMove(0, 0);
   }
-  if ((bb && !SETPAD.b) || (m && !SETPAD.m)) toggleSettings(false);
+  if (m && !SETPAD.m) toggleSettings(false);
+  else if (bb && !SETPAD.b) settingsBack();
   SETPAD.a = a; SETPAD.b = bb; SETPAD.m = m;
+}
+// the garage on a pad: the same d-pad / A over the open garage panel (B already closes it)
+var GARPAD = { nav: 0, navT: 0, a: true };
+function garagePad(gp, dt) {
+  const root = $("garage");
+  if (padMenuNav(gp, dt, root, GARPAD)) {
+    const f = document.activeElement;
+    if (f && root.contains(f) && f.tagName === "BUTTON") f.click(); else settingsMove(0, 0, root);
+  }
 }
 
 /* ---------------- sleds, parts, gear ---------------- */
@@ -10495,6 +10583,8 @@ function renderGarage() {
     VEH.tabs.find(t => t.id === garageTab).render(body, row);
   } else if (garageTab === "workshop") {
     renderWorkshop(body);
+  } else if (garageTab === "paint") {
+    renderPaintShop(body);
   } else if (garageTab === "parts") {
     { const gn = giftX().note(); if (gn) { const d = document.createElement("div"); d.className = "bfoot"; d.id = "giftNote"; d.textContent = gn; body.appendChild(d); } }
     PART_ORDER.filter(c => c !== "boost").forEach(cat => {
@@ -10587,10 +10677,10 @@ function renderWorkshop(body) {
   } }]);
   foot("Restoring buys back the performance. It doesn't repaint anything: the wear marks on used machines are there for good. Ice-fishing tackle can't be restored.");
 }
-function openGarage() { TABLET.close(true); if (TUT.stage < 2) { garageTab = "sleds"; if (TUT.stage === 0) { TUT.stage = 1; save(); } } GS.garageOpen = true; $("garage").hidden = false; renderGarage(); }
+function openGarage() { TABLET.close(true); if (TUT.stage < 2) { garageTab = "sleds"; if (TUT.stage === 0) { TUT.stage = 1; save(); } } GS.garageOpen = true; GARPAD.a = true; GARPAD.nav = 0; $("garage").hidden = false; renderGarage(); }
 function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
-  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"]].concat(VEH.tabs.map(t => [t.id, t.name])).forEach(([t, n]) => {
+  [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"], ["paint", "Paint shop"]].concat(VEH.tabs.map(t => [t.id, t.name])).forEach(([t, n]) => {
     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
     b.addEventListener("click", () => { garageTab = t; renderGarage(); });
     $("garageTabs").appendChild(b);
@@ -14609,13 +14699,13 @@ function titlePad(gp, dt) {
     if (TT.mode === "menu") titleActivate(TT.sel);
     else if (TT.mode === "panel") { const f = document.activeElement; if (f && f.closest && f.closest("#tPanel") && f.tagName === "BUTTON") f.click(); else titleBack(); }
   }
-  if (bb && !TT.padB) { if (GS.garageOpen) closeGarage(); else if (!$("settings").hidden) toggleSettings(false); else if (TT.mode === "panel") titleBack(); }
+  if (bb && !TT.padB) { if (GS.garageOpen) closeGarage(); else if (!$("settings").hidden) settingsBack(); else if (TT.mode === "panel") titleBack(); }
   TT.padA = a; TT.padB = bb;
 }
 addEventListener("keydown", e => {
   if (!TT.on || started || TT.mode === "boot") return;
   const c = e.code;
-  if (GS.garageOpen || !$("settings").hidden) { if (c === "Escape") { e.preventDefault(); if (GS.garageOpen) closeGarage(); else toggleSettings(false); } return; }
+  if (GS.garageOpen || !$("settings").hidden) { if (c === "Escape") { e.preventDefault(); if (GS.garageOpen) closeGarage(); else settingsBack(); } return; }
   if (TT.mode === "panel") {
     if (c === "Escape" || c === "Backspace") { e.preventDefault(); titleBack(); }
     else if (c === "Space") { const a = document.activeElement; if (a && a.closest && a.closest("#tPanel") && a.tagName === "BUTTON") { e.preventDefault(); a.click(); } }
@@ -18004,22 +18094,27 @@ function initExpansion() {
   optBuild();
 }
 CAL.onDayChange((n, prev) => { if (prev !== null && n.dow === 1) TLX.monday(n); });   // Mondays: wages, stipends and upkeep settle with the rent
-// Settings > Options: one switch per suggested addition, grouped by the system it belongs to. No options, no page.
+// Settings options: one switch per suggested addition, on the page its category names (game by default, "graphics" on the
+// Graphics page, "sound" on the Sound page), grouped by the system it belongs to. No options on a page, no heading.
+const OPT_BOXES = { game: ["optSec", "optRows"], graphics: ["optSecGfx", "optRowsGfx"], sound: ["optSecSnd", "optRowsSnd"] };
 function optBuild() {
-  const sec = $("optSec"), box = $("optRows"); if (!sec || !box) return;
-  box.textContent = ""; sec.hidden = box.hidden = !TLX.options.length;
-  for (const o of TLX.options) {
-    const row = document.createElement("div"); row.className = "setrow";
-    const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.opt = o.id;
-    const h = document.createElement("span"); h.className = "hint"; h.textContent = o.hint || "";
-    b.addEventListener("click", () => { TLX.setOn(o.id, !TLX.on(o.id)); optSync(); if (started) save(); });
-    row.appendChild(b); row.appendChild(h); box.appendChild(row);
+  for (const cat in OPT_BOXES) {
+    const sec = $(OPT_BOXES[cat][0]), box = $(OPT_BOXES[cat][1]); if (!sec || !box) continue;
+    const list = TLX.options.filter(o => (OPT_BOXES[o.cat] ? o.cat : "game") === cat);
+    box.textContent = ""; sec.hidden = box.hidden = !list.length;
+    for (const o of list) {
+      const row = document.createElement("div"); row.className = "setrow";
+      const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.opt = o.id;
+      const h = document.createElement("span"); h.className = "hint"; h.textContent = o.hint || "";
+      b.addEventListener("click", () => { TLX.setOn(o.id, !TLX.on(o.id)); optSync(); if (started) save(); });
+      row.appendChild(b); row.appendChild(h); box.appendChild(row);
+    }
   }
   optSync();
 }
 function optSync() {
-  const box = $("optRows"); if (!box) return;
-  for (const b of box.querySelectorAll("button[data-opt]")) { const o = TLX.options.find(x => x.id === b.dataset.opt), on = TLX.on(b.dataset.opt); b.textContent = (o ? o.name : b.dataset.opt) + ": " + (on ? "on" : "off"); b.classList.toggle("on", on); }
+  const root = $("settings"); if (!root) return;
+  for (const b of root.querySelectorAll("button[data-opt]")) { const o = TLX.options.find(x => x.id === b.dataset.opt), on = TLX.on(b.dataset.opt); b.textContent = (o ? o.name : b.dataset.opt) + ": " + (on ? "on" : "off"); b.classList.toggle("on", on); }
 }
 
 /* ---------------- loop ---------------- */

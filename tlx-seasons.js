@@ -217,7 +217,7 @@ function render(el) {
 }
 
 /* ---------------- the options ---------------- */
-TLX.option({ id: "seasonlook", name: "Seasonal colours", hint: "Green summer, russet and gold autumn, mud in spring, frost on autumn mornings, birches in leaf, pines losing their snow. Costs nothing: one colour on the bare ground. Off = the base look." });
+TLX.option({ id: "seasonlook", cat: "graphics", name: "Seasonal colours", hint: "Green summer, russet and gold autumn, mud in spring, frost on autumn mornings, birches in leaf, pines losing their snow. Costs nothing: one colour on the bare ground. Off = the base look." });
 TLX.option({ id: "mudseason", name: "Mud season roads", hint: "In April and May the roads go soft: trucks get less grip and heavier rolling, sleds drag. Off = roads as in winter." });
 TLX.option({ id: "playsummer", name: "Playable summer and autumn", hint: "June to October are days you can play, with a skip to 1 November on any day from the Seasons app. Off = the game skips the summer on 1 June by itself." });
 TLX.option({ id: "summerwear", name: "Summer upkeep and wear", hint: "A skipped summer lets dust gather in your depots and properties and weathers vehicles left outside, and vehicles cost a little storage a week. Off = the skip settles only the bills." });
