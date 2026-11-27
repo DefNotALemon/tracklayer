@@ -33,6 +33,10 @@ The title menu sits over the live world: your sled parked at the quay in the low
 Continue (or Ride, first time), New game, Garage, Settings, How to play and Credits; the
 arrow keys and Enter, the mouse, a tap or a gamepad all work.
 
+**Settings (Esc, the pad's Menu button, the touch ≡ tile or the title menu)** is a short top page with three entries: **Game**, **Graphics** and **Sound**. Each opens its own page, with a back arrow (and a Back button under the page); Esc or the pad's back button goes back one level and then closes, and Settings always opens on the top page. **Game** holds the camera view, the controls (touch controls, call the rescue sled, the mod menu, skip the tutorial), your rider's kit (jacket, trim, snow pants, helmet, style, random kit, remembered next time; the sled turns beside the panel while this page is up) and the **Options** switches the expansion systems add (traffic, police, plowing, gifts and the rest). **Graphics** holds the preset (auto, high, ultra, low), the frame-rate readout, full screen and picture options such as Seasonal colours. **Sound** holds volume and mute. Every page works with the mouse, a tap, the keyboard's arrow keys and Enter, and a pad (d-pad or stick to move, the pick button to press, left and right on a slider); the line under each page names the buttons of whatever you last used. The camera view you leave it on is remembered too. `tools/playtest/scenarios/ui_settings.mjs` asserts the pages, the navigation on every device and the layout.
+
+**Paint is done at the garage.** Sled paint is no longer in Settings: the garage has a **Paint shop** tab right beside **Workshop**, where the sled is repaired. It paints the sled you ride, free of charge, and shows the result on the turning sled in the showroom: stock livery, body colour (ten swatches or any hue), jerry cans (red or matching the sled), hood graphics and seat colour. Paint saved before the move loads and shows unchanged. The garage works with the d-pad and the pick button on a pad too. You can only paint where the garage can be opened (T at the garage, or Garage on the title menu). Settings > Game has a one-line pointer for anyone who looks there.
+
 **Your first ride (tutorial).** A brand-new game (first visit, or New game) starts you on foot on the quay with no
 sled. A card at the top left walks you through five steps, and the top compass points at each one:
 walk across the road to Nordkinn Skuter & Service and open the garage; collect your first sled (the Frontier 340,
@@ -40,7 +44,7 @@ free, the highlighted row at the top of Sleds); walk out to it on the forecourt 
 the garage has claimed for you and stop there to load it; ride it to the drop-off and stop to hand it over. You get
 normal delivery pay and the tutorial ends. The card names buttons for whatever you last touched: keyboard,
 an Xbox, PlayStation or Nintendo pad, or touch. If you lose the package (the fjord, a blackout, a reload) it waits at
-the pickup again. **Settings → Controls → Skip tutorial** (press twice) ends it and parks your sled beside you;
+the pickup again. **Settings > Game > Skip tutorial** (press twice) ends it and parks your sled beside you;
 the mod menu (Career) has **Restart tutorial**. Saves from before the tutorial skip it.
 
 **Rejoining.** When you come back to a game you've already started, about one launch in three drops you in mid-ride:
@@ -92,7 +96,7 @@ and the sun's shadows follow you and the sled (they used to be drawn once at the
 
 **The picture (high and ultra on a desktop; `tlx-post.js`).** On a desktop the frame goes through a post chain instead of straight to the screen: the scene is drawn into a high-dynamic-range target, then **contact shade** (soft shadow where things meet the snow: house feet, kerbs, lamp posts, the sled; about 0.6 m wide, nothing on open snow), **bloom** (lamp globes, lit windows, headlights, tail lamps, the aurora and the sun glow bleed softly at night and dusk; nothing glows by day), and one final pass that does the tone curve, a gentle highlight roll-off so sunlit snow keeps its texture, a slightly cool shade and warm sun, a light vignette, very fine film grain and edge smoothing. The sky has a real sun disc with a soft aureole and a warm horizon band, the far fell fades into the haze (and a low haze lies over the fjord at dawn and dusk), every standard material gets a faint sky light, and the sun's shadow box moves in whole shadow-map texels so shadow edges don't crawl while you ride. **Ultra** adds a 4096 shadow map and 16 contact-shade taps. When the frame rate drops, the governor switches off contact shade first, then bloom, before it lowers the render scale. **Low** and phones skip the chain entirely and draw as before; `?chain=0` in the URL turns it off for one load. Interiors, ice fishing and Gram photos are drawn the old way. Test: `tools/playtest/scenarios/p1_picture.mjs`.
 
-**Full screen.** On Android, iPad and desktop browsers, **MORE > FULL SCREEN** (or Settings > Graphics) hides the
+**Full screen.** On Android, iPad and desktop browsers, **MORE > FULL SCREEN** (or Settings > Graphics > Full screen) hides the
 browser, and on a phone launching from the title goes full screen by itself. iPhone browsers can't hide their bars
 (Safari, and Firefox / Chrome / Edge, which are Safari underneath), so on an iPhone add Tracklayer to your Home Screen
 (in Firefox: menu **≡** > **Share** > **Add to Home Screen**) and open it from the icon: it runs edge to edge with no
@@ -172,7 +176,7 @@ into the hood, clear of it, so from the seat you see the column stand on the hoo
 
 ## The mod menu
 
-**Y** (or **`**) on a keyboard, **Y** on a pad, or **Settings > Mod menu**: a trainer panel on the left edge of the screen, the way open-world mod menus work. The game doesn't stop behind it: **W A S D** (or the stick and triggers) still drive, so things change under you as you ride. The arrow keys / D-pad move through it, **Enter** / **A** picks, **left / right** changes a value or steps back, **Backspace** / **B** goes back a page, and the box at the top searches every row of every page at once (**/** jumps to it).
+**Y** (or **`**) on a keyboard, **Y** on a pad, or **Settings > Game > Mod menu**: a trainer panel on the left edge of the screen, the way open-world mod menus work. The game doesn't stop behind it: **W A S D** (or the stick and triggers) still drive, so things change under you as you ride. The arrow keys / D-pad move through it, **Enter** / **A** picks, **left / right** changes a value or steps back, **Backspace** / **B** goes back a page, and the box at the top searches every row of every page at once (**/** jumps to it).
 
 - **Sleds**: any of the ten, at once. Riding, the machine under you becomes that sled and keeps its speed. On foot, it lands in front of you with a full tank, and with **Put me straight on it** you're on the seat. Driving a truck, it parks beside you. There is one sled in the world, so a spawn moves yours. Santa's Sled comes with all nine reindeer.
 - **Sled upgrades**: every option of every part slot and every engine, fitted where you are, free: no price, sled generation, licence or garage. Left / right on a slot swaps to the next option live; Enter lists them with their numbers. What can't physically go together still can't (a turbo kit on an engine with a factory turbo, an engine in the battery sled). A rig that needs the heavy receiver gets it.
@@ -305,7 +309,7 @@ them, though less if you've just said it; criticism makes a content worker knuck
 short-tempered one may hand in their notice on the spot. RAISE works from anywhere, and unhappy staff ask for one
 (GIVE or REFUSE). Miserable for a day, they hand in a week's notice; make things right and they'll stay, otherwise
 they leave and the job is posted again. Leave wages unpaid for three days and everyone walks out (Settings >
-Options: "Unpaid staff walk out").
+Game > Options: "Unpaid staff walk out").
 
 ## Search and rescue
 
@@ -434,7 +438,7 @@ and you have to be out of her. Order it from the Boats app, where a dented boat 
 the shed's door and use the use control there (E, L3, the REPAIR button on touch). The skiff
 can't run through the shed, the slip or the walk.
 
-**Winter haul-out and storm wear.** A boat left afloat while it blows chafes (Settings > Options >
+**Winter haul-out and storm wear.** A boat left afloat while it blows chafes (Settings > Game > Options >
 **Storm wear on boats**, on by default): in a full storm about a point of hull every two hours on
 a berth at a jetty, three times as fast lying off one, less in a lesser blow, nothing in ordinary
 weather, never while you're sat in her and never below 30%. It goes on while you're away inland,
@@ -606,7 +610,7 @@ there's a 10% fine. Miss a third and you pay the full value and the post office 
 countdown, the piece count and the value are on the minimap (the ring round the dial is the ferry
 clock) and in the Map app's corner. It's the mail, not the jobs, that brings you back to town.
 
-**The ferry as a passenger** (`tlx-ferry.js`; Settings > Options > *Ferry as a passenger*, on by
+**The ferry as a passenger** (`tlx-ferry.js`; Settings > Game > Options > *Ferry as a passenger*, on by
 default). She also takes you one port up the coast, to **Mehamn** on the Barents side, 3.4 km over
 the fell by sled. The **northbound** boards at the sign on the Kjøllefjord pier while she lies
 alongside (08:15 to 09:30) and is at Mehamn about 11:15. The **southbound** boards at **Mehamn kai**,
@@ -624,7 +628,7 @@ doesn't sail, and a foot passenger at Mehamn is never left behind for want of ca
 minutes from full to empty, so a delivery run never feels like a survival game) and refill at the quay and the garage the
 way the fuel tank does. Empty is a mild penalty: you lose warmth a bit faster. They live in `tlx-survival.js`.
 
-**Wounds** (`tlx-wounds.js`; Settings > Options > *Poachers on the fell*, on by default). Rarely, and only on the open
+**Wounds** (`tlx-wounds.js`; Settings > Game > Options > *Poachers on the fell*, on by default). Rarely, and only on the open
 backcountry far (600 m+) from every village, cabin and the quay, with the tutorial and the licence schools done, a shot
 cracks across the fell and you take a wound. There's no enemy to see or fight: it's a hazard, not a combat system. Up to
 three wounds can be open at once and each bleeds your health (0-100) down; the red health bar pours up from the bottom of
@@ -654,7 +658,7 @@ comes off (one pair used). Walk back into the doorway to go out.
 **Jakt & Våpen, the gun shop.** A hunting shop in Kjøllefjord, about 55 m from the quay, with a JAKT & VÅPEN board over
 the door: a rifle rack, a glass case of scopes and magazines, antlers, a shelf of ammunition, and the gunsmith's counter
 (the use control reads SHOP). Its tabs: **Licence** (the hunter's licence course, $180: the counter sells a rifle only to
-a licence holder; switch it off in Settings > Options), **Rifles** (a bolt-action .308, $1,450, fitted with its stock
+a licence holder; switch it off in Settings > Game > Options), **Rifles** (a bolt-action .308, $1,450, fitted with its stock
 parts and showing its stats), **Parts** (barrel, stock, grip, magazine and sight, three of each, every one a trade-off:
 the carbine barrel swings faster but reaches less and is louder, the 3-9x scope reaches 250 m and steadies the shot but
 weighs and slows the swing, a bigger magazine holds more rounds and hangs heavier; each card shows the stat changes
@@ -740,7 +744,7 @@ there's a summer montage, then it all freezes over again for the next winter.
 
 ## The four seasons
 
-Winter is still the game; the rest of the year is now there too. Every part is a switch in Settings > Options, on by default.
+Winter is still the game; the rest of the year is now there too. Every part is a switch in Settings > Game > Options (Seasonal colours, which is only a look, is in Settings > Graphics), on by default.
 
 - **The look** (*Seasonal colours*): when the snow is gone the bare ground turns green in summer and russet in autumn, birches come into leaf, go gold and drop it, pines lose their snow, and autumn nights and mornings carry a frost that burns off by mid-morning. It costs nothing on the GPU: one colour on the ground and two material colours on the trees.
 - **Mud season** (*Mud season roads*): in April and May the village roads go soft. A truck gets about 45% less grip and roughly double the rolling resistance at the worst of it, a sled drags, and the driving hint says so. The depot town's streets are paved.
@@ -806,7 +810,7 @@ six hours or so a rounded heap where the car was. Once the weather eases the own
 their own time, so the morning after a storm some cars stand clear and some are still drifts (a few
 owners are away for a day or two). Which cars are snowed in is saved with the game.
 
-You can dig one out yourself for a bit of cash (Settings > Options: "Dig out buried cars", on by
+You can dig one out yourself for a bit of cash (Settings > Game > Options: "Dig out buried cars", on by
 default). On foot beside a buried car the use control (E, the left stick click on a pad, the DIG button
 on touch) offers to dig out the owner's car and says roughly what it pays; press it again to stop. It
 takes 20 to 40 seconds by hand depending on how deep the drift is, and pays $40 to $90 the same way: the
@@ -814,7 +818,7 @@ owner comes out with a thank-you as the last of it comes off. Each car pays once
 owner gets to it before you finish, you get nothing. By the tackle shop and the fish buyer, E still
 opens the shop.
 
-A few locals are out driving on the open roads (Settings > Options: "Road traffic", on by default). They
+A few locals are out driving on the open roads (Settings > Game > Options: "Road traffic", on by default). They
 keep to the right-hand lane at about 45 km/h, slow right down for the bends, and stop well short of
 anything in their lane: another car, your sled or truck, a parked vehicle, someone on foot. Where a storm
 has drifted the road shut they pull up before the drift, wait a little and turn round in the road; at the
@@ -831,7 +835,7 @@ street slowly to its own door, round the corners and past the houses, and parks 
 in its own colour. Stand in the street in front of it and it waits for you. Switch "Road traffic" off
 and every owner is home.
 
-**Storm closures and convoys** (Settings > Options: "Storm closures and convoys", on by default). The two
+**Storm closures and convoys** (Settings > Game > Options: "Storm closures and convoys", on by default). The two
 roads over the fell, Kjøllefjord to Mehamn and Kjøllefjord to Lebesby, have a barrier a little way in
 from each end: a red and white boom, two red lamps and a board. While any stretch between the barriers
 is snowed in, both booms are down, the lamps flash and the board reads CLOSED. Drivers and lorries
@@ -1320,7 +1324,7 @@ digs it out by hand and holds it against you: a customer counts it exactly like 
 in (the second time you lose them for a week), a household that was only asking stops asking you
 for 3 days, and after three complaints in a week nobody new takes you on before Monday. It never
 costs cash. The mouth of your own snowed-in drive is your work site and is not counted until the
-drive is clear. Settings > Options > **Plow snow at doors** turns all of it off.
+drive is clear. Settings > Game > Options > **Plow snow at doors** turns all of it off.
 
 **Lots.** Under the driveways the Plow app lists Kjøllefjord's two public yards: **the sled park** at
 the trailhead (274 m² a truck can reach, $148 a clearing) and **the helsesenter's forecourt**
@@ -1347,7 +1351,7 @@ The way to never see any of this: throw towards the rim and work towards it, so 
 windrow one step further out; throw onto ground you have already cut and you will be going back for
 it. Left 12 hours, slept through or DROPPED with the heap standing, it is shifted by hand, which is
 a miss like a lot left snowed in. A reload does not bank a heap (it is put back where it lay); new
-snow fills the lot in and you start again. Settings > Options > **Plow heaps in a lot** turns it
+snow fills the lot in and you start again. Settings > Game > Options > **Plow heaps in a lot** turns it
 off: a lot is then paid as soon as it is cut.
 
 **A heap left in the street.** Kjøllefjord's streets (Nygata, Kaigata, Fjellveien, Skolegata,
@@ -1363,7 +1367,7 @@ right-hand lane, throwing right, lays it on the verges. Left, or slept through, 
 truck clears it and holds it against you: a warning on the road contract you have held longest (the
 third takes that road back for a week, like its own warnings), or with no contract no road is
 tendered to you for three days. Heaps cleared in one go are one warning. A reload does not clear a
-street (the heap is put back where it stood). Settings > Options > **Plow heaps in the street**
+street (the heap is put back where it stood). Settings > Game > Options > **Plow heaps in the street**
 turns it off; switched back on, a heap still standing near you counts again once you drive on.
 
 **A solid blade that trips.** The blade is part of the truck now: up or down, it meets walls, trees,
@@ -1375,7 +1379,7 @@ edge loses 2 to 8 points depending on how fast you were going. What tripped it t
 bumper at the speed that is left, so a fast hit still dents the truck, only less. The blade stays
 folded while the thing is under it (the hint says to back off) and springs back with a clunk once
 it is clear. Slower than that, or against a wall or a tree, the truck simply stops at the blade.
-Settings > Options > "Plow blade trips" turns the trip off: the blade is then plain steel and the
+Settings > Game > Options > "Plow blade trips" turns the trip off: the blade is then plain steel and the
 truck takes the whole blow.
 
 **What you hear.** The blade lands with a clunk and comes up against its stop with a smaller one.
@@ -1464,7 +1468,7 @@ The fishing code is `icefish.js`.
 
 ## The living world: the Politi, flats and landlords
 
-The first release of a broader idea (see the Owner note in `loop/LOOP.md`): the world reacts to how you drive and where you live. Three switches in Settings > Options: **Politi patrols and pursuits**, **Flats: rent or buy** and **Slumlords**. Each is on by default; off means that part of the world isn't there (no cruisers and no fines; no flats, rent or charges; every landlord fair). Old saves load with a clean slate.
+The first release of a broader idea (see the Owner note in `loop/LOOP.md`): the world reacts to how you drive and where you live. Three switches in Settings > Game > Options: **Politi patrols and pursuits**, **Flats: rent or buy** and **Slumlords**. Each is on by default; off means that part of the world isn't there (no cruisers and no fines; no flats, rent or charges; every landlord fair). Old saves load with a clean slate.
 
 **The Politi** (`tlx-police.js`). Two white cruisers with a blue band, POLITI on the doors and a blue light bar patrol the open roads like any other traffic car (they are traffic cars: same road driver, same solid bodies). Limits are by place, never by vehicle: 30 km/h inside the town limit and 70 km/h on a marked road. The open fell has no limit, so ordinary snowmobile travel is never an offence. Over the limit by more than 10%, a close pass at speed (a car or a person within 3.5 m), sliding the machine round in town or on a road, and hitting traffic all count, on a sled, the pickup or a lorry (boats and walking don't).
 - It only counts if someone sees it: a cruiser within sight (170 m by day, less at night and in a storm, and a hill hides you) or, for the serious ones, a driver or rider within 50 m who phones it in. A cruiser is then dispatched from a road 380 m or more away; nothing appears beside you.
@@ -1484,7 +1488,7 @@ The first release of a broader idea (see the Owner note in `loop/LOOP.md`): the 
 
 ## Armed work: couriers and guard shifts
 
-With a hunter's licence, a rifle of your own and no more than $300 owed in Politi fines, the tablet's **Vakt** app offers armed work (Settings > Options > "Armed work" switches it off). If you are not qualified the cards stay locked and each one says exactly what is missing: the licence (the course at Nordkinn Jakt & Våpen), the rifle, or the fines to pay in the Politi app.
+With a hunter's licence, a rifle of your own and no more than $300 owed in Politi fines, the tablet's **Vakt** app offers armed work (Settings > Game > Options > "Armed work" switches it off). If you are not qualified the cards stay locked and each one says exactly what is missing: the licence (the course at Nordkinn Jakt & Våpen), the rifle, or the fines to pay in the Politi app.
 
 **The board** (Work tab) holds 3 to 5 jobs, new every day; you can have one at a time, it has a row in the Jobs app and the compass can follow it. **Standing** (second tab) is your armed standing overall and with each employer (Kommunen, Kystverket, Forsvaret, the lensmann, the fish plant, Nordkinn Kraft, the pharmacy, the gun shop, the survey firm, the film crew): up for a clean job and for each right call, down for a failed job or a wrong call; each level (New, Known, Trusted, Reliable, Old hand) adds 3% to the pay.
 
@@ -1492,7 +1496,7 @@ With a hunter's licence, a rifle of your own and no more than $300 owed in Polit
 
 **Guard shift.** Eight posts, four for the state (Kystverket's lighthouse depot, Forsvaret's radar hut, the kommune's fuel store, the ferry quay on payroll day) and four for companies (the fish plant, the power substation, the survey camp, the film crew's kit truck). Accept one and a small built post (hut, barrier, lamp, brazier, a parked van) stands at a real spot in the world; reach it and the shift starts, on a clock line in game time. Stay within the lamp's ring (26 m): outside it for more than 12 seconds ends the shift. Things happen: a prowler at the fence (CHALLENGE), a fox at the bins (leave it), a drunk (SEE HIM HOME), a sled with no lights (step out into the track), a delivery to sign for (SIGN FOR IT), a false alarm (reset the panel in the hut), a lamp that dies (CHANGE BULB), a quiet stretch (stay put). Each has a right and a wrong answer that move the pay and the standing. Pay is a little over a hauling job of the same length.
 
-**Tips.** Clean armed work earns standing, and people you work beside talk. After about five finished jobs (and never more than one a day) a tip can arrive: a short message from a named person tied to the employer, or the duty desk, in the Vakt app's **Tips** tab. It marks one place on your map and in Jobs, and the compass can follow it. A tip is only good for the week: when the crew moves on the thread says it is stale. Settings > Options > "Drug sites and tip-offs" switches the whole thing off.
+**Tips.** Clean armed work earns standing, and people you work beside talk. After about five finished jobs (and never more than one a day) a tip can arrive: a short message from a named person tied to the employer, or the duty desk, in the Vakt app's **Tips** tab. It marks one place on your map and in Jobs, and the compass can follow it. A tip is only good for the week: when the crew moves on the thread says it is stale. Settings > Game > Options > "Drug sites and tip-offs" switches the whole thing off.
 
 **Out on the fell.** Not everything out there is on a list. A few remote places each week, far from any house and off the roads, have something going on: a farm building that is not a farm. Nothing marks them. If a place looks wrong (a generator running where nobody lives, purple light round a blacked-out window at night, men carrying tubs from a van, somebody smoking by a door who watches you the whole way past) stop and look at it from a distance: a long look, with a clear line of sight, or a longer one through a rifle scope, is how you find out, and then it goes on your map as a place you found. No licence or tip is needed. They do not want company: come close and the look-out walks out and shouts, and if you keep coming they bar the door. Nobody can be hurt yet and the doors stay locked: that part is still to come.
 
@@ -1506,7 +1510,7 @@ The people of every house have a day. Near you they are out in the street: walki
 
 ## Thank-yous at the door
 
-Now and then, when a parcel reaches its door on time and in one piece, the person there hands you something and says a few words about it (`tlx-gifts.js`; Settings > Options > *Thank-yous at the door*, on by default). Never at the quay, never for a late or damaged parcel, and never within two hand-overs of the last one: from the third it is a one-in-five chance that grows a little with each door, about one hand-over in six over a long game. The giver is a grown-up of a real household at that place, and the son or husband in their story is their own; the wind farm and the herder cabins, where nobody lives, give you "the technician on shift" or "the herder". Their words come up as a tablet note under their name, with a line saying what you got.
+Now and then, when a parcel reaches its door on time and in one piece, the person there hands you something and says a few words about it (`tlx-gifts.js`; Settings > Game > Options > *Thank-yous at the door*, on by default). Never at the quay, never for a late or damaged parcel, and never within two hand-overs of the last one: from the third it is a one-in-five chance that grows a little with each door, about one hand-over in six over a long game. The giver is a grown-up of a real household at that place, and the son or husband in their story is their own; the wind farm and the herder cabins, where nobody lives, give you "the technician on shift" or "the herder". Their words come up as a tablet note under their name, with a line saying what you got.
 
 - **Something to eat or drink** (most often): a lefse, a cinnamon bun, fish cakes, stockfish, dried reindeer meat, a flask of toddy or coffee, crowberry juice; the fishing villages lean to fish and the herders' to reindeer. It goes in your pocket (three fit; a fourth you have at the door) and you eat or drink it by yourself the moment hunger or thirst drops under 30, so it buys a stretch of fell. A flask warms you a little too.
 - **A spare part**: a drive belt, plugs, runners, worth $20 to $60. The garage takes spares in trade: their worth comes off the next part you buy there, and the Parts tab says how much you are carrying.
@@ -1538,11 +1542,11 @@ Seven named ski trails (løyper) run round the Nordkinn: **Lysløypa**, a 2.3 km
 
 A trail is nobody's until you take it on in the **Løyper** app on the tablet (the Trail Crew app has a card that points there). You need a groomer or the wing tiller on the hitch and the Trail crew rank, the same as grooming work, and the app says which one is missing. A trail you keep is yours to look after: drag the groomer along it and the track is set (the wing tiller makes it wide enough to skate). Each 50 m stretch is **freshly set**, **good**, **worn**, **snowed under**, **icy** or **not prepared**, and the app shows them as a strip. The track wears for real reasons: new snow (a few cm softens it, about 10 cm buries it, more on open fell where the wind drifts it), a thaw and refreeze (icy), a sled ridden along it (a truck far more), and use. A clear hard frost after you groom sets it harder, so it lasts longer: groom in the evening. The Jobs app gets a row for each trail you keep that needs work, and the compass points at its nearest bad stretch.
 
-The villagers ski a trail you keep while the track is good, in the light, in weather they can stand: each of them lives in a real house with a family, and sometimes the family goes out together. A trail nobody has taken on is not prepared and nobody skis it. The løypelag pays every Monday by skier-kilometre, more at the weekend, a bonus for a week with no day under good, and nothing for a day the trail lay snowed under; the app shows what each trail has paid and the statements for the last three weeks. A well-kept Lysløypa pays about what one good grooming contract does. Hand a trail back and the week so far is paid. With no snow (summer, the melt) the trails are closed, the boards and the app say so, and nobody skis. The old grooming contracts are unchanged. Lysløypa has lamps: from dusk to 22:00, while you keep the trail and its lamps are switched on in the Løyper app, they light up the loop, and people ski it after dark. The power is your bill, a small amount for each lit hour, taken on Monday as its own line on the statement; switch the lamps off and evenings go quiet. A party that rests at a gapahuk lights its fire (you can see it from far off in the dark) and it burns down after they leave; walk up to a cold fire ring and press the use key to light it yourself and warm up. Weekends draw clearly more people. Set a stretch with the wing tiller and it becomes a skating lane: skaters come, and it pays 35% more per skier-kilometre. Once a month, one Sunday, each trail you keep has a skidag: it is announced on the village news, the trailhead board, the Løyper app and the Calendar three days ahead, and on the day there is a crowd several times normal, a waffle table with two villagers at the trailhead, and a cash bonus if the whole trail was freshly set at 09:00 that morning. Now and then a skier on a trail you keep goes down hard or is caught out by the weather: it comes in as a ski rescue call (Rescue app, Jobs, compass and Map as for any rescue), with their family worrying on the news and thanking you by name afterwards. The skiing figures' classic stride and downhill tuck were redrawn. The classic stride now stays upright (hips over the gliding foot, the trailing heel peeling up instead of the hips sinking); a family skis in single file with a few metres between them and a child between the adults, closing up only when they stop; resting at a gapahuk, skiers sit with their hands on their knees (or one held out to the fire) and the poles stood in the snow, and the flame is orange and yellow, not white. Settings > Options has a "Ski trails" switch and a "Ski rescue calls" switch.
+The villagers ski a trail you keep while the track is good, in the light, in weather they can stand: each of them lives in a real house with a family, and sometimes the family goes out together. A trail nobody has taken on is not prepared and nobody skis it. The løypelag pays every Monday by skier-kilometre, more at the weekend, a bonus for a week with no day under good, and nothing for a day the trail lay snowed under; the app shows what each trail has paid and the statements for the last three weeks. A well-kept Lysløypa pays about what one good grooming contract does. Hand a trail back and the week so far is paid. With no snow (summer, the melt) the trails are closed, the boards and the app say so, and nobody skis. The old grooming contracts are unchanged. Lysløypa has lamps: from dusk to 22:00, while you keep the trail and its lamps are switched on in the Løyper app, they light up the loop, and people ski it after dark. The power is your bill, a small amount for each lit hour, taken on Monday as its own line on the statement; switch the lamps off and evenings go quiet. A party that rests at a gapahuk lights its fire (you can see it from far off in the dark) and it burns down after they leave; walk up to a cold fire ring and press the use key to light it yourself and warm up. Weekends draw clearly more people. Set a stretch with the wing tiller and it becomes a skating lane: skaters come, and it pays 35% more per skier-kilometre. Once a month, one Sunday, each trail you keep has a skidag: it is announced on the village news, the trailhead board, the Løyper app and the Calendar three days ahead, and on the day there is a crowd several times normal, a waffle table with two villagers at the trailhead, and a cash bonus if the whole trail was freshly set at 09:00 that morning. Now and then a skier on a trail you keep goes down hard or is caught out by the weather: it comes in as a ski rescue call (Rescue app, Jobs, compass and Map as for any rescue), with their family worrying on the news and thanking you by name afterwards. The skiing figures' classic stride and downhill tuck were redrawn. The classic stride now stays upright (hips over the gliding foot, the trailing heel peeling up instead of the hips sinking); a family skis in single file with a few metres between them and a child between the adults, closing up only when they stop; resting at a gapahuk, skiers sit with their hands on their knees (or one held out to the fire) and the poles stood in the snow, and the flame is orange and yellow, not white. Settings > Game > Options has a "Ski trails" switch and a "Ski rescue calls" switch.
 
 You can see them. Within about 500 m of a trail, the villagers out on it are people on skis with poles, each in their own colours, a headlamp in the dark and a small pack on the long turløyper (up to 8 on a desktop, 4 on a phone or low graphics). They start at the trailhead board and ski out and back or round the loop, in the diagonal stride on a set track, skating where the groomer left the track wide, herringbone on a steep climb, double-poling on a flat at speed and a tuck down a descent; on the long trails they stop at the gapahuk, turn on the spot, step out of their skis and sit on the bench for a rest. A family that went out together skis together, at the slowest one's pace, children smaller. Their skis press real tracks into the snow behind them. Seeing them changes nothing you are paid: the same people, the same trail, the same progress as the books.
 
-Share the trail. A skier who hears a sled coming steps off the track, waits, and lifts a pole if you pass slowly. Pass fast and close and they stagger and complain to the løypelag; drive into one and you are stopped against them, the worst complaint. Complaints are counted per trail and shown in the Løyper app and the statement; three in a week and that trail's weekly bonus is gone (Settings > Options "Ski trail complaints" off: still counted, never charged). To talk to a skier, stand beside them on foot or stop the sled beside them and press the use control (E, or L3 on a pad, or the HAIL button on touch): they tell you how the track is, sometimes mentioning their family or something they heard about. Sandfjorddalen-runden and Stjernevarden-runden were re-drawn with far fewer sharp turns.
+Share the trail. A skier who hears a sled coming steps off the track, waits, and lifts a pole if you pass slowly. Pass fast and close and they stagger and complain to the løypelag; drive into one and you are stopped against them, the worst complaint. Complaints are counted per trail and shown in the Løyper app and the statement; three in a week and that trail's weekly bonus is gone (Settings > Game > Options "Ski trail complaints" off: still counted, never charged). To talk to a skier, stand beside them on foot or stop the sled beside them and press the use control (E, or L3 on a pad, or the HAIL button on touch): they tell you how the track is, sometimes mentioning their family or something they heard about. Sandfjorddalen-runden and Stjernevarden-runden were re-drawn with far fewer sharp turns.
 
 Everyone on the Nordkinn now has a home: each lit house in every village is a household (a couple, children, a grandparent, a lodger, someone alone) with its own surname, trades and interests, and each village has its own character. What they do is written to a village news log that Gram and the radio will be built on.
 

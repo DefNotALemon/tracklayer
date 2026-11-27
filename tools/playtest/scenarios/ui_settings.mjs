@@ -84,10 +84,6 @@ for (const p of ["game", "graphics", "sound"]) {
   ok(pl.out.sound.length === 0, "1: no system registers a sound option yet, so Sound holds volume and mute only");
   const bad = pl.all.filter(([id, cat]) => !["game", "graphics", "sound"].includes(cat));
   ok(!bad.length, "1: every option carries a category (default game)");
-  // a graphics option and a sound option register and land on their pages
-  await ev(`TLX.option({ id: "t_gfx", name: "Test picture", hint: "x", cat: "graphics" }); TLX.option({ id: "t_snd", name: "Test sound", hint: "y", cat: "sound" }); optBuild(); true`);
-  const q = await J(`({ g: !!$("optRowsGfx").querySelector('[data-opt="t_gfx"]'), s: !!$("optRowsSnd").querySelector('[data-opt="t_snd"]'), gm: !!$("optRows").querySelector('[data-opt="t_gfx"],[data-opt="t_snd"]'), sec: !$("optSecSnd").hidden })`);
-  ok(q.g && q.s && !q.gm && q.sec, "1: an option with cat graphics / sound lands on the Graphics / Sound page");
 }
 // paint is gone from Settings
 {
@@ -168,8 +164,8 @@ ok(!(await open()), "2: pad Menu closes outright from a page");
 console.log("== 3. pad navigation ==");
 const dpad = async (idx, hold = 120) => { await padSet({ [idx]: 1 }); await sleep(hold); await padSet(); await sleep(hold); };
 // a stable name for the focused control: its id, or its parent's id and index
-const FOC = `(() => { const f = document.activeElement; if (!f || !$("settings").contains(f)) return null; if (f.id) return f.id; const p = f.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(f); })()`;
-const ALLCTL = `(() => [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.id !== "closeSet" && e.id !== "setBackHd" && !e.closest("[hidden]") && e.getClientRects().length).map(e => { if (e.id) return e.id; const p = e.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(e); }))()`;
+const FOC = `(() => { const f = document.activeElement; if (!f || !$("settings").contains(f)) return null; if (f.id) return f.id; if (f.dataset.opt) return "opt:" + f.dataset.opt; const p = f.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(f); })()`;
+const ALLCTL = `(() => [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.id !== "closeSet" && e.id !== "setBackHd" && !e.closest("[hidden]") && e.getClientRects().length).map(e => { if (e.id) return e.id; if (e.dataset.opt) return "opt:" + e.dataset.opt; const p = e.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(e); }))()`;
 for (const p of ["top", "game", "graphics", "sound"]) {
   await pageOpen(p); await sleep(250);
   const want = await J(ALLCTL);
@@ -178,8 +174,8 @@ for (const p of ["top", "game", "graphics", "sound"]) {
   // walk: down row by row, and sweep each row left then right
   const seen = new Set([first]); let prev = first, guard = 0;
   while (guard++ < 90) {
-    for (const dir of [14, 15]) { let last = await ev(FOC), n = 0; while (n++ < 24) { await dpad(dir, 90); const f = await ev(FOC); seen.add(f); if (f === last) break; last = f; } }
-    await dpad(13, 90); const f = await ev(FOC); seen.add(f);
+    for (const dir of [14, 15]) { let last = await ev(FOC), n = 0, still = 0; while (n++ < 30 && still < 2) { await dpad(dir, 110); const f = await ev(FOC); seen.add(f); if (f === last) still++; else still = 0; last = f; } }
+    await dpad(13, 110); let f = await ev(FOC); if (f === prev) { await dpad(13, 110); f = await ev(FOC); } seen.add(f);
     if (f === prev) break; prev = f;
   }
   const miss = want.filter(w => !seen.has(w));
@@ -197,7 +193,7 @@ await pageOpen("sound"); await sleep(250);
   const v2 = await ev("SET.vol");
   ok(v2 < v1, `3: pad left lowers it (${v1} -> ${v2})`);
   await dpad(13, 130); await sleep(100);
-  ok((await ev(FOC)) === "muteBtn", "3: down moves from the slider to Mute");
+  ok((await ev(FOC)) === "muteBtn", "3: down moves from the slider to Mute (own row)");
   const m0 = await ev("muted");
   await dpad(0, 130);
   ok((await ev("muted")) !== m0, "3: pad A presses the focused button (mute toggles)");
@@ -210,8 +206,8 @@ await ev("toggleSettings(false); true");
 
 // ---------- 4. the footer names the active device's buttons ----------
 console.log("== 4. prompts ==");
-const FOOT = () => J(`({ foot: $("setFoot").textContent, view: $("viewHint").textContent, tow: $("towBtn").textContent })`);
-const KEYWORDS = /\b(Esc|Tab|Enter|Click|Shift|Space|Ctrl)\b|arrow keys/i;
+const FOOT = () => J(`({ html: $("setFoot").innerHTML, foot: $("setFoot").textContent, view: $("viewHint").textContent, tow: $("towBtn").textContent })`);
+const KEYWORDS = /\b(Esc|Tab|Enter|Click|Shift|Space|Ctrl)\b|arrow keys/;
 const PADWORDS = /D-pad|stick/i;
 const PADS = {
   xbox: ["Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)", { pick: "A", back: "B", menu: "Menu" }],
@@ -224,7 +220,7 @@ for (const pg of ["top", "game"]) {
     await padSet({ 13: 1 }, [0, 0], id); await sleep(150); await padSet({}, [0, 0], id); await sleep(300);
     const f = await FOOT();
     ok(await ev("INP.dev") === "pad" && await ev("INP.pad") === brand, `4: ${pg}/${brand}: the pad is the device in hand`);
-    ok(PADWORDS.test(f.foot) && f.foot.includes(`>${names.pick}<`) && f.foot.includes(`>${names.back}<`) && f.foot.includes(`>${names.menu}<`), `4: ${pg}/${brand}: footer names ${names.pick} / ${names.back} / ${names.menu}: "${f.foot}"`);
+    ok(PADWORDS.test(f.foot) && f.html.includes(`<b>${names.pick}</b> to pick`) && f.html.includes(`<b>${names.back}</b> ${pg === "top" ? "closes" : "goes back"}`) && f.html.includes(`<b>${names.menu}</b> closes`), `4: ${pg}/${brand}: footer names ${names.pick} / ${names.back} / ${names.menu}: "${f.foot}"`);
     ok(!KEYWORDS.test(f.foot + " " + f.view + " " + f.tow) && !/\bV\b|\(P\)/.test(f.view + f.tow), `4: ${pg}/${brand}: no keyboard text in the footer or the hints ("${f.view}" / "${f.tow}")`);
   }
   await padOff();
@@ -486,6 +482,17 @@ for (const vp of SIZES) {
   await ev("closeGarage(); garageTab = 'sleds'; true"); await sleep(300);
 }
 await viewport(["1280", 1280, 720, false]);
+
+// ---------- 8. a system can register a picture or a sound option ----------
+console.log("== 8. option categories ==");
+await pageOpen("top");
+{
+  // a graphics option and a sound option register and land on their pages
+  await ev(`TLX.option({ id: "t_gfx", name: "Test picture", hint: "x", cat: "graphics" }); TLX.option({ id: "t_snd", name: "Test sound", hint: "y", cat: "sound" }); optBuild(); true`);
+  const q = await J(`({ g: !!$("optRowsGfx").querySelector('[data-opt="t_gfx"]'), s: !!$("optRowsSnd").querySelector('[data-opt="t_snd"]'), gm: !!$("optRows").querySelector('[data-opt="t_gfx"],[data-opt="t_snd"]'), sec: !$("optSecSnd").hidden })`);
+  ok(q.g && q.s && !q.gm && q.sec, "1: an option with cat graphics / sound lands on the Graphics / Sound page");
+}
+await ev("toggleSettings(false); true");
 
 console.log(fails ? `\n${fails} FAIL` : "\nall ok");
 await done(fails ? 1 : 0);

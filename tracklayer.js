@@ -9637,7 +9637,7 @@ function setFootSync(force) {
   const vh = $("viewHint"); if (vh) vh.innerHTML = `cycles chase, close, first person and drone · ${pressHint("view")} while riding`;
   const tb = $("towBtn"); if (tb) tb.textContent = INP.dev === "touch" ? "Call rescue sled" : `Call rescue sled (${btn("help")})`;
 }
-addEventListener("keydown", () => { if (!$("settings").hidden) setFootSync(); }, true);
+addEventListener("keydown", () => { if (!$("settings").hidden) { INP.dev = "kbm"; setFootSync(); } }, true);
 // the keyboard in Settings and the garage: arrows move the focus (left / right step a slider), Enter or Space presses the focused button
 addEventListener("keydown", e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -9649,7 +9649,7 @@ addEventListener("keydown", e => {
   else return;
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
-addEventListener("pointerdown", () => { if (!$("settings").hidden) setFootSync(); }, true);
+addEventListener("pointerdown", e => { if (!$("settings").hidden) { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; setFootSync(); } }, true);
 
 // Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of
 // swatches, then the next row down), A presses the focused button, left / right on a slider steps it,
@@ -10690,7 +10690,7 @@ function renderWorkshop(body) {
   foot("Restoring buys back the performance. It doesn't repaint anything: the wear marks on used machines are there for good. Ice-fishing tackle can't be restored.");
 }
 function openGarage() { TABLET.close(true); if (TUT.stage < 2) { garageTab = "sleds"; if (TUT.stage === 0) { TUT.stage = 1; save(); } } GS.garageOpen = true; GARPAD.a = true; GARPAD.nav = 0; $("garage").hidden = false; renderGarage(); }
-function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
+function closeGarage() { GS.garageOpen = false; $("garage").hidden = true; const ps = $("paintShop"); if (ps) ps.remove();   /* no paint control outside the garage */  PV.sled = PV.cat = PV.slot = null; applyLoadout(); }
 function buildGarageTabs() {
   [["sleds", "Sleds"], ["engines", "Engines"], ["parts", "Parts"], ["gear", "Rider kit"], ["workshop", "Workshop"], ["paint", "Paint shop"]].concat(VEH.tabs.map(t => [t.id, t.name])).forEach(([t, n]) => {
     const b = document.createElement("button"); b.className = "sbtn st"; b.dataset.t = t; b.textContent = n;
