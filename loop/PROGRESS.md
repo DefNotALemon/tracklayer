@@ -22,6 +22,46 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 15:25 — Thank-yous at the door: gifts and a few words on a good delivery (v301, lane A) (G4) — 96695cb
+
+Triage: reports 0383 (5.4b2a hail edges: POLISH only) and 0384 (hint box v300) read (382 -> 384). 0384 #1 is a BUG on the
+base game (the bogged toast names keyboard keys on touch and pad, and says R where reset is N): it arrived after this
+pass had built its item, so it is the top lane-A line in LOOP.md for the next pass. Lane A's list is done; this pass
+took Lemon's open ask of 11 Nov, "delivery rewards with flavor dialogue" (OPEN.md build order 5, the last of the three).
+
+- **What it is** (`tlx-gifts.js` v1, global `TLXGIFT`, option `gifts`, saved under `x.sys.gifts`): on an on-time,
+  undamaged hand-over away from the quay, sometimes the person at the door gives you something and says a line.
+  Odds: nothing for two hand-overs after a gift, 20% on the third, +6% each further one (about one in six).
+- **Who**: a grown-up from a real household at that place (`TLXN.peopleIn(village)`, or a house within 140 m of a home
+  site); the relative in the line is their own son, wife or lodger when the house has one. The wind farm and the herder
+  cabins have no household and give a role ("The technician on shift").
+- **What**: (1) something to eat or drink, nine kinds weighted by the place; three fit in the pocket, eaten or drunk by
+  itself when hunger or thirst drops under 30, a fourth at the door. (2) a spare part worth $20-$60: the garage takes it
+  off the next part you buy (`fitPart` reads `giftX().credit()`; the Parts tab has a line). (3) rare, never within five
+  gifts of the last: a part off the garage's list you do not own, $80-$420, within the sled's generation, never a hitch,
+  receiver, tether or boost; it is set owned, not fitted, so the garage fits it free like any owned part.
+- **Words**: a tablet note (their name and place, the line, 11 s) once no other note is up, plus a toast saying what you
+  got and where it went. A post of kind "gift" goes to the news bus.
+- **Bridge in tracklayer.js** (4 small hooks): `giftX()`, one call in `deliver()`, the trade-in in `fitPart()`, the note
+  line in the garage's Parts tab; `api.gift` and `api.partsx`. `x1_save` knows the new id.
+- **Numbers** (`g2_gifts.mjs`, 40 checks, all pass): giver is a Mehamn adult; lefse pocketed, eaten at hunger 25 -> 60;
+  toddy not drunk for hunger, drunk at thirst 20 -> 75 with +8 warmth; full pocket eats at the door (50 -> 85); late,
+  damaged and quay hand-overs give nothing; with the dice fixed low the pattern is 001001; $45 of spares buys a $140 part
+  for $95 and is refused $5 short; an upgrade is owned, unfitted, then fitted for $0; 756 forced gifts at all 18 doors
+  give 77 different givers and no broken line (longest 205 characters); option off gives nothing and takes no credit;
+  pocket and spares survive a reload; the note stays on screen at 640x360.
+- **Gate**: smoke, x1_save, g2_gifts: exit 0, fails 0, page errors none. `g2_garage` run alone: exit 0, page errors none
+  (it has stills only, no asserts).
+- **Stills looked at** (`tlloop/a1127g/s1/`): the note with a short line at 1280x720, the longest kind of line at
+  640x360 (three lines, readable, covers the top strip as every tablet note does), the garage's spares line.
+- **Read and fixed from the sample of lines**: "Eat it" said of a bottle of juice; "never left without one" after
+  "two fish cakes"; a missing comma in "Rune, my wife's father took this".
+- **Unverified**: the odds and how the lines read over a real evening of deliveries (only forced and fixed-dice runs);
+  a pad or a phone (there is no new control, so nothing to press); two notes arriving together in real play (the gift
+  waits up to 15 s for the banner to clear, tested only with it clear).
+- **Left**: nobody stands at the door (no hand-over in the game shows a person yet); the pocket's contents are shown
+  only in the toasts; staff deliveries (none exist yet) would need the same hook.
+
 ## 2026-11-27 14:45 — The hint line keeps off the touch controls on phones (v300, lane A) (G4) — 45d66de
 
 Triage: reports 0380-0382 read (379 -> 382): RD1 roads, 2.7 seller doors, touch GET OFF; POLISH only, no BLOCKER or

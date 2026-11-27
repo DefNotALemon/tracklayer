@@ -379,14 +379,13 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       dresses first); add one using the 2.x rescue test's sea spot.
 - [ ] G4 (beta 0142 #4, low): `x2_winchreel_break` asserts "hand winch burns no fuel" but the parked bogged sled idles
       0.02 L in 7 s; fix the assert (measure winch fuel only) or stop idle burn while on foot winching.
-- [ ] (OWNER, 11 Nov) Delivery rewards with flavor dialogue: delivering jobs should sometimes reward snacks,
-  spare parts, or sled upgrades to fit at home, handed over with a bit of characterful NPC dialogue — e.g.
-  "my [distant relative] had one of those and my son worked on it once, here, I think I have an upgrade you
-  can have — oh, here it is." Not started; queued behind the in-progress minimalist HUD + survival/wound slice
-  (see Owner note above) so they don't collide in the same worktree. Needs: a small reward table per job
-  type/destination, a line of dialogue per NPC/location pulled from a short pool (not every delivery, so it
-  stays special), and hooking the reward into the existing claim/parts-ownership system (`GS.own.partsOwned`,
-  grep `fitPart`) so a "free" upgrade behaves like one bought at the garage.
+- [x] (OWNER, 11 Nov; built v301, lane A; checked by scenario and stills, not by Lemon) Delivery rewards with flavor dialogue: delivering jobs should sometimes reward snacks,
+  spare parts, or sled upgrades to fit at home, handed over with a bit of characterful NPC dialogue. Built as `tlx-gifts.js`
+  (option `gifts`): about one on-time hand-over in six, the giver a grown-up of a real household at that door, snacks in a
+  pocket eaten when hungry, spares the garage takes in trade, a rare upgrade owned as if bought. `g2_gifts.mjs`. Left: no
+  figure stands at the door (hand-overs have none anywhere yet); the pocket shows only in the toast; odds untuned by play.
+- [ ] G3 (beta 0384 #1 BUG, lane A, next pass): the bogged toast names keyboard keys on touch and pad ("Get off (Q) and dig (hold E), or
+  press R", tracklayer.js ~14651, and the wading variant); R is not even reset (N is). Route both through `btn()` / `keyHint`.
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
@@ -812,4 +811,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
       `x2_winchtouch_break` and `x2_winchuse_break` are still open.
 
-Last triaged report: 382
+Last triaged report: 384
