@@ -23,7 +23,9 @@ await padSet({ 0: 1 }); await sleep(160); await padSet({}); await sleep(300);
 r = await row(); ok(/: off/.test(r.t), "pad A turns the option off (" + r.t + ")");
 await padSet({ 0: 1 }); await sleep(160); await padSet({}); await sleep(300);
 r = await row(); ok(/: on/.test(r.t), "pad A turns it back on (" + r.t + ")");
-// pad B closes
+// pad B goes back from the Game page to the top page, and the next B closes
+await padSet({ 1: 1 }); await sleep(160); await padSet({}); await sleep(400);
+ok(!(await ev(`$("settings").hidden`)) && (await ev(`SETPAD.page`)) === "top", "pad B goes back to the top page (Settings still open)");
 await padSet({ 1: 1 }); await sleep(160); await padSet({}); await sleep(400);
 ok(await ev(`$("settings").hidden`), "pad B closes Settings");
 
