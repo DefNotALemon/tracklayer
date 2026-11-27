@@ -9526,13 +9526,14 @@ function buildSettings() {
 // Until then a small card on the title screen says how, once per launch, until "Got it". On a phone with the API, the
 // tap that launches the ride from the title menu goes full screen (titleLaunch).
 const FSC = {
-  api: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled),
-  on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
+  api: !!(window.TLDesktop || document.fullscreenEnabled || document.webkitFullscreenEnabled),
+  on: () => window.TLDesktop ? !!window.TLDesktop.isFullscreen() : !!(document.fullscreenElement || document.webkitFullscreenElement),   // desktop build: the real window
   go() {
+    if (window.TLDesktop) { window.TLDesktop.setFullscreen(true); return; }
     const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!rq || FSC.on()) return; try { const r = rq.call(el, { navigationUI: "hide" }); if (r && r.catch) r.catch(() => { }); } catch (e) { }
   },
-  exit() { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && FSC.on()) try { const r = ex.call(document); if (r && r.catch) r.catch(() => { }); } catch (e) { } },
+  exit() { if (window.TLDesktop) { window.TLDesktop.setFullscreen(false); return; } const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && FSC.on()) try { const r = ex.call(document); if (r && r.catch) r.catch(() => { }); } catch (e) { } },
   how() {                                                   // the Add to Home Screen steps for this iPhone browser
     const ua = navigator.userAgent;
     return /FxiOS/.test(ua) ? "In Firefox tap the menu <b>≡</b>, then <b>Share</b>, then <b>Add to Home Screen</b>."
@@ -14318,7 +14319,7 @@ TT.still = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)"
 const hasSave = () => GS.delivered > 0 || GS.cash > 0 || GS.own.sleds.length > 1 || Object.keys(GS.own.partsOwned).length > 0 || Object.keys(GS.own.gearOwned).length > 0;
 function titleItems() {
   const ret = hasSave();
-  return [
+  const rows = [
     ret ? { id: "go", label: "CONTINUE", sub: `${GS.delivered} deliver${GS.delivered === 1 ? "y" : "ies"} · ${fmtCash(GS.cash)} · ${rankOf(GS.delivered).name} · ${sledDef().name}` }
       : { id: "go", label: "RIDE", sub: "Freight's coming off the boat at Kjøllefjord quay" },
     { id: "saves", label: "SAVES", sub: `${SLOT.name(SLOT.idx().cur)} in play · new game, load, copy, save to a file` },
@@ -14327,6 +14328,8 @@ function titleItems() {
     { id: "howto", label: "HOW TO PLAY", sub: TC.on ? "Touch, keyboard and gamepad" : "Keyboard, gamepad and touch" },
     { id: "credits", label: "CREDITS", sub: "Who made this" }
   ];
+  if (window.TLDesktop) { rows.push({ id: "quit", label: "QUIT", sub: "Save and close the game" }); document.body.classList.add("desk"); }   // desktop build only (steam/preload.js)
+  return rows;
 }
 function titleLayout() {
   const W = innerWidth, H = innerHeight, portrait = H > W, el = $("title");
@@ -14377,6 +14380,7 @@ function titleActivate(i) {
   else if (it.id === "saves") savesPanel();
   else if (it.id === "garage") openGarage();
   else if (it.id === "settings") toggleSettings(true);
+  else if (it.id === "quit") { try { window.TLDesktop.quit(); } catch (e) { } }
   else titlePanel(it.id);
 }
 const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "Mod menu"]];

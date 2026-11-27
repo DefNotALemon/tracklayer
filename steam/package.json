@@ -1,0 +1,43 @@
+{
+  "name": "tracklayer-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tracklayer desktop shell (Electron) for the Steam release",
+  "author": "Lemon",
+  "main": "main.js",
+  "scripts": {
+    "stage": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "test": "node test/smoke.mjs",
+    "dist:mac": "node build.mjs && electron-builder --mac dir --arm64",
+    "dist:win": "node build.mjs && electron-builder --win dir --x64"
+  },
+  "build": {
+    "appId": "io.github.defnotalemon.tracklayer",
+    "productName": "Tracklayer",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "app/icon-512.png",
+      "target": "dir"
+    },
+    "win": {
+      "icon": "app/icon-512.png",
+      "target": "dir",
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0"
+  }
+}

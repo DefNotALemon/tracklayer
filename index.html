@@ -93,6 +93,8 @@
   .tkeys span{display:flex;gap:6px;align-items:center}
   .tkeys kbd{font-family:var(--display);font-weight:800;color:var(--frost);border:1px solid rgba(234,242,248,.24);border-bottom-width:2px;border-radius:3px;padding:1px 7px}
   body.touch .tkeys{display:none}
+  /* desktop build only (body.desk, set where QUIT is added to the menu): seven entries instead of six, so the menu and logo sit a little tighter and QUIT clears the key hints */
+  @media (orientation:landscape) and (min-height:501px){body.desk .tlogo{margin-top:calc(14px*var(--ts));font-size:calc(104px*var(--ts))}body.desk .ttag{margin-top:calc(12px*var(--ts))}body.desk .tmenu{margin-top:calc(22px*var(--ts))}body.desk .ti{min-height:calc(40px*var(--ts))}body.desk .ti .tl{font-size:calc(31px*var(--ts));line-height:calc(40px*var(--ts))}}
   .tsun{position:absolute;right:calc(48px*var(--ts));bottom:calc(26px*var(--ts) + env(safe-area-inset-bottom,0px));display:flex;gap:14px;align-items:center;pointer-events:none}
   .tsun svg{width:calc(118px*var(--ts));height:calc(40px*var(--ts))}
   .tsun b{display:block;font-family:var(--display);font-weight:800;font-size:calc(20px*var(--ts));letter-spacing:.06em;font-variant-numeric:tabular-nums}
@@ -1362,5 +1364,5 @@
 <script src="tlx-camera.js?v=2"></script>
 <script src="tlx-paths.js?v=1"></script>
 <script src="tlx-haptics.js?v=1"></script>
-<script src="tracklayer.js?v=295"></script>
+<script src="tracklayer.js?v=296"></script>
 </body></html>
