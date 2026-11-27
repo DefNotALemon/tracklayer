@@ -330,13 +330,26 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       reverse sat still in 20 cm of loose snow (0.0 m; now 10 m in 5 s) and was told "too much snow behind" (now "not enough
       pedal" where the full pedal would do it). Test: the reverse test's spot finder found nothing since the street grid and
       never checked, so every step backed the same truck deeper into one drift. New `x2_bogstreet.mjs`.
+- [x] G3 (found by the builder writing `g3_helpsheet.mjs`, BUG, base game; fixed v303, lane A): on a pad every second press of Menu
+      flashed Settings up for one frame and shut it again (the panel read the press that opened it as its own "Menu closes";
+      the stale flag from the time before decided which press worked). The first frame after opening now only notes what is held.
+- [x] G4 (beta 0150 #1 POLISH, fixed v303, lane A; #2 was done in v302): the key list in the corner and the STUCK? card name the
+      controls in hand (a pad's own list by brand; the card says "press View"); a trigger held at 15% counts as the pad in hand
+      (0320's "STUCK? PRESS N" still). `g3_helpsheet.mjs`.
+- [ ] G3 (builder v303, POLISH, lane A): a pad has no button that hides the key list (H only) and none for the Map or the next
+      job on the compass; LB both gets off the sled and folds a towed tiller's wings (`padLB` and `TOW.padWing` read button 4).
+- [ ] G4 (beta 0388 #1/#2, 0389 #1-#3 POLISH, lane A): backing uphill at 12% the "wheels spin in reverse" line names no way out;
+      full lock in reverse steers the truck into deeper snow (rear tyres 0.93 m down, it still moved 9.6 m). Tests:
+      `x3_semis_break` step 2 predates the 3.4b1 pull-out (assert "stopped, or passed with 1.5 m and no bump"), its step 5 throws
+      (`GS.x`, `TLX.optionSet` do not exist: use `TLX.setOn("traffic", false)`), so its steps 5-7 never run.
 - [ ] G4 (beta 0319 #1, 0320 #5/#6, 0321 #6, 0322 #3-#5 POLISH, lane A): gritter on + blade up at a shore has no press that only stops
       the spinner; a 2% grade cuts the 35 cm crawl by two thirds; after a trailer hit the "wheels spin in reverse" line competes with
       "hard against something solid"; the grit table's tidy keeps a 200,000-entry / string-hours `h` and `__proto__`-named keys.
-      Also seen in a still: "STUCK? PRESS N" shows the keyboard key while a pad trigger at 15% is the only input held.
-- [ ] G4 (builder 3.4b2a, BUG in a test or the drivers): `x3_traffic.mjs` step D fails on origin/main too: the car "stopped
-      312.6 m short of the drift" (reported why "shut", s 1578) instead of ~22 m. Either the planted drift isn't the stretch the
-      driver reads as shut (TLXR seg.shut vs the step's spot) or stopAhead sees an earlier shut segment; check before trusting D.
+      (The "STUCK? PRESS N" to a pad player part is done, v303.)
+- [x] G4 (builder 3.4b2a; closed 27 Nov, lane A: not a bug any more): `x3_traffic.mjs` step D failed on origin/main ("stopped
+      312.6 m short of the drift"). Run on main today: 37 checks pass, D stops 22.0 m short, turns and drives back. The step was
+      reading the moment before the car pulled away from step F's stop; it has since been told to take only a stop within 60 m
+      of the drift (16 Nov).
 - [ ] G4 (beta 0160 #3/#4, POLISH): a > 9 m/s hit on a car skips the 6 s bump-toast cooldown; 160 km/h into a car still never
       ejects (CRASH_AT.hard canon, same as boulders) - leave unless Lemon asks.
 - [x] G4 (beta 0143 #1, BUG, fixed v200): on a pad, D-pad down calls help (empty tank / fjord) instead of bandaging a fresh wound;
@@ -367,7 +380,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       the sled, keep it for the pickup. (0153 #4 repeats the sled-rider point.)
 - [ ] G4 (beta 0153 #6 POLISH): taking a job over a shut road stacks three toasts within 5 s and the road heads-up comes
       last; give it priority (or delay the shop-coffee line) so the one that matters is on top.
-- [ ] G4 (beta 0150 #1/#2 POLISH): the H help panel is static keyboard text (pad players see keys); sled-bog toasts at the
+- [x] G4 (beta 0150 #1/#2 POLISH; done: #2 in v302, #1 in v303, see the line above): the H help panel is static keyboard text (pad players see keys); sled-bog toasts at the
       `enterBog` sled branch and job texts ("Q off, walk up and press E") hard-code keys. Route through `btn()`.
 - [ ] G4 (beta 0141 #2 POLISH, from the line above): "snowed in" fires at 0.3 m real depth.
       0145 #2 (live cells lag after `setSnow` jumps a stretch to full) logged as intended: loaded cells rise at the
@@ -816,4 +829,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
       `x2_winchtouch_break` and `x2_winchuse_break` are still open.
 
-Last triaged report: 387
+Last triaged report: 389

@@ -22,6 +22,42 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 17:40 — On a pad Menu opens Settings every time; the key list and the STUCK? card name the controls in hand (v303, lane A) (G4) — 42637ef
+
+Triage: reports 0388 (bogged truck + trigger reverse, v41: two POLISH) and 0389 (semis regression: three POLISH, all in
+one stale test) read (387 -> 389), logged as one lane-A line. No BLOCKER or BUG. Lane A's list is done, so this pass
+went down the lane-A backlog. Its one line marked BUG, `x3_traffic.mjs` step D failing on main, is closed without a
+change: run on main today it passes (37 checks; D stops 22.0 m short of the drift, turns and drives back; the step
+was fixed on 16 Nov). The pass then took beta 0150 #1, the key list that shows keyboard keys to pad players, which
+breaks the standing controls rule, and writing its test found a real pad bug.
+
+- **Game bug: Menu on a pad.** The press that opens Settings is still down on the next frame, and the Settings panel
+  read it as its own "Menu closes" press. Whether it did depended on a flag left from the time before, so every
+  second press flashed the panel up for one frame and shut it. Measured with a per-frame recorder (Menu held 30 / 120 /
+  250 / 600 ms): before OPEN, closed, OPEN, closed; after OPEN four times. This scenario's first runs held Menu for a
+  fixed 200 ms and passed on the unfixed game (not looked into further; most likely a slow frame swallowed the hold),
+  and failed every time once the hold was counted in frames. Fix: the first frame after
+  Settings opens only notes which buttons are held (`SETPAD.fresh`).
+- **The key list** (`#help`) was fixed keyboard text in index.html. `helpSync()` now rebuilds it when the device or
+  the pad's brand changes: the keyboard keeps its 19 rows; a pad gets 18 rows named through `btn()` (Xbox, DualSense,
+  Switch), and only for what a pad has a button for (no Map, next job or hide-list row). Touch still has no list.
+- **The STUCK? card** said "PRESS N" to everyone: now "PRESS VIEW" / "PRESS CREATE" / "PRESS −" / "TAP ↺".
+- **A feathered trigger is a pad in hand**: a trigger at 15% drives the sled but was not "pressed", so the text stayed
+  on keyboard names (beta 0320). Any button value over 0.1 counts now.
+- **Test** `g3_helpsheet.mjs` (107 checks): each device's list holds its own names and none of another's (keyboard
+  keys and the other brands' names are both checked), no name runs into its text (tightest gap 6 px), the list is on
+  screen and clear of the HUD; the buttons the Xbox list names really do it (D-pad up tablet, D-pad right Weather, R3
+  view, X wheelie, Menu Settings, B back, View reset: the sled moved 30.0 m to its safe spot); Menu four times
+  running opens and shuts Settings; RT at 15% switches the list; a sled held on its back shows the card; touch has
+  no list and a ↺ button. Its waits count the game's frames, not only wall time.
+- **Stills looked at** (`tlloop/a_trf/s8/`): the Switch list first ran "Left stick click" into its text; the name
+  column is wider on that pad and the horn row was shortened so it does not wrap. Xbox list and the card read clean.
+- **Gate** (run one at a time: the gate script outran the 8 minute limit with two other lanes gating): smoke, x1_save
+  (21), g3_helpsheet (107), ui_responsive (1105), x3_feather (33), x2_btn (32): exit 0, no FAIL, page errors none.
+- **Unverified**: a real pad (all of this is the scripted standard-mapping pad); the pad list at window sizes other
+  than 1500x1050 beyond ui_responsive's keyboard pass; the Settings fix for a pad that connects while Settings is up.
+- **Left** (logged): a pad has no button to hide the list or for Map / next job; LB both gets off and folds tiller wings.
+
 ## 2026-11-27 16:25 — A bogged truck is free on every plowed street; a light trigger backs the pickup through loose snow (tlx-vehicles v41, lane A) (G4) — 0d59329
 
 Triage: reports 0386 (milestone 4 regression sweep on v301: no findings) and 0387 (v302 control-naming toasts: one POLISH
