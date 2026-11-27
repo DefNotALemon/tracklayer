@@ -22,6 +22,42 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 15:40 — The toasts that tell you what to press name your own controls (v302, lane A) (G4) — c786f35
+
+Triage: report 0385 (gifts v301: three POLISH, no BUG) read (384 -> 385), logged as one lane-A line in LOOP.md. This
+pass took the top lane-A line, beta 0384 #1 BUG (base game).
+
+- **Cause**: `enterBog()` built its sled toasts as plain strings: "Get off (Q) and dig (hold E), or press R" and the
+  winch one "Get off (Q) ... hook your winch (E)". Three things wrong at once: keyboard names shown to pad and touch
+  players, "hold E" for a dig that is one press (`footAction` toggles `FOOT.dig`), and R, which is the gun wheel; the
+  reset is N. The truck's toast used `btn("use")` while seated, which on touch read "USE", not the DIG the button wears
+  beside the truck. Looking for the same class turned up three more: the visor ("Press Z (pad: D-pad left)" to every
+  non-touch player), the garage forecourt ("Press T" to pad players, where it is B / ○), and the tablet note's corner
+  ("Tab to open" to pad players).
+- **Fix** (tracklayer.js only): `bogLine(truck, winch)`, `visorLine()`, `garageLine()` built from `doHint` /
+  `pressHint` like the v299 rescue lines; a `BTN.wipe` row (Z / D-pad left / WIPE VISOR, bound on all three already);
+  the note corner reads `btn("tablet")`.
+- **Before -> after** (`g3_bogtoast.mjs`, 151 checks, all pass, page errors none). No-winch bog:
+  keyboard "Get off (Q) and dig (hold E), or press R." -> "Get off (Q) and press E beside the sled to dig, or press N to reset."
+  Xbox the same keyboard text -> "Get off (LB) and press L3 beside the sled to dig, or press View to reset."
+  DualSense -> "Get off (L1) and press L3 ... or press Create to reset."
+  touch -> "Tap GET OFF and tap DIG beside the sled to dig, or tap ↺ to reset."
+  Winch: "Get off (LB), wade to a tree and hook your winch (L3)." / "Tap GET OFF, wade to a tree and tap HOOK."
+  Visor: "Press Z" / "Press D-pad left" / "Tap WIPE VISOR". Garage: "Press T" / "Press B" / "Press ○" / "Tap GARAGE".
+  Note corner: Tab / D-pad up / "tap to open".
+- **The scenario** bogs the sled for real (`enterBog(0.8)`, with and without a winch) under each device and reads the
+  toast from a recorder; per device no line may hold another device's names. On touch it also checks that GET OFF is
+  the button on screen, that the use button beside the bogged sled wears DIG and one press starts the dig, and on the
+  keyboard that N frees the sled.
+- **Still looked at** (`tlloop/a1127h/s1/bogtoast_touch_667x375.jpg`): the hint line reads "BOGGED · tap GET OFF, and
+  dig · ↺: reset", clear of the controls. A Gram note about the bog lay over the toast stack at the top, hiding most of
+  the toast: logged as a POLISH line (seen after five test bogs in a row, not checked for one bog in ordinary play).
+- **Gate**: smoke, g3_bogtoast, x2_btn (the new `wipe` row has a name on every device), x4_mobilehint: exit 0, fails 0,
+  page errors none. x1_save failed once inside the gate on "x = a string" (the known flake on main: the planted save
+  came back as the previous step's) and passed twice run alone (21 ok, page errors none).
+- **Unverified**: a real pad or phone; the Nintendo pad's wording (same code path as the other two brands, not run);
+  the truck's line only through `bogLine(true, false)`, not a truck really bogged.
+
 ## 2026-11-27 15:25 — Thank-yous at the door: gifts and a few words on a good delivery (v301, lane A) (G4) — 96695cb
 
 Triage: reports 0383 (5.4b2a hail edges: POLISH only) and 0384 (hint box v300) read (382 -> 384). 0384 #1 is a BUG on the

@@ -384,8 +384,11 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
   (option `gifts`): about one on-time hand-over in six, the giver a grown-up of a real household at that door, snacks in a
   pocket eaten when hungry, spares the garage takes in trade, a rare upgrade owned as if bought. `g2_gifts.mjs`. Left: no
   figure stands at the door (hand-overs have none anywhere yet); the pocket shows only in the toast; odds untuned by play.
-- [ ] G3 (beta 0384 #1 BUG, lane A, next pass): the bogged toast names keyboard keys on touch and pad ("Get off (Q) and dig (hold E), or
-  press R", tracklayer.js ~14651, and the wading variant); R is not even reset (N is). Route both through `btn()` / `keyHint`.
+- [ ] G3 (builder v302, POLISH, seen in a still, not measured): on a 667x375 phone a tablet note at the top (a bog posts to the news bus, and
+  Gram's note about it can arrive within seconds) lies over the toast stack, so the bogged toast is half hidden while the note is up.
+  Unverified for a single bog in ordinary play (the still came after five test bogs in a row). The hint line stays readable.
+- [ ] G3 (beta 0385 #1-#3 POLISH, lane A, gifts): a reload inside the 2.6 s before the words loses the words (the gift is kept); "Take a
+  cinnamon bun, still warm for the road" reads as a glitch; fish cakes at a herder cabin (give `herd: 0.3`).
 Order = priority. Builder keeps it ordered; ties go to whichever goal has had the fewest recent landings.
 Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROGRESS.md`.
 
@@ -811,4 +814,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
       `x2_winchtouch_break` and `x2_winchuse_break` are still open.
 
-Last triaged report: 384
+Last triaged report: 385
