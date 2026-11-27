@@ -53,7 +53,7 @@ Pay buys a better sled, then a pickup, then a lorry. The harder the country you 
 
 **About this game**
 
-The kommune needs its roads opened after every storm. The villages need freight. Households need their driveways cut without the snow ending up against the neighbour's door.
+The roads need opening after every storm. The villages need freight. Households need their driveways cut without the snow ending up against the neighbour's door.
 
 Sign for the work, buy the machines, hire the drivers. When one of them bogs a truck in a drift at night, go and tow them out yourself.
 
