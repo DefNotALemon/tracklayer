@@ -192,8 +192,10 @@ await pageOpen("sound"); await sleep(250);
   await dpad(14, 130);
   const v2 = await ev("SET.vol");
   ok(v2 < v1, `3: pad left lowers it (${v1} -> ${v2})`);
-  await dpad(13, 130); await sleep(100);
-  ok((await ev(FOC)) === "muteBtn", "3: down moves from the slider to Mute (own row)");
+  const fv = await ev(FOC);
+  await dpad(13, 130); await sleep(150);
+  const fm = await ev(FOC);
+  ok(fm === "muteBtn", `3: down moves from the slider to Mute (own row): ${fv} -> ${fm}`);
   const m0 = await ev("muted");
   await dpad(0, 130);
   ok((await ev("muted")) !== m0, "3: pad A presses the focused button (mute toggles)");
@@ -249,9 +251,12 @@ await pageOpen("sound"); await tap("ArrowRight"); await sleep(150); await tap("A
 {
   const f = await ev(FOC);
   ok(f === "vol" || f === "muteBtn", `4: keyboard: arrows work on a page (focus ${f})`);
+  await ev(`$("vol").focus(); true`); await tap("ArrowDown"); await sleep(200);
+  const fa = await ev(FOC);
+  ok(fa === "muteBtn", `4: keyboard: arrow down moves from the slider to Mute (focus ${fa})`);
   await tap("ArrowDown"); await sleep(200);
   const f2 = await ev(FOC);
-  ok(f2 === "setBackBtn", `4: keyboard: arrow down moves on (focus ${f2})`);
+  ok(f2 === "setBackBtn", `4: keyboard: arrow down moves on to Back (focus ${f2})`);
   await tap("Enter"); await sleep(250);
   ok(await page() === "top", "4: keyboard: Enter presses the focused Back button");
 }
