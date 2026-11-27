@@ -1,6 +1,7 @@
 # Tracklayer: store page options
 
-Six ways to pitch the same game. Pick one (or a mix); the final assets (S3) are made for the pick.
+Lemon's shortlist of 27 Nov: A, B and F (C winter town, D survival and E 71 North dropped), each now with a night capsule teasing the aurora.
+Pick one (or a mix); the final assets (S3) are made for the pick.
 Every line below describes something that is in the game today. Open `options.html` to see them as pages.
 
 ## A. The snow remembers
@@ -44,69 +45,6 @@ Pay buys a better sled, then a pickup, then a lorry. The harder the country you 
 **Tags to lead with:** Simulation, Driving, Open World, Automobile Sim, Singleplayer
 **For it:** A proven audience that buys exactly this kind of game, and it describes most of what is already built.
 **Against it:** Invites comparison with SnowRunner's graphics. The page has to lead with the snow, not the trucks.
-
-## C. A winter town that knows you
-*Life in a small Arctic town.* For: Cosy and life-sim players: Stardew Valley, Lake, A Short Hike.
-
-**Short description** (190/300): Move to a fishing village at the top of Norway and make a life there. Deliver the post by snowmobile, fish through the ice, rent a flat, and get to know the families behind every lit window.
-
-**About this game**
-
-Kjøllefjord is a real place, and in Tracklayer every house in it holds a family: named people with trades, routines and opinions, who ski the trails, post on the local feed and ring in to Radio Nordkinn.
-
-The work is delivering what the ferry brings. The rest is yours: ice fishing, cross-country skiing, a boat for summer, a flat with a landlord who may or may not fix the heating.
-
-- Households in every village, each with its own surnames, trades and habits
-- Gram, a local feed the town fills with pictures of what really happened that day
-- Six radio stations, call-ins included
-- Ice fishing, sea fishing, cross-country ski trails and a boat of your own
-- Polar night, the midnight sun and four seasons that change what the country lets you do
-
-**Tags to lead with:** Life Sim, Relaxing, Open World, Exploration, Atmospheric
-**For it:** The biggest audience of the six, and the direction you are building toward.
-**Against it:** Promises warmth the game only partly has yet: no romance or family yet. Risky before those land.
-
-## D. Out in the polar night
-*Survive the fell.* For: Survival players: The Long Dark above all.
-
-**Short description** (204/300): Two months without a sunrise, a sled, and a tank of fuel. Cross the Arctic plateau with a load on the back while the cold, the storms and the snow itself try to stop you. Nobody is coming unless you call.
-
-**About this game**
-
-A new game starts in polar night. Out on the fell the wind fills your trail behind you, the visor frosts over and the fuel needle is the only clock that matters.
-
-Go through the ice, bog the sled in powder or come off at speed and you will be on foot, bleeding, a long way from a light.
-
-- Warmth, hunger, fuel and wounds to manage, with clothing layers that matter
-- Storms that bury a packed trail in under a minute
-- Crashes with a body that tumbles, gets hurt and has to walk back
-- A winch, a tether and a rescue sled for when it goes wrong
-- Reindeer, moose, foxes and the occasional bear that is not pleased to see you
-
-**Tags to lead with:** Survival, Open World Survival Craft, Atmospheric, Simulation, Difficult
-**For it:** Strong mood, and the night and storm frames already look the part.
-**Against it:** Survival fans expect crafting, shelter and permadeath. The game is gentler than this page suggests.
-
-## E. 71° North
-*A real place, under the aurora.* For: Exploration and photo-mode players: Firewatch, Alto, people who buy a game for where it takes them.
-
-**Short description** (193/300): The Nordkinn peninsula, mainland Europe's northern edge, rebuilt for you to cross by snowmobile. Fjords that never freeze, a lighthouse at the end of the land, and the northern lights overhead.
-
-**About this game**
-
-Kjøllefjord, Mehamn, Gamvik, the lighthouse at Slettnes: the villages are where they are on the map, and the plateau between them is as empty as the real one.
-
-There is work if you want it. There is also a camera, a long night and nobody asking you to hurry.
-
-- A real stretch of Finnmark with its villages, fjords, wind farm and lighthouse
-- Aurora that comes and goes by the night, and tourists who pay to be taken under it
-- A calendar with polar night, midnight sun and weather fronts you can read on a radar
-- A camera for your own pictures, and first-person riding with a working dash tablet
-- Ride, ski, walk or take a boat
-
-**Tags to lead with:** Exploration, Atmospheric, Open World, Relaxing, Simulation
-**For it:** Suits the aurora frames, which are the best-looking pictures the game makes today.
-**Against it:** Sells on looks, and looks are where the game is weakest in daylight. Leans on the realism work landing first.
 
 ## F. From one sled to a company
 *Build a winter haulage business.* For: Tycoon and management players who want to drive the trucks themselves.
