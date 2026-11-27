@@ -5690,6 +5690,7 @@ const KIT = (() => {
     K.put(g, new THREE.ConeGeometry(0.34, 0.3, 10), K.metal, 0, 4.35, 0);
     addOb({ x, z, r: 0.3, top: 1e9 });
     (lampPools.at || (lampPools.at = [])).push([x, z]);   // its pool of light on the snow, laid once the yards/lanes are in (lampPools)
+    (K.lamps || (K.lamps = [])).push({ x, z, y: g.position.y });   /* RD1b: where every lamp stands (tests: off the carriageway, on the ground) */
     return g;
   };
   // hjell: the A-frame racks the cod hangs on to dry
@@ -12320,6 +12321,7 @@ function townClearTrees(x, z, r) {                                   // pines in
 function townBlocks() {
   const { bx, put, house, lamp, L, snowM, woodD, wood, red, white, glowM } = KIT, d0 = depot, G = TOWNG, rnd = mulberry32(141114);
   const HW = G.HW, RD = 21.0;                                          // street half width; back alley, metres from a street's centre line
+  const lampQ = (x, z) => { (townBlocks.lamps || (townBlocks.lamps = [])).push([x, z]); };   /* RD1b: the street lamps are set up in townRoads(), once the road kit knows where the asphalt is */
   // ---- the streets: plowed lanes, drawn on the chart (TOWNL) too
   const mk = (ax, az, bx2, bz2) => ({ a: [d0.x + ax, d0.z + az], b: [d0.x + bx2, d0.z + bz2] });
   const legs = [];
@@ -12346,7 +12348,7 @@ function townBlocks() {
       const lo = d0.x + xa + HW + 1.2, hi = d0.x + xb - HW - 1.2, n = Math.max(2, Math.round((hi - lo) / 13.2)), lw = (hi - lo) / n;
       for (let i = 0; i <= n; i++) {                                  // lot lines: a street lamp on every other one
         const bx0 = lo + i * lw;
-        if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 0.65), 0.8)) lamp(bx0, sz + side * (HW + 0.65));   /* RD1: no kerb to stand behind: the lamp stands on the gravel shoulder, 65 cm off the asphalt edge */
+        if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 1.15), 0.8)) lampQ(bx0, sz + side * (HW + 1.15));   /* RD1b: no kerb: the lamp stands on the shoulder/bank base, 1.15 m off the nominal asphalt edge (the edge wanders about 0.6 m) */
       }
       for (let i = 0; i < n; i++) {
         const cx = lo + (i + 0.5) * lw, w = Math.min(lw - 5, 7 + rnd() * 1.5), d = 6 + rnd() * 1.3, h = 2.8 + rnd() * 0.4, fy = 3.6 + rnd() * 0.9, off = HW + fy + d / 2, cz = sz + side * off, mat = pal[Math.floor(rnd() * pal.length)];
@@ -12397,8 +12399,8 @@ function townBlocks() {
   // ---- junction lamps, where the streets cross (every second one) and one at each end of Kaigata
   let ji = 0;
   for (const x of G.X) for (const z of G.Z) {
-    if ((ji++) % 2) continue; const lx = d0.x + x + HW + 1.7, lz = d0.z + z + HW + 1.7;   /* RD1: just outside the corner radius */
-    if (!isSea(lx, lz) && !obNear(lx, lz, 1.2)) lamp(lx, lz);
+    if ((ji++) % 2) continue; const lx = d0.x + x + HW + 2.3, lz = d0.z + z + HW + 2.3;   /* RD1b: on the snow corner inside the fillet (fillet centre at HW + 4.5, radius 4.5) */
+    if (!isSea(lx, lz) && !obNear(lx, lz, 1.2)) lampQ(lx, lz);
   }
   townBlocks.n = nHouses;
 }
@@ -12414,10 +12416,15 @@ function townBlocks() {
    here, after tlx-roads has added the network roads, so both resolve their junctions together. TOWNG.road keeps the
    handle the tests read: { roads, meshes, lines }. */
 function townRoads() {
-  const G = TOWNG, K = window.TLXRK; if (!G.lines.length || !K) return;
+  const G = TOWNG, K = window.TLXRK;
+  const lamps = () => { for (let [x, z] of townBlocks.lamps || []) {          /* RD1b: a lamp never stands on asphalt: where the kit says its spot is road (a street's end bulb, a junction), it moves out, 0.5 m at a time, away from the nearest road */
+    if (K && K.ready) for (let k = 0; k < 8 && K.onRoad(x, z, 0.6); k++) { let best = null; for (const r of K.roads) { const nb = K.nearest(r, x, z); if (nb && (!best || nb.d < best.d)) best = nb; } if (!best) break; const dx = x - best.px, dz = z - best.pz, l = Math.hypot(dx, dz) || 1; x += dx / l * 0.5; z += dz / l * 0.5; }
+    if (!isSea(x, z) && !obNear(x, z, 1.0)) KIT.lamp(x, z); } townBlocks.lamps = []; };
+  if (!G.lines.length || !K) { lamps(); return; }
   const ids = [];
-  G.lines.forEach((l, i) => { const r = K.add({ id: "town:" + (l[4] || i), kind: i === 1 ? "main" : "street", hw: G.HW, pts: [[l[0], l[1]], [l[2], l[3]]], snow: () => 0.28, meta: { town: true, name: l[4] } }); if (r) ids.push(r.id); });
-  K.build();
+  const drives = KIT.doors.filter(d => d.grid).map(d => ({ x: d.grid[0], z: d.grid[1], dx: d.x, dz: d.z, half: 1.9 }));   /* RD1b: each driveway opens the street's plow bank where it meets the street */
+  G.lines.forEach((l, i) => { const r = K.add({ id: "town:" + (l[4] || i), kind: i === 1 ? "main" : "street", hw: G.HW, pts: [[l[0], l[1]], [l[2], l[3]]], snow: () => 0.28, mouths: drives, meta: { town: true, name: l[4] } }); if (r) ids.push(r.id); });
+  K.build(); lamps();
   G.road = { ids, lines: G.lines.length, meshes: K.meshes, roads: K.roads, kit: K };
 }
 

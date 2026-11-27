@@ -29,7 +29,9 @@ const r = JSON.parse(await ev(`(() => {
     for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (isSea(x, z)) continue; tot++; if (!K.covered(x, z)) miss++; } }
   out.miss = miss; out.tot = tot;
   let lo = 9, hi = -9;                                                          // asphalt sits on the snow: the carriageway columns vs surf
-  for (const m of R.meshes) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 7) { const c = i % K.NC; if (c < 6 || c > 12) continue; const dy = pos.getY(i) - surf(pos.getX(i), pos.getZ(i)); lo = Math.min(lo, dy); hi = Math.max(hi, dy); } }
+  for (const m of R.meshes) { if (m.userData.roadkit === "node") continue; const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 7) { const c = i % K.NC; if (c < 6 || c > 12) continue; const dy = pos.getY(i) - surf(pos.getX(i), pos.getZ(i)); lo = Math.min(lo, dy); hi = Math.max(hi, dy); } }
+  for (const nd of K.nodes) { if (nd.dead || !nd.pc || nd.bad) continue; const P = nd.pc.mesh.geometry.attributes.position.array;   /* RD1b: a junction patch's asphalt vertices (fan, outline, end-ring columns 6-12) */
+    nd.tpl.V.forEach((v, i) => { if (v.t === "fringe" || (v.t === "chord" && (v.c < 6 || v.c > 12))) return; const dy = P[i * 3 + 1] - surf(P[i * 3], P[i * 3 + 2]); lo = Math.min(lo, dy); hi = Math.max(hi, dy); }); }
   out.lift = [+lo.toFixed(3), +hi.toFixed(3)];
   return JSON.stringify(out); })()`));
 console.log("road", JSON.stringify(r));

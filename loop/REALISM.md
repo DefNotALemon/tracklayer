@@ -390,6 +390,72 @@ resolve junctions together; it is its own file so neither big file grows a road 
    chunk or two unfilled (hidden) beyond 350 m.
 10. Measured frame cost is noisy on this machine under other sessions' load: see the measured numbers in PROGRESS.
 
+## RD1b as built (27 Nov 2026, script v303, tlx-roadkit v2): the supervisor's defects on RD1
+
+Fixed on top of RD1, same model (no kerb, no re-skin). What each item turned out to be:
+1. **Junctions are one surface now.** A *node* is where two roads cross, or where a road that stops short of another is carried on
+   to its centre line (`findNodes`; roads within 9 m of an existing node are not new nodes, a road that would join 8-11 m beside
+   one joins it as another arm). Every road through the node is cut back to the end of its arm (where the fillets are tangent to its
+   edges, + 0.6 m) and ONE patch mesh fills the gap (`buildPatch` / `fillPatch`): the asphalt out to an outline of each arm's
+   straight edge and a circular fillet between neighbouring arms (R 4.5 m streets, 6 m fylkesvei, 4 m lanes), then the gravel
+   shoulder and plow bank wrapped round the outline. The patch copies the 19 end-ring vertices of every arm (position, normal and all
+   attributes), so there is no crack, no overlap and no tone step; fillets are solved from the arms' REAL end rings (the roads
+   bend), not from straight lines through the node. Shader: every road-local feature (wheel paths, cracks, seals, patches, centre
+   ridge, edge wobble, markings) fades to 10 % over the last 7 m of an arm (`joint`, `jf` / `jc`), the patch keeps only
+   world-space tone and wheel wear that follows each corner's turning arc (per-vertex arc centre, radius, tangent directions in
+   `aPa` / `aPb`; the patch has its own material, `RK_PATCH`), grit darkens the snow near a junction. A node beside a
+   shared-trunk run (two roads along each other) gets no patch and keeps RD1's cut / abut / taper. Four grid corners (two street
+   ends meeting in an L) are still two rounded stubs, not a patch. Asserted in `rd1_roads` D: exactly one road triangle under
+   every one of 6885 sample points of the junction asphalt, one under 9173 of 9180 on the shoulder and bank; L: the colour step
+   across each arm end is no bigger than between two plain windows on a plain street (measured in the same still, shadows off).
+2. **Street edges wander** like the open road's: asphalt width (low-frequency, +-0.3 of the half width plus a faster wobble), shoulder
+   width 0.5-1.7 times nominal, the plow bank's outer edge +-1 m, snow lapping over the asphalt edge in places (`lapN`) and the
+   edge wobble in the shader (3 octaves). All settle to nominal width in a junction. Street ends keep RD1's rounded turning place.
+   Asserted in I (sd of the asphalt width and of the bank edge along each street vs the open road).
+3. **The dotted stipple was `alphaToCoverage` on a soft alpha**: the shoulder and bank faded out with a smooth alpha, and the MSAA
+   target turns a mid alpha into its fixed, regular sample mask: a screen of dots, worst on the overhead and the chase. Fix: the
+   fade is a crisp, irregular outline (`rkCrisp`: coverage = smoothstep of (smooth coverage + a 3-octave world noise), one pixel of
+   anti-aliasing from `fwidth`), nothing is ever a soft alpha. Coverage is computed FIRST and a fragment that is not road is
+   discarded before any of the surface is made (cheaper too). Still shows nothing but edge anti-aliasing from 2 m to 300 m
+   (`tlroads/rd1b/strip/sheet_*.jpg`, 3 frames of a moving sled).
+4. **Poles**: 3 cm fibreglass sticks, 2.3 m, orange-red, one 17 cm reflective band 45 cm below the top (they were 5 cm posts with the
+   band at 1 m). A pole is never thinner than 1 pixel and its band never shorter than 2.6 pixels (vertex shader, `uVh`, `uBC`), so
+   a pole is visible out to 300 m by day and its band is a lit dot out to ~150 m at night: retro-reflection (`pow(dot(camDir,
+   lightDir), 10)`) gated by the headlight's own cone (`uHCos` from its angle), 8.0 / (1 + d^2 * 0.00003). Asserted in J from stills:
+   band contrast 1.8x at 36 m and 2.1x at 113 m in the beam, 1.03-1.06 with the sled turned away (full-moon night).
+5. **Snow on the street**: wheel tracks wander in two octaves and drift together and apart (`wom`), the centre ridge breaks up
+   (`ridgeB`), snow-brown slush at the road side of the bank, dark glazed ice patches with a sheen (`iceP`, roughness 0.13), grit
+   near junctions, a real centre line on the fylkesvei (see "the comment that ate two assignments" below).
+6. **Lamps and driveways**: lamps are no longer built in `townBlocks()`: it queues them (`lampQ`) and `townRoads()` builds them once
+   the kit knows where the asphalt is (`TLXRK.onRoad`): a lamp on asphalt (a street's end bulb, a junction) moves out 0.5 m at a time.
+   Street lamps stand 1.15 m off the nominal edge, junction lamps inside the fillet. Each house's door mouth opens the street's plow
+   bank (`mouths` in `TLXRK.add`, 25 driveways: bank beside a mouth 0.07 m, elsewhere 0.3 m). Asserted in K.
+7. **Tests**: `ui_responsive` foot embed640 failed from 4b441bc (v295, a longer hint beside a truck; the 12 px side padding was
+   outside `max-width` in a `content-box`): fixed by someone else's v300 (9cdeb23), not the road kit. `p1_picture` "fell added cost": NOT the
+   road kit either: the same test printed +8.88 ms on d9f6848 (before any road kit) and +0.85 / +1.5 / +1.26 ms on v298 and on this tree:
+   it measured the chain while the world was still streaming in after the teleport (draw calls 253 vs 833 vs 1239 on the same view);
+   the scenario now waits until the draw-call count holds still (`settle`). `rd1_roads` E and `x3_roads` A: three runs each, all
+   passed; the 3.5 s boot was load (13-24): boot is 0.88-0.89 s without the kit (d9f6848), 0.98-1.02 s with it (v298 and now).
+
+**A bug found on the way**: RD1's `fill()` wrote `fx[v*4+2] = ring.cm; fx[v*4+3] = K.sh;` after a `//` comment on the same line, so
+the centre-line mask and the shoulder width were never set (no centre line anywhere, shoulder width 0). Mid-line `//` in a one-line
+statement swallows what follows: use `/* */`.
+
+**Cost** (`rd1_perf`, GPU timer, p10 of 5 reads, load 6-9 so +-1 ms): the kit costs about 0.0-0.6 ms in the town view and 0.0-0.8 ms on
+the open road (it was 0.8 in RD1); the early discard of non-road fragments is what the fell gained. Not measured on an idle machine.
+
+**Still wrong after RD1b** (the ten worst of round 3, `tlroads/rd1b/r3`):
+1. The four grid corners are two overlapping rounded stubs, not a corner patch; the grid is still the 126 x 96 m rectangle.
+2. The routes are unmoved (RD2-RD8).
+3. Wear arcs are visible only on a close look; no braking marks, oil, manholes or drains.
+4. The plow bank is one wandering white ridge: no throw marks, no windrows across the junction corner.
+5. Driveways have no surface of their own (plowed lanes; only the bank opens).
+6. The wheel-track pairs are still parallel on a straight (they merge and drift, but there is no lane change).
+7. Reflectors are 3 pixels at 150 m and nothing at 300 m at night; poles stand in pairs only.
+8. Summer: the terrain beside the road is the low-poly checker.
+9. Shared-trunk runs (two roads side by side) still use RD1's taper, and two crossings of fv888 and skjanes at a shallow angle have no patch.
+10. Ice sheen shows only under the headlight and a low sun.
+
 ## RD plan: roads re-placed (design only; no route was moved in RD1)
 
 **What I looked at.** Overhead stills of Kjøllefjord, Mehamn, Gamvik, Dyfjord, Lebesby and four stretches (fv888 mid, the

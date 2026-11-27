@@ -177,7 +177,9 @@ const cost1 = async (label) => {
 };
 await ev(FXALL); await ev("QG.on = false; QG.apply(0); renderer.setPixelRatio(1.5); camMode = 0; camState.init = false; true");
 await eye(-1300, -372, 1.7, -1360, -400, 1.5, 1500);
-const cost = async label => { let best = null; for (let a = 0; a < 5; a++) { if (a) await sleep(2500); const c = await cost1(label); c.attempts = (best ? best.attempts : []).concat([+(c.on - c.off).toFixed(2)]); if (!best || c.on - c.off < best.on - best.off) { c.attempts = c.attempts; best = c; } else best.attempts = c.attempts; if (best.on - best.off <= 2.5) break; } return best; };   // best of up to 5 tries, 2.5 s apart: another builder's Chromes share this GPU and a burst can double a frame
+// the world streams in for a few seconds after a teleport (tree and snow chunks, road chunks): a frame measured while it does is not the picture's cost. Wait until the draw-call count holds still (3 reads 0.5 s apart within 3 %).
+const settle = async () => { let last = -1, still = 0; for (let i = 0; i < 24 && still < 3; i++) { await sleep(500); const n = await J("renderer.info.render.calls"); if (last > 0 && Math.abs(n - last) <= 0.03 * last) still++; else still = 0; last = n; } return still >= 3; };
+const cost = async label => { await settle(); let best = null; for (let a = 0; a < 5; a++) { if (a) await sleep(2500); const c = await cost1(label); c.attempts = (best ? best.attempts : []).concat([+(c.on - c.off).toFixed(2)]); if (!best || c.on - c.off < best.on - best.off) { c.attempts = c.attempts; best = c; } else best.attempts = c.attempts; if (best.on - best.off <= 2.5) break; } return best; };   // best of up to 5 tries, 2.5 s apart: another builder's Chromes share this GPU and a burst can double a frame
 const costTown = await cost("town");
 await ev("window.camOv = null; true"); await park("depot.x + 1500", "depot.z - 900"); await sleep(2500);
 const costFell = await cost("fell");
