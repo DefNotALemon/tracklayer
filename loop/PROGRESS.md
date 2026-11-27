@@ -21,6 +21,45 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 11:50 — beta fix 0221 #1: a used truck handed over at a seller's stands clear of every door, the hint beside it names the truck (v295, tlx-vehicles v40, lane A) (G4) — 4b441bc
+
+Triage: reports 372-373 read (371 -> 373). 0372 (I9 slot clamps, v294) verifies 0371 #1-#3 as fixed, no BLOCKER or BUG,
+one POLISH (`delivered: 1e15` is not capped); 0373 (4.1b2a cutting edge: mend, shed, junk values) 22 asserts pass, two
+harmless POLISH: all listed in LOOP.md. Lane A's list is done and no BUG is open, so this pass took
+the oldest open lane-A line that is half a BUG: 0221 #1 (slice 2.7, listed since 18 Nov).
+
+- **What was wrong** (new `x2_sellerdoors.mjs` run on the tree before the fix: all 18 seller sites, a pickup handed over
+  at each as a buyer stopped there would get it): at the Risfjord herder cabin the pickup stood 5.3 m from the cabin's
+  door ring and the line beside it, on both sides, was "The cabin door is 3 m off: walk into the light"; at the relay
+  9.8 m from the tower room's ring (the hint held on the two sides tried, but a door's hint reaches 7.5 m and a truck's
+  3 m, so not all round it). The sled trailer landed on the same spots. Third find, not in the report: at Sandfjord the
+  line was "E: light the fire · Q: get on" beside a pickup (a trail shelter's fire within reach; the second half was
+  written for the sled).
+- **Fix**: `spotNear` (tlx-vehicles.js), for a seller's hand-over only, takes the nearest spot 11 m+ from every visible
+  door ring and falls back to the old rule if a yard has none (never "no room" because of a door). The garage forecourt
+  is as it was. tracklayer.js `wnPrompt`: the mount half of an expansion use's line reads `VEH.board` ("get in the
+  pickup"), one word change.
+- **Numbers, before -> after**: Risfjord 5.3 -> 11.5 m from the door, the relay 9.8 -> 11.7 m, Sandfjord 13.0 m
+  (unchanged); every pickup still 8.0 m from its seller; hint beside the truck names the pickup at 16 -> 18 of 18 sites;
+  the trailer 11 m+ from a door at 16 -> 18 of 18. The mount control puts you in the cab at Risfjord, the relay and
+  Sandfjord (it did before too: only the line was wrong). Still: `a1127b/shots/sellerdoor_risfjord.jpg` (pickup on open
+  snow, the cabin behind, "Q: get in the pickup").
+- **Gate**: smoke, x1_save, x2_sellerdoors (43 checks), x2_vehmkt, x3_digcars, x3_digcars_mount_break: all exit 0,
+  fails 0, page errors none, on the second run. The first run failed x2_vehmkt with 5 FAILs from "inspecting from afar
+  is refused" on, the trailer's seller at the windfarm. Not this change (the first FAIL comes before any hand-over, and
+  at the windfarm, 870 m from a door, the new rule picks the old spot). Two causes in the test, both shown apart: with
+  the pickup forced to the trailer's seller the same first two FAILs come (`a1127b/samesite.log`: stopped there you are
+  already "in person"), and a probe of all 18 sites found the test's parked sled sliding at 3.6 m/s on the windfarm
+  slope after a second (4 m/s is no longer "stopped here", so the pay becomes a SEND and no truck is set down). That
+  the first run's pickup was also at the windfarm is inferred: its log does not print the pickup's seller. Test fixed
+  both ways (the pickup gets another seller if the two match; the sled stops on level ground first, windfarm 3.6 ->
+  0 m/s); x2_vehmkt then passed in the second gate run (one run: its sellers are random, so the fix is not proven by it).
+- **Left as it is**: the Sandfjord pickup is still set down within reach of the shelter's fire spot (listed in LOOP.md);
+  a truck bought new at the garage keeps the old forecourt rule. No README line (no control or system changed).
+  Unverified: by hand; pads and touch read the same line through `keyHint` and were not run separately.
+- **Next for lane A**: the remaining lane-A POLISH lines in LOOP.md, then an unowned milestone (16-19) by the Lanes
+  claim rule.
+
 ## 2026-11-27 11:25 — beta fix 0371 #1/#2: a save with cash or the clock below zero comes in at zero, a sled listed twice is owned once (v294, lane A) (G4) — 0dd792e
 
 Triage: reports 370-371 read (369 -> 371). 0370 (sled + truck at one pump, v292) verifies 0364 #2/#3, one POLISH

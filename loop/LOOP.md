@@ -447,7 +447,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       own f, so it should stay).
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
 - [x] G4 4.1b1 (beta 0223 #1 BUG + #2, lane A, fixed tlx-plow v4): holding the use control slewed the blade behind Settings (and behind the tablet). The blade's control now rests under any menu and the tablet; `x4_blademenu.mjs`.
-- [ ] G4 2.7 (beta 0221 #1, POLISH/BUG, lane A): at 2 of 18 used-truck seller sites (Risfjord, the relay) `spotNear` parks the truck about 5 m from a door ring, so 2.4 m off the truck the hint is the door's, not "get in the pickup" (and `x2_vehmkt.mjs` fails that assert). Keep `spotNear` 9 m+ from `INT.beacons`, or let the get-in hint win when the vehicle is nearer than the ring; check that Q itself works there.
+- [x] G4 2.7 (beta 0221 #1, POLISH/BUG, lane A; fixed tlx-vehicles v40 + v295, `x2_sellerdoors.mjs`: `spotNear` keeps a seller's hand-over 11 m from every door ring (Risfjord 5.3 -> 11.5 m, the relay 9.8 -> 11.7 m), the mount control checked there): at 2 of 18 used-truck seller sites (Risfjord, the relay) `spotNear` parks the truck about 5 m from a door ring, so 2.4 m off the truck the hint is the door's, not "get in the pickup" (and `x2_vehmkt.mjs` fails that assert). Keep `spotNear` 9 m+ from `INT.beacons`, or let the get-in hint win when the vehicle is nearer than the ring; check that Q itself works there.
 - [ ] G4 4.1a1 (beta 0222 #2, POLISH, lane A): blade down at 54 km/h on 7 cm, the drag is 150 N flat with single 0.25 s spikes of 2.6-4.3 kN and no depth change (reads like the depth line crossing a windrow or field-edge cell). Not felt as a stall; look if a stutter is reported. 0222 #5: `TLXV.buyHaul()` returned undefined though a haul record existed, so the hitch prompt with a blade fitted is untested.
 - [ ] G4 4.1b1 (beta 0224 #1/#2, POLISH, lane A): back-dragging over an already plowed yard (6 cm) still pulls 0.3 m3 and leaves a small heap (skip the sweep at or under the plowed level and say "nothing to pull"); blade down IN a 1 m drift the truck will not back out either (the forward drag holds it at 0, so the back-drag branch never starts): use the back-drag drag when the throttle is reverse at a standstill, or word the line "lift it first".
 - [x] G4 (beta 0220 #1, lane A, looked at 18 Nov: a TEST artefact, not a game bug. The puppet set the truck down on uncut snow every frame, the truck's physics read that as airborne (`P.gnd` false) and a blade in the air neither cuts nor marks; a driven truck is airborne 0 of 2845 + 1840 frames. Puppet fixed in both scenarios, 0220 #3's E2-E4 now pass): the tester's `x4_bladeroad_break.mjs` puppet marks only 17/40 and 30/40 lengths of a road stretch going out and back (Skjånes stretch 2; Dyfjord 32/10) where the builder's section E marks 40/40. Rerun it (`USEK=1` for Skjånes), find whether lengths are skipped on bends (`n.d <= half` with the blade's middle 3.25 m ahead, or `B.last` resetting) or it is the puppet's own doing; its E2-E4 (short last stretch, re-opening, opened across a reload) wait on this.
@@ -768,5 +768,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 
 - [ ] G4 2.2 (POLISH, beta 0370 #1, lane A): "Filling stopped" on walking from one machine to another at a pump does
       not say how full the first was left (a sled at 14.2 of 16 L reads as done): add the tank's state to that toast.
+- [ ] G7 I9 (POLISH, beta 0372 #1, lane A): a save's `delivered: 1e15` loads untouched while cash and the clock are
+      capped: hold it to a sane top (1e9) in `saveClean` with the other counters.
+- [ ] G4 2.7 / G7 H1 (POLISH, builder pass 27 Nov, lane A): at Sandfjord a seller's pickup is set down so close to
+      the gapahuk that 2.4 m off its side you are within the fire spot's 4.2 m (the hint beside it is "light the fire ·
+      get in the pickup"): keep `spotNear` clear of trail shelters too, through a list the systems add to rather than a
+      tlx-trails name in tlx-vehicles.
+- [ ] G4 4.1b2a (POLISH, beta 0373 #1/#2, lane A): a shed blade whose `shedC` entry is lost (damaged save) refits with
+      a new edge for free; an edge of 70.5 is charged 29 points and set to 100. Both harmless, left.
 
-Last triaged report: 371
+Last triaged report: 373
