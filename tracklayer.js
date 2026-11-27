@@ -6843,8 +6843,8 @@ function saveClean(d) {
   if (!d || typeof d !== "object" || Array.isArray(d)) return null;
   const kind = v => Array.isArray(v) ? "array" : v === null ? "null" : typeof v;
   const num = v => { if (typeof v === "number") return isFinite(v) ? v : null; if (typeof v === "string" && v.trim() !== "") { const n = +v; return isFinite(n) ? n : null; } return null; };
-  for (const k of ["cash", "delivered", "rescues", "calOff", "mailSeq"]) if (k in d) { const n = num(d[k]); d[k] = n === null ? 0 : k === "cash" || k === "calOff" ? n : Math.max(0, Math.floor(n)); }
-  for (const k of ["hour", "wx"]) if (k in d) { const n = num(d[k]); if (n === null) delete d[k]; else d[k] = n; }
+  for (const k of ["cash", "delivered", "rescues", "calOff", "mailSeq"]) if (k in d) { const n = num(d[k]); d[k] = n === null ? 0 : k === "calOff" ? n : k === "cash" ? Math.min(1e12, Math.max(0, n)) : Math.max(0, Math.floor(n)); }   /* beta 0371 #1/#3: nothing in the game leaves you owing cash, so cash below zero is a damaged file; a bounded top keeps sums exact */
+  for (const k of ["hour", "wx"]) if (k in d) { const n = num(d[k]); if (n === null) delete d[k]; else d[k] = k === "hour" ? Math.min(876000, Math.max(0, n)) : n; }   /* the clock counts up from the first morning: never below 0, a century at most */
   for (const k of ["own", "log", "sar", "mailT", "fish", "mkt", "re", "x", "apps", "lic", "signed", "sdone"]) if (k in d && d[k] !== null && kind(d[k]) !== "object") delete d[k];
   if ("mail" in d && !Array.isArray(d.mail)) delete d.mail;
   const o = d.own;
@@ -6852,7 +6852,7 @@ function saveClean(d) {
     const o0 = OWN0();
     for (const k in o0) if (k in o && kind(o[k]) !== kind(o0[k])) delete o[k];
     for (const k of ["parts", "gear"]) if (o[k]) for (const q in o[k]) if (typeof o[k][q] !== "string") delete o[k][q];
-    if (Array.isArray(o.sleds)) { o.sleds = o.sleds.filter(id => SLEDS.some(s => s.id === id)); if (!o.sleds.length) delete o.sleds; }
+    if (Array.isArray(o.sleds)) { o.sleds = o.sleds.filter((id, i, a) => SLEDS.some(s => s.id === id) && a.indexOf(id) === i); if (!o.sleds.length) delete o.sleds; }
     if (!SLEDS.some(s => s.id === o.sled)) { if (o.sleds) o.sled = o.sleds[0]; else delete o.sled; }
   }
   return d;

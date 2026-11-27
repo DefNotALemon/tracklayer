@@ -85,6 +85,25 @@ await section("D a save somebody edited by hand, loaded straight", async () => {
   ok(h.cash === 4321.5 && h.del === 12 && h.resc === 2 && Math.abs(h.hour - 50.25) < 0.2 && h.off === 24 && h.cond === 0.8, "a sound save loads exactly as before: " + JSON.stringify(h));
 });
 
+await section("E numbers out of range and a sled listed twice (beta 0371)", async () => {
+  await reload({ cash: -500, delivered: -3, rescues: -1, hour: -20, own: { sled: "frontier", sleds: ["frontier", "frontier", "ghost", 7, "frontier"] } });
+  await fresh(); await sleep(1200);
+  const g = await J(`({ cash: GS.cash, del: GS.delivered, resc: GS.rescues, hour: GS.hour, sleds: GS.own.sleds, sled: GS.own.sled, y: P.y })`);
+  console.log("   in play: " + JSON.stringify(g));
+  ok(g.cash === 0 && g.del === 0 && g.resc === 0, `cash, deliveries and rescues below zero come in as 0 (cash ${g.cash})`);
+  ok(g.hour >= 0 && g.hour < 2 && isFinite(g.y), "a clock before the first morning starts at hour 0: " + g.hour);
+  ok(g.sleds.length === 1 && g.sleds[0] === "frontier" && g.sled === "frontier", "a sled listed three times is owned once: " + JSON.stringify(g.sleds));
+  await reload({ cash: 1e300, hour: 1e9, own: { sled: "frontier", sleds: ["frontier"] } });
+  await fresh(); await sleep(1200);
+  const h = await J(`(() => { const c0 = GS.cash; GS.cash += 5; return { c0, up: GS.cash - c0, hour: GS.hour, y: P.y }; })()`);
+  console.log("   in play: " + JSON.stringify(h));
+  ok(h.c0 === 1e12 && h.up === 5, `cash is held to a sum that still counts dollars: $5 earned adds ${h.up}`);
+  ok(h.hour <= 876010 && isFinite(h.y), "the clock is held to a century: " + h.hour);
+  const r = await ev(`TLSLOT.importText(5, ${JSON.stringify(JSON.stringify({ tracklayer: 1, save: { cash: -40, hour: -3, own: { sled: "frontier", sleds: ["frontier", "frontier"] } } }))})`);
+  const d = await J(`JSON.parse(localStorage.getItem("tracklayer.slot.5") || "null")`);
+  ok(r === "" && d && d.cash === 0 && d.hour === 0 && d.own.sleds.length === 1, "a file brought in is stored the same way: " + JSON.stringify(d));
+});
+
 await ev(`window.__noReload = true; ${wipe} true`);
 console.log(fails ? `FAILS: ${fails}` : "all passed");
 await done(fails ? 1 : 0);
