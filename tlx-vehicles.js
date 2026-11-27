@@ -1186,13 +1186,19 @@ function forecourtSpot(d) {
 }
 // a clear, level-enough spot 8-30 m from (cx, cz) for something d.len long: off the water, clear of obstacles, 7 m from you,
 // your sled and every other vehicle. yard: only on plowed ground. yawOf(x, z) gives the way it faces.
+const DOOR_CLEAR = 11;
 function spotNear(cx, cz, d, yard, yawOf) {
   const w = api.world, P = api.P, FOOT = api.FOOT, s = S(), cands = [];
   for (let r = 8; r <= 30; r += 3) for (let a = 0; a < 6.283; a += 0.35) cands.push([cx + Math.cos(a) * r, cz + Math.sin(a) * r, r]);
   cands.sort((a, b) => a[2] - b[2]);
   const others = [[P.x, P.z]]; if (FOOT.on) others.push([FOOT.x, FOOT.z]); for (const r of s.owned) others.push([r.x, r.z]); if (api.veh.sled) others.push([api.veh.sled.x, api.veh.sled.z]);
   if (s.haul && typeof s.haul === "object") others.push([s.haul.x, s.haul.z], haulCoupler(s.haul));
-  for (const [x, z] of cands) {
+  /* beta 0221 #1: at a seller's, clear of every door ring. A door's hint reaches 7.5 m and takes the on-foot line, a truck's
+     get-in hint 3 m: 5.3 m from the Risfjord cabin's ring the hint beside the truck was the door's. Nearest clear spot
+     first; a yard hemmed in by doors falls back to the old rule rather than "no room". The garage forecourt is as it was. */
+  const doors = yard ? [] : ((api.INT && api.INT.beacons) || []).filter(b => b && b.g && b.g.visible);
+  for (const keep of doors.length ? [DOOR_CLEAR, 0] : [0]) for (const [x, z] of cands) {
+    if (keep && doors.some(b => Math.hypot(x - b.x, z - b.z) < keep)) continue;
     if (w.isWater(x, z) || (!yard && w.isSea(x, z)) || w.obNear(x, z, d.len / 2 + 0.6) ) continue;
     let ok = true; for (const [ox, oz] of others) if (Math.hypot(x - ox, z - oz) < 7) { ok = false; break; }
     if (!ok) continue;

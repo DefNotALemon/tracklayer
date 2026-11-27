@@ -16704,7 +16704,7 @@ function wnPrompt() {
       h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (!tutHidden() && rigHint(near)) h = rigHint(near);         // at the rig's tongue: hitch or unhitch it
-    else if (footXUse()) h = footXUse().hint() + (near && !FOOT.dig ? " · " + keyHint("mount", "get on") : "");   // expansion uses (a buried car)
+    else if (footXUse()) h = footXUse().hint() + (near && !FOOT.dig ? " · " + keyHint("mount", VEH.board) : "");   // expansion uses (a buried car)
     else if (tutHidden()) show = false;                              // tutorial: no sled to walk back to yet (the card says where to go)
     else h = (FISH && FISH.hint()) || (near ? keyHint("mount", VEH.board) : FOOT.ski ? `On skis · ${Math.round(Math.abs(FOOT.sp) * 2.237)} mph · ${sledWhere()} · glide back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}` : `${sledWhere()} · walk back and ${INP.dev === "touch" ? "tap" : "press"} ${btn("mount")}`);
   } else if (BOG.on) { show = true; h = VEH.cur ? `STUCK · ${keyHint("dismount", "get out")} and dig · ${btn("reset")}: reset` : `BOGGED · ${keyHint("dismount", "get off")}, ${wd ? "wade to a tree and hook the winch" : "and dig"} · ${btn("reset")}: reset`; }

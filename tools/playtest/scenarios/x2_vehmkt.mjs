@@ -19,8 +19,8 @@ const makeL = (item, lemon, real) => J(`(() => { let l = null; for (let i = 0; i
   if (!l) return null; l.lemon = ${lemon}; l.real = ${real}; if (!${lemon}) l.real = l.adv; l.life = 200; l.mute = false; l.deal = null; GS.mkt.list.push(l); return { id: l.id, site: l.site, ask: l.ask, adv: l.adv, real: l.real, pers: l.pers }; })()`);
 // stop the sled 8-20 m from a site, clear of buildings
 const toSite = id => J(`(() => { const s = SITES.find(q => q.id === "${id}"); crashCancel(); FOOT.on = false;
-  for (let r = 8; r < 21; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r;
-    if (isSea(x, z) || isWater(x, z) || obNear(x, z, 3)) continue;
+  for (const lim of [0.08, 9]) for (let r = 8; r < 21; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r;
+    if (isSea(x, z) || isWater(x, z) || obNear(x, z, 3) || slopeAt(x, z, 8) > lim) continue;   /* level ground first: on the windfarm slope the parked sled slid off at 4 m/s and was no longer "stopped here" */
     P.x = x; P.z = z; P.y = surf(x, z) + 0.2; P.vx = P.vy = P.vz = 0; recenter(x, z, true); return { x, z, r }; }
   return null; })()`);
 
@@ -42,6 +42,9 @@ ok(await ev(`MKT_CATS.some(c => c.id === "veh" && c.name === "Vehicles")`), "Byt
 // ---- 2. listings, the tab, the photos
 const LH = await makeL("haul", false, 0);
 const LP = await makeL("pickup", true, 0.5);
+// one seller in 18 has both: stopped there for the trailer you are already "in person" for the pickup and the steps below
+// (refused from afar, then the lemon shown) have nothing to show. Give the pickup another seller.
+if (LH && LP && LP.site === LH.site) LP.site = await ev(`(() => { const l = GS.mkt.list.find(q => q.id === ${LP.id}), o = mktSites().filter(s => s.id !== l.site); l.site = o[Math.floor(o.length / 2)].id; return l.site; })()`);
 ok(LH && LP, `listings made: trailer #${LH && LH.id} ask $${LH && LH.ask}, pickup #${LP && LP.id} ask $${LP && LP.ask} (${LP && LP.pers})`);
 ok(LP.ask >= 2000 && LP.ask <= 4200 && LH.ask >= 300 && LH.ask <= 1100, `used prices under new: pickup $${LP.ask} (new $4,200), trailer $${LH.ask} (new $950)`);
 await ev(`TABLET.toggle(true, "market"); MKT.view = null; MKT.cat = "veh"; TABLET.render(); true`); await sleep(500);
