@@ -22,7 +22,7 @@
   Pushed 2026-11-24.
 # Builder progress log
 
-## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — 3cf999f
+## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — commit titled "Roads redone, no kerbs anywhere"
 Lemon, 27 Nov: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs". RD1 of the roads direction (loop/OPEN.md build order 3a): the road MODEL, not yet the road ROUTES.
 - Deleted: `townRoads` (ribbon + 1.25 m kerb pieces + snow caps + drain grates + junction squares), `townRoadTex`, `CURB_H/CURB_W`, `crossesAt`, the kerb-gap logic, the vertex-coloured pole cylinder. The network roads had no mesh (a plowed snow channel only), so their surface is new. No code says kerb/curb any more (asserted).
 - Built: `tlx-roadkit.js` (`TLXRK`), loaded before `tlx-roads.js`; 13 roads (7 town streets, 6 routes), 282 chunks, 246 k vertices, made lazily nearest first (boot 230-410 ms). 19-column ribbon draped on `surf()` within 1.2-7 cm, junction mouths cut/projected/flared (20), tapers (10), turning places (16), one surface shader (aged asphalt, wheel paths, cracks, sealed cracks, patches, markings, gravel, winter snow/ice/tracks/banks, wet), road snow state per stretch drives it, seasons drive it (July = bare), opaque + alphaToCoverage, low preset variant, poles in pairs (50 m, 25 m in bends) with a headlight reflector, lamps moved onto the shoulder.
