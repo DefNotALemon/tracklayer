@@ -1500,7 +1500,7 @@ Safety updates cut in on every station with a two-tone alert: storm warnings, th
 
 ## Saves
 
-The title menu has **SAVES**: five slots, each a card with its name, where you were, the date in the game, your cash, deliveries and time played, and a small picture. Pick a slot to load it, start a new game in an empty one, copy it into another slot, rename it, delete it, save it to a file or load one from a file (to move a game between browsers or keep a backup). START OVER on the slot in play begins that slot again. The game you had before slots is Save 1.
+The title menu has **SAVES**: five slots, each a card with its name, where you were, the date in the game, your cash, deliveries and time played, and a small picture. Pick a slot to load it, start a new game in an empty one, copy it into another slot, rename it, delete it, save it to a file or load one from a file (to move a game between browsers or keep a backup). START OVER on the slot in play begins that slot again. The game you had before slots is Save 1. Once you press LOAD (or NEW GAME HERE) the panel's buttons go dead until the other game is up, so a second click cannot put the game you are leaving over another slot. A save file is checked as it comes in: one that is not a game is refused, and one with the wrong kind of thing in it (cash written as a word, a sled that does not exist) comes in with those set to a new game's values rather than breaking the game it loads.
 
 ## Controller haptics
 

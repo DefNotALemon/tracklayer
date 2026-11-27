@@ -6816,23 +6816,47 @@ const SLOT = { N: 5, lock: false, t0: 0, played: 0,
   touch() { if (!started) return; const now = performance.now(), dt = SLOT.t0 ? Math.min(120, (now - SLOT.t0) / 1000) : 0; SLOT.t0 = now; if (dt <= 0) return; const ix = SLOT.idx(), m = ix.m[ix.cur] = ix.m[ix.cur] || {}; m.played = (+m.played || 0) + dt; m.at = Date.now(); try { m.place = window.TLXN && TLXN.placeOf ? String(TLXN.placeOf(FOOT.on ? FOOT.x : P.x, FOOT.on ? FOOT.z : P.z) || "") : m.place || ""; } catch (e) { } SLOT.put(ix); },
   thumb() { try { const c = document.createElement("canvas"); c.width = 160; c.height = 90; if (gramShot({ cam: camera, ctx: c.getContext("2d"), w: 160, h: 90, hour: GS.hour, storm: GS.storm, noShadow: true })) return c.toDataURL("image/jpeg", 0.6); } catch (e) { } return ""; },
   // store the game in play into its slot
-  stash(pic) { const ix = SLOT.idx(); if (hasSave() || localStorage.getItem("tracklayer.save.v2")) { const l = SLOT.lock; SLOT.lock = false; save(); SLOT.lock = l; } let b = null; try { b = localStorage.getItem("tracklayer.save.v2"); } catch (e) { } const ix2 = SLOT.idx(); if (b) { try { localStorage.setItem("tracklayer.slot." + ix2.cur, b); } catch (e) { return false; } const m = ix2.m[ix2.cur] = ix2.m[ix2.cur] || {}; if (pic) { const t = SLOT.thumb(); if (t) m.pic = t; } m.at = Date.now(); } SLOT.put(ix2); void ix; return true; },
+  // (never once a change of slot is under way: the index already names the other slot, so the game still on screen would land in it)
+  stash(pic) { if (SLOT.lock) return false; const ix = SLOT.idx(); if (hasSave() || localStorage.getItem("tracklayer.save.v2")) { const l = SLOT.lock; SLOT.lock = false; save(); SLOT.lock = l; } let b = null; try { b = localStorage.getItem("tracklayer.save.v2"); } catch (e) { } const ix2 = SLOT.idx(); if (b) { try { localStorage.setItem("tracklayer.slot." + ix2.cur, b); } catch (e) { return false; } const m = ix2.m[ix2.cur] = ix2.m[ix2.cur] || {}; if (pic) { const t = SLOT.thumb(); if (t) m.pic = t; } m.at = Date.now(); } SLOT.put(ix2); void ix; return true; },
   // leave for another slot (an empty one starts a new game)
-  go(n) { n = +n; if (!(n >= 1 && n <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (n === ix0.cur) return false; if (!SLOT.stash(true)) return false; const ix = SLOT.idx(); let b = null; try { b = localStorage.getItem("tracklayer.slot." + n); } catch (e) { }
+  go(n) { n = +n; if (SLOT.lock || !(n >= 1 && n <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (n === ix0.cur) return false; if (!SLOT.stash(true)) return false; const ix = SLOT.idx(); let b = null; try { b = localStorage.getItem("tracklayer.slot." + n); } catch (e) { }
     SLOT.lock = true; try { if (b) localStorage.setItem("tracklayer.save.v2", b); else localStorage.removeItem("tracklayer.save.v2"); } catch (e) { SLOT.lock = false; return false; } ix.cur = n; SLOT.put(ix); SLOT.reload(); return true; },
   reload() { if (window.__noReload) { window.__reloadAsked = (window.__reloadAsked || 0) + 1; return; } location.reload(); },
-  copy(a, b) { a = +a; b = +b; if (a === b || !(b >= 1 && b <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (b === ix0.cur) return false; if (a === ix0.cur) SLOT.stash(true); const src = SLOT.blob(a); if (!src) return false; try { localStorage.setItem("tracklayer.slot." + b, src); } catch (e) { return false; } const ix = SLOT.idx(); ix.m[b] = Object.assign({}, ix.m[a] || {}, { name: SLOT.name(a) + " copy", at: Date.now() }); return SLOT.put(ix); },
-  del(n) { n = +n; const ix = SLOT.idx(); try { localStorage.removeItem("tracklayer.slot." + n); } catch (e) { } delete ix.m[n]; SLOT.put(ix); if (n === ix.cur) { SLOT.lock = true; try { localStorage.removeItem("tracklayer.save.v2"); } catch (e) { } SLOT.reload(); } return true; },
+  copy(a, b) { a = +a; b = +b; if (SLOT.lock || a === b || !(b >= 1 && b <= SLOT.N)) return false; const ix0 = SLOT.idx(); if (b === ix0.cur) return false; if (a === ix0.cur) SLOT.stash(true); const src = SLOT.blob(a); if (!src) return false; try { localStorage.setItem("tracklayer.slot." + b, src); } catch (e) { return false; } const ix = SLOT.idx(); ix.m[b] = Object.assign({}, ix.m[a] || {}, { name: SLOT.name(a) + " copy", at: Date.now() }); return SLOT.put(ix); },
+  del(n) { n = +n; if (SLOT.lock) return false; const ix = SLOT.idx(); try { localStorage.removeItem("tracklayer.slot." + n); } catch (e) { } delete ix.m[n]; SLOT.put(ix); if (n === ix.cur) { SLOT.lock = true; try { localStorage.removeItem("tracklayer.save.v2"); } catch (e) { } SLOT.reload(); } return true; },
   rename(n, name) { name = String(name || "").replace(/[<>&"]/g, "").trim().slice(0, 24); if (!name) return false; const ix = SLOT.idx(); (ix.m[n] = ix.m[n] || {}).name = name; return SLOT.put(ix); },
   // a file: { tracklayer: 1, name, played, save }
   exportText(n) { n = +n; const ix = SLOT.idx(); if (n === ix.cur) SLOT.stash(false); const b = SLOT.blob(n); if (!b) return null; let d = null; try { d = JSON.parse(b); } catch (e) { return null; } return JSON.stringify({ tracklayer: 1, name: SLOT.name(n), played: Math.round((ix.m[n] && ix.m[n].played) || 0), save: d }); },
   exportFile(n) { const t = SLOT.exportText(n); if (!t) return false; try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type: "application/json" })); a.download = "tracklayer-" + SLOT.name(n).toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".json"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; } catch (e) { return false; } },
-  importText(n, text) { n = +n; if (!(n >= 1 && n <= SLOT.N)) return "No such slot."; let d = null; try { d = JSON.parse(text); } catch (e) { return "That file is not a Tracklayer save."; } const sv = d && d.tracklayer && d.save ? d.save : d; if (!sv || typeof sv !== "object" || Array.isArray(sv) || !(("cash" in sv) && ("own" in sv))) return "That file is not a Tracklayer save.";
+  importText(n, text) { n = +n; if (SLOT.lock) return "Changing games: one moment."; if (!(n >= 1 && n <= SLOT.N)) return "No such slot."; let d = null; try { d = JSON.parse(text); } catch (e) { return "That file is not a Tracklayer save."; } const sv = d && d.tracklayer && d.save ? d.save : d; if (!sv || typeof sv !== "object" || Array.isArray(sv) || !(("cash" in sv) && ("own" in sv)) || !sv.own || typeof sv.own !== "object" || Array.isArray(sv.own)) return "That file is not a Tracklayer save.";
+    saveClean(sv);   /* what is stored is a game that loads: numbers are numbers, the machines are a table */
     const ix = SLOT.idx(), cur = n === ix.cur; if (cur) SLOT.lock = true; try { localStorage.setItem(cur ? "tracklayer.save.v2" : "tracklayer.slot." + n, JSON.stringify(sv)); if (cur) localStorage.setItem("tracklayer.slot." + n, JSON.stringify(sv)); } catch (e) { SLOT.lock = false; return "No room to store it."; }
     ix.m[n] = { name: String((d && d.name) || "Imported").replace(/[<>&"]/g, "").slice(0, 24), played: +(d && d.played) || 0, at: Date.now() }; SLOT.put(ix); if (cur) SLOT.reload(); return ""; },
   cards() { const ix = SLOT.idx(), out = []; for (let n = 1; n <= SLOT.N; n++) { let d = null; const b = SLOT.blob(n); if (b) { try { d = JSON.parse(b); } catch (e) { d = null; } } const m = ix.m[n] || {}; out.push({ n, cur: n === ix.cur, empty: !d || (n === ix.cur && !hasSave() && !d), name: SLOT.name(n), card: SLOT.cardOf(d), place: m.place || "", played: +m.played || 0, pic: m.pic || "" }); } return out; }
 };
 window.TLSLOT = SLOT;
+/* A stored game made safe to load (beta 0366 #2). A save file brought in from outside, or a save somebody edited, can
+   hold anything: cash "lots" loaded as a string and every sum after it glued text together. Numbers become numbers
+   (or their default), and anything in `own` that is not the kind of thing a new game has there (a table, a list, a
+   name) is dropped so the new game's own value stands. Mutates and returns d; null for something that is no save. */
+function saveClean(d) {
+  if (!d || typeof d !== "object" || Array.isArray(d)) return null;
+  const kind = v => Array.isArray(v) ? "array" : v === null ? "null" : typeof v;
+  const num = v => { if (typeof v === "number") return isFinite(v) ? v : null; if (typeof v === "string" && v.trim() !== "") { const n = +v; return isFinite(n) ? n : null; } return null; };
+  for (const k of ["cash", "delivered", "rescues", "calOff", "mailSeq"]) if (k in d) { const n = num(d[k]); d[k] = n === null ? 0 : k === "cash" || k === "calOff" ? n : Math.max(0, Math.floor(n)); }
+  for (const k of ["hour", "wx"]) if (k in d) { const n = num(d[k]); if (n === null) delete d[k]; else d[k] = n; }
+  for (const k of ["own", "log", "sar", "mailT", "fish", "mkt", "re", "x", "apps", "lic", "signed", "sdone"]) if (k in d && d[k] !== null && kind(d[k]) !== "object") delete d[k];
+  if ("mail" in d && !Array.isArray(d.mail)) delete d.mail;
+  const o = d.own;
+  if (o) {
+    const o0 = OWN0();
+    for (const k in o0) if (k in o && kind(o[k]) !== kind(o0[k])) delete o[k];
+    for (const k of ["parts", "gear"]) if (o[k]) for (const q in o[k]) if (typeof o[k][q] !== "string") delete o[k][q];
+    if (Array.isArray(o.sleds)) { o.sleds = o.sleds.filter(id => SLEDS.some(s => s.id === id)); if (!o.sleds.length) delete o.sleds; }
+    if (!SLEDS.some(s => s.id === o.sled)) { if (o.sleds) o.sled = o.sleds[0]; else delete o.sled; }
+  }
+  return d;
+}
 function save() { if (SLOT.lock) return; SLOT.touch(); try { localStorage.setItem("tracklayer.save.v2", JSON.stringify({ cash: GS.cash, delivered: GS.delivered, rescues: GS.rescues || 0, own: SCHOOL.saved || GS.own, hour: +GS.hour.toFixed(3), calOff: CAL.off, wx: WX.seed, log: { m: Math.round(LOG.m), trees: LOG.trees, air: +LOG.air.toFixed(2), jump: +LOG.jump.toFixed(2), fjord: LOG.fjord, mail: LOG.mail, sar: LOG.sar, sarLost: LOG.sarLost, crashes: LOG.crashes, hosp: LOG.hosp }, sar: { duty: SAR.duty, rep: +SAR.rep.toFixed(1), n: SAR.n, lost: SAR.lost, ign: SAR.ign }, mail: GS.mail, mailT: GS.mailT, mailSeq: GS.mailSeq, fish: GS.fish || null, apps: GS.apps, lic: GS.lic, signed: GS.signed, sdone: GS.sdone, tut: TUT ? TUT.stage : 99, tutA: TUT ? TUT.a : null, tutB: TUT ? TUT.b : null, mkt: GS.mkt || null, re: GS.re || null, x: TLX.dump() })); } catch (e) { } }
 addEventListener("pagehide", () => { if (started) save(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && started) save(); });
@@ -6840,8 +6864,8 @@ function load() {
   GS.own = OWN0();
   let d0 = null;
   try {
-    const d = d0 = JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null");
-    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.sar && typeof d.sar === "object") { SAR.duty = !!d.sar.duty; SAR.rep = isFinite(+d.sar.rep) ? clamp(+d.sar.rep, 0, 100) : 10; SAR.n = d.sar.n | 0; SAR.lost = d.sar.lost | 0; SAR.ign = d.sar.ign | 0; } if (d.own) { const parts0 = GS.own.parts; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); } }
+    const d = d0 = saveClean(JSON.parse(localStorage.getItem("tracklayer.save.v2") || "null"));
+    if (d) { GS.cash = d.cash || 0; GS.delivered = d.delivered || 0; GS.rescues = d.rescues || 0; if (typeof d.hour === "number" && isFinite(d.hour)) GS.hour = d.hour; CAL.off = d.calOff || 0; if (d.wx) WX.seed = d.wx; if (d.log) for (const k in LOG) { const v = +d.log[k]; LOG[k] = isFinite(v) && v > 0 ? v : 0; } if (Array.isArray(d.mail)) { GS.mail = d.mail; GS.mailT = d.mailT || {}; GS.mailSeq = d.mailSeq || 0; } GS.fish = d.fish || null; for (const k of ["apps", "lic", "signed", "sdone"]) GS[k] = d[k] && typeof d[k] === "object" ? d[k] : {}; if (d.sar && typeof d.sar === "object") { SAR.duty = !!d.sar.duty; SAR.rep = isFinite(+d.sar.rep) ? clamp(+d.sar.rep, 0, 100) : 10; SAR.n = d.sar.n | 0; SAR.lost = d.sar.lost | 0; SAR.ign = d.sar.ign | 0; } if (d.own) { const parts0 = GS.own.parts, gear0 = GS.own.gear; Object.assign(GS.own, d.own); GS.own.parts = Object.assign(parts0, d.own.parts || {}); GS.own.gear = Object.assign(gear0, d.own.gear || {}); } }
     else { const old = JSON.parse(localStorage.getItem("tracklayer.save.v1") || "null"); if (old) { GS.cash = old.cash || 0; GS.delivered = old.delivered || 0; } }
   } catch (e) { }
   // the first-ride tutorial: older saves (anyone who's played before) skip it
@@ -14411,8 +14435,9 @@ function savesPanel(sub, msg) {
   p.className = "tpanel saves"; p.innerHTML = h; p.hidden = false; p.setAttribute("aria-label", "Saves"); TT.mode = "panel"; $("title").classList.add("dim");
   p.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => {
     const [a, x, y] = b.dataset.s.split(":"), n = +x;
+    if (SLOT.lock) return;
     if (a === "close") titleBack(); else if (a === "over") titlePanel("confirm"); else if (a === "list") savesPanel(); else if (a === "open") savesPanel({ n }); else if (a === "del") savesPanel({ n, kind: "del" }); else if (a === "copy") savesPanel({ n, kind: "copy" });
-    else if (a === "go") { if (!SLOT.go(n)) savesPanel({ n }, "Could not change slot: the browser's storage is full or blocked."); }
+    else if (a === "go") { if (!SLOT.go(n)) savesPanel({ n }, "Could not change slot: the browser's storage is full or blocked."); else { p.querySelectorAll("button").forEach(q => { q.disabled = true; }); b.textContent = "LOADING…"; } }   /* the page is about to reload: a second click must find nothing to press (beta 0366 #1) */
     else if (a === "delgo") { SLOT.del(n); savesPanel(null, "Deleted."); titleRender(); }
     else if (a === "copygo") savesPanel(null, SLOT.copy(n, +y) ? "Copied." : "Could not copy: the browser's storage is full.");
     else if (a === "ren") { const v = window.prompt("Name this save", SLOT.name(n)); if (v !== null) { SLOT.rename(n, v); titleRender(); } savesPanel({ n }); }
