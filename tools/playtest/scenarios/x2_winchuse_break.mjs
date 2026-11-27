@@ -23,12 +23,12 @@ if (found) {
   // A: tree at the edge: walker 1 m from the tree, sled (fairlead) len+3 m away from the tree -> HOOK label but out of reach?
   await ev(`(() => { const a = ${JSON.stringify(found)}; const far = ${len} + 3; P.x = a.x + far; P.z = a.z; P.yaw = -Math.PI / 2; FOOT.x = a.x + 1.2; FOOT.z = a.z; true; })()`); await sleep(500);
   let s = await S(); console.log("A", JSON.stringify(s));
-  if (s.use === "HOOK") {
-    await tap("KeyE"); await sleep(400); s = await S(); console.log("A after E", JSON.stringify(s));
-    ok(s.wn !== "hooked", "A out of reach: E does not hook (label said HOOK, wn=" + s.wn + ")");
-    ok(s.toast.some(t => /out of reach/.test(t)), "A out of reach: a toast says so " + JSON.stringify(s.toast));
-    console.log("NOTE A: label HOOK offered while the hook is out of reach");
-  } else console.log("A footUse", s.use, "(no HOOK label offered: fine)");
+  ok(s.use === null, "A out of reach: no verb promised (" + s.use + ")");
+  ok(!/strap the/.test(s.hint), "A out of reach: the hint does not offer the strap: \"" + s.hint + "\"");
+  await ev(`window.__ts = []; window.__tsI = window.__tsI || setInterval(() => { for (const e of document.querySelectorAll("#toasts *")) if (!window.__ts.includes(e.textContent)) window.__ts.push(e.textContent); }, 60); true`);
+  await tap("KeyE"); await sleep(500); s = await S(); const seenA = JSON.parse(await ev(`JSON.stringify(window.__ts)`));
+  ok(s.wn !== "hooked", "A out of reach: E does not hook (wn=" + s.wn + ")");
+  ok(seenA.some(t => /out of reach/.test(t)), "A out of reach: E says so " + JSON.stringify(seenA));
   // B: tree in reach: hooks, label flips to UNHOOK, E unhooks
   await ev(`(() => { const a = ${JSON.stringify(found)}; P.x = a.x + 6; P.z = a.z; FOOT.x = a.x + 1.2; FOOT.z = a.z; WN.state = "out"; true; })()`); await sleep(500);
   s = await S(); console.log("B", JSON.stringify(s));
@@ -47,7 +47,16 @@ if (found) {
   await ev(`TABLET.toggle(true, "map"); true`); await sleep(500);
   const before = (await S()).wn; await tap("KeyE"); await sleep(300); s = await S();
   ok(s.wn === before, "E tablet open (winch hooked): E does nothing behind it (" + before + " -> " + s.wn + ")");
-  await ev(`TABLET.toggle(false); true`); await sleep(300);
+  ok(before === "hooked", "E set-up: hooked before the tablet came up (" + before + ")");
+  ok(s.use === null, "E tablet open: no verb offered behind it (" + s.use + ")");
+  await L3(); s = await S(); ok(s.wn === before, "E tablet open: pad L3 does nothing behind it (" + s.wn + ")");
+  await ev(`SET.touch = "on"; setTouchUI(); true`); await sleep(300);
+  await ev(`(() => { const b = $("tcUse"); b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 7, pointerType: "touch" })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch" })); return true; })()`); await sleep(300);
+  s = await S(); ok(s.wn === before, "E tablet open: the touch button does nothing behind it (" + s.wn + ", button " + s.tc + ")");
+  await ev(`SET.touch = "auto"; setTouchUI(); TABLET.toggle(false); true`); await sleep(500);
+  s = await S(); ok(s.use === "UNHOOK", "E tablet away: the verb is back (" + s.use + ")");
+  await tap("KeyE"); await sleep(400); s = await S(); ok(s.wn !== "hooked", "E tablet away: E unhooks (" + s.wn + ")");
+  await tap("KeyE"); await sleep(400); s = await S(); ok(s.wn === "hooked", "E hooked again for the reload check (" + s.wn + ")");
   // F: reload while hooked: no stale hook
   await reload(); await sleep(1500); await ev(`tutSkip(); true`); await sleep(500); s = await S(); console.log("F", JSON.stringify(s));
   ok(s.wn !== "hooked", "F reload while hooked: not hooked after (" + s.wn + ")");

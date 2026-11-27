@@ -2598,7 +2598,7 @@ function readInput(dt) {
     const v = gp.buttons[11] && gp.buttons[11].pressed; if (!v && padView && started && !(window.TLXCAM && TLXCAM.claimR3())) cycleView(); padView = v;   // on release: a hold lifts the camera (tlx-camera.js), a tap changes the view
     const dl = gp.buttons[14] && gp.buttons[14].pressed; if (dl && !padWipe && started && !godOpen && !TABLET.open && !(TLX.gunwheel && TLX.gunwheel.claimsDpadLeft())) wipeVisor(); padWipe = dl;   // rifle owners: a tap wipes on release, a hold opens the gun wheel (tlx-gunwheel.js)   // D-pad left wipes the visor
     const dd = gp.buttons[13] && gp.buttons[13].pressed; if (dd && !padBand && started && !godOpen && !TABLET.open && !camUp()) gameKey({ code: helpWanted() && !(TLX.wounds && TLX.wounds.dressable && TLX.wounds.dressable()) ? "KeyP" : "KeyU" }); padBand = dd;   // D-pad down: a bandage while a fresh wound can still be dressed, else call for help in the fjord / on an empty tank, else a bandage
-    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on && !godOpen && !TABLET.open) gameKey({ code: "KeyE" }); else if (!rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
+    const l3 = gp.buttons[10] && gp.buttons[10].pressed; if (l3 && !padHorn && started) { if (FOOT.on) { if (!godOpen && !TABLET.open) gameKey({ code: "KeyE" }); } else if (!rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); } padHorn = l3;   // L3 is E: on foot the use action (hook, dig, help someone up), else fish / shop / sell, else the horn
     const dr = gp.buttons[15] && gp.buttons[15].pressed; if (dr && !padWx && started && !godOpen && !GS.garageOpen && !TABLET.open) TABLET.toggle(true, "weather"); padWx = dr;   // d-pad right: straight into the Weather app
     const du = gp.buttons[12] && gp.buttons[12].pressed; if (du && !padTab && started && !godOpen && !GS.garageOpen && !TABLET.open && !camUp()) TABLET.toggle(true); padTab = du;   // d-pad up: the dash tablet
     const wg = gp.buttons[4] && gp.buttons[4].pressed; if (wg && !TOW.padWing && started && !godOpen) toggleWings(); TOW.padWing = wg;
@@ -9388,7 +9388,7 @@ function gameKey(e) {
   if (typeof DMT !== "undefined" && DMT.on) return;                                        // nor mid-climb-off
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
   if (e.code === "KeyX") { footAssess(); return; }
-  if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; footAction(); return; }
+  if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; if (TABLET.open) return; footAction(); return; }   /* behind the tablet the use control rests (it used to unhook the winch or start digging unseen) */
   if (e.code === "KeyE") { if (!e.repeat && !rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
   if (e.code === "KeyB") { TABLET.toggle(undefined, "weather"); return; }   // B for barometer: the tablet's Weather app
@@ -15929,7 +15929,7 @@ function footXDig() { for (const p of footX()) if (p.digging && p.digging()) ret
 // What E would do right here on foot, as one word (the touch button wears it), or null when there's nothing to use.
 // Reads only: the doing is footAction. Keep the two in step.
 function footUse() {
-  if (!FOOT.on || GS.dead || GS.garageOpen || tutHidden()) return null;
+  if (!FOOT.on || GS.dead || GS.garageOpen || tutHidden() || TABLET.open) return null;   // behind the tablet the control rests (gameKey, the pad's L3)
   const c = SAR.cur;
   if (c && !c.res) {
     const v = c.v;
@@ -15943,7 +15943,10 @@ function footUse() {
     else if (WN.state === "out" && WN.snapT <= 0 && nv && de < 2.6) return "HOOK";
   }
   if (WN.state === "hooked" && WN.mode === "self") { const a = WN.anchor; return a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8 ? "UNHOOK" : null; }
-  if (wd && WN.state === "out" && WN.snapT <= 0 && anchorsNear(FOOT.x, FOOT.z, 2.6).length) return "HOOK";
+  if (wd && WN.state === "out" && WN.snapT <= 0) {   // HOOK only at an anchor the line reaches (footAction's own test: it used to promise HOOK at a tree the line could not reach)
+    const cands = anchorsNear(FOOT.x, FOOT.z, 2.6);
+    if (cands.length) { const fl = fairlead(); return cands.some(c2 => Math.hypot(c2.o.x - fl[0], c2.o.z - fl[2]) <= wd.len - 0.4) ? "HOOK" : null; }
+  }
   if (!BOG.on && VEH.rigFoot) { const r = VEH.rigFoot(); if (r && r.label) return r.label; }   // at the rig's tongue: HITCH / UNHITCH (tlx-vehicles.js)
   { const r = footXUse(); if (r) return r.label; }                                            // expansion uses (a buried car: DIG)
   if (BOG.on && WN.state !== "hooked" && Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 2.6) return FOOT.dig ? "STOP" : "DIG";
