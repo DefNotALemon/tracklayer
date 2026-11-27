@@ -49,7 +49,7 @@ Pay buys a better sled, then a pickup, then a lorry. The harder the country you 
 ## F. From one sled to a company
 *Build a winter haulage business.* For: Tycoon and management players who want to drive the trucks themselves.
 
-**Short description** (209/300): Start as a courier with one snowmobile. End up running the trucks, the plow contracts and the drivers that keep a peninsula in the Arctic supplied through winter. Every job can be done by you or by your staff.
+**Short description** (162/300): Start as a courier with one snowmobile. End up running the trucks, the plow contracts and the drivers that keep a peninsula in the Arctic supplied through winter.
 
 **About this game**
 

@@ -38,8 +38,7 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
 0. STEAM RELEASE (Lemon, 27 Nov: "i want to register a steam page for tracklayer", then "start on all of those ...
    get me plenty of optionss for store pages"). Placed first by the supervisor because it has outside deadlines
    (Valve's waiting periods) and he asked for it by name today; move it if he says so. Target 27 Jan 2027. Plan and
-   slice table `loop/STEAM.md`. S1 desktop shell done (v296; never run on Windows, full screen and pad untested); S2 six store page options
-   shown to him, waiting on his pick; S3 final assets wait on that pick; S4 waits on his Steamworks App ID.
+   slice table `loop/STEAM.md`. S1 desktop shell done (v296; never run on Windows, full screen and pad untested); S2 done: he picked option F ("From one sled to a company") with the night aurora capsule; S3 final assets for F not started; S4 waits on his Steamworks App ID.
 Then back to the newer directions (G9 the raid, I7 field guide, G8 houses). The expansion lanes (G4) keep
 running beside this under the governor.
 
@@ -69,6 +68,7 @@ running beside this under the governor.
 | Mountains grey far away, white up close (G3) | 26 Oct | still open |
 | Summer hiking trails and swimming | 25 Nov (he expected it in G4's seasons) | not built: slice I10 |
 | Clothing: a real wardrobe, all or nothing | 25 Nov | not started on purpose; waits for his call |
+| Every job can be done by you or by your staff. His words on the Steam page line that said so: "i want it applied, but not written i feel like it giives the player a lot of expectation". So the game works that way, and no store text promises it | 27 Nov | not started as a goal: today staff only drive plow roads (Staff app). Deliveries, haulage, rescue, tours, armed work and driveways have no staff path |
 | Cooking | 25 Nov | his later update; I1 and I3 build kitchens ready for it |
 
 ## Needs Lemon's hands

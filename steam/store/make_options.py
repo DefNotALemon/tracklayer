@@ -43,7 +43,7 @@ OPTIONS = [
     who="Tycoon and management players who want to drive the trucks themselves.",
     cap="night_town_street_up", capx=50, capy=70, logo="stamp", pos="tl", sub="Nordkinn Transport",
     shots=["noon_town_over", "night_town_house0_up", "noon_rear_trail", "noon_street"],
-    short="Start as a courier with one snowmobile. End up running the trucks, the plow contracts and the drivers that keep a peninsula in the Arctic supplied through winter. Every job can be done by you or by your staff.",
+    short="Start as a courier with one snowmobile. End up running the trucks, the plow contracts and the drivers that keep a peninsula in the Arctic supplied through winter.",
     about=["The roads need opening after every storm. The villages need freight. Households need their driveways cut without the snow ending up against the neighbour's door.",
            "Sign for the work, buy the machines, hire the drivers. When one of them bogs a truck in a drift at night, go and tow them out yourself."],
     bullets=["Road, driveway and car-park plowing contracts with real snow to move and somewhere to put it",
