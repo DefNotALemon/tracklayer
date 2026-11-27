@@ -17,7 +17,7 @@ console.log(JSON.stringify(s));
 ok(s.mobile && s.phone && s.ios && !s.sa, "GFX detects an iPhone (mobile, phone, ios, not standalone)");
 ok(s.tc && !s.hidden, "touch controls are on and visible");
 ok(!s.tip, "the card is dismissed by launching (it shows on the title menu)");
-await ev(`toggleSettings(true); $("fsBtn").click(); true`); await sleep(400);
+await ev(`toggleSettings(true, "graphics"); $("fsBtn").click(); true`); await sleep(400);
 s = JSON.parse(await ev(`JSON.stringify({ b: $("fsBtn").textContent, bh: $("fsBtn").hidden, tip: !$("fsTip").hidden, how: $("fsHow").textContent })`)); console.log(JSON.stringify(s));
 ok(!s.bh && /how/i.test(s.b) && s.tip && /Add to Home Screen/.test(s.how), "iPhone (ios, not standalone, no fullscreen API): Settings > Full screen: how opens the Add to Home Screen card");
 await shot("m_tip");

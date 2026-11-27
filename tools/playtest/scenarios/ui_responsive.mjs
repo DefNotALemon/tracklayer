@@ -151,8 +151,8 @@ async function touchChecks(tag, W, H, foot) {
   const cx = { x: W * 0.4, y: H * 0.3, w: W * 0.2, h: H * 0.4 }, inw = btn.filter(r => overlap(r, cx, 1));
   ok(!inw.length, `${tag}: centre (middle 20% x 40%) clear of touch buttons ${inw.map(fmt).join(" ")}`);
 }
-async function modalChecks(tag, W, H, id, openJs, closeJs) {
-  await ev(openJs); await sleep(650);
+async function modalChecks(tag, W, H, id, openJs, closeJs, sfx = "") {
+  tag += sfx; await ev(openJs); await sleep(650);
   const p = await J(`window.__ui.rects("#${id}")[0] || null`);
   ok(!!p, `${tag} ${id}: opens`);
   if (p) {
@@ -163,11 +163,12 @@ async function modalChecks(tag, W, H, id, openJs, closeJs) {
     ok(mf >= 10, `${tag} ${id}: text >= 10px (min ${mf})`);
     const cl = await J(`(() => { const b = document.querySelector("#${id} .xbtn, #${id} #closeSet, #${id} #closeGarage"); if (!b) return null; const r = b.getBoundingClientRect(), p = document.getElementById("${id}").getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, id: "close", inP: r.top >= p.top - 1 && r.bottom <= p.bottom + 1 }; })()`);
     ok(!cl || (cl.inP && inside(cl, W, H)), `${tag} ${id}: close button on screen ${cl ? fmt(cl) : "(none)"}`);
-    await snap("modal", `${cur[0]}_${id}`);
+    await snap("modal", `${cur[0]}_${id}${sfx.replace(/\W+/g, "_")}`);
   }
   await ev(closeJs); await sleep(300);
 }
 
+const SETPG = ["top", "game", "graphics", "sound"];
 // ===== run =====
 console.log("== A. title ==");
 await view(VP[2]);
@@ -183,7 +184,7 @@ ok(tsP !== tsL, `title relayouts on orientation flip (portrait --ts ${tsP}, land
 // settings / garage opened from the title menu
 for (const v of [VP[0], VP[2], VP[9], VP[10], VP[7]]) {
   await view(v); const [, W, H] = v;
-  await modalChecks(`title ${v[0]}`, W, H, "settings", "toggleSettings(true); true", "toggleSettings(false); true");
+  for (const pg of SETPG) await modalChecks(`title ${v[0]}`, W, H, "settings", `toggleSettings(true, "${pg}"); true`, "toggleSettings(false); true", " page " + pg);
 }
 
 console.log("== B. launch ==");
@@ -211,8 +212,9 @@ console.log("== C. modals + tablet ==");
 for (const v of VP) {
   await view(v); const [name, W, H, touch] = v;
   await ev("crashCancel(); FOOT.on = false; true"); await sleep(600);
-  await modalChecks(`ride ${name}`, W, H, "settings", "toggleSettings(true); true", "toggleSettings(false); true");
+  for (const pg of SETPG) await modalChecks(`ride ${name}`, W, H, "settings", `toggleSettings(true, "${pg}"); true`, "toggleSettings(false); true", " page " + pg);   // the top page and each of Game, Graphics, Sound
   await modalChecks(`ride ${name}`, W, H, "garage", "openGarage(); true", "closeGarage(); true");
+  await modalChecks(`ride ${name}`, W, H, "garage", `garageTab = "paint"; openGarage(); true`, `closeGarage(); garageTab = "sleds"; true`, " paint shop");
   // tablet map app
   await ev(`TABLET.toggle(true, "map"); true`); await sleep(900);
   const t = await J(`window.__ui.rects("#tabS")[0] || null`);

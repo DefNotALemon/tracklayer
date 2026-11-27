@@ -9,7 +9,7 @@ async function waitGame(s) { const t0 = await clock(); while ((await clock()) - 
 
 await boot();
 await ev(`tutSkip(); FOOT.on = false; crashCancel(); true`); await sleep(500);
-await ev(`toggleSettings(true); true`); await sleep(500);
+await ev(`toggleSettings(true, "game"); true`); await sleep(500);   // the option is on the Game page
 let r = await row(); console.log("row", JSON.stringify(r));
 ok(r && r.sec && /Poachers on the fell: on/.test(r.t), "Options row shows 'on' by default (" + (r && r.t) + ")");
 // pad: walk the focus down until it lands on the row, press A

@@ -2536,7 +2536,7 @@ function touchCanvasUp(e) {
     b.addEventListener("contextmenu", e => e.preventDefault());
   }
 }
-function cycleView() { camMode = (camMode + 1) % VIEWS.length; camState.init = false; toast(VIEWS[camMode].n + " view"); }
+function cycleView() { camMode = (camMode + 1) % VIEWS.length; camState.init = false; toast(VIEWS[camMode].n + " view"); SET.view = camMode; saveSettings(); }   // the view you leave it on is remembered
 function readInput(dt) {
   const arw = c => !godOpen && keys.has(c);                               // the mod menu takes the arrows; W A S D still drive under it
   let thr = (keys.has("KeyW") || arw("ArrowUp")) ? 1 : 0, brk = (keys.has("KeyS") || arw("ArrowDown")) ? 1 : 0;
@@ -9416,7 +9416,7 @@ const STYLES = [["solid", "Solid"], ["twotone", "Two-tone"], ["racer", "Racing s
 const SEAT_COLORS = ["stock", "#1a2027", "#5a3a24", "#8c1f2f", "#c9b48a", "#2f4a6b", "#eef2f5"];
 const HELMET_COLORS = ["#f2f5f8", "#111820", "#ff5a1f", "#d8c23a", "#38b6ff", "#8c1f2f", "#4fd06a"];
 const DECALS = [["none", "Clean"], ["stripe", "Twin stripes"], ["wide", "Wide stripe"], ["flash", "Side flash"]];
-const SET = { paint: {}, jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", helmet: "#f2f5f8", decal: "none", canMatch: false, vol: 0.35, hud: true, touch: "auto", gfx: "auto", fps: false };
+const SET = { view: 0, paint: {}, jacket: "#1d3f6e", trim: "#eef2f5", pants: "#232a33", style: "twotone", helmet: "#f2f5f8", decal: "none", canMatch: false, vol: 0.35, hud: true, touch: "auto", gfx: "auto", fps: false };
 function loadSettings() { try { const d = JSON.parse(localStorage.getItem("tracklayer.set.v1") || "null"); if (d) Object.assign(SET, d); } catch (e) { } if (!SET.paint || typeof SET.paint !== "object") SET.paint = {}; }
 function saveSettings() { try { localStorage.setItem("tracklayer.set.v1", JSON.stringify(SET)); } catch (e) { } }
 // the sled being painted: the garage's Paint shop paints the one you ride; applySettings shows whatever the garage previews
@@ -9507,6 +9507,7 @@ function swatchRow(id, colors, key, onPick) {
   });
 }
 function buildSettings() {
+  if (Number.isInteger(SET.view) && VIEWS[SET.view]) { camMode = SET.view; camState.init = false; }   // the remembered view
   swatchRow("jacketSw", JACKET_COLORS, "jacket");
   swatchRow("trimSw", TRIM_COLORS, "trim");
   swatchRow("pantsSw", PANTS_COLORS, "pants");
@@ -9631,12 +9632,23 @@ function setFootSync(force) {
   let h;
   if (INP.dev === "pad") h = `<b>D-pad</b> or stick to move, <b>${btn("pick")}</b> to pick, <b>◀ ▶</b> on a slider, <b>${btn("wclose")}</b> ${what}, <b>${btn("menu")}</b> closes.`;
   else if (INP.dev === "touch") h = `Tap a control to change it. ${top ? "<b>✕</b> closes." : "<b>‹</b> goes back, <b>✕</b> closes."}`;
-  else h = `<b>${btn("menu")}</b> ${what}. Click a control, or <b>Tab</b> to move and <b>Enter</b> to pick.`;
+  else h = `<b>${btn("menu")}</b> ${what}. Click a control, or use the <b>arrow keys</b> to move and <b>Enter</b> to pick.`;
   f.innerHTML = h + " Your kit and volume are remembered next time.";
   const vh = $("viewHint"); if (vh) vh.innerHTML = `cycles chase, close, first person and drone · ${pressHint("view")} while riding`;
   const tb = $("towBtn"); if (tb) tb.textContent = INP.dev === "touch" ? "Call rescue sled" : `Call rescue sled (${btn("help")})`;
 }
 addEventListener("keydown", () => { if (!$("settings").hidden) setFootSync(); }, true);
+// the keyboard in Settings and the garage: arrows move the focus (left / right step a slider), Enter or Space presses the focused button
+addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const root = !$("settings").hidden ? $("settings") : GS.garageOpen && TUT.stage >= 2 ? $("garage") : null; if (!root) return;
+  const c = e.code, f = document.activeElement, inR = f && root.contains(f), rng = inR && f.type === "range";
+  if (c === "ArrowDown" || c === "ArrowUp") settingsMove(0, c === "ArrowDown" ? 1 : -1, root);
+  else if (c === "ArrowLeft" || c === "ArrowRight") { if (rng) settingsStep(f, c === "ArrowRight" ? 1 : -1); else settingsMove(c === "ArrowRight" ? 1 : -1, 0, root); }
+  else if ((c === "Enter" || c === "NumpadEnter" || c === "Space") && inR && f.tagName === "BUTTON") f.click();
+  else return;
+  e.preventDefault(); e.stopImmediatePropagation();
+}, true);
 addEventListener("pointerdown", () => { if (!$("settings").hidden) setFootSync(); }, true);
 
 // Settings on a pad: d-pad / left stick move the focus to the nearest control in that direction (rows of

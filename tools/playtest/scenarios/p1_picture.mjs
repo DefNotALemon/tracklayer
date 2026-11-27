@@ -151,8 +151,8 @@ await ev(pinned(12)); await sleep(1500);
   ok(g.ok && g.luma > 15 && g.tm === 4, `6: gramShot picture is not black and tone mapping is restored: ${JSON.stringify(g)}`);
 }
 await ev(pinned(12)); await sleep(500);
-{ // showroom (Settings opens it)
-  await ev("toggleSettings(true); true"); await sleep(2200); const s0 = await snap(); await stillN("p1_showroom");
+{ // showroom (Settings opens it on its Game page; paint is the garage's now)
+  await ev('toggleSettings(true, "game"); true'); await sleep(2200); const s0 = await snap(); await stillN("p1_showroom");
   const sr = await J(`({ on: showroomOn(), tp: TLXPOST.on() })`);
   ok(sr.on && sr.tp && s0.luma > 15, `6: showroom renders through the chain (luma ${s0.luma.toFixed(1)})`);
   await ev("toggleSettings(false); true"); await sleep(800);

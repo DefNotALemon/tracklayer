@@ -55,7 +55,7 @@ ok(a.dump.sys.stranger && a.dump.sys.stranger.v === 5 && a.dump.sys.stranger.s.k
 ok(a.cash === 4444, "the rest of the save is still there");
 
 // 6: options page, tick, Monday
-await tap("Escape"); await sleep(600);
+await tap("Escape"); await sleep(600); await ev(`setPage("game"); true`); await sleep(200);   // Esc opens the top page; the options sit on Game
 a = await J(`{ open: !$("settings").hidden, secHidden: $("optSec").hidden, rows: [...$("optRows").querySelectorAll("button")].map(b => b.textContent), hint: [...$("optRows").querySelectorAll(".hint")].pop().textContent }`);
 console.log("6 options", JSON.stringify(a));
 ok(a.open && !a.secHidden && a.rows.includes("Test option: off"), "Settings shows the option, off");
