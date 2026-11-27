@@ -686,7 +686,11 @@ holds across open powder (about 10.5 × power ÷ drag m/s, so a Woodsman ~13 m/s
 the hitch drags past 300 kg (rig plus cargo): an ordinary trailer load doesn't change it, half a tonne rides at about 0.55 of that
 and a tonne at about 0.25. Under a fifth of a tank you get
 one "Fuel low" (or "Battery low") warning naming the nearest pump or plug; the quay and the garage
-top you up free and stay quiet about it.
+top you up free and stay quiet about it. A pump fills the machine, not the rider: get out of the truck
+or off the sled at a pump and it goes on filling (and billing) until the tank is full or the cash runs
+out, and "Tank full" finds you wherever you are standing. Walk over to another machine of yours at the
+same pump and that one is the tank: the first stops where it was ("Filling stopped") and each fill is
+counted on its own.
 Money buys sleds, parts and rider kit at Nordkinn Skuter & Service. Progress saves in your browser.
 
 ## The calendar, the dark and the weather

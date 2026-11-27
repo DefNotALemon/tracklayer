@@ -5138,16 +5138,27 @@ const FS = { spot: null, L: 0, cost: 0, paid: 0, broke: false };
 function fuelEnd(why) {
   const sp = FS.spot; if (!sp) return;
   const owe = Math.round(FS.cost) - FS.paid; if (owe > 0) GS.cash = Math.max(0, GS.cash - owe);
-  if (sp.cache) { if (FS.L >= 0.3) toast(`${why === "full" ? "Tank full" : "Pulled off the pump"}: ${FS.L.toFixed(1)} L from ${sp.name}. It goes on Monday's bill (${fuelFmt(RE_FUEL.perL)}).`, "good"); }
+  const off = FOOT.on ? "Filling stopped" : "Pulled off the pump";   /* on foot nobody pulled off: the machine is no longer the one at the nozzle */
+  if (sp.cache) { if (FS.L >= 0.3) toast(`${why === "full" ? "Tank full" : off}: ${FS.L.toFixed(1)} L from ${sp.name}. It goes on Monday's bill (${fuelFmt(RE_FUEL.perL)}).`, "good"); }
   else if (sp.plug && FS.L >= 0.3) toast(`${why === "broke" ? "Out of cash" : why === "full" ? "Battery full" : "Unplugged"}: ${FS.L.toFixed(1)} L of charge at ${shortName(sp)} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
-  else if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `Pulled off the pump: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
+  else if (FS.L >= 0.3) toast(why === "broke" ? `Out of cash: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : why === "full" ? `Tank full: ${FS.L.toFixed(1)} L at ${sp.name} (${fuelFmt(sp.fuelPrice)}), −${fmtCash(FS.cost)}.` : `${off}: ${FS.L.toFixed(1)} L at ${sp.name}, −${fmtCash(FS.cost)}.`, why === "broke" ? "warn" : "good");
   else if (why === "broke" && !FS.broke) toast(`${sp.name}: ${fuelFmt(sp.fuelPrice)}. You can't afford a splash of it.`, "warn");
   FS.broke = why === "broke";
   FS.spot = null; FS.L = FS.cost = FS.paid = 0; save();
 }
+/* Beta 0364 #2/#3. The pump fills the machine, not the rider: get out of the truck (or off the sled) at a pump and it
+   goes on filling and billing until the tank is full, the cash is gone or the machine leaves ("Tank full" comes up
+   wherever you are standing; it used to stop the moment your boots touched the snow and call that "pulled off the
+   pump"). One fill is one tank: on foot the nearest machine you own is the current one, so walking between two
+   parked at the same pump changes the tank under FS without the spot changing. A tank that is not the one the count
+   started on (it stands somewhere else, holds a different amount, or lost fuel) closes the count and starts another,
+   so no toast can name more litres than a tank holds. Not while the tutorial still hides the sled. */
 function fuelStep(dt, spd) {
-  const sp = GS.dead || HELP.on || FOOT.on ? null : fuelSpot(), room = GS.cap - GS.fuel;
+  const foot = FOOT.on, sp = GS.dead || HELP.on || (foot && tutHidden()) ? null : fuelSpot(), room = GS.cap - GS.fuel;
+  if (foot) spd = Math.hypot(P.vx, P.vz);
+  if (FS.spot && (Math.hypot(P.x - FS.px, P.z - FS.pz) > 3 || GS.cap !== FS.cap || GS.fuel < FS.f - 0.5)) fuelEnd("left");
   if (sp && spd < 4 && room > 0.02) {
+    FS.px = P.x; FS.pz = P.z; FS.cap = GS.cap; FS.f = GS.fuel;
     if (FS.spot !== sp) { fuelEnd(); FS.spot = sp; if (room > 1 && !FS.broke && !sp.cache) toast(sp.plug ? `Plugged in at ${shortName(sp)}: ${fuelFmt(sp.fuelPrice)} of charge. Charging.` : `${sp.name}: ${fuelFmt(sp.fuelPrice)}. Filling up.`); }
     if (sp.cache) { const l = Math.min(FUEL.rate * dt, room); GS.fuel += l; FS.L += l; GS.outWarned = GS.lowWarned = false; const o = GS.re.own[sp.cab.id]; if (o) o.L += l; return; }
     const want = Math.min(FUEL.rate * dt, room), afford = Math.max(0, (GS.cash - (FS.cost - FS.paid)) / sp.fuelPrice), l = Math.min(want, afford);
@@ -5155,7 +5166,8 @@ function fuelStep(dt, spd) {
       GS.fuel += l; FS.L += l; FS.cost += l * sp.fuelPrice; GS.outWarned = GS.lowWarned = false; FS.broke = false;
       const due = Math.floor(FS.cost) - FS.paid; if (due > 0) { GS.cash -= due; FS.paid += due; }
     }
-    if (l < want - 1e-6) fuelEnd("broke");
+    FS.f = GS.fuel;
+    if (l < want - 1e-6) { if (FS.L > 0 || !FS.broke) fuelEnd("broke"); else FS.spot = null; }   /* still broke at the pump: nothing to say or save again every frame */
   } else if (FS.spot) fuelEnd(room <= 0.02 ? "full" : "left");
   else if (!sp || spd >= 4) FS.broke = false;
 }

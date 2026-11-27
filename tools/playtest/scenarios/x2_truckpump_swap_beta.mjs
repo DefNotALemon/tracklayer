@@ -37,8 +37,9 @@ await waitGame(1.5);
 const truckRec = await J(`TLX.state("vehicles").owned.find(o => o.uid === "${U}").fuel`);
 console.log("  after unseat: GS.fuel", await ev("GS.fuel"), "record", truckRec, "FS.spot", await ev("!!FS.spot"), "cash", await ev("GS.cash"));
 ok(!(await ev("!!FS.spot")) || true, "(info) FS.spot after unseat");
-const cashA = await ev("GS.cash"); await waitGame(4); const cashB = await ev("GS.cash");
-ok(Math.abs(cashB - cashA) < 0.01, "no billing while on foot at the pump (" + (cashB - cashA).toFixed(2) + ")");
+const cashA = await ev("GS.cash"), fuelA = await ev("GS.fuel"); await waitGame(4); const cashB = await ev("GS.cash"), fuelB = await ev("GS.fuel");
+// since the beta fix of 0364 #3 the truck goes on filling with you out of it: what is billed on foot is the litres that went in
+ok(Math.abs((cashA - cashB) - (fuelB - fuelA) * st.price) < 2.5, "on foot at the pump the till is the litres that went in (" + (cashA - cashB).toFixed(2) + " for " + (fuelB - fuelA).toFixed(1) + " L)");
 // walk to sled: nearest vehicle becomes the sled? put walker beside the sled, check GS.fuel is sled's
 const sledFuel = await J(`(() => { const s = TLX.state("vehicles"); return { cur: s.cur, recs: s.owned.map(o => [o.uid, o.fuel]) }; })()`);
 console.log("  vehicles", JSON.stringify(sledFuel));
