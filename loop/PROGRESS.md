@@ -22,6 +22,52 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 16:25 — A bogged truck is free on every plowed street; a light trigger backs the pickup through loose snow (tlx-vehicles v41, lane A) (G4) — 0d59329
+
+Triage: reports 0386 (milestone 4 regression sweep on v301: no findings) and 0387 (v302 control-naming toasts: one POLISH
+that asks for nothing) read (385 -> 387). No BLOCKER or BUG. Lane A's list is done, so this pass took the top lane-A
+backlog line that could hide a game bug: "`x2_standstart.mjs` and `x2_vehreverse_break.mjs` fail on main: find out
+whether it is the game or the scenarios' spots". It was both.
+
+- **Game bug 1: the bog on plowed ground.** A bogged truck that ends up on plowed ground is meant to be free at once (beta
+  0117 #2). The rule asked for every tyre under 5 cm and pack over 0.8, numbers from before the street grid. Measured on
+  seven plowed Kjøllefjord streets and yards: tyres read 2.6-8.3 cm (a plowed street keeps a tenth of the winter's fall, so
+  it reads deeper where the snow lies deeper), pack 0.76-0.85. Five of the seven kept the truck bogged for good.
+  Now: the cells ahead of the tyres 70% packed, belly clear of the snow, mean sink under 10 cm, no tyre over 14.
+  `x2_bogstreet.mjs` (new): freed on 2 of 7 -> 7 of 7 (4 streets, 3 yards; worst tyre 8.4 cm, worst mean 5.4, lowest pack
+  0.80), then W drives off; and a truck really bogged in 52 cm of powder stays bogged through 5 s of W, 4 s of S and 3 s
+  of nothing (0 frames read free; pack there 0.11, sinks 0.32-0.56).
+- **Game bug 2: a light trigger in reverse.** The reverse pull was the pedal's share of the GRIP, so on loose snow (grip
+  under the gearbox's pull) 30% of LT made 2.2 kN against 2.35 kN of standing drag in 20 cm: 0.0 m in 5 s, where the same
+  trigger forward pulls through 30 cm. It is now the pedal's share of the gearbox's pull, capped by the grip, as forward:
+  3.6 kN. Before -> after in 20 cm of loose snow on the flat: LT 30% 0.0 m -> 10.4 m in 5 s; LT 60% 7.4 -> 11.9 m in 4 s;
+  LT 12% creeps 1.2 m in 5 s. The whole pedal (S, the touch BRAKE, LT full) is unchanged: 9-12 m in 4 s before and after.
+- **And what it says.** A light pull that could not back through was told "Too much snow behind the pickup. Pull forward
+  along your ruts", the wrong way to send someone whose full pedal would do it. Now, only when the full reverse pull beats
+  the snow and the grade: "Not enough pedal to back through this snow. Give it more, smooth and steady." (line under it:
+  NOT ENOUGH PEDAL · give it more, smooth and steady). Tested: LT 10% in 30 cm sits still and is told that, not the old
+  line; the full trigger from the same place then backs out 6.2 m. A key is never told it.
+- **The tests** (three scenarios stale since the street grid, v227):
+  - `x2_vehreverse_break`: its spot finder wanted snow under 30 cm off the plowed ground near town, found none, returned
+    0 and nobody checked, so every step after the first backed the same truck deeper into one 55-70 cm drift. It now
+    takes a flat open spot anywhere, lays 20 cm round it and stops the run if there is none; toasts are recorded as they
+    appear; the touch pedal is pressed after the buttons are up (the frame they come up on lets go of every pedal: the
+    old "touch 0.0 m" was that, the BRAKE pedal reverses fine: 11.6 m); its stop is sign-aware (S on a truck already
+    backing is more reverse). 3 FAIL -> 0, and it now asserts what it only printed (31 checks).
+  - `x2_standstart`: lane picker `Y.r <= 4` -> 5. 2 FAIL -> 0 (with game bug 1 fixed).
+  - `x2_vehreverse`: "driven off the lane" never left plowed ground (2 FAIL on main, measured on an archive of
+    origin/main); A and B run on a laid open spot now, and C's run lays 40 cm instead of taking the spot's own snow (the
+    known "ploughed N m" flake: the spot's snow was 0.40-0.66 m). 15 checks pass.
+- **Gate** on the final tree: smoke, x1_save, x2_bogstreet, x2_vehreverse_break, x2_vehreverse, x2_standstart: exit 0,
+  fails 0, page errors none. A first gate run, before the hint line was shortened and the tests' last edits, also had
+  x3_feather, x3_crawl and x2_tow at exit 0, fails 0 (and x2_vehreverse with four stale FAILs, two of them on main too:
+  fixed in the test and re-run above).
+- **Unverified**: a real pad (the trigger numbers are synthetic axis values); the lorry and plow truck in reverse (same
+  code, their own `fmax`; not run); a bogged truck actually TOWED onto a street by a second truck (the rule is tested by
+  flagging the bog on the street, as x2_standstart always did); the new hint line on screen (no still taken: it is
+  shorter than the lines beside it).
+- **Still open on the old line**: the 4.1a1 frame-cost note that shared the second x2_standstart backlog line.
+
 ## 2026-11-27 15:40 — The toasts that tell you what to press name your own controls (v302, lane A) (G4) — c786f35
 
 Triage: report 0385 (gifts v301: three POLISH, no BUG) read (384 -> 385), logged as one lane-A line in LOOP.md. This

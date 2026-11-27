@@ -324,10 +324,12 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
       numeric fields on import and load. Tester's scenario: `i9_slots_break_beta.mjs`.
 - [ ] G4 5.4c2b2 (beta 0363 #4 POLISH, lane A): the tow rope on a bogged driver's truck is drawn by which vehicle is current: on
       the sled (`swapTo(null)`, scripted) the rope mesh goes while the tow stays on. Needs a still from a real Q press first.
-- [ ] G4 (builder, lane A, stale scenarios found gating 0320): `x2_standstart.mjs` fails on origin/main too (2 FAILs: "bog clears once
-      the truck sits on plowed ground", "then W drives off along the lane (0.9 m)"), and `x2_vehreverse_break.mjs` fails on main with 4
-      (pad LT full/30% back up 0.1-0.2 m, touch stick down 0.0 m, uphill reverse silent). Find out whether the reverse numbers are the
-      game (pad LT reverse really is 0.2 m: then a BUG) or the scenarios' spots since the street grid, before trusting either.
+- [x] G4 (builder, lane A, stale scenarios found gating 0320; fixed tlx-vehicles v41, lane A): `x2_standstart.mjs` and
+      `x2_vehreverse_break.mjs` failing on main. Both were part test, part game. Game: (1) a bogged truck set on a plowed street
+      stayed bogged on 5 of 7 plowed spots (the rule's limits dated from before the street grid); (2) a pad trigger at 30% in
+      reverse sat still in 20 cm of loose snow (0.0 m; now 10 m in 5 s) and was told "too much snow behind" (now "not enough
+      pedal" where the full pedal would do it). Test: the reverse test's spot finder found nothing since the street grid and
+      never checked, so every step backed the same truck deeper into one drift. New `x2_bogstreet.mjs`.
 - [ ] G4 (beta 0319 #1, 0320 #5/#6, 0321 #6, 0322 #3-#5 POLISH, lane A): gritter on + blade up at a shore has no press that only stops
       the spinner; a 2% grade cuts the 35 cm crawl by two thirds; after a trailer hit the "wheels spin in reverse" line competes with
       "hard against something solid"; the grit table's tidy keeps a 200,000-entry / string-hours `h` and `__proto__`-named keys.
@@ -453,7 +455,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 4.1a1 (beta 0222 #2, POLISH, lane A): blade down at 54 km/h on 7 cm, the drag is 150 N flat with single 0.25 s spikes of 2.6-4.3 kN and no depth change (reads like the depth line crossing a windrow or field-edge cell). Not felt as a stall; look if a stutter is reported. 0222 #5: `TLXV.buyHaul()` returned undefined though a haul record existed, so the hitch prompt with a blade fitted is untested.
 - [ ] G4 4.1b1 (beta 0224 #1/#2, POLISH, lane A): back-dragging over an already plowed yard (6 cm) still pulls 0.3 m3 and leaves a small heap (skip the sweep at or under the plowed level and say "nothing to pull"); blade down IN a 1 m drift the truck will not back out either (the forward drag holds it at 0, so the back-drag branch never starts): use the back-drag drag when the throttle is reverse at a standstill, or word the line "lift it first".
 - [x] G4 (beta 0220 #1, lane A, looked at 18 Nov: a TEST artefact, not a game bug. The puppet set the truck down on uncut snow every frame, the truck's physics read that as airborne (`P.gnd` false) and a blade in the air neither cuts nor marks; a driven truck is airborne 0 of 2845 + 1840 frames. Puppet fixed in both scenarios, 0220 #3's E2-E4 now pass): the tester's `x4_bladeroad_break.mjs` puppet marks only 17/40 and 30/40 lengths of a road stretch going out and back (Skjånes stretch 2; Dyfjord 32/10) where the builder's section E marks 40/40. Rerun it (`USEK=1` for Skjånes), find whether lengths are skipped on bends (`n.d <= half` with the blade's middle 3.25 m ahead, or `B.last` resetting) or it is the puppet's own doing; its E2-E4 (short last stretch, re-opening, opened across a reload) wait on this.
-- [ ] G4 (test, lane A, seen 18 Nov): `x2_standstart.mjs` fails 2 on main ("bog clears once the truck sits on plowed ground", "then W drives off along the lane"): its "longest town lane" picker takes `Y.r <= 4`, from before the street grid (v227). Allow r up to 5 and check the spot is a street, then confirm the bog really clears on hard pack. Also 4.1a1: whole-frame cost while plowing was not settled in headless (PROGRESS 18 Nov 01:15): measure on a real GPU.
+- [ ] G4 (test, lane A, seen 18 Nov; the x2_standstart part is done, tlx-vehicles v41, see the ticked line above; the 4.1a1 frame-cost part is still open): `x2_standstart.mjs` fails 2 on main ("bog clears once the truck sits on plowed ground", "then W drives off along the lane"): its "longest town lane" picker takes `Y.r <= 4`, from before the street grid (v227). Allow r up to 5 and check the spot is a street, then confirm the bog really clears on hard pack. Also 4.1a1: whole-frame cost while plowing was not settled in headless (PROGRESS 18 Nov 01:15): measure on a real GPU.
       14 drooping branch tips per tier (was a level 7-sided lampshade); local contrast noon 5.29/5.34/5.53 → 5.66/6.02/6.24,
       calls 346 = 346, tris in the stand view 22.6M → 24.3M (+7%). Report 0087: tips read at ride distance as a zigzag edge
       (no pop/seams); GFX low in a dense stand 30 fps vs default 9.5 (SwiftShader, relative only; treeR 750 vs 1700).
@@ -814,4 +816,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
       `x2_winchtouch_break` and `x2_winchuse_break` are still open.
 
-Last triaged report: 385
+Last triaged report: 387
