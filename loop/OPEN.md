@@ -15,7 +15,7 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
 2. FIX (a defect, not a feature): mountains now look grey from far and turn white up close; they must stay the same snow colour at every distance (26 Oct; Lemon 27 Nov: "the mountains should stay the same color ... those two are bad things").
 3. Upgrade every old animation to the realistic rule: walker, wader, crash/get-up, skier, passengers (30 Oct).
 4. New-player tutorial arriving on the ferry on foot (30 Oct).
-5. The small things of 11-13 Nov (tether rope, "size it up" prompt, delivery rewards with flavour).
+5. The small things of 11-13 Nov (tether rope, "size it up" prompt, delivery rewards with flavour): all three built by lane A (v297, v298, v301), waiting for Lemon to try them (see Small things).
 3a. ROADS REDONE (Lemon, 27 Nov, placed here by the supervisor right after the two snow fixes because he asked for it
    by name today; move it if he says so): "completely redo the road design, the roads themselves, re place them around
    the map, drop the curbs too, make the roads look much nicer, you can make them look more worn down, but realistic
@@ -78,7 +78,7 @@ running beside this under the governor.
 ## Small things
 - The "size it up" control beside someone you came to winch out names the right button on every device and works there (13 Nov). Built in v297 (lane A, 27 Nov): on a DualSense the line said "X" while the button is □; on a phone there was no button. Checked by scenario only (`g3_sizeup.mjs`: keyboard, Xbox / DualSense / Switch pads, touch). For Lemon to try on his own pad; delete this line once he has.
 - No tether rope on the rider once they are on their own feet (13 Nov). Built in v298 (lane A, 27 Nov): a plain get-off never showed it; the rope seen on a standing rider was the one left clipped after a crash. It is now out only while a crash has you thrown or down, and gone the moment you stand. Checked by scenario and one still (`g3_tether.mjs`). For Lemon to look at after a crash; delete this line once he has.
-- Delivery rewards with flavour dialogue: snacks and the like (11 Nov). Open.
+- Now and then somebody you deliver to on time gives you something and says a few words about it: a bite to eat, a spare part, once in a while an upgrade for the sled (11 Nov). Built in v301 (lane A, 27 Nov, `tlx-gifts.js`, Settings > Options > Thank-yous at the door): about one hand-over in six, the giver a grown-up from a real household at that door. Checked by scenario and stills only (`g2_gifts.mjs`). For Lemon to play a few deliveries and say whether the odds and the lines feel right; delete this line once he has.
 - About 60 polish and test lines from the beta tester under G4 in `loop/LOOP.md` (pad/touch gaps, toasts, stale
   scenarios `x2_standstart`, `x3_traffic` step D). Open.
 - G7 leftovers: two flaky tests under load (`h1_life` fire prompt null, `h2_reels` aurora place), reel defects (H2R-b), ski rescue odds never measured in real play.

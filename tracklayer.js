@@ -6758,6 +6758,7 @@ function deliver(site) {
   const what = here.length > 1 ? here.length + " loads" : here[0].cargo.toLowerCase();
   toast(`Delivered ${what} to ${site.name}: +$${total}${fuelL ? ` +${fuelL} L` : ""}${notes.length ? " (" + notes.join(", ") + ")" : ""}${lost ? ` · −$${lost} bond` : ""}`, total > 0 || fuelL ? "good" : "bad");
   const wasRoam = GS.delivered - here.length >= ROAM_AT;
+  if (site.type !== "depot" && !tutD && giftX().deliv) try { giftX().deliv(site, { n: here.length, total, clean, late: notes.some(n => /late|missed the boat|refused/.test(n)) }); } catch (e) { console.error(e); }   /* now and then the door has something for you (tlx-gifts.js) */
   if (site.type !== "depot") mailVisit(site);
   if (roaming()) {
     roamJobs(site); TABLET.refresh();
@@ -10356,9 +10357,10 @@ function fitPart(cat, id) {
   if (!tierOK) { toast(`${o.name}: ${genWhy(o.tier).replace(/^F/, "f")}.`, "warn"); return; }
   if (o.needLic && !licensed(o.needLic)) { toast(`${o.name}: Nordkinn Redning only sells these to licensed rescue crews.`, "warn"); return; }
   if (o.needRescues && (GS.rescues || 0) < o.needRescues) { toast(`${o.name}: the dealer wants to see ${o.needRescues} rescues first. You have ${GS.rescues || 0}.`, "warn"); return; }
-  if (GS.cash < o.cost) { toast(`${o.name} is $${o.cost}. You have $${GS.cash}.`, "warn"); return; }
-  GS.cash -= o.cost; GS.own.partsOwned[ownKey(cat, id)] = true; GS.own.parts[cat] = id; restat();
-  toast(`Fitted: ${o.name}.`, "good"); renderGarage(); save();
+  const off = Math.min(o.cost, giftX().credit());       /* spares somebody gave you at a door: the garage takes them in trade (tlx-gifts.js) */
+  if (GS.cash < o.cost - off) { toast(`${o.name} is $${o.cost}${off ? ` ($${off} of it covered by your spares)` : ""}. You have $${GS.cash}.`, "warn"); return; }
+  GS.cash -= o.cost - off; if (off) giftX().spend(off); GS.own.partsOwned[ownKey(cat, id)] = true; GS.own.parts[cat] = id; restat();
+  toast(`Fitted: ${o.name}.${off ? ` The garage took your spares for $${off} of it.` : ""}`, "good"); renderGarage(); save();
 }
 function wearGear(slot, id) {
   const o = gearDef(slot, id);
@@ -10441,6 +10443,7 @@ function renderGarage() {
   } else if (garageTab === "workshop") {
     renderWorkshop(body);
   } else if (garageTab === "parts") {
+    { const gn = giftX().note(); if (gn) { const d = document.createElement("div"); d.className = "bfoot"; d.id = "giftNote"; d.textContent = gn; body.appendChild(d); } }
     PART_ORDER.filter(c => c !== "boost").forEach(cat => {
       const h = document.createElement("div"); h.className = "bsec"; h.textContent = PARTS[cat].label; body.appendChild(h);
       PARTS[cat].options.forEach(o => {
@@ -15841,6 +15844,9 @@ function footX() { return footX.a || (footX.a = []); }
 // the compass follows when nothing of the base game's is on. appX(id) holds { html(), bind(el) } sections for a tablet app.
 function jobX() { return jobX.a || (jobX.a = []); }
 function appX(id) { const m = appX.m || (appX.m = {}); return m[id] || (m[id] = []); }
+// thank-yous at the door (tlx-gifts.js): deliv(site, d) hears of every hand-over away from the quay; credit() is what the spares in
+// your pack are worth at the garage and spend(n) uses it up; note() is the Parts tab's line about them. Empty until that file loads.
+function giftX() { return giftX.o || (giftX.o = { deliv: null, credit: () => 0, spend: () => { }, note: () => "" }); }
 // expansion systems' line in the riding / driving hint (3.5c2b: your place in a convoy): rideX() holds functions returning
 // the text or "" (the first that answers wins; the base game's own riding hints come before it)
 function rideX() { return rideX.a || (rideX.a = []); }
@@ -17919,6 +17925,8 @@ function initExpansion() {
         GS.own.gear[slot] = id; restat(); save(); toast(own ? `Wearing: ${o.name}.` : `Bought and wearing: ${o.name}.`, "good"); return true; } },
     // the quick-customize wheel (11.2): the pads, and the visor wipe a quick tap of D-pad left still does
     hapx: HAPX, ranks: RANKS, wipe: wipeVisor, pads: () => (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(gp => gp && !phantomPad(gp)),
+    // thank-yous at the door (tlx-gifts.js): the hand-over hook and the garage's trade-in, and the parts shelf a gift can come off
+    gift: giftX(), partsx: { PARTS, ORDER: PART_ORDER, tier: () => sledTier(), owns: (cat, id) => !!GS.own.partsOwned[ownKey(cat, id)] || partDef(cat, id).cost === 0, own: (cat, id) => { GS.own.partsOwned[ownKey(cat, id)] = true; if (GS.garageOpen) renderGarage(); }, sledName: () => sledDef().name },
     swapOk: () => started && !SCHOOL.on && !INT.on && !(FISH && FISH.on) && !tutHidden() && !HELP.on && !CRASH.on && !MNT.on && !DMT.on && !(WN.state === "hooked") && !FOOT.dig && !GS.garageOpen && !GS.dead && !SEASON.card
   });
   optBuild();

@@ -1497,6 +1497,14 @@ Lift the camera anywhere (riding, walking, in a cab) and look through it in firs
 
 The people of every house have a day. Near you they are out in the street: walking an errand, shovelling the step, children playing, the boats' men at work. Walk up (or stop the sled beside one) and press the use control for **a word**: they say a line, you can answer with the use control again, and they have the last word. Nothing pauses and you can walk off at any moment. Someone at work says so and carries on. What they say comes from the weather, their family, the village news and what you have done; a word on two different days and they know you by name.
 
+## Thank-yous at the door
+
+Now and then, when a parcel reaches its door on time and in one piece, the person there hands you something and says a few words about it (`tlx-gifts.js`; Settings > Options > *Thank-yous at the door*, on by default). Never at the quay, never for a late or damaged parcel, and never within two hand-overs of the last one: from the third it is a one-in-five chance that grows a little with each door, about one hand-over in six over a long game. The giver is a grown-up of a real household at that place, and the son or husband in their story is their own; the wind farm and the herder cabins, where nobody lives, give you "the technician on shift" or "the herder". Their words come up as a tablet note under their name, with a line saying what you got.
+
+- **Something to eat or drink** (most often): a lefse, a cinnamon bun, fish cakes, stockfish, dried reindeer meat, a flask of toddy or coffee, crowberry juice; the fishing villages lean to fish and the herders' to reindeer. It goes in your pocket (three fit; a fourth you have at the door) and you eat or drink it by yourself the moment hunger or thirst drops under 30, so it buys a stretch of fell. A flask warms you a little too.
+- **A spare part**: a drive belt, plugs, runners, worth $20 to $60. The garage takes spares in trade: their worth comes off the next part you buy there, and the Parts tab says how much you are carrying.
+- **An upgrade** (rare, never two close together): a part off the garage's own list that you do not own, $80 to $420 and one your sled's generation can take (never a hitch or a receiver). It is yours from that moment: the Parts tab shows it as Owned and fits it for nothing.
+
 ## Paths
 
 The **Paths** app on the tablet is one screen for your whole life here. Each path (courier, rescue, ski trails, plowing, staff, homes and property, lighthouses, boats, machines, hunting, the village, money) is a line saying where you stand, the next step in plain words and what it opens, with a button to that path's own app. On top is **Today**: three things worth doing now, the most pressing first (get warm, a storm coming, what is aboard, a trail that needs setting, rent owed).
