@@ -68,7 +68,7 @@ running beside this under the governor.
 
 ## Small things
 - Tether rope stays visible after a plain dismount (13 Nov). Open.
-- "X: size it up" prompt by an unhooked rescue victim does nothing (13 Nov). Open.
+- The "size it up" control beside someone you came to winch out names the right button on every device and works there (13 Nov). Built in v297 (lane A, 27 Nov): on a DualSense the line said "X" while the button is □; on a phone there was no button. Checked by scenario only (`g3_sizeup.mjs`: keyboard, Xbox / DualSense / Switch pads, touch). For Lemon to try on his own pad; delete this line once he has.
 - Delivery rewards with flavour dialogue: snacks and the like (11 Nov). Open.
 - About 60 polish and test lines from the beta tester under G4 in `loop/LOOP.md` (pad/touch gaps, toasts, stale
   scenarios `x2_standstart`, `x3_traffic` step D). Open.

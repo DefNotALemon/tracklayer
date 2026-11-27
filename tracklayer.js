@@ -2402,6 +2402,7 @@ function touchCtx() {
   r.use = footUse() || "";
   const wd = winchDef();
   if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) r.x = WN.dbl ? "SINGLE" : "DOUBLE";
+  else if (RJ.on && wd && rescueSizes()) r.x = rescueSizes();              // someone you came to winch out: SIZE UP within 20 m, DOUBLE / SINGLE at them once hooked (mirrors rescueAssess)
   else if (BOG.on) r.x = "SIZE UP";
   r.q = WN.state === "hooked" && WN.mode === "self";                      // hooked on: the hint keeps offering GET ON from anywhere along the line
   return r;
@@ -10135,6 +10136,7 @@ const BTN = {
   gun: { kbm: "R", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "GUN" },   // tlx-gunwheel.js: HOLD to open the quick-customize wheel (a pad tap still wipes the visor)
   wmove: { kbm: "1-6", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
+  assess: { kbm: "X", xbox: "X", ps: "□", nin: "Y", touch: () => touchCtx().x || "SIZE UP" },   // on foot: size the job up (your own bogged sled, someone you came to winch out), or double the line at a strap; the touch button wears the verb
   mod: { kbm: "Y", xbox: "Y", ps: "△", nin: "X", touch: "MOD MENU" },   // the mod menu (on touch: the button in Settings)
   camera: { kbm: "K", xbox: "Hold RS", ps: "Hold R3", nin: "Hold RS", touch: "CAMERA" },   // tlx-camera.js: lift / lower the camera anywhere
   shutter: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "The round button" },
@@ -16025,10 +16027,10 @@ function selfReel(dt, wd) {
   WN.reel = true;
   if (need > anchorCap(a)) {                                   // the tree loses
     uproot(a, -dx, -dz); WN.state = "out"; WN.anchor = null; if (strapM) strapM.visible = false;
-    toast(`The ${anchorName(a)} came out by the roots. Find something bigger${WN.dbl ? "" : wd.block ? " or double the line (X at the strap)" : ""}.`, "bad"); return;
+    toast(`The ${anchorName(a)} came out by the roots. Find something bigger${WN.dbl ? "" : wd.block ? ` or double the line (${dblBtn()} at the strap)` : ""}.`, "bad"); return;
   }
   if (ratio > 1) {                                             // more than the winch can give
-    WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "The winch is stalling. Double the line with the snatch block (X at the strap), or find a better angle." : "The winch is stalling. Dig, or find a better angle.", "warn"); }
+    WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? `The winch is stalling. Double the line with the snatch block (${dblBtn()} at the strap), or find a better angle.` : "The winch is stalling. Dig, or find a better angle.", "warn"); }
     if (WN.stall > 5 && Math.random() < dt * 0.3) { WN.state = "out"; WN.anchor = null; WN.snapT = 40; if (strapM) strapM.visible = false; crack(1); toast("The line parted! Respooling a new one (40 s). Shovel or R.", "bad"); }
     return;
   }
@@ -16409,7 +16411,7 @@ function rescueStart(c) {
   GS.rescueJob = c; RJ.on = true; RJ.hurt = 0; RJ.blown = 0; RJ.stall = 0; RJ.t0 = GS.hour; RJ.ended = null;
   RJ.vs = c.vics.map((_, i) => rjSpawn(c, i));
   toast(c.why, "warn");
-  setTimeout(() => { if (RJ.on) toast(`Clock: ${fmtTime(c.due)} at the latest. You need a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. Park on the rim, get off (Q), walk the line to them and hook on (E).`); }, 2200);
+  setTimeout(() => { if (RJ.on) toast(`Clock: ${fmtTime(c.due)} at the latest. You need a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. Park on the rim, get off (${btn("dismount")}), walk the line to them and hook on (${INP.dev === "touch" ? "HOOK" : btn("use")}).`); }, 2200);
 }
 function rescueAbort() {
   for (const p of RJ.pool || []) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; }
@@ -16447,7 +16449,7 @@ function rescueFootAction() {
     const fl = fairlead(), L = Math.hypot(eye[0] - fl[0], eye[2] - fl[2]);
     if (L > wd.len - 0.4) { toast(`Your line's ${wd.len} m and they're ${Math.round(L)} m from the fairlead. Go back, ride closer, and try again.`, "warn"); return true; }
     nv.v.hooked = true; WN.state = "hooked"; WN.mode = "rescue"; WN.tgt = nv.v; WN.tie = null; WN.stall = 0; WN.dbl = false; WN.anchor = null;
-    toast(nv.v.vk.sled ? `Hooked on to ${nv.v.name}'s tow eye. Walk back, strap your sled to a tree, and hold SPACE to reel.` : `Strap round ${nv.v.name}'s chest harness. Go back, strap your sled to a tree, and reel slowly: SPACE.`, "good");
+    toast(nv.v.vk.sled ? `Hooked on to ${nv.v.name}'s tow eye. Walk back, strap your sled to a tree, and hold ${btn("reel")} to reel.` : `Strap round ${nv.v.name}'s chest harness. Go back, strap your sled to a tree, and reel slowly: ${btn("reel")}.`, "good");
     return true;
   }
   return false;
@@ -16464,17 +16466,29 @@ function rescueAssess() {
   toast(`${v.name}, ${v.vk.sled ? v.vk.who : "on foot"}: ${v.vk.id === "tourist" ? T.sayF : T.say}. Pull toward the ${card}. ${lbf(need).toLocaleString("en-US")} lb to start. ${trees.length ? `A ${anchorName(trees[0].o)} ${Math.round(Math.hypot(trees[0].o.x - pk[0], trees[0].o.z - pk[1]))} m from the good spot will hold your sled.` : "Nothing big near the good spot: tie back to the best you can find, or double the line."}${v.gentle ? " Ease them out: slow and steady." : ""}`);
   return true;
 }
+// What the size-up control would do at a recovery, read-only: "" (nothing), "SIZE UP", or "DOUBLE" / "SINGLE" with a
+// snatch block at the one you're hooked to. rescueAssess() acts on the same tests; the touch button wears this word.
+function rescueSizes() {
+  if (!RJ.on || !FOOT.on) return "";
+  const wd = winchDef(); if (!wd) return "";
+  const nv = rjNearest(FOOT.x, FOOT.z); if (!nv) return "";
+  const eye = rjEye(nv.v);
+  if (WN.state === "hooked" && WN.mode === "rescue" && wd.block && nv.v.hooked && Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z) < 3) return WN.dbl ? "SINGLE" : "DOUBLE";
+  return nv.d <= 20 ? "SIZE UP" : "";
+}
+// the control that doubles the line, named for the device in hand (on touch the button reads DOUBLE at the strap)
+function dblBtn() { return INP.dev === "touch" ? "DOUBLE" : btn("assess"); }
 function rescuePrompt() {
   if (!RJ.on) return false;
   const wd = winchDef(), nv = rjNearest(FOOT.x, FOOT.z); if (!wd || !nv) return false;
   const v = nv.v, eye = rjEye(v), de = Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z), hooked = WN.state === "hooked" && WN.mode === "rescue";
-  let h = "";
+  let h = ""; const touch = INP.dev === "touch";
   if (hooked) {
     const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 4;
-    h = `${WN.tie ? "Tied back" : "Sled's on its own weight"} · ${Math.round(v.moved / v.dist * 100)}% out · Hold SPACE to reel${v.gentle ? " SLOWLY" : ""}${!WN.tie ? " · E at a tree: tie back" : ""}${wd.block ? " · X at them: double" : ""}${de < 2.6 ? " · E: unhook" : ""}`;
-    if (!near && !WN.tie && WN.slip > 0.05) h = "Your sled's sliding. Tie it back to a tree (E at the tree).";
-  } else if (WN.state === "out" && de < 2.6) h = `E: hook on to ${v.name}`;
-  else if (nv.d < 20) h = `X: size it up · walk the line to ${v.name}${WN.tight ? " (line's at its end: ride closer)" : ""}`;
+    h = `${WN.tie ? "Tied back" : "Sled's on its own weight"} · ${Math.round(v.moved / v.dist * 100)}% out · Hold ${btn("reel")} to reel${v.gentle ? " SLOWLY" : ""}${!WN.tie ? ` · ${touch ? "STRAP" : btn("use")} at a tree: tie back` : ""}${wd.block ? ` · ${touch ? (WN.dbl ? "SINGLE" : "DOUBLE") : btn("assess")} at them: ${WN.dbl ? "single line" : "double"}` : ""}${de < 2.6 ? " · " + keyHint("use", "unhook") : ""}`;
+    if (!near && !WN.tie && WN.slip > 0.05) h = `Your sled's sliding. Tie it back to a tree (${touch ? "STRAP" : btn("use")} at the tree).`;
+  } else if (WN.state === "out" && de < 2.6) h = touch ? `tap HOOK: hook on to ${v.name}` : `${btn("use")}: hook on to ${v.name}`;
+  else if (nv.d < 20) h = `${keyHint("assess", "size it up")} · walk the line to ${v.name}${WN.tight ? " (line's at its end: ride closer)" : ""}`;
   else return false;
   WN.prompt = h; return true;
 }
@@ -16482,7 +16496,7 @@ function rescueRideHint() {
   if (!RJ.on) return "";
   const nv = rjNearest(P.x, P.z); if (!nv || nv.d > 140) return "";
   if (!winchDef()) return "";
-  return FOOT.on ? "" : `${nv.v.name} ahead: park on the rim (line is ${winchDef().len} m), then Q to get off and walk the line out`;
+  return FOOT.on ? "" : `${nv.v.name} ahead: park on the rim (line is ${winchDef().len} m), then ${keyHint("dismount", "get off")} and walk the line out`;
 }
 function rescueUnhook() { const v = rjVic(); if (v) v.hooked = false; WN.tie = null; }
 
@@ -16510,7 +16524,7 @@ function rescueReel(dt, wd) {
   }
   if (ratio > 1) {
     WN.stall += dt; WN.sfx = 0.12; RJ.stall += dt;
-    if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "Winch stalling. Double the line with the snatch block (X at them), or get a better angle." : "Winch stalling. Get a straighter pull, or a bigger winch.", "warn"); }
+    if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? `Winch stalling. Double the line with the snatch block (${dblBtn()} at them), or get a better angle.` : "Winch stalling. Get a straighter pull, or a bigger winch.", "warn"); }
     if (WN.stall > 5 && Math.random() < dt * 0.3) { v.hooked = false; WN.state = "out"; WN.tgt = null; WN.tie = null; WN.snapT = 40; RJ.blown++; crack(1); toast("The line parted! Respooling a new one (40 s).", "bad"); }
     return;
   }
@@ -16702,10 +16716,10 @@ function wnPrompt() {
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
-      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · X at the strap: double the line") : ""}${close ? " · " + keyHint("use", "unhook") : ""} · ${keyHint("mount", "get on")}`;
+      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · " + btn("assess") + " at the strap: double the line") : ""}${close ? " · " + keyHint("use", "unhook") : ""} · ${keyHint("mount", "get on")}`;
     } else if (wd && WN.state === "out") {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
-      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
+      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${BOG.on ? " · " + keyHint("assess", "size it up") : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (!tutHidden() && rigHint(near)) h = rigHint(near);         // at the rig's tongue: hitch or unhitch it
     else if (footXUse()) h = footXUse().hint() + (near && !FOOT.dig ? " · " + keyHint("mount", VEH.board) : "");   // expansion uses (a buried car)
