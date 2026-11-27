@@ -73,6 +73,9 @@ of the time you start at the depot as usual. New games never do this.
     aside while the tablet is open; on 320-wide phones the stick is a little smaller so HORN and WHEELIE stay clear of
     it, and GET OFF keeps its place above the stick). The prompts on screen name
     these buttons instead of keys.
+  - **The hint line** (what to press where you stand, a bogged sled's way out) keeps off the controls on a phone:
+    upright it sits above the whole cluster, left of the GARAGE / TALK pill; on its side it sits between the stick and
+    HORN, above that pill. Before v300 it lay at the bottom centre, over the stick, GET OFF, LEAN and HORN.
 
 **Graphics and phones.** The game knows when it's on a phone or tablet (including iPads, which report themselves as
 Macs, and Firefox / Chrome / Edge on iPhone). Phones start on the low preset, desktops on high, and on **Graphics:
