@@ -304,7 +304,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 
 ## Backlog
 - [x] G3 (OWNER, top, fixed v223, beta 0170 #1): riderless sled brake only decelerates forward motion, accelerates backward drift instead of stopping it — see Owner notes 13 Nov (sign-aware brake fix), likely same root cause as the reverse-on-empty-fuel item above.
-- [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
+- [x] G3 (OWNER, top, fixed v298, lane A; checked by scenario and a still, not by Lemon): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov. Found: a plain Q get-off never drew it (0 of 80 frames); the rope on a standing rider was the one left clipped after a crash had thrown you (every frame until you walked 2 m off or got back on). Now it is drawn only while the crash has you. `g3_tether.mjs`.
 - [x] G3 (OWNER, top, fixed v297, lane A; not yet tried on a real pad or phone): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov. Found: X on a keyboard and an Xbox pad did read the job out; on a DualSense the line still said "X" (the button is □, and ✕ does something else), on a Switch pad "X" (it is Y), and on touch there was no button at all. The line now names the control on the device in hand and the SIZE UP button shows on touch. `g3_sizeup.mjs`.
 - [x] G3 (OWNER, top, fixed v223: on the flat it was the same brake term; holding the brake on an empty tank while rolling back 4 m/s went to 28 m/s, now stops in <1 s. Downhill sliding with no engine is left as physics): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
 - [x] G4 (beta 0320 #1 BUG + #2, fixed tlx-vehicles v34, lane A): a feathered pad trigger stalled dead in 25 cm+ of powder (30%: 0.0 m)
@@ -792,5 +792,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       the current truck by design, so the mod menu's "Clear spawned machines" leaves the last one: say so there.
 - [ ] Steam (POLISH, beta 0376 #4, the Steam session's): the title's QUIT row is cut off at 640x360 (bottom 362 of
       360); unreachable while the shell's minimum is 960x540.
+- [ ] G3 (POLISH, beta 0377 #4, lane A): the keyboard line "Sled 8 m on your left · walk back and press Q" types the
+      key as "press Q" where the other lines use `keyHint("mount", "get on")` ("Q: get on"); right per device, only
+      the wording differs.
 
-Last triaged report: 376
+Last triaged report: 377

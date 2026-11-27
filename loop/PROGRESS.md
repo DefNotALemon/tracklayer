@@ -28,6 +28,38 @@ Lemon, 27 Nov: "completely redo the road design ... drop the curbs too ... make 
 - Built: `tlx-roadkit.js` (`TLXRK`), loaded before `tlx-roads.js`; 13 roads (7 town streets, 6 routes), 282 chunks, 246 k vertices, made lazily nearest first (boot 230-410 ms). 19-column ribbon draped on `surf()` within 1.2-7 cm, junction mouths cut/projected/flared (20), tapers (10), turning places (16), one surface shader (aged asphalt, wheel paths, cracks, sealed cracks, patches, markings, gravel, winter snow/ice/tracks/banks, wet), road snow state per stretch drives it, seasons drive it (July = bare), opaque + alphaToCoverage, low preset variant, poles in pairs (50 m, 25 m in bends) with a headlight reflector, lamps moved onto the shoulder.
 - Asserts: `rd1_roads` (no kerb; 7/7 town + every network segment on the kit; ribbon within 1.2-7 cm of surf, no steeper and no stair step beyond the surface's own; 0 doubled-surface samples of 63 280, 20 mouths, 6 m flare; sled and a traffic car drive street, junction and a network stretch; snow states switch the look; July is bare; old save loads). Existing scenarios edited: `x_townroads` (kerb asserts replaced), `p1_picture` (`BASE_LOW` 128.0 -> 146.6, the pinned street frame is lighter without the black ribbon).
 - Stills: before `~/.hermes/cache/scratch/tlroads/before/`, rounds `r1..r8`, final `after/`; the plan stills `plan/`. Ten worst left and the measured cost: loop/REALISM.md "RD1 as built". The re-placement plan and slices RD2-RD8: "RD plan: roads re-placed".
+## 2026-11-27 13:05 — Owner note 13 Nov #1: no tether rope on a rider standing on their own feet (v298, lane A) (G4) — a54f211
+
+Triage: report 0377 read (376 -> 377). It verifies v297's "size it up" names on keyboard, three pads and touch; no
+BLOCKER or BUG, one POLISH (#4, "press Q" wording) listed in LOOP.md. Lane A's list is done, so this pass took the
+other 13 Nov owner line, as the last entry said it would.
+
+- **What was wrong** (new `g3_tether.mjs`, a per-frame recorder counting the frames the rope mesh is drawn, run on
+  the tree before the fix): a plain Q get-off never drew or clipped the rope (0 of 80 frames), and neither did
+  getting back on and off after a crash (0 of 113). The rope on a standing rider came from a crash: after the game
+  put you back on your feet it stayed clipped from the bars to your belt in every frame (56 of 56 while standing
+  1.3 m from the sled) until you walked 2 m off ("You unclip the tether from your belt.") or got back on. 4 of 14
+  checks failed. That this is the rope Lemon meant is my reading of his note ("never shown/attached once you're
+  off the sled on your own feet"); I found no other way to get a rope on a rider on foot.
+- **Fix** (tracklayer.js): `ropeTick` draws the rope only while `CRASH.on` with the tether tied (thrown, sliding,
+  getting up); the on-foot branch and its unclip toast are gone, `ROPE.clip` now just mirrors that. The design
+  comment and README say so. This changes a thing the game did on purpose (the rope kept on while you walk back),
+  on the owner note's word. The tethered-crash toast says "Press L1 / tap GET ON to get back on" through `btn()`
+  (it typed "Press Q" for a pad).
+- **Numbers, before -> after**: `g3_tether` 10 of 14 -> 15 of 15 (one check added with the toast fix). Rope frames
+  on a standing rider after a crash 56 of 56 -> 0 of 54; walking off and back 38 of 134 -> 0 of 227, the unclip
+  line gone; while thrown the rope still shows (93 -> 114 frames) and still holds you 1.3 m from the sled. Stills
+  `a1127d/before/tether_up.jpg` (orange rope from the bars to the standing rider) and `a1127d/after/tether_up.jpg`
+  (none).
+- **Gate**: smoke, x1_save, g2_swing, crashbrake_check: exit 0, fails 0, page errors none. `g3_tether` failed its
+  first check in the gate run ("Q gets you off": the Q landed while the parked sled was still settling, so the game
+  said "Stop the sled first" and the scenario walked nowhere); the scenario now waits for the sled to be on the
+  ground instead of a fixed 0.6 s, and passed 15 of 15 twice after that, run alone, not in a full gate again. The
+  game code did not change between the gate and those runs.
+- **Unverified**: by Lemon's eye; the moment the rope vanishes as you stand was not looked at as a strip (it goes in
+  one frame, with the get-up); a crash into water or one ended by `crashCancel` was not run.
+- **Next for lane A**: the listed leftovers in LOOP.md (search-and-rescue toasts through `btn()`, the three
+  scenarios failing on main, 0375 #2/#3, 0377 #4).
 
 ## 2026-11-27 12:35 — Owner note 13 Nov #2: the "size it up" control beside someone you winch out names the right button on every device, and a phone gets the button (v297, lane A) (G4) — 508dfa0
 
