@@ -779,7 +779,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 2.7 (POLISH, beta 0374 #3/#4, lane A): `x2_sellerdoors` should assert that `spotNear`'s fallback pass (keep = 0)
       was not used (the first spot at Risfjord and the relay has ~4 m spare); unconfirmed: `TLXV.remove(uid)` left one
       truck owned after pickup, pickup, trailer cycles with the walker beside them (the current truck?).
-- [ ] G3 (builder, v297 pass, lane A): control names still typed out as keys in the search-and-rescue block (the accept
+- [x] G3 (builder, v297 pass, lane A; fixed v299, checked by scenario and two stills, not on a real pad or phone): control names still typed out as keys in the search-and-rescue block (the accept
       toast at `sarAccept`: "Q off ... hook on (E) ... hold SPACE", "press E") and the "line parted ... Shovel or R"
       toast (reset is N): route them through `btn()` as the recovery lines were in v297.
 - [ ] G4/G3 (builder, v297 pass, stale tests or real, lane A): three scenarios fail the same way on origin/main at v295
@@ -795,5 +795,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (POLISH, beta 0377 #4, lane A): the keyboard line "Sled 8 m on your left · walk back and press Q" types the
       key as "press Q" where the other lines use `keyHint("mount", "get on")` ("Q: get on"); right per device, only
       the wording differs.
+- [ ] G3 (builder, v299 pass, lane A; on origin/main too): at 320x568 the hint box (`#wnHud`) sits over the ride
+      controls whenever a riding hint shows (`x4_mobilehud2` "tabopen" and "footbeside" fail on main at v298; with a
+      villager walking past, "sledtoast" too, and since v299 the box also clips the corner of GET OFF). Lift the box
+      above the control cluster on narrow portrait screens. Also tlx-folk's riding line reads "E: a word with Anja" on
+      touch (the button says TALK): route it through `keyHint`. Other typed keys seen while fixing the rescue lines and
+      left: README's Search and rescue section (keyboard names, as the README is written), code comments.
+- [ ] G4 (test, beta 0378 #3, lane A): `x4_plowtruck` failed once in 4 runs ("the line names the road and is yours: []",
+      "the whole width is cut"; 3 reruns alone passed): make those two reads poll.
 
-Last triaged report: 377
+Last triaged report: 379

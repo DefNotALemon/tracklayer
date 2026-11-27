@@ -22,6 +22,49 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 14:00 — Rescue lines name the control in hand; GET OFF on a stopped sled on touch (v299, lane A) (G4) — 66e48e0
+
+Triage: reports 0378 and 0379 read (377 -> 379). 0378: `x4_gritter` and its reload test pass; `x4_plowtruck` failed
+once in four runs on two reads that look like timing (listed as a test line in LOOP.md, not fixed here). 0379: the
+tether fix holds on keyboard, DualSense and touch; two POLISH, no BLOCKER or BUG. Lane A's list is done, so this pass
+took an open lane-A backlog line: the v297 pass's "control names still typed out as keys in the search-and-rescue block".
+
+- **What was wrong**: ten player-facing lines in the rescue and winch blocks typed keyboard keys whatever the device:
+  the how-to toast after ACCEPT ("Q off ... hook on (E) ... hold SPACE", "press E"), both riding hints ("Q off and
+  walk up (E)"), the HUD status ("walk up (E)", "E at their sled"), "Found! ... E to help them up", "sled is out ...
+  press E", three rescue-school briefs, "No winch: dig by the sled (hold E at it)" (digging is a press, not a hold)
+  and "The line parted ... Shovel or R" (reset is N).
+- **Fix** (tracklayer.js): two sentence helpers beside `keyHint`: `doHint(action, what, touchWord)` gives "get off
+  (Q)" / "tap GET OFF", `pressHint(action, touchWord)` gives "press E" / "tap HELP UP". On touch the use button wears
+  its verb, so a line about a press still to come passes the word `footUse()` gives there (HELP UP, LOAD, RIG TOW,
+  DIG, HOOK). The lines moved into `sarHowTo`, `sarOutLine`, `sarFoundLine`, `winchPartedLine`; a school brief may be
+  a function, read through `schoolBrief(m)` at the two places it is shown. The HUD status lines lost their key
+  (the hint beside them names it).
+- **Found while testing, fixed**: on touch the riding hint now said "tap GET OFF" and no such button was on screen.
+  `updTouch` showed GET OFF only when bogged or in a cab (so since v172 a touch rider on a sled that was not stuck
+  had no way to get off; the recovery hint already promised the button). It now shows on the sled at or under
+  2.2 m/s, the speed `dismount()` itself allows, not in water, a crash or a rescue ride. I did not find this
+  reported anywhere; that it was unintended is my reading (keyboard and pad can get off any stopped sled).
+- **Numbers**: typed-key lines in the block 10 -> 0. New `g3_sarbtn.mjs`: 89 checks pass, run three times (twice
+  alone, once in the gate). Part 1 reads all 18 lines under keyboard, Xbox, DualSense, Switch pad and touch in one
+  synchronous step with a stand-in case, and checks the touch words against what `footUse()` returns at that spot.
+  Part 2 takes a real slope callout with a scripted DualSense: the toast reads "If it's too steep to ride, stop
+  below, get off (L1), walk up and press L3." and the hint on screen "Stop beside Jonas, or get off (L1) and walk
+  up"; on touch "... or tap GET OFF and walk up", GET OFF is on screen on the stopped sled, hidden at 5 m/s, and a
+  tap on it puts you on your feet with GET ON showing. Stills `tlloop/a1127e/sarbtn_ps.jpg`, `sarbtn_touch.jpg`
+  (looked at: the pill sits above the stick, clear of CAMERA and the stick at 1280x720).
+- **Gate**: smoke, x1_save, g3_sarbtn: exit 0, fails 0, page errors none. Also run alone and passing: g3_sizeup,
+  x2_btn, x4_mobilehud3. Not clean: `ui_responsive` 1104/1105 (the one failure, "foot embed640: no HUD overlap", is
+  the one already listed as failing on main); `x4_mobilehud2` fails 3 here and 2 on a `git archive` of origin/main
+  (v298): at 320x568 the hint box lies over the ride controls whenever a riding hint shows. The third failure here
+  ("sledtoast") is that same box, up because a villager walked past (tlx-folk's "a word with" line), and it now
+  clips the corner of GET OFF as well as the stick, pedal, LEAN and HORN. I ran each tree once, so whether main
+  shows "sledtoast" with a villager near is inferred from the still, not measured. Listed in LOOP.md.
+- **Unverified**: any real pad or phone; the tow and toboggan callouts and the "found" and "sled is out" toasts were
+  read from their functions, not played through; the school briefs were read through `schoolBrief`, not seen on
+  the school card; GET OFF on a stopped sled at the small phone sizes other than through x4_mobilehud2/3 and
+  ui_responsive; README's Search and rescue section still uses keyboard names, as the rest of the README does.
+
 ## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — commit titled "Roads redone, no kerbs anywhere"
 Lemon, 27 Nov: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs". RD1 of the roads direction (loop/OPEN.md build order 3a): the road MODEL, not yet the road ROUTES.
 - Deleted: `townRoads` (ribbon + 1.25 m kerb pieces + snow caps + drain grates + junction squares), `townRoadTex`, `CURB_H/CURB_W`, `crossesAt`, the kerb-gap logic, the vertex-coloured pole cylinder. The network roads had no mesh (a plowed snow channel only), so their surface is new. No code says kerb/curb any more (asserted).
