@@ -22,6 +22,10 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 — Roads RD1b: real junctions, wandering edges, no stipple, reflective poles (G8 RD1b) — 6b22123
+The supervisor's defects on RD1, fixed in `tlx-roadkit.js` v2 (details: `loop/REALISM.md` "RD1b as built"): junction patches with corner fillets (`findNodes`, `buildPatch`, one surface, no seam), street edges that wander, the `alphaToCoverage` dither replaced by a crisp noise-thresholded coverage with early discard, thin orange poles with a headlight-catching band, packed-snow detail, lamps built after the kit and driveway gaps in the bank. Tests: `rd1_roads` gained D (one triangle under 6885 junction samples), I (edge wander), J (night pole band contrast), K (lamps, driveways), L (tone across an arm end vs a plain street), `rd1b_look`, `rd1b_strip`, `tools/playtest/px.py`; `p1_picture` waits for the world to stop streaming before it times the chain; `ui_responsive` embed640 failure was 4b441bc, fixed by v300. Script v303, tlx-roadkit v2.
+- Landed by the supervising session (builder cut off mid-gate). Gate on the rebased tree: all road, traffic, plow, lanes and layout lines clean; rd1_roads J (pole reflector) failed once and passed alone; x3_roads boot cost 3119/4534 ms under load 9-17, 1956 ms at load 5 (main 1871 ms); p1_picture fell cost fails on main as well (5.36 ms), not from this slice, still open.
+
 ## 2026-11-27 17:40 — On a pad Menu opens Settings every time; the key list and the STUCK? card name the controls in hand (v303, lane A) (G4) — 42637ef
 
 Triage: reports 0388 (bogged truck + trigger reverse, v41: two POLISH) and 0389 (semis regression: three POLISH, all in
