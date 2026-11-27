@@ -1,5 +1,5 @@
-// Kjøllefjord's streets as roads (v238): no picket fences left, an asphalt ribbon + curbs on the streets, curb gaps at spurs,
-// the sled still drives the streets and crosses into a house spur. Run: tools/playtest/run.sh tools/playtest/scenarios/x_townroads.mjs [outdir]
+// Kjøllefjord's streets as roads (v238, rewritten for RD1 27 Nov 2026: the road-kit model, no kerbs): no picket fences left,
+// the streets are road-kit roads with no kerb pieces, the sled still drives the streets and crosses into a house spur. Run: tools/playtest/run.sh tools/playtest/scenarios/x_townroads.mjs [outdir]
 // NOSTILLS=1 skips the stills.
 import { boot, ev, shot, done, sleep, hold, down, up, sideCam, camOff } from "../lib.mjs";
 await boot();
@@ -17,50 +17,36 @@ const f = JSON.parse(await ev(`(() => {
 ok(f.fenceObs === 0, "no fence colliders (r 0.5, top ground+1.1) near town: " + f.fenceObs);
 ok(f.fenceMeshes === 0, "no fence mesh (0xd9d3c5) on the scene root: " + f.fenceMeshes);
 
-// ---- 2. road mesh exists, spans the streets, curbs have gaps at spurs and junctions
+// ---- 2. RD1: the streets are road-kit roads (tlx-roadkit.js), no kerbs. (Was: an asphalt ribbon + kerbs with gaps at spurs.)
 const r = JSON.parse(await ev(`(() => {
   const d = depot, G = TOWNG, R = G.road; if (!R) return JSON.stringify({ none: true });
-  const meshes = R.meshes.map(m => ({ k: m.userData.townRoad || "other", tris: m.geometry.index.count / 3, vis: m.visible, bb: (m.geometry.computeBoundingBox(), m.geometry.boundingBox) }));
-  const a = meshes.find(m => m.k === "asphalt").bb, nonSea = [];
-  // bounds relative to the depot vs TOWNG extents
-  const out = { segs: R.segs.length, junctions: R.junctions.length, curbPieces: R.curbPieces, gaps: R.gaps, lines: R.lines,
-    asphalt: [a.min.x - d.x, a.max.x - d.x, a.min.z - d.z, a.max.z - d.z].map(v => +v.toFixed(1)), meshes: meshes.map(m => [m.k, m.tris, m.vis]),
-    draws: R.meshes.length };
-  // every street centre-line sample lies under asphalt (on a ribbon seg or a junction square)
-  let miss = 0, tot = 0;
+  const K = TLXRK; K.fillAll();
+  const out = { roads: R.roads.filter(q => q.meta && q.meta.town).length, lines: R.lines, meshes: R.meshes.length, kerbMeshes: 0, oldMeshes: 0, untagged: 0, curbPieces: R.curbPieces };
+  scene.traverse(m => { if (m.isMesh && m.userData && (m.userData.townRoad || /curb|kerb/i.test(m.name || ""))) out.oldMeshes++; });
+  for (const m of R.meshes) if (!m.userData.roadkit) out.untagged++;
+  let miss = 0, tot = 0;                                                        // every street centre-line sample lies on built asphalt
   for (const [ax, az, bx, bz] of G.lines) { const L = Math.hypot(bx - ax, bz - az), n = Math.floor(L / 2);
-    for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (isSea(x, z)) continue; tot++;
-      const onSeg = R.segs.some(s => { const ux = s.b[0] - s.a[0], uz = s.b[1] - s.a[1], uu = ux * ux + uz * uz, t = clamp(((x - s.a[0]) * ux + (z - s.a[1]) * uz) / uu, 0, 1); return Math.hypot(x - s.a[0] - ux * t, z - s.a[1] - uz * t) < s.hw + 0.05; })
-        || R.junctions.some(j => Math.abs(x - j[0]) <= G.HW + 0.05 && Math.abs(z - j[1]) <= G.HW + 0.05); if (!onSeg) miss++; } }
+    for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (isSea(x, z)) continue; tot++; if (!K.covered(x, z)) miss++; } }
   out.miss = miss; out.tot = tot;
-  // asphalt sits on the snow: ribbon vertices vs surf along the depot street
-  const pos = R.meshes[0].geometry.attributes.position; let lo = 9, hi = -9;
-  for (let i = 0; i < pos.count; i += 7) { const dy = pos.getY(i) - surf(pos.getX(i), pos.getZ(i)); lo = Math.min(lo, dy); hi = Math.max(hi, dy); }
+  let lo = 9, hi = -9;                                                          // asphalt sits on the snow: the carriageway columns vs surf
+  for (const m of R.meshes) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 7) { const c = i % K.NC; if (c < 6 || c > 12) continue; const dy = pos.getY(i) - surf(pos.getX(i), pos.getZ(i)); lo = Math.min(lo, dy); hi = Math.max(hi, dy); } }
   out.lift = [+lo.toFixed(3), +hi.toFixed(3)];
   return JSON.stringify(out); })()`));
 console.log("road", JSON.stringify(r));
 ok(!r.none, "TOWNG.road exists");
-ok(r.lines === 7 && r.junctions >= 10, `7 street lines, junction squares: ${r.junctions}`);
+ok(r.roads === 7 && r.lines === 7, `7 street lines, 7 road-kit roads (${r.roads})`);
 ok(r.miss === 0, `every street centre-line sample is under asphalt (${r.miss}/${r.tot} missing)`);
-ok(r.curbPieces > 300 && r.gaps > 20, `curbs laid (${r.curbPieces}) with gaps at spurs/yards (${r.gaps})`);
-ok(r.draws <= 4, `merged: ${r.draws} meshes`);
-ok(r.lift[0] > 0 && r.lift[1] < 0.12, `ribbon rides just above surf: ${r.lift}`);
-// curb gap at each house spur: no curb piece sits on a spur's mouth, but curbs exist right beside it
+ok(r.curbPieces === undefined && r.oldMeshes === 0 && r.untagged === 0, `no kerb pieces and no old-builder mesh (${r.oldMeshes} old, ${r.untagged} untagged, curbPieces ${r.curbPieces})`);
+ok(r.lift[0] > -0.01 && r.lift[1] < 0.13, `carriageway rides just above surf: ${r.lift}`);
+// there is no kerb to open at a house spur: every spur mouth on Kaigata is plain street edge (shoulder, then snow), nothing stands on it
 const g = JSON.parse(await ev(`(() => {
-  const d = depot, R = TOWNG.road, pos = R.meshes.find(m => m.userData.townRoad === "curb").geometry.attributes.position, pts = [];
-  for (let i = 0; i < pos.count; i += 8) pts.push([pos.getX(i), pos.getZ(i)]);
-  const spurs = YARDS.filter(Y => Y.r <= 2.2 && Y.r >= 1.4 && Math.hypot(Y.x - d.x, Y.z - d.z) < 108 && Math.abs(Y.x2 - Y.x) < 0.01 && Y.z2 !== Y.z);
-  let withCurbNear = 0, blocked = 0; const n = spurs.length;
-  for (const Y of spurs) {                                               // the spur's street end is (x2, z2); a street is at G.Z lines
-    const sx = Y.x2, sz = Y.z2, sd = Math.sign(Y.z - Y.z2);
-    const on = pts.some(([x, z]) => Math.abs(x - sx) < 1.0 && Math.abs(z - (sz + sd * (TOWNG.HW + 0.13))) < 0.5);
-    const beside = pts.some(([x, z]) => Math.abs(x - sx) > 2 && Math.abs(x - sx) < 6 && Math.abs(z - (sz + sd * (TOWNG.HW + 0.13))) < 0.5);
-    if (on) blocked++; if (beside) withCurbNear++;
-  }
-  return JSON.stringify({ n, blocked, withCurbNear }); })()`));
+  const d = depot, spurs = YARDS.filter(Y => Y.r <= 2.2 && Y.r >= 1.4 && Math.hypot(Y.x - d.x, Y.z - d.z) < 108 && Math.abs(Y.x2 - Y.x) < 0.01 && Y.z2 !== Y.z);
+  let bad = 0; const m = TOWNG.road.meshes;
+  const ray = new THREE.Raycaster(), dn = new THREE.Vector3(0, -1, 0);
+  for (const Y of spurs) { const x = Y.x2, z = Y.z2 + Math.sign(Y.z - Y.z2) * (TOWNG.HW + 0.5); ray.set(new THREE.Vector3(x, surf(x, z) + 3, z), dn); const h = ray.intersectObjects(m); if (h.length && h[0].point.y - surf(x, z) > 0.12) bad++; }
+  return JSON.stringify({ n: spurs.length, bad }); })()`));
 console.log("spurs", JSON.stringify(g));
-ok(g.n > 8 && g.blocked === 0, `curb open at all ${g.n} house spurs (blocked ${g.blocked})`);
-ok(g.withCurbNear > g.n * 0.6, `curb present beside spurs: ${g.withCurbNear}/${g.n}`);
+ok(g.n > 8 && g.bad === 0, `no ridge or step at any of ${g.n} house spur mouths (${g.bad} over 12 cm)`);
 
 // ---- 3. no colliders for curbs: the obstacle count along a street edge didn't grow (no addOb with a curb signature)
 // ---- 4. the sled drives a street and crosses into a house spur
@@ -98,7 +84,7 @@ if (sp) {
   }
   await up("KeyW");
   console.log("spur ride", JSON.stringify({ maxInto: +maxInto.toFixed(1), vBefore, vAt }));
-  ok(vBefore !== null && vAt !== null && vAt >= vBefore * 0.9, `sled crossed the curb line into the spur without slowing (${vBefore && vBefore.toFixed(1)} -> ${vAt && vAt.toFixed(1)} m/s)`);
+  ok(vBefore !== null && vAt !== null && vAt >= vBefore * 0.9, `sled crossed the street edge into the spur without slowing (${vBefore && vBefore.toFixed(1)} -> ${vAt && vAt.toFixed(1)} m/s)`);
 } else ok(false, "found a house spur off Kaigata");
 // the same ride over a curb with NO gap would also not stop it (curbs have no collider): ride across mid-block onto the snow
 {
@@ -106,7 +92,7 @@ if (sp) {
   await ev(`(() => { crashCancel(); FOOT.on = false; VEH.cur = null; P.x = ${d.x + 17}; P.z = ${gz - 5}; P.yaw = Math.PI; P.vx = P.vz = P.vy = 0; recenter(P.x, P.z, true); P.y = surf(P.x, P.z) + 0.2; return true; })()`);
   await sleep(800); await hold("KeyW", 600);
   const z1 = +(await ev("P.z")), n = JSON.parse(await ev("JSON.stringify({ v: Math.hypot(P.vx, P.vz), crash: !!CRASH.on })"));
-  ok(gz - z1 > 3 && !n.crash, `a curb is no wall: sled rolled ${(gz - z1 + 5).toFixed(1)} m off the street edge across the curb line unstopped (v ${n.v.toFixed(1)})`);
+  ok(gz - z1 > 3 && !n.crash, `the street edge is no wall: sled rolled ${(gz - z1 + 5).toFixed(1)} m off the street edge across the street edge unstopped (v ${n.v.toFixed(1)})`);
 }
 
 // ---- stills

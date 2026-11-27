@@ -25,12 +25,21 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
    out the way real Finnmark roads run (follow the shore and the valley floors, honest junctions, every building on
    a street), no kerbs anywhere, a real road surface (worn asphalt, patches, cracks, faded and partly missing
    markings, gravel shoulders, packed snow and ruts in winter, plow banks instead of kerbs). Realism outranks the
-   worn look. This replaces R3's road part in `loop/REALISM.md`. Nothing built yet.
+   worn look. This replaces R3's road part in `loop/REALISM.md`.
+   DONE (RD1, 27 Nov, script v296): the new road model `tlx-roadkit.js` (one model for the town streets and the network
+   roads, built from nothing; the old `townRoads` ribbon, `townRoadTex`, kerbs, caps and grates are deleted and no kerb or
+   curb exists in any code), worn aged asphalt with wheel paths, cracks, patches, faded markings, gravel shoulders, packed snow
+   and ice with bare tracks and plow banks in winter, bare asphalt in July, real junction corners, turning places, red
+   snow poles in pairs with reflectors. Test `rd1_roads`, stills `rd1_stills`, measured cost and the plan in
+   `loop/REALISM.md` ("RD1 as built", "RD plan: roads re-placed").
+   LEFT: the routes were NOT moved (RD plan slices RD2..RD8: terrain-honest routing, the Kjøllefjord street plan, the
+   other villages, the trunk, hairpins, traffic/plow/convoy/saves follow, the chart). Driveways are still plain plowed
+   lanes, no road-kit surface. Do not remove this row until RD2-RD8 are on main.
 0. STEAM RELEASE (Lemon, 27 Nov: "i want to register a steam page for tracklayer", then "start on all of those ...
    get me plenty of optionss for store pages"). Placed first by the supervisor because it has outside deadlines
    (Valve's waiting periods) and he asked for it by name today; move it if he says so. Target 27 Jan 2027. Plan and
-   slice table `loop/STEAM.md`. S1 desktop shell done (v296; never run on Windows, full screen and pad untested); S2 six store page options
-   shown to him, waiting on his pick; S3 final assets wait on that pick; S4 waits on his Steamworks App ID.
+   slice table `loop/STEAM.md`. S1 desktop shell and S2 store page options building; S3 final assets wait on his
+   pick; S4 waits on his Steamworks App ID.
 Then back to the newer directions (G9 the raid, I7 field guide, G8 houses). The expansion lanes (G4) keep
 running beside this under the governor.
 
@@ -51,7 +60,7 @@ running beside this under the governor.
 | G6 Living enemy NPCs | 11 Nov | not started (after G5) |
 | G7 Home on the Nordkinn | 24 Nov | H1 ski trails done. Gram remade and done v284 (supervisor ran h2_gram, h2_reels, gram_scroll at polar night and spring green on the final tree, 26 Nov). Gram leftovers: low-preset painted pictures are generic blobs; gapahuk-fire photo washes out in daylight; kicksled post can show only a wall; `doorwall`, `skipole` kinds off; reel start-up and new-game frame numbers measured by a builder but never written down; reel p95 spikes under machine load not isolated. I1-I10: I1 building. H4-H8 outlined. |
 | Settings menu split into separate Game, Graphics and Sound menus; painting taken out of the menu, you get painted at the garage you are doing repairs at (his words: "make tracklayers settings menu into a seperated settings menu with a game menu, a graphics menu, a sound menu, and move the painting out of the menu and make it so you get painted at the garage you're doing repairs at") | 27 Nov | not started |
-| Roads completely redone: new design, re-placed around the whole map, no kerbs, much nicer, worn is fine, realistic first | 27 Nov | not started; build order 3a above |
+| Roads completely redone: new design, re-placed around the whole map, no kerbs, much nicer, worn is fine, realistic first | 27 Nov | RD1 done on main (new road model, no kerbs, script v296); the re-placement is planned, not built: RD2-RD8 in `loop/REALISM.md`; build order 3a above |
 | G8 The realistic look, bar raised 26 Nov to "photoreal, or as close as ultra graphics roblox games go", with builders on it continuously | 24 Nov, 26 Nov | R1 figures, R2 sleds done. P1 the picture (post chain, contact shade, bloom, sky, sky light, shadows, Ultra preset) done v291 (supervisor re-ran the gate and compared before/after stills, 27 Nov; a step up, not photoreal: no clouds, flat blue shade, no light spill on snow). Town roads (26 Nov: "fix the very shittily placed roads to be nice and actually look like a town"): the half-lane strip beside Kaigata is fixed (v286); the layout itself (roads out of town joining the grid, streets to the quay and sites, no dead-end rectangle) is R3's first part, next after P1. Sleds (26 Nov: "i can see through the middle of the sled"): the seat's row of holes is fixed (v286); every asset slice now gets checked from the game's own cameras. Then R3 streets, R4 houses, R5 vehicles and props, R6 nature, R7 viewport second pass, R8 nitpick round: none started. Plan `loop/REALISM.md` |
 | G9 Armed work and raids: armed courier and guard jobs, tip-offs, shoot-up raids on drug sites, your name gets out | 25 Nov | A1 armed work (v274) and A2a done: drug sites in the world with a crew outside on suspicious routines, found by watching them or by a tip. Left: A2b the raid itself (fight, cash, Politi clock; plus dog, tub carriers, purple light fixes). then A3, A4, A5. Plan `loop/RAIDS.md` |
 | New-player tutorial arriving on the ferry on foot (G2) | 30 Oct | not built; needs snow-free walking |
@@ -68,7 +77,7 @@ running beside this under the governor.
 
 ## Small things
 - Tether rope stays visible after a plain dismount (13 Nov). Open.
-- The "size it up" control beside someone you came to winch out names the right button on every device and works there (13 Nov). Built in v297 (lane A, 27 Nov): on a DualSense the line said "X" while the button is □; on a phone there was no button. Checked by scenario only (`g3_sizeup.mjs`: keyboard, Xbox / DualSense / Switch pads, touch). For Lemon to try on his own pad; delete this line once he has.
+- "X: size it up" prompt by an unhooked rescue victim does nothing (13 Nov). Open.
 - Delivery rewards with flavour dialogue: snacks and the like (11 Nov). Open.
 - About 60 polish and test lines from the beta tester under G4 in `loop/LOOP.md` (pad/touch gaps, toasts, stale
   scenarios `x2_standstart`, `x3_traffic` step D). Open.

@@ -15,7 +15,7 @@ import fs from "fs";
 let fails = 0; const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 const J = async e => JSON.parse(await ev(`JSON.stringify(${e})`));
 const NOST = !!process.env.NOSTILLS;
-const BASE_LOW = { luma: Number(process.env.P1_LOW_LUMA || 128.0) };   // origin/main's low-preset pinned noon street luma, if known
+const BASE_LOW = { luma: Number(process.env.P1_LOW_LUMA || 146.6) };   // origin/main's low-preset pinned noon street luma (128.0 until RD1, 27 Nov 2026: the pinned frame looks down a street, and the black asphalt ribbon with kerbs became grey worn asphalt with packed snow and a gravel shoulder, so the same frame is 14 % brighter; the chain and the effects did not change)
 
 const INJECT = `(() => { if (window.__p1) return true; window.__p1 = 1;
  const rr = renderer.render.bind(renderer); renderer.render = (s, c) => { if (window.camOv && s === scene) window.camOv(c); rr(s, c); };

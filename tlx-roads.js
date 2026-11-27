@@ -34,7 +34,7 @@ const ROADS = {
   grid: 16,                 // A* cell, m
   half: 3.2,                // plowed half-width, m (a 6.4 m road, plus the yard system's easing at the edges)
   plow: 0.9,                // how hard it's plowed: 1 = a house yard, so a road is a touch softer than the quay
-  poleGap: 50, poleOff: 4.6, poleH: 2.3,
+  poleGap: 50, poleGapBend: 25, poleOff: 4.6, poleH: 2.3,   /* Statens vegvesen h111: in pairs, up to ~50 m apart on a straight, ~25 m in a bend under R 300 m */
   street: 1.5,              // village street lanes (Kjøllefjord's own lanes are 1.5)
   pad: 520,                 // how far a leg's search may stray outside the box round its two ends, m
   bed: 6.8,                 // the road bed: level across this far either side of the centre, m (road + shoulder)
@@ -386,6 +386,7 @@ function build(W) {
   }
   streets(W);
   poles(W);
+  kit(W);
   paintMap(W);
   R.ms = Math.round(performance.now() - t0); R.ready = true;
 }
@@ -508,6 +509,50 @@ function streets(W) {
   }
 }
 
+// ---- RD1: the road model. Every route becomes road-kit roads (tlx-roadkit.js): runs of the route's own legs, the road
+// legs as a fylkesvei (6.2 m asphalt) and its village-street legs as a narrower street, the street legs inside
+// Kjøllefjord's own street grid left to the town (those 3 m lanes cut diagonally across house lots; the town streets
+// are townRoads()). Snow state per stretch drives the surface (ROADS.seg stretches), and R.rk lets snowApply touch the
+// chunks over a stretch that changed. The kit builds once townRoads() has added the town's streets.
+function kit(W) {
+  const K = window.TLXRK; if (!K) return; K.init(api);
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const l of W.streets || []) { x0 = Math.min(x0, l[0], l[2]); x1 = Math.max(x1, l[0], l[2]); z0 = Math.min(z0, l[1], l[3]); z1 = Math.max(z1, l[1], l[3]); }
+  const inTown = (x, z) => x > x0 - 14 && x < x1 + 14 && z > z0 - 14 && z < z1 + 14;
+  R.rk = [];
+  for (const rt of R.routes) {
+    // points of the route in order, each tagged with its leg's kind; runs split where a street leg enters Kjøllefjord's grid
+    const pts = []; let acc = 0, last = null;
+    for (const sg of rt.segs) for (const q of sg.pts) {
+      if (last) acc += Math.hypot(q[0] - last[0], q[1] - last[1]); last = q;
+      const l = pts[pts.length - 1]; if (l && Math.hypot(q[0] - l.x, q[1] - l.z) < 0.5) continue;
+      pts.push({ x: q[0], z: q[1], street: !!sg.street, s: acc, out: !!sg.street && inTown(q[0], q[1]) });
+    }
+    let run = [], k = 0;
+    const flush = () => {
+      if (run.length >= 4) {
+        const off = run[0].s, pp = run.map(q => [q.x, q.z]), segs = []; let cur = null;
+        run.forEach(q => { if (cur === null || q.street !== cur) { cur = q.street; segs.push({ s0: q.s - off, hw: q.street ? 2.3 : 3.1, mark: q.street ? 0 : 3, street: q.street }); } });
+        const bend = pp.map((_, i) => i >= 2 && i < pp.length - 2 && turnR(pp, i) < 70);
+        const rcum = run.map(q => q.s - off), bendAt = s => { let i = 0; while (i < rcum.length - 1 && rcum[i + 1] < s) i++; return bend[i] || bend[Math.min(rcum.length - 1, i + 1)]; };
+        const id = rt.id + ":" + (k++), closed = rt.closed;
+        const snow = s => {
+          if (closed) return 1;
+          let i = 0; while (i < segs.length - 1 && segs[i + 1].s0 <= s) i++; if (segs[i].street) return 0.25;
+          const st = rt.st; if (!st) return 0; const si = Math.min(st.s.length - 1, Math.max(0, Math.floor((off + s) / ROADS.seg))); return st.s[si] || 0;
+        };
+        const r = K.add({ id, kind: "fv", pts: pp, segs: segs.map(g => Object.assign(g, { mark: g.mark })), snow, meta: { route: rt.id, closed } });
+        if (r) { r.markAt = s => { let m = segs[0].mark; for (let i = 1; i < segs.length; i++) if (s >= segs[i].s0) m = segs[i].mark; return m === 3 && bendAt(s) ? 4 : m; }; R.rk.push({ id, rt, off, len: run[run.length - 1].s - off }); }
+      }
+      run = [];
+    };
+    for (const q of pts) { if (q.out) flush(); else run.push(q); }
+    flush();
+  }
+}
+// a stretch's snow changed: the chunks of the road over it are re-draped and re-lit
+R.touchKit = (rt, a, b) => { const K = window.TLXRK; if (!K || !R.rk) return; for (const e of R.rk) if (e.rt === rt) K.touch(e.id, a - e.off, b - e.off); };
+
 // ---- snow poles (brøytestikker): orange, a reflector band near the top, leaning a little, both sides of the road
 function poles(W) {
   const T = api.THREE, list = [], hash = new Set(), near = (x, z) => W.SITES.some(s => s.x !== undefined && Math.hypot(x - s.x, z - s.z) < Math.max(28, (s.clear || 0) * 0.5)) || W.STATIONS.some(t => t.x !== undefined && Math.hypot(x - t.x, z - t.z) < 26);
@@ -517,7 +562,7 @@ function poles(W) {
     let acc = ROADS.poleGap * 0.5;
     for (let i = 1; i < sg.pts.length; i++) {
       const [ax, az] = sg.pts[i - 1], [bx, bz] = sg.pts[i], L = Math.hypot(bx - ax, bz - az); acc += L;
-      if (acc < ROADS.poleGap) continue; acc = 0;
+      if (acc < (i >= 2 && i < sg.pts.length - 2 && turnR(sg.pts, i) < 300 ? ROADS.poleGapBend : ROADS.poleGap)) continue; acc = 0;
       const nx = -(bz - az) / L, nz = (bx - ax) / L;
       for (const sd of [-1, 1]) {
         const x = bx + nx * ROADS.poleOff * sd, z = bz + nz * ROADS.poleOff * sd, k = Math.round(x / 9) * 100000 + Math.round(z / 9);
@@ -527,15 +572,7 @@ function poles(W) {
       }
     }
   }
-  const shaft = new T.CylinderGeometry(0.022, 0.028, ROADS.poleH, 5).translate(0, ROADS.poleH / 2, 0);
-  const col = [], c1 = new T.Color(0xd8561c), c2 = new T.Color(0xf2e9c8), pos = shaft.attributes.position;
-  for (let v = 0; v < pos.count; v++) { const y = pos.getY(v), band = y > ROADS.poleH - 0.32 && y < ROADS.poleH - 0.12; const c = band ? c2 : c1; col.push(c.r, c.g, c.b); }
-  shaft.setAttribute("color", new T.Float32BufferAttribute(col, 3));
-  const mesh = new T.InstancedMesh(shaft, new T.MeshLambertMaterial({ vertexColors: true }), Math.max(1, list.length));
-  const m = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), p = new T.Vector3(), sc = new T.Vector3(1, 1, 1);
-  list.forEach(([x, z, yaw, lx, lz], i) => { e.set(lx, yaw, lz); q.setFromEuler(e); p.set(x, W.groundAt(x, z) - 0.15, z); m.compose(p, q, sc); mesh.setMatrixAt(i, m); });
-  mesh.count = list.length; mesh.frustumCulled = false; mesh.name = "roadPoles";
-  api.scene.add(mesh);
+  const mesh = window.TLXRK ? (TLXRK.init(api), TLXRK.poles(list, ROADS.poleH)) : null;      // RD1: the road kit makes the poles (shaft, reflector band that catches the headlight)
   R.poles = list.length; R.poleList = list; R.poleMesh = mesh;
 }
 
@@ -623,7 +660,7 @@ function snowApply(all) {
     const o = rt.st; if (!o) continue;
     rt.seg.forEach((g, i) => {
       const q = Math.round(o.s[i] * 20) / 20;
-      if (q !== g.q || (all && q > 0)) { g.q = q; const k = ROADS.plow * (1 - q); for (const Y of g.legs) Y.k = k; legs.push(...g.legs); }
+      if (q !== g.q || (all && q > 0)) { g.q = q; const k = ROADS.plow * (1 - q); for (const Y of g.legs) Y.k = k; legs.push(...g.legs); R.touchKit(rt, g.a, g.a + ROADS.seg); }
       const shut = g.legs.length > 0 && o.s[i] >= ROADS.shut; if (shut !== g.shut) { g.shut = shut; paint = true; }
     });
   }
@@ -825,7 +862,7 @@ TLX.register({
   state0: () => ({ r: {}, h: -1, warned: false }),
   migrate: st => Object.assign({ r: {}, h: -1, warned: false }, st || {}),
   init(a) { api = a; try { build(a.world); snowInit(); } catch (e) { console.error("TLX roads", e); R.err = String(e); } },
-  tick() { try { snowTick(); } catch (e) { if (!R.tickErr) console.error("TLX roads tick", e); R.tickErr = String(e); } },
+  tick(dt) { try { if (window.TLXRK) { TLXRK.tick(dt); TLXRK.headTick(); } } catch (e) { if (!R.kitErr) console.error("TLX roadkit tick", e); R.kitErr = String(e); } try { snowTick(); } catch (e) { if (!R.tickErr) console.error("TLX roads tick", e); R.tickErr = String(e); } },
   save() { const st = RS(); if (st && st.r) for (const k in st.r) { const o = st.r[k]; if (o && Array.isArray(o.s)) o.s = o.s.map(v => Math.round(v * 1000) / 1000); if (o && Array.isArray(o.t)) o.t = o.t.map(v => v < -1e5 ? -1e6 : Math.round(v * 100) / 100); if (o && o.p >= 0) o.p = Math.round(o.p); } if (st && st.h >= 0) st.h = Math.round(st.h * 1000) / 1000; }
 });
 })();

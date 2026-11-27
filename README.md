@@ -54,7 +54,7 @@ of the time you start at the depot as usual. New games never do this.
 - **Tab** dash tablet · **E** horn (or go fishing, open the tackle shop or the fish buyer when you're stopped by one) · **L** rifle up / slung (on foot, out on the fell) · **T** garage (across the road) · **P** call a rescue sled (only for a dunking in the fjord or an empty tank; it winches you out onto level ground well clear of the water, sled or pickup; under a cliff they carry you round to the nearest level bank) · **N** reset a stuck sled · **Q** get off or on the sled · **Z** wipe frost off your visor · **U** put a bandage on a bleeding wound (see *Wounds*, below)
 - **V** cycle camera (chase, close, first person, drone; the chase views pull in short of a wall instead of ending up inside the house behind you, and on foot slide over your right shoulder so your helmet doesn't block the view; riding close past a pine they slide out of its branches, and a tree right at the lens fades see-through) · **Esc** settings · **M** map · **B** weather (both on the tablet) · **J** next job on the compass · **H** hide help
 - In first person, looking down far enough that your own hood or dash tablet fills the centre of the view makes the rider stand up on the footrests (same pose as climbing a steep face) to see over it, and sit back down when you look up again. Dipping to the tablet doesn't trigger it, and it never lifts the nose or pulls the chase camera up (those stay slope-only).
-- Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie (on foot **X** sizes a job up or doubles the line at a strap; that button is **□** on a DualSense and **Y** on a Switch pad, and the hint line names the one on the pad in your hands) ·
+- Gamepad: **RT / LT** throttle, brake · **left stick** steer · **RB** lean · **A** hop · **X** wheelie ·
   **B** garage, or back · **D-pad up** dash tablet · **Menu** settings · **View** reset · **D-pad left** wipe visor (with a rifle: a tap wipes, a hold opens the gun wheel) · **D-pad down** bandage (or calls the rescue sled while you're in the water or out of fuel; a fresh wound still gets the bandage first, press again to call) · **L3** horn (or E's fish / shop / sell) · **R3** camera · **A** on foot: rifle up / slung · **D-pad right** weather · **Y** mod menu (below)
 - Phones and tablets get their own touch controls, a different set for riding and for walking:
   - **Left thumb:** a stick appears wherever your thumb lands in the lower left. On the sled it steers. On foot it
@@ -540,10 +540,12 @@ to the street, back to back round a shared back alley, each with a shed and
 woodpile in the back yard, a mailbox, a porch lamp and fairy lights; the store is on Kaigata, the church closes
 the south end, and a street lamp stands on every other lot line. A short plowed spur runs from each door to its
 street, so the walk from the quay to any door in town is hard pack all the way and nothing stands in the lane.
-The streets are real roads, the way a plowed Maine street looks: dark asphalt showing through with a thin film of salt and
-snow (bare wheel tracks, a snowy ridge down the middle over a faint yellow centre line, packed snow in the gutters), a low grey
-concrete curb with a snow cap down both sides, and storm drains at the corners. The curb opens wherever a house spur or yard
-lane meets the street, and it is only for looks: a sled rolls over it without a bump. There are no fences in town.
+The streets are real roads, built with the same road model as the roads between the villages (`tlx-roadkit.js`): worn grey
+asphalt with wheel paths, cracks, patch repairs and a faded dashed centre line on Kaigata (the side streets have no
+markings), a gravel shoulder where the asphalt breaks up, and in winter packed snow and ice over most of the surface with
+bare tracks, grit, and a plow bank along both sides, dirty on the road side. There are no kerbs: a sled, a car or a walker
+crosses a street edge anywhere. Where streets meet, the corners are rounded and the surface is one piece. The street
+lamps stand on the shoulder. There are no fences in town.
 On the east edge of town, at the end of the groomed trail, sits the sled country: a groomer shed with its
 piste groomer parked out front, a plowed sled park (six sleds on a log rail, block-heater posts), a warming
 hut with a lit stove, a jerry-can stand, the SKUTERLØYPE trailhead arch, a trail map board and orange stakes
@@ -759,8 +761,10 @@ hillside and banked up over the dips, so it sits level from side to side and kee
 grade, with snowy banks easing back to the natural slope either side. Each village has plowed
 streets from the road's end to every door.
 
-In winter the council keeps them plowed: a firm, packed strip about six metres wide, sunk below the
-snow either side, with orange snow poles every fifty metres on both sides to steer by when the
+In winter the council keeps them plowed: a 6.2 m crowned asphalt road (RD1: worn grey asphalt, wheel paths, cracks and patches,
+faded yellow centre line and white edge lines, gravel shoulders, packed snow and ice with bare tracks in winter, a plow bank
+each side, bare asphalt in summer, a rounded turning place where it ends) sunk below the snow either side, with red snow poles in
+pairs every fifty metres (every 25 m in bends) with a white reflector field that glows in your headlight, to steer by when the
 light goes flat. The pickup is at home on them. The one exception is the road over **Ifjordfjellet**
 from Lebesby to Ifjord: it is shut for the winter, so it is just a line of poles across deep snow.
 The roads are drawn on the Map and the minimap in orange; the shut one is dashed.
@@ -1550,8 +1554,3 @@ the same save.
 ## Winch and recovery
 Low on the throttle in deep, unpacked snow and the track digs a bog. Get off (**Q**), wade to a tree or boulder, hook the winch (**E**) and reel (hold **Space**); the cable drags you to your anchor, not the other way round. The hand winch is short and slow, the electric winch reaches further, and the heavy-duty winch has a snatch block (**X**) to double the line. Stall it and the line sings; overload the anchor and it parts or the tree comes out. **F** only calls a rescue sled when you go through the ice or run dry.
 On a pad the on-foot action (hook, unhook, dig, help a casualty up, rig a tow) is a click of the **left stick** and reeling is the bottom face button; on touch a button by the right thumb wears the verb (**DIG**, **HOOK**, **HELP UP**) whenever there is something to use. The hint line names the control for whatever you last touched.
-
-## Desktop build
-
-The `steam/` folder wraps this game in an Electron window for the Steam release: same files, three.js and fonts bundled so it runs offline, saves mirrored to a file on disk, full screen on start (F11 or Alt+Enter toggles), and a QUIT entry on the title menu that only the desktop build shows.
-Stage, run, test and build it from `steam/` (see `steam/README.md`); the website and the itch build are unchanged.

@@ -2402,7 +2402,6 @@ function touchCtx() {
   r.use = footUse() || "";
   const wd = winchDef();
   if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) r.x = WN.dbl ? "SINGLE" : "DOUBLE";
-  else if (RJ.on && wd && rescueSizes()) r.x = rescueSizes();              // someone you came to winch out: SIZE UP within 20 m, DOUBLE / SINGLE at them once hooked (mirrors rescueAssess)
   else if (BOG.on) r.x = "SIZE UP";
   r.q = WN.state === "hooked" && WN.mode === "self";                      // hooked on: the hint keeps offering GET ON from anywhere along the line
   return r;
@@ -9527,14 +9526,13 @@ function buildSettings() {
 // Until then a small card on the title screen says how, once per launch, until "Got it". On a phone with the API, the
 // tap that launches the ride from the title menu goes full screen (titleLaunch).
 const FSC = {
-  api: !!(window.TLDesktop || document.fullscreenEnabled || document.webkitFullscreenEnabled),
-  on: () => window.TLDesktop ? !!window.TLDesktop.isFullscreen() : !!(document.fullscreenElement || document.webkitFullscreenElement),   // desktop build: the real window
+  api: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled),
+  on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
   go() {
-    if (window.TLDesktop) { window.TLDesktop.setFullscreen(true); return; }
     const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!rq || FSC.on()) return; try { const r = rq.call(el, { navigationUI: "hide" }); if (r && r.catch) r.catch(() => { }); } catch (e) { }
   },
-  exit() { if (window.TLDesktop) { window.TLDesktop.setFullscreen(false); return; } const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && FSC.on()) try { const r = ex.call(document); if (r && r.catch) r.catch(() => { }); } catch (e) { } },
+  exit() { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && FSC.on()) try { const r = ex.call(document); if (r && r.catch) r.catch(() => { }); } catch (e) { } },
   how() {                                                   // the Add to Home Screen steps for this iPhone browser
     const ua = navigator.userAgent;
     return /FxiOS/.test(ua) ? "In Firefox tap the menu <b>≡</b>, then <b>Share</b>, then <b>Add to Home Screen</b>."
@@ -10136,7 +10134,6 @@ const BTN = {
   gun: { kbm: "R", xbox: "D-pad left", ps: "D-pad left", nin: "D-pad left", touch: "GUN" },   // tlx-gunwheel.js: HOLD to open the quick-customize wheel (a pad tap still wipes the visor)
   wmove: { kbm: "1-6", xbox: "D-pad / stick", ps: "D-pad / stick", nin: "D-pad / stick", touch: "Tap a slot" },   // the wheel: pick a slot
   wclose: { kbm: "Esc", xbox: "B", ps: "○", nin: "A", touch: "✕" },
-  assess: { kbm: "X", xbox: "X", ps: "□", nin: "Y", touch: () => touchCtx().x || "SIZE UP" },   // on foot: size the job up (your own bogged sled, someone you came to winch out), or double the line at a strap; the touch button wears the verb
   mod: { kbm: "Y", xbox: "Y", ps: "△", nin: "X", touch: "MOD MENU" },   // the mod menu (on touch: the button in Settings)
   camera: { kbm: "K", xbox: "Hold RS", ps: "Hold R3", nin: "Hold RS", touch: "CAMERA" },   // tlx-camera.js: lift / lower the camera anywhere
   shutter: { kbm: "Click", xbox: "A", ps: "✕", nin: "B", touch: "The round button" },
@@ -12282,7 +12279,7 @@ function townBlocks() {
       const lo = d0.x + xa + HW + 1.2, hi = d0.x + xb - HW - 1.2, n = Math.max(2, Math.round((hi - lo) / 13.2)), lw = (hi - lo) / n;
       for (let i = 0; i <= n; i++) {                                  // lot lines: a street lamp on every other one
         const bx0 = lo + i * lw;
-        if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 0.9), 0.8)) lamp(bx0, sz + side * (HW + 0.9));
+        if (i > 0 && i < n && (i + ii) % 2 === 0 && !isSea(bx0, sz) && !obNear(bx0, sz + side * (HW + 0.65), 0.8)) lamp(bx0, sz + side * (HW + 0.65));   /* RD1: no kerb to stand behind: the lamp stands on the gravel shoulder, 65 cm off the asphalt edge */
       }
       for (let i = 0; i < n; i++) {
         const cx = lo + (i + 0.5) * lw, w = Math.min(lw - 5, 7 + rnd() * 1.5), d = 6 + rnd() * 1.3, h = 2.8 + rnd() * 0.4, fy = 3.6 + rnd() * 0.9, off = HW + fy + d / 2, cz = sz + side * off, mat = pal[Math.floor(rnd() * pal.length)];
@@ -12333,124 +12330,28 @@ function townBlocks() {
   // ---- junction lamps, where the streets cross (every second one) and one at each end of Kaigata
   let ji = 0;
   for (const x of G.X) for (const z of G.Z) {
-    if ((ji++) % 2) continue; const lx = d0.x + x + HW + 1.0, lz = d0.z + z + HW + 1.0;
+    if ((ji++) % 2) continue; const lx = d0.x + x + HW + 1.7, lz = d0.z + z + HW + 1.7;   /* RD1: just outside the corner radius */
     if (!isSea(lx, lz) && !obNear(lx, lz, 1.2)) lamp(lx, lz);
   }
   townBlocks.n = nHouses;
 }
 
-/* ---------------- Kjøllefjord's streets as roads (v238) ----------------
-   Lemon (a Mainer): the streets were only plowed lanes, so the town read as a few white trails. townRoads() lays what a
-   plowed Maine street looks like on top of them: an asphalt ribbon the width of the lane (junction squares where they cross),
-   dark and wet-looking with a thin salty snow film (a canvas texture: bare wheel tracks, a plow ridge down the middle with the
-   centre line faint under it, packed snow toward the gutters), a low concrete curb with a snow cap down both sides, and a
-   storm-drain grate at each junction corner. Curbs open wherever a house spur / yard lane (YARDS with r <= 2.2) meets the street, so
-   a sled or a walker crosses into a yard unhindered. It is all visual: no colliders (the sled rides straight over a curb), and
-   the lane's plowing (YARDS) is untouched, so the feel is the same. The ribbon is laid on surf() (the plowed snow level) plus a
-   hair so the near snow field can't cover it. One mesh per material, built once from boot() after the lanes exist. */
-function townRoadTex() {
-  const W = 128, Hh = 256, c = document.createElement("canvas"); c.width = W; c.height = Hh; const g = c.getContext("2d"), r = mulberry32(2711);
-  g.fillStyle = "#2c2e32"; g.fillRect(0, 0, W, Hh);
-  for (let i = 0; i < 5200; i++) { const v = 24 + Math.floor(r() * 46); g.fillStyle = `rgba(${v},${v + 1},${v + 4},0.55)`; g.fillRect(r() * W, r() * Hh, 1 + (r() < 0.2), 1); }
-  for (const u of [0.3, 0.7]) { const gr = g.createLinearGradient((u - 0.09) * W, 0, (u + 0.09) * W, 0); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(0.5, "rgba(8,8,10,0.38)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect((u - 0.09) * W, 0, 0.18 * W, Hh); }
-  g.fillStyle = "rgba(214,176,52,0.75)"; for (let y = 0; y < Hh; y += 128) g.fillRect(W * 0.5 - 2, y + 8, 4, 62);   // faint centre dashes, snowed over below
-  const film = (x, y, rad, a) => { g.fillStyle = `rgba(222,228,235,${a})`; g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill(); };
-  for (let i = 0; i < 1500; i++) film(r() * W, r() * Hh, 0.5 + r() * 1.3, 0.05 + r() * 0.14);                      // salt and dust over the whole surface
-  for (let i = 0; i < 260; i++) film(W * (0.5 + (r() - 0.5) * 0.14), r() * Hh, 0.8 + r() * 2.2, 0.1 + r() * 0.25);  // the plow ridge between the wheel tracks
-  for (let i = 0; i < 90; i++) { const x = r() * W, y = r() * Hh, l = 6 + r() * 22; g.fillStyle = `rgba(222,228,235,${0.05 + r() * 0.1})`; g.fillRect(x, y, 1 + r() * 2.2, l); }   // plow streaks along the lane
-  for (let i = 0; i < 520; i++) { const e = r() < 0.5 ? 1 : -1, d = Math.pow(r(), 2.2) * 0.2; film(W * (e > 0 ? 1 - d : d), r() * Hh, 0.9 + r() * 2.4, 0.15 + r() * 0.4); }   // packed snow in the gutters
-  g.fillStyle = "rgba(200,206,214,0.5)"; g.fillRect(0, 0, 3, Hh); g.fillRect(W - 3, 0, 3, Hh);
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  return t;
-}
+/* ---------------- Kjøllefjord's streets as roads (RD1, 27 Nov 2026) ----------------
+   The old townRoads (an asphalt ribbon on a 128 px canvas texture, a concrete kerb with a snow cap down both sides, storm
+   drains, junction squares) is deleted, kerbs with it: Lemon, "I want the road model entirely replaces ... and as i said
+   no more curbs". The streets are road-kit roads now (tlx-roadkit.js, TLXRK): the same model as the roads between the
+   villages, a crowned asphalt carriageway whose edge breaks into a gravel shoulder and then the plow bank, real corner
+   radii at every junction, worn aged asphalt with wheel paths, cracks and patches, faded markings only on the main
+   street (Kaigata), sand and packed snow in winter. All of it is visual (no colliders; the plowed lane YARDS under it
+   is untouched), so a sled or a walker crosses a street edge and a driveway mouth as it always did. The kit builds once,
+   here, after tlx-roads has added the network roads, so both resolve their junctions together. TOWNG.road keeps the
+   handle the tests read: { roads, meshes, lines }. */
 function townRoads() {
-  const G = TOWNG, d0 = depot, HW = G.HW, { L, snowM } = KIT, LIFT = 0.04, CURB_H = 0.22, CURB_W = 0.3;
-  if (!G.lines.length) return;
-  const H = (x, z) => surf(x, z) + LIFT;
-  const tex = townRoadTex();
-  const matR = new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff, roughness: 0.92, metalness: 0 });
-  const matJ = matR;                                               // one texture; junction squares just use its plain middle strip
-  const asphalt = { pos: [], uv: [], idx: [] }, curbs = { pos: [], nor: [], idx: [] }, caps = { pos: [], nor: [], idx: [] }, grates = { pos: [], nor: [], idx: [] };
-  // a general quad strip (ribbon) from t0..t1 along leg a->b, offsets u0..u1 across it
-  const ribbon = (a, b, t0, t1, hw, nu = 6) => {
-    const Ln = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / Ln, dz = (b[1] - a[1]) / Ln, nx = -dz, nz = dx, m = Math.max(1, Math.ceil((t1 - t0) / 1.4)), base = asphalt.pos.length / 3;
-    for (let i = 0; i <= m; i++) { const t = t0 + (t1 - t0) * i / m; for (let j = 0; j <= nu; j++) { const u = -hw + 2 * hw * j / nu, x = a[0] + dx * t + nx * u, z = a[1] + dz * t + nz * u; asphalt.pos.push(x, H(x, z), z); asphalt.uv.push(j / nu, t / 9.6); } }
-    for (let i = 0; i < m; i++) for (let j = 0; j < nu; j++) { const p = base + i * (nu + 1) + j, q = p + nu + 1; asphalt.idx.push(p, p + 1, q, p + 1, q + 1, q); }
-  };
-  // legs: the seven street lines (cut at every street that crosses them) and the depot yard lane
-  const streets = G.lines.map(l => ({ a: [l[0], l[1]], b: [l[2], l[3]], hw: HW })); G.road = { segs: [], junctions: [], curbPieces: 0, gaps: 0, gapPts: [], lines: streets.length };
-  // lane samples (every 0.4 m) of every narrow lane that could cross a curb: a curb piece is left out where one crosses it at an angle
-  // (a spur or yard lane going into a lot), not where a lane just runs alongside the street
-  const smp = [];
-  for (const Y of YARDS) {
-    if (Y.r > 2.2 || Math.hypot(Y.x - d0.x, Y.z - d0.z) > TOWN_R + 20) continue;
-    const ux = Y.x2 - Y.x, uz = Y.z2 - Y.z, Ln = Math.hypot(ux, uz); if (Ln < 0.1) continue;
-    const n = Math.ceil(Ln / 0.4); for (let i = 0; i <= n; i++) smp.push([Y.x + ux * i / n, Y.z + uz * i / n, Y.r, ux / Ln, uz / Ln]);
-  }
-  const crossesAt = (xa, za, xb, zb) => {                          // does a lane cross the curb piece xa,za -> xb,zb at an angle?
-    const dx = xb - xa, dz = zb - za, Lp = Math.hypot(dx, dz), px = dx / Lp, pz = dz / Lp, ll = Lp * Lp;
-    for (const [x, z, r, lx, lz] of smp) {
-      if (Math.abs(lx * pz - lz * px) < 0.25) continue;
-      const t = clamp(((x - xa) * dx + (z - za) * dz) / ll, 0, 1);
-      if (Math.hypot(x - xa - dx * t, z - za - dz * t) < r + 0.3) return true;
-    }
-    return false;
-  };
-  const all = streets.concat([{ a: [d0.x - 5, d0.z + 7], b: [d0.x + 2, d0.z + 7], hw: 1.5, yard: true }]);
-  for (const S of all) {
-    const Ln = Math.hypot(S.b[0] - S.a[0], S.b[1] - S.a[1]), dx = (S.b[0] - S.a[0]) / Ln, dz = (S.b[1] - S.a[1]) / Ln, ew = Math.abs(dz) < 1e-6;
-    // cut the leg where a perpendicular street crosses (the junction square fills it)
-    let cuts = [];
-    for (const O of streets) {
-      if (O === S) continue; const oew = Math.abs(O.b[1] - O.a[1]) < 1e-6; if (oew === ew) continue;
-      const c = oew ? O.a[1] : O.a[0], lo = oew ? Math.min(O.a[0], O.b[0]) : Math.min(O.a[1], O.b[1]), hi = oew ? Math.max(O.a[0], O.b[0]) : Math.max(O.a[1], O.b[1]);
-      const pos = ew ? S.a[1] : S.a[0]; if (pos < lo - HW || pos > hi + HW) continue;          // this street doesn't reach across here
-      const t = ew ? (c - S.a[0]) / dx : (c - S.a[1]) / dz; cuts.push(t);
-    }
-    cuts = cuts.filter(t => t > -HW && t < Ln + HW).sort((p, q) => p - q);   /* only streets that cross THIS leg: the 7 m depot yard lane was being cut by streets 50 and 90 m past its end, which laid a half-width strip of asphalt and curb the whole length of Kaigata, 5 m beside it */
-    let t0 = 0; const spans = [];
-    for (const t of cuts) { if (t - HW > t0 + 0.2) spans.push([t0, Math.min(t - HW, Ln)]); t0 = Math.max(t0, t + HW); }
-    if (Ln > t0 + 0.2) spans.push([t0, Ln]);
-    for (const [s0, s1] of spans) {
-      ribbon(S.a, S.b, s0, s1, S.hw); G.road.segs.push({ a: [S.a[0] + dx * s0, S.a[1] + dz * s0], b: [S.a[0] + dx * s1, S.a[1] + dz * s1], hw: S.hw });
-      // curbs down both sides, in pieces ~1.25 m long that follow the surface; a piece within reach of a spur or yard lane is left out
-      const nP = Math.max(1, Math.round((s1 - s0) / 1.25)), nx = -dz, nz = dx;
-      for (const sd of [-1, 1]) for (let i = 0; i < nP; i++) {
-        const ta = s0 + (s1 - s0) * i / nP, tb = s0 + (s1 - s0) * (i + 1) / nP, off = sd * (S.hw + CURB_W / 2);
-        const xa = S.a[0] + dx * ta + nx * off, za = S.a[1] + dz * ta + nz * off, xb = S.a[0] + dx * tb + nx * off, zb = S.a[1] + dz * tb + nz * off;
-        if (crossesAt(xa, za, xb, zb)) { G.road.gaps++; G.road.gapPts.push([(xa + xb) / 2, (za + zb) / 2]); continue; }
-        if (isSea(xa, za) || isSea(xb, zb)) continue;
-        const ya = surf(xa, za) + CURB_H - 0.015, yb = surf(xb, zb) + CURB_H - 0.015, yo = Math.min(ya, yb) - CURB_H - 0.05;   // top follows the street, the foot is buried below it
-        const box = (o, w, y0a, y0b, ytop) => {                     // a sloped box: bottom ytop-h, top follows (ya..yb)
-          const ex = nx * w / 2, ez = nz * w / 2, base = o.pos.length / 3;
-          const Va = [[xa - ex, za - ez], [xa + ex, za + ez], [xb + ex, zb + ez], [xb - ex, zb - ez]], hh = [y0a, y0a, y0b, y0b];
-          for (let k = 0; k < 4; k++) o.pos.push(Va[k][0], hh[k], Va[k][1]);          // 0-3 top
-          for (let k = 0; k < 4; k++) o.pos.push(Va[k][0], yo, Va[k][1]);             // 4-7 bottom
-          for (const q of [0, 1, 2, 0, 2, 3, 0, 5, 1, 0, 4, 5, 1, 6, 2, 1, 5, 6, 2, 7, 3, 2, 6, 7, 3, 4, 0, 3, 7, 4]) o.idx.push(base + q);
-        };
-        box(curbs, CURB_W, ya, yb); box(caps, CURB_W * 0.7, ya + 0.03, yb + 0.03); G.road.curbPieces++;
-      }
-    }
-  }
-  // junction squares + a storm drain at each corner
-  for (const X of G.X) for (const Z of G.Z) {
-    const cx = d0.x + X, cz = d0.z + Z; if (isSea(cx, cz)) continue;
-    const A = [cx - HW, cz], B = [cx + HW, cz]; ribbon(A, B, 0, 2 * HW, HW, 6); G.road.junctions.push([cx, cz]);
-    for (const [sx, sz] of [[-1, -1], [1, 1]]) {                    // two grates, on opposite corners, just inside the curb line
-      const gx = cx + sx * (HW - 0.4), gz = cz + sz * (HW + 1.4); if (isSea(gx, gz)) continue; const gy = H(gx, gz) + 0.012, base = grates.pos.length / 3;
-      const hx = 0.36, hz = 0.24; for (const [u, v] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) grates.pos.push(gx + u, gy, gz + v);
-      grates.idx.push(base, base + 2, base + 1, base, base + 3, base + 2);
-    }
-  }
-  const mk = (o, mat, norm, shadow) => {
-    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(o.pos, 3));
-    if (o.uv) geo.setAttribute("uv", new THREE.Float32BufferAttribute(o.uv, 2)); geo.setIndex(o.idx); geo.computeVertexNormals();
-    if (!geo.attributes.normal) return null; const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.castShadow = false; m.frustumCulled = true; scene.add(m); return m;
-  };
-  const matC = L(0x6f7378), matG = L(0x17191c);
-  G.road.meshes = [mk(asphalt, matR), mk(curbs, matC), mk(caps, snowM), mk(grates, matG)].filter(Boolean);
-  G.road.meshes[0].userData.townRoad = "asphalt"; G.road.meshes[1].userData.townRoad = "curb";
-  matR.polygonOffset = true; matR.polygonOffsetFactor = -2; matR.polygonOffsetUnits = -2;
+  const G = TOWNG, K = window.TLXRK; if (!G.lines.length || !K) return;
+  const ids = [];
+  G.lines.forEach((l, i) => { const r = K.add({ id: "town:" + (l[4] || i), kind: i === 1 ? "main" : "street", hw: G.HW, pts: [[l[0], l[1]], [l[2], l[3]]], snow: () => 0.28, meta: { town: true, name: l[4] } }); if (r) ids.push(r.id); });
+  K.build();
+  G.road = { ids, lines: G.lines.length, meshes: K.meshes, roads: K.roads, kit: K };
 }
 
 /* ---------------- sled country: the snowmobile trailhead on Kjøllefjord's east edge (v223) ----------------
@@ -12602,7 +12503,7 @@ function buildTown() {
     bx(Q, 26.2, 0.1, 60.2, L(0x6f757b), 8, qy, 0).castShadow = false;          // the deck: bare, damp concrete, top 5 cm proud of the ground (quayTop)
     for (const sd of [-1, 1]) bx(Q, 22, 0.22, 1.1, snowM, 6, qy + 0.05, sd * 29.4).castShadow = false;   // what the plow left along the sides
     for (let v = -26; v <= 26; v += 8) { put(Q, new THREE.CylinderGeometry(0.28, 0.32, 1.1, 8), L(0x2b2f33), 20, qy + 0.55, v); }
-    // the freight shed on the pier: red boards on a low concrete curb, white trim, framed windows, a framed slide door
+    // the freight shed on the pier: red boards on a low concrete plinth, white trim, framed windows, a framed slide door
     const fs = new THREE.Group(); fs.position.set(2, qy, -20); Q.add(fs);
     workShed(fs, 9, 3.6, 14, L(0x8d3b2f), false, [[2, 4.6, 0.9, 0.9, 1.9], [2, -4.6, 0.9, 0.9, 1.9], [3, -4, 0.9, 0.9, 1.9], [3, 0, 0.9, 0.9, 1.9], [3, 4, 0.9, 0.9, 1.9], [0, 0], [1, 0]],
       [[0.14, 2.56, 0.16, 4.58, 1.28, -1.7], [0.14, 2.56, 0.16, 4.58, 1.28, 1.7], [0.14, 0.16, 3.56, 4.58, 2.52, 0]], KIT.trimW);
@@ -14321,7 +14222,7 @@ TT.still = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)"
 const hasSave = () => GS.delivered > 0 || GS.cash > 0 || GS.own.sleds.length > 1 || Object.keys(GS.own.partsOwned).length > 0 || Object.keys(GS.own.gearOwned).length > 0;
 function titleItems() {
   const ret = hasSave();
-  const rows = [
+  return [
     ret ? { id: "go", label: "CONTINUE", sub: `${GS.delivered} deliver${GS.delivered === 1 ? "y" : "ies"} · ${fmtCash(GS.cash)} · ${rankOf(GS.delivered).name} · ${sledDef().name}` }
       : { id: "go", label: "RIDE", sub: "Freight's coming off the boat at Kjøllefjord quay" },
     { id: "saves", label: "SAVES", sub: `${SLOT.name(SLOT.idx().cur)} in play · new game, load, copy, save to a file` },
@@ -14330,8 +14231,6 @@ function titleItems() {
     { id: "howto", label: "HOW TO PLAY", sub: TC.on ? "Touch, keyboard and gamepad" : "Keyboard, gamepad and touch" },
     { id: "credits", label: "CREDITS", sub: "Who made this" }
   ];
-  if (window.TLDesktop) { rows.push({ id: "quit", label: "QUIT", sub: "Save and close the game" }); document.body.classList.add("desk"); }   // desktop build only (steam/preload.js)
-  return rows;
 }
 function titleLayout() {
   const W = innerWidth, H = innerHeight, portrait = H > W, el = $("title");
@@ -14382,7 +14281,6 @@ function titleActivate(i) {
   else if (it.id === "saves") savesPanel();
   else if (it.id === "garage") openGarage();
   else if (it.id === "settings") toggleSettings(true);
-  else if (it.id === "quit") { try { window.TLDesktop.quit(); } catch (e) { } }
   else titlePanel(it.id);
 }
 const TT_KB = [["W / S", "Throttle, brake"], ["A / D", "Steer"], ["Shift", "Lean"], ["Space", "Hop"], ["Ctrl", "Wheelie"], ["E", "Horn"], ["T", "Garage"], ["F", "Call a rescue sled (fjord or empty tank)"], ["Q", "Get off / on the sled"], ["R", "Reset the sled"], ["Z", "Wipe frost off your visor"], ["V", "Camera"], ["M", "Map"], ["Tab", "Dash tablet (arrows + Enter inside it)"], ["B", "Weather, on the tablet"], ["Esc", "Settings"], ["Y", "Mod menu"]];
@@ -16027,10 +15925,10 @@ function selfReel(dt, wd) {
   WN.reel = true;
   if (need > anchorCap(a)) {                                   // the tree loses
     uproot(a, -dx, -dz); WN.state = "out"; WN.anchor = null; if (strapM) strapM.visible = false;
-    toast(`The ${anchorName(a)} came out by the roots. Find something bigger${WN.dbl ? "" : wd.block ? ` or double the line (${dblBtn()} at the strap)` : ""}.`, "bad"); return;
+    toast(`The ${anchorName(a)} came out by the roots. Find something bigger${WN.dbl ? "" : wd.block ? " or double the line (X at the strap)" : ""}.`, "bad"); return;
   }
   if (ratio > 1) {                                             // more than the winch can give
-    WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? `The winch is stalling. Double the line with the snatch block (${dblBtn()} at the strap), or find a better angle.` : "The winch is stalling. Dig, or find a better angle.", "warn"); }
+    WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "The winch is stalling. Double the line with the snatch block (X at the strap), or find a better angle." : "The winch is stalling. Dig, or find a better angle.", "warn"); }
     if (WN.stall > 5 && Math.random() < dt * 0.3) { WN.state = "out"; WN.anchor = null; WN.snapT = 40; if (strapM) strapM.visible = false; crack(1); toast("The line parted! Respooling a new one (40 s). Shovel or R.", "bad"); }
     return;
   }
@@ -16411,7 +16309,7 @@ function rescueStart(c) {
   GS.rescueJob = c; RJ.on = true; RJ.hurt = 0; RJ.blown = 0; RJ.stall = 0; RJ.t0 = GS.hour; RJ.ended = null;
   RJ.vs = c.vics.map((_, i) => rjSpawn(c, i));
   toast(c.why, "warn");
-  setTimeout(() => { if (RJ.on) toast(`Clock: ${fmtTime(c.due)} at the latest. You need a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. Park on the rim, get off (${btn("dismount")}), walk the line to them and hook on (${INP.dev === "touch" ? "HOOK" : btn("use")}).`); }, 2200);
+  setTimeout(() => { if (RJ.on) toast(`Clock: ${fmtTime(c.due)} at the latest. You need a ${["", "hand", "electric", "heavy-duty"][c.needTier]} winch or better. Park on the rim, get off (Q), walk the line to them and hook on (E).`); }, 2200);
 }
 function rescueAbort() {
   for (const p of RJ.pool || []) { p.sled.visible = false; p.fig.visible = false; p.col.visible = false; }
@@ -16449,7 +16347,7 @@ function rescueFootAction() {
     const fl = fairlead(), L = Math.hypot(eye[0] - fl[0], eye[2] - fl[2]);
     if (L > wd.len - 0.4) { toast(`Your line's ${wd.len} m and they're ${Math.round(L)} m from the fairlead. Go back, ride closer, and try again.`, "warn"); return true; }
     nv.v.hooked = true; WN.state = "hooked"; WN.mode = "rescue"; WN.tgt = nv.v; WN.tie = null; WN.stall = 0; WN.dbl = false; WN.anchor = null;
-    toast(nv.v.vk.sled ? `Hooked on to ${nv.v.name}'s tow eye. Walk back, strap your sled to a tree, and hold ${btn("reel")} to reel.` : `Strap round ${nv.v.name}'s chest harness. Go back, strap your sled to a tree, and reel slowly: ${btn("reel")}.`, "good");
+    toast(nv.v.vk.sled ? `Hooked on to ${nv.v.name}'s tow eye. Walk back, strap your sled to a tree, and hold SPACE to reel.` : `Strap round ${nv.v.name}'s chest harness. Go back, strap your sled to a tree, and reel slowly: SPACE.`, "good");
     return true;
   }
   return false;
@@ -16466,29 +16364,17 @@ function rescueAssess() {
   toast(`${v.name}, ${v.vk.sled ? v.vk.who : "on foot"}: ${v.vk.id === "tourist" ? T.sayF : T.say}. Pull toward the ${card}. ${lbf(need).toLocaleString("en-US")} lb to start. ${trees.length ? `A ${anchorName(trees[0].o)} ${Math.round(Math.hypot(trees[0].o.x - pk[0], trees[0].o.z - pk[1]))} m from the good spot will hold your sled.` : "Nothing big near the good spot: tie back to the best you can find, or double the line."}${v.gentle ? " Ease them out: slow and steady." : ""}`);
   return true;
 }
-// What the size-up control would do at a recovery, read-only: "" (nothing), "SIZE UP", or "DOUBLE" / "SINGLE" with a
-// snatch block at the one you're hooked to. rescueAssess() acts on the same tests; the touch button wears this word.
-function rescueSizes() {
-  if (!RJ.on || !FOOT.on) return "";
-  const wd = winchDef(); if (!wd) return "";
-  const nv = rjNearest(FOOT.x, FOOT.z); if (!nv) return "";
-  const eye = rjEye(nv.v);
-  if (WN.state === "hooked" && WN.mode === "rescue" && wd.block && nv.v.hooked && Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z) < 3) return WN.dbl ? "SINGLE" : "DOUBLE";
-  return nv.d <= 20 ? "SIZE UP" : "";
-}
-// the control that doubles the line, named for the device in hand (on touch the button reads DOUBLE at the strap)
-function dblBtn() { return INP.dev === "touch" ? "DOUBLE" : btn("assess"); }
 function rescuePrompt() {
   if (!RJ.on) return false;
   const wd = winchDef(), nv = rjNearest(FOOT.x, FOOT.z); if (!wd || !nv) return false;
   const v = nv.v, eye = rjEye(v), de = Math.hypot(eye[0] - FOOT.x, eye[2] - FOOT.z), hooked = WN.state === "hooked" && WN.mode === "rescue";
-  let h = ""; const touch = INP.dev === "touch";
+  let h = "";
   if (hooked) {
     const near = Math.hypot(FOOT.x - P.x, FOOT.z - P.z) < 4;
-    h = `${WN.tie ? "Tied back" : "Sled's on its own weight"} · ${Math.round(v.moved / v.dist * 100)}% out · Hold ${btn("reel")} to reel${v.gentle ? " SLOWLY" : ""}${!WN.tie ? ` · ${touch ? "STRAP" : btn("use")} at a tree: tie back` : ""}${wd.block ? ` · ${touch ? (WN.dbl ? "SINGLE" : "DOUBLE") : btn("assess")} at them: ${WN.dbl ? "single line" : "double"}` : ""}${de < 2.6 ? " · " + keyHint("use", "unhook") : ""}`;
-    if (!near && !WN.tie && WN.slip > 0.05) h = `Your sled's sliding. Tie it back to a tree (${touch ? "STRAP" : btn("use")} at the tree).`;
-  } else if (WN.state === "out" && de < 2.6) h = touch ? `tap HOOK: hook on to ${v.name}` : `${btn("use")}: hook on to ${v.name}`;
-  else if (nv.d < 20) h = `${keyHint("assess", "size it up")} · walk the line to ${v.name}${WN.tight ? " (line's at its end: ride closer)" : ""}`;
+    h = `${WN.tie ? "Tied back" : "Sled's on its own weight"} · ${Math.round(v.moved / v.dist * 100)}% out · Hold SPACE to reel${v.gentle ? " SLOWLY" : ""}${!WN.tie ? " · E at a tree: tie back" : ""}${wd.block ? " · X at them: double" : ""}${de < 2.6 ? " · E: unhook" : ""}`;
+    if (!near && !WN.tie && WN.slip > 0.05) h = "Your sled's sliding. Tie it back to a tree (E at the tree).";
+  } else if (WN.state === "out" && de < 2.6) h = `E: hook on to ${v.name}`;
+  else if (nv.d < 20) h = `X: size it up · walk the line to ${v.name}${WN.tight ? " (line's at its end: ride closer)" : ""}`;
   else return false;
   WN.prompt = h; return true;
 }
@@ -16496,7 +16382,7 @@ function rescueRideHint() {
   if (!RJ.on) return "";
   const nv = rjNearest(P.x, P.z); if (!nv || nv.d > 140) return "";
   if (!winchDef()) return "";
-  return FOOT.on ? "" : `${nv.v.name} ahead: park on the rim (line is ${winchDef().len} m), then ${keyHint("dismount", "get off")} and walk the line out`;
+  return FOOT.on ? "" : `${nv.v.name} ahead: park on the rim (line is ${winchDef().len} m), then Q to get off and walk the line out`;
 }
 function rescueUnhook() { const v = rjVic(); if (v) v.hooked = false; WN.tie = null; }
 
@@ -16524,7 +16410,7 @@ function rescueReel(dt, wd) {
   }
   if (ratio > 1) {
     WN.stall += dt; WN.sfx = 0.12; RJ.stall += dt;
-    if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? `Winch stalling. Double the line with the snatch block (${dblBtn()} at them), or get a better angle.` : "Winch stalling. Get a straighter pull, or a bigger winch.", "warn"); }
+    if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? "Winch stalling. Double the line with the snatch block (X at them), or get a better angle." : "Winch stalling. Get a straighter pull, or a bigger winch.", "warn"); }
     if (WN.stall > 5 && Math.random() < dt * 0.3) { v.hooked = false; WN.state = "out"; WN.tgt = null; WN.tie = null; WN.snapT = 40; RJ.blown++; crack(1); toast("The line parted! Respooling a new one (40 s).", "bad"); }
     return;
   }
@@ -16716,10 +16602,10 @@ function wnPrompt() {
     else if (typeof rescuePrompt === "function" && rescuePrompt()) h = WN.prompt;
     else if (WN.state === "hooked" && WN.mode === "self") {
       const a = WN.anchor, close = a && Math.hypot(FOOT.x - a.x, FOOT.z - a.z) < 2.8;
-      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · " + btn("assess") + " at the strap: double the line") : ""}${close ? " · " + keyHint("use", "unhook") : ""} · ${keyHint("mount", "get on")}`;
+      h = `Hold ${btn("reel")} to reel${wd && wd.block ? (INP.dev === "touch" ? " · DOUBLE at the strap doubles the line" : " · X at the strap: double the line") : ""}${close ? " · " + keyHint("use", "unhook") : ""} · ${keyHint("mount", "get on")}`;
     } else if (wd && WN.state === "out") {
       const cands = anchorsNear(FOOT.x, FOOT.z, 2.6), fl = fairlead(), reach = cands.find(c => Math.hypot(c.o.x - fl[0], c.o.z - fl[2]) <= wd.len - 0.4);
-      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${BOG.on ? " · " + keyHint("assess", "size it up") : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
+      h = reach ? `${INP.dev === "touch" ? "tap HOOK: strap" : btn("use") + ": strap"} the ${anchorName(reach.o)} (${anchorTag(reach.o)})` : WN.tight ? `Line's at its end (${wd.len} m). Hook what you can reach, or go back.` : `Walk the line out to a tree or boulder${INP.dev === "kbm" ? " · X: size it up" : ""}${near ? " · " + keyHint("mount", "get on") : ""}`;
     } else if (BOG.on && near) h = FOOT.dig ? `Digging ${Math.round(BOG.dig * 100)}% · ${keyHint("use", "stop")}` : `${keyHint("use", "dig her out (slow)")} · ${keyHint("mount", "get on")}`;
     else if (!tutHidden() && rigHint(near)) h = rigHint(near);         // at the rig's tongue: hitch or unhitch it
     else if (footXUse()) h = footXUse().hint() + (near && !FOOT.dig ? " · " + keyHint("mount", VEH.board) : "");   // expansion uses (a buried car)
@@ -17939,6 +17825,7 @@ function initExpansion() {
     toast, save, fmtCash, clamp, lerp, sstep, btn, INP,
     started: () => started, busy: () => SCHOOL.on, touch: () => TC.on, blackout, hospHere, tutDone: () => TUT.stage >= 99,
     world: { id: TLX.HOME, lat: LAT /* radians */, size: WORLD, half: HALF, SITES, LAKES, LOOKOUTS, depot, surf, groundAt, bioAt, isSea, isWater, slopeAt, obNear, addOb, dropOb, addYard, addLane, yardAt,
+      farSurf: (x, z) => groundAt(x, z) + sampleG(freshG, x, z),   /* the far terrain's own height (ground + fresh snow, 8 m grid): the road kit rides up to it at a distance */
       cell: CELL, depthAt, freshAt, wlvAt, rideSurf, obstaclesNear, garage: () => garageSite, pressSnow, markTrail, iceThin,
       // roads (3.1): routing round houses, the doors to plow to, trees cleared for the road, the chart under the Map app
       laneRoute, townStreetNear, doors: KIT.doors, STATIONS, clearTree, map: { canvas: mapBg, scale: M2SRC },

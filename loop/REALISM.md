@@ -322,3 +322,160 @@ there should not be a regular road of two lanes sittings nexyt to another clippe
 ### R3 to R8
 
 Written by the session before each is dispatched, from a fresh still audit of that subject.
+
+## RD1 as built (27 Nov 2026, script v296): the new road model
+
+Lemon's order: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn
+down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs".
+
+**What was deleted.** `townRoads()` (the asphalt ribbon, 1.25 m kerb pieces + snow caps, storm-drain grates, junction
+squares), `townRoadTex()` (128 px canvas, round white blobs), `CURB_H/CURB_W`, `crossesAt` and the curb-gap logic, the
+`TOWNG.road` fields `curbPieces/gaps/gapPts/junctions/segs`, and `tlx-roads.js`'s pole mesh (a vertex-coloured cylinder).
+The network roads never had a mesh at all: they were a plowed snow channel, poles and a bed cut into the 4 m ground grid,
+so there was nothing to delete there, only a surface to build. `grep -i 'kerb\|curb'` over `tracklayer.js`, `tlx*.js`,
+`icefish.js` finds no code (the scenario `rd1_roads` asserts it, comments stripped).
+
+**What replaced it: `tlx-roadkit.js` (`TLXRK`), loaded before `tlx-roads.js`** (because `tlx-roads` adds the network's roads
+in its `init` and `townRoads()` adds the streets after `initExpansion()`; the kit builds once, in `townRoads()`, so both sets
+resolve junctions together; it is its own file so neither big file grows a road system).
+- Geometry: a ribbon of 19 columns (crowned asphalt 6.2 m for the fylkesvei / 4.8 m for a village street, a gravel shoulder
+  0.9 / 0.5 m that falls away, then the plow bank), rings every 2 m, chunks of 48 rings (96 m, own bounding sphere), draped on
+  `surf()`: every column within 1.2-7 cm of the snow/ground surface, the centre height smoothed along the line, edge columns
+  wobbled. The far terrain buries a plowed trench, so a vertex eases up to `farSurf` between 40 and 105 m (and 2.2 mm per metre
+  for facet error). Re-draped lazily (one chunk a frame, nearest first, 350 m; one more every 4th frame beyond) when the melt
+  moves (7 % steps) or a stretch's snow changes (`TLXR.touchKit` from `snowApply`). Boot: chunks within 220 m are made, the rest
+  as the player nears them (all 282 at once cost 5.5 s).
+- Junctions (`resolve()`): roads are ranked (kind, then length). A lower road is cut where it lies on a higher one, its end
+  is projected onto the through road's edge line and flared on a corner radius (6 m fylkesvei, 4.5 m street: `R - sqrt(R^2 -
+  (R-d)^2)`), the through road's shoulder, bank and edge line open in the mouth. A road that stops short of a higher one is
+  carried on to its edge. Roads that run along each other (a shared trunk) are cut and taper. A free end gets a rounded turning place
+  and its surface goes to gravel. 20 mouths, 10 tapers and 16 turning places at present.
+- Surface: one `MeshStandardMaterial` + `onBeforeCompile`, everything per pixel from world and road-local (u across, s along)
+  coordinates, no texture: aged grey asphalt with tone drift and aggregate grain, polished darker wheel paths (two per lane,
+  wandering, oil between), alligator cracks (voronoi) mostly in the wheel paths, sealed long cracks, transverse cracks, patch
+  repairs with a sealed border, frost-heave bump in the normal, faded and worn-away markings (yellow dashed centre, white edge
+  lines 0.3 m in from the edge, only on the fylkesvei; Kaigata gets a faint centre line; side streets none), gravel and sand
+  strewn toward the edges, a broken irregular edge. Winter on top: packed snow and ice over the carriageway with bare wheel tracks,
+  a ridge between and at the edges, grit, dirty plow banks (dirty on the road side, clean outward), ice where the tracks are
+  bare (roughness 0.16, so the sky light and the headlight give a sheen). A snowed-in stretch is discarded in the shader so plain snow
+  shows. Every layer fades to its mean with the pixel footprint (`fwidth`), so no moire. Opaque pass with `alphaToCoverage`
+  (the MSAA target): real alpha blending of the road cost 0.8-1.2 ms in town.
+- Snow state: `aRd.z` per vertex = the stretch's snow (0 plowed .. 1 snowed in) read from `rt.st.s`; the fell road is built
+  with 1 (shows only in summer); town streets 0.28. Seasons: `uWinter` (1 - sst(0.02, 0.6, MELT.k)) drives snow cover, banks
+  (geometry too) and the far lift; `uWet` from `MELT.wet` and rain in summer wets the asphalt.
+- Poles: `TLXRK.poles` (Statens vegvesen h111 and R610: pairs, up to ~50 m apart on a straight and ~25 m in a bend under R 300,
+  red plastic, a white reflector field from 1.0 m up, here 14 cm instead of 10 so it reads). The field glows from `RK.head` (the
+  sled's headlight position/direction, updated each frame by `headTick`), tuned for the camera behind the sled.
+- Lamps: the street lamps stand on the gravel shoulder (65 cm off the asphalt edge) and the junction lamps just outside the
+  corner radius. Nothing else expected a kerb: no collider, heap or driveway read one (`x4_streetheap`, `x4_streetjoin`, `g1_lanes` pass).
+- Low preset / phones (`GFX.low || GFX.phone`): same geometry, `RK_LOW`: no voronoi cracks, no bump normal.
+- Hooks: `TLXRK.roads` (each with `.spans`, `.chunks`, `.meta`), `TLXRK.probe(id)` (centre and edge columns of every ring),
+  `.covered(x, z)`, `.fillAll()` (tests; the game fills a few chunks a frame), `.touch(id, s0, s1)`, `.stats`, `TLXR.rk`
+  (road id, route, offset), `TOWNG.road = { ids, lines, meshes, roads, kit }`.
+- Tests: `rd1_roads` (asserts), `rd1_stills` (before/after stills: `tlroads/before` and `tlroads/r1..r8`), `rd1_perf`, `rd1_overhead`
+  (the plan stills + `plan.json`). Existing scenarios edited: `x_townroads` (its kerb and kerb-gap asserts replaced by no-kerb,
+  carriageway-on-surf and spur-mouth asserts; "curb" wording in the ride checks), `p1_picture` (`BASE_LOW` 128.0 -> 146.6: the
+  pinned frame looks down a street and the black ribbon became grey asphalt; nothing in the chain changed).
+
+**Not done / still wrong** (the ten worst of the last critique round, `tlroads/r7`, `r8`):
+1. The streets are still the 126 x 96 m ruler rectangle; the four corners are rounded stubs. (RD plan.)
+2. The routes were not moved: hairpin stacks near Kjøllefjord, roads ending in a village centre. (RD plan.)
+3. Four parallel wheel tracks everywhere; no lane changes, no braking marks, no oil on the shoulder, no manhole covers or drains.
+4. The plow bank is a uniform white ridge with no throw marks and no gap at driveways; at 40-90 m the far lift makes it grow a little.
+5. Ice sheen is only visible under the headlight and a low sun; at noon the bare tracks read matte dark.
+6. Reflectors are 1-2 px beyond 60 m; their glow is verified only in the shader and at night in one still.
+7. The near snow beside a bank is the terrain shader's pebble-dash; the closed fell road is invisible in winter by design (no hump).
+8. Driveways and yard lanes have no surface (plowed lanes only); village-street ends fade into snow with no parking bay.
+9. Summer: the terrain beside the road is the low-poly checker (not the road's); the first 10 s after a teleport can show a
+   chunk or two unfilled (hidden) beyond 350 m.
+10. Measured frame cost is noisy on this machine under other sessions' load: see the measured numbers in PROGRESS.
+
+## RD plan: roads re-placed (design only; no route was moved in RD1)
+
+**What I looked at.** Overhead stills of Kjøllefjord, Mehamn, Gamvik, Dyfjord, Lebesby and four stretches (fv888 mid, the
+Lebesby road's switchbacks, Skjånes, the Lebesby bend), at noon in March, shot with the new surface so the routes read:
+`~/.hermes/cache/scratch/tlroads/plan/` (`place_*_wide.jpg`, `place_*_close.jpg`, `stretch_*`, and `plan.json` with the numbers
+below). References: `web_search` gives text only, so I did not see photographs; the facts come from Statens vegvesen's handbooks (h111,
+R610, N302: red plastic snow poles in pairs ~50 m apart, ~25 m in bends, reflector 1 m up, yellow centre line, edge line 0.25 m inside the
+asphalt edge), Wikipedia and travel guides on fv888 (101.8 km, opened 1989, 346 m max, "fully paved", ~60-100 closures a winter, convoys
+Bekkarfjord-Hopseidet, the Nordkyn junction where fv894 splits left to Kjøllefjord, right to Mehamn; fv894 Rundvannet-Kjøllefjord 22.4 km;
+AADT 125-225) and my own picture of a Finnmark county road: narrow, grey chip-sealed asphalt, no kerb, gravel edge, steep plow banks.
+
+**Today, per road** (grade = 30 m windows along the route; `TLXR.grades`):
+| route | runs from / to | length | grade p50 / p95 / max | what is wrong |
+|---|---|---|---|---|
+| fv888 | depot (quay) -> station -> wind farm -> Mehamn | 5219 m (x1.54 the straight line) | 5.5 / 10.7 / 15.2 % | leaves Kjøllefjord by a street leg that starts at the depot, cuts across lots to a ring point; climbs in a switchback stack right behind the town, then a long contour-hugging wander (x1.54 over the straight line); ends at Mehamn's ring |
+| gamvik | Mehamn -> Gamvik -> Slettnes | 2481 m | 0.8 / 3.2 / 4.6 % | the road runs through the middle of the Gamvik lot rectangle with no streets, houses off to the side |
+| dyfjord | depot -> Dyfjord | 2008 m | 2.4 / 7.4 / 8 % | arrives from the SE and stops dead in the village centre; the village has 4 doors and no street |
+| skjanes | wind farm -> Skjånes | 5775 m | 2.4 / 5.5 / 14.5 % | a branch off nothing: starts at the wind farm's ring, not at a junction on fv888 |
+| lebesby | depot -> station -> Lebesby | 4126 m | 4.4 / 9.4 / 10.3 % | a stack of about six hairpin loops on one hillside within 400 m of Kjøllefjord (the bulbs of `bulbs()`; counted from the still); then follows the shore; ends in the village centre |
+| ifjordfjellet | Lebesby -> Ifjord (closed in winter) | 5980 m | 4.7 / 10.5 / 32.5 % | a 32 % wall near Ifjord |
+**Today, per village:** Kjøllefjord: 7 streets in a 126 x 96 m ruler rectangle (Nygata z-36, Kaigata z+12, Fjellveien z+60; Skolegata x-42,
+Depotgata x+2, Kirkegata x+48, Storgata x+84, depot-relative), 28 doors on lot rows 21 m back to back round alleys, every street ends
+dead at the rectangle's edge (RD1 rounded the four corners only). The three roads out enter by 3 m plowed lanes from the depot, not
+by a street. The quay (the depot site is the quay: sea 90 m west) has no street, Kaigata stops 8 m past Skolegata; the garage,
+fuel station (st_kjollefjord, 120 m east), hospital (H pad south of the grid), church (south of Fjellveien, "at the south end of the shore street" in `townBlocks`) and the
+trailhead (sled country, east edge) stand off the grid in snow with no street. Mehamn (8 doors, no sea within 400 m: the village is inland, the real one is on the shore), Gamvik (5 doors, sea 110 m north), Dyfjord (4 doors, sea 120 m west), Lebesby (6 doors, sea 160 m
+west), Skjånes (3), Ifjord (3): each is a small rectangle of lots a road cuts through or ends in; the snow field shows the village's
+loaded patch as a visible rectangle of lighter snow from the air (a snow-chunk edge, not a road problem, noted for R6).
+
+**Principles for the new layout** (Norway, Finnmark): a county road is one carriageway that follows the shore on the landward side or
+the valley floor, side-hill cut rather than straight up, never over ~8-9 % except a short hairpin at 10-12 % (the game's A* penalises
+over 11 %); hairpins are a last resort and are spaced; a village is a main street along the shore with the road coming in as that
+street, short side streets running back from it (1-3 per village), driveways to every door; every door is on a street or a driveway;
+junctions are T's at near-right angles with corner radii (RD1's kit already makes them from any two lines); a road ends in a turning place
+or at a quay, never in a snow dead end; the Nordkyn junction (fv894 left to Kjøllefjord, fv888 right to Mehamn) is a real three-way
+junction on the trunk, not three routes starting at the depot.
+
+**Where each should run** (targets for the builders; positions are map metres, depot = (-1300, -385)):
+- *Kjøllefjord*: a shore street (Kaigata) along the real shoreline, 20-30 m inland, from the quay (x about -1390) east to the station,
+  curving with the coast; Storgata becomes the entry from fv888 (arrives from the east / north-east at the station junction, passes
+  the fuel station and meets Kaigata at a T); a second entry from the south-west along the shore for the Lebesby road (Strandveien)
+  and one from the north for the Dyfjord road; 3-4 side streets running back up the slope, different lengths (60-110 m), one bend
+  each, none longer than 120 m, none parallel closer than a lot's depth; a street to the quay (the quay is the street's west end,
+  with a turning place on the pier root), one to the garage forecourt, the hospital, the church and the trailhead (ends in its sled
+  park). The 126 x 96 m rectangle is dissolved: lots re-cut along the new streets (RD=21 m rows no longer assumed); every door gets
+  a 4-12 m driveway off a street.
+- *fv888 east of Kjøllefjord*: leave by the station, climb the first 200 m of the slope on one long switchback-free side-hill cut
+  (target 7-8 %), keep to the valley floor to the wind farm, then the coastal contour to Mehamn; shorten the x1.54 detour to under x1.3.
+  Skjånes branches at a real T junction on fv888 at the wind farm.
+- *Dyfjord road*: from Kjøllefjord's north entry along the shore (the sea is 120 m west of Dyfjord) and enter as the main street from the
+  south-east, one side street back; end at the quay.
+- *Lebesby road*: replace the loop stack by one or two honest hairpins spaced 120 m or more, or better follow the shore line round the
+  headland (the sea is the south boundary of the stack); enter Lebesby as its main street from the north-east with the closed
+  Ifjordfjellet road leaving at a T, the boom gate on it, and the 32 % wall replaced by a switchbacked climb.
+- *Mehamn, Gamvik, Skjånes, Ifjord*: main street = the through road (Gamvik: bend the road so it runs along the shore, houses on the
+  landward side with driveways, one side street), Mehamn moves its houses' street plan to the shore side (a quay street) or
+  the village is left on its hill with a proper main street and two side streets; Skjånes and Ifjord get one street each.
+
+**Systems each move touches** (all must keep working; none is changed by RD1):
+`TLXR` routes and `R.routes[*].segs/pts/len/ends` (the map chart, `R.trip` graph anchored on `ROADS.routes[].via` waypoints and
+`ROADS.node/anchor/reach`), road snow state saved as `x.sys.roads.r[id].s[stretch]` + `t[]` (stretches are 400 m of route, so a new route
+length pads/trims: `snowInit` already tolerates it; the plow position `p` is metres along the route and resets), `bed()` (the road bed
+cut into the 4 m ground grid, `cutMax` 8 m, trees cleared with it), `addLane`/YARDS plowed ground for each route, village `streets(W)`
+lanes to every lit door and `buildLanes` spurs (`TOWNL`), `KIT.doors`, house lots in `townBlocks()` (rows at `RD = 21`, `D.grid`),
+`LOTS`/public yards for plow contracts (`tlx-plow.js LOT.street`, `townStreetNear`), the convoy barriers (`convoy: [names]` at the
+route ends: Kjøllefjord-Mehamn, Kjøllefjord-Lebesby, `tlx-convoy.js`), traffic lanes (`TLXT.lanePt`, 6 cars bubble-placed on routes),
+semis, the plow trucks' stretches (`R.plowSeg`), parked cars (`tlx-cars.js` keeps clear of `townStreetNear`), stations (`@st_*`
+waypoints fixed in `STATIONS`), jobs and delivery targets (`SITES` and doors), the ferry quay (depot site), people's homes
+(`TLXN.homes` from `KIT.doors`), houses' mailboxes (`HW + 0.9`), lamps, snow poles, the Map and minimap chart (`paintMap`), and
+tests that pin lengths/ratios (`x3_roads` A: boot cost < 2500 ms and `len/straight` ratios, `x3_roadsnow`, `x3_traffic`, `x4_bladeroad`,
+`g1_lanes`, `g1_towngrid_*`, `g1_townlots`, `x4_streetjoin`).
+
+**Slices** (each one builder, one session; an asserting scenario each; routes only move from RD2):
+- **RD2 Terrain-honest router.** New A* cost in `tlx-roads.js`: prefer the landward side of the shore (a bonus 30-120 m from the sea),
+  penalise cross-slope not only grade, valley-floor bonus, hairpin penalty, 8 % target; keep the old router as `ROADS.old` for a
+  switch; no route changes yet; stills of the candidate lines overlaid (`rd2_routes.mjs`) and numbers per route (detour ratio, grade
+  p95, hairpin count). Touches: tlx-roads only. Done when every route's candidate is under x1.3, p95 <= 9 %, <= 2 hairpins.
+- **RD3 Kjøllefjord's street plan.** New `TOWNG` lines (curved, `townBlocks()` lots follow them), shore street, quay street, streets to
+  the garage, station, hospital, church, trailhead; the three roads enter as streets; driveways as `lane` roads in the kit. Touches
+  townBlocks, buildLanes, lamps, KIT.doors, tlx-cars spots, tlx-plow lots, tests `g1_towngrid_*`, `x_townroads`, `rd1_roads`.
+- **RD4 Entering Kjøllefjord from the three roads**: the route ends become the street junctions of RD3; the station junction;
+  the convoy barrier positions. Touches tlx-roads `ring()`, tlx-convoy.
+- **RD5 The trunk and the junctions**: fv888/fv894 Nordkyn junction, Skjånes as a T off fv888, shared trunk with branching instead of
+  side-by-side routes; the kit's `resolve()` gets an explicit junction list. Touches tlx-roads `build`, `R.trip`, traffic lanes.
+- **RD6 Villages**: Mehamn, Gamvik, Dyfjord, Lebesby, Skjånes, Ifjord: main street + side streets + driveways, every door on a street or
+  a driveway, `streets(W)` rewritten, each with its quay street where it has one. Touches `streets()`, lots/doors, TLXN homes.
+- **RD7 Hairpins and grades**: the Lebesby stack, the 32 % Ifjordfjellet wall, `bed()` for the new lines; road snow stretch re-index.
+- **RD8 Follow-through**: traffic lane tables, plow contract stretch names and saves migration test (old saves with the old route ids and stretch counts), the chart, minimap, the
+  Roads legend, README; `x3_*` pins re-measured.
