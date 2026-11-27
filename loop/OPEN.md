@@ -76,8 +76,8 @@ running beside this under the governor.
 - I4 radio: listen to all six stations (tablet > Radio). Say which sound wrong or grating; the music has only been checked by meter, never by ear. No quick key for next station yet (tablet only).
 
 ## Small things
-- Tether rope stays visible after a plain dismount (13 Nov). Open.
 - The "size it up" control beside someone you came to winch out names the right button on every device and works there (13 Nov). Built in v297 (lane A, 27 Nov): on a DualSense the line said "X" while the button is □; on a phone there was no button. Checked by scenario only (`g3_sizeup.mjs`: keyboard, Xbox / DualSense / Switch pads, touch). For Lemon to try on his own pad; delete this line once he has.
+- No tether rope on the rider once they are on their own feet (13 Nov). Built in v298 (lane A, 27 Nov): a plain get-off never showed it; the rope seen on a standing rider was the one left clipped after a crash. It is now out only while a crash has you thrown or down, and gone the moment you stand. Checked by scenario and one still (`g3_tether.mjs`). For Lemon to look at after a crash; delete this line once he has.
 - Delivery rewards with flavour dialogue: snacks and the like (11 Nov). Open.
 - About 60 polish and test lines from the beta tester under G4 in `loop/LOOP.md` (pad/touch gaps, toasts, stale
   scenarios `x2_standstart`, `x3_traffic` step D). Open.

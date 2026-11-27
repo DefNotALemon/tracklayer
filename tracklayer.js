@@ -17639,7 +17639,7 @@ function crashGetUp() {
   FOOT.on = true; FOOT.ski = false; FOOT.shoe = false; P.vx = P.vz = 0;
   const far = Math.hypot(P.x - C.x, P.z - C.z), mph = Math.round(C.spd * 2.237);
   const line = C.inj < 1.5 ? C.tied ? `Came off at ${mph} mph and nothing hurts.` : `Thrown clear at ${mph} mph and nothing hurts. Yet.` : C.inj < 4.5 ? `Came off at ${mph} mph. Winded and bruised, but you're up.` : `Came off at ${mph} mph. That one rang your bell. Take it easy.`;
-  if (C.tied) toast(`${line} The tether caught you and pulled the kill cord: the sled's right beside you. ${TC.on ? "Tap Q" : "Press Q"} to get back on.`, C.inj < 4.5 ? "warn" : "bad");
+  if (C.tied) toast(`${line} The tether caught you and pulled the kill cord: the sled's right beside you. ${INP.dev === "touch" ? "Tap " + btn("mount") : "Press " + btn("mount")} to get back on.`, C.inj < 4.5 ? "warn" : "bad");
   else toast(`${line} The sled's ${Math.round(far)} m back: walk over and ${INP.dev === "touch" ? "tap " + btn("mount") : "press " + btn("mount")} to get on.`, C.inj < 4.5 ? "warn" : "bad");
   LOG.crashes = (LOG.crashes || 0) + 1;
 }
@@ -17647,7 +17647,8 @@ function crashGetUp() {
 /* ---- the tether ----
    A rope from the kill switch at the bars to the rider's belt (PARTS.tether, tied on by default). When a crash throws you, the rope
    stops you ROPE.L from the bars: it snaps tight (a jolt, not a fall), kills the engine and the sled's slide drags you with it.
-   It stays clipped on while you get up and walk back, and comes undone if you walk off past the rope's length. Drawn by ropeTick. */
+   You unclip it as you get to your feet: the rope is drawn (ropeTick) only while the crash has you, never on a rider standing or
+   walking, and never after a plain get-off (Owner note 13 Nov; test scenarios/g3_tether.mjs). */
 const ROPE = { L: 1.4, clip: false, mesh: null, pts: null };
 function tetherOn() { return ((GS.own && GS.own.parts && GS.own.parts.tether) || "rope") !== "none"; }
 // the anchor: the kill switch on the bars, in world space from the sled's physics state
@@ -17686,16 +17687,11 @@ function ropeOffSled() {
 }
 // draw the rope from the bars to the rider's belt, sagging when slack
 function ropeTick() {
-  const C = CRASH, tied = C.on ? C.tied : (ROPE.clip && FOOT.on && !(FISH && FISH.on));
-  if (!C.on && ROPE.clip && (!FOOT.on || !tetherOn())) ROPE.clip = false;   // back on the sled (or untied): coiled away
+  const C = CRASH, tied = C.on && C.tied;                                    // only while you are thrown and down: on your own feet it is off your belt (Lemon, 13 Nov)
+  ROPE.clip = tied;
   if (!tied || !FOOT.g) { if (ROPE.mesh) ROPE.mesh.visible = false; return; }
   const A = sledRoot.localToWorld(new THREE.Vector3(0, 0.95, 0.15));
-  let bx, by, bz;
-  if (C.on) { bx = C.x; by = C.y - 0.05; bz = C.z; }
-  else {
-    bx = FOOT.x; by = FOOT.y + 0.95; bz = FOOT.z;
-    if (Math.hypot(bx - A.x, bz - A.z) > ROPE.L + 0.6) { ROPE.clip = false; if (ROPE.mesh) ROPE.mesh.visible = false; toast("You unclip the tether from your belt."); return; }
-  }
+  const bx = C.x, by = C.y - 0.05, bz = C.z;
   const d = Math.hypot(bx - A.x, by - A.y, bz - A.z), sag = Math.max(0, ROPE.L - d) * 0.6 + 0.03;
   if (!ROPE.mesh) {
     ROPE.pts = []; for (let i = 0; i <= 14; i++) ROPE.pts.push(new THREE.Vector3());

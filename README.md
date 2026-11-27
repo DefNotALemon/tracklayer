@@ -341,8 +341,9 @@ is gone, the same as a blackout. Big enough sleds still mow birches down rather 
 Every sled comes with a **tether**: a short orange rope from the kill switch on the bars to your
 belt. Come off with it tied on and you only go a couple of feet: the rope snaps tight, pulls the
 kill cord so the engine dies, and you land right next to the sled (if it's still sliding, it drags
-you along). Get up, press Q, and you're back on. The rope stays clipped on while you stand there
-and comes undone if you walk off. Untie it in the garage (Parts, Tether) if you'd rather fly.
+you along). You unclip it as you get to your feet, so the rope is only ever out while a crash has
+you: standing, walking off or getting off the plain way, there is no rope on you. Get back on and
+it is tied again. Untie it in the garage (Parts, Tether) if you'd rather fly.
 
 ## Bytteboden: buying used
 
