@@ -21,6 +21,42 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 10:05 — beta fix 0364 #2/#3: the pump fills the machine, not the rider; one fill is one tank (v292, lane A) (G4) — f4e7ee5
+
+Lane A's list is done (5.4), so this pass took the top open lane-A backlog line. Triage: reports 365 and 366 read
+(364 -> 366). 0365 (damaged saves): no BLOCKER or BUG, two POLISH on hand-edited saves, dropped as the tester suggests.
+0366 (I9 save slots, base game): #1 BUG (a double `TLSLOT.go` writes the game in play over another slot) and #2 are a
+new backlog line at the top of lane A's, for the next pass.
+
+- **What was wrong.** Measured first (a probe on main): truck at Kjøllefjord Drivstoff, 20 L in a 70 L tank, Q out
+  mid-fill: the fill stopped at the door at 32.5 L with "Pulled off the pump: 12.5 L", and nothing more went in over
+  10 game s. So 0364 #3 as written ("keeps filling to full after you step out, no Tank full toast") did not exist: the
+  truck never filled on foot. What a player met was a half-filled truck and a toast saying they had driven off.
+  #2 (115 L "pulled" into a 70 L tank) was the harness refilling one tank under an open count, but the count had no idea
+  which tank it was counting.
+- **Fix** (`fuelStep` / `fuelEnd`, tracklayer.js): the pump no longer cares whether you are on foot (only the tutorial's
+  hidden sled is left out). On foot the speed test reads the machine, not the walker. A count belongs to one tank:
+  `FS.px/pz/cap/f` remember where the tank stood, its size and its level, and a tank that is elsewhere (> 3 m), another
+  size or 0.5 L lighter than last frame closes the count and opens a new one. Since the nearest owned machine is the
+  current one on foot, walking from a filling truck to a sled at the same pump now closes the truck's count ("Filling
+  stopped: 16.2 L") and fills the sled on its own. Also: broke at the pump used to call `fuelEnd("broke")` (and so
+  `save()`) every frame; now once.
+- **Numbers, before -> after** (`x2_pumpfoot.mjs`, 38 checks, keyboard / pad LB / touch pill): out of the cab at 29 L:
+  stops at 32.5 L -> fills to 70.0 with one "Tank full: 50.0 L, −$123" (till 123.00 vs 122.50 by litres x price);
+  on foot with $10: 4.1 L, cash 0, one "Out of cash", 0 saves in 2.5 s (was one a frame); fuel lost mid-fill: counts of
+  24.9 and 60 L (was one of 84.9); truck + sled at one pump: 16.2 L and 14.0 L counted apart, paid 36.00 vs 35.03;
+  60 m away it still fills and says so; the tutorial's hidden sled takes nothing; driving off is still "Pulled off the
+  pump".
+- **Changed test**: the tester's `x2_truckpump_swap_beta.mjs` asserted "no billing while on foot at the pump"; it now
+  asserts the till on foot equals the litres that went in.
+- **Gate**: smoke, x1_save, x2_pumpfoot, x2_truckpump_swap_beta, x2_passdoor, g3_fuelcabin, g3_fuelcabin_walkup,
+  g2_lowfuel_warn, g2_aurora_plug: all exit 0, fails 0, page errors none (run after the rebase onto v291's post chain).
+- **Left as it is**: a machine you walk away from to ANOTHER machine stops filling (it is no longer the current one);
+  the toast says so. Fuel cabins and your own depot caches follow the same rule (not separately asserted on foot).
+  Unverified: by hand on a real pad.
+- **Next for lane A**: 0366 #1/#2 (save slots), then the remaining lane-A POLISH lines, then an unowned milestone
+  (16-19) by the Lanes claim rule.
+
 ## 27 Nov 2026 — The picture: post chain, sky, haze, sky light (G4-style, G8 P1) — 60d29e5
 
 G8 slice P1 (loop/REALISM.md "P1 as built"). New `tlx-post.js` (global `TLXPOST`; `TLXP` is the police system's): the main frame goes scene -> half-float 4x multisampled target with a depth texture -> contact shade (half-res SSAO from depth, 0.7 m, faded past 60 m, darkest 0.55, depth-aware blur and upsample) -> bloom (5 levels) -> one composite (tone curve with updSky's exposure, roll-off, cool-shade/warm-sun split, sRGB, fog redone from depth in display space, vignette, grain) -> FXAA. Hooks in tracklayer.js: sky shader (sun disc, aureole, horizon band, wider haze, alpha 0 = display-referred in the chain), HDR emissives for lamps/windows/lenses (only while the chain is on), `skyLightCube` as `scene.environment` (chain only), `snapSun` (texel-snapped sun shadow box), three QG rungs in front (no contact shade, no bloom, then the pixel ratio), Ultra in Settings > Graphics (4096 shadow map, 16 taps; auto reaches it only while rung 0 holds 10 ms), `?chain=0`.

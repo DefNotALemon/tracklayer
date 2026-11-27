@@ -313,9 +313,15 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 - [x] G4 2.2 (beta 0364 #1 BUG, fixed tlx-vehicles v37, lane A): a truck with a pump beside the driver's door kept you in the cab
       ("No room to open the door here.", a toast the report missed). Now the passenger door: slide over, out and in on that side.
       `x2_passdoor.mjs`.
-- [ ] G4 2.2 (beta 0364 #2/#3 POLISH, lane A): the fill toast sums across a move without leaving the pump (115 L "pulled" into a
-      70 L tank, harness only so far: `fuelEnd` is not called when the tank tops up and room reappears); no "Tank full" toast for a
-      truck you walked away from while it fills.
+- [x] G4 2.2 (beta 0364 #2/#3 POLISH, fixed v292, lane A): the fill toast summed across a move without leaving the pump (115 L
+      "pulled" into a 70 L tank): one fill is one tank now (a tank that stands elsewhere, holds a different amount or lost fuel
+      closes the count). #3 as reported did not exist (the truck did NOT go on filling on foot: it stopped at the door with
+      "Pulled off the pump"); now it does go on filling and billing with you out of it, and says "Tank full". `x2_pumpfoot.mjs`.
+- [ ] G7 I9 save slots (beta 0366 #1 BUG med, #2 BUG low; base game, so lane A takes it next pass unless the home session has):
+      two `TLSLOT.go()` calls before the reload (a double click on a slot card) write the game in play over the first slot named
+      and that slot's own game is lost: `go` must return at once while `TLSLOT.lock` is set, and the panel's buttons go dead on
+      the first click. #2: an imported file is only checked for a `save` object (`cash: "lots"` loads as a string): coerce the
+      numeric fields on import and load. Tester's scenario: `i9_slots_break_beta.mjs`.
 - [ ] G4 5.4c2b2 (beta 0363 #4 POLISH, lane A): the tow rope on a bogged driver's truck is drawn by which vehicle is current: on
       the sled (`swapTo(null)`, scripted) the rope mesh goes while the tow stays on. Needs a still from a real Q press first.
 - [ ] G4 (builder, lane A, stale scenarios found gating 0320): `x2_standstart.mjs` fails on origin/main too (2 FAILs: "bog clears once
@@ -760,4 +766,4 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
       reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 364
+Last triaged report: 366
