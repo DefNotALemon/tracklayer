@@ -799,7 +799,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [x] G3 (builder, v297 pass, lane A; fixed v299, checked by scenario and two stills, not on a real pad or phone): control names still typed out as keys in the search-and-rescue block (the accept
       toast at `sarAccept`: "Q off ... hook on (E) ... hold SPACE", "press E") and the "line parted ... Shovel or R"
       toast (reset is N): route them through `btn()` as the recovery lines were in v297.
-- [ ] G4/G3 (builder, v297 pass, stale tests or real, lane A): three scenarios fail the same way on origin/main at v295
+- [x] G4/G3 (builder, v297 pass, stale tests or real, lane A; all three were the game's: fixed v300 and v304): three scenarios fail the same way on origin/main at v295
       (run from `git archive`): `x2_winchtouch_break` "beyond line: no HOOK promised" x3 (`footUse()` says HOOK at a
       tree the line cannot reach; `footAction` then refuses: label and act disagree), `x2_winchuse_break` "E tablet
       open (winch hooked): E does nothing behind it" (hooked -> out), `ui_responsive` "foot embed640 640x360: no HUD
@@ -827,6 +827,13 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       not list `camChip` in its ids: add it). Hang the chip under the toasts or move it to the MORE sheet on phones.
 - [ ] G3 (note, builder v300 pass, lane A): of the three stale-or-real failures listed above (v297 pass),
       `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
-      `x2_winchtouch_break` and `x2_winchuse_break` are still open.
+      `x2_winchtouch_break` and `x2_winchuse_break` are still open. Both were the game's and are fixed in v304
+      (`footUse` promised HOOK at a tree the line could not reach; the use control acted behind the tablet): all
+      three of that line are closed.
+- [ ] G3 (POLISH, beta 0390 #1/#2, lane A): a mouse moved after a pad press may leave the control names on the
+      pad's (seen with a synthetic `mousemove` only; try `Input.dispatchMouseEvent`); and whether the tablet stays
+      open behind Settings when Menu is pressed on a pad with the tablet up was not read (the probe used a wrong flag).
+- [ ] G3 (POLISH, builder v304 pass, lane A): with the tablet up on foot the keyboard's Q (get on) and X (size it up)
+      still act behind it, and so does X on a pad; only the use control rests there since v304.
 
-Last triaged report: 389
+Last triaged report: 390

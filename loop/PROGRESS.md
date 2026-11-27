@@ -22,6 +22,29 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 18:15 — The winch's HOOK only where the line reaches; the use control rests behind the tablet (v304, lane A) (G4) — 56fffaf
+
+Triage: report 0390 (v303 pad Menu and key list: two POLISH, both about what the test could not read) read
+(389 -> 390), logged as one lane-A line. No BLOCKER or BUG. Lane A's list is done, so this pass took the oldest open
+lane-A line that could be a game bug: the two winch break tests that have failed on main since v295.
+
+- **Both were the game's.** `footUse()` (the word on the touch button and in the pad's prompt) said HOOK beside any
+  tree or boulder within 2.6 m, while `footAction()` hooks only an anchor within the line's length of the sled, less
+  0.4 m. So on a phone the button read HOOK and a tap answered "out of reach". `footUse` now makes the same test: no
+  verb there, and the hint already read "Line's at its end (26 m)".
+- **Behind the tablet.** On foot with the tablet up, E went straight to `footAction` (a hooked winch lost its strap,
+  a bogged sled started being dug), and so did the touch button; a pad's L3 fell through to the riding branch
+  (fishing's use, never the horn on foot). Now the on-foot use control does nothing while the tablet is open, on
+  all three, and `footUse` returns no verb there.
+- **Tests.** `x2_winchuse_break.mjs` (21 checks, was 9 with one failing): out of reach there is no verb, the hint
+  does not offer the strap, E does not hook and says "out of reach" (read by a recorder, not after a wait); with the
+  tablet up E, L3 and the touch button leave the hook on and no verb is offered; tablet away, the verb is back and
+  E unhooks. `x2_winchtouch_break.mjs` (18 checks, three failed before) unchanged and green.
+- **Gate**: smoke, x1_save, x2_winchuse_break, x2_winchtouch_break, g2_tutorial, x2_btn, ui_responsive,
+  g3_helpsheet: each exit 0, fails 0, page errors none.
+- **Unverified**: a real pad or phone (scripted pad, dispatched pointer events); no stills (nothing new is drawn).
+- **Left** (logged): with the tablet up on foot Q and X still act behind it.
+
 ## 2026-11-27 — Roads RD1b: real junctions, wandering edges, no stipple, reflective poles (G8 RD1b) — 6b22123
 The supervisor's defects on RD1, fixed in `tlx-roadkit.js` v2 (details: `loop/REALISM.md` "RD1b as built"): junction patches with corner fillets (`findNodes`, `buildPatch`, one surface, no seam), street edges that wander, the `alphaToCoverage` dither replaced by a crisp noise-thresholded coverage with early discard, thin orange poles with a headlight-catching band, packed-snow detail, lamps built after the kit and driveway gaps in the bank. Tests: `rd1_roads` gained D (one triangle under 6885 junction samples), I (edge wander), J (night pole band contrast), K (lamps, driveways), L (tone across an arm end vs a plain street), `rd1b_look`, `rd1b_strip`, `tools/playtest/px.py`; `p1_picture` waits for the world to stop streaming before it times the chain; `ui_responsive` embed640 failure was 4b441bc, fixed by v300. Script v303, tlx-roadkit v2.
 - Landed by the supervising session (builder cut off mid-gate). Gate on the rebased tree: all road, traffic, plow, lanes and layout lines clean; rd1_roads J (pole reflector) failed once and passed alone; x3_roads boot cost 3119/4534 ms under load 9-17, 1956 ms at load 5 (main 1871 ms); p1_picture fell cost fails on main as well (5.36 ms), not from this slice, still open.
