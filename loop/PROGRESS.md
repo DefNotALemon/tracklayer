@@ -21,6 +21,13 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 27 Nov 2026 — The picture: post chain, sky, haze, sky light (G4-style, G8 P1) — 60d29e5
+
+G8 slice P1 (loop/REALISM.md "P1 as built"). New `tlx-post.js` (global `TLXPOST`; `TLXP` is the police system's): the main frame goes scene -> half-float 4x multisampled target with a depth texture -> contact shade (half-res SSAO from depth, 0.7 m, faded past 60 m, darkest 0.55, depth-aware blur and upsample) -> bloom (5 levels) -> one composite (tone curve with updSky's exposure, roll-off, cool-shade/warm-sun split, sRGB, fog redone from depth in display space, vignette, grain) -> FXAA. Hooks in tracklayer.js: sky shader (sun disc, aureole, horizon band, wider haze, alpha 0 = display-referred in the chain), HDR emissives for lamps/windows/lenses (only while the chain is on), `skyLightCube` as `scene.environment` (chain only), `snapSun` (texel-snapped sun shadow box), three QG rungs in front (no contact shade, no bloom, then the pixel ratio), Ultra in Settings > Graphics (4096 shadow map, 16 taps; auto reaches it only while rung 0 holds 10 ms), `?chain=0`.
+- Asserts (p1_picture.mjs): chain at zero vs direct 0.2 % luma / 0.06 % hue; whole look 0.985x brightness; wall foot 24 % darker, open snow 0.6 %; lamp halo 1.68x at night, none at noon; snowfield bloom on/off 0.32 %; INT, fishing draw, gramShot, showroom, tablet, title render; cost +0.5 ms town / +0.7 ms fell (load 6-9 on the Mac, min of 4); resize, pixel-ratio change and preset cycle keep the chain the right size; low preset 126.8 vs main 126.8 luma.
+- Four critique rounds with stills in ~/.hermes/cache/scratch/tlreal/p1/ (round1-4 sheets and .md lists). Not done: stronger sky light on glass/road/roof snow/car paint, no second shadow cascade or wider PCF, no cloud structure, interiors/fishing/gram photos not post-processed.
+- Landed 27 Nov by the supervising session (the builder died before pushing). Gate re-run on the final tree: smoke, x1_save, p1_picture, i6_camera, ui_responsive, r2_sleds all clean. One fix on the way: the camera slice's overlay element was id `camOv`, which as a named element shadowed the playtest harness's `window.camOv` still-camera hook and broke smoke; renamed to `camHud` (tlx-camera.js v2).
+
 ## 26 Nov 2026 — Town: the half-lane strip beside Kaigata, and the seat's row of holes (G4-style, G8) — 98f811e
 
 Lemon: "there should not be a regular road of two lanes sittings nexyt to another clipped off half one lane" and "i can see through the middle of the sled".
