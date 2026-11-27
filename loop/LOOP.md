@@ -795,7 +795,9 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (POLISH, beta 0377 #4, lane A): the keyboard line "Sled 8 m on your left · walk back and press Q" types the
       key as "press Q" where the other lines use `keyHint("mount", "get on")` ("Q: get on"); right per device, only
       the wording differs.
-- [ ] G3 (builder, v299 pass, lane A; on origin/main too): at 320x568 the hint box (`#wnHud`) sits over the ride
+- [x] G3 (builder, v299 pass, lane A; fixed v300, `x4_mobilehint.mjs`, checked by rects at 11 screen sizes and by
+      stills, not on a real phone; the tlx-folk "E:" was the test's own keyboard device, the line already goes through
+      the same rule as `keyHint`): at 320x568 the hint box (`#wnHud`) sits over the ride
       controls whenever a riding hint shows (`x4_mobilehud2` "tabopen" and "footbeside" fail on main at v298; with a
       villager walking past, "sledtoast" too, and since v299 the box also clips the corner of GET OFF). Lift the box
       above the control cluster on narrow portrait screens. Also tlx-folk's riding line reads "E: a word with Anja" on
@@ -803,5 +805,11 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       left: README's Search and rescue section (keyboard names, as the README is written), code comments.
 - [ ] G4 (test, beta 0378 #3, lane A): `x4_plowtruck` failed once in 4 runs ("the line names the road and is yours: []",
       "the whole width is cut"; 3 reruns alone passed): make those two reads poll.
+- [ ] G7 I6 (POLISH, builder v300 pass, the camera's; lane A may take it): on a 320x568 touch screen the CAMERA chip
+      (10,216 61x29) lies on the third toast when three are up (`sledtoast_320x568.jpg` of `x4_mobilehud2`, which does
+      not list `camChip` in its ids: add it). Hang the chip under the toasts or move it to the MORE sheet on phones.
+- [ ] G3 (note, builder v300 pass, lane A): of the three stale-or-real failures listed above (v297 pass),
+      `ui_responsive` "foot embed640" is fixed in v300 (the hint's max-width did not count its padding: 1105/1105 now);
+      `x2_winchtouch_break` and `x2_winchuse_break` are still open.
 
-Last triaged report: 379
+Last triaged report: 382

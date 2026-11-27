@@ -22,6 +22,40 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 14:45 — The hint line keeps off the touch controls on phones (v300, lane A) (G4) — 45d66de
+
+Triage: reports 0380-0382 read (379 -> 382): RD1 roads, 2.7 seller doors, touch GET OFF; POLISH only, no BLOCKER or
+BUG. Lane A's list is done, so this pass took an open lane-A backlog line: the v299 pass's "at 320x568 the hint box
+sits over the ride controls" (`x4_mobilehud2` failing on main).
+
+- **What was wrong**: `#wnHud` had one place on every screen, bottom centre. Measured with a stand-in hint, a use pill
+  and a toast at 11 touch screen sizes, riding and on foot (22 states): it overlapped a control in 9. 320x568 riding:
+  the stick, GET OFF, GAS, LEAN and HORN; 360 to 390 wide: the stick, GET OFF and LEAN; 414x896: LEAN; 568x320 on its
+  side: BRAKE, LEAN and HORN (GET ON on foot); 667x375: HORN. So it was every phone, not only the 320-wide one.
+- **Fix** (index.html, CSS only): on touch, phones upright (the existing `max-width:640px` portrait block): the box is
+  anchored 200 px up, above GET OFF and HOP, in the band from the left edge to the use pill's column (right 112 px),
+  centred in it, 13 px type. Phones on their side (`max-height:500px` landscape block): in the gap between the stick
+  and HORN / WHEELIE, 62 px up, above the use pill at the bottom centre. Tablets keep the bottom centre (clear there).
+  First try used `var(--sb)`, which is only defined on `#touch`: the box went to the top of the screen; it reads the
+  safe-area inset itself now.
+- **Also fixed**: with a keyboard at 640x360 (the itch embed) the on-foot hint ran 5 px under the speedometer: its
+  `max-width:calc(100% - 432px)` did not count the padding (234 px wide for a 208 px limit). `box-sizing:border-box`.
+- **Not a bug**: tlx-folk's line reading "E: a word with Anja" on touch in `x4_mobilehud2`'s stills. That scenario
+  switches the touch buttons on but leaves the device on keyboard; `kh` in tlx-folk.js follows the same rule as
+  `keyHint` ("tap TALK" on touch).
+- **Numbers**: overlapping states 9 of 22 -> 0 of 22. New `x4_mobilehint.mjs`: 220 checks pass (11 sizes x riding / on
+  foot x a long and a short hint: box up with the line, on screen, overlaps no visible control, HUD panel or toast,
+  whole line shows at 12 px type or more). `x4_mobilehud2` 3 fails -> 0. `ui_responsive` 1104/1105 -> 1105/1105.
+- **Gate**: smoke, x1_save, x4_mobilehint, x4_mobilehud2: exit 0, fails 0, page errors none. Run alone and passing:
+  ui_responsive, x4_mobilehud3, g3_sarbtn.
+- **Stills looked at** (`tlloop/a1127f/p2/`, `g_ui2/`): 320x568 on foot, 390x664 riding, 568x320 riding, the embed on
+  foot, 568x320 on foot with the real hint. The box is clear of every button. Upright while riding it lies across the
+  rider's back (the bottom-centre place covered the sled instead): the cost of clearing the thumbs.
+- **Unverified**: a real phone; a notch's safe-area inset (the rule adds the inset, no test sets one); four toasts and
+  a three-line hint together on 320x568 (they would meet about 300 px down).
+- **Seen, left listed**: on 320x568 the CAMERA chip lies on the third toast (`camChip` is not in `x4_mobilehud2`'s id
+  list, so nothing catches it). LOOP.md backlog line added.
+
 ## 2026-11-27 14:00 — Rescue lines name the control in hand; GET OFF on a stopped sled on touch (v299, lane A) (G4) — 66e48e0
 
 Triage: reports 0378 and 0379 read (377 -> 379). 0378: `x4_gritter` and its reload test pass; `x4_plowtruck` failed
