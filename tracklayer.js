@@ -9633,7 +9633,7 @@ function setFootSync(force) {
   if (INP.dev === "pad") h = `<b>D-pad</b> or stick to move, <b>${btn("pick")}</b> to pick, <b>◀ ▶</b> on a slider, <b>${btn("wclose")}</b> ${what}, <b>${btn("menu")}</b> closes.`;
   else if (INP.dev === "touch") h = `Tap a control to change it. ${top ? "<b>✕</b> closes." : "<b>‹</b> goes back, <b>✕</b> closes."}`;
   else h = `<b>${btn("menu")}</b> ${what}. Click a control, or use the <b>arrow keys</b> to move and <b>Enter</b> to pick.`;
-  f.innerHTML = h + " Your kit and volume are remembered next time.";
+  f.innerHTML = h + " Your choices are remembered next time.";
   const vh = $("viewHint"); if (vh) vh.innerHTML = `cycles chase, close, first person and drone · ${pressHint("view")} while riding`;
   const tb = $("towBtn"); if (tb) tb.textContent = INP.dev === "touch" ? "Call rescue sled" : `Call rescue sled (${btn("help")})`;
 }
