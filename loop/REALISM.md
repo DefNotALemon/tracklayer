@@ -26,7 +26,7 @@ from a chat session. Log each slice in `loop/PROGRESS.md`. After a slice lands, 
 |---|---|---|
 | R1 | The figure: body, clothes, head, hands, boots (walker, rider, every other person) + the look kit `tlx-look.js` | landed v265, reworked v267 (24 Nov 2026) |
 | R2 | The sleds: every machine in `SLEDS`, parts, Santa's sled | landed v269 (25 Nov 2026) |
-| P1 | The picture: a post chain (contact shade, bloom, grade), sky and haze, sky light on every material, shadows; an Ultra preset | **next** (26 Nov 2026) |
+| P1 | The picture: a post chain (contact shade, bloom, grade), sky and haze, sky light on every material, shadows; an Ultra preset | landed v291 (26 Nov 2026) |
 | R3 | Streets and roads: asphalt, kerbs, markings, snowbanks, lamps, signs, street furniture | after P1 |
 | R4 | Houses and buildings: cladding, roofs, windows, doors, porches, foundations, snow on them; interiors | after R3 |
 | R5 | Vehicles and props: trucks, cars, boats, trailers, crates, fuel pumps, quay | after R4 |
@@ -252,6 +252,30 @@ bloomed (frame with bloom on vs off differs by under 1 % mean); `INT`, fishing, 
 tablet still render (non-black, right size); frame cost on this Mac at 1280x720 pixel ratio 1.5: at most 2.5 ms
 added with everything on, measured back to back in town and on the fell; resize, pixel-ratio change by the
 governor and a GFX preset change at run time all keep the chain the right size.
+
+#### P1 as built (26 Nov 2026, script v291)
+
+`tlx-post.js`, global **`TLXPOST`** (`TLXP` is the police system's). Owns no save state. What it offers the next slices:
+- `TLXPOST.render(scene, camera)` is what `frame()` calls for the main scene (false = the caller draws directly). `TLXPOST.on()`, `.setLevel(0|1)`, `.fx` (`ao bloom grade fxaa vig grain`, 0..1 each; all zero = a plain tone map that equals the direct path to 0.2 %), `.light({thr, knee, bloomK, hf, ...})` (updSky feeds bloom threshold/strength and the dawn/dusk height-fog amount), `.setAO(n)`, `.depthTex()` / `.sceneTex()` (resolved scene depth and HDR colour, valid after a frame: a later slice can add a pass such as reflections or depth of field), `.size`, `.stats`, `.dbg = 1` (view the contact-shade buffer), `.readAO()`.
+- Pipeline: scene -> half-float 4x multisampled target with a depth texture (r128 resolves colour and depth on the blit) -> contact shade (half-res SSAO from depth, normals rebuilt from depth, 0.7 m radius, faded past 60 m, darkest 0.55, depth-aware blur and depth-aware upsample so there is no halo round the sled against the sky) -> bloom (bright pass, 5 down, 4 additive up) -> one composite (contact shade, bloom, cool-shade/warm-sun split, ACES with the exposure `updSky` sets, a roll-off of the last quarter of the curve, sRGB, fog, vignette, grain) -> FXAA -> canvas.
+- **r128 facts that matter for any later pass**: materials tone-map inside their own shaders, also into render targets, so the chain sets `renderer.toneMapping = NoToneMapping` while it draws the scene (materials compile a Linear-encoding program for targets, separate from the canvas one) and restores ACES for every direct path. Fog is mixed AFTER tone mapping, so the chain sets `scene.fog = null` while drawing and redoes FogExp2 from depth in the composite (same curve and colour, display space); mixing it in linear light first made the far fell brighter and greyer. The sky dome is display-referred (no chunks): it writes alpha 0 into the target (`uChain`), and alpha 0 means "no curve, no sRGB" in the composite. Transparent decals blend in LINEAR light inside the chain, so the same opacity looks brighter than before (lamp pools needed x0.38). Anything with a custom shader that writes display values must write alpha 0 too.
+- HDR values: lamp globes (`hdr` factor in `houseWinTick`), lit windows, canopy lights, sign glow, sled lamp and tail lenses are multiplied only while the chain is on (`TLXPOST.on()`), so the low preset and the direct paths look as before. Bloom threshold is 1.5 at night and 12 by day (the sky's sun disc is 24 in the chain); a daylit snowfield (<= 2.5) never reaches it.
+- Sky light: `skyLightCube` (32 px, repainted by `updSledEnv` in coarse steps) is `scene.environment` while the chain is on, at 0.36 of the sled cube's light. Materials with their own `envMap` (sleds, helmets) keep the brighter sled cube. NOT done: stronger sky light on window glass, road, roof snow and car paint (set `envMap = sledEnvCube` + `envMapIntensity` on those materials when R3/R4/R5 rebuild them).
+- Shadows: `snapSun()` moves the sun target in whole shadow-map texels in the light's plane (asserted). PCF stays r128's `PCFSoftShadowMap` (already a 5x5 bilinear block); no second cascade. Ultra uses a 4096 map.
+- Presets: Settings > Graphics cycles auto, high, ultra, low. `GFX.chain` = any non-phone desktop; the chain is off on low (live, no reload). The governor (`QG`) has three new first rungs: all effects, no contact shade, no bloom (all at pixel ratio 1.5) before the pixel ratio falls. Auto picks Ultra while rung 0 holds a median frame of 10 ms or less (leaves it above 14 ms or any lower rung). `?chain=0` turns the chain off for a load, `?gfx=ultra` pins ultra.
+- Not post-processed (direct path, as today): `INT.scene` interiors, `FISH.render()`, `gramShot` pictures. They still render right (asserted).
+
+Numbers (this Mac, headless Chrome on Metal, machine load 6-9 from the other builder, 1280x720 pixel ratio 1.5, back to back with `gl.finish`, min of 4 runs): town off 3.6 ms, on 4.1 ms (+0.5); fell 3.0 -> 3.7 (+0.7); ultra about +1.3 in town; individual runs under heavier load scattered from -0.3 to +5 ms, so trust the min. Draw calls unchanged (622 town); the chain adds 14 full-screen passes. First chain frame (shader compile, once, on the title): about 470 ms. Mean luma of the 17 look stills before -> after: within 3 % (noon 127 -> 126, night 53 -> 54, the overview from above 163 -> 176 because the horizon haze and fjord fog are brighter).
+
+Lessons: (1) a render target does not remove tone mapping in r128 - it keeps it in the material unless you switch the renderer's `toneMapping`; (2) check the fog order before moving to HDR; (3) the governor sheds effects by itself in a slow headless run (`QG.on = false` is not enough: call `QG.apply(0)`); (4) pixel reads via `gl.readPixels` use a bottom-left origin; (5) never set `GS.hour` with `+ 120*24` twice in one scenario (it drifts into June and the midnight sun); (6) bloom as an average needs a much larger strength than a sum, tune it on a lamp, not on a number.
+
+Known remaining (see `~/.hermes/cache/scratch/tlreal/p1/round4.md`): contact shade is gentle in full sun; no cloud structure in the sky; shade snow is one flat blue; no window or lamp spill on the snow beyond the old decals; roof snow, road and car paint have no extra sheen; interiors are not post-processed.
+
+### R3 roads: Lemon's order of 27 Nov overrides the road part of R3
+"completely redo the road design, the roads themselves, re place them around the map, drop the curbs too, make the
+roads look much nicer, you can make them look more worn down, but realistic is my main priority." So R3's roads are
+not a re-skin: new routes over the whole map, new road mesh and surface, kerbs removed everywhere (plow banks and
+gravel shoulders instead). Full wording and scope in `loop/OPEN.md`, build order 3a.
 
 ### R3 and R4: defects already seen in the 26 Nov audit (for their briefs)
 

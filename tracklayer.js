@@ -436,12 +436,13 @@ const GFX = (() => {
   const mobile = ios || /Android|Mobi|Silk|Kindle|PlayBook|BlackBerry|Opera Mini/i.test(ua) || (coarseP && navigator.maxTouchPoints > 0);
   const phone = mobile && Math.min(screen.width, screen.height) < 600;
   const standalone = !!((window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches)) || navigator.standalone);
-  const url = /[?&]gfx=(low|high)\b/.exec(location.search), q = url ? url[1] : pick === "auto" ? (mobile ? "low" : "high") : pick;
+  const url = /[?&]gfx=(low|high|ultra)\b/.exec(location.search), q = url ? url[1] : pick === "auto" ? (mobile ? "low" : "high") : pick;
   const low = q === "low", dpr = window.devicePixelRatio || 1, auto = !url && pick === "auto";
   return { pick, auto, low, mobile, phone, ios, standalone, dpr,
     prMax: Math.min(dpr, low ? 1.25 : 1.5), prMin: 0.5, pr: Math.min(dpr, low ? 1 : 1.5),
-    treeR0: low ? 750 : 1900, treeR: low ? 750 : 1900, shMap0: low ? 1024 : 2048,
-    farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16 };
+    treeR0: low ? 750 : 1900, treeR: low ? 750 : 1900, shMap0: low ? 1024 : q === "ultra" ? 4096 : 2048,
+    farR: low ? 1500 : 2600, fogK: low ? 1.3 : 1, shadowEvery: low ? 2 : 1, recStep: low ? 32 : 16,
+    chain: !phone && !/[?&]chain=0\b/.test(location.search), ultra: !low && !phone && q === "ultra" };
 })();
 document.documentElement.classList.toggle("mobile", GFX.mobile);
 document.documentElement.classList.toggle("phone", GFX.phone);
@@ -483,10 +484,10 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
   side: THREE.BackSide, depthWrite: false, fog: false,
   uniforms: { uSun: { value: new THREE.Vector3(0, 0.2, 1) }, uMoon: { value: new THREE.Vector3(0, -1, 0) }, uMoonI: { value: 0 },
     uZen: { value: new THREE.Color() }, uMid: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uHorA: { value: new THREE.Color() },
-    uGlow: { value: new THREE.Color() }, uStorm: { value: 0 }, uFog: { value: new THREE.Color(0xc4d3e2) }, uTime: { value: 0 }, uAurora: { value: 0 } },
+    uGlow: { value: new THREE.Color() }, uStorm: { value: 0 }, uFog: { value: new THREE.Color(0xc4d3e2) }, uTime: { value: 0 }, uAurora: { value: 0 }, uChain: { value: 0 } },
   vertexShader: "varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
   fragmentShader: `varying vec3 vD; uniform vec3 uSun; uniform vec3 uMoon; uniform float uMoonI; uniform vec3 uZen; uniform vec3 uMid; uniform vec3 uHor; uniform vec3 uHorA;
-    uniform vec3 uGlow; uniform float uStorm; uniform vec3 uFog; uniform float uTime; uniform float uAurora;
+    uniform vec3 uGlow; uniform float uStorm; uniform vec3 uFog; uniform float uTime; uniform float uAurora; uniform float uChain;
     void main(){ vec3 d = normalize(vD); float h = clamp(d.y,0.0,1.0);
       // the horizon is warm on the sun's side and pink-to-slate on the other (the belt of Venus at dusk)
       float toward = dot(normalize(d.xz + vec2(1e-5)), normalize(uSun.xz + vec2(1e-5))) * 0.5 + 0.5;
@@ -495,8 +496,9 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
       // glow round the sun, held down on the horizon for a while after it sets
       vec3 sg = normalize(vec3(uSun.x, max(uSun.y, -0.01), uSun.z));
       float s = max(dot(d, sg), 0.0);
-      c += uGlow * (pow(s, 5.0)*0.35 + pow(s, 60.0)*0.55) * (1.0 - 0.6*smoothstep(0.0, 0.5, h));
-      c += vec3(1.0,0.93,0.8) * smoothstep(0.9993,0.9997,max(dot(d, uSun),0.0)) * smoothstep(-0.02, 0.01, uSun.y);
+      c += uGlow * (pow(s, 5.0)*0.35 + pow(s, 60.0)*0.55 + pow(s, 700.0)*1.1*uChain) * (1.0 - 0.6*smoothstep(0.0, 0.5, h));
+      c += uChain * uGlow * 0.22 * exp(-h * 7.0) * (0.3 + 0.7 * pow(max(dot(normalize(d.xz + vec2(1e-5)), normalize(uSun.xz + vec2(1e-5))), 0.0), 2.0)) * smoothstep(-0.1, 0.1, uSun.y);   // the horizon band, warm toward the sun
+      c += vec3(1.0,0.93,0.8) * (mix(smoothstep(0.9993,0.9997,max(dot(d, uSun),0.0)), smoothstep(0.99925,0.99975,max(dot(d, uSun),0.0)) * 24.0, uChain) + smoothstep(0.9975, 0.9997, max(dot(d, uSun),0.0)) * 0.22 * uChain) * smoothstep(-0.02, 0.01, uSun.y);
       // the moon: disc, tight halo, faint wide glow
       float m = max(dot(d, uMoon), 0.0);
       c += vec3(0.86,0.9,1.0) * uMoonI * (smoothstep(0.99955,0.99965,m)*1.3 + pow(m, 500.0)*0.25 + pow(m, 25.0)*0.05) * smoothstep(-0.02,0.02,uMoon.y);
@@ -516,11 +518,13 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(8000, 32, 16), new THREE.Sha
       // below the horizon the dome is pure fog colour (it meets the fully hazed far ground); above it the haze used
       // to drop straight to 45%, which drew a hard pale line along the horizon. It now eases from 100% to the old
       // 45% curve over the first ~3 degrees, so far land, haze and sky blend without a seam.
-      float hz = max((1.0 - smoothstep(0.0,0.06,h))*0.45, 1.0 - smoothstep(0.0,0.05,h));
+      float hz = max(max((1.0 - smoothstep(0.0,0.06,h))*mix(0.45, 0.5, uChain), 1.0 - smoothstep(0.0,0.05,h)), 0.34 * uChain * (1.0 - smoothstep(0.0, 0.24, h)));
       c = mix(c, uFog, clamp(uStorm*0.9 + hz, 0.0, 1.0));
-      gl_FragColor = vec4(c,1.0); }`
+      gl_FragColor = vec4(c, 1.0 - uChain); }`   // alpha 0 into the post chain's HDR target = already display-referred, no tone curve (tlx-post.js)
 }));
 sky.renderOrder = -1; scene.add(sky);
+// the post chain (tlx-post.js): high and ultra on a desktop, never the low preset or a phone; everything else draws straight to the canvas as before
+if (window.TLXPOST && GFX.chain) { TLXPOST.init({ THREE, renderer, scene, camera, sky }); TLXPOST.setLevel(GFX.low ? 0 : 1); TLXPOST.setAO(GFX.ultra ? 16 : 10); }
 
 /* ---------------- snow patch (fine deformable mesh around the sled) ---------------- */
 const S = 401, PHALF = 200;
@@ -1306,6 +1310,18 @@ const sledEnvCube = (() => {
   };
   tex.paint({ r: 1, g: 1, b: 1 }); return tex;
 })();
+// Sky light on everything (G8 P1): a second, dimmer cube as scene.environment, so every MeshStandardMaterial without its own
+// envMap (houses, road, cars, snow patch...) gets a soft top-down sky fill and a faint sheen. r128 turns the cube into a PMREM by itself
+// whenever it is repainted; updSledEnv repaints it only when the light has moved by a visible step, and it follows the same light
+// (dark at night, tinted by the aurora). Materials with an envMap of their own (the sleds) keep the brighter sled cube.
+const skyLightCube = (() => {
+  const F = [["#bcd2ec", "#e4eef9", "#8fa3bb"], ["#bcd2ec", "#e4eef9", "#8fa3bb"], ["#a9c6e8", "#cfe0f3", "#e4eef9"], ["#3a4552", "#2a323c", "#20262d"], ["#bcd2ec", "#e4eef9", "#8fa3bb"], ["#bcd2ec", "#e4eef9", "#8fa3bb"]].map(f => f.map(h => new THREE.Color(h)));
+  const cv = F.map(() => { const c = document.createElement("canvas"); c.width = c.height = 32; return c; }), tex = new THREE.CubeTexture(cv);
+  const css = (c, t) => `rgb(${Math.round(255 * clamp(c.r * t.r, 0, 1))},${Math.round(255 * clamp(c.g * t.g, 0, 1))},${Math.round(255 * clamp(c.b * t.b, 0, 1))})`;
+  tex.paint = t => { cv.forEach((c, i) => { const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 32), [a, b, d] = F[i]; gr.addColorStop(0, css(a, t)); gr.addColorStop(0.55, css(b, t)); gr.addColorStop(1, css(d, t)); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }); tex.needsUpdate = true; };
+  tex.paint({ r: 0.35, g: 0.35, b: 0.35 }); return tex;
+})();
+if (window.TLXPOST) { TLXPOST.envTex = skyLightCube; if (TLXPOST.on()) scene.environment = skyLightCube; }   // only while the post chain is on: the low preset keeps today's lighting
 const sledWearTex = (() => {
   const c = document.createElement("canvas"); c.width = c.height = 256; const g = c.getContext("2d");
   g.fillStyle = "#b4b4b4"; g.fillRect(0, 0, 256, 256);                     // base: paint kept glossy
@@ -4171,7 +4187,7 @@ function updVisuals(dt) {
   if (Math.abs(camera.fov - fw) > 0.01) { camera.fov = fw; camera.updateProjectionMatrix(); }
   if (!started || TCAM.launch) titleCam(dt);
   sky.position.copy(camera.position);
-  sun.position.set(FXp + sunDir.x * 200, FYp + sunDir.y * 200, FZp + sunDir.z * 200); sun.target.position.set(FXp, FYp, FZp);
+  snapSun(FXp, FYp, FZp);
   // recenter the fine snow patch
   const pcx = (pox + PHALF) * CELL - HALF, pcz = (poz + PHALF) * CELL - HALF;
   if (Math.abs(FXp - pcx) > 10 || Math.abs(FZp - pcz) > 10) recenter(FXp, FZp, false);
@@ -5301,18 +5317,18 @@ function canopyLightMat() {
   return canopyLightMat.m;
 }
 function houseWinTick(day, st) {
-  const n = 1 - day * (1 - 0.6 * st);
-  if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n);
-  if (stationPool.m) stationPool.m.opacity = 0.6 * n;
+  const n = 1 - day * (1 - 0.6 * st), hdr = window.TLXPOST && TLXPOST.on() ? 1 : 0;      // hdr: real HDR values for lamps and lit windows when the post chain can bloom them
+  if (signMat.lit) for (const s of signMat.lit) s.emissive.setScalar(s.userData.glow * n * (1 + 0.8 * (window.TLXPOST && TLXPOST.on() ? 1 : 0)));
+  if (stationPool.m) stationPool.m.opacity = 0.6 * n * (1 - 0.3 * hdr);
   if (lampPools.at && lampPools.at.length) lampPools();
-  if (lampPools.m) lampPools.m.opacity = 0.65 * n;
+  if (lampPools.m) { lampPools.m.opacity = 0.65 * n * (1 - 0.62 * hdr); lampPools.m.color.set(hdr ? 0xe98a45 : 0xe0601a); }      // blended in linear light inside the chain: the same opacity reads brighter
   const hm = lampHeadMat.m;
-  if (hm) { hm.emissive.copy(lampHeadMat.on).multiplyScalar(n); hm.color.copy(lampHeadMat.off).multiplyScalar(1 - n); }
+  if (hm) { hm.emissive.copy(lampHeadMat.on).multiplyScalar(n * (1 + 4 * hdr)); hm.color.copy(lampHeadMat.off).multiplyScalar(1 - n); }
   const cm = canopyLightMat.m;
-  if (cm) { cm.emissive.copy(canopyLightMat.on).multiplyScalar(n); cm.color.copy(canopyLightMat.off).multiplyScalar(1 - n); }
+  if (cm) { cm.emissive.copy(canopyLightMat.on).multiplyScalar(n * (1 + 3 * hdr)); cm.color.copy(canopyLightMat.off).multiplyScalar(1 - n); }
   const m = houseWinMat.m; if (!m) return;
   const C = houseWinTick.c || (houseWinTick.c = [new THREE.Color(0xffc26b), new THREE.Color(0x0e141b)]);
-  m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st));
+  m.color.copy(C[0]).lerp(C[1], 0.93 * day * (1 - 0.6 * st)).multiplyScalar(1 + 0.9 * hdr * n);
   houseWinMat.u.value = day * (1 - 0.6 * st);
   // KIT.glowM (the church windows, the coastal ferry's windows and portholes, the fuel pump displays) was a fixed cream
   // MeshBasic, so all of it burned full bright at noon; it now goes to dark glass by day with the house windows. (Safe
@@ -6169,6 +6185,7 @@ function updSky() {
   const df = sstep(-7, 3, e);
   headlight.intensity = GS.fuel > 0 ? lerp(3.2, 0.3, df) * ST.light : 0;
   headlight.distance = ST.light > 1 ? 150 : 80; headlight.angle = ST.light > 1 ? 0.75 : 0.55;
+  if (window.TLXPOST) TLXPOST.light({ thr: lerp(1.5, 12, dayness), knee: lerp(0.8, 3, dayness), bloomK: lerp(2.9, 0.3, dayness), day: dayness, hf: sstep(-9, -1, e) * (1 - sstep(3, 13, e)) * (1 - st) });
   updScreenGrade();                                  // the tablets' screens take the same light and grade
   updSledEnv();
   houseWinTick(dayness, st);
@@ -6178,13 +6195,25 @@ function updSky() {
 // Brightness follows the light's luminance (full by a sunny ~0.7, so daytime looks as it always did); its colour only
 // leans the reflection a third of the way toward the light's tint.
 const SENV = { key: "", t: { r: 1, g: 1, b: 1 } };
+// the sun's shadow box follows the player in whole shadow-map texels (in the light's own plane), so a ground shadow edge
+// stays on the same texels while riding instead of crawling and shimmering with every metre
+const _sR = new THREE.Vector3(), _sU = new THREE.Vector3(), _sUp = new THREE.Vector3(0, 1, 0);
+function snapSun(FXp, FYp, FZp) {
+  const cam = sun.shadow.camera, ts = GFX.noSnap ? 1e-9 : (cam.right - cam.left) / sun.shadow.mapSize.x;      // GFX.noSnap: a test switch, to compare with the old crawling box
+  _sR.crossVectors(_sUp, sunDir); if (_sR.lengthSq() < 1e-6) _sR.set(1, 0, 0); _sR.normalize(); _sU.crossVectors(sunDir, _sR);
+  const a = FXp * _sR.x + FYp * _sR.y + FZp * _sR.z, b = FXp * _sU.x + FYp * _sU.y + FZp * _sU.z, da = GFX.noSnap ? 0 : Math.round(a / ts) * ts - a, db = GFX.noSnap ? 0 : Math.round(b / ts) * ts - b;
+  const tx = FXp + _sR.x * da + _sU.x * db, ty = FYp + _sR.y * da + _sU.y * db, tz = FZp + _sR.z * da + _sU.z * db;
+  sun.position.set(tx + sunDir.x * 200, ty + sunDir.y * 200, tz + sunDir.z * 200); sun.target.position.set(tx, ty, tz);
+}
 function updSledEnv() {
-  { const k = clamp(headlight.intensity / 3.2, 0.1, 1); SKM.lamp.emissiveIntensity = SKM.led.emissiveIntensity = 1.4 * k; SKM.tail.emissiveIntensity = 0.9 * k; }   // the lens glows only as the headlight does
+  { const k = clamp(headlight.intensity / 3.2, 0.1, 1); const hk = window.TLXPOST && TLXPOST.on() ? 1 : 0; SKM.lamp.emissiveIntensity = SKM.led.emissiveIntensity = 1.4 * k * (1 + 2.2 * hk); SKM.tail.emissiveIntensity = 0.9 * k * (1 + 2.6 * hk); }   // the lens glows only as the headlight does
   const t = SENV.t, q = v => Math.round(v * 200) / 200;
   const r = hemi.color.r * hemi.intensity + sun.color.r * sun.intensity * 0.3, g = hemi.color.g * hemi.intensity + sun.color.g * sun.intensity * 0.3,
     b = hemi.color.b * hemi.intensity + sun.color.b * sun.intensity * 0.3;
   const L = 0.2126 * r + 0.7152 * g + 0.0722 * b, mx = Math.max(r, g, b, 1e-4), k = Math.min(1, L / 0.62);
   t.r = q(lerp(1, r / mx, 0.33) * k); t.g = q(lerp(1, g / mx, 0.33) * k); t.b = q(lerp(1, b / mx, 0.33) * k);
+  { const q2 = v => Math.round(v * 40) / 40, K2 = SENV.k2 || (SENV.k2 = { r: 0, g: 0, b: 0 }), e = 0.36, a = q2(t.r * e), b = q2(t.g * e), c = q2(t.b * e);
+    if (a !== K2.r || b !== K2.g || c !== K2.b) { K2.r = a; K2.g = b; K2.b = c; skyLightCube.paint(K2); } }
   const key = t.r + "," + t.g + "," + t.b; if (key === SENV.key) return; SENV.key = key;
   sledEnvCube.paint(t);
 }
@@ -9437,12 +9466,15 @@ function buildSettings() {
   tb.addEventListener("click", () => { SET.touch = SET.touch === "auto" ? "on" : SET.touch === "on" ? "off" : "auto"; tb.textContent = TL[SET.touch]; saveSettings(); setTouchUI(); });
   // Graphics: Auto (the preset for this device plus the frame-rate governor), or High / Low pinned. The live knobs
   // switch at once; MSAA and the shader detail follow the preset at the next launch.
-  const GL = { auto: "Graphics: auto", high: "Graphics: high", low: "Graphics: low" }, gb = $("gfxBtn");
+  const GL = { auto: "Graphics: auto", high: "Graphics: high", ultra: "Graphics: ultra", low: "Graphics: low" }, gb = $("gfxBtn");
   if (!GL[SET.gfx]) SET.gfx = "auto";
   const gfxSync = () => { gb.textContent = GL[SET.gfx]; $("fpsBtn").textContent = SET.fps ? "Frame rate: shown" : "Frame rate: hidden"; $("fps").hidden = !SET.fps; };
   gb.addEventListener("click", () => {
-    SET.gfx = SET.gfx === "auto" ? "high" : SET.gfx === "high" ? "low" : "auto"; saveSettings(); gfxSync();
-    GFX.auto = QG.on = SET.gfx === "auto"; QG.cap = 0; QG.prev = null; QG.apply(SET.gfx === "high" ? 0 : SET.gfx === "low" ? 3 : QG.rung);
+    SET.gfx = SET.gfx === "auto" ? "high" : SET.gfx === "high" ? "ultra" : SET.gfx === "ultra" ? "low" : "auto"; saveSettings(); gfxSync();
+    GFX.auto = QG.on = SET.gfx === "auto"; QG.cap = 0; QG.prev = null;
+    GFX.low = SET.gfx === "low" || (SET.gfx === "auto" && GFX.mobile); GFX.ultra = SET.gfx === "ultra" && !GFX.phone; GFX.shMap0 = GFX.low ? 1024 : GFX.ultra ? 4096 : 2048;
+    if (window.TLXPOST) TLXPOST.setAO(GFX.ultra ? 16 : 10);
+    QG.apply(SET.gfx === "high" || SET.gfx === "ultra" ? 0 : SET.gfx === "low" ? 5 : QG.rung);
   });
   $("fpsBtn").addEventListener("click", () => { SET.fps = !SET.fps; saveSettings(); gfxSync(); });
   gfxSync(); fullscreenUI();
@@ -17947,22 +17979,24 @@ const H = 1 / 120;
 // included) starts there instead of re-learning it. MSAA and the shadow filter come from the preset at load.
 const QG = {
   rungs: [                                                  // pr: absolute pixel ratio (clamped GFX.prMin..GFX.prMax); sh: shadow redraw every
-    { pr: 1.5, sh: 1, map: 1, tree: 1, mk: 6 },             // N frames; map: x shadow map size; tree: x tree distance; mk: lee-shadow march steps
-    { pr: 1.3, sh: 1, map: 1, tree: 1, mk: 6 },             // 0: the "high" preset as built
-    { pr: 1.15, sh: 1, map: 1, tree: 1, mk: 6 },
-    { pr: 1, sh: 2, map: 1, tree: 0.85, mk: 6 },            // 3: the "low" preset (phones start here, on 3 march steps)
+    { pr: 1.5, sh: 1, map: 1, tree: 1, mk: 6, fx: 2 },      // N frames; map: x shadow map size; tree: x tree distance; mk: lee-shadow march steps
+    { pr: 1.5, sh: 1, map: 1, tree: 1, mk: 6, fx: 1 },      // fx (the post chain, tlx-post.js): 2 contact shade + bloom + grade, 1 no contact shade, 0 neither (grade + FXAA only).
+    { pr: 1.5, sh: 1, map: 1, tree: 1, mk: 6, fx: 0 },      // The governor sheds contact shade, then bloom, BEFORE it touches the pixel ratio.
+    { pr: 1.3, sh: 1, map: 1, tree: 1, mk: 6, fx: 0 },
+    { pr: 1.15, sh: 1, map: 1, tree: 1, mk: 6, fx: 0 },
+    { pr: 1, sh: 2, map: 1, tree: 0.85, mk: 6 },            // 5: the "low" preset (phones start here, on 3 march steps; the chain is off there)
     { pr: 0.9, sh: 2, map: 1, tree: 0.8, mk: 4 },
     { pr: 0.8, sh: 3, map: 1, tree: 0.75, mk: 3 },
     { pr: 0.7, sh: 4, map: 0.5, tree: 0.62, mk: 3 },
     { pr: 0.6, sh: 6, map: 0.5, tree: 0.5, mk: 3 },
     { pr: 0.5, sh: 8, map: 0.5, tree: 0.42, mk: 2 },
   ],
-  rung: 1, on: false, win: [], winT: 0, settle: 0, prev: null, cap: 0, capT: 0, good: 0, probe: false, upWait: 12, upT: 0,
+  rung: 0, on: false, win: [], winT: 0, settle: 0, prev: null, cap: 0, capT: 0, good: 0, probe: false, upWait: 12, upT: 0,
   med: 16.7, fps: 60, sh: 0, key: "",
   start() {
     this.on = GFX.auto;
     this.key = Math.round(innerWidth) + "x" + Math.round(innerHeight) + "@" + GFX.dpr;
-    let r = GFX.low ? 3 : 1;
+    let r = GFX.low ? 5 : 0;
     if (this.on) try { const m = JSON.parse(localStorage.getItem("tracklayer.qg.v1") || "null"); if (m && m.key === this.key && m.rung >= 0 && m.rung < this.rungs.length) r = m.rung; } catch (e) { }
     this.rung = r; this.apply(r);
   },
@@ -17972,6 +18006,7 @@ const QG = {
     const pr = clamp(Math.min(r.pr, GFX.dpr), GFX.prMin, GFX.prMax);
     if (Math.abs(renderer.getPixelRatio() - pr) > 0.01) renderer.setPixelRatio(pr);
     GFX.shadowEvery = r.sh; GFX.treeR = GFX.treeR0 * r.tree; _pineT = 0;
+    if (window.TLXPOST) { const fx = r.fx === undefined ? 0 : r.fx; TLXPOST.fx.ao = fx >= 2 ? 1 : 0; TLXPOST.fx.bloom = fx >= 1 ? 1 : 0; TLXPOST.setLevel(GFX.low ? 0 : 1); }
     skyRefU.uMarchP.value = GFX.low ? Math.min(r.mk, 3) : r.mk; skyRefU.uMarchF.value = Math.min(r.mk, GFX.low ? 3 : 5);
     document.documentElement.classList.toggle("lq", i >= 4);       // past this rung the HUD panels drop their backdrop blur too
     const ms = Math.max(512, GFX.shMap0 * r.map);
@@ -17988,6 +18023,7 @@ const QG = {
     const w = this.win.slice().sort((a, b) => a - b), med = w[w.length >> 1]; this.win.length = 0; this.winT = 0;
     this.med = med; this.fps = 1000 / med;
     if (!this.on || !ready) return;
+    if (GFX.auto && !GFX.low && !GFX.phone) { const u = GFX.ultra ? !(this.rung > 0 || med > 14) : (this.rung === 0 && med <= 10); if (u !== GFX.ultra) gfxUltra(u); }   // Auto reaches Ultra only while the governor has room
     const goal = this.cap ? this.cap * 1.08 : 1000 / 57, now = performance.now() / 1000;
     if (this.cap && now > this.capT) this.cap = 0;            // re-test the cap now and then (Low Power Mode may be off now)
     if (this.prev) {                                           // judge the last step
@@ -18015,6 +18051,11 @@ const QG = {
   label() { return (this.on ? "auto " : GFX.low ? "low " : "high ") + (this.rungs.length - this.rung) + "/" + this.rungs.length + " · " + renderer.getPixelRatio().toFixed(2) + "x" + (this.cap ? " · held" : ""); },
 };
 QG.start();
+// Ultra: a 4096 sun shadow map, 16 contact-shade taps (tlx-post.js); High keeps 2048 and 10. Live: the shadow map is rebuilt by QG.apply.
+function gfxUltra(u) {
+  GFX.ultra = u; GFX.shMap0 = GFX.low ? 1024 : u ? 4096 : 2048; if (window.TLXPOST) TLXPOST.setAO(u ? 16 : 10);
+  const keep = QG.win.slice(); QG.apply(QG.rung); QG.win = keep; QG.settle = 0.6;
+}
 let hudFpsT = 0;
 let last = performance.now(), acc = 0, live = false;
 function frame(t) {
@@ -18045,7 +18086,7 @@ function frame(t) {
   if (++QG.sh >= GFX.shadowEvery) { QG.sh = 0; renderer.shadowMap.needsUpdate = true; }
   if (SET.fps && (hudFpsT += dt) > 0.5) { hudFpsT = 0; $("fps").textContent = Math.round(QG.fps) + " fps · " + QG.label(); }
   if (INT.on && INT.room) renderer.render(INT.scene, camera);                // inside a cabin: the room and its lamps
-  else if (FISH && FISH.on) FISH.render(); else renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
+  else if (FISH && FISH.on) FISH.render(); else if (!(window.TLXPOST && TLXPOST.render(scene, camera))) renderer.render(scene, camera);   // fishing adds the under-ice pass through the scraped windows
   if (!live) { live = true; document.body.classList.add("live"); }
 }
 addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });

@@ -9,6 +9,24 @@ enough. Every session that works on Tracklayer reads this first and updates it l
 Audit of 25 Nov (from `loop/EXPANSION.md`, `loop/LOOP.md`, `loop/HOME.md`, `loop/REALISM.md`, `loop/NORTHERN-FRONT.md`,
 the cron list and the usage governor):
 
+## Build order (Lemon, 27 Nov 2026: "i wanat the older asks done first")
+The chat builder (one at a time) takes the oldest open asks before any newer direction, oldest first:
+1. FIX (a defect, not a feature): get rid of the visible line 9-12 m out where the snow changes; no ring or band at any distance (26 Oct).
+2. FIX (a defect, not a feature): mountains now look grey from far and turn white up close; they must stay the same snow colour at every distance (26 Oct; Lemon 27 Nov: "the mountains should stay the same color ... those two are bad things").
+3. Upgrade every old animation to the realistic rule: walker, wader, crash/get-up, skier, passengers (30 Oct).
+4. New-player tutorial arriving on the ferry on foot (30 Oct).
+5. The small things of 11-13 Nov (tether rope, "size it up" prompt, delivery rewards with flavour).
+3a. ROADS REDONE (Lemon, 27 Nov, placed here by the supervisor right after the two snow fixes because he asked for it
+   by name today; move it if he says so): "completely redo the road design, the roads themselves, re place them around
+   the map, drop the curbs too, make the roads look much nicer, you can make them look more worn down, but realistic
+   is my main priority." Scope: every road on the map (town streets AND the roads between places), new routes laid
+   out the way real Finnmark roads run (follow the shore and the valley floors, honest junctions, every building on
+   a street), no kerbs anywhere, a real road surface (worn asphalt, patches, cracks, faded and partly missing
+   markings, gravel shoulders, packed snow and ruts in winter, plow banks instead of kerbs). Realism outranks the
+   worn look. This replaces R3's road part in `loop/REALISM.md`. Nothing built yet.
+Then back to the newer directions (G9 the raid, I7 field guide, G8 houses). The expansion lanes (G4) keep
+running beside this under the governor.
+
 ## Why the big updates stalled
 - The four expansion builder lanes and the beta tester have been **paused since 19 Nov 23:00** (cron jobs paused, flag
   `~/.hermes/usage-budget.pause` = "night_shift"). Lane D (stores, guns and hunting, fire watch, sap and berries) died
@@ -25,7 +43,8 @@ the cron list and the usage governor):
 | G5 The Northern Front | 11 Nov | not started (waits on G4 by his own rule) |
 | G6 Living enemy NPCs | 11 Nov | not started (after G5) |
 | G7 Home on the Nordkinn | 24 Nov | H1 ski trails done. Gram remade and done v284 (supervisor ran h2_gram, h2_reels, gram_scroll at polar night and spring green on the final tree, 26 Nov). Gram leftovers: low-preset painted pictures are generic blobs; gapahuk-fire photo washes out in daylight; kicksled post can show only a wall; `doorwall`, `skipole` kinds off; reel start-up and new-game frame numbers measured by a builder but never written down; reel p95 spikes under machine load not isolated. I1-I10: I1 building. H4-H8 outlined. |
-| G8 The realistic look, bar raised 26 Nov to "photoreal, or as close as ultra graphics roblox games go", with builders on it continuously | 24 Nov, 26 Nov | R1 figures, R2 sleds done. P1 the picture (post chain, contact shade, bloom, sky, sky light, shadows, Ultra preset) dispatched 26 Nov. Town roads (26 Nov: "fix the very shittily placed roads to be nice and actually look like a town"): the half-lane strip beside Kaigata is fixed (v286); the layout itself (roads out of town joining the grid, streets to the quay and sites, no dead-end rectangle) is R3's first part, next after P1. Sleds (26 Nov: "i can see through the middle of the sled"): the seat's row of holes is fixed (v286); every asset slice now gets checked from the game's own cameras. Then R3 streets, R4 houses, R5 vehicles and props, R6 nature, R7 viewport second pass, R8 nitpick round: none started. Plan `loop/REALISM.md` |
+| Roads completely redone: new design, re-placed around the whole map, no kerbs, much nicer, worn is fine, realistic first | 27 Nov | not started; build order 3a above |
+| G8 The realistic look, bar raised 26 Nov to "photoreal, or as close as ultra graphics roblox games go", with builders on it continuously | 24 Nov, 26 Nov | R1 figures, R2 sleds done. P1 the picture (post chain, contact shade, bloom, sky, sky light, shadows, Ultra preset) done v291 (supervisor re-ran the gate and compared before/after stills, 27 Nov; a step up, not photoreal: no clouds, flat blue shade, no light spill on snow). Town roads (26 Nov: "fix the very shittily placed roads to be nice and actually look like a town"): the half-lane strip beside Kaigata is fixed (v286); the layout itself (roads out of town joining the grid, streets to the quay and sites, no dead-end rectangle) is R3's first part, next after P1. Sleds (26 Nov: "i can see through the middle of the sled"): the seat's row of holes is fixed (v286); every asset slice now gets checked from the game's own cameras. Then R3 streets, R4 houses, R5 vehicles and props, R6 nature, R7 viewport second pass, R8 nitpick round: none started. Plan `loop/REALISM.md` |
 | G9 Armed work and raids: armed courier and guard jobs, tip-offs, shoot-up raids on drug sites, your name gets out | 25 Nov | A1 armed work (v274) and A2a done: drug sites in the world with a crew outside on suspicious routines, found by watching them or by a tip. Left: A2b the raid itself (fight, cash, Politi clock; plus dog, tub carriers, purple light fixes). then A3, A4, A5. Plan `loop/RAIDS.md` |
 | New-player tutorial arriving on the ferry on foot (G2) | 30 Oct | not built; needs snow-free walking |
 | Upgrade every old animation to the realistic rule (G3) | 30 Oct | only climb on/off done; walker, wader, crash/get-up, skier, passengers left |

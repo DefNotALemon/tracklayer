@@ -80,22 +80,22 @@ X.aimAt = (x, y, z) => { const b = body(); if (!b) return false; const dx = x - 
 
 /* ---------------- the overlay ---------------- */
 let ov = null, lab = null, hint = null, zl = null, chip = null;
-const css = `#camOv{position:fixed;inset:0;z-index:5;pointer-events:none;font:600 12px/1.25 'Barlow Semi Condensed',system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-#camOv[hidden]{display:none}#camOv .fr{position:absolute;inset:7vh 9vw;border:1px solid rgba(255,255,255,.28);border-radius:4px}
-#camOv .cn{position:absolute;width:22px;height:22px;border:2px solid #fff}#camOv .cn.a{left:-1px;top:-1px;border-right:0;border-bottom:0}#camOv .cn.b{right:-1px;top:-1px;border-left:0;border-bottom:0}#camOv .cn.c{left:-1px;bottom:-1px;border-right:0;border-top:0}#camOv .cn.d{right:-1px;bottom:-1px;border-left:0;border-top:0}
-#camOv .ret{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:1.5px solid rgba(255,255,255,.75);border-radius:50%;transition:border-color .15s,transform .15s}#camOv .ret.on{border-color:#ffb347;transform:scale(1.25)}
-#camOv .lab{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);white-space:nowrap;font-size:13px;color:#ffd9a0}
-#camOv .zl{position:absolute;right:calc(9vw + 8px);top:calc(7vh + 6px);font-size:13px}#camOv .cnt{position:absolute;left:calc(9vw + 8px);top:calc(7vh + 6px);font-size:12px;opacity:.9}
-#camOv .hint{position:absolute;left:50%;bottom:calc(7vh + 6px);transform:translateX(-50%);white-space:nowrap;font-size:11.5px;opacity:.92;max-width:80vw;overflow:hidden;text-overflow:ellipsis}
-#camOv .res{position:absolute;left:50%;top:calc(50% - 66px);transform:translateX(-50%);padding:4px 10px;border-radius:8px;background:rgba(10,16,22,.78);font-size:13px;white-space:nowrap;opacity:0;transition:opacity .25s}
-#camOv .fl{position:absolute;inset:0;background:#fff;opacity:0}
-#camOv .tb{position:absolute;pointer-events:auto;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font:700 18px system-ui;width:46px;height:46px;-webkit-tap-highlight-color:transparent;touch-action:none}
-#camOv .tb.sh{right:max(14px,env(safe-area-inset-right));top:50%;margin-top:-32px;width:64px;height:64px;background:rgba(255,255,255,.85);border:4px solid rgba(255,255,255,.4);background-clip:padding-box}
-#camOv .tb.zi{right:max(88px,calc(env(safe-area-inset-right) + 74px));top:50%;margin-top:-52px}#camOv .tb.zo{right:max(88px,calc(env(safe-area-inset-right) + 74px));top:50%;margin-top:6px}#camOv .tb.cl{left:max(14px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));font-size:15px}
+const css = `#camHud{position:fixed;inset:0;z-index:5;pointer-events:none;font:600 12px/1.25 'Barlow Semi Condensed',system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#camHud[hidden]{display:none}#camHud .fr{position:absolute;inset:7vh 9vw;border:1px solid rgba(255,255,255,.28);border-radius:4px}
+#camHud .cn{position:absolute;width:22px;height:22px;border:2px solid #fff}#camHud .cn.a{left:-1px;top:-1px;border-right:0;border-bottom:0}#camHud .cn.b{right:-1px;top:-1px;border-left:0;border-bottom:0}#camHud .cn.c{left:-1px;bottom:-1px;border-right:0;border-top:0}#camHud .cn.d{right:-1px;bottom:-1px;border-left:0;border-top:0}
+#camHud .ret{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:1.5px solid rgba(255,255,255,.75);border-radius:50%;transition:border-color .15s,transform .15s}#camHud .ret.on{border-color:#ffb347;transform:scale(1.25)}
+#camHud .lab{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);white-space:nowrap;font-size:13px;color:#ffd9a0}
+#camHud .zl{position:absolute;right:calc(9vw + 8px);top:calc(7vh + 6px);font-size:13px}#camHud .cnt{position:absolute;left:calc(9vw + 8px);top:calc(7vh + 6px);font-size:12px;opacity:.9}
+#camHud .hint{position:absolute;left:50%;bottom:calc(7vh + 6px);transform:translateX(-50%);white-space:nowrap;font-size:11.5px;opacity:.92;max-width:80vw;overflow:hidden;text-overflow:ellipsis}
+#camHud .res{position:absolute;left:50%;top:calc(50% - 66px);transform:translateX(-50%);padding:4px 10px;border-radius:8px;background:rgba(10,16,22,.78);font-size:13px;white-space:nowrap;opacity:0;transition:opacity .25s}
+#camHud .fl{position:absolute;inset:0;background:#fff;opacity:0}
+#camHud .tb{position:absolute;pointer-events:auto;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font:700 18px system-ui;width:46px;height:46px;-webkit-tap-highlight-color:transparent;touch-action:none}
+#camHud .tb.sh{right:max(14px,env(safe-area-inset-right));top:50%;margin-top:-32px;width:64px;height:64px;background:rgba(255,255,255,.85);border:4px solid rgba(255,255,255,.4);background-clip:padding-box}
+#camHud .tb.zi{right:max(88px,calc(env(safe-area-inset-right) + 74px));top:50%;margin-top:-52px}#camHud .tb.zo{right:max(88px,calc(env(safe-area-inset-right) + 74px));top:50%;margin-top:6px}#camHud .tb.cl{left:max(14px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));font-size:15px}
 #camChip{position:fixed;left:max(10px,env(safe-area-inset-left));top:38%;z-index:4;border:0;border-radius:10px;padding:8px 10px;background:rgba(14,22,30,.6);color:#fff;font:700 11px 'Barlow Semi Condensed',system-ui,sans-serif;letter-spacing:.06em;touch-action:none}#camChip[hidden]{display:none}`;
 function build() {
   if (ov) return; const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
-  ov = document.createElement("div"); ov.id = "camOv"; ov.hidden = true;
+  ov = document.createElement("div"); ov.id = "camHud"; ov.hidden = true;
   ov.innerHTML = `<div class="fr"><i class="cn a"></i><i class="cn b"></i><i class="cn c"></i><i class="cn d"></i></div><div class="ret"></div><div class="lab"></div><div class="zl"></div><div class="cnt"></div><div class="res"></div><div class="hint"></div><div class="fl"></div><button type="button" class="tb sh" aria-label="Take the picture"></button><button type="button" class="tb zi" aria-label="Zoom in">+</button><button type="button" class="tb zo" aria-label="Zoom out">−</button><button type="button" class="tb cl" aria-label="Put the camera away">✕</button>`;
   document.body.appendChild(ov); lab = ov.querySelector(".lab"); hint = ov.querySelector(".hint"); zl = ov.querySelector(".zl");
   const tap = (sel, f) => ov.querySelector(sel).addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); f(); });
@@ -103,7 +103,7 @@ function build() {
   chip = document.createElement("button"); chip.id = "camChip"; chip.type = "button"; chip.textContent = "CAMERA"; chip.hidden = true; document.body.appendChild(chip); chip.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); open(); });
   // a drag anywhere on the picture aims (touch and mouse-drag); the mouse alone aims by where it is
   let drag = null;
-  addEventListener("pointerdown", e => { if (!X.on || e.target.closest("#camOv .tb")) return; if (e.pointerType === "mouse") { if (e.button === 0 && api.INP.dev !== "touch" && !e.target.closest("button,a,input,#tablet")) shoot(); return; } if (e.target.closest(".tc,button")) return; drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; }, true);
+  addEventListener("pointerdown", e => { if (!X.on || e.target.closest("#camHud .tb")) return; if (e.pointerType === "mouse") { if (e.button === 0 && api.INP.dev !== "touch" && !e.target.closest("button,a,input,#tablet")) shoot(); return; } if (e.target.closest(".tc,button")) return; drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; }, true);
   addEventListener("pointermove", e => { if (!X.on) return; if (e.pointerType === "mouse") { X.yaw = -((e.clientX / innerWidth) - 0.5) * 2 * 1.75; X.pitch = -((e.clientY / innerHeight) - 0.5) * 2 * 0.75; return; } if (drag && drag.id === e.pointerId) { const k = 0.0045 / Math.sqrt(X.zoom); X.yaw = clamp(X.yaw - (e.clientX - drag.x) * k, -2.6, 2.6); X.pitch = clamp(X.pitch - (e.clientY - drag.y) * k, -0.9, 1.1); drag.x = e.clientX; drag.y = e.clientY; } }, true);
   addEventListener("pointerup", e => { if (drag && drag.id === e.pointerId) drag = null; }, true); addEventListener("pointercancel", () => { drag = null; }, true);
   addEventListener("wheel", e => { if (!X.on) return; zoomBy(Math.exp(-e.deltaY * 0.0016)); }, { passive: true });

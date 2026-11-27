@@ -18,7 +18,7 @@ await sleep(600);
 await section("A lifting it, on every scheme, and the world keeps running", async () => {
   ok((await ev(`TLXCAM.on`)) === false, "down to start with");
   const h0 = await J(`GS.hour`); await ev(`window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyK", bubbles: true })); true`); await sleep(500);
-  const a = await J(`({ on: TLXCAM.on, ov: !document.getElementById("camOv").hidden, hint: document.querySelector("#camOv .hint").textContent, fov: TLX.api.camera.fov, eye: TLX.api.camera.position.y - TLX.api.world.surf(P.x, P.z), d: Math.hypot(TLX.api.camera.position.x - P.x, TLX.api.camera.position.z - P.z) })`);
+  const a = await J(`({ on: TLXCAM.on, ov: !document.getElementById("camHud").hidden, hint: document.querySelector("#camHud .hint").textContent, fov: TLX.api.camera.fov, eye: TLX.api.camera.position.y - TLX.api.world.surf(P.x, P.z), d: Math.hypot(TLX.api.camera.position.x - P.x, TLX.api.camera.position.z - P.z) })`);
   ok(a.on && a.ov && a.d < 0.6 && a.eye > 1.1 && a.eye < 2.2, `K lifts it: first person from the saddle (eye ${a.eye.toFixed(2)} m up, ${a.d.toFixed(2)} m from the sled)`);
   ok(/Click: take it/.test(a.hint) && /K: put it away/.test(a.hint), "the keyboard is told its own controls: " + a.hint);
   await ev(`P.vz = 6; true`); await sleep(900); const m = await J(`({ h: GS.hour, z: P.z, on: TLXCAM.on })`);
@@ -27,25 +27,25 @@ await section("A lifting it, on every scheme, and the world keeps running", asyn
   await ev(`window.dispatchEvent(new WheelEvent("wheel", { deltaY: -600, bubbles: true })); true`); await sleep(300); const z = await J(`({ z: TLXCAM.zoom, fov: TLX.api.camera.fov })`);
   ok(z.z > 2 && z.fov < a.fov * 0.6, `the wheel zooms (${z.z.toFixed(1)}x, field of view ${a.fov.toFixed(0)} to ${z.fov.toFixed(0)} degrees)`);
   await ev(`window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyK", bubbles: true })); true`); await sleep(400);
-  const b = await J(`({ on: TLXCAM.on, ov: document.getElementById("camOv").hidden, fov: TLX.api.camera.fov })`); ok(!b.on && b.ov && b.fov > z.fov + 5, "K again puts it away and the view is the game's again");
+  const b = await J(`({ on: TLXCAM.on, ov: document.getElementById("camHud").hidden, fov: TLX.api.camera.fov })`); ok(!b.on && b.ov && b.fov > z.fov + 5, "K again puts it away and the view is the game's again");
   // pad: a tap of the right stick still changes the view, a hold lifts the camera
   const v0 = await ev(`document.getElementById("viewBtn").textContent`);
   await padSet({ 11: 1 }); await sleep(150); await padSet({}); await sleep(250); const v1 = await ev(`(() => { const b = document.getElementById("viewBtn"); return TLXCAM.on ? "CAM" : "tap"; })()`);
   ok(v1 === "tap", "a tap of the right stick does not lift it");
   await padSet({ 11: 1 }); await sleep(1300); await padSet({}); await sleep(250); ok(await ev(`TLXCAM.on`), "holding the right stick in lifts it");
-  const hp = await ev(`document.querySelector("#camOv .hint").textContent`); ok(/^A: take it/.test(hp) && /right stick: aim/.test(hp), "the pad is told its own: " + hp);
+  const hp = await ev(`document.querySelector("#camHud .hint").textContent`); ok(/^A: take it/.test(hp) && /right stick: aim/.test(hp), "the pad is told its own: " + hp);
   await padSet({}, [0, 0, 0.9, 0]); await sleep(800); const y1 = await J(`TLXCAM.yaw`); await ev(`TLXCAM.zoom = 1; true`); await padSet({ 12: 1 }); await sleep(800); const z1 = await J(`TLXCAM.zoom`); await padSet({}); await sleep(150);
   ok(Math.abs(y1) > 0.2 && z1 > 1.3 && !(await ev(`TLX.api.tablet()`)), `the right stick aims (${y1.toFixed(2)} rad) and d-pad up zooms (${z1.toFixed(1)}x) without opening the tablet`);
   const n0 = await J(`TLXCAM.roll().length`); await padSet({ 0: 1 }); await sleep(400); await padSet({}); await sleep(300); ok((await J(`TLXCAM.roll().length`)) === n0 + 1, "A takes the picture (and does not hop the sled)");
   await padSet({ 1: 1 }); await sleep(400); await padSet({}); await sleep(250); ok(!(await ev(`TLXCAM.on`)) && !(await ev(`GS.garageOpen`)), "B puts it away (and does not open the garage)"); await padOff(); await sleep(300);
   await ev(`INP.dev = "touch"; TLXCAM.open(); true`); await sleep(400);
-  const t = await J(`({ hint: document.querySelector("#camOv .hint").textContent, sh: getComputedStyle(document.querySelector("#camOv .sh")).display, r: document.querySelector("#camOv .sh").getBoundingClientRect().width })`);
+  const t = await J(`({ hint: document.querySelector("#camHud .hint").textContent, sh: getComputedStyle(document.querySelector("#camHud .sh")).display, r: document.querySelector("#camHud .sh").getBoundingClientRect().width })`);
   ok(/drag to aim/.test(t.hint) && t.sh !== "none" && t.r >= 44, "touch gets a shutter button and its own hint"); await ev(`TLXCAM.close(); INP.dev = "kbm"; TLX.state("camera").roll.length = 0; TLX.state("camera").best = {}; true`);
 });
 
 await section("B the reticle and the score", async () => {
   await ev(`TLXCAM.open(); TLXCAM.aimAt(P.x, TLX.api.world.surf(P.x, P.z + 30) + 1.1, P.z + 30); true`); await sleep(500);
-  const f = await J(`(() => { const f = TLXCAM.focus; return f && { kind: f.kind, name: f.name, dist: f.dist, size: f.size, pose: f.pose, lab: document.querySelector("#camOv .lab").textContent, on: document.querySelector("#camOv .ret").classList.contains("on") }; })()`);
+  const f = await J(`(() => { const f = TLXCAM.focus; return f && { kind: f.kind, name: f.name, dist: f.dist, size: f.size, pose: f.pose, lab: document.querySelector("#camHud .lab").textContent, on: document.querySelector("#camHud .ret").classList.contains("on") }; })()`);
   ok(f && f.kind === "moose" && f.on && /Moose/.test(f.lab) && /m$/.test(f.lab), "the reticle names what it is on: " + (f && f.lab));
   await shot("camera_moose", 90);
   const far = await J(`(() => { const p = TLXCAM.shoot(); return p && { score: p.score, parts: p.parts, name: p.name, img: (p.img || "").length }; })()`);
