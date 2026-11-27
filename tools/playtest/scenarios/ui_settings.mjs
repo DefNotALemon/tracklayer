@@ -163,6 +163,14 @@ ok(!(await open()), "2: pad Menu closes outright from a page");
 // ---------- 3. the pad reaches every control on every page ----------
 console.log("== 3. pad navigation ==");
 const dpad = async (idx, hold = 120) => { await padSet({ [idx]: 1 }); await sleep(hold); await padSet(); await sleep(hold); };
+// one d-pad press that waits for the game to act on it: held until the focus moves (the Mac may be loaded and a frame can
+// outlast a fixed hold), at most 700 ms; returns the new focus. No change in 700 ms = the press really had nowhere to go.
+const step = async (idx, focusJs) => {
+  const before = await ev(focusJs); let f = before; const t0 = Date.now();
+  await padSet({ [idx]: 1 });
+  while (Date.now() - t0 < 700) { await sleep(40); f = await ev(focusJs); if (f !== before) break; }
+  await padSet(); await sleep(90); return f;
+};
 // a stable name for the focused control: its id, or its parent's id and index
 const FOC = `(() => { const f = document.activeElement; if (!f || !$("settings").contains(f)) return null; if (f.id) return f.id; if (f.dataset.opt) return "opt:" + f.dataset.opt; const p = f.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(f); })()`;
 const ALLCTL = `(() => [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.id !== "closeSet" && e.id !== "setBackHd" && !e.closest("[hidden]") && e.getClientRects().length).map(e => { if (e.id) return e.id; if (e.dataset.opt) return "opt:" + e.dataset.opt; const p = e.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(e); }))()`;
@@ -174,8 +182,8 @@ for (const p of ["top", "game", "graphics", "sound"]) {
   // walk: down row by row, and sweep each row left then right
   const seen = new Set([first]); let prev = first, guard = 0;
   while (guard++ < 90) {
-    for (const dir of [14, 15]) { let last = await ev(FOC), n = 0, still = 0; while (n++ < 30 && still < 2) { await dpad(dir, 110); const f = await ev(FOC); seen.add(f); if (f === last) still++; else still = 0; last = f; } }
-    await dpad(13, 110); let f = await ev(FOC); if (f === prev) { await dpad(13, 110); f = await ev(FOC); } seen.add(f);
+    for (const dir of [14, 15]) { let last = await ev(FOC), n = 0; while (n++ < 30) { const f = await step(dir, FOC); seen.add(f); if (f === last) break; last = f; } }
+    const f = await step(13, FOC); seen.add(f);
     if (f === prev) break; prev = f;
   }
   const miss = want.filter(w => !seen.has(w));
@@ -400,10 +408,12 @@ await ev("openGarage(); true"); await sleep(500);
   const f1 = await ev(`document.activeElement && document.activeElement.closest("#garage") ? (document.activeElement.id || document.activeElement.dataset.t || document.activeElement.parentElement.id) : null`);
   ok(!!f1, `6: the pad's d-pad focuses a control in the garage (${f1})`);
   let hit = null;
-  for (let i = 0; i < 40 && hit === null; i++) { await dpad(13, 110); hit = await ev(`document.activeElement && document.activeElement.parentElement && document.activeElement.parentElement.id === "swatches" ? [...document.activeElement.parentElement.children].indexOf(document.activeElement) : null`); }
+  const GFOC = `document.activeElement && document.activeElement.closest("#garage") ? (document.activeElement.id || document.activeElement.dataset.t || document.activeElement.dataset.c || document.activeElement.parentElement.id) : null`;
+  for (let i = 0; i < 40 && hit === null; i++) { await step(13, GFOC); hit = await ev(`document.activeElement && document.activeElement.parentElement && document.activeElement.parentElement.id === "swatches" ? [...document.activeElement.parentElement.children].indexOf(document.activeElement) : null`); }
   ok(hit !== null, `6: the pad walks down to the body swatches (${hit})`);
   const b0 = (await mats()).body;
-  await dpad(15, 110); await dpad(0, 130); await sleep(200);
+  await step(15, GFOC);
+  await padSet({ 0: 1 }); for (let t = 0; t < 20; t++) { await sleep(60); if ((await mats()).body !== b0) break; } await padSet(); await sleep(150);
   const b1 = (await mats()).body;
   ok(b1 !== b0 && b1 === (await J(`$("swatches").children[${(hit || 0) + 1}].dataset.c`)), `6: pad A on a swatch paints the sled (${b0} -> ${b1})`);
   await padSet({ 1: 1 }); await sleep(150); await padSet(); await sleep(350);
