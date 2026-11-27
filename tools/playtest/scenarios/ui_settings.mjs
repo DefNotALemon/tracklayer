@@ -296,7 +296,7 @@ await ev(`SET.gfx = "auto"; SET.view = 0; camMode = 0; camState.init = false; sa
 // ---------- 6. the garage's Paint shop ----------
 console.log("== 6. paint shop ==");
 await ev("tutSkip(); crashCancel(); FOOT.on = false; VEH.cur = null; GS.hour = 12; WX.at = () => 0; GS.storm = 0; true"); await sleep(500);
-const atGarage = async () => { await ev(`(() => { P.x = garageSite.x + 4; P.z = garageSite.z + 2; P.y = surf(P.x, P.z) + 0.3; P.vx = P.vz = P.vy = 0; FOOT.on = false; recenter(P.x, P.z, true); return true; })()`); await sleep(900); return ev("GS.near === garageSite"); };
+const atGarage = async () => { await ev(`(() => { tutPark(); FOOT.on = false; VEH.cur = null; crashCancel(); return true; })()`); await sleep(900); return ev("GS.near === garageSite"); };
 ok(await atGarage(), "6: set up at the garage site");
 const MAT = `({ body: "#" + bodyMat.color.getHexString(), seat: "#" + V.seatMat.color.getHexString(), can: "#" + V.canMat.color.getHexString(), panel: "#" + panelMat.color.getHexString(), trim: "#" + sledTrimMat.color.getHexString(),
   decal: Object.fromEntries(Object.entries(V.machines[GS.own.sled].userData.decal).map(([k, l]) => [k, l.some(m => m.visible)])), paint: JSON.stringify(SET.paint), dec: SET.decal, cm: SET.canMatch })`;
@@ -395,7 +395,7 @@ await ev("openGarage(); true"); await sleep(500);
   const f1 = await ev(`document.activeElement && document.activeElement.closest("#garage") ? (document.activeElement.id || document.activeElement.dataset.t || document.activeElement.parentElement.id) : null`);
   ok(!!f1, `6: the pad's d-pad focuses a control in the garage (${f1})`);
   let hit = null;
-  for (let i = 0; i < 40 && !hit; i++) { await dpad(13, 110); hit = await ev(`document.activeElement && document.activeElement.parentElement && document.activeElement.parentElement.id === "swatches" ? [...document.activeElement.parentElement.children].indexOf(document.activeElement) : null`); }
+  for (let i = 0; i < 40 && hit === null; i++) { await dpad(13, 110); hit = await ev(`document.activeElement && document.activeElement.parentElement && document.activeElement.parentElement.id === "swatches" ? [...document.activeElement.parentElement.children].indexOf(document.activeElement) : null`); }
   ok(hit !== null, `6: the pad walks down to the body swatches (${hit})`);
   const b0 = (await mats()).body;
   await dpad(15, 110); await dpad(0, 130); await sleep(200);

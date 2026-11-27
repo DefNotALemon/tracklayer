@@ -219,6 +219,7 @@
   .sbtn.st{font-size:13px;padding:5px 10px}
   .sbtn.st.on{border-color:var(--signal);color:var(--frost);background:rgba(255,90,31,.16)}
   .sw{width:30px;height:30px;border-radius:5px;border:2px solid transparent;cursor:pointer;padding:0}
+  .sw{box-shadow:inset 0 0 0 1px rgba(234,242,248,.16)}
   .sw:hover{border-color:rgba(234,242,248,.5)}
   .sw.on{border-color:var(--frost);box-shadow:0 0 0 2px rgba(13,24,34,.9) inset}
   .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--line)}
@@ -1225,7 +1226,8 @@
     <div class="setrow"><label>Jacket trim</label><div id="trimSw"></div></div>
     <div class="setrow"><label>Snow pants</label><div id="pantsSw"></div></div>
     <div class="setrow"><label>Helmet</label><div id="helmetSw"></div></div>
-    <div class="setrow"><label>Style</label><div id="styleBtns"></div><button id="randomKit" class="sbtn">Random kit</button></div>
+    <div class="setrow"><label>Style</label><div id="styleBtns"></div></div>
+    <div class="setrow"><button id="randomKit" class="sbtn">Random kit</button><span class="hint">mixes the jacket, trim, pants, helmet and style at random</span></div>
     <div class="bsec" id="optSec" hidden>Options</div>
     <div id="optRows" hidden></div>
   </div>

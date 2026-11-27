@@ -9668,19 +9668,26 @@ function settingsMove(dx, dy, root) {
   if (!cur) { all[0].focus(); return; }
   const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   let best = null, bs = 1e9;
-  for (const e of all) {
-    if (e === cur) continue;
-    const q = e.getBoundingClientRect(), qx = q.left + q.width / 2, qy = q.top + q.height / 2;
-    let sc;
-    if (dx) {                                                                  // same row only (centres within half a control's height)
+  if (dx) {                                                                    // along the row: the next control in that direction, same row only
+    for (const e of all) {
+      if (e === cur) continue;
+      const q = e.getBoundingClientRect(), qx = q.left + q.width / 2, qy = q.top + q.height / 2;
       if (Math.abs(qy - cy) > Math.max(r.height, q.height) * 0.5 || (qx - cx) * dx <= 0) continue;
-      sc = Math.abs(qx - cx);
-    } else {
-      if ((qy - cy) * dy <= Math.max(r.height, q.height) * 0.4) continue;       // a different row, in the direction asked
-      const off = cx < q.left ? q.left - cx : cx > q.right ? cx - q.right : 0;
-      sc = Math.abs(qy - cy) + off * 2;
+      const sc = Math.abs(qx - cx); if (sc < bs) { bs = sc; best = e; }
     }
-    if (sc < bs) { bs = sc; best = e; }
+  } else {                                                                     // up / down: the nearest row first, then whichever control in it lies closest across (a wide slider reaches the button under it)
+    let rowD = 1e9; const cand = [];
+    for (const e of all) {
+      if (e === cur) continue;
+      const q = e.getBoundingClientRect(), qy = q.top + q.height / 2;
+      if ((qy - cy) * dy <= Math.max(r.height, q.height) * 0.4) continue;       // a different row, in the direction asked
+      cand.push([e, q, Math.abs(qy - cy)]); rowD = Math.min(rowD, Math.abs(qy - cy));
+    }
+    for (const [e, q, d] of cand) {
+      if (d > rowD + Math.max(r.height, q.height) * 0.6) continue;
+      const off = cx < q.left ? q.left - cx : cx > q.right ? cx - q.right : 0, sc = off * 4 + d;
+      if (sc < bs) { bs = sc; best = e; }
+    }
   }
   if (best) best.focus();
   else if (dy < 0) root.scrollTo({ top: 0 });
