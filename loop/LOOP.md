@@ -305,7 +305,7 @@ cash), Aurora 478 (rig player). Gaps 4/4/5/5/6/8/14/14 deliveries.
 ## Backlog
 - [x] G3 (OWNER, top, fixed v223, beta 0170 #1): riderless sled brake only decelerates forward motion, accelerates backward drift instead of stopping it — see Owner notes 13 Nov (sign-aware brake fix), likely same root cause as the reverse-on-empty-fuel item above.
 - [ ] G3 (OWNER, top): tether rope stays visible/attached after a plain dismount (not a crash) — should clear. See Owner notes 13 Nov.
-- [ ] G3 (OWNER, top): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov.
+- [x] G3 (OWNER, top, fixed v297, lane A; not yet tried on a real pad or phone): "X: size it up" prompt near an unhooked rescue victim does nothing — wire it to rescueAssess() or drop it. See Owner notes 13 Nov. Found: X on a keyboard and an Xbox pad did read the job out; on a DualSense the line still said "X" (the button is □, and ✕ does something else), on a Switch pad "X" (it is Y), and on touch there was no button at all. The line now names the control on the device in hand and the SIZE UP button shows on touch. `g3_sizeup.mjs`.
 - [x] G3 (OWNER, top, fixed v223: on the flat it was the same brake term; holding the brake on an empty tank while rolling back 4 m/s went to 28 m/s, now stops in <1 s. Downhill sliding with no engine is left as physics): empty tank appears to gain speed in reverse — playtester must confirm flat vs downhill before any fix. See Owner notes 13 Nov.
 - [x] G4 (beta 0320 #1 BUG + #2, fixed tlx-vehicles v34, lane A): a feathered pad trigger stalled dead in 25 cm+ of powder (30%: 0.0 m)
       and a trigger at a tenth was told nothing; light pedal now pulls like an automatic in first, and a held-still truck keeps its
@@ -776,5 +776,21 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
       tlx-trails name in tlx-vehicles.
 - [ ] G4 4.1b2a (POLISH, beta 0373 #1/#2, lane A): a shed blade whose `shedC` entry is lost (damaged save) refits with
       a new edge for free; an edge of 70.5 is charged 29 points and set to 100. Both harmless, left.
+- [ ] G4 2.7 (POLISH, beta 0374 #3/#4, lane A): `x2_sellerdoors` should assert that `spotNear`'s fallback pass (keep = 0)
+      was not used (the first spot at Risfjord and the relay has ~4 m spare); unconfirmed: `TLXV.remove(uid)` left one
+      truck owned after pickup, pickup, trailer cycles with the walker beside them (the current truck?).
+- [ ] G3 (builder, v297 pass, lane A): control names still typed out as keys in the search-and-rescue block (the accept
+      toast at `sarAccept`: "Q off ... hook on (E) ... hold SPACE", "press E") and the "line parted ... Shovel or R"
+      toast (reset is N): route them through `btn()` as the recovery lines were in v297.
+- [ ] G4/G3 (builder, v297 pass, stale tests or real, lane A): three scenarios fail the same way on origin/main at v295
+      (run from `git archive`): `x2_winchtouch_break` "beyond line: no HOOK promised" x3 (`footUse()` says HOOK at a
+      tree the line cannot reach; `footAction` then refuses: label and act disagree), `x2_winchuse_break` "E tablet
+      open (winch hooked): E does nothing behind it" (hooked -> out), `ui_responsive` "foot embed640 640x360: no HUD
+      overlap" (the on-foot hint, 234 px wide, runs under the speedo). Find which are the game's.
+- [ ] G4 2.7 (POLISH, beta 0375 #2/#3, lane A): beside a pickup with `BOG.on` the line ends "Q: get on" (the bogged
+      branch of `wnPrompt` types "get on"; use `VEH.board` if a truck can be the bogged thing); `TLXV.remove` refuses
+      the current truck by design, so the mod menu's "Clear spawned machines" leaves the last one: say so there.
+- [ ] Steam (POLISH, beta 0376 #4, the Steam session's): the title's QUIT row is cut off at 640x360 (bottom 362 of
+      360); unreachable while the shell's minimum is 960x540.
 
-Last triaged report: 373
+Last triaged report: 376

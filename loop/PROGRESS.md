@@ -1,3 +1,4 @@
+- **v296 (27 Nov, Steam S1)** - Desktop shell: `steam/` Electron app (`main.js`, `preload.js`, `build.mjs`, offline `vendor/` three r128 + fonts), custom `app://tracklayer/` origin, every non-app request cancelled, saves mirrored to `<userData>/saves/tracklayer-save.json` (atomic, `.bak`, restore before the game boots), full screen with F11/Alt+Enter, `window.TLDesktop`. Game: title menu QUIT (desktop only) and the Full screen setting drives the real window (`FSC` in tracklayer.js). Hidden-window smoke `steam/test/smoke.mjs` green; mac arm64 `.app` and Windows folder built (Windows never run).
 - **v290 (26 Nov, G7 I6)** - Camera: `tlx-camera.js` (TLXCAM), no pause, reticle + score + roll of 30 with thumbnails in the save. Base: BTN.camera/shutter, pad view-cycle moved to release (hold = camera), A/B/d-pad guarded while the camera is up. Narrow-view wnHud wraps clear of the speedo. `i6_camera`, smoke, x1_save, ui_responsive, i2_folk green.
 - **v289 (26 Nov, G7 I2 outdoors)** - `tlx-folk.js`: villagers out of doors (pool of 8, 4 on low), a word with anybody (bubble, reply, regard), TLXTALK.known feeds Paths. tlx-news: a reused name decides the role's sex, sons get boys' names. `i2_folk.mjs` green.
 - **v288 (26 Nov, G7 I8)** - Paths app: `tlx-paths.js` reads every system's state (never writes), twelve paths with where you stand / next / opens, a Today card of three. api gains `ranks`. `i8_paths.mjs`, smoke, x1_save green.
@@ -21,12 +22,50 @@
   Pushed 2026-11-24.
 # Builder progress log
 
-## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — d42c386
+## 27 Nov 2026 — Roads redone: one new road model, no kerbs (G4-style, G8) — 3cf999f
 Lemon, 27 Nov: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs". RD1 of the roads direction (loop/OPEN.md build order 3a): the road MODEL, not yet the road ROUTES.
 - Deleted: `townRoads` (ribbon + 1.25 m kerb pieces + snow caps + drain grates + junction squares), `townRoadTex`, `CURB_H/CURB_W`, `crossesAt`, the kerb-gap logic, the vertex-coloured pole cylinder. The network roads had no mesh (a plowed snow channel only), so their surface is new. No code says kerb/curb any more (asserted).
 - Built: `tlx-roadkit.js` (`TLXRK`), loaded before `tlx-roads.js`; 13 roads (7 town streets, 6 routes), 282 chunks, 246 k vertices, made lazily nearest first (boot 230-410 ms). 19-column ribbon draped on `surf()` within 1.2-7 cm, junction mouths cut/projected/flared (20), tapers (10), turning places (16), one surface shader (aged asphalt, wheel paths, cracks, sealed cracks, patches, markings, gravel, winter snow/ice/tracks/banks, wet), road snow state per stretch drives it, seasons drive it (July = bare), opaque + alphaToCoverage, low preset variant, poles in pairs (50 m, 25 m in bends) with a headlight reflector, lamps moved onto the shoulder.
 - Asserts: `rd1_roads` (no kerb; 7/7 town + every network segment on the kit; ribbon within 1.2-7 cm of surf, no steeper and no stair step beyond the surface's own; 0 doubled-surface samples of 63 280, 20 mouths, 6 m flare; sled and a traffic car drive street, junction and a network stretch; snow states switch the look; July is bare; old save loads). Existing scenarios edited: `x_townroads` (kerb asserts replaced), `p1_picture` (`BASE_LOW` 128.0 -> 146.6, the pinned street frame is lighter without the black ribbon).
 - Stills: before `~/.hermes/cache/scratch/tlroads/before/`, rounds `r1..r8`, final `after/`; the plan stills `plan/`. Ten worst left and the measured cost: loop/REALISM.md "RD1 as built". The re-placement plan and slices RD2-RD8: "RD plan: roads re-placed".
+
+## 2026-11-27 12:35 — Owner note 13 Nov #2: the "size it up" control beside someone you winch out names the right button on every device, and a phone gets the button (v297, lane A) (G4) — 508dfa0
+
+Triage: reports 374-376 read (373 -> 376). 0374 (2.7 seller-door clearance, v295) verifies the fix, no BLOCKER or BUG;
+0375 explains 0374 #4 (`TLXV.remove` refuses the current truck by design) and finds one more "get on" beside a truck;
+0376 (the Steam shell's title hooks, another session's work) has no BUG. POLISH lines listed in LOOP.md. Lane A's list is done and no beta BUG is open, so this pass took a base-game defect
+Lemon reported himself and that had sat open since 13 Nov (LOOP.md backlog "OWNER, top"; OPEN.md "Small things").
+
+- **What was wrong** (new `g3_sizeup.mjs`, run on the tree before the fix: a recovery call started the game's own way,
+  the rider on foot 8 m from the one to pull out): the line read "X: size it up · walk the line to <name>" on every
+  device. On a keyboard and an Xbox pad X did read the job out (name, how they are stuck, which way to pull, the
+  pounds, a tree for the tie-back). On a DualSense the line still said "X", but the button bound is □, and ✕ is the
+  rifle / reel button; on a Switch pad it is Y. On touch no SIZE UP button was shown at all (it only came up beside
+  your own bogged sled). Hooked on, the line said "Hold SPACE ... E at a tree ... X at them ... E: unhook" on every
+  device, and with a snatch block a phone had no DOUBLE button at the one being pulled. 8 of 22 checks failed.
+  Lemon plays on a DualSense, which is the likely way he met it; that is inferred, not known.
+- **Fix** (tracklayer.js only): a `BTN.assess` row (X / X / □ / Y / the touch button's own word); `rescueSizes()` is
+  the read-only twin of `rescueAssess()` and `touchCtx()` shows SIZE UP within 20 m of them, DOUBLE / SINGLE at them
+  once hooked; `rescuePrompt`, the hook-on toasts, both stall toasts, the uprooted-anchor toast, the call's first
+  toast and the ride-up hint name reel / use / get off / assess through `btn()` and `keyHint()`. The own-sled line
+  "Walk the line out ... · size it up" now offers the size-up only while bogged (anywhere else X answered "You're
+  not stuck") and on every device (it was keyboard only).
+- **Numbers, before -> after**: `g3_sizeup` 14 -> 22 of 22. Hint by device: keyboard "X: size it up", Xbox "X:",
+  DualSense "X:" -> "□:", Switch "X:" -> "Y:", touch "X:" -> "tap SIZE UP" with the button shown (hidden -> shown,
+  gone again 30 m off). Hooked on: touch "Hold REEL to reel · STRAP at a tree: tie back · DOUBLE at them: double ·
+  tap UNHOOK", DualSense "Hold ✕ to reel · L3 at a tree: tie back · □ at them". Stills `a1127c/after/sizeup_ps.jpg`,
+  `sizeup_touch.jpg` (line and toast clear of the HUD at 1280x720; SIZE UP sits lower right, nothing under it).
+- **Gate**: smoke, x1_save, g3_sizeup, x3_mobile, x2_btn: exit 0, fails 0, page errors none. Three more were run
+  because they read the same lines and all three fail, with the same FAIL lines, on origin/main at v295 (run from
+  `git archive`, logs `a1127c/main_*.log`): x2_winchtouch_break (3), x2_winchuse_break (1), ui_responsive (1 of
+  1,105: the on-foot hint under the speedo at 640x360). Not caused here, not fixed here, listed in LOOP.md. So the
+  640x360 layout of the new lines is not shown clean by ui_responsive; the longest new line (hooked, on touch) was
+  not measured at that size.
+- **Left as it is**: the search-and-rescue block's own toasts still type Q / E / SPACE (listed). README: one clause
+  on the gamepad line. Unverified: on a real DualSense, Switch pad or phone (scripted pads and touch events only);
+  the stall and uprooted-anchor toasts were changed but no scenario raises them.
+- **Next for lane A**: the other 13 Nov owner line (the tether rope after a plain dismount), then the remaining
+  lane-A POLISH lines, then an unowned milestone (16-19) by the Lanes claim rule.
 
 ## 2026-11-27 11:50 — beta fix 0221 #1: a used truck handed over at a seller's stands clear of every door, the hint beside it names the truck (v295, tlx-vehicles v40, lane A) (G4) — 4b441bc
 

@@ -37,8 +37,8 @@ Worktree `~/Documents/GitHub/tracklayer-steam` (branch `steam`, `git push origin
 ## Slices
 | # | Slice | State |
 |---|---|---|
-| S1 | Desktop shell (Electron): offline bundle, saves on disk, full screen, Quit, mac + Windows builds, hidden smoke test | building |
-| S2 | Store page options: positioning, short and long descriptions, tags, capsule designs, mock pages to compare | building (chat session) |
+| S1 | Desktop shell (Electron): offline bundle, saves on disk, full screen, Quit, mac + Windows builds, hidden smoke test | done (v296, 27 Nov 2026). Unverified: Tracklayer.exe never run (built on a Mac, exe icon/version not edited), F11/Alt+Enter/real full screen never exercised (tests never full-screen), real gamepad on the Quit entry, Steam Deck |
+| S2 | Store page options: positioning, short and long descriptions, tags, capsule designs, mock pages to compare | Lemon shortlisted A, B and F (27 Nov) and asked for "a night picture teasing the lights": all three now carry a night aurora capsule and a night screenshot (`steam/store/options.html`); waits on his final pick |
 | S3 | Final assets for the page Lemon picks: every capsule size, library set, 8+ screenshots at 1920x1080, trailer | not started (needs his pick) |
 | S4 | Steamworks hookup: App ID, overlay, Steam Cloud on the save file, achievements, depot upload script | waits on Lemon's App ID |
 | S5 | Release pass: first-hour play on the Windows build, controller + Steam Deck check, launch-day checklist | not started |

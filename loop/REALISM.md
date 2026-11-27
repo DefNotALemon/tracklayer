@@ -323,7 +323,7 @@ there should not be a regular road of two lanes sittings nexyt to another clippe
 
 Written by the session before each is dispatched, from a fresh still audit of that subject.
 
-## RD1 as built (27 Nov 2026, script v296): the new road model
+## RD1 as built (27 Nov 2026, script v298): the new road model
 
 Lemon's order: "completely redo the road design ... drop the curbs too ... make the roads look much nicer ... more worn
 down, but realistic is my main priority" / "I want the road model entirely replaces" / "and as i said no more curbs".
