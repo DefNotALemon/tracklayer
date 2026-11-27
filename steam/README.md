@@ -53,6 +53,20 @@ and plain Chrome without `TLDesktop` (no QUIT).
 resources or sign it. The folder is complete, but `Tracklayer.exe` carries Electron's default icon and file properties until it is built on
 Windows (or with Wine) with that flag removed. It has never been run on Windows from here.
 
+## SteamPipe (getting a build into Steam)
+The Steamworks SDK is unzipped at `~/Downloads/sdk`. `node steam/steampipe/make.mjs <AppID> [winDepot] [macDepot]` writes two build
+scripts into `steam/dist/steampipe/` from whatever is built in `dist/`: `app_upload.vdf` (uploads to Steam, sets nothing live) and
+`app_local.vdf` (puts the content on the local content server instead). Run one with
+`~/Downloads/sdk/tools/ContentBuilder/builder_osx/steamcmd.sh +login <build account> +run_app_build <file> +quit` (Lemon logs in himself:
+password and Steam Guard are his to type; `steamcmd` first needs `chmod +x` and is an Intel binary, Rosetta is installed).
+
+Local content server: any HTTP server over `~/Downloads/sdk/tools/ContentServer/htdocs` (the SDK's own one is a Windows exe).
+`python3 -m http.server 8090 --bind 127.0.0.1 --directory ~/Downloads/sdk/tools/ContentServer/htdocs`. Port 8080 is taken by Steam
+itself. To install from it, the app needs a password-protected branch named `local` (Steamworks > SteamPipe > Builds), the local build
+set to that branch, and a file `steam_dev.cfg` next to Steam's executable (`/Applications/Steam.app/Contents/MacOS/`) holding
+`@LocalContentServer "127.0.0.1:8090"`, then a Steam restart. Valve's own note: most partners don't need this, a private beta branch
+does the same job through a normal upload.
+
 ## Licences
 `vendor/LICENSE-three.txt` (MIT), `vendor/OFL-barlow.txt`, `vendor/OFL-caveat.txt` (SIL OFL 1.1). `vendor/getfonts.py` is the one-off
 script that localised the Google Fonts css (kept for provenance, not staged).
