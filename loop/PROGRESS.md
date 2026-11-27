@@ -21,6 +21,29 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 11:25 — beta fix 0371 #1/#2: a save with cash or the clock below zero comes in at zero, a sled listed twice is owned once (v294, lane A) (G4) — 0dd792e
+
+Triage: reports 370-371 read (369 -> 371). 0370 (sled + truck at one pump, v292) verifies 0364 #2/#3, one POLISH
+(the "Filling stopped" toast does not say how full the first machine was left): listed in LOOP.md. 0371 verifies
+0366 #1/#2 as fixed and adds two low BUGs and one POLISH on the same sanitiser: this pass.
+
+- **What was wrong** (0371's `i9_slotsafe_numbers_beta.mjs` on v293): `{cash: -500, hour: -20}` played with cash -495
+  and hour -19.95 (deliveries and rescues were already held to 0); `own.sleds: ["frontier","frontier","ghost",7]` came
+  in as two Frontiers; `cash: 1e300` / `hour: 1e9` were taken as they stood.
+- **Fix** (tracklayer.js `saveClean`, three edits in two lines): cash is held to 0..1e12, the clock to 0..876,000 h (a
+  century), the sled list keeps the first of each real id. A grep of the base game and the tlx files found no spend
+  that is not behind a "can you pay" test (not an exhaustive read), so a negative balance is taken to be a damaged
+  file. `calOff` is left free to be negative.
+- **Numbers, before -> after** (`i9_slotsafe.mjs` new section E, 7 checks): cash -500 -> 0; hour -20 -> 0.05;
+  sleds x3 + junk -> ["frontier"]; cash 1e300 -> 1e12 and $5 earned adds exactly 5 (at 1e300 a float cannot hold it); hour
+  1e9 -> 876,000; a file imported with cash -40 / hour -3 / two Frontiers is stored as 0 / 0 / one.
+- **Gate**: smoke, x1_save, i9_slotsafe (32 checks), i9_slotsafe_numbers_beta (all cases now pass), i9_slots,
+  i9_slots_break_beta: all exit 0, fails 0, page errors none.
+- **Left as it is**: `own.sled` naming a real sled that is missing from `own.sleds` is not reconciled; deeper junk
+  inside right-kind tables as before. Unverified: by hand.
+- **Next for lane A**: the remaining lane-A POLISH lines in LOOP.md, then an unowned milestone (16-19) by the Lanes
+  claim rule.
+
 ## 2026-11-27 10:35 — beta fix 0366 #1/#2: a change of save slot cannot be doubled, a stored game is made safe to load (v293, lane A) (G4) — 98128f8
 
 Lane A's list is done, so this pass took the top open lane-A line (base game: I9 save slots). Triage: reports 367-369

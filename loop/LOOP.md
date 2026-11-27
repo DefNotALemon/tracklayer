@@ -766,4 +766,7 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 5.4c2b1 (untested, beta 0357 #3, lane A): the helper let go mid-trip: does the "nobody is coming" note
       reach the player (Staff / Jobs text, a toast)? Read it in a scenario.
 
-Last triaged report: 369
+- [ ] G4 2.2 (POLISH, beta 0370 #1, lane A): "Filling stopped" on walking from one machine to another at a pump does
+      not say how full the first was left (a sled at 14.2 of 16 L reads as done): add the tank's state to that toast.
+
+Last triaged report: 371
