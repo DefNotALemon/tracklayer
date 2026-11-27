@@ -62,7 +62,8 @@ of the time you start at the depot as usual. New games never do this.
     orange).
   - **Right thumb, riding:** a tall **GAS** pedal (analog: press it higher up for more throttle, it fills as you
     press), **BRAKE** beside it, and **HOP** (right above GAS, so you slide up into a jump), **LEAN**, **WHEELIE** and
-    **HORN** round them.
+    **HORN** round them. **GET OFF** shows above the stick once the sled is stopped or nearly so (and always when
+    bogged or in a cab): before v299 a sled that was not bogged had no GET OFF on touch at all.
   - **Right thumb, on foot:** one big button named for what you can do right there (**STRAP** a tree, **DIG** the sled
     out, **UNHOOK**, **HOOK ON**, **HELP UP**, **RIG ROPE**, **TIE BACK**...), **GET ON** at the sled, and **SIZE UP** /
     **DOUBLE** when there's a job to size up. **REEL** appears while the winch is hooked.

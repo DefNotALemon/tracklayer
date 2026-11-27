@@ -2432,7 +2432,9 @@ function updTouch() {
     text($("tcOn"), tbtn("mount"));
     const x = show("tcX", !!c.x); if (c.x) text(x, c.x);
   }
-  const q = show("tcQ", !foot && !tutHidden() && (BOG.on || !!VEH.cur)); text(q, tbtn("dismount"));
+  // GET OFF: bogged, in a cab, or on the sled once it is slow enough to get off (dismount()'s own 2.2 m/s rule). A sled
+  // that was not bogged had no GET OFF at all on touch, so a touch rider could never walk up to anyone or anything.
+  const q = show("tcQ", !foot && !tutHidden() && (BOG.on || !!VEH.cur || (Math.hypot(P.vx, P.vz) <= 2.2 && !P.wet && !CRASH.on && !HELP.on))); text(q, tbtn("dismount"));
   show("tcHorn", !foot);
   show("tcReel", !!(wd && WN.state === "hooked"));
   show("tcF", (HELP.on && HELP.kind === "sea" && !HELP.called) || (GS.fuel <= 0 && !HELP.on));
@@ -8785,9 +8787,11 @@ function schoolMission(i) {
     load(spec) { const j = Object.assign({ school: true, big: true, bays: 1, fragile: false, look: "crate", cond: 100, hits: 0, pay: 0, dest: { id: "school", name: sc.short, x: sc.x, z: sc.z, y: sc.y } }, spec); GS.load = [j]; applyLoadout(); return j; } };
   SCHOOL.mi = i; SCHOOL.m = m; SCHOOL.phase = "run"; SCHOOL.outT = 0; SCHOOL.outWarned = false;
   if (m.setup) m.setup(ctx);
-  TABLET.notify({ app: sc.id, title: `${sc.short} · ${i + 1}/${sc.missions.length}: ${m.name}`, body: m.brief, kind: "info", ttl: 9 });
+  TABLET.notify({ app: sc.id, title: `${sc.short} · ${i + 1}/${sc.missions.length}: ${m.name}`, body: schoolBrief(m), kind: "info", ttl: 9 });
   save();
 }
+// a mission's brief: a string, or a function when it names a control (asked each time it is shown, so it follows the device in hand)
+function schoolBrief(m) { return m ? (typeof m.brief === "function" ? m.brief() : m.brief || "") : ""; }
 function schoolFail(why) {
   const sc = SCHOOL.sc, m = SCHOOL.m;
   toast(`${why} The instructor runs you back to the yard. Again.`, "bad");
@@ -9212,7 +9216,7 @@ function schoolCard(sc) {
   const list = sc.missions.map((m, i) => `<div class="tsm2${done.includes(m.id) ? " ok" : on && SCHOOL.mi === i ? " now" : ""}"><b>${i + 1}</b><span>${tabEsc(m.name)}</span>${chip(done.includes(m.id) ? "PASSED" : on && SCHOOL.mi === i ? "NOW" : m.kind, done.includes(m.id) ? "ok" : on && SCHOOL.mi === i ? "due" : "")}</div>`).join("")
     || `<p class="tnote2">The instructors are still writing this course. Sign up now and it opens with the rescue update.</p>`;
   let act = "", lbl = "", note = "";
-  if (on) { act = "sq"; lbl = "QUIT THE COURSE"; note = `On the course now: ${tabEsc(SCHOOL.m ? SCHOOL.m.name : "")}. ${tabEsc(SCHOOL.m ? SCHOOL.m.brief : "")} Quitting keeps what you've passed.`; }
+  if (on) { act = "sq"; lbl = "QUIT THE COURSE"; note = `On the course now: ${tabEsc(SCHOOL.m ? SCHOOL.m.name : "")}. ${tabEsc(SCHOOL.m ? schoolBrief(SCHOOL.m) : "")} Quitting keeps what you've passed.`; }
   else if (!sg) { act = "su"; lbl = "SIGN UP FOR SCHOOL"; note = `Free with the app. ${sc.name} is ${fmtMi(d)} from you; signing up pins it on the Map and points the arrow there. On the course you ride the school's sled and your own waits in the yard.`; }
   else if (SCHOOL.here === sc && sc.missions.length) { act = "sb"; lbl = done.length ? "RESUME COURSE" : "START COURSE"; note = "You're in the yard. Your sled and anything on it stays parked here until you finish or quit."; }
   else { act = "sg"; lbl = SCHOOL.guide === sc.id ? "STOP GUIDING" : "GUIDE ME THERE"; note = `${sc.name}, ${fmtMi(d)} from you. Stop in the yard to start.`; }
@@ -10148,6 +10152,12 @@ const camUp = () => !!(window.TLXCAM && TLXCAM.on);                        // th
 function btn(a) { const t = BTN[a]; if (!t) { console.warn("btn: no action " + a); return a; } const v = t[INP.dev === "pad" ? INP.pad : INP.dev] || t.kbm; return typeof v === "function" ? v() : v; }
 // a control inside a hint line: "Q: get on" for a keyboard or pad, "tap GET ON" on touch, where the button says what it does
 function keyHint(a, what) { return INP.dev === "touch" ? "tap " + btn(a) : btn(a) + ": " + what; }
+// a control inside a sentence. doHint: "get off (Q)" for a keyboard or pad, "tap GET OFF" on touch. pressHint: "press E" /
+// "tap HELP UP". The touch use button wears its verb, so text about a press still to come passes the word the button
+// will wear when the player stands there (lbl; it must be one footUse() really returns).
+function doHint(a, what, lbl) { return INP.dev === "touch" ? "tap " + (lbl || btn(a)) : `${what} (${btn(a)})`; }
+function pressHint(a, lbl) { return (INP.dev === "touch" ? "tap " : "press ") + (INP.dev === "touch" && lbl ? lbl : btn(a)); }
+function capFirst(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 addEventListener("keydown", () => { INP.dev = "kbm"; }, true);
 addEventListener("pointerdown", e => { INP.dev = e.pointerType === "touch" ? "touch" : "kbm"; }, true);
 function tutPadPoll() {
@@ -15892,6 +15902,8 @@ function footAction() {
   if (!wd && !BOG.on) { toast(`Nothing to do out here. ${keyHint("mount", "get back on")} at the sled.`, "warn"); return; }
   toast(wd ? "Walk up to a tree or a boulder to hook the line." : "Nothing to hook.", "warn");
 }
+// your own line parting on a stalled pull: dig instead, or put the sled back on its feet (the reset control: N, not the "R" this line once typed)
+function winchPartedLine() { return `The line parted! Respooling a new one (40 s). Dig, or ${pressHint("reset")} to reset.`; }
 // X: size the job up
 function footAssess() {
   if (!FOOT.on) return;
@@ -15901,7 +15913,7 @@ function footAssess() {
   if (!BOG.on) { toast("You're not stuck."); return; }
   const fl = fairlead(), list = anchorsNear(fl[0], fl[2], wd ? wd.len : 14).filter(c => c.d > 2.5).slice(0, 6);
   const need = `It'll take about ${lbf(BOG.resist * 1.2).toLocaleString("en-US")} lb to drag out.`;
-  if (!wd) { toast(`${need} No winch: dig by the sled (hold E at it).`); return; }
+  if (!wd) { toast(`${need} No winch: dig by the sled (${pressHint("use", "DIG")} at it).`); return; }
   const best = list.filter(c => anchorCap(c.o) > BOG.resist * 1.4).sort((a, b) => a.d - b.d)[0];
   toast(`${need} ${best ? `The ${anchorName(best.o)} ${Math.round(best.d)} m out will hold.` : "Nothing in reach looks good enough: try a bigger tree."}`);
 }
@@ -15935,7 +15947,7 @@ function selfReel(dt, wd) {
   }
   if (ratio > 1) {                                             // more than the winch can give
     WN.stall += dt; WN.sfx = 0.12; if (gameClock - (WN.nagT || -9) > 4) { WN.nagT = gameClock; toast(wd.block && !WN.dbl ? `The winch is stalling. Double the line with the snatch block (${dblBtn()} at the strap), or find a better angle.` : "The winch is stalling. Dig, or find a better angle.", "warn"); }
-    if (WN.stall > 5 && Math.random() < dt * 0.3) { WN.state = "out"; WN.anchor = null; WN.snapT = 40; if (strapM) strapM.visible = false; crack(1); toast("The line parted! Respooling a new one (40 s). Shovel or R.", "bad"); }
+    if (WN.stall > 5 && Math.random() < dt * 0.3) { WN.state = "out"; WN.anchor = null; WN.snapT = 40; if (strapM) strapM.visible = false; crack(1); toast(winchPartedLine(), "bad"); }
     return;
   }
   WN.stall = Math.max(0, WN.stall - dt * 2);
@@ -16886,11 +16898,22 @@ function sarRjStart(c) {
   RJ.vs = rj.vics.map((_, i) => rjSpawn(rj, i));
   c.rj = rj;
 }
+/* The rescue block's lines that tell the player what to press. Each names the control of the device in their hands
+   through btn() (they typed "Q off", "(E)", "press E", "hold SPACE": keyboard names shown to pad and touch players).
+   On touch the use button wears its verb, so a line names the word footUse() gives at that spot. Test: g3_sarbtn.mjs. */
+function sarOutLine(c) { return `${c.name}'s sled is out. The track's in pieces: walk to it and ${pressHint("use", "RIG TOW")} to rig the tow rope to your hitch.`; }
+function sarFoundLine(c) { return `Found! ${c.name} is under the trees, shaking and very glad to see you. ${FOOT.on ? `Walk up and ${pressHint("use", "HELP UP")} to help them up.` : "Stop beside them."}`; }
+function sarHowTo(c) {
+  return c.kind === "search" ? "The search area and the pattern are on the Map. Follow the arrow round the legs, and watch for prints or anything they've dropped."
+    : c.kind === "tow" ? `Park on the rim, ${doHint("dismount", "get off")}, walk the line out and ${doHint("use", "hook on", "HOOK")}, tie back to a tree, hold ${btn("reel")} to reel.`
+    : c.kind === "save" ? `Toboggan on the hitch: stop right beside them, or walk up and ${pressHint("use", "LOAD")}.`
+    : `If it's too steep to ride, stop below, ${doHint("dismount", "get off")}, walk up and ${pressHint("use", "HELP UP")}.`;
+}
 // called by rjFreed when the sled that came free belongs to a rescue case
 function sarFreed(v) {
   const c = SAR.cur; if (!c || c.kind !== "tow") return;
   c.v.state = "rig"; c.rv = v;
-  toast(`${c.name}'s sled is out. The track's in pieces: walk to it and press E to rig the tow rope to your hitch.`, "good");
+  toast(sarOutLine(c), "good");
 }
 function sarRig() {
   const c = SAR.cur, v = c.rv; if (!v) return;
@@ -16968,7 +16991,7 @@ function sarTick(dt, spd) {
     const wp = s.pat[s.pi]; if (wp && Math.hypot(wp.x - me.x, wp.z - me.z) < 28) { s.pi++; if (s.pi >= s.pat.length) { s.pat = sarPattern(s.area.x, s.area.z, 45, s.area.r + 60); s.pi = 0; toast("Pattern done. Dispatch widens it: round again, bigger."); } }
     const dH = Math.min(dP, dF), see = 32 * (1 - 0.35 * clamp(GS.storm, 0, 1)) * (dayFactor() < 0.3 ? 0.85 : 1);
     if (!s.heard && dH < 75) { s.heard = true; toast(`A whistle, three short blasts, somewhere to the ${sarCard(me.x, me.z, v.x, v.z)}.`, "warn"); }
-    if (dH < see) { v.state = "waiting"; whump(0.2); toast(`Found! ${c.name} is under the trees, shaking and very glad to see you. ${FOOT.on ? "E to help them up." : "Stop beside them."}`, "good"); }
+    if (dH < see) { v.state = "waiting"; whump(0.2); toast(sarFoundLine(c), "good"); }
   }
   // picking them up: stop beside them on the sled, or walk up and press E (sarFootAction)
   if (v.state === "waiting" && !FOOT.on && dP < 7.5 && spd < 1.5) {
@@ -17111,9 +17134,7 @@ function sarAccept(c) {
   SAR.ping = null; SAR.miss = 0;
   sarOpen(c); if (c.onAccept) c.onAccept(c);
   toast(`Accepted. ${c.why}`, "warn");
-  setTimeout(() => { if (SAR.cur === c) toast(c.kind === "search" ? "The search area and the pattern are on the Map. Follow the arrow round the legs, and watch for prints or anything they've dropped."
-    : c.kind === "tow" ? "Park on the rim, Q off, walk the line out and hook on (E), tie back to a tree, hold SPACE to reel."
-    : c.kind === "save" ? "Toboggan on the hitch: stop right beside them, or walk up and press E." : "If it's too steep to ride, stop below, Q off, walk up and press E."); }, 2400);
+  setTimeout(() => { if (SAR.cur === c) toast(sarHowTo(c)); }, 2400);
   save(); TABLET.refresh("rescue");
 }
 function sarSetDuty(on) {
@@ -17150,9 +17171,9 @@ function sarPrompt() {
 function sarRideHint() {
   const c = SAR.cur; if (!c || c.res || FOOT.on) return "";
   const v = c.v, d = Math.hypot(v.x - P.x, v.z - P.z);
-  if (v.state === "waiting" && d < 80) return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? `Stop with the toboggan beside ${c.name}` : `${c.name} needs the rescue toboggan`) : `Stop beside ${c.name}, or Q off and walk up (E)`;
+  if (v.state === "waiting" && d < 80) return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? `Stop with the toboggan beside ${c.name}` : `${c.name} needs the rescue toboggan`) : `Stop beside ${c.name}, or ${doHint("dismount", "get off")} and walk up`;
   if (v.state === "loading") return `Hold still: loading ${Math.min(100, Math.round(v.loadT / 3.5 * 100))}%`;
-  if (v.state === "rig") return `Q off and rig the tow rope at ${c.name}'s sled (E)`;
+  if (v.state === "rig") return `${capFirst(doHint("dismount", "get off"))} and rig the tow rope at ${c.name}'s sled`;
   return "";
 }
 
@@ -17173,11 +17194,11 @@ function sarStatus(c) {
   const v = c.v, s = c.s;
   switch (v.state) {
     case "lost": return `search leg ${s.pi + 1}/${s.pat.length} · clues ${(s.clue.tracks ? 1 : 0) + (s.clue.glove ? 1 : 0)}/2`;
-    case "waiting": return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? "toboggan beside them" : "needs the toboggan") : "stop beside them, or walk up (E)";
+    case "waiting": return c.kind === "save" ? (GS.own.parts.hitch === "akja" ? "toboggan beside them" : "needs the toboggan") : "stop beside them, or walk up";
     case "loading": return "loading the toboggan";
     case "follow": return "walk them to the sled";
     case "stuck": return "winch them out";
-    case "rig": return "rig the tow rope (E at their sled)";
+    case "rig": return "rig the tow rope at their sled";
     case "tow": return `tow it to ${c.dest ? shortName(c.dest) : "a cabin"}`;
     default: return c.school ? "back to the yard" : c.hosp ? "to the helsesenter in Kjøllefjord" : `somewhere warm: ${c.dest ? shortName(c.dest) : "a cabin"}`;
   }
@@ -17280,7 +17301,7 @@ sarSchoolMission("search", "search", {
 });
 sarSchoolMission("slope", "rescue", {
   name: "Rider stranded on a steep slope", chip: "RESCUE · SLOPE",
-  brief: "Tor has rolled his sled on a slope too steep to idle up. Reach him (stop below, Q off, walk up and press E if you have to), get him on behind you and back to the yard.",
+  brief: () => `Tor has rolled his sled on a slope too steep to idle up. Reach him (stop below, ${doHint("dismount", "get off")}, walk up and ${pressHint("use", "HELP UP")} if you have to), get him on behind you and back to the yard.`,
   hitch: "none",
   plan(sc) {
     const at = sarSchoolSpot(sc, 180, 520, sarSteepOk), d = Math.hypot(at.x - sc.x, at.z - sc.z);
@@ -17289,7 +17310,7 @@ sarSchoolMission("slope", "rescue", {
 });
 sarSchoolMission("tow", "tow", {
   name: "Winch it out, tow it home", chip: "TOW · HITCH",
-  brief: "Siri's sled is bogged out past the cones with a dead track. Winch it out with the school sled's electric winch, rig a tow rope (E at her sled), and haul it back to the yard with Siri on behind you.",
+  brief: () => `Siri's sled is bogged out past the cones with a dead track. Winch it out with the school sled's electric winch, rig a tow rope (${pressHint("use", "RIG TOW")} at her sled), and haul it back to the yard with Siri on behind you.`,
   hitch: "none",
   plan(sc) {
     let site = sarTowSite(sc.x, sc.z, 170, 460) || sarTowSite(sc.x, sc.z, 170, 750);
@@ -17299,7 +17320,7 @@ sarSchoolMission("tow", "tow", {
 });
 sarSchoolMission("save", "save", {
   name: "Cold casualty: the toboggan run", chip: "SAVE · COLD",
-  brief: "Ole is down on the open fell, hypothermic, on a short clock. The school sled has the rescue toboggan on: stop with it beside him (or walk up and press E), then get him back to the warm before his time runs out. Roll the toboggan and it costs him.",
+  brief: () => `Ole is down on the open fell, hypothermic, on a short clock. The school sled has the rescue toboggan on: stop with it beside him (or walk up and ${pressHint("use", "LOAD")}), then get him back to the warm before his time runs out. Roll the toboggan and it costs him.`,
   hitch: "akja",
   plan(sc) {
     const at = sarSchoolSpot(sc, 300, 620, sarOpenOk), d = Math.hypot(at.x - sc.x, at.z - sc.z);
