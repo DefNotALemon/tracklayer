@@ -161,7 +161,7 @@ async function modalChecks(tag, W, H, id, openJs, closeJs, sfx = "") {
     ok(!s.need || ((s.oy === "auto" || s.oy === "scroll") && s.reach), `${tag} ${id}: fits or scrolls to its end ${JSON.stringify(s)}`);
     const mf = await J(`window.__ui.minFont(document.getElementById(${JSON.stringify(id)}))`);
     ok(mf >= 10, `${tag} ${id}: text >= 10px (min ${mf})`);
-    const cl = await J(`(() => { const b = document.querySelector("#${id} .xbtn, #${id} #closeSet, #${id} #closeGarage"); if (!b) return null; const r = b.getBoundingClientRect(), p = document.getElementById("${id}").getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, id: "close", inP: r.top >= p.top - 1 && r.bottom <= p.bottom + 1 }; })()`);
+    const cl = await J(`(() => { const b = document.querySelector("#${id} #closeSet, #${id} #closeGarage, #${id} .xbtn:not([hidden])"); if (!b) return null; const r = b.getBoundingClientRect(), p = document.getElementById("${id}").getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, id: "close", inP: r.top >= p.top - 1 && r.bottom <= p.bottom + 1 }; })()`);
     ok(!cl || (cl.inP && inside(cl, W, H)), `${tag} ${id}: close button on screen ${cl ? fmt(cl) : "(none)"}`);
     await snap("modal", `${cur[0]}_${id}${sfx.replace(/\W+/g, "_")}`);
   }
