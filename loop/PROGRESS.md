@@ -21,6 +21,42 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 10:35 — beta fix 0366 #1/#2: a change of save slot cannot be doubled, a stored game is made safe to load (v293, lane A) (G4) — 98128f8
+
+Lane A's list is done, so this pass took the top open lane-A line (base game: I9 save slots). Triage: reports 367-369
+read (366 -> 369). 0367 (P1 picture) one POLISH (a forced `GS.storm` shows no storm; the tester doubts the forcing),
+0368 (I6 camera) three POLISH (reticle score vs shot score, no feedback on a refused shutter, toasts over the frame in
+a crash), 0369 (pump on foot, v292) no BLOCKER or BUG: all left listed in their reports, they belong to the G8 / G7
+sessions.
+
+- **What was wrong** (`i9_slotsafe.mjs` run on main first, `git archive` + `TL_SRC`): slot 1 in play with $1,111, slot 2
+  holding $2,222. `go(2)`, then with the old game still on screen (cash 9999) `go(4)`, `go(1)`, `del(2)`: all four went
+  through, 3 reloads asked, slot 1 = $9,999, slot 4 = $9,999, slot 2 gone, and the game that came up was the old one.
+  `TLSLOT.lock` only stopped `save()`; `stash` switched it off again to store the game on screen into whatever slot the
+  index now named. #2 was worse than reported: a file with `shelf: {}` in `own` imported cleanly and the slot then would
+  not boot at all (`o.shelf is not iterable` in `migrateEngines`, title never appears).
+- **Fix** (tracklayer.js, the `SLOT` block): `stash`, `go`, `copy`, `del` and `importText` return at once while
+  `SLOT.lock` is set; the Saves panel ignores every click while locked, and on a successful LOAD / NEW GAME HERE
+  disables all its buttons and the pressed one reads LOADING…. New `saveClean(d)` (hoisted, beside `SLOT`), run by
+  `load()` on the save it is about to read and by `importText` on the file before storing it: cash / delivered /
+  rescues / calOff / mailSeq become numbers (a numeric string is taken, anything else is 0), a clock or weather seed
+  that is no number is left out, top-level tables that are not tables are left out, and in `own` anything whose kind
+  differs from `OWN0()`'s (a string, a list, a table) is dropped so the new game's value stands; part and gear ids
+  must be strings, `sleds` keeps only real sled ids, `sled` falls back to the first of them. `importText` refuses a
+  file whose `own` is not a table. `load()` now merges `gear` over the new game's the way it already did `parts`.
+- **Numbers, before -> after** (`i9_slotsafe.mjs`, 25 checks): double go: 3 reloads / slot 1 $9,999 / slot 2 lost ->
+  1 reload, slot 1 $1,111, slot 2 loads with $2,222, slots 3 and 4 untouched; panel: three clicks on LOAD and two on
+  BACK = one change, 0 live buttons; import `cash: "750"` -> stored 750, $10 earned reads 760 (was the string
+  "75010"); `own: 5` -> refused; the hand-edited save with a ghost sled, list-for-table and word-for-number fields:
+  boot failed -> boots as a Frontier with $0, page errors none; a sound save (cash 4321.5, hour 50.25, cond 0.8) loads
+  unchanged.
+- **Gate**: smoke, x1_save, i9_slotsafe, i9_slots, i9_slots_break_beta: all exit 0, fails 0, page errors none.
+- **Left as it is**: deeper junk inside a table of the right kind (an engine record without `pwr`, a `cond` value that
+  is a word) is not walked; the expansion's `x` state has its own per-system tidies. Unverified: by hand with a real
+  double click and a real file dialog.
+- **Next for lane A**: the remaining lane-A POLISH lines in LOOP.md, then an unowned milestone (16-19) by the Lanes
+  claim rule.
+
 ## 2026-11-27 10:05 — beta fix 0364 #2/#3: the pump fills the machine, not the rider; one fill is one tank (v292, lane A) (G4) — f4e7ee5
 
 Lane A's list is done (5.4), so this pass took the top open lane-A backlog line. Triage: reports 365 and 366 read
