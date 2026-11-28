@@ -17512,7 +17512,7 @@ function hospUV(geo, yo) {
 function buildHospital() {
   const { bx, put, L, snowM, metal, glowM, white, concrete } = KIT, d0 = depot;
   // a flat lot near town, clear of the houses, the shops and the water, with room for the pad beside it
-  let best = null, bs = 1e9;
+  let best = null, bs = 1e9; const lampQd = townBlocks.lamps || [];
   for (let k = 0; k < 900; k++) {
     const a = k * 2.399, r = 75 + (k / 900) * 130, x = d0.x + Math.cos(a) * r, z = d0.z + Math.sin(a) * r;
     if (Math.abs(x) > HALF - 200 || Math.abs(z) > HALF - 200) continue;
@@ -17520,6 +17520,7 @@ function buildHospital() {
     if (wet || bioAt(x, z) === 1) continue;
     const sl = slopeAt(x, z, 8) + slopeAt(x + 16, z, 6) * 0.5 + slopeAt(x - 16, z, 6) * 0.5;
     if (sl > 0.32 || obNear(x, z, 26) || Math.hypot(x - garageSite.x, z - garageSite.z) < 45) continue;
+    if (lampQd.some(l => Math.hypot(l[0] - x, l[1] - z) < 26.3)) continue;   /* the street lamps are stood up later (townRoads), so they are not obstacles yet: without this the helsesenter is built at a street's end, its forecourt across the street and a house's yard (beta 0393 #1) */
     if (schoolList().some(s => s.x !== undefined && Math.hypot(s.x - x, s.z - z) < 70)) continue;
     // and out of the lane a new save's first ride takes: the sled spawns facing SPAWN.yaw, and full throttle
     // from there covers ~75 m in 8 s, so a building dead ahead within ~220 m is the first thing you hit
