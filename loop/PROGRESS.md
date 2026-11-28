@@ -22,6 +22,41 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 19:45 — Reverse backs a bladed truck out of a drift; a back-drag leaves a skin of snow alone; a bladeful is left when you get out (tlx-plow v36, lane A) (G4) — 39ae0b8
+
+Triage: no report above 0392 (392 stays). No BLOCKER or BUG open. Lane A's list is done, so this pass took the open
+lane-A line with a player left standing still in it: beta 0224 #1/#2 (4.1b1 back-drag).
+
+- **Before, on main** (`x4_backdrag_break.mjs`, exit 1): blade down in a 1 m drift, the reverse key moved the pickup
+  0.0 m (11 027 N on the blade; blade up it backs 4.1 m) while the hint and the line both said to back up. Reversing
+  6 m over a 6 cm field: 0.35 m3 "pulled", hint "pulling 0.4 m3". And one the old report had passed: out of the cab
+  mid back-drag, 0.249 m3 stayed on the blade for good (on foot the blade's work gets no time, so the 1.2 s stop that
+  leaves the heap never ran).
+- **Cause and fix** (`tlx-plow.js` `work()` and `tick()`): the back-drag's drag only started under -0.2 m/s, and the
+  forward push held the truck at 0, so it never got there. With the truck asked to reverse (the core's `R.rev`) and
+  under 0.3 m/s the blade is now a back-drag's: the depth line behind the edge, `backN` + half the face term.
+  `BL.backMin` 0.04 m: under that much snow over what a back-drag leaves, no sweep and no face drag. On foot beside
+  your truck a carried bladeful is spilled where the blade stands.
+- **After**: 1 m drift, blade down: keyboard 3.2 m back in under 6 s of game time, pad (left trigger) 3.5 m, touch
+  (the BRAKE pedal) 3.1 m; standing with reverse held the blade's drag is 1 645 N; forward the drift still holds the
+  truck (0 m, 11 027 N, the same line). 6 cm field: carry 0, cut 0, "nothing to pull", the strip under the blade's
+  middle 0.390 -> 0.390 m3, deepest 0.060 m. 30 cm is pulled as before (1.21 m3, a full blade, heap 1.208 of 1.214
+  left on stopping). Out of the cab: carry 0 as the door opens, 0.258 laid of 0.258 cut.
+- **Tests**: `x4_backout.mjs` (new, 27 checks: A the drift on the three schemes, B the skin and 30 cm, C the cab).
+  `x4_backdrag_break.mjs` (the tester's) now passes whole.
+- **Gate** (gate.sh, the Mac at load 55 from other sessions): smoke, x1_save, x4_backout, x4_backdrag_break,
+  x4_bladework, x4_blade, x4_driveways each exit 0, fails 0, page errors none. **x4_lots: exit 1, 7 fails, and the
+  same 7 on origin/main** (run from `git archive origin/main`, `TL_SRC`): section D's puppet is off the ground
+  119-144 frames, so the helsesenter's forecourt is never cleared in 9 passes and D/E's pay checks fail after it.
+  Not this change (those passes are forward, no reverse and no back-drag in them), not fixed here: a lane-A line in
+  LOOP.md.
+- **Unverified**: a real pad or phone (scripted pad, dispatched pointer events on the pedal); no stills (nothing new
+  is drawn); the plow truck's own 3.5 m blade was not run through the drift (same code path, its numbers are a
+  table row).
+- **Left**: beta 0217 #4's other half (a blade left down stays down when you get out; only what it carries is
+  spilled now). The remaining lane-A POLISH lines in LOOP.md.
+- **Next for lane A**: those lines, then an unowned milestone (16-19) by the Lanes claim rule.
+
 ## 2026-11-27 18:50 — Size-it-up rests behind the tablet; the ragged blade on a road is cleared of a bug (v305, lane A) (G4) — c29fa87
 
 Triage: reports 0391 (RD1b roads rerun: two POLISH, the roads builder's, left to it) and 0392 (v304 winch HOOK reach and
