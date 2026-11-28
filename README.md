@@ -1079,6 +1079,10 @@ lifted, drop it against the door, back away. The back of the blade takes the top
 (about half the pack is left, where a forward cut leaves a plowed yard) and pulls up to a bladeful
 along; the hint reads "back-dragging" and how much it is pulling. When you stop, lift it or drive
 forward again, what it pulled is left as a heap under the blade, ready to be plowed away forward.
+Getting out of the cab leaves it there too. A skin of new snow on ground that is already cleared
+(under about 4 cm over what a back-drag leaves) is ridden over: the hint reads "nothing to pull"
+and no heap is left. And a blade standing in a drift too deep to push never holds the truck when
+you back away from it: reverse works with the blade down, pulling like any back-drag.
 
 **The cutting edge.** The steel edge along the bottom of the blade wears with every metre of snow
 it cuts, forward or back-dragging: about a point every 250 m, so a road stretch plowed out and back

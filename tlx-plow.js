@@ -139,6 +139,7 @@ const BL = {
   stackMax: 1.2,   // m that heap may stand over the snowpack
   backLeave: 0.49, // what back-dragging leaves, as a share of the snowpack: it takes 60% of what a forward cut takes
   backFace: 0.5,   // the share of the face term a back-drag costs: it rides over as much as it pulls
+  backMin: 0.04,   // m of snow over what a back-drag leaves, under which the blade's back rides over it and pulls nothing
   // the cutting edge (4.1b2a)
   wearM: 250,      // m of cutting that take one point off the edge (a 400 m road stretch, both sides: about 3 points)
   ragged: 30,      // under this the cut is ragged
@@ -562,7 +563,12 @@ function gritHint(uid, d, B) {                                                  
 /* ---------------- each frame ---------------- */
 function work(uid, d, B, dt) {
   const P = api.P, W = api.world, fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), vf = P.vx * fx + P.vz * fz, a = B.a, wEff = d.w * Math.cos(a);
-  const back = B.down && (vf < -0.3 || (B.back && vf < 0.3));
+  /* beta 0224 #2: backing OUT of a drift the blade stands in. Standing still with the truck asked to reverse (the core's
+     R.rev) the blade is already a back-drag's: it pulls away from the face ahead instead of pushing it, so what holds
+     the truck is the back-drag's pull (the top of the snow just behind the edge), not the push of a metre of drift
+     that held it at 0 for good (11 kN, "stuck" with the hint saying to back up). */
+  const RV = TLXV.runtimeOf(uid), revI = B.down && !!(RV && RV.rev) && vf < 0.3 && dt > 0;
+  const back = B.down && (vf < -0.3 || (B.back && vf < 0.3) || revI);
   const lv = leaveOf(uid, d);
   const dl = depthLine(ends(d, P, _m, back ? -0.35 : 0.35, a), back ? Math.max(lv, BL.backLeave) : lv);
   B.depth = dl[0]; B.cut = dl[1];
@@ -591,7 +597,9 @@ function work(uid, d, B, dt) {
   } else if (L && mv < 5 && P.gnd !== false && vf < -0.3) {
     // back-dragging: the blade's back takes the top of the snow and pulls a bladeful with the truck
     if (!B.back) { if (B.carry > 0) spill(B, uid); B.back = true; }             // what it was pushing stays in front
-    if (B.carry < cmax(d)) { const vol = sweep(Math.max(lv, BL.backLeave)); B.carry += vol; B.volCut += vol; if (vol > 0) { S().m -= vf * dt; wear(uid, -vf * dt); } }
+    /* beta 0224 #1: a skin of snow (under BL.backMin over what a back-drag leaves: 6 cm of new snow on a cleared yard) is
+       ridden over, not pulled: it used to take half of it and leave a small heap on ground that was already clear */
+    if (B.carry < cmax(d) && (B.cut >= BL.backMin || B.carry > 0.02)) { const vol = sweep(Math.max(lv, BL.backLeave)); B.carry += vol; B.volCut += vol; if (vol > 0) { S().m -= vf * dt; wear(uid, -vf * dt); } }
     B.full = B.carry >= cmax(d);
   }
   B.last = B.last || [0, 0, 0, 0]; B.last[0] = q[0]; B.last[1] = q[1]; B.last[2] = q[2]; B.last[3] = q[3];
@@ -604,7 +612,7 @@ function work(uid, d, B, dt) {
   }
   if (Math.abs(vf) < 0.15) { B.stopT += dt; if (B.stopT > 1.2 && B.carry > 0) spill(B, uid); } else B.stopT = 0;
   // the push it puts on the truck (read by core() through TLXV.addLoad next frame)
-  if (vf < -0.2) { B.drag = BL.backN + (B.full ? 0 : BL.backFace * BL.face * B.cut * wEff) + BL.carryN * B.carry; B.why = ""; return; }
+  if (vf < -0.2 || revI) { B.drag = BL.backN + (B.full || B.cut < BL.backMin ? 0 : BL.backFace * BL.face * B.cut * wEff) + BL.carryN * B.carry; B.why = ""; return; }
   const v = Math.max(0, vf);
   B.drag = BL.scrape + BL.face * B.cut * wEff * (1 + BL.v2 * v * v) + BL.over * Math.max(0, B.depth - d.h) * wEff + BL.carryN * (B.back ? 0 : B.carry);
   B.why = B.drag >= (d.whyN || BL.whyN) ? `The blade is into more snow than the truck can push. Lift it${INPdev() === "touch" ? "" : " (" + api.btn("use") + ")"}, back up and take it in bites.` : "";
@@ -636,6 +644,7 @@ function tick(dt) {
     }
     if (B.grit) { if (!seated) B.grit = false; else spread(r.uid, d, B, dt); }
     if (B.heap) heapSync(B, d, r.uid);
+    if (mine && !seated && B.carry > 0) spill(B, r.uid);                         // out of the cab with a bladeful: it is left where the blade stands (work() gets no time on foot, so it rode on the blade for good)
     if (mine) work(r.uid, d, B, seated ? dt : 0); else { B.drag = 0; B.last = null; B.why = ""; B.road = null; B.drv = null; B.scr = 0; }
     const k0 = B.k; B.k = Math.max(0, Math.min(1, B.k + (B.down ? 1 : -1) * dt / BL.liftT));
     if (seated && k0 < 1 && B.k >= 1) clunk(B, 0.3); else if (seated && k0 > 0 && B.k <= 0) clunk(B, 0.14);   // it lands on the ground; it comes up against its stop
