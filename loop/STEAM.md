@@ -42,6 +42,7 @@ Worktree `~/Documents/GitHub/tracklayer-steam` (branch `steam`, `git push origin
 | S3 | Final assets for the page Lemon picks: every capsule size, library set, 8+ screenshots at 1920x1080, trailer | not started (pick made: F) |
 | S4 | Steamworks hookup: App ID, overlay, Steam Cloud on the save file, achievements, depot upload script | waits on Lemon's App ID |
 | S5 | Release pass: first-hour play on the Windows build, controller + Steam Deck check, launch-day checklist | not started |
+| S6 | Web demo: the website and itch build cut to one sled, no upgrades, very basic missions, with a pointer to the Steam page. Goes live only once the Coming Soon page is public; the desktop build stays the full game | not started (waits on the page being up) |
 
 ### S1 the shell
 `steam/` in the repo: `package.json` (electron, electron-builder as dev deps), `main.js`, `preload.js`, `build.mjs`,
@@ -65,4 +66,8 @@ Worktree `~/Documents/GitHub/tracklayer-steam` (branch `steam`, `git push origin
 - Price: $9.99 with a 10% launch week discount. His call.
 - Full release or Early Access: Early Access (the big updates are still landing weekly; the page says so). His call.
 - Platforms at launch: Windows. macOS and Steam Deck verified come after.
-- The free web version stays up as the demo.
+- The free web version becomes a limited demo (Lemon, 27 Nov: "make it stay as a limited demo, with one sled, no upgrades,
+  vvery basic missions. we don't need to drop it till we hav a page up"). Until the Steam page is public the website stays the
+  full game. Slice S6.
+- Price is open: he asked "what if we did a lower price?"; advice given was $6.99 in Early Access rising to $9.99 at full
+  release ($4.99 the other option). He has not chosen.

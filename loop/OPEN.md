@@ -41,7 +41,8 @@ The chat builder (one at a time) takes the oldest open asks before any newer dir
 0. STEAM RELEASE (Lemon, 27 Nov: "i want to register a steam page for tracklayer", then "start on all of those ...
    get me plenty of optionss for store pages"). Placed first by the supervisor because it has outside deadlines
    (Valve's waiting periods) and he asked for it by name today; move it if he says so. Target 27 Jan 2027. Plan and
-   slice table `loop/STEAM.md`. S1 desktop shell done (v296; never run on Windows, full screen and pad untested); S2 done: he picked option F ("From one sled to a company") with the night aurora capsule; S3 final assets for F not started; S4 waits on his Steamworks App ID.
+   slice table `loop/STEAM.md`. S1 desktop shell done (v296; never run on Windows, full screen and pad untested); S2 done: he picked option F ("From one sled to a company") with the night aurora capsule; S3 final assets for F not started; S6 the web version becomes a limited demo (one sled, no upgrades,
+   very basic missions) once the Steam page is public, not before; S4 waits on his Steamworks App ID.
 Then back to the newer directions (G9 the raid, I7 field guide, G8 houses). The expansion lanes (G4) keep
 running beside this under the governor.
 
