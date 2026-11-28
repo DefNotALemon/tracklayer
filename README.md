@@ -67,7 +67,9 @@ of the time you start at the depot as usual. New games never do this.
     bogged or in a cab): before v299 a sled that was not bogged had no GET OFF on touch at all.
   - **Right thumb, on foot:** one big button named for what you can do right there (**STRAP** a tree, **DIG** the sled
     out, **UNHOOK**, **HOOK ON**, **HELP UP**, **RIG ROPE**, **TIE BACK**...), **GET ON** at the sled, and **SIZE UP** /
-    **DOUBLE** when there's a job to size up. **REEL** appears while the winch is hooked.
+    **DOUBLE** when there's a job to size up. **REEL** appears while the winch is hooked. With the tablet open on foot
+    the use control and size-it-up rest (E and X, L3 and X on a pad, the buttons on touch): nothing happens unseen
+    behind it. Getting on still works with the tablet in hand.
   - **Drag anywhere else** to look around; the view springs back when you let go.
   - **TABLET** and **MORE** sit by the map (MORE: map, camera, reset, wings, full screen, settings). **GARAGE**,
     **FISH** / **SHOP** / **SELL**, **WIPE VISOR** and **CALL HELP** turn up when they apply (GARAGE and the rest step

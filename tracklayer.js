@@ -2401,7 +2401,8 @@ function touchCtx() {
   if (!FOOT.on) return r;
   r.use = footUse() || "";
   const wd = winchDef();
-  if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) r.x = WN.dbl ? "SINGLE" : "DOUBLE";
+  if (TABLET.open) r.x = "";                                               // behind the tablet X rests (gameKey), so no label either
+  else if (wd && wd.block && WN.state === "hooked" && WN.mode === "self" && WN.anchor && Math.hypot(FOOT.x - WN.anchor.x, FOOT.z - WN.anchor.z) < 2.8) r.x = WN.dbl ? "SINGLE" : "DOUBLE";
   else if (RJ.on && wd && rescueSizes()) r.x = rescueSizes();              // someone you came to winch out: SIZE UP within 20 m, DOUBLE / SINGLE at them once hooked (mirrors rescueAssess)
   else if (BOG.on) r.x = "SIZE UP";
   r.q = WN.state === "hooked" && WN.mode === "self";                      // hooked on: the hint keeps offering GET ON from anywhere along the line
@@ -9387,7 +9388,7 @@ function gameKey(e) {
   if (typeof MNT !== "undefined" && MNT.on) return;                                        // busy climbing onto the sled: no foot actions mid-mount
   if (typeof DMT !== "undefined" && DMT.on) return;                                        // nor mid-climb-off
   if (e.code === "KeyQ") { if (FOOT.on) mount(); else dismount(); return; }
-  if (e.code === "KeyX") { footAssess(); return; }
+  if (e.code === "KeyX") { if (!TABLET.open) footAssess(); return; }   /* behind the tablet "size it up" rests too, on keyboard, pad and touch: its answer is a line the tablet covers, and at a strap it changed the line to double or back unseen. Q stays live on purpose: getting on with the tablet in hand is plain to see and the tablet rides along */
   if (e.code === "KeyE" && FOOT.on && !GS.garageOpen) { if (FISH && FISH.ctx()) return; if (TABLET.open) return; footAction(); return; }   /* behind the tablet the use control rests (it used to unhook the winch or start digging unseen) */
   if (e.code === "KeyE") { if (!e.repeat && !rideUseTry() && !fishUse() && !(VEH.cur && VEH.cur.use && VEH.cur.use())) horn(); return; }   // E: go fishing / tackle shop / fish buyer when you're stopped at one, the boat's handline over deep water (tlx-seafish.js), the horn otherwise
   if (e.code === "KeyT") { if (GS.garageOpen) closeGarage(); else if (GS.near === garageSite) openGarage(); else toast("The garage is the shed across the road from the quay.", "warn"); }
