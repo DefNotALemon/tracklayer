@@ -153,7 +153,8 @@ async function touchChecks(tag, W, H, foot) {
 }
 async function modalChecks(tag, W, H, id, openJs, closeJs, sfx = "") {
   tag += sfx; await ev(openJs); await sleep(650);
-  const p = await J(`window.__ui.rects("#${id}")[0] || null`);
+  let p = await J(`window.__ui.rects("#${id}")[0] || null`);
+  for (let i = 0; !p && i < 12; i++) { await sleep(500); p = await J(`window.__ui.rects("#${id}")[0] || null`); }   // a loaded Mac can stall the panel's fade-in past a fixed sleep: wait for it, still fail if it never shows
   ok(!!p, `${tag} ${id}: opens`);
   if (p) {
     ok(inside(p, W, H) && p.x >= 3 && p.y >= 3 && p.x + p.w <= W - 3 && p.y + p.h <= H - 3, `${tag} ${id}: inside viewport with margin ${fmt(p)}`);
