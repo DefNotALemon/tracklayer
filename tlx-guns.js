@@ -25,30 +25,53 @@
 // People can never be shot: the trigger stays on safe with anyone, or any house, near the line of fire.
 //
 // SAVED under x.sys.guns: { owned: [gun...], cur, parts: { "sight:scope39": 1, ... }, ammo, alt: { load: n }, licence,
-// game: [{ k }], taken: { kind: n } }. An old save, or a corrupt entry, starts with no rifle, no parts, no ammo, no licence, no game.
+// game: [{ k }], taken: { kind: n } }. owned holds at most one rifle per frame (11.4a); cur is the one carried.
+// An old save, or a corrupt entry, starts with no rifle, no parts, no ammo, no licence, no game.
 // Bridges in tracklayer.js: BTN.rifle + its key / pad / touch binding, the aim taking the walk controls in readInput,
 // and api.wild / api.people / api.crack. Tests: x11_gunshop.mjs (the shop), x11_hunt.mjs (the field),
-// x11_ammo.mjs (the four loads).
+// x11_ammo.mjs (the four loads), x11_frames.mjs (the second frame).
 (() => {
 "use strict";
+/* FRAMES (11.4a: a second one). A frame is its own rifle, not a skin: its own SLOTS (the lever gun has a Lever where the
+   bolt rifle has a Grip), its own parts for them (a part row's `fr` names the frame it fits; none = the bolt rifle, "*" =
+   any frame, which today is the sights: a scope bought once goes on either rifle), its own base numbers, and its own
+   action: base.cyc is the seconds it takes to work the action between shots (stat "cyc"; a lever is about twice as quick
+   as a bolt). You can own one of each. One is carried at a time (s.cur): the counter's Rifles tab swaps which, the other
+   stays in the shop's rack with whatever is in its magazine. Both are .308 and feed from the same pack. */
 const SLOTS = ["barrel", "stock", "grip", "magazine", "sight"];
-const SLOT_NAME = { barrel: "Barrel", stock: "Stock", grip: "Grip", magazine: "Magazine", sight: "Sight" };
+const LSLOTS = ["barrel", "stock", "lever", "magazine", "sight"];
+const ALL_SLOTS = ["barrel", "stock", "grip", "lever", "magazine", "sight"];
+const SLOT_NAME = { barrel: "Barrel", stock: "Stock", grip: "Grip", lever: "Lever", magazine: "Magazine", sight: "Sight" };
 const FRAMES = [
-  { id: "bolt308", name: "Bolt-action rifle, .308", cost: 1450, cal: ".308 Win", slots: SLOTS,
-    base: { spread: 2.2, recoil: 1.0, handling: 5, kg: 2.9, noise: 1.0, range: 140, cap: 3, zoom: 1 },
-    note: "A plain, honest hunting rifle: a push-feed bolt action in .308 Winchester, the round most of the north hunts moose and reindeer with. Comes with its stock parts fitted; every slot takes the shop's other parts." }
+  { id: "bolt308", name: "Bolt-action rifle, .308", short: "bolt-action", cost: 1450, cal: ".308 Win", slots: SLOTS, action: "bolt",
+    base: { spread: 2.2, recoil: 1.0, handling: 5, kg: 2.9, noise: 1.0, range: 140, cap: 3, zoom: 1, cyc: 0.95 },
+    note: "A plain, honest hunting rifle: a push-feed bolt action in .308 Winchester, the round most of the north hunts moose and reindeer with. Comes with its stock parts fitted; every slot takes the shop's other parts." },
+  { id: "lever308", name: "Lever-action carbine, .308", short: "lever-action", cost: 1150, cal: ".308 Win", slots: LSLOTS, action: "lever",
+    base: { spread: 2.9, recoil: 1.1, handling: 6.5, kg: 3.0, noise: 1.05, range: 115, cap: 4, zoom: 1, cyc: 0.5 },
+    note: "A short lever gun with a box magazine, so it takes the same .308 as the bolt rifle. Fast to the shoulder and the second shot is there in half the time: the rifle for birch woods and a herd on the move. Looser groups and less reach than the bolt action. It has its own barrels, stocks, levers and magazines; the sights fit both rifles." }
 ];
-// d: stat deltas from the frame's base (cap and zoom are set outright with =cap / =zoom)
+// d: stat deltas from the frame's base (cap and zoom are set outright with =cap / =zoom). fr: the frame a part fits (see FRAMES).
 const PARTS = {
+  lever: [
+    { id: "lvstd", fr: "lever308", name: "Standard lever loop", cost: 0, d: {}, note: "The loop the carbine comes with: a snug fit for a gloved hand." },
+    { id: "lvbig", fr: "lever308", name: "Large-loop lever", cost: 110, d: { handling: 0.6, cyc: 0.04 }, note: "A wide loop a mitten goes straight into: quicker to get hold of and bring up. The longer swing makes each stroke a touch slower." },
+    { id: "lvshort", fr: "lever308", name: "Short-throw lever", cost: 270, d: { cyc: -0.12, handling: -0.3 }, note: "Reworked linkage: the lever travels two thirds as far, so the next round is in sooner. A stiffer stroke that wants a firm hand." }
+  ],
   barrel: [
     { id: "std22", name: "22\" sporter barrel", cost: 0, d: {}, note: "The barrel the rifle comes with. A good balance of reach and handling." },
     { id: "carb18", name: "18\" carbine barrel", cost: 320, d: { handling: 1.5, range: -25, noise: 0.25, kg: -0.35, spread: 0.3 }, note: "Shorter and lighter: swings fast through birch and from the sled. Louder, and it gives up some reach." },
-    { id: "heavy24", name: "24\" heavy barrel", cost: 540, d: { handling: -1.2, range: 40, spread: -0.6, kg: 0.7, noise: -0.1 }, note: "A thick target-weight barrel. Tighter groups and more reach; heavy to carry and slow to swing." }
+    { id: "heavy24", name: "24\" heavy barrel", cost: 540, d: { handling: -1.2, range: 40, spread: -0.6, kg: 0.7, noise: -0.1 }, note: "A thick target-weight barrel. Tighter groups and more reach; heavy to carry and slow to swing." },
+    { id: "lv20", fr: "lever308", name: "20\" carbine barrel", cost: 0, d: {}, note: "The barrel the carbine comes with." },
+    { id: "lv16", fr: "lever308", name: "16\" trapper barrel", cost: 260, d: { handling: 1.2, range: -20, noise: 0.3, kg: -0.3, spread: 0.3 }, note: "Cut right back: it rides across the handlebars and points like a finger. Loud, and a close-range rifle now." },
+    { id: "lv22", fr: "lever308", name: "22\" rifle barrel", cost: 380, d: { handling: -0.8, range: 25, spread: -0.4, kg: 0.35, noise: -0.08 }, note: "A full-length barrel on the lever action: most of the bolt rifle's reach with the lever's speed. Longer and heavier to swing." }
   ],
   stock: [
     { id: "walnut", name: "Walnut stock", cost: 0, d: {}, note: "Oiled walnut. Handsome, a little heavy, cold on the cheek at minus twenty." },
     { id: "synth", name: "Synthetic stock", cost: 260, d: { kg: -0.6, recoil: 0.1, handling: 0.5 }, note: "Glass-filled polymer. Lighter, doesn't swell in wet snow or chill your cheek; kicks a touch more." },
-    { id: "adjust", name: "Adjustable stock", cost: 410, d: { recoil: -0.2, spread: -0.2, kg: 0.3 }, note: "Comb and length of pull set to you: a steadier cheek weld and a softer push back. Heavier." }
+    { id: "adjust", name: "Adjustable stock", cost: 410, d: { recoil: -0.2, spread: -0.2, kg: 0.3 }, note: "Comb and length of pull set to you: a steadier cheek weld and a softer push back. Heavier." },
+    { id: "lvstr", fr: "lever308", name: "Straight-grip walnut stock", cost: 0, d: {}, note: "The slim straight-wristed stock the carbine comes with." },
+    { id: "lvpist", fr: "lever308", name: "Pistol-grip walnut stock", cost: 230, d: { recoil: -0.15, spread: -0.2, kg: 0.1 }, note: "A curved wrist and a fuller butt: the hand sits behind the trigger and the rifle stays on the shoulder through the stroke." },
+    { id: "lvlam", fr: "lever308", name: "Laminate stock, rubber pad", cost: 340, d: { recoil: -0.3, kg: 0.25, handling: -0.2 }, note: "Grey laminate that shrugs off wet snow, with a thick recoil pad. Much the softest to shoot; the heaviest of the three." }
   ],
   grip: [
     { id: "plain", name: "Plain wood grip", cost: 0, d: {}, note: "The stock's own grip." },
@@ -58,12 +81,16 @@ const PARTS = {
   magazine: [
     { id: "int3", name: "3-round internal box", cost: 0, d: { "=cap": 3 }, note: "The rifle's own fixed box. Three rounds, loaded from the top." },
     { id: "det5", name: "5-round detachable", cost: 140, d: { "=cap": 5, kg: 0.15, handling: -0.2 }, note: "A flush polymer magazine: five rounds and a quick change. A little extra weight under the rifle." },
-    { id: "det10", name: "10-round extended", cost: 290, d: { "=cap": 10, kg: 0.45, handling: -0.6, noise: 0.05 }, note: "Ten rounds hanging below the rifle. You'll rarely reload; it snags and weighs." }
+    { id: "det10", name: "10-round extended", cost: 290, d: { "=cap": 10, kg: 0.45, handling: -0.6, noise: 0.05 }, note: "Ten rounds hanging below the rifle. You'll rarely reload; it snags and weighs." },
+    { id: "lvm4", fr: "lever308", name: "4-round box magazine", cost: 0, d: { "=cap": 4 }, note: "The carbine's own flush box. Four rounds." },
+    { id: "lvm5", fr: "lever308", name: "5-round box magazine", cost: 90, d: { "=cap": 5, kg: 0.08, handling: -0.1 }, note: "One more round, a finger's width below the receiver." },
+    { id: "lvm7", fr: "lever308", name: "7-round extended box", cost: 190, d: { "=cap": 7, kg: 0.3, handling: -0.5 }, note: "Seven rounds as fast as you can work the lever. It hangs in front of the loop and gets in the way of a mitten." }
   ],
   sight: [
-    { id: "iron", name: "Iron sights", cost: 0, d: {}, note: "Open sights: a wide view, fast on close game, short of reach." },
-    { id: "red1", name: "1x red dot", cost: 180, d: { handling: 0.4, spread: -0.2, range: 10, kg: 0.15 }, note: "A dot that sits on the animal. Fastest sight there is, no magnification." },
-    { id: "scope39", name: "3-9x hunting scope", cost: 480, d: { "=zoom": 6, range: 110, spread: -0.6, kg: 0.5, handling: -1 }, note: "A proper hunting scope. Reaches across a valley and steadies the shot; heavy, and slow to swing on a running hare." }
+    { id: "iron", fr: "*", name: "Iron sights", cost: 0, d: {}, note: "Open sights: a wide view, fast on close game, short of reach." },
+    { id: "peep", fr: "lever308", name: "Receiver peep sight", cost: 95, d: { spread: -0.3, range: 15, handling: -0.1 }, note: "An aperture screwed to the carbine's receiver, close to the eye: the eye centres the front post by itself. Tighter than open sights and nearly as quick." },
+    { id: "red1", fr: "*", name: "1x red dot", cost: 180, d: { handling: 0.4, spread: -0.2, range: 10, kg: 0.15 }, note: "A dot that sits on the animal. Fastest sight there is, no magnification." },
+    { id: "scope39", fr: "*", name: "3-9x hunting scope", cost: 480, d: { "=zoom": 6, range: 110, spread: -0.6, kg: 0.5, handling: -1 }, note: "A proper hunting scope. Reaches across a valley and steadies the shot; heavy, and slow to swing on a running hare." }
   ]
 };
 /* Cartridges (11.3). One calibre, four loads; the first is the standard soft point every rifle starts on. d: stat deltas
@@ -99,8 +126,10 @@ const S = () => TLX.state("guns");
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const isObj = o => !!o && typeof o === "object" && !Array.isArray(o);
 const frameDef = id => FRAMES.find(f => f.id === id) || null;
-const partList = slot => Array.isArray(PARTS[slot]) && SLOTS.includes(slot) ? PARTS[slot] : null;
-const partDef = (slot, id) => { const L = partList(slot); return L ? (L.find(o => o.id === id) || L[0]) : null; };
+const fitsFrame = (p, fid) => !!p && (p.fr === "*" || (p.fr || FRAMES[0].id) === fid);
+// a slot's parts: all of them, or (with a frame id) the ones that fit that frame, its free stock part first
+const partList = (slot, fid) => { const L = Array.isArray(PARTS[slot]) && ALL_SLOTS.includes(slot) ? PARTS[slot] : null; return L && fid ? L.filter(p => fitsFrame(p, fid)) : L; };
+const partDef = (slot, id, fid) => { const L = partList(slot, fid); return L && L.length ? (L.find(o => o.id === id) || L[0]) : null; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const cash$ = n => api && api.fmtCash ? api.fmtCash(n) : "$" + Math.round(n);
 const licNeeded = () => TLX.on("huntlic");
@@ -110,16 +139,16 @@ function stats(gun) {
   const f = gun && frameDef(gun.frame); if (!f) return null;
   const s = Object.assign({}, f.base);
   for (const slot of f.slots) {
-    const p = partDef(slot, gun.parts && gun.parts[slot]); if (!p) continue;
+    const p = partDef(slot, gun.parts && gun.parts[slot], f.id); if (!p) continue;
     for (const k in p.d) { if (k[0] === "=") s[k.slice(1)] = p.d[k]; else s[k] += p.d[k]; }
   }
   const am = ammoDef(gun.ammo).d;                                      // the load in the magazine (11.3)
   for (const k in am) { if (k[0] === "*") s[k.slice(1)] *= am[k]; else s[k] += am[k]; }
   s.spread = Math.max(0.4, +s.spread.toFixed(2)); s.recoil = Math.max(0.3, +s.recoil.toFixed(2)); s.handling = clamp(+s.handling.toFixed(2), 1, 10);
-  s.kg = +s.kg.toFixed(2); s.noise = Math.max(0.3, +s.noise.toFixed(2)); s.range = Math.round(s.range);
+  s.kg = +s.kg.toFixed(2); s.noise = Math.max(0.3, +s.noise.toFixed(2)); s.range = Math.round(s.range); s.cyc = Math.max(0.25, +s.cyc.toFixed(2));
   return s;
 }
-function newGun(fid) { const f = frameDef(fid), parts = {}; for (const sl of f.slots) parts[sl] = PARTS[sl][0].id; return { frame: fid, parts, rounds: 0, ammo: AMMOS[0].id }; }
+function newGun(fid) { const f = frameDef(fid), parts = {}; for (const sl of f.slots) parts[sl] = partList(sl, fid)[0].id; return { frame: fid, parts, rounds: 0, ammo: AMMOS[0].id }; }
 // ---- the pack's rounds, by load ----
 function pk(id) { const s = S(); if (!s) return 0; return id === AMMOS[0].id ? s.ammo : (isObj(s.alt) && s.alt[id] > 0 ? s.alt[id] : 0); }
 function pkAdd(id, n) { const s = S(); if (!s || !AMMOS.some(a => a.id === id)) return; if (id === AMMOS[0].id) s.ammo = Math.max(0, s.ammo + n); else { if (!isObj(s.alt)) s.alt = {}; const v = Math.max(0, (s.alt[id] || 0) + n); if (v) s.alt[id] = v; else delete s.alt[id]; } }
@@ -152,10 +181,19 @@ function loadAmmo(id, quiet) {
 }
 function gun() { const s = S(); return s && s.cur >= 0 ? s.owned[s.cur] || null : null; }
 function ownsPart(slot, id) { const s = S(), p = partList(slot) && partList(slot).find(o => o.id === id); return !!s && !!p && (p.cost === 0 || !!s.parts[slot + ":" + id]); }
-function ownedParts(slot) { return (partList(slot) || []).filter(p => ownsPart(slot, p.id)); }
+function ownedParts(slot) { const g = gun(); return (partList(slot, g ? g.frame : undefined) || []).filter(p => ownsPart(slot, p.id)); }   // owned, and fitting the rifle you carry
+// carry the other rifle you own (the counter's Rifles tab): the one you put down keeps what's in its magazine
+function carry(fid) {
+  const s = S(), i = s ? s.owned.findIndex(g => g.frame === fid) : -1; if (i < 0) return false;
+  if (s.cur === i) return true;
+  lower(true); s.cur = i; api.save();
+  const g = s.owned[i], was = s.owned.find(o => o.frame !== fid);
+  api.toast(`The ${frameDef(fid).short} comes down off the rack${was ? " and the " + frameDef(was.frame).short + " goes up in its place" : ""}. ${g.rounds} in its magazine, ${pkTotal()} in the pack.`, "good");
+  return true;
+}
 // swap an owned part onto the current rifle: free, instant (the quick-customize wheel, 11.2, calls this)
 function fit(slot, id, quiet) {
-  const g = gun(), L = partList(slot); if (!g || !L) return false;
+  const g = gun(), L = g && partList(slot, g.frame); if (!g || !L) return false;
   const p = L.find(o => o.id === id); if (!p || !ownsPart(slot, id) || !frameDef(g.frame).slots.includes(slot)) return false;
   if (g.parts[slot] === id) return true;
   const cap = stats(Object.assign({}, g, { parts: Object.assign({}, g.parts, { [slot]: id }) })).cap;
@@ -171,6 +209,7 @@ function fit(slot, id, quiet) {
 function buyPart(slot, id) {
   const s = S(), L = partList(slot), p = L && L.find(o => o.id === id), G = api.GS; if (!s || !p) return false;
   if (!gun()) { api.toast("Buy the rifle first: parts fit a rifle.", "warn"); return false; }
+  if (!fitsFrame(p, gun().frame) || !frameDef(gun().frame).slots.includes(slot)) { api.toast(`The ${p.name.toLowerCase()} doesn't fit the ${frameDef(gun().frame).short} you're carrying.`, "warn"); return false; }
   let bought = false;
   if (!ownsPart(slot, id)) {
     if (G.cash < p.cost) { api.toast(`That's ${cash$(p.cost)}. You have ${cash$(G.cash)}.`, "warn"); return false; }
@@ -185,8 +224,10 @@ function buyRifle(fid) {
   if (licNeeded() && !s.licence) { api.toast("The counter sells a rifle only to a licence holder: take the course first (Licence tab).", "warn"); return false; }
   if (s.owned.some(g => g.frame === fid)) return false;
   if (G.cash < f.cost) { api.toast(`The ${f.name} is ${cash$(f.cost)}. You have ${cash$(G.cash)}.`, "warn"); return false; }
-  G.cash -= f.cost; s.owned.push(newGun(fid)); s.cur = s.owned.length - 1; api.save();
-  api.toast(`${f.name}: yours. It's fitted with its stock parts; the Parts tab swaps them. Buy a box of rounds before you head out.`, "good");
+  const second = s.owned.length > 0;
+  lower(true); G.cash -= f.cost; s.owned.push(newGun(fid)); s.cur = s.owned.length - 1; api.save();
+  api.toast(second ? `${f.name}: yours, and it's the one you carry now. The other stays in the rack here: the Rifles tab swaps them. It takes the rounds you already have.`
+    : `${f.name}: yours. It's fitted with its stock parts; the Parts tab swaps them. Buy a box of rounds before you head out.`, "good");
   return true;
 }
 function buyAmmo(id) {
@@ -208,12 +249,13 @@ function takeCourse() {
 
 // ---- the shop panel's tabs (icefish.js renders TLX.shopTabs filtered by store) ----
 const STAT_ROWS = [["spread", "Accuracy", v => v.toFixed(1) + " MOA", -1], ["recoil", "Recoil", v => v.toFixed(2), -1], ["handling", "Handling", v => v.toFixed(1), 1],
-  ["range", "Clean-kill range", v => v + " m", 1], ["kg", "Weight", v => v.toFixed(2) + " kg", -1], ["noise", "Noise", v => "x" + v.toFixed(2), -1], ["cap", "Magazine", v => v + " rds", 1], ["zoom", "Magnification", v => v + "x", 1]];
+  ["range", "Clean-kill range", v => v + " m", 1], ["kg", "Weight", v => v.toFixed(2) + " kg", -1], ["noise", "Noise", v => "x" + v.toFixed(2), -1], ["cap", "Magazine", v => v + " rds", 1], ["zoom", "Magnification", v => v + "x", 1],
+  ["cyc", "Action", v => v.toFixed(2) + " s", -1]];
 function deltaChips(slot, p, g) {
   const cur = stats(g), nx = stats(Object.assign({}, g, { parts: Object.assign({}, g.parts, { [slot]: p.id }) })); let out = "";
   for (const [k, lbl, fmt, good] of STAT_ROWS) {
     const dv = nx[k] - cur[k]; if (Math.abs(dv) < 1e-6) continue;
-    out += `<span class="ifchip ${dv * good > 0 ? "ok" : "bad"}">${lbl} ${dv > 0 ? "+" : "−"}${k === "spread" ? Math.abs(dv).toFixed(1) : k === "kg" ? Math.abs(dv).toFixed(2) : k === "noise" || k === "recoil" ? Math.abs(dv).toFixed(2) : Math.round(Math.abs(dv))}</span>`;
+    out += `<span class="ifchip ${dv * good > 0 ? "ok" : "bad"}">${lbl} ${dv > 0 ? "+" : "−"}${k === "spread" ? Math.abs(dv).toFixed(1) : k === "kg" ? Math.abs(dv).toFixed(2) : k === "noise" || k === "recoil" || k === "cyc" ? Math.abs(dv).toFixed(2) : Math.round(Math.abs(dv))}</span>`;
   }
   return out;
 }
@@ -235,30 +277,32 @@ const licTab = {
 };
 const rifleTab = {
   id: "g_rifle", label: "Rifles", stores: [STORE],
-  note: "The rifle is the frame every part bolts to. It comes with its stock parts fitted, so it works the day you buy it.",
+  note: "The rifle is the frame every part bolts to. It comes with its stock parts fitted, so it works the day you buy it. Two frames, each with its own parts: own both and carry one, the other waits in the rack here.",
   render(cash) {
     const s = S();
     return FRAMES.map(f => {
-      const own = s.owned.some(g => g.frame === f.id), lic = !licNeeded() || s.licence;
-      const lbl = own ? "Owned" : !lic ? "Licence first (Licence tab)" : cash < f.cost ? `${cash$(f.cost)} · not enough cash` : `Buy · ${cash$(f.cost)}`;
+      const own = s.owned.some(g => g.frame === f.id), lic = !licNeeded() || s.licence, cur = own && gun() && gun().frame === f.id;
+      const lbl = own ? (cur || s.owned.length < 2 ? "Owned" : "Owned · in the rack here") : !lic ? "Licence first (Licence tab)" : cash < f.cost ? `${cash$(f.cost)} · not enough cash` : `Buy · ${cash$(f.cost)}`;
       const g = own ? s.owned.find(x => x.frame === f.id) : newGun(f.id);
-      const fitted = own ? `<p class="ifnote">Fitted: ${f.slots.map(sl => esc(partDef(sl, g.parts[sl]).name)).join(" · ")}. ${g.rounds} in the magazine, ${pkTotal()} in the pack.</p>` : "";
+      const fitted = own ? `<p class="ifnote">${s.owned.length > 1 ? (cur ? "The one you carry. " : "In the rack here. ") : ""}Fitted: ${f.slots.map(sl => esc(partDef(sl, g.parts[sl], f.id).name)).join(" · ")}. ${g.rounds} in the magazine, ${pkTotal()} in the pack.</p>` : "";
       return card(esc(f.name), cash$(f.cost), esc(f.note) + `</p>${fitted}<p class="ifnote">${own ? "As built" : "Stock"}:`, statTable(g),
-        `<button type="button" data-grifle="${f.id}" ${own || !lic || cash < f.cost ? "disabled" : ""}>${lbl}</button>`);
+        `<button type="button" data-grifle="${f.id}" ${own || !lic || cash < f.cost ? "disabled" : ""}>${lbl}</button>` +
+        (own && !cur ? `<button type="button" data-gcarry="${f.id}">Carry this one</button>` : "")).replace('<div class="ifit">', `<div class="ifit${cur && s.owned.length > 1 ? " on" : ""}">`);
     }).join("");
   },
-  bind(root, rerender) { root.querySelectorAll("button[data-grifle]").forEach(b => b.onclick = () => { if (buyRifle(b.dataset.grifle)) rerender(); }); }
+  bind(root, rerender) { root.querySelectorAll("button[data-grifle]").forEach(b => b.onclick = () => { if (buyRifle(b.dataset.grifle)) rerender(); });
+    root.querySelectorAll("button[data-gcarry]").forEach(b => b.onclick = () => { if (carry(b.dataset.gcarry)) rerender(); }); }
 };
 const partsTab = {
   id: "g_parts", label: "Parts", stores: [STORE],
-  note: "Every part trades something. Bought once, a part is yours: swap it on and off free, here or on the trail.",
+  note: "Every part trades something. Bought once, a part is yours: swap it on and off free, here or on the trail. These are the parts for the rifle you carry; sights fit both rifles.",
   render(cash) {
     const g = gun();
     if (!g) return card("No rifle yet", "", "Parts fit a rifle: buy one on the Rifles tab first, then come back and build it the way you hunt.", "", "");
     let out = "";
     for (const slot of frameDef(g.frame).slots) {
       out += `<div class="ifloc" style="grid-column:1/-1;margin:8px 0 0;font-size:13px;font-weight:700;font-style:normal;letter-spacing:.08em;text-transform:uppercase">${SLOT_NAME[slot]}</div>`;
-      for (const p of PARTS[slot]) {
+      for (const p of partList(slot, g.frame)) {
         const own = ownsPart(slot, p.id), on = g.parts[slot] === p.id, dis = on || (!own && cash < p.cost);
         const lbl = on ? "Fitted" : own ? "Fit this" : cash < p.cost ? `${cash$(p.cost)} · not enough cash` : `Buy & fit · ${cash$(p.cost)}`;
         out += card(esc(p.name), p.cost ? cash$(p.cost) : "stock", esc(p.note), (on ? "" : deltaChips(slot, p, g)) + (own && !on && p.cost ? `<span class="ifchip ok">Owned</span>` : ""),
@@ -397,7 +441,7 @@ const PROV = {
    settles over the first seconds you hold still, a heavy swing or being out of breath stirs it up again, and a tighter
    build (bipod, heavy barrel, adjustable stock: the spread stat) holds steadier. The sight decides what you see: irons a
    post, the red dot a dot, the scope its ring and the magnified view. The use control (E / pad L3 / the touch button,
-   which reads FIRE) is the trigger. A bolt action: each shot is followed by working the bolt (longer with more recoil),
+   which reads FIRE) is the trigger. Each shot is followed by working the action (stat cyc: bolt 0.95 s, lever 0.5 s; longer with more recoil),
    and an empty magazine is refilled from the pack, a round at a time.
    THE SHOT is a ray from the eye along the view plus the build's spread; it stops at the first hill. It takes the first
    live animal whose chest it passes through (WILD groups only: Santa's team and the dog aren't in them). Inside the
@@ -463,28 +507,43 @@ function toggle() {
 }
 // the rifle you look down, built from the parts fitted (so a new barrel or a scope shows the moment it's on)
 function viewModel() {
-  const g = gun(), key = g ? g.frame + ":" + SLOTS.map(sl => g.parts[sl]).join(",") : "";
+  const g = gun(), key = g ? g.frame + ":" + frameDef(g.frame).slots.map(sl => g.parts[sl]).join(",") : "";
   if (AIM.vm && AIM.vmKey === key) return AIM.vm;
   if (AIM.vm) api.scene.remove(AIM.vm);
   const T = api.THREE, box = api.mesh.box, cyl = api.mesh.cyl, std = api.mesh.std, G = new T.Group(), p = g.parts, H = Math.PI / 2;
   const steel = std(0x22252a, 0.42, 0.7), black = std(0x15171a, 0.8, 0.1);
-  const wood = p.stock === "walnut" ? std(0x2f1b0f, 0.55) : p.stock === "synth" ? std(0x2b2f33, 0.9) : std(0x4a4f45, 0.85);
+  const lev = frameDef(g.frame).action === "lever";
+  const wood = p.stock === "walnut" || p.stock === "lvstr" ? std(0x2f1b0f, 0.55) : p.stock === "lvpist" ? std(0x3a2010, 0.5) : p.stock === "lvlam" ? std(0x55585a, 0.8) : p.stock === "synth" ? std(0x2b2f33, 0.9) : std(0x4a4f45, 0.85);
   // -z is down-range. Butt at z = +0.30, action over the grip, fore-end out to -0.32, then the barrel.
   box(0.042, 0.11, 0.3, wood, 0, -0.06, 0.17, 0.16, 0, 0, G);                                    // butt
   box(0.044, 0.11, 0.012, black, 0, -0.085, 0.322, 0.16, 0, 0, G);                                // recoil pad
   if (p.stock === "adjust") box(0.034, 0.03, 0.16, black, 0, 0.0, 0.16, 0.16, 0, 0, G);       // raised comb
   box(0.04, 0.05, 0.36, wood, 0, -0.03, -0.16, 0, 0, 0, G);                                   // fore-end
   box(0.04, 0.1, 0.05, p.grip === "rubber" ? black : wood, 0, -0.075, 0.03, 0.35, 0, 0, G);     // wrist / grip
+  G.userData.lever = null;
+  if (lev) {                                                                                  // a flat-sided receiver, the hammer, and the lever loop hinged under it
+    box(0.032, 0.062, 0.2, steel, 0, 0.004, -0.05, 0, 0, 0, G);
+    box(0.008, 0.012, 0.014, black, 0, 0.036, 0.045, -0.5, 0, 0, G);                             // the hammer, back and below the line of sight
+    const lv = new T.Group(); lv.position.set(0, -0.03, -0.04); G.add(lv); G.userData.lever = lv;
+    const big = p.lever === "lvbig", ll = p.lever === "lvshort" ? 0.085 : 0.1, lh = big ? 0.06 : 0.04;
+    box(0.008, 0.008, ll, steel, 0, -0.012, ll / 2 + 0.02, 0, 0, 0, lv); box(0.008, 0.008, ll, steel, 0, -0.012 - lh, ll / 2 + 0.02, 0, 0, 0, lv);
+    box(0.008, lh, 0.008, steel, 0, -0.012 - lh / 2, 0.02, 0, 0, 0, lv); box(0.008, lh, 0.008, steel, 0, -0.012 - lh / 2, ll + 0.02, 0, 0, 0, lv);
+    if (p.stock === "lvpist") box(0.04, 0.075, 0.045, wood, 0, -0.1, 0.075, 0.5, 0, 0, G);     // the curved wrist
+    if (p.stock === "lvlam") box(0.046, 0.115, 0.022, black, 0, -0.087, 0.336, 0.16, 0, 0, G); // the thick pad
+  } else {
   cyl(0.019, 0.019, 0.24, steel, 0, 0.015, -0.06, H, 0, 0, G, 10);                              // receiver
   cyl(0.004, 0.004, 0.036, steel, 0.032, 0.006, 0.03, 0, 0, H * 0.7, G, 6);                      // bolt handle
   if (api.mesh.ball) api.mesh.ball(0.0065, steel, 0.048, -0.004, 0.03, G);
-  const bl = p.barrel === "carb18" ? 0.42 : p.barrel === "heavy24" ? 0.6 : 0.54, br = p.barrel === "heavy24" ? 0.014 : 0.0105;
+  }
+  const bl = p.barrel === "carb18" ? 0.42 : p.barrel === "heavy24" ? 0.6 : p.barrel === "lv16" ? 0.36 : p.barrel === "lv20" ? 0.46 : p.barrel === "lv22" ? 0.52 : 0.54, br = p.barrel === "heavy24" ? 0.014 : 0.0105;
   cyl(br * 0.92, br, bl, steel, 0, 0.015, -0.18 - bl / 2, H, 0, 0, G, 10);
   const mz = -0.18 - bl;
-  if (p.magazine !== "int3") { const mh = p.magazine === "det10" ? 0.15 : 0.06; box(0.03, mh, 0.075, black, 0, -0.065 - mh / 2, -0.08, 0.06, 0, 0, G); }
-  box(0.012, 0.03, 0.09, steel, 0, -0.07, 0.0, 0, 0, 0, G);                                     // trigger guard
+  if (p.magazine !== "int3" && p.magazine !== "lvm4") { const mh = p.magazine === "det10" ? 0.15 : p.magazine === "lvm7" ? 0.1 : p.magazine === "lvm5" ? 0.035 : 0.06; box(0.03, mh, 0.075, black, 0, -0.065 - mh / 2, -0.08, 0.06, 0, 0, G); }
+  if (!lev) box(0.012, 0.03, 0.09, steel, 0, -0.07, 0.0, 0, 0, 0, G);                           // trigger guard (the lever's loop is the carbine's)
   if (p.grip === "bipod") for (const sx of [-1, 1]) cyl(0.005, 0.005, 0.24, steel, sx * 0.02, -0.07, -0.42, H * 0.92, 0, 0, G, 5);
   if (p.sight === "iron") { box(0.004, 0.022, 0.004, steel, 0, 0.037, mz + 0.03, 0, 0, 0, G); for (const sx of [-1, 1]) box(0.007, 0.012, 0.006, black, sx * 0.0075, 0.04, -0.14, 0, 0, 0, G); }   // front post, rear notch
+  else if (p.sight === "peep") { box(0.004, 0.022, 0.004, steel, 0, 0.037, mz + 0.03, 0, 0, 0, G);                                    // front post, and a ring close to the eye
+    for (const sx of [-1, 1]) box(0.003, 0.016, 0.004, black, sx * 0.0065, 0.043, 0.04, 0, 0, 0, G); box(0.016, 0.003, 0.004, black, 0, 0.0525, 0.04, 0, 0, 0, G); box(0.016, 0.004, 0.004, black, 0, 0.0335, 0.04, 0, 0, 0, G); }
   else if (p.sight === "red1") { box(0.03, 0.012, 0.05, black, 0, 0.04, -0.04, 0, 0, 0, G); for (const sx of [-1, 1]) box(0.004, 0.034, 0.045, black, sx * 0.017, 0.062, -0.04, 0, 0, 0, G); box(0.038, 0.004, 0.045, black, 0, 0.08, -0.04, 0, 0, 0, G); }   // an open window, so you see through it
   else { cyl(0.014, 0.014, 0.3, black, 0, 0.066, -0.04, H, 0, 0, G, 10); cyl(0.022, 0.016, 0.07, black, 0, 0.066, -0.2, H, 0, 0, G, 12); cyl(0.018, 0.02, 0.05, black, 0, 0.066, 0.12, H, 0, 0, G, 12);
     for (const z of [-0.1, 0.03]) box(0.02, 0.035, 0.018, steel, 0, 0.045, z, 0, 0, 0, G); }
@@ -500,6 +559,7 @@ function hud(on) {
     st.textContent = `#gunHud{position:fixed;inset:0;pointer-events:none;z-index:6}
 #gunHud .ret{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 #gunHud .post{width:2px;height:9px;background:#111;box-shadow:0 0 0 1px rgba(255,255,255,.5);margin-top:5px}
+#gunHud .peep{outline:1.5px solid rgba(10,10,10,.75);outline-offset:9px;border-radius:50%}
 #gunHud .dot{width:7px;height:7px;border-radius:50%;background:#ff3b2f;box-shadow:0 0 8px 2px rgba(255,59,47,.7)}
 #gunHud .scope{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent calc(min(42vh,42vw) - 2px),#000 min(42vh,42vw))}
 #gunHud .scope:before,#gunHud .scope:after{content:"";position:absolute;background:rgba(0,0,0,.85)}
@@ -556,7 +616,7 @@ function fire() {
   // the bullet: the view's line, opened by the build's spread
   const yaw = Math.atan2(_dir.x, _dir.z) + rn() * sg, pit = Math.asin(clamp(_dir.y, -1, 1)) + rn() * sg, cp = Math.cos(pit);
   const dx = Math.sin(yaw) * cp, dy = Math.sin(pit), dz = Math.cos(yaw) * cp;
-  g.rounds--; AIM.kick = 1; AIM.bolt = TUNE.bolt * (0.75 + 0.35 * st.recoil); AIM.still *= 0.35;
+  g.rounds--; AIM.kick = 1; AIM.bolt = st.cyc * (0.75 + 0.35 * st.recoil); AIM.still *= 0.35;
   if (api.crack) api.crack(1); api.thud(0.7); if (api.whump) api.whump(0.5);
   const F = api.FOOT, n = api.wild.spook(F.x, F.z, SPOOK_R * st.noise);
   const hit = target(dx, dy, dz), hill = hillAt(hit ? hit.t : 400);
@@ -644,12 +704,14 @@ function aimTick(dt) {
   const vm = viewModel(), scoped = st.zoom > 1.5;
   vm.visible = !scoped || up < 0.98;
   if (vm.visible) {
-    const bk = AIM.bolt > 0 ? Math.sin(Math.PI * clamp(1 - AIM.bolt / (TUNE.bolt * (0.75 + 0.35 * st.recoil)), 0, 1)) : 0, ld = AIM.load > 0 && AIM.bolt <= 0 ? 1 : 0;
+    const bk = AIM.bolt > 0 ? Math.sin(Math.PI * clamp(1 - AIM.bolt / (st.cyc * (0.75 + 0.35 * st.recoil)), 0, 1)) : 0, ld = AIM.load > 0 && AIM.bolt <= 0 ? 1 : 0;
     vm.position.set(api.lerp(0.2, 0, up) + bk * 0.012, api.lerp(-0.42, g.parts.sight === "red1" ? -0.063 : -0.049, up) - ld * 0.05, -0.3 + AIM.kick * 0.05).applyMatrix4(cam.matrixWorld);
-    vm.quaternion.copy(cam.quaternion); vm.rotateX((1 - up) * -0.5 + AIM.kick * 0.05 - ld * 0.16); vm.rotateZ(-bk * 0.28 - ld * 0.2); vm.rotateY((1 - up) * 0.35);
+    const lv = vm.userData.lever;                                      // a lever gun stays level through the stroke: the loop swings down and forward, the muzzle dips a little
+    vm.quaternion.copy(cam.quaternion); vm.rotateX((1 - up) * -0.5 + AIM.kick * 0.05 - ld * 0.16 - (lv ? bk * 0.035 : 0)); vm.rotateZ(-(lv ? bk * 0.04 : bk * 0.28) - ld * 0.2); vm.rotateY((1 - up) * 0.35);
+    if (lv) lv.rotation.x = bk * (g.parts.lever === "lvshort" ? 0.62 : 0.95);
   }
   const el = hud(true), ret = el.children[1], sc = el.children[0], amm = el.children[2];
-  const cls = up < 0.98 ? "" : st.zoom > 1.5 ? "" : g.parts.sight === "red1" ? "dot" : "post";
+  const cls = up < 0.98 ? "" : st.zoom > 1.5 ? "" : g.parts.sight === "red1" ? "dot" : g.parts.sight === "peep" ? "post peep" : "post";
   if (ret.className !== "ret " + cls) ret.className = "ret " + cls;
   sc.hidden = !(scoped && up >= 0.98);
   const txt = AIM.safeT > 0 ? "ON SAFE" : AIM.load > 0 && AIM.bolt <= 0 ? `LOADING · ${g.rounds} / ${st.cap}` : `${g.rounds} / ${st.cap} · ${pk(g.ammo)} in the pack` + (g.ammo !== AMMOS[0].id || pkTotal() !== pk(g.ammo) ? " · " + ammoDef(g.ammo).short.toUpperCase() : "");
@@ -661,9 +723,10 @@ function aimTick(dt) {
 function sanitize(s) {
   if (!isObj(s.parts)) s.parts = {};
   for (const k of Object.keys(s.parts)) { const [sl, id] = k.split(":"); if (!partList(sl) || !partList(sl).some(p => p.id === id && p.cost > 0)) delete s.parts[k]; }
-  s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(g => isObj(g) && frameDef(g.frame)).map(g => {
+  const seen = {};
+  s.owned = (Array.isArray(s.owned) ? s.owned : []).filter(g => isObj(g) && frameDef(g.frame) && !seen[g.frame] && (seen[g.frame] = 1)).map(g => {
     const f = frameDef(g.frame), parts = {};
-    for (const sl of f.slots) { const id = isObj(g.parts) ? g.parts[sl] : null; parts[sl] = ownsPart(sl, id) ? id : PARTS[sl][0].id; }
+    for (const sl of f.slots) { const L = partList(sl, f.id), id = isObj(g.parts) ? g.parts[sl] : null; parts[sl] = L.some(p => p.id === id) && ownsPart(sl, id) ? id : L[0].id; }
     const ng = { frame: f.id, parts, rounds: 0, ammo: ammoDef(g.ammo).id }; ng.rounds = clamp(Math.floor(+g.rounds || 0), 0, stats(ng).cap); return ng;
   });
   s.cur = s.owned.length ? clamp(Math.floor(+s.cur || 0), 0, s.owned.length - 1) : -1;
@@ -689,10 +752,10 @@ TLX.register({
   },
   tick(dt) { if (AIM.on) aimTick(dt); }
 });
-TLX.guns = { aim: AIM, toggle, can, fire, lower };
+TLX.guns = { aim: AIM, toggle, can, fire, lower, carry };
 TLX.shopTabs = (TLX.shopTabs || []).concat([licTab, rifleTab, partsTab, ammoTab, gameTab]);
 TLX.stores = Object.assign(TLX.stores || {}, { [STORE]: { eyebrow: "Jakt &amp; Våpen · Kjøllefjord", title: "Guns & ammunition",
   foot: "Parts you've bought are yours: swap them on and off free. People can never be shot, by anyone, ever." } });
-window.TLXGUN = { SLOTS, FRAMES, PARTS, AMMO, AMMOS, ammoDef, ammoCarried, loadAmmo, pk, pkTotal, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef,
+window.TLXGUN = { SLOTS, ALL_SLOTS, SLOT_NAME, FRAMES, PARTS, partList, fitsFrame, carry, AMMO, AMMOS, ammoDef, ammoCarried, loadAmmo, pk, pkTotal, LICENCE, STORE, COUNTER, shop: SHOP, state: S, stats, gun, newGun, ownsPart, ownedParts, fit, buyPart, buyRifle, buyAmmo, takeCourse, atCounter, frameDef, partDef,
   AIM, TUNE, GAME, CARRY_KG, SPOOK_R, toggle, lower, fire, can, slungWhy, unsafe, target, carcass, dress, sellGame, carriedKg, eye: _eye, dir: _dir };
 })();

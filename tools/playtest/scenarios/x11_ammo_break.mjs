@@ -23,8 +23,8 @@ await ev(`TLXGUN.loadAmmo("match308", true)`);
 s = await S(); console.log("A after load swap", JSON.stringify(s));
 ok(s.tot <= 120, "A: pack total after swapping load with a full pack stays within 120 (" + s.tot + ")");
 // B. fit the smallest magazine with a full magazine and a full pack
-await ev(`for (const p of TLXGUN.PARTS.magazine) { TLXGUN.buyPart("magazine", p.id); } true`);
-const mags = await J(`TLXGUN.PARTS.magazine.map(p => p.id)`);
+await ev(`for (const p of TLXGUN.partList("magazine", TLXGUN.gun().frame)) { TLXGUN.buyPart("magazine", p.id); } true`);
+const mags = await J(`TLXGUN.partList("magazine", TLXGUN.gun().frame).map(p => p.id)`);
 await ev(`TLXGUN.fit("magazine", ${JSON.stringify(mags[mags.length - 1])}, true)`);
 await ev(`(() => { const g = TLXGUN.gun(); g.rounds = TLXGUN.stats(g).cap; return 1; })()`);
 await ev(`TLXGUN.fit("magazine", ${JSON.stringify(mags[0])}, true)`);

@@ -1,10 +1,11 @@
 // Tracklayer — the quick-customize wheel (G4 slice 11.2, loop/EXPANSION.md milestone 11; Lemon, 14 Nov 2026: "i want tarkov
 // customization with streamlining for on the go quick customization").
 //
-// tlx-guns.js is the rifle: the model (frame, five slots, parts, stats), Jakt & Våpen where parts are BOUGHT, and the field
+// tlx-guns.js is the rifle: the model (two frames, five slots each, parts, stats), Jakt & Våpen where parts are BOUGHT, and the field
 // (shoulder, aim, fire, dress). This file is only the way to change what's on the rifle in a moment, on the trail. HOLD the gun
 // control (R on a keyboard, D-pad left on a pad, the GUN button on touch; BTN.gun) and a wheel opens over the game at once,
-// pausing nothing, on foot or on the sled, even with the rifle shouldered: the five slots (barrel, stock, grip, magazine, sight)
+// pausing nothing, on foot or on the sled, even with the rifle shouldered: the five slots of the rifle you carry (the bolt
+// rifle: barrel, stock, grip, magazine, sight; the lever carbine has a lever where the grip is)
 // round a silhouette of YOUR rifle as it is fitted now. Pick a slot and a strip shows only the parts you ALREADY OWN for it
 // (TLXGUN.ownedParts), each with small +/- bars against what's fitted (accuracy, recoil, handling, reach, weight, noise: the
 // same stats() the shop's cards use). Pick one: TLXGUN.fit() swaps it on free, it snaps on (a thud and a buzz on a phone), the
@@ -23,6 +24,7 @@ const BAR = [                       // what the strip shows: stat, label, how mu
   ["spread", "Accuracy", 0.8, -1], ["recoil", "Recoil", 0.4, -1], ["handling", "Handling", 2, 1],
   ["range", "Reach", 60, 1], ["kg", "Weight", 1, -1], ["noise", "Noise", 0.3, -1]
 ];
+const BAR_CYC = ["cyc", "Action", 0.15, -1];     // seconds to work the action: a row only on rifles whose parts change it (the lever carbine's Lever slot)
 const HOLD_OPEN = 0.18;              // s of holding the gun control that opens the wheel
 let api = null, wheel = null, touchBtn = null, hinted = false;
 const W = { open: false, stage: "slot", hl: 0, slot: -1, part: 0 };
@@ -34,7 +36,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const $ = id => document.getElementById(id);
 const stats = g => GN().stats(g || gun());
 const slotsOf = g => GN().frameDef(g.frame).slots.concat(GN().AMMOS ? ["ammo"] : []);          // the rifle's part slots, then the load in its magazine (11.3)
-const SLOTN = { barrel: "Barrel", stock: "Stock", grip: "Grip", magazine: "Magazine", sight: "Sight", ammo: "Ammo" };
+const SLOTN = { barrel: "Barrel", stock: "Stock", grip: "Grip", lever: "Lever", magazine: "Magazine", sight: "Sight", ammo: "Ammo" };
 const Cap = s => s[0].toUpperCase() + s.slice(1);
 const curOf = (g, s) => s === "ammo" ? GN().ammoDef(g.ammo).id : g.parts[s];
 const withPick = (g, s, id) => s === "ammo" ? Object.assign({}, g, { ammo: id }) : Object.assign({}, g, { parts: Object.assign({}, g.parts, { [s]: id }) });
@@ -83,7 +85,7 @@ function css() {
   }
 }
 // the rifle in the middle of the wheel: a side-on silhouette of what's fitted now
-const LEN = { std22: 0.62, carb18: 0.46, heavy24: 0.8 }, STOCK = { walnut: "#6b4423", synth: "#23282e", adjust: "#3a3f2c" };
+const LEN = { std22: 0.62, carb18: 0.46, heavy24: 0.8, lv16: 0.4, lv20: 0.52, lv22: 0.6 }, STOCK = { walnut: "#6b4423", synth: "#23282e", adjust: "#3a3f2c", lvstr: "#6b4423", lvpist: "#7a4a22", lvlam: "#6d7072" };
 function silhouette(g) {
   const bl = LEN[g.parts.barrel] || 0.62, sc = g.parts.sight, mg = g.parts.magazine, st = g.parts.stock, gr = g.parts.grip;
   const L = 250, bx = 118, by = 40, bw = bl / 0.62 * 100, stCol = STOCK[st] || "#6b4423";
@@ -93,11 +95,15 @@ function silhouette(g) {
   o += `<rect x="${bx}" y="${by}" width="46" height="20" rx="3" fill="#59606a"/>`;
   o += `<rect x="${bx + 46}" y="${by + 6}" width="${bw}" height="7" rx="2" fill="#2d3238"/>`;
   o += `<rect x="${bx + 46 + bw - 2}" y="${by + 3}" width="7" height="13" rx="2" fill="#1a1d20"/>`;
-  o += `<path d="M${bx + 6} 58 L${bx + 22} 58 L${bx + 18} 76 L${bx + 8} 76 Z" fill="${gr === "rubber" ? "#3b3f45" : "#2a2d31"}"/>`;
+  const lv = g.parts.lever;                                                     // the lever carbine: a loop under the wrist where the bolt rifle has its grip
+  if (lv) { const lw = lv === "lvshort" ? 22 : 26, lh = lv === "lvbig" ? 20 : 13; o += `<rect x="${bx - lw + 14}" y="60" width="${lw}" height="${lh}" rx="${lh / 2}" fill="none" stroke="#3a3e44" stroke-width="3.5"/>`;
+    if (st === "lvpist") o += `<path d="M${bx - 16} 58 L${bx - 2} 58 L${bx - 14} 74 L${bx - 24} 70 Z" fill="${stCol}" stroke="#0007"/>`; }
+  else o += `<path d="M${bx + 6} 58 L${bx + 22} 58 L${bx + 18} 76 L${bx + 8} 76 Z" fill="${gr === "rubber" ? "#3b3f45" : "#2a2d31"}"/>`;
   if (gr === "bipod") o += `<path d="M${bx + 70} ${by + 13} L${bx + 62} 86 M${bx + 80} ${by + 13} L${bx + 90} 86" stroke="#3a3e44" stroke-width="3" fill="none"/>`;
-  const mh = mg === "det10" ? 24 : mg === "det5" ? 12 : 6;
-  o += `<rect x="${bx + 24}" y="58" width="${mg === "int3" ? 16 : 14}" height="${mh}" rx="2" fill="#3c4046"/>`;
+  const mh = mg === "det10" ? 24 : mg === "lvm7" ? 18 : mg === "det5" ? 12 : mg === "lvm5" ? 9 : 6;
+  o += `<rect x="${bx + 24}" y="58" width="${mg === "int3" || mg === "lvm4" ? 16 : 14}" height="${mh}" rx="2" fill="#3c4046"/>`;
   if (sc === "iron") o += `<rect x="${bx + 2}" y="${by - 6}" width="3" height="7" fill="#222"/><rect x="${bx + 46 + bw - 8}" y="${by - 4}" width="3" height="7" fill="#222"/>`;
+  else if (sc === "peep") o += `<circle cx="${bx + 6}" cy="${by - 5}" r="4" fill="none" stroke="#222" stroke-width="2"/><rect x="${bx + 46 + bw - 8}" y="${by - 4}" width="3" height="7" fill="#222"/>`;
   else if (sc === "red1") o += `<rect x="${bx + 8}" y="${by - 12}" width="22" height="12" rx="3" fill="#1b1e22"/><circle cx="${bx + 19}" cy="${by - 6}" r="2.2" fill="#ff4d3d"/>`;
   else o += `<rect x="${bx + 2}" y="${by - 16}" width="64" height="12" rx="6" fill="#1b1e22"/><rect x="${bx + 8}" y="${by - 12}" width="6" height="12" fill="#2a2d31"/><circle cx="${bx + 66}" cy="${by - 10}" r="6.5" fill="#2e4a63"/>`;
   return o + "</svg>";
@@ -106,7 +112,7 @@ function silhouette(g) {
 const ownedFor = slot => slot === "ammo" ? GN().ammoCarried().map(a => ({ id: a.id, name: Cap(a.short) + " rounds", note: a.note, n: GN().pk(a.id) })) : GN().ownedParts(slot);
 function deltaRows(slot, p) {
   const g = gun(), cur = stats(g), nx = stats(withPick(g, slot, p.id));
-  return BAR.map(([k, lbl, sc, good]) => {
+  return (Math.abs(nx.cyc - cur.cyc) > 1e-6 ? BAR.concat([BAR_CYC]) : BAR).map(([k, lbl, sc, good]) => {
     const d = nx[k] - cur[k], better = d * good, w = Math.min(1, Math.abs(d) / sc) * 50, cls = better > 1e-6 ? "up" : better < -1e-6 ? "dn" : "";
     const a = Math.abs(d), n = a < 1e-6 ? "·" : (d > 0 ? "+" : "−") + (k === "range" ? Math.round(a) : k === "handling" ? a.toFixed(1) : a.toFixed(2));
     return `<div class="gwd"><span>${lbl}</span><span class="gwb">${cls ? `<i class="${cls}" style="width:${w.toFixed(0)}%"></i>` : ""}</span><span class="n ${cls}">${n}</span></div>`;
