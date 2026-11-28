@@ -22,6 +22,41 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 18:50 — Size-it-up rests behind the tablet; the ragged blade on a road is cleared of a bug (v305, lane A) (G4) — c29fa87
+
+Triage: reports 0391 (RD1b roads rerun: two POLISH, the roads builder's, left to it) and 0392 (v304 winch HOOK reach and
+the tablet rest: two POLISH) read (390 -> 392), 0392 logged as one lane-A line. No BLOCKER or BUG. Lane A's list is
+done, so this pass took the one open lane-A line marked "BUG likely", then the follow-up the v304 pass left.
+
+- **Beta 0296 #1, "a ragged cutting edge cuts almost nothing on a road": not a game bug, no code change.** The report
+  carried the truck by puppet (set down on the snow each frame). Behind a ragged blade 18 cm is left instead of 9, the
+  puppet's truck read as off the ground, and a blade in the air neither cuts nor marks: the same artefact as 0220 #1.
+  Driven by keys (new `x4_raggedroad.mjs`, the truck's own physics), edge 10 on a 0.6 stretch of the Dyfjord road:
+  0 of 2423 frames in the air, its side 40 of 40 lengths marked, the lane behind the blade holds 0.32 of the pack
+  (a good edge 0.15, uncut 0.69 here), the hint names the worn edge, and the pass back opens the stretch with its one
+  line. An edge set to 30.6 goes under 30 on the way (28.9), says "worn ragged" once and still opens the Skjånes
+  stretch on the way back. The report's numbers (lengths [19,15] of 40, still shut) were the puppet's.
+- **Size it up behind the tablet (the game's, fixed).** On foot with the tablet open, X went to `footAssess` on
+  keyboard, pad and touch. Before, on main: 9 of 22 checks fail (the "lb to drag out" line said three times under the
+  tablet, the phone's button still reading SIZE UP / DOUBLE, the snatch block toggled by keyboard and touch). After:
+  22 of 22. `gameKey` skips X while the tablet is open and `touchCtx` gives no X label there.
+- **Decided: Q is left live.** The v304 note listed Q (get on) with X. Getting on with the tablet in hand is plain to
+  see, harms nothing and the tablet rides along, and a Q that silently did nothing would read as a broken key. Logged
+  in the code comment and README; say so if it should rest too.
+- **Tests.** `x2_tabletx.mjs` (new, 22 checks: keyboard, pad, touch; bogged and at a strap with the expedition
+  winch; Q still mounts). `x4_raggedroad.mjs` (new, 16 checks; about 10 minutes whole, so it is run as `ONLY=BC` and
+  `ONLY=D`).
+- **Gate**: smoke, x1_save, x2_tabletx, x2_winchuse_break, x2_winchtouch_break (gate.sh), then ui_responsive, x2_btn
+  and g2_tutorial run one by one (a second gate.sh was cut off by the tool's time limit inside ui_responsive with the
+  Mac at load 40-115 from other sessions): each exit 0, fails 0, page errors none. x4_raggedroad `ONLY=BC` and
+  `ONLY=D` each exit 0, page errors none.
+- **Unverified**: a real pad or phone (scripted pad, dispatched pointer events); no stills (nothing new is drawn).
+  `x4_raggedroad` B and C were run before the X change, D after it (it does not touch the tablet or X).
+- **Left** (logged in LOOP.md): `x4_bladeroad_edge_span_beta.mjs` E1 still uses the puppet with a ragged edge and will
+  go on printing the artefact; beta 0392's two POLISH.
+- **Next for lane A**: the remaining lane-A POLISH lines in LOOP.md, then an unowned milestone (16-19) by the Lanes
+  claim rule.
+
 ## 2026-11-27 18:15 — The winch's HOOK only where the line reaches; the use control rests behind the tablet (v304, lane A) (G4) — 56fffaf
 
 Triage: report 0390 (v303 pad Menu and key list: two POLISH, both about what the test could not read) read

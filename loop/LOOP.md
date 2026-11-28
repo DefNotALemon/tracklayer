@@ -742,8 +742,12 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [x] G4 4.2 (BUG small, beta 0279 #1 / 0356 #1 + #2, lane A; fixed tlx-plow v32, `x4_statements.mjs`): the Plow
       app's Statements list keeps 6 lines but one week of 3 roads + driveways + lots writes 5, so last week shows as
       one orphan line. Now whole weeks, the last 3; a week reads roads (order signed), drives, lots.
-- [ ] G4 4.1b2a (POLISH/BUG likely, beta 0296 #1, lane A): a ragged cutting edge cuts almost nothing instead of
-      "twice the snow left" on the road-credit pass. Measure `x4_bladeroad_edge_span_beta` before touching it.
+- [x] G4 4.1b2a (beta 0296 #1, lane A; looked at 27 Nov: a TEST artefact, not a game bug, no code change): "a ragged
+      cutting edge cuts almost nothing on the road-credit pass". The report's puppet sets the truck down on the snow each
+      frame; behind a ragged blade 18 cm is left instead of 9, so the puppet's truck read as off the ground and a blade
+      in the air neither cuts nor marks. DRIVEN by keys (`x4_raggedroad.mjs`, new): edge 10, 0 of 2423 frames in the
+      air, its side 40 of 40 lengths, the lane holds 0.32 of the pack (a good edge 0.15), and the pass back opens the
+      stretch with its line. An edge that wears under 30 on the way still finishes.
 - [ ] G4 4.1a1 / 2.3 (POLISH, beta 0302 #1/#2 + builder 0305 pass, lane A): a truck parked by teleport in 55 cm of
       settled snow cannot back out although two hints name that exit (no ruts: possibly a test artefact; check whether
       a real drive-in leaves ruts that work), and Q once did not get out of a digging-in truck with no toast. Also:
@@ -833,7 +837,15 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (POLISH, beta 0390 #1/#2, lane A): a mouse moved after a pad press may leave the control names on the
       pad's (seen with a synthetic `mousemove` only; try `Input.dispatchMouseEvent`); and whether the tablet stays
       open behind Settings when Menu is pressed on a pad with the tablet up was not read (the probe used a wrong flag).
-- [ ] G3 (POLISH, builder v304 pass, lane A): with the tablet up on foot the keyboard's Q (get on) and X (size it up)
-      still act behind it, and so does X on a pad; only the use control rests there since v304.
+- [x] G3 (POLISH, builder v304 pass, lane A; fixed v305, `x2_tabletx.mjs`): with the tablet up on foot X (size it up)
+      acted behind it on keyboard, pad and touch (a line under the tablet; at a strap it changed the line to double or
+      back). It rests there now and offers no label. Q (get on) is left live on purpose: getting on with the tablet in
+      hand is plain to see and the tablet rides along.
+- [ ] G4 2.1b / 4.1b2a (POLISH, beta 0392 #1/#2, lane A): the last 0.4 m of winch line cannot hook (the code's own
+      margin) while the hint reads "Line's at its end (26 m)"; boulders at the edge and a dig already running when
+      the tablet opens are untested.
+- [ ] G4 (test, builder v305 pass, lane A): `x4_bladeroad_edge_span_beta.mjs` section E1 carries a ragged blade by
+      puppet and reads the puppet's own airborne frames as "no cut": point it at `x4_raggedroad.mjs`'s keyed driver
+      or drop E1.
 
-Last triaged report: 390
+Last triaged report: 392
