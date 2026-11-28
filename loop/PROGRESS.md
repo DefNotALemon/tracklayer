@@ -22,6 +22,37 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 20:55 — The helsesenter stands on the edge of town again; its forecourt can be plowed clear (v306, lane A) (G4) — 888a03a
+
+Triage: reports 0393-0395 read (395 now). One BUG on a lane-A system: 0393 #1, `x4_lotheap` failing 17 on main since
+the roads' second pass (RD1b, 6b22123); the same thing as last pass's open line about `x4_lots` failing 7. 0395 #1
+(a 0.3 m field the pickup will not push, no reason given, the same before v36) is a "BUG?" the tester doubts: a
+LOOP.md line. The rest are test notes: lines.
+
+- **Cause** (the game's, not the tests'): `buildHospital()` looks for the nearest flat site with no obstacle within
+  26 m. RD1b moved the street lamps from `townBlocks()` to `townRoads()`, which runs after it, so the lamps stopped
+  counting and a site in town won. Measured from the depot: (17.6, 85.8) before RD1b, **(54.0, -55.7) on main**:
+  145 m away, at the end of a street, a house 10 m from the door, the forecourt (a plow lot, 4.2c1) across the street
+  and the house's yard, 0.25 m of fall over it instead of 0.08. There a lot cannot be cut clear: ten passes left it
+  78% marked (80 needed), neither held nor paid, the truck riding on uncut snow 180 frames.
+- **Fix** (`tracklayer.js`, two lines): the site search also refuses a site within 26.3 m of a lamp queued by
+  `townBlocks()`. The helsesenter is at (17.6, 85.8) again, the lot 135 squares as before.
+- **Tests**: `x4_hospsite.mjs` (new, 7 checks): where it stands, no road through the forecourt (0 of 253 points), no
+  house door and no street lamp within 26 m, the forecourt level, the lot's size. `x4_lotheap` 0 fails (17 on main),
+  `x4_lots` 0 fails (7 on main): the forecourt clear after 7 of 9 passes, $86 paid, 10 frames off the ground.
+- **Gate** (gate.sh): x1_save, x4_hospsite, x4_lotheap, x4_lots each exit 0, fails 0, page errors none. smoke died in
+  the gate on the harness's script-load reset (`ERR_CONNECTION_RESET`, no FAIL line) and passed run alone: exit 0,
+  page errors none.
+- **Looked at**: one overhead still before RD1b, on main and fixed: the fixed one matches the first (open ground,
+  the pad beside it, the church behind).
+- **Unverified**: nothing else was checked for having moved with it. The SAR hospital runs, the map's H and the
+  blackout wake-up all read `HOSP.door`, so they follow the building; their own scenarios were not run this pass.
+  A save made in the last 3 hours with a vehicle parked at the wrong site keeps it there, on a street.
+- **Left**: the other site searches that run between `townBlocks()` and `townRoads()` no longer see the lamps either
+  (a LOOP.md note for the roads builder). 0395 #1/#2, 0393 #2, 0394 #1 as lines.
+- **Next for lane A**: 0395 #1 (is a plain 0.3 m push really dead?), then the POLISH lines, then an unowned milestone
+  (16-19) by the Lanes claim rule.
+
 ## 2026-11-27 19:45 — Reverse backs a bladed truck out of a drift; a back-drag leaves a skin of snow alone; a bladeful is left when you get out (tlx-plow v36, lane A) (G4) — 39ae0b8
 
 Triage: no report above 0392 (392 stays). No BLOCKER or BUG open. Lane A's list is done, so this pass took the open

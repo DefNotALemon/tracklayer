@@ -465,7 +465,8 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G3 (playtest, follow-up to v148 pine hems): `g3_pines.mjs` (densest stand, 7/14/30 m, noon + 21:00): green hem is now
 - [x] G4 4.1b1 (beta 0223 #1 BUG + #2, lane A, fixed tlx-plow v4): holding the use control slewed the blade behind Settings (and behind the tablet). The blade's control now rests under any menu and the tablet; `x4_blademenu.mjs`.
 - [x] G4 2.7 (beta 0221 #1, POLISH/BUG, lane A; fixed tlx-vehicles v40 + v295, `x2_sellerdoors.mjs`: `spotNear` keeps a seller's hand-over 11 m from every door ring (Risfjord 5.3 -> 11.5 m, the relay 9.8 -> 11.7 m), the mount control checked there): at 2 of 18 used-truck seller sites (Risfjord, the relay) `spotNear` parks the truck about 5 m from a door ring, so 2.4 m off the truck the hint is the door's, not "get in the pickup" (and `x2_vehmkt.mjs` fails that assert). Keep `spotNear` 9 m+ from `INT.beacons`, or let the get-in hint win when the vehicle is nearer than the ring; check that Q itself works there.
-- [ ] G4 4.2c1 (test or game, lane A, seen 27 Nov on origin/main at v305 and on the tlx-plow v36 tree alike): `x4_lots.mjs` fails 7
+- [x] G4 4.2c1 / 4.2c2a (BUG, beta 0393 #1, lane A; fixed v306, `x4_hospsite.mjs`: the game's, not the tests': RD1b had moved the
+      helsesenter 145 m to a street's end, its forecourt across the street): `x4_lots.mjs` fails 7
       (section D "the rest plowed: the lot is clear after 9 of 9 passes", pay $0, then E's pay 55% for 75%): its puppet is off the
       ground 119-144 frames (limit 40), so the forecourt's last squares are never cut. Find whether the puppet's `__foot` no longer
       reaches hard ground there (the roads RD1 model under the helsesenter's forecourt?) or a lot really cannot be cleared by a driven truck.
@@ -852,5 +853,18 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 (test, builder v305 pass, lane A): `x4_bladeroad_edge_span_beta.mjs` section E1 carries a ragged blade by
       puppet and reads the puppet's own airborne frames as "no cut": point it at `x4_raggedroad.mjs`'s keyed driver
       or drop E1.
+- [ ] G4 4.1a1 (BUG?, beta 0395 #1, lane A, the same before tlx-plow v36): blade down on an open field with 0.3 m of snow,
+      forward held 4 s of game time: the pickup does not move (0 m, 1 495 N on the blade, cut 0, carry 0) and the hint
+      gives no reason; blade up it goes 5 m. Maybe the tester's field (a cleared pad only behind the truck): try a plain
+      0.3 m push with the game's own snow and a keyed driver, and if it stands, say why in the hint.
+- [ ] G4 4.1b1 (test, beta 0395 #2, lane A): `x4_backout` section C reads carry 0 "as the door opened", so "a bladeful is
+      left when you get out" passes with almost no load: get out with a real bladeful (0.5 m3+) and measure what is laid.
+- [ ] G4 4.2c2a (test, beta 0393 #2, lane A): `x4_lotheap.mjs` has no `ONLY=` filter (a full run is about 7 min).
+- [ ] G3 (test, beta 0394 #1, lane A): `x2_tabletx` sets `BOG.on` without `BOG.resist`, so the sized-up line reads
+      "about 0 lb": enter a real bog (`enterBog`) and assert the number is above 0.
+- [ ] G8 RD (note for the roads builder, from lane A's v306 pass): anything `townBlocks()` used to stand up and
+      `townRoads()` now stands up later (the street lamps) is no longer an obstacle to the site searches that run in
+      between (`buildFishShops`, `buildHospital`, `buildLanes`, every tlx system's `init`). The helsesenter's search
+      reads the queued lamps since v306; check the others when a route or a lamp moves.
 
-Last triaged report: 392
+Last triaged report: 395
