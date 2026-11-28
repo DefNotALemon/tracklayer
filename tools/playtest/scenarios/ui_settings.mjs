@@ -162,15 +162,19 @@ ok(!(await open()), "2: pad Menu closes outright from a page");
 
 // ---------- 3. the pad reaches every control on every page ----------
 console.log("== 3. pad navigation ==");
-const dpad = async (idx, hold = 120) => { await padSet({ [idx]: 1 }); await sleep(hold); await padSet(); await sleep(hold); };
-// one d-pad press that waits for the game to act on it: held until the focus moves (the Mac may be loaded and a frame can
-// outlast a fixed hold), at most 700 ms; returns the new focus. No change in 700 ms = the press really had nowhere to go.
+// a pad press counted in game frames (about 0.12 s of game clock held, then released and one frame let through), not wall time
+const dpad = async idx => { const c0 = await ev("gameClock"); await padSet({ [idx]: 1 }); for (let i = 0; i < 200 && (await ev("gameClock")) - c0 < 0.12; i++) await sleep(30); await padSet(); const c1 = await ev("gameClock"); for (let i = 0; i < 100 && (await ev("gameClock")) - c1 < 0.06; i++) await sleep(30); };
+// one d-pad press that waits for the game to act on it. A loaded Mac can stretch a frame past any fixed hold, so this
+// counts frames, not milliseconds: the press is held until the focus moves, or until six frames have run with no move
+// (the press really had nowhere to go); then it is released and one more frame is let through so the release is seen.
 const step = async (idx, focusJs) => {
-  const before = await ev(focusJs); let f = before; const t0 = Date.now();
+  const before = await ev(focusJs), c0 = await ev("gameClock"); let f = before; const t0 = Date.now();
   await padSet({ [idx]: 1 });
-  while (Date.now() - t0 < 700) { await sleep(40); f = await ev(focusJs); if (f !== before) break; }
-  await padSet(); await sleep(90); return f;
+  while (Date.now() - t0 < 12000) { await sleep(40); f = await ev(focusJs); if (f !== before) break; if ((await ev("gameClock")) - c0 > 0.3) break; }
+  await padSet(); const c1 = await ev("gameClock"); for (let i = 0; i < 100 && (await ev("gameClock")) - c1 < 0.06; i++) await sleep(40);
+  return f;
 };
+
 // a stable name for the focused control: its id, or its parent's id and index
 const FOC = `(() => { const f = document.activeElement; if (!f || !$("settings").contains(f)) return null; if (f.id) return f.id; if (f.dataset.opt) return "opt:" + f.dataset.opt; const p = f.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(f); })()`;
 const ALLCTL = `(() => [...$("settings").querySelectorAll("button, input[type=range]")].filter(e => !e.disabled && e.id !== "closeSet" && e.id !== "setBackHd" && !e.closest("[hidden]") && e.getClientRects().length).map(e => { if (e.id) return e.id; if (e.dataset.opt) return "opt:" + e.dataset.opt; const p = e.parentElement; return (p.id || p.className) + "#" + [...p.children].indexOf(e); }))()`;
