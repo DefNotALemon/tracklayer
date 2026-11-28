@@ -5337,7 +5337,11 @@ function updSky() {
   const clr = sstep(-1.5, 4, e) * (1 - st);
   keyAt(SKYK, e, 5, _c1); _c1.lerp(C_AIRDAY, 0.35 * clr); _c2.copy(C_STORMNIGHT).lerp(C_STORMDAY, dayness); _c1.lerp(_c2, st);
   scene.fog.color.copy(_c1); u.uFog.value.copy(_c1);
-  scene.fog.density = (lerp(0.0017 * (1 - 0.5 * clr), 0.012, st) + (1 - dayness) * 0.001) * GFX.fogK;
+  // The haze's thickness follows the WEATHER only, not the sun (owner note 26 Oct 23:55: fells grey far, white close).
+  // It used to thicken 2-3x after dark (clear-night density 0.0027 vs 0.00085 by day), which turned moonlit fells half
+  // navy by 300 m and fully by 600 m: a distance switch, not lighting. Clear air is as clear at night (0.0005: 22% at 1 km, 63% at 2 km, was 51%/94% by day; plus a
+  // whisper of 0.0002 dusk so the sky still closes in a little); the darkness itself comes from the light.
+  scene.fog.density = (lerp(0.0017 * (1 - 0.7 * (1 - st)), 0.012, st) + (1 - dayness) * 0.0002) * GFX.fogK;
   // key light: the sun while it's up, handing over to the moon once it's well below (both are dark at
   // the crossover, so the shadow direction never snaps)
   const moonUp = sstep(0, 10, me), sunI = 1.9 * sstep(-1.5, 4, e) * (1 - 0.75 * st), moonI = 0.5 * illum * moonUp * night * (1 - 0.8 * st);
