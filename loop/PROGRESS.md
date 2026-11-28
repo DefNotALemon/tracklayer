@@ -22,6 +22,30 @@
   Pushed 2026-11-24.
 # Builder progress log
 
+## 2026-11-27 21:10 — Beta 0395 #1/#2 closed: a 0.3 m field is pushed from a standstill; a real bladeful is left on exit (test only, lane A) (G4) — 681e7ac
+
+Triage: no report above 0395. Lane A's list is done, so the newest lane-A line went first: 0395 #1, a "BUG?" (blade
+down in 0.3 m, forward held 4 s, 0 m, no reason given), with 0395 #2 (the exit test carried almost nothing).
+
+Finding, no game change:
+- The report set the truck down by teleport on untouched 0.3 m. All four wheels then stand 0.30 m deep: 3 412 N of
+  snow under them + 1 495 N on the blade = 4 908 N against 4 705 N of grip. It stands, and after 5 s of held pedal it
+  is "stuck to the axles". The driving hint says why from the first second ("your wheels stand in snow it has not cut:
+  back up to cleared ground and plow in from there"); the report read only `B.why`, the blade's own line from 6 kN.
+- A truck DRIVEN there by keys (blade up, 12 m in, braked) stands 0.06 m deep in tracks it pressed: use key drops the
+  blade, forward goes 11.1 m in 4 s of game time, 18 km/h, 7.3 m3 cut.
+- The hint's way out works for the set-down truck: lift, back 4.2 m, drop, forward 21.8 m in 5 s, 12.9 m3 cut.
+- Open country holds 0.45-1.0 m of snow (103 samples), so no natural 0.3 m field exists: the test field stays a
+  scripted one.
+- #2: square blade, 1.148 m3 on it at 0.73 m/s, out of the cab: empty at once (it had stood 0 s, so not the 1.2 s
+  self-stack), 1.148 laid of 1.148 cut, ground + bladeful 32.808 m3 before and 32.805 after, heap 1.13 m deep.
+
+New: `tools/playtest/scenarios/x4_fieldpush.mjs` (A keyed push, B set-down truck + way out, C bladeful on exit;
+`ONLY=<letters>`). Gate: smoke, x1_save, x4_fieldpush all exit 0, fails 0, page errors none. No script changed, no `?v=`.
+
+Left (in the LOOP line): a set-down truck held on the pedal with the blade down bogs in 5 s, as any truck spinning in
+snow it cannot push does; real play reaches that only by a reload in a field, untested.
+
 ## 2026-11-27 20:55 — The helsesenter stands on the edge of town again; its forecourt can be plowed clear (v306, lane A) (G4) — 888a03a
 
 Triage: reports 0393-0395 read (395 now). One BUG on a lane-A system: 0393 #1, `x4_lotheap` failing 17 on main since

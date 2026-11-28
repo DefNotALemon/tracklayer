@@ -853,12 +853,17 @@ Format: `- [ ] Gn: what, why (report #, numbers)`. Done items move to `loop/PROG
 - [ ] G4 (test, builder v305 pass, lane A): `x4_bladeroad_edge_span_beta.mjs` section E1 carries a ragged blade by
       puppet and reads the puppet's own airborne frames as "no cut": point it at `x4_raggedroad.mjs`'s keyed driver
       or drop E1.
-- [ ] G4 4.1a1 (BUG?, beta 0395 #1, lane A, the same before tlx-plow v36): blade down on an open field with 0.3 m of snow,
-      forward held 4 s of game time: the pickup does not move (0 m, 1 495 N on the blade, cut 0, carry 0) and the hint
-      gives no reason; blade up it goes 5 m. Maybe the tester's field (a cleared pad only behind the truck): try a plain
-      0.3 m push with the game's own snow and a keyed driver, and if it stands, say why in the hint.
-- [ ] G4 4.1b1 (test, beta 0395 #2, lane A): `x4_backout` section C reads carry 0 "as the door opened", so "a bladeful is
-      left when you get out" passes with almost no load: get out with a real bladeful (0.5 m3+) and measure what is laid.
+- [x] G4 4.1a1 (BUG?, beta 0395 #1, lane A): closed without a game change, a test artefact (27 Nov, `x4_fieldpush.mjs`
+      A + B). The report's truck was SET DOWN on untouched 0.3 m, so all four wheels stood 0.30 m deep (3.4 kN of snow
+      + 1.5 kN on the blade against 4.7 kN of grip), and it read only the blade's own `why` (set from 6 kN): the driving
+      hint said "your wheels stand in snow it has not cut: back up to cleared ground and plow in from there" from the
+      first second. A truck DRIVEN there by keys stands 0.06 m deep in its own pressed tracks and pushes 0.3 m from a
+      standstill (11 m in 4 s, 18 km/h, 7.3 m3 cut), and the hint's way out works for the set-down truck too (lift,
+      back 4 m, drop: 22 m in 5 s). Open country holds 0.45-1.0 m, so the game has no natural 0.3 m field. Left: a
+      set-down truck held on the pedal with the blade down is "stuck to the axles" after 5 s (as blade up in 40 cm).
+- [x] G4 4.1b1 (test, beta 0395 #2, lane A): done 27 Nov, `x4_fieldpush.mjs` C: a square blade carrying 1.15 m3 at
+      0.7 m/s, out with the leave control: the blade is empty at once, 1.148 m3 laid of 1.148 cut, the snow on the
+      ground round the blade + the bladeful is the same before and after (-0.003 m3), a heap 1.13 m deep.
 - [ ] G4 4.2c2a (test, beta 0393 #2, lane A): `x4_lotheap.mjs` has no `ONLY=` filter (a full run is about 7 min).
 - [ ] G3 (test, beta 0394 #1, lane A): `x2_tabletx` sets `BOG.on` without `BOG.resist`, so the sized-up line reads
       "about 0 lb": enter a real bog (`enterBog`) and assert the number is above 0.
